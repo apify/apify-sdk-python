@@ -1,0 +1,26 @@
+[flake8]
+filename =
+    ./docs/*.py,
+    ./scripts/*.py,
+    ./src/*.py,
+    ./tests/*.py,
+    ./setup.py
+max_line_length = 150
+# Google docstring convention + D204 & D401
+docstring-convention = all
+ignore =
+    D100
+    D104
+    D203
+    D213
+    D215
+    D406
+    D407
+    D408
+    D409
+    D413
+ignore-decorators = _make_async_docs
+per-file-ignores =
+    docs/*: D
+    scripts/*: D
+    tests/*: D

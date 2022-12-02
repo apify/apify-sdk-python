@@ -1,0 +1,176 @@
+name: Check & Release
+
+on:
+  # Push to master will publish a beta version
+  push:
+    branches:
+      - master
+  # A release via GitHub releases will publish a stable version
+  release:
+    types: [published]
+  # Workflow dispatch will publish whatever you choose
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        default: 'alpha'
+        options:
+          - 'alpha'
+          - 'beta'
+          - 'final'
+
+jobs:
+  lint_and_test:
+    name: Lint and run unit tests
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: make install-dev
+
+    - name: Lint
+      run: make lint
+
+    - name: Type check
+      run: make type-check
+
+    - name: Unit tests
+      run: make test
+
+  check_docs:
+    name: Check whether the documentation is up to date
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: make install-dev
+
+    - name: Check whether docs are built from the latest code
+      run: make check-docs
+
+  deploy:
+    name: Publish to PyPI
+    needs: [lint_and_test, check_docs]
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade setuptools twine wheel
+
+    - # Determine if this is a prerelease or latest release
+      name: Determine release type
+      id: get-release-type
+      run: |
+        if [ ${{ github.event_name }} = release ]; then
+          release_type="final"
+        elif [ ${{ github.event_name }} = push ]; then
+          release_type="beta"
+        elif [ ${{ github.event_name }} = workflow_dispatch ]; then
+          release_type=${{ github.event.inputs.release_type }}
+        fi
+
+        if [ ${release_type} = final ]; then
+          docker_image_tag="latest"
+        elif [ ${release_type} = beta ]; then
+          docker_image_tag="beta"
+        else
+          docker_image_tag=""
+        fi
+
+        echo "release_type=${release_type}" >> $GITHUB_OUTPUT
+        echo "docker_image_tag=${docker_image_tag}" >> $GITHUB_OUTPUT
+
+    - # Check whether the released version is listed in CHANGELOG.md
+      name: Check whether the released version is listed in the changelog
+      if: steps.get-release-type.outputs.release_type != 'alpha'
+      run: python ./scripts/check_version_in_changelog.py
+
+    - # Check version consistency and increment pre-release version number for prereleases (must be the last step before build)
+      name: Bump pre-release version
+      if: steps.get-release-type.outputs.release_type != 'final'
+      run: python ./scripts/update_version_for_prerelease.py ${{ steps.get-release-type.outputs.release_type }}
+
+    - # Build a source distribution and a python3-only wheel
+      name: Build distribution files
+      run: python setup.py sdist bdist_wheel
+
+    - # Check whether the package description will render correctly on PyPI
+      name: Check package rendering on PyPI
+      run: python -m twine check dist/*
+
+    - # Publish package to PyPI using their official GitHub action
+      name: Publish package to PyPI
+      run: python -m twine upload --non-interactive --disable-progress-bar dist/*
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+    - # Tag the current commit with the version tag if this is not made from the release event (releases are tagged with the release process)
+      name: Tag Version
+      if: github.event_name != 'release'
+      run: |
+        git_tag=v`python ./scripts/print_current_package_version.py`
+        git tag $git_tag
+        git push origin $git_tag
+
+    - # Upload the build artifacts to the release
+      name: Upload the build artifacts to release
+      uses: svenstaro/upload-release-action@v2
+      if: github.event_name == 'release'
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: dist/*
+        file_glob: true
+        tag: ${{ github.ref }}
+
+    - # Get the current package version for use in Docker images
+        name: Parse package version for Docker images
+        id: get-package-version
+        run: |
+          package_version=`python ./scripts/print_current_package_version.py`
+          echo "package_version=$package_version" >> $GITHUB_OUTPUT
+
+#    - # Trigger building the docker images in apify/apify-actor-docker repo
+#      name: Trigger Docker Image Build
+#      uses: peter-evans/repository-dispatch@v2
+#      if: steps.get-release-type.outputs.docker_image_tag != ''
+#      with:
+#        token: ${{ secrets.TRIGGER_DOCKER_IMAGE_BUILD_TOKEN }}
+#        repository: apify/apify-actor-docker
+#        event-type: build-python-images
+#        client-payload: >
+#          {
+#            "release_tag": "${{ steps.get-release-type.outputs.docker_image_tag }}",
+#            "apify_sdk_version": "${{ steps.get-package-version.outputs.package_version }}"
+#          }

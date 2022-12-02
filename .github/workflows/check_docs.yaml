@@ -1,0 +1,23 @@
+name: Check documentation status
+
+on: push
+
+jobs:
+  check_docs:
+    name: Check whether documentation is up-to-date
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: make install-dev
+
+    - name: Check docs building
+      run: make check-docs

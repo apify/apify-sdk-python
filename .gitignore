@@ -1,0 +1,16 @@
+__pycache__
+.mypy_cache
+.pytest_cache
+
+.venv
+.direnv
+.envrc
+.python-version
+
+*.egg-info/
+*.egg
+dist/
+build/
+
+.vscode
+.idea
