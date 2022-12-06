@@ -7,6 +7,7 @@ install-dev:
 	python -m pip install --upgrade pip
 	pip install --upgrade setuptools wheel
 	pip install --no-cache-dir -e ".[dev]"
+	pre-commit install
 
 lint:
 	python3 -m flake8
@@ -28,3 +29,6 @@ docs:
 
 check-docs:
 	./docs/res/check.sh
+
+check-changelog-entry:
+	python3 scripts/check_version_in_changelog.py
