@@ -1,21 +1,24 @@
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 from ..._utils import ListPage
-from ..file_storage_utils import update_metadata
-from .key_value_store import KeyValueStoreClient, find_or_cache_key_value_store_by_possible_id
+from ..file_storage_utils import _update_metadata
+from .key_value_store import KeyValueStoreClient, _find_or_cache_key_value_store_by_possible_id
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
 
 
 class KeyValueStoreCollectionClient:
+    """TODO: docs."""
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage') -> None:
+        """TODO: docs."""
         self.key_value_stores_directory = base_storage_directory
         self.client = client
 
     def list(self) -> ListPage:
+        """TODO: docs."""
         def map_store(store: KeyValueStoreClient) -> Dict:
             return store.to_key_value_store_info()
         return ListPage({
@@ -28,8 +31,9 @@ class KeyValueStoreCollectionClient:
         })
 
     async def get_or_create(self, *, name: Optional[str] = None, schema: Optional[Dict] = None) -> Dict:
+        """TODO: docs."""
         if name:
-            found = find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=name)
+            found = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=name)
 
             if found:
                 return found.to_key_value_store_info()
@@ -40,6 +44,6 @@ class KeyValueStoreCollectionClient:
         kv_store_info = new_store.to_key_value_store_info()
 
         # Write to the disk
-        await update_metadata(data=kv_store_info, entity_directory=new_store.key_value_store_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(data=kv_store_info, entity_directory=new_store.key_value_store_directory, write_metadata=self.client.write_metadata)
 
         return kv_store_info

@@ -13,7 +13,7 @@ import aioshutil
 
 from ..._utils import _json_serializer
 from ...consts import DEFAULT_API_PARAM_LIMIT, StorageTypes
-from ..file_storage_utils import set_or_delete_key_value_store_record, update_metadata
+from ..file_storage_utils import _set_or_delete_key_value_store_record, _update_metadata
 from ._utils import _guess_file_extension, _is_file_or_bytes, _maybe_parse_body, _raise_on_duplicate_entry, _raise_on_non_existing, uuid_regex
 
 if TYPE_CHECKING:
@@ -23,19 +23,23 @@ DEFAULT_LOCAL_FILE_EXTENSION = 'bin'
 
 
 class KeyValueStoreClient:
+    """TODO: docs."""
+
     created_at = datetime.utcnow()
     accessed_at = datetime.utcnow()
     modified_at = datetime.utcnow()
     key_value_entries: Dict[str, Dict] = {}
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
+        """TODO: docs."""
         self.id = str(uuid.uuid4()) if id is None else id
         self.key_value_store_directory = os.path.join(base_storage_directory, name or self.id)
         self.client = client
         self.name = name
 
     async def get(self) -> Optional[Dict]:
-        found = find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        """TODO: docs."""
+        found = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if found:
             await found.update_timestamps(False)
@@ -44,8 +48,9 @@ class KeyValueStoreClient:
         return None
 
     async def update(self, *, name: Optional[str] = None) -> Dict:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
@@ -82,6 +87,7 @@ class KeyValueStoreClient:
         return existing_store_by_id.to_key_value_store_info()
 
     async def delete(self) -> None:
+        """TODO: docs."""
         store = next((store for store in self.client.key_value_stores_handled if store.id == self.id), None)
 
         if store is not None:
@@ -91,8 +97,9 @@ class KeyValueStoreClient:
             await aioshutil.rmtree(store.key_value_store_directory)
 
     async def list_keys(self, *, limit: int = DEFAULT_API_PARAM_LIMIT, exclusive_start_key: Optional[str] = None) -> Dict:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
@@ -134,8 +141,9 @@ class KeyValueStoreClient:
         }
 
     async def get_record(self, key: str) -> Optional[Dict]:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
@@ -159,9 +167,10 @@ class KeyValueStoreClient:
         return record
 
     async def get_record_as_bytes(self, key: str) -> Optional[Dict]:
+        """TODO: docs."""
         # TODO: make a private method that reuses code instead of copy pasting get_record and removing one line with parsing ;)
         # Check by id
-        existing_store_by_id = find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
@@ -184,12 +193,14 @@ class KeyValueStoreClient:
 
     @asynccontextmanager
     async def stream_record(self, key: str) -> AsyncIterator[Optional[Dict]]:
+        """TODO: docs."""
         # TODO: implement - no idea how atm
         yield None
 
     async def set_record(self, key: str, value: Any, content_type: Optional[str] = None) -> None:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
@@ -226,7 +237,7 @@ class KeyValueStoreClient:
         existing_store_by_id.key_value_entries[key] = record
 
         await existing_store_by_id.update_timestamps(True)
-        await set_or_delete_key_value_store_record(
+        await _set_or_delete_key_value_store_record(
             entity_directory=existing_store_by_id.key_value_store_directory,
             persist_storage=self.client.persist_storage,
             record=record,
@@ -235,8 +246,9 @@ class KeyValueStoreClient:
         )
 
     async def delete_record(self, key: str) -> None:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
@@ -246,7 +258,7 @@ class KeyValueStoreClient:
         if entry is not None:
             del existing_store_by_id.key_value_entries[key]
             await existing_store_by_id.update_timestamps(True)
-            await set_or_delete_key_value_store_record(
+            await _set_or_delete_key_value_store_record(
                 entity_directory=existing_store_by_id.key_value_store_directory,
                 persist_storage=self.client.persist_storage,
                 record=entry,
@@ -255,6 +267,7 @@ class KeyValueStoreClient:
             )
 
     def to_key_value_store_info(self) -> Dict:
+        """TODO: docs."""
         return {
             'id': self.id,
             'name': self.name,
@@ -265,19 +278,20 @@ class KeyValueStoreClient:
         }
 
     async def update_timestamps(self, has_been_modified: bool) -> None:
+        """TODO: docs."""
         self.accessed_at = datetime.utcnow()
 
         if has_been_modified:
             self.modified_at = datetime.utcnow()
 
         kv_store_info = self.to_key_value_store_info()
-        await update_metadata(data=kv_store_info, entity_directory=self.key_value_store_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(data=kv_store_info, entity_directory=self.key_value_store_directory, write_metadata=self.client.write_metadata)
 
 
-def find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['KeyValueStoreClient']:
+def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['KeyValueStoreClient']:
     # First check memory cache
-    found = next((store for store in client.key_value_stores_handled if store.id ==
-                 entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
+    found = next((store for store in client.key_value_stores_handled
+                  if store.id == entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
 
     if found is not None:
         return found
@@ -357,7 +371,8 @@ def find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry_
                     with warnings.catch_warnings():
                         warnings.simplefilter('always')
                         warnings.warn(
-                            f'Key-value entry "{entry.name}" for store {entry_name_or_id} has invalid JSON content and will be ignored from the store.',
+                            (f'Key-value entry "{entry.name}" for store {entry_name_or_id} has invalid JSON content'
+                             'and will be ignored from the store.'),
                             Warning,
                             stacklevel=2,
                         )

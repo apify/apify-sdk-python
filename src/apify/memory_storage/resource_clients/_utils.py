@@ -58,6 +58,6 @@ def _maybe_parse_body(body: bytes, content_type: str) -> Any:
 
 
 def _unique_key_to_request_id(unique_key: str) -> str:
-    id = re.sub('(\+|\/|=)', '', base64.b64encode(hashlib.sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
+    id = re.sub(r'(\+|\/|=)', '', base64.b64encode(hashlib.sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
 
     return id[:REQUEST_ID_LENGTH] if len(id) > REQUEST_ID_LENGTH else id

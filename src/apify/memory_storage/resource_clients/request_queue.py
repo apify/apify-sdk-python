@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 import aioshutil
 
 from ..._utils import _filter_out_none_values_recursively, _json_serializer
-from ..file_storage_utils import delete_request, update_metadata, update_request_queue_item
+from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
 from ._utils import StorageTypes, _raise_on_duplicate_entry, _raise_on_non_existing, _unique_key_to_request_id, uuid_regex
 
 if TYPE_CHECKING:
@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 
 class RequestQueueClient:
+    """TODO: docs."""
+
     created_at = datetime.utcnow()
     accessed_at = datetime.utcnow()
     modified_at = datetime.utcnow()
@@ -23,13 +25,15 @@ class RequestQueueClient:
     requests: Dict[str, Dict] = {}
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
+        """TODO: docs."""
         self.id = str(uuid.uuid4()) if id is None else id
         self.request_queue_directory = os.path.join(base_storage_directory, name or self.id)
         self.client = client
         self.name = name
 
     async def get(self) -> Optional[Dict]:
-        found = find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
+        """TODO: docs."""
+        found = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if found:
             await found.update_timestamps(False)
@@ -38,8 +42,9 @@ class RequestQueueClient:
         return None
 
     async def update(self, *, name: Optional[str] = None) -> Dict:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
@@ -76,6 +81,7 @@ class RequestQueueClient:
         return existing_store_by_id.to_request_queue_info()
 
     async def delete(self) -> None:
+        """TODO: docs."""
         store = next((store for store in self.client.request_queues_handled if store.id == self.id), None)
 
         if store is not None:
@@ -86,7 +92,8 @@ class RequestQueueClient:
             await aioshutil.rmtree(store.request_queue_directory)
 
     async def list_head(self, *, limit: Optional[int] = None) -> Dict:
-        existing_store_by_id = find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
+        """TODO: docs."""
+        existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
@@ -106,11 +113,12 @@ class RequestQueueClient:
             'limit': limit,
             'hadMultipleClients': False,
             'queueModifiedAt': existing_store_by_id.modified_at,
-            'items': list(map(lambda item: self._json_to_request(item['json']), items))
+            'items': list(map(lambda item: self._json_to_request(item['json']), items)),
         }
 
     async def add_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:
-        existing_store_by_id = find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
+        """TODO: docs."""
+        existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
@@ -132,7 +140,7 @@ class RequestQueueClient:
         existing_store_by_id.requests[request_model['id']] = request_model
         existing_store_by_id.pending_request_count += 1 if request_model['orderNo'] is None else 0
         await existing_store_by_id.update_timestamps(True)
-        await update_request_queue_item(
+        await _update_request_queue_item(
             request=request_model,
             request_id=request_model['id'],
             entity_directory=existing_store_by_id.request_queue_directory,
@@ -148,7 +156,8 @@ class RequestQueueClient:
         }
 
     async def get_request(self, request_id: str) -> Optional[Dict]:
-        existing_store_by_id = find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
+        """TODO: docs."""
+        existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
@@ -159,7 +168,8 @@ class RequestQueueClient:
         return self._json_to_request(request['json'] if request is not None else None)
 
     async def update_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:
-        existing_store_by_id = find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
+        """TODO: docs."""
+        existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
@@ -181,7 +191,7 @@ class RequestQueueClient:
         existing_store_by_id.requests[request_model['id']] = request_model
 
         handled_count_adjustment = 0
-        is_request_handled_state_changing = type(existing_request['orderNo']) != type(request_model['orderNo'])
+        is_request_handled_state_changing = type(existing_request['orderNo']) != type(request_model['orderNo']) # noqa
         request_was_handled_before_update = existing_request['orderNo'] is None
 
         if is_request_handled_state_changing:
@@ -191,7 +201,7 @@ class RequestQueueClient:
 
         existing_store_by_id.pending_request_count += handled_count_adjustment
         await existing_store_by_id.update_timestamps(True)
-        await update_request_queue_item(
+        await _update_request_queue_item(
             request=request_model,
             request_id=request_model['id'],
             entity_directory=existing_store_by_id.request_queue_directory,
@@ -205,7 +215,8 @@ class RequestQueueClient:
         }
 
     async def delete_request(self, request_id: str) -> None:
-        existing_store_by_id = find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
+        """TODO: docs."""
+        existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
@@ -216,9 +227,10 @@ class RequestQueueClient:
             del existing_store_by_id.requests[request_id]
             existing_store_by_id.pending_request_count -= 0 if request['orderNo'] is None else 1
             await existing_store_by_id.update_timestamps(True)
-            await delete_request(entity_directory=existing_store_by_id.request_queue_directory, request_id=request_id)
+            await _delete_request(entity_directory=existing_store_by_id.request_queue_directory, request_id=request_id)
 
     def to_request_queue_info(self) -> Dict:
+        """TODO: docs."""
         return {
             'accessedAt': self.accessed_at,
             'createdAt': self.created_at,
@@ -234,13 +246,14 @@ class RequestQueueClient:
         }
 
     async def update_timestamps(self, has_been_modified: bool) -> None:
+        """TODO: docs."""
         self.accessed_at = datetime.utcnow()
 
         if has_been_modified:
             self.modified_at = datetime.utcnow()
 
         request_queue_info = self.to_request_queue_info()
-        await update_metadata(data=request_queue_info, entity_directory=self.request_queue_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(data=request_queue_info, entity_directory=self.request_queue_directory, write_metadata=self.client.write_metadata)
 
     def _json_to_request(self, request_json: Optional[str]) -> Optional[dict]:
         if request_json is None:
@@ -275,10 +288,10 @@ class RequestQueueClient:
         return -timestamp if forefront else timestamp
 
 
-def find_or_cache_request_queue_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['RequestQueueClient']:
+def _find_or_cache_request_queue_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['RequestQueueClient']:
     # First check memory cache
-    found = next((store for store in client.request_queues_handled if store.id ==
-                 entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
+    found = next((store for store in client.request_queues_handled
+                  if store.id == entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
 
     if found is not None:
         return found

@@ -2,20 +2,23 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Dict, Optional
 
 from ..._utils import ListPage
-from ..file_storage_utils import update_metadata
-from .request_queue import RequestQueueClient, find_or_cache_request_queue_by_possible_id
+from ..file_storage_utils import _update_metadata
+from .request_queue import RequestQueueClient, _find_or_cache_request_queue_by_possible_id
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
 
 
 class RequestQueueCollectionClient:
+    """TODO: docs."""
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage') -> None:
+        """TODO: docs."""
         self.request_queues_directory = base_storage_directory
         self.client = client
 
     def list(self) -> ListPage:
+        """TODO: docs."""
         def map_store(store: RequestQueueClient) -> Dict:
             return store.to_request_queue_info()
         return ListPage({
@@ -28,8 +31,9 @@ class RequestQueueCollectionClient:
         })
 
     async def get_or_create(self, *, name: Optional[str] = None) -> Dict:
+        """TODO: docs."""
         if name:
-            found = find_or_cache_request_queue_by_possible_id(self.client, name)
+            found = _find_or_cache_request_queue_by_possible_id(self.client, name)
 
             if found:
                 return found.to_request_queue_info()
@@ -40,6 +44,6 @@ class RequestQueueCollectionClient:
         request_queue_info = new_store.to_request_queue_info()
 
         # Write to the disk
-        await update_metadata(data=request_queue_info, entity_directory=new_store.request_queue_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(data=request_queue_info, entity_directory=new_store.request_queue_directory, write_metadata=self.client.write_metadata)
 
         return request_queue_info

@@ -1,22 +1,14 @@
 import json
 import os
-from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import aiofiles
-from aiofiles.os import makedirs, remove
+from aiofiles.os import makedirs
 
 from .._utils import _force_remove, _json_serializer
 
 
-class StorageEntityType(Enum):
-    DATASET = 1
-    KEY_VALUE_STORE = 2
-    REQUEST_QUEUE = 3
-
-
-async def update_metadata(*, data: Dict, entity_directory: str, write_metadata: bool) -> None:
+async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata: bool) -> None:
     # Skip writing the actual metadata file. This is done after ensuring the directory exists so we have the directory present
     if not write_metadata:
         return
@@ -41,7 +33,7 @@ async def _check_conditions(entity_directory: str, persist_storage: bool) -> Non
     await makedirs(entity_directory, exist_ok=True)
 
 
-async def update_dataset_items(
+async def _update_dataset_items(
     *,
     data: List[Tuple[str, Dict]],
     entity_directory: str,
@@ -55,7 +47,7 @@ async def update_dataset_items(
             await f.write(json.dumps(item, ensure_ascii=False, indent=2, default=_json_serializer).encode('utf-8'))
 
 
-async def set_or_delete_key_value_store_record(
+async def _set_or_delete_key_value_store_record(
     *,
     entity_directory: str,
     persist_storage: bool,
@@ -89,7 +81,7 @@ async def set_or_delete_key_value_store_record(
             await f.write(record['value'])
 
 
-async def update_request_queue_item(
+async def _update_request_queue_item(
     *,
     request_id: str,
     request: Dict,
@@ -104,7 +96,7 @@ async def update_request_queue_item(
         await f.write(json.dumps(request, ensure_ascii=False, indent=2, default=_json_serializer).encode('utf-8'))
 
 
-async def delete_request(*, request_id: str, entity_directory: str) -> None:
+async def _delete_request(*, request_id: str, entity_directory: str) -> None:
     # Ensure the directory for the entity exists
     await makedirs(entity_directory, exist_ok=True)
 

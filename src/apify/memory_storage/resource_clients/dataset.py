@@ -9,7 +9,7 @@ import aioshutil
 
 from ..._types import JSONSerializable
 from ..._utils import ListPage
-from ..file_storage_utils import update_dataset_items, update_metadata
+from ..file_storage_utils import _update_dataset_items, _update_metadata
 from ._utils import StorageTypes, _raise_on_duplicate_entry, _raise_on_non_existing, uuid_regex
 
 if TYPE_CHECKING:
@@ -23,6 +23,8 @@ LOCAL_ENTRY_NAME_DIGITS = 9
 
 
 class DatasetClient:
+    """TODO: docs."""
+
     created_at = datetime.utcnow()
     accessed_at = datetime.utcnow()
     modified_at = datetime.utcnow()
@@ -30,13 +32,15 @@ class DatasetClient:
     dataset_entries: Dict[str, Dict] = {}
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
+        """TODO: docs."""
         self.id = str(uuid.uuid4()) if id is None else id
         self.dataset_directory = os.path.join(base_storage_directory, name or self.id)
         self.client = client
         self.name = name
 
     async def get(self) -> Optional[Dict]:
-        found = find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        """TODO: docs."""
+        found = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if found:
             await found.update_timestamps(False)
@@ -45,8 +49,9 @@ class DatasetClient:
         return None
 
     async def update(self, *, name: Optional[str] = None) -> Dict:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.DATASET, self.id)
@@ -83,6 +88,7 @@ class DatasetClient:
         return existing_store_by_id.to_dataset_info()
 
     async def delete(self) -> None:
+        """TODO: docs."""
         store = next((store for store in self.client.datasets_handled if store.id == self.id), None)
 
         if store is not None:
@@ -107,15 +113,16 @@ class DatasetClient:
         flatten: Optional[List[str]] = None,
         view: Optional[str] = None,
     ) -> ListPage:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.DATASET, self.id)
 
-        start, end = existing_store_by_id.get_start_and_end_indexes(
+        start, end = existing_store_by_id._get_start_and_end_indexes(
             max(existing_store_by_id.item_count - (offset or 0) - (limit or 0), 0) if desc else offset or 0,
-            limit
+            limit,
         )
 
         items = []
@@ -151,6 +158,7 @@ class DatasetClient:
         skip_empty: Optional[bool] = None,
         skip_hidden: Optional[bool] = None,
     ) -> AsyncGenerator:  # TODO: Copy-pasted from client
+        """TODO: docs."""
         cache_size = 1000
         first_item = offset
 
@@ -206,7 +214,8 @@ class DatasetClient:
         xml_row: Optional[str] = None,
         flatten: Optional[List[str]] = None,
     ) -> bytes:
-        raise NotImplementedError("This method is not supported in local memory storage")
+        """TODO: docs."""
+        raise NotImplementedError('This method is not supported in local memory storage')
 
     @asynccontextmanager
     async def stream_items(
@@ -228,13 +237,15 @@ class DatasetClient:
         xml_root: Optional[str] = None,
         xml_row: Optional[str] = None,
     ) -> AsyncIterator:
+        """TODO: docs."""
         yield {  # TODO: figure out how to do streaming
 
         }
 
     async def push_items(self, items: JSONSerializable) -> None:
+        """TODO: docs."""
         # Check by id
-        existing_store_by_id = find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
             _raise_on_non_existing(StorageTypes.DATASET, self.id)
@@ -254,14 +265,15 @@ class DatasetClient:
             data_entries.append((id, existing_store_by_id.dataset_entries[id]))
 
         await existing_store_by_id.update_timestamps(True)
-        print(self.dataset_directory)
-        await update_dataset_items(
+
+        await _update_dataset_items(
             data=data_entries,
             entity_directory=existing_store_by_id.dataset_directory,
             persist_storage=self.client.persist_storage,
         )
 
     def to_dataset_info(self) -> Dict:
+        """TODO: docs."""
         return {
             'id': self.id,
             'name': self.name,
@@ -272,15 +284,16 @@ class DatasetClient:
         }
 
     async def update_timestamps(self, has_been_modified: bool) -> None:
+        """TODO: docs."""
         self.accessed_at = datetime.utcnow()
 
         if has_been_modified:
             self.modified_at = datetime.utcnow()
 
         dataset_info = self.to_dataset_info()
-        await update_metadata(data=dataset_info, entity_directory=self.dataset_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(data=dataset_info, entity_directory=self.dataset_directory, write_metadata=self.client.write_metadata)
 
-    def get_start_and_end_indexes(self, offset: int, limit: Optional[int] = None) -> Tuple[int, int]:
+    def _get_start_and_end_indexes(self, offset: int, limit: Optional[int] = None) -> Tuple[int, int]:
         actual_limit = limit or self.item_count
         start = offset + 1
         end = min(offset + actual_limit, self.item_count) + 1
@@ -311,10 +324,10 @@ class DatasetClient:
         return list(filter(None, result))
 
 
-def find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['DatasetClient']:
+def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['DatasetClient']:
     # First check memory cache
-    found = next((store for store in client.datasets_handled if store.id ==
-                 entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
+    found = next((store for store in client.datasets_handled
+                  if store.id == entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
 
     if found is not None:
         return found
