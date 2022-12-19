@@ -1,7 +1,7 @@
 import asyncio
-import datetime
 import functools
 import inspect
+from datetime import datetime
 from types import TracebackType
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Type, TypeVar, cast
 
@@ -186,7 +186,7 @@ class Actor(metaclass=_ActorContextManager):
         memory_usage_bytes = _get_memory_usage_bytes()
         # This is in camel case to be compatible with the events from the platform
         result = {
-            'createdAt': datetime.datetime.now().isoformat(timespec='milliseconds') + 'Z',
+            'createdAt': datetime.utcnow().isoformat(timespec='milliseconds') + 'Z',
             'cpuCurrentUsage': cpu_usage_percent,
             'memCurrentBytes': memory_usage_bytes,
         }

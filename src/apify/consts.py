@@ -86,3 +86,14 @@ DATETIME_ENV_VARS = [
     ApifyEnvVars.STARTED_AT.value,
     ApifyEnvVars.TIMEOUT_AT.value,
 ]
+
+
+class StorageTypes(str, Enum):
+    DATASET = 'Dataset'
+    KEY_VALUE_STORE = 'Key-value store'
+    REQUEST_QUEUE = 'Request queue'
+
+
+DEFAULT_API_PARAM_LIMIT = 1000
+
+REQUEST_ID_LENGTH = 15
