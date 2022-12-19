@@ -89,6 +89,8 @@ DATETIME_ENV_VARS = [
 
 
 class StorageTypes(str, Enum):
+    """Possible Apify storage types."""
+
     DATASET = 'Dataset'
     KEY_VALUE_STORE = 'Key-value store'
     REQUEST_QUEUE = 'Request queue'

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Optional, Union
 
 import aioshutil
 
-from ..._utils import json_serializer
+from ..._utils import _json_serializer
 from ...consts import DEFAULT_API_PARAM_LIMIT, StorageTypes
 from ..file_storage_utils import set_or_delete_key_value_store_record, update_metadata
 from ._utils import _guess_file_extension, _is_file_or_bytes, _maybe_parse_body, _raise_on_duplicate_entry, _raise_on_non_existing, uuid_regex
@@ -205,7 +205,7 @@ class KeyValueStoreClient:
         extension = _guess_file_extension(content_type or '') or DEFAULT_LOCAL_FILE_EXTENSION
 
         if 'application/json' in content_type and not _is_file_or_bytes(value) and not isinstance(value, str):
-            value = json.dumps(value, ensure_ascii=False, indent=2, default=json_serializer).encode('utf-8')
+            value = json.dumps(value, ensure_ascii=False, indent=2, default=_json_serializer).encode('utf-8')
 
         # TODO: Add stream support for this method...
         # if (valueIsStream) {

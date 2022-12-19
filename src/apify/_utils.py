@@ -137,7 +137,7 @@ class ListPage:
 
 
 async def _force_remove(filename: str) -> None:
-    """JS-like rm(filename, { force: true })"""
+    """JS-like rm(filename, { force: true })."""
     try:
         await remove(filename)
     except OSError as e:
@@ -145,7 +145,7 @@ async def _force_remove(filename: str) -> None:
             raise  # re-raise exception if a different error occurred
 
 
-def json_serializer(obj: Any) -> str:  # TODO: Improve and check this!!!
+def _json_serializer(obj: Any) -> str:  # TODO: Improve and check this!!!
     if isinstance(obj, (datetime)):
         return obj.isoformat(timespec='milliseconds') + 'Z'
     else:
