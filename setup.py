@@ -70,6 +70,7 @@ setup(
             'isort ~= 5.10.1',
             'mypy ~= 0.991',
             'pep8-naming ~= 0.13.2',
+            'pre-commit ~= 2.20.0',
             'pytest ~= 7.2.0',
             'sphinx ~= 5.3.0',
             'sphinx-autodoc-typehints ~= 1.19.5',
