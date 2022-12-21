@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import aioshutil
 
-from ..._utils import _filter_out_none_values_recursively, _json_serializer
+from ..._utils import _filter_out_none_values_recursively, _json_dumps
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
 from ._utils import StorageTypes, _raise_on_duplicate_entry, _raise_on_non_existing, _unique_key_to_request_id, uuid_regex
 
@@ -268,7 +268,7 @@ class RequestQueueClient:
         if request.get('id') is not None and request['id'] != id:
             raise ValueError('Request ID does not match its unique_key.')
 
-        json_request = json.dumps({**request, 'id': id}, ensure_ascii=False, indent=2, default=_json_serializer)
+        json_request = _json_dumps({**request, 'id': id})
         return {
             'id': id,
             'json': json_request,

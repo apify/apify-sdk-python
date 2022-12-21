@@ -1,11 +1,10 @@
-import json
 import os
 from typing import Dict, List, Tuple
 
 import aiofiles
 from aiofiles.os import makedirs
 
-from .._utils import _force_remove, _json_serializer
+from .._utils import _force_remove, _json_dumps
 
 
 async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata: bool) -> None:
@@ -19,9 +18,7 @@ async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata:
     # Write the metadata to the file
     file_path = os.path.join(entity_directory, '__metadata__.json')
     async with aiofiles.open(file_path, mode='wb') as f:
-        # TODO: Check how to dump to JSON properly with aiofiles...
-        await f.write(json.dumps(data, ensure_ascii=False, indent=2, default=_json_serializer).encode('utf-8'))
-        # json.dump(data, f)
+        await f.write(_json_dumps(data).encode('utf-8'))
 
 
 async def _check_conditions(entity_directory: str, persist_storage: bool) -> None:
@@ -44,7 +41,7 @@ async def _update_dataset_items(
     for idx, item in data:
         file_path = os.path.join(entity_directory, f'{idx}.json')
         async with aiofiles.open(file_path, mode='wb') as f:
-            await f.write(json.dumps(item, ensure_ascii=False, indent=2, default=_json_serializer).encode('utf-8'))
+            await f.write(_json_dumps(item).encode('utf-8'))
 
 
 async def _set_or_delete_key_value_store_record(
@@ -67,11 +64,11 @@ async def _set_or_delete_key_value_store_record(
     if should_set:
         if write_metadata:
             async with aiofiles.open(record_metadata_path, mode='wb') as f:
-                await f.write(json.dumps({
+                await f.write(_json_dumps({
                     'key': record['key'],
                     'contentType': record.get('content_type') or 'unknown/no content type',
                     'extension': record['extension'],
-                }, ensure_ascii=False, indent=2, default=_json_serializer).encode('utf-8'))
+                }).encode('utf-8'))
 
         # Convert to bytes if string
         if isinstance(record['value'], str):
@@ -93,7 +90,7 @@ async def _update_request_queue_item(
     # Write the request to the file
     file_path = os.path.join(entity_directory, f'{request_id}.json')
     async with aiofiles.open(file_path, mode='wb') as f:
-        await f.write(json.dumps(request, ensure_ascii=False, indent=2, default=_json_serializer).encode('utf-8'))
+        await f.write(_json_dumps(request).encode('utf-8'))
 
 
 async def _delete_request(*, request_id: str, entity_directory: str) -> None:
