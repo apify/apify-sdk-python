@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 
 import psutil
+
 from apify_client import __version__ as client_version
 
 from ._version import __version__ as sdk_version
