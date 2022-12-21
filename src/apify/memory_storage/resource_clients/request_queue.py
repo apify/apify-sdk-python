@@ -191,7 +191,7 @@ class RequestQueueClient:
         existing_store_by_id.requests[request_model['id']] = request_model
 
         handled_count_adjustment = 0
-        is_request_handled_state_changing = type(existing_request['orderNo']) != type(request_model['orderNo']) # noqa
+        is_request_handled_state_changing = type(existing_request['orderNo']) != type(request_model['orderNo'])  # noqa
         request_was_handled_before_update = existing_request['orderNo'] is None
 
         if is_request_handled_state_changing:
