@@ -6,6 +6,10 @@ import mimetypes
 import re
 from typing import Any, NoReturn, Optional
 
+import aioshutil
+from aiofiles import ospath
+from aiofiles.os import rename
+
 from ...consts import REQUEST_ID_LENGTH, StorageTypes
 
 uuid_regex = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
@@ -61,3 +65,12 @@ def _unique_key_to_request_id(unique_key: str) -> str:
     id = re.sub(r'(\+|\/|=)', '', base64.b64encode(hashlib.sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
 
     return id[:REQUEST_ID_LENGTH] if len(id) > REQUEST_ID_LENGTH else id
+
+
+async def _force_rename(src_dir: str, dst_dir: str) -> None:
+    # Make sure source directory exists
+    if await ospath.exists(src_dir):
+        # Remove destination directory if it exists
+        if await ospath.exists(dst_dir):
+            await aioshutil.rmtree(dst_dir, ignore_errors=True)
+        await rename(src_dir, dst_dir)

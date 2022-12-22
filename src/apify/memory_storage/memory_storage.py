@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import aioshutil
 from aiofiles import ospath
-from aiofiles.os import rename
+from aiofiles.os import rename, scandir
 
 from .resource_clients.dataset import DatasetClient
 from .resource_clients.dataset_collection import DatasetCollectionClient
@@ -59,23 +59,27 @@ class MemoryStorage:
     async def purge(self) -> None:
         """TODO: docs."""
         # Key-value stores
-        key_value_store_folders = os.listdir(self.key_value_stores_directory)
-        for key_value_store_folder in key_value_store_folders:
-            if key_value_store_folder.startswith('__APIFY_TEMPORARY') or key_value_store_folder.startswith('__OLD'):
-                await self._batch_remove_files(os.path.join(self.key_value_stores_directory, key_value_store_folder))
-            elif key_value_store_folder == 'default':
-                await self._handle_default_key_value_store(os.path.join(self.key_value_stores_directory, key_value_store_folder))
+        if await ospath.exists(self.key_value_stores_directory):
+            key_value_store_folders = await scandir(self.key_value_stores_directory)
+            for key_value_store_folder in key_value_store_folders:
+                if key_value_store_folder.name.startswith('__APIFY_TEMPORARY') or key_value_store_folder.name.startswith('__OLD'):
+                    await self._batch_remove_files(os.path.join(self.key_value_stores_directory, key_value_store_folder.name))
+                elif key_value_store_folder.name == 'default':
+                    await self._handle_default_key_value_store(os.path.join(self.key_value_stores_directory, key_value_store_folder.name))
 
         # Datasets
-        dataset_folders = os.listdir(self.datasets_directory)
-        for dataset_folder in dataset_folders:
-            if dataset_folder == 'default' or dataset_folder.startswith('__APIFY_TEMPORARY'):
-                await self._batch_remove_files(os.path.join(self.datasets_directory, dataset_folder))
+        if await ospath.exists(self.datasets_directory):
+            dataset_folders = await scandir(self.datasets_directory)
+            for dataset_folder in dataset_folders:
+                if dataset_folder.name == 'default' or dataset_folder.name.startswith('__APIFY_TEMPORARY'):
+                    print(dataset_folder.name)
+                    await self._batch_remove_files(os.path.join(self.datasets_directory, dataset_folder.name))
         # Request queues
-        request_queue_folders = os.listdir(self.request_queues_directory)
-        for request_queue_folder in request_queue_folders:
-            if request_queue_folder == 'default' or request_queue_folder.startswith('__APIFY_TEMPORARY'):
-                await self._batch_remove_files(os.path.join(self.request_queues_directory, request_queue_folder))
+        if await ospath.exists(self.request_queues_directory):
+            request_queue_folders = await scandir(self.request_queues_directory)
+            for request_queue_folder in request_queue_folders:
+                if request_queue_folder.name == 'default' or request_queue_folder.name.startswith('__APIFY_TEMPORARY'):
+                    await self._batch_remove_files(os.path.join(self.request_queues_directory, request_queue_folder.name))
 
     def teardown(self) -> None:
         """TODO: docs."""
@@ -128,7 +132,7 @@ class MemoryStorage:
 
     async def _batch_remove_files(self, folder: str, counter: int = 0) -> None:
         folder_exists = await ospath.exists(folder)
-
+        print(f'batch remove {folder}')
         if folder_exists:
             temporary_folder = folder if folder.startswith('__APIFY_TEMPORARY_') else os.path.join(folder, f'../__APIFY_TEMPORARY_{counter}__')
 

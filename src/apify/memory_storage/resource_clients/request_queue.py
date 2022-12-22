@@ -8,7 +8,7 @@ import aioshutil
 
 from ..._utils import _filter_out_none_values_recursively, _json_dumps
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
-from ._utils import StorageTypes, _raise_on_duplicate_entry, _raise_on_non_existing, _unique_key_to_request_id, uuid_regex
+from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_entry, _raise_on_non_existing, _unique_key_to_request_id, uuid_regex
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
@@ -66,14 +66,7 @@ class RequestQueueClient:
 
         existing_store_by_id.request_queue_directory = os.path.join(self.client.request_queues_directory, name)
 
-        # Remove new directory if it exists
-        # TODO: compare to using os.renames, which has problems when target dir exists
-        # TODO: check if ignore errors needed...
-        await aioshutil.rmtree(existing_store_by_id.request_queue_directory, ignore_errors=True)
-        # Copy the previous directory to the new one
-        await aioshutil.copytree(previous_dir, existing_store_by_id.request_queue_directory)
-        # Remove the previous directory
-        await aioshutil.rmtree(previous_dir)
+        await _force_rename(previous_dir, existing_store_by_id.request_queue_directory)
 
         # Update timestamps
         await existing_store_by_id.update_timestamps(True)
@@ -349,7 +342,6 @@ def _find_or_cache_request_queue_by_possible_id(client: 'MemoryStorage', entry_n
     new_client.pending_request_count = pending_request_count
 
     for request in entries:
-        # TODO: possibly do a copy/deepcopy of request?
         new_client.requests[request['id']] = request
 
     client.request_queues_handled.append(new_client)

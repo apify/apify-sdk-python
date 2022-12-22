@@ -1,7 +1,6 @@
 import json
 import os
 import uuid
-from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Tuple, Union
 
@@ -10,7 +9,7 @@ import aioshutil
 from ..._types import JSONSerializable
 from ..._utils import ListPage
 from ..file_storage_utils import _update_dataset_items, _update_metadata
-from ._utils import StorageTypes, _raise_on_duplicate_entry, _raise_on_non_existing, uuid_regex
+from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_entry, _raise_on_non_existing, uuid_regex
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
@@ -73,14 +72,7 @@ class DatasetClient:
 
         existing_store_by_id.dataset_directory = os.path.join(self.client.datasets_directory, name)
 
-        # Remove new directory if it exists
-        # TODO: compare to using os.renames, which has problems when target dir exists
-        # TODO: check if ignore errors needed...
-        await aioshutil.rmtree(existing_store_by_id.dataset_directory, ignore_errors=True)
-        # Copy the previous directory to the new one
-        await aioshutil.copytree(previous_dir, existing_store_by_id.dataset_directory)
-        # Remove the previous directory
-        await aioshutil.rmtree(previous_dir)
+        await _force_rename(previous_dir, existing_store_by_id.dataset_directory)
 
         # Update timestamps
         await existing_store_by_id.update_timestamps(True)
@@ -217,7 +209,6 @@ class DatasetClient:
         """TODO: docs."""
         raise NotImplementedError('This method is not supported in local memory storage')
 
-    @asynccontextmanager
     async def stream_items(
         self,
         *,
@@ -238,9 +229,7 @@ class DatasetClient:
         xml_row: Optional[str] = None,
     ) -> AsyncIterator:
         """TODO: docs."""
-        yield {  # TODO: figure out how to do streaming
-
-        }
+        raise NotImplementedError('This method is not supported in local memory storage')
 
     async def push_items(self, items: JSONSerializable) -> None:
         """TODO: docs."""
@@ -391,7 +380,6 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
     new_client.item_count = item_count
 
     for entry_id, content in entries.items():
-        # TODO: possibly do a copy/deepcopy of content?
         new_client.dataset_entries[entry_id] = content
 
     client.datasets_handled.append(new_client)

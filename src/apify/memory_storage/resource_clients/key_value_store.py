@@ -4,7 +4,6 @@ import os
 import pathlib
 import uuid
 import warnings
-from contextlib import asynccontextmanager
 from datetime import datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Optional, Union
@@ -14,7 +13,15 @@ import aioshutil
 from ..._utils import _json_dumps
 from ...consts import DEFAULT_API_PARAM_LIMIT, StorageTypes
 from ..file_storage_utils import _set_or_delete_key_value_store_record, _update_metadata
-from ._utils import _guess_file_extension, _is_file_or_bytes, _maybe_parse_body, _raise_on_duplicate_entry, _raise_on_non_existing, uuid_regex
+from ._utils import (
+    _force_rename,
+    _guess_file_extension,
+    _is_file_or_bytes,
+    _maybe_parse_body,
+    _raise_on_duplicate_entry,
+    _raise_on_non_existing,
+    uuid_regex,
+)
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
@@ -72,14 +79,7 @@ class KeyValueStoreClient:
 
         existing_store_by_id.key_value_store_directory = os.path.join(self.client.key_value_stores_directory, name)
 
-        # Remove new directory if it exists
-        # TODO: compare to using os.renames, which has problems when target dir exists
-        # TODO: check if ignore errors needed...
-        await aioshutil.rmtree(existing_store_by_id.key_value_store_directory, ignore_errors=True)
-        # Copy the previous directory to the new one
-        await aioshutil.copytree(previous_dir, existing_store_by_id.key_value_store_directory)
-        # Remove the previous directory
-        await aioshutil.rmtree(previous_dir)
+        await _force_rename(previous_dir, existing_store_by_id.key_value_store_directory)
 
         # Update timestamps
         await existing_store_by_id.update_timestamps(True)
@@ -107,7 +107,7 @@ class KeyValueStoreClient:
         items = []
 
         for record in existing_store_by_id.key_value_entries.values():
-            size = len(record['value'])  # TODO: Check if this works for all cases
+            size = len(record['value'])
             items.append({
                 'key': record['key'],
                 'size': size,
@@ -140,8 +140,7 @@ class KeyValueStoreClient:
             'items': limited_items,
         }
 
-    async def get_record(self, key: str) -> Optional[Dict]:
-        """TODO: docs."""
+    async def _get_record_internal(self, key: str, as_bytes: bool = False) -> Optional[Dict]:
         # Check by id
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
@@ -160,42 +159,24 @@ class KeyValueStoreClient:
             'contentType': entry.get('content_type') or mimetypes.guess_type(f"file.{entry['extension']}")[0],  # TODO: Default value?
         }
 
-        record['value'] = _maybe_parse_body(record['value'], record['contentType'])
+        if not as_bytes:
+            record['value'] = _maybe_parse_body(record['value'], record['contentType'])
 
         await existing_store_by_id.update_timestamps(False)
 
         return record
+
+    async def get_record(self, key: str) -> Optional[Dict]:
+        """TODO: docs."""
+        return await self._get_record_internal(key)
 
     async def get_record_as_bytes(self, key: str) -> Optional[Dict]:
         """TODO: docs."""
-        # TODO: make a private method that reuses code instead of copy pasting get_record and removing one line with parsing ;)
-        # Check by id
-        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        return await self._get_record_internal(key, as_bytes=True)
 
-        if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
-
-        entry = existing_store_by_id.key_value_entries.get(key)
-
-        if entry is None:
-            return None
-
-        record = {
-            'key': entry['key'],
-            'value': entry['value'],
-            # To guess the type, we need a real file name, not just the extension. e.g. 'file.json' instead of 'json'
-            'contentType': entry.get('content_type') or mimetypes.guess_type(f"file.{entry['extension']}")[0],  # TODO: Default value?
-        }
-
-        await existing_store_by_id.update_timestamps(False)
-
-        return record
-
-    @asynccontextmanager
     async def stream_record(self, key: str) -> AsyncIterator[Optional[Dict]]:
         """TODO: docs."""
-        # TODO: implement - no idea how atm
-        yield None
+        raise NotImplementedError('This method is not supported in local memory storage')
 
     async def set_record(self, key: str, value: Any, content_type: Optional[str] = None) -> None:
         """TODO: docs."""
@@ -206,6 +187,7 @@ class KeyValueStoreClient:
             _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
 
         if content_type is None:
+            # TODO: Add streaming support for this method...
             if _is_file_or_bytes(value):
                 content_type = 'application/octet-stream'
             elif isinstance(value, str):
@@ -217,15 +199,6 @@ class KeyValueStoreClient:
 
         if 'application/json' in content_type and not _is_file_or_bytes(value) and not isinstance(value, str):
             value = _json_dumps(value).encode('utf-8')
-
-        # TODO: Add stream support for this method...
-        # if (valueIsStream) {
-        #     const chunks = [];
-        #     for await (const chunk of value) {
-        #         chunks.push(chunk);
-        #     }
-        #     value = Buffer.concat(chunks);
-        # }
 
         record = {
             'extension': extension,
@@ -413,7 +386,6 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
     new_client.modified_at = modified_at
 
     for key, record in internal_records.items():
-        # TODO: possibly do a copy/deepcopy of record?
         new_client.key_value_entries[key] = record
 
     client.key_value_stores_handled.append(new_client)
