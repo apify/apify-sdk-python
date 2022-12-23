@@ -1,5 +1,5 @@
 import asyncio
-import errno
+import contextlib
 import inspect
 import json
 import os
@@ -134,19 +134,14 @@ class ListPage:
         self.total = data['total'] if 'total' in data else self.offset + self.count
         self.desc = data['desc'] if 'desc' in data else False
 
-# TODO: Compare to https://stackoverflow.com/a/59185523
-
 
 async def _force_remove(filename: str) -> None:
     """JS-like rm(filename, { force: true })."""
-    try:
+    with contextlib.suppress(FileNotFoundError):
         await remove(filename)
-    except OSError as e:
-        if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
-            raise  # re-raise exception if a different error occurred
 
 
-def _json_serializer(obj: Any) -> str:  # TODO: Improve and check this!!!
+def _json_serializer(obj: Any) -> str:  # TODO: Decide how to parse/dump/handle datetimes!
     if isinstance(obj, (datetime)):
         return obj.isoformat(timespec='milliseconds') + 'Z'
     else:

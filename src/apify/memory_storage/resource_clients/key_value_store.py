@@ -18,8 +18,8 @@ from ._utils import (
     _guess_file_extension,
     _is_file_or_bytes,
     _maybe_parse_body,
-    _raise_on_duplicate_entry,
-    _raise_on_non_existing,
+    _raise_on_duplicate_storage,
+    _raise_on_non_existing_storage,
     uuid_regex,
 )
 
@@ -60,7 +60,7 @@ class KeyValueStoreClient:
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
 
         # Skip if no changes
         if name is None:
@@ -71,7 +71,7 @@ class KeyValueStoreClient:
             (store for store in self.client.key_value_stores_handled if store.name and store.name.lower() == name.lower()), None)
 
         if existing_store_by_name is not None:
-            _raise_on_duplicate_entry(StorageTypes.KEY_VALUE_STORE, 'name', name)
+            _raise_on_duplicate_storage(StorageTypes.KEY_VALUE_STORE, 'name', name)
 
         existing_store_by_id.name = name
 
@@ -102,7 +102,7 @@ class KeyValueStoreClient:
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
 
         items = []
 
@@ -145,7 +145,7 @@ class KeyValueStoreClient:
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
 
         entry = existing_store_by_id.key_value_entries.get(key)
 
@@ -184,7 +184,7 @@ class KeyValueStoreClient:
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
 
         if content_type is None:
             # TODO: Add streaming support for this method...
@@ -224,7 +224,7 @@ class KeyValueStoreClient:
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
 
         entry = existing_store_by_id.key_value_entries.get(key)
 

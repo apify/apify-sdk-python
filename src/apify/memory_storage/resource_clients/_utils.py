@@ -15,11 +15,11 @@ from ...consts import REQUEST_ID_LENGTH, StorageTypes
 uuid_regex = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
 
 
-def _raise_on_non_existing(client_type: StorageTypes, id: str) -> NoReturn:
+def _raise_on_non_existing_storage(client_type: StorageTypes, id: str) -> NoReturn:
     raise ValueError(f'{client_type} with id: {id} does not exist.')
 
 
-def _raise_on_duplicate_entry(client_type: StorageTypes, key_name: str, value: str) -> NoReturn:
+def _raise_on_duplicate_storage(client_type: StorageTypes, key_name: str, value: str) -> NoReturn:
     raise ValueError(f'{client_type} with {key_name}: {value} already exists.')
 
 

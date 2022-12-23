@@ -9,7 +9,7 @@ import aioshutil
 from ..._types import JSONSerializable
 from ..._utils import ListPage
 from ..file_storage_utils import _update_dataset_items, _update_metadata
-from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_entry, _raise_on_non_existing, uuid_regex
+from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, uuid_regex
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
@@ -53,7 +53,7 @@ class DatasetClient:
         existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.DATASET, self.id)
+            _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
 
         # Skip if no changes
         if name is None:
@@ -64,7 +64,7 @@ class DatasetClient:
             (store for store in self.client.datasets_handled if store.name and store.name.lower() == name.lower()), None)
 
         if existing_store_by_name is not None:
-            _raise_on_duplicate_entry(StorageTypes.DATASET, 'name', name)
+            _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', name)
 
         existing_store_by_id.name = name
 
@@ -110,7 +110,7 @@ class DatasetClient:
         existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.DATASET, self.id)
+            _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
 
         start, end = existing_store_by_id._get_start_and_end_indexes(
             max(existing_store_by_id.item_count - (offset or 0) - (limit or 0), 0) if desc else offset or 0,
@@ -237,7 +237,7 @@ class DatasetClient:
         existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.DATASET, self.id)
+            _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
 
         normalized = self._normalize_items(items)
 

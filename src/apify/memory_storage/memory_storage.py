@@ -63,23 +63,22 @@ class MemoryStorage:
             key_value_store_folders = await scandir(self.key_value_stores_directory)
             for key_value_store_folder in key_value_store_folders:
                 if key_value_store_folder.name.startswith('__APIFY_TEMPORARY') or key_value_store_folder.name.startswith('__OLD'):
-                    await self._batch_remove_files(os.path.join(self.key_value_stores_directory, key_value_store_folder.name))
+                    await self._batch_remove_files(key_value_store_folder.path)
                 elif key_value_store_folder.name == 'default':
-                    await self._handle_default_key_value_store(os.path.join(self.key_value_stores_directory, key_value_store_folder.name))
+                    await self._handle_default_key_value_store(key_value_store_folder.path)
 
         # Datasets
         if await ospath.exists(self.datasets_directory):
             dataset_folders = await scandir(self.datasets_directory)
             for dataset_folder in dataset_folders:
                 if dataset_folder.name == 'default' or dataset_folder.name.startswith('__APIFY_TEMPORARY'):
-                    print(dataset_folder.name)
-                    await self._batch_remove_files(os.path.join(self.datasets_directory, dataset_folder.name))
+                    await self._batch_remove_files(dataset_folder.path)
         # Request queues
         if await ospath.exists(self.request_queues_directory):
             request_queue_folders = await scandir(self.request_queues_directory)
             for request_queue_folder in request_queue_folders:
                 if request_queue_folder.name == 'default' or request_queue_folder.name.startswith('__APIFY_TEMPORARY'):
-                    await self._batch_remove_files(os.path.join(self.request_queues_directory, request_queue_folder.name))
+                    await self._batch_remove_files(request_queue_folder.path)
 
     def teardown(self) -> None:
         """TODO: docs."""
@@ -88,7 +87,7 @@ class MemoryStorage:
 
     async def _handle_default_key_value_store(self, folder: str) -> None:
         folder_exists = await ospath.exists(folder)
-        temporary_path = os.path.join(folder, '../__APIFY_MIGRATING_KEY_VALUE_STORE__')
+        temporary_path = os.path.normpath(os.path.join(folder, '../__APIFY_MIGRATING_KEY_VALUE_STORE__'))
 
         # For optimization, we want to only attempt to copy a few files from the default key-value store
         possible_input_keys = [
@@ -114,7 +113,7 @@ class MemoryStorage:
 
             # Remove the original folder and all its content
             counter = 0
-            temp_path_for_old_folder = os.path.join(folder, f'../__OLD_DEFAULT_{counter}__')
+            temp_path_for_old_folder = os.path.normpath(os.path.join(folder, f'../__OLD_DEFAULT_{counter}__'))
             done = False
             while not done:
                 try:
@@ -122,7 +121,7 @@ class MemoryStorage:
                     done = True
                 except Exception:
                     counter += 1
-                    temp_path_for_old_folder = os.path.join(folder, f'../__OLD_DEFAULT_{counter}__')
+                    temp_path_for_old_folder = os.path.normpath(os.path.join(folder, f'../__OLD_DEFAULT_{counter}__'))
 
             # Replace the temporary folder with the original folder
             await rename(temporary_path, folder)
@@ -132,9 +131,11 @@ class MemoryStorage:
 
     async def _batch_remove_files(self, folder: str, counter: int = 0) -> None:
         folder_exists = await ospath.exists(folder)
-        print(f'batch remove {folder}')
+
         if folder_exists:
-            temporary_folder = folder if folder.startswith('__APIFY_TEMPORARY_') else os.path.join(folder, f'../__APIFY_TEMPORARY_{counter}__')
+            # TODO: the startswith condition is always False, it's also broken in crawlee...
+            temporary_folder = folder if folder.startswith('__APIFY_TEMPORARY_') else os.path.normpath(
+                os.path.join(folder, f'../__APIFY_TEMPORARY_{counter}__'))
 
             try:
                 # Rename the old folder to the new one to allow background deletions

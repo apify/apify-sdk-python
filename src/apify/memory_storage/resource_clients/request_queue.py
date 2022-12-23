@@ -8,7 +8,7 @@ import aioshutil
 
 from ..._utils import _filter_out_none_values_recursively, _json_dumps
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
-from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_entry, _raise_on_non_existing, _unique_key_to_request_id, uuid_regex
+from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, _unique_key_to_request_id, uuid_regex
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
@@ -47,7 +47,7 @@ class RequestQueueClient:
         existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
         # Skip if no changes
         if name is None:
@@ -58,7 +58,7 @@ class RequestQueueClient:
             (store for store in self.client.request_queues_handled if store.name and store.name.lower() == name.lower()), None)
 
         if existing_store_by_name is not None:
-            _raise_on_duplicate_entry(StorageTypes.REQUEST_QUEUE, 'name', name)
+            _raise_on_duplicate_storage(StorageTypes.REQUEST_QUEUE, 'name', name)
 
         existing_store_by_id.name = name
 
@@ -89,7 +89,7 @@ class RequestQueueClient:
         existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
         await existing_store_by_id.update_timestamps(False)
 
@@ -114,7 +114,7 @@ class RequestQueueClient:
         existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
         request_model = self._create_internal_request(request, forefront)
 
@@ -153,7 +153,7 @@ class RequestQueueClient:
         existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
         await existing_store_by_id.update_timestamps(False)
 
@@ -165,7 +165,7 @@ class RequestQueueClient:
         existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
         request_model = self._create_internal_request(request, forefront)
 
@@ -212,7 +212,7 @@ class RequestQueueClient:
         existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing(StorageTypes.REQUEST_QUEUE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
         request = existing_store_by_id.requests.get(request_id)
 
