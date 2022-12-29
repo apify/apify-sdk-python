@@ -3,7 +3,7 @@ import datetime
 import functools
 import inspect
 from types import TracebackType
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Type, TypeVar, cast
+from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
 from apify_client.clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
@@ -20,6 +20,7 @@ from ._utils import (
 from .config import Configuration
 from .consts import ActorEventType, ApifyEnvVars
 from .event_manager import EventManager
+from .proxy_configuration import ProxyConfiguration
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -104,6 +105,7 @@ class Actor(metaclass=_ActorContextManager):
         self.reboot = _wrap_internal(self._reboot_internal, self.reboot)  # type: ignore
         self.add_webhook = _wrap_internal(self._add_webhook_internal, self.add_webhook)  # type: ignore
         self.set_status_message = _wrap_internal(self._set_status_message_internal, self.set_status_message)  # type: ignore
+        self.create_proxy_configuration = _wrap_internal(self._create_proxy_configuration_internal, self.create_proxy_configuration)  # type: ignore
 
         self._config: Configuration = config or Configuration()
         self._apify_client = self.new_client()
@@ -824,3 +826,77 @@ class Actor(metaclass=_ActorContextManager):
         assert self._config.actor_run_id is not None
 
         return await self._apify_client.run(self._config.actor_run_id).update(status_message=status_message)
+
+    @classmethod
+    async def create_proxy_configuration(
+        cls,
+        *,
+        password: Optional[str] = None,
+        groups: Optional[List[str]] = None,
+        country_code: Optional[str] = None,
+        proxy_urls: Optional[List[str]] = None,
+        new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None,
+        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
+    ) -> Optional[ProxyConfiguration]:
+        """Create a ProxyConfiguration object with the passed proxy configuration.
+
+        Configures connection to a proxy server with the provided options.
+        Proxy servers are used to prevent target websites from blocking your crawlers based on IP address rate limits or blacklists.
+
+        For more details and code examples, see the {@apilink ProxyConfiguration} class.
+
+        Args:
+            password (str, optional): Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
+            groups (list of str, optional): Proxy groups which the Apify Proxy should use, if provided.
+            country_code (str, optional): Country which the Apify Proxy should use, if provided.
+            proxy_urls (list of str, optional): Custom proxy server URLs which should be rotated through.
+            new_url_function (Callable, optional): Function which returns a custom proxy URL to be used.
+            actor_proxy_input (dict, optional): Proxy configuration field from the actor input, if actor has such input field.
+
+        Returns:
+            ProxyConfiguration, optional: ProxyConfiguration object with the passed configuration,
+                                          or None, if no proxy should be used based on the configuration.
+        """
+        return await cls._get_default_instance().create_proxy_configuration(
+            password=password,
+            groups=groups,
+            country_code=country_code,
+            proxy_urls=proxy_urls,
+            new_url_function=new_url_function,
+            actor_proxy_input=actor_proxy_input,
+        )
+
+    async def _create_proxy_configuration_internal(
+        self,
+        *,
+        password: Optional[str] = None,
+        groups: Optional[List[str]] = None,
+        country_code: Optional[str] = None,
+        proxy_urls: Optional[List[str]] = None,
+        new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None,
+        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
+    ) -> Optional[ProxyConfiguration]:
+        self._raise_if_not_initialized()
+
+        if actor_proxy_input is not None:
+            if actor_proxy_input.get('useApifyProxy', False):
+                country_code = country_code or actor_proxy_input.get('apifyProxyCountry', None)
+                groups = groups or actor_proxy_input.get('apifyProxyGroups', None)
+            else:
+                proxy_urls = actor_proxy_input.get('proxyUrls', [])
+                if not proxy_urls:
+                    return None
+
+        proxy_configuration = ProxyConfiguration(
+            password=password,
+            groups=groups,
+            country_code=country_code,
+            proxy_urls=proxy_urls,
+            new_url_function=new_url_function,
+            actor_config=self._config,
+            apify_client=self._apify_client,
+        )
+
+        await proxy_configuration.initialize()
+
+        return proxy_configuration
