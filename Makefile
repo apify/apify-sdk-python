@@ -13,7 +13,7 @@ lint:
 	python3 -m flake8
 
 test:
-	python3 -m pytest -rA tests
+	python3 -m pytest -ra tests
 
 type-check:
 	python3 -m mypy

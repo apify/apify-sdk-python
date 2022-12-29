@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from enum import Enum
 
 import pytest
 
@@ -7,35 +8,37 @@ from apify._utils import (
     _fetch_and_parse_env_var,
     _get_cpu_usage_percent,
     _get_memory_usage_bytes,
+    _maybe_extract_enum_member_value,
     _maybe_parse_bool,
     _maybe_parse_datetime,
     _maybe_parse_int,
     _run_func_at_interval_async,
 )
+from apify.consts import ApifyEnvVars
 
 
 def test__fetch_and_parse_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('APIFY_IS_AT_HOME', 'True')
-    monkeypatch.setenv('APIFY_MEMORY_MBYTES', '1024')
-    monkeypatch.setenv('APIFY_META_ORIGIN', 'API')
-    monkeypatch.setenv('APIFY_STARTED_AT', '2022-12-02T15:19:34.907Z')
+    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'True')
+    monkeypatch.setenv(ApifyEnvVars.MEMORY_MBYTES, '1024')
+    monkeypatch.setenv(ApifyEnvVars.META_ORIGIN, 'API')
+    monkeypatch.setenv(ApifyEnvVars.STARTED_AT, '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_BOOL', '1')
     monkeypatch.setenv('DUMMY_DATETIME', '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_INT', '1')
     monkeypatch.setenv('DUMMY_STRING', 'DUMMY')
 
-    assert _fetch_and_parse_env_var('APIFY_IS_AT_HOME') is True
-    assert _fetch_and_parse_env_var('APIFY_MEMORY_MBYTES') == 1024
-    assert _fetch_and_parse_env_var('APIFY_META_ORIGIN') == 'API'
-    assert _fetch_and_parse_env_var('APIFY_STARTED_AT') == \
+    assert _fetch_and_parse_env_var(ApifyEnvVars.IS_AT_HOME) is True
+    assert _fetch_and_parse_env_var(ApifyEnvVars.MEMORY_MBYTES) == 1024
+    assert _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN) == 'API'
+    assert _fetch_and_parse_env_var(ApifyEnvVars.STARTED_AT) == \
         datetime.datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=datetime.timezone.utc)
 
-    assert _fetch_and_parse_env_var('DUMMY_BOOL') == '1'
-    assert _fetch_and_parse_env_var('DUMMY_DATETIME') == '2022-12-02T15:19:34.907Z'
-    assert _fetch_and_parse_env_var('DUMMY_INT') == '1'
-    assert _fetch_and_parse_env_var('DUMMY_STRING') == 'DUMMY'
-    assert _fetch_and_parse_env_var('NONEXISTENT_ENV_VAR') is None
-    assert _fetch_and_parse_env_var('NONEXISTENT_ENV_VAR', 'default') == 'default'
+    assert _fetch_and_parse_env_var('DUMMY_BOOL') == '1'  # type: ignore
+    assert _fetch_and_parse_env_var('DUMMY_DATETIME') == '2022-12-02T15:19:34.907Z'  # type: ignore
+    assert _fetch_and_parse_env_var('DUMMY_INT') == '1'  # type: ignore
+    assert _fetch_and_parse_env_var('DUMMY_STRING') == 'DUMMY'  # type: ignore
+    assert _fetch_and_parse_env_var('NONEXISTENT_ENV_VAR') is None  # type: ignore
+    assert _fetch_and_parse_env_var('NONEXISTENT_ENV_VAR', 'default') == 'default'  # type: ignore
 
 
 def test__get_cpu_usage_percent() -> None:
@@ -46,6 +49,18 @@ def test__get_cpu_usage_percent() -> None:
 def test__get_memory_usage_bytes() -> None:
     assert _get_memory_usage_bytes() >= 0
     assert _get_memory_usage_bytes() <= 1024 * 1024 * 1024 * 1024
+
+
+def test__maybe_extract_enum_member_value() -> None:
+    class TestEnum(Enum):
+        A = 'A'
+        B = 'B'
+
+    assert _maybe_extract_enum_member_value(TestEnum.A) == 'A'
+    assert _maybe_extract_enum_member_value(TestEnum.B) == 'B'
+    assert _maybe_extract_enum_member_value('C') == 'C'
+    assert _maybe_extract_enum_member_value(1) == 1
+    assert _maybe_extract_enum_member_value(None) is None
 
 
 def test__maybe_parse_bool() -> None:
@@ -64,7 +79,6 @@ def test__maybe_parse_datetime() -> None:
         datetime.datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=datetime.timezone.utc)
     assert _maybe_parse_datetime('2022-12-02T15:19:34.907') == '2022-12-02T15:19:34.907'
     assert _maybe_parse_datetime('anything') == 'anything'
-    assert _maybe_parse_datetime(None) is None
 
 
 def test__maybe_parse_int() -> None:
@@ -73,7 +87,7 @@ def test__maybe_parse_int() -> None:
     assert _maybe_parse_int('-1') == -1
     assert _maybe_parse_int('136749825') == 136749825
     assert _maybe_parse_int('') is None
-    assert _maybe_parse_int(None) is None
+    assert _maybe_parse_int('abcd') is None
 
 
 @pytest.mark.asyncio
