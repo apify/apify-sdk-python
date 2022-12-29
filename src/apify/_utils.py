@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union,
 
 import psutil
 from aiofiles.os import remove
+
 from apify_client import __version__ as client_version
 
 from ._version import __version__ as sdk_version
