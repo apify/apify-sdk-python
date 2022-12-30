@@ -239,10 +239,16 @@ def _filter_out_none_values_recursively_internal(dictionary: Dict, remove_empty_
 
 
 def _json_dumps(obj: Any) -> str:
+    """Dump JSON to a string with the correct settings and serializer."""
     return json.dumps(obj, ensure_ascii=False, indent=2, default=_json_serializer)
 
 
 uuid_regex = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
+
+
+def _is_uuid(string: str) -> bool:
+    """Test whether the given string matches UUID format."""
+    return bool(uuid_regex.match(string))
 
 
 def _raise_on_non_existing_storage(client_type: StorageTypes, id: str) -> NoReturn:
@@ -254,6 +260,7 @@ def _raise_on_duplicate_storage(client_type: StorageTypes, key_name: str, value:
 
 
 def _guess_file_extension(content_type: str) -> Optional[str]:
+    """Guess the file extension based on content type."""
     # e.g. mimetypes.guess_extension('application/json ') does not work...
     actual_content_type = content_type.split(';')[0].strip()
     ext = mimetypes.guess_extension(actual_content_type)
@@ -292,12 +299,14 @@ def _maybe_parse_body(body: bytes, content_type: str) -> Any:
 
 
 def _unique_key_to_request_id(unique_key: str) -> str:
+    """Generate request ID based on unique key in a deterministic way."""
     id = re.sub(r'(\+|\/|=)', '', base64.b64encode(hashlib.sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
 
     return id[:REQUEST_ID_LENGTH] if len(id) > REQUEST_ID_LENGTH else id
 
 
 async def _force_rename(src_dir: str, dst_dir: str) -> None:
+    """Rename a directory. Checks for existence of soruce directory and removes destination directory if it exists."""
     # Make sure source directory exists
     if await ospath.exists(src_dir):
         # Remove destination directory if it exists

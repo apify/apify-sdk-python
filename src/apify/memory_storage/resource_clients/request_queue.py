@@ -9,11 +9,11 @@ import aioshutil
 from ..._utils import (
     _filter_out_none_values_recursively,
     _force_rename,
+    _is_uuid,
     _json_dumps,
     _raise_on_duplicate_storage,
     _raise_on_non_existing_storage,
     _unique_key_to_request_id,
-    uuid_regex,
 )
 from ...consts import StorageTypes
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
@@ -333,9 +333,9 @@ def _find_or_cache_request_queue_by_possible_id(client: 'MemoryStorage', entry_n
             entries.append(request)
 
     if id is None and name is None:
-        is_uuid = uuid_regex.match(entry_name_or_id)
+        is_uuid = _is_uuid(entry_name_or_id)
 
-        if is_uuid is not None:
+        if is_uuid:
             id = entry_name_or_id
         else:
             name = entry_name_or_id

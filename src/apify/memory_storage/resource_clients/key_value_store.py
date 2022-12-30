@@ -14,11 +14,11 @@ from ..._utils import (
     _force_rename,
     _guess_file_extension,
     _is_file_or_bytes,
+    _is_uuid,
     _json_dumps,
     _maybe_parse_body,
     _raise_on_duplicate_storage,
     _raise_on_non_existing_storage,
-    uuid_regex,
 )
 from ...consts import DEFAULT_API_PARAM_LIMIT, StorageTypes
 from ..file_storage_utils import _set_or_delete_key_value_store_record, _update_metadata
@@ -371,9 +371,9 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
             internal_records[key] = new_record
 
     if id is None and name is None:
-        is_uuid = uuid_regex.match(entry_name_or_id)
+        is_uuid = _is_uuid(entry_name_or_id)
 
-        if is_uuid is not None:
+        if is_uuid:
             id = entry_name_or_id
         else:
             name = entry_name_or_id
