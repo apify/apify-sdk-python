@@ -3,16 +3,17 @@ import datetime
 import io
 import os
 import uuid
-from aiofiles.os import mkdir
 from enum import Enum
 
 import pytest
+from aiofiles.os import mkdir
 
 from apify._utils import (
     _fetch_and_parse_env_var,
     _filter_out_none_values_recursively,
     _filter_out_none_values_recursively_internal,
     _force_remove,
+    _force_rename,
     _get_cpu_usage_percent,
     _get_memory_usage_bytes,
     _guess_file_extension,
@@ -30,7 +31,6 @@ from apify._utils import (
     _raise_on_non_existing_storage,
     _run_func_at_interval_async,
     _unique_key_to_request_id,
-    _force_rename,
 )
 from apify.consts import ApifyEnvVars, StorageTypes
 
@@ -284,6 +284,7 @@ def test__unique_key_to_request_id() -> None:
     # Right side from `uniqueKeyToRequestId` in Crawlee
     assert _unique_key_to_request_id('abc') == 'ungWv48BzpBQUDe'
     assert _unique_key_to_request_id('test') == 'n4bQgYhMfWWaLqg'
+
 
 @pytest.mark.asyncio
 async def test__force_rename(tmp_path: str) -> None:
