@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import json
-from typing import Any, Callable, Optional, Set, cast
+from typing import Any, Callable, Optional, Set
 
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
@@ -52,6 +52,8 @@ class EventManager:
         # TODO: add optional timeout for this
         await self.wait_for_all_listeners_to_complete()
 
+        self._event_emitter.remove_all_listeners()
+
         self._initialized = False
 
     def on(self, event: ActorEventType, listener: Callable) -> Callable:
@@ -92,8 +94,11 @@ class EventManager:
         await asyncio.gather(*self._listener_tasks)
 
     async def _process_platform_messages(self) -> None:
+        # This should be called only on the platform, where we have the ACTOR_EVENTS_WS_URL configured
+        assert self._config.actor_events_ws_url is not None
+
         try:
-            async with websockets.client.connect(cast(str, self._config.actor_events_ws_url)) as websocket:
+            async with websockets.client.connect(self._config.actor_events_ws_url) as websocket:
                 self._platform_events_websocket = websocket
                 async for message in websocket:
                     try:

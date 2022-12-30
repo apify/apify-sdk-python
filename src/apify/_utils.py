@@ -6,7 +6,8 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union, cast
+from enum import Enum
+from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union, cast, overload
 
 import psutil
 from aiofiles.os import remove
@@ -14,7 +15,16 @@ from aiofiles.os import remove
 from apify_client import __version__ as client_version
 
 from ._version import __version__ as sdk_version
-from .consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, INTEGER_ENV_VARS
+from .consts import (
+    _BOOL_ENV_VARS_TYPE,
+    _DATETIME_ENV_VARS_TYPE,
+    _INTEGER_ENV_VARS_TYPE,
+    _STRING_ENV_VARS_TYPE,
+    BOOL_ENV_VARS,
+    DATETIME_ENV_VARS,
+    INTEGER_ENV_VARS,
+    ApifyEnvVars,
+)
 
 
 def _log_system_info() -> None:
@@ -27,31 +37,87 @@ def _log_system_info() -> None:
     print(f'    Python version: {python_version}')
 
 
-ClassPropertyType = TypeVar('ClassPropertyType')
+DualPropertyType = TypeVar('DualPropertyType')
 
 
-class classproperty(Generic[ClassPropertyType]):  # noqa: N801
+class dualproperty(Generic[DualPropertyType]):  # noqa: N801
     """TODO: no docs."""
 
-    def __init__(self, getter: Callable[..., ClassPropertyType]) -> None:
+    def __init__(self, getter: Callable[..., DualPropertyType]) -> None:
         """TODO: no docs."""
         self.getter = getter
 
-    def __get__(self, _: Any, owner: Any) -> ClassPropertyType:  # noqa: U101
+    def __get__(self, obj: Any, owner: Any) -> DualPropertyType:
         """TODO: no docs."""
-        return self.getter(owner)
+        return self.getter(obj or owner)
 
 
-def _fetch_and_parse_env_var(env_var_name: str, default: Any = None) -> Any:
+def _maybe_extract_enum_member_value(maybe_enum_member: Any) -> Any:
+    if isinstance(maybe_enum_member, Enum):
+        return maybe_enum_member.value
+    return maybe_enum_member
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE) -> Optional[bool]:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE, default: bool) -> bool:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE) -> Optional[Union[datetime, str]]:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE, default: datetime) -> Union[datetime, str]:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE) -> Optional[int]:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE, default: int) -> int:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE, default: str) -> str:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE) -> Optional[str]:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: ApifyEnvVars) -> Optional[Any]:  # noqa: U100
+    ...
+
+
+def _fetch_and_parse_env_var(env_var: Any, default: Any = None) -> Any:
+    env_var_name = str(_maybe_extract_enum_member_value(env_var))
+
     val = os.getenv(env_var_name)
     if not val:
         return default
 
-    if env_var_name in BOOL_ENV_VARS:
+    if env_var in BOOL_ENV_VARS:
         return _maybe_parse_bool(val)
-    if env_var_name in INTEGER_ENV_VARS:
-        return _maybe_parse_int(val)
-    if env_var_name in DATETIME_ENV_VARS:
+    if env_var in INTEGER_ENV_VARS:
+        res = _maybe_parse_int(val)
+        if res is None:
+            return default
+        return res
+    if env_var in DATETIME_ENV_VARS:
         return _maybe_parse_datetime(val)
     return val
 
@@ -62,10 +128,10 @@ def _get_cpu_usage_percent() -> float:
 
 def _get_memory_usage_bytes() -> int:
     current_process = psutil.Process(os.getpid())
-    mem = cast(int, current_process.memory_info().rss or 0)
+    mem = int(current_process.memory_info().rss or 0)
     for child in current_process.children(recursive=True):
         try:
-            mem += cast(int, child.memory_info().rss or 0)
+            mem += int(child.memory_info().rss or 0)
         except psutil.NoSuchProcess:
             pass
     return mem
@@ -77,18 +143,14 @@ def _maybe_parse_bool(val: Optional[str]) -> bool:
     return False
 
 
-def _maybe_parse_datetime(val: Optional[str]) -> Union[Optional[datetime], Optional[str]]:
-    if not val:
-        return None
+def _maybe_parse_datetime(val: str) -> Union[datetime, str]:
     try:
         return datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone.utc)
     except ValueError:
         return val
 
 
-def _maybe_parse_int(val: Optional[str]) -> Optional[int]:
-    if not val:
-        return None
+def _maybe_parse_int(val: str) -> Optional[int]:
     try:
         return int(val)
     except ValueError:

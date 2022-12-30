@@ -15,13 +15,24 @@ from ._utils import (
     _get_memory_usage_bytes,
     _log_system_info,
     _run_func_at_interval_async,
-    classproperty,
+    dualproperty,
 )
 from .config import Configuration
 from .consts import ActorEventType, ApifyEnvVars
 from .event_manager import EventManager
 
 MainReturnType = TypeVar('MainReturnType')
+
+T = TypeVar('T', bound=Callable)
+U = TypeVar('U', bound=Callable)
+
+
+def _wrap_internal(implementation: T, metadata_source: U) -> U:
+    @functools.wraps(metadata_source)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        return implementation(*args, **kwargs)
+
+    return cast(U, wrapper)
 
 
 # This metaclass is needed so you can do `with Actor: ...` instead of `with Actor() as a: ...`
@@ -44,17 +55,19 @@ class _ActorContextManager(type):
             print(exc_value)
             print(traceback)
             await Actor.fail()
-            return True
+            return False
         else:
             await Actor.exit()
-            return False
+            return True
 
 
 class Actor(metaclass=_ActorContextManager):
     """Class representing an Apify Actor."""
 
-    _config: Optional[Configuration] = None
     _default_instance: Optional['Actor'] = None
+    _apify_client: ApifyClientAsync
+    _config: Configuration
+    _event_manager: EventManager
 
     def __init__(self, config: Optional[Configuration] = None) -> None:
         """TODO: docs."""
@@ -63,38 +76,38 @@ class Actor(metaclass=_ActorContextManager):
         # we need to have an `_xxx_internal` instance method which contains the actual implementation of the method,
         # and then in the instance constructor overwrite the `xxx` classmethod with the `_xxx_internal` instance method,
         # while copying the annotations, types and so on.
-        self.init = functools.update_wrapper(self._init_internal, self.init)  # type: ignore
-        self.exit = functools.update_wrapper(self._exit_internal, self.exit)  # type: ignore
-        self.fail = functools.update_wrapper(self._fail_internal, self.fail)  # type: ignore
-        self.main = functools.update_wrapper(self._main_internal, self.main)  # type: ignore
-        self.new_client = functools.update_wrapper(self._new_client_internal, self.new_client)  # type: ignore
+        self.init = _wrap_internal(self._init_internal, self.init)  # type: ignore
+        self.exit = _wrap_internal(self._exit_internal, self.exit)  # type: ignore
+        self.fail = _wrap_internal(self._fail_internal, self.fail)  # type: ignore
+        self.main = _wrap_internal(self._main_internal, self.main)  # type: ignore
+        self.new_client = _wrap_internal(self._new_client_internal, self.new_client)  # type: ignore
 
-        self.open_dataset = functools.update_wrapper(self._open_dataset_internal, self.open_dataset)  # type: ignore
-        self.open_key_value_store = functools.update_wrapper(self._open_key_value_store_internal, self.open_key_value_store)  # type: ignore
-        self.open_request_queue = functools.update_wrapper(self._open_request_queue_internal, self.open_request_queue)  # type: ignore
-        self.push_data = functools.update_wrapper(self._push_data_internal, self.push_data)  # type: ignore
-        self.get_input = functools.update_wrapper(self._get_input_internal, self.get_input)  # type: ignore
-        self.get_value = functools.update_wrapper(self._get_value_internal, self.get_value)  # type: ignore
-        self.set_value = functools.update_wrapper(self._set_value_internal, self.set_value)  # type: ignore
+        self.open_dataset = _wrap_internal(self._open_dataset_internal, self.open_dataset)  # type: ignore
+        self.open_key_value_store = _wrap_internal(self._open_key_value_store_internal, self.open_key_value_store)  # type: ignore
+        self.open_request_queue = _wrap_internal(self._open_request_queue_internal, self.open_request_queue)  # type: ignore
+        self.push_data = _wrap_internal(self._push_data_internal, self.push_data)  # type: ignore
+        self.get_input = _wrap_internal(self._get_input_internal, self.get_input)  # type: ignore
+        self.get_value = _wrap_internal(self._get_value_internal, self.get_value)  # type: ignore
+        self.set_value = _wrap_internal(self._set_value_internal, self.set_value)  # type: ignore
 
-        self.on = functools.update_wrapper(self._on_internal, self.on)  # type: ignore
-        self.off = functools.update_wrapper(self._off_internal, self.off)  # type: ignore
+        self.on = _wrap_internal(self._on_internal, self.on)  # type: ignore
+        self.off = _wrap_internal(self._off_internal, self.off)  # type: ignore
 
-        self.is_at_home = functools.update_wrapper(self._is_at_home_internal, self.is_at_home)  # type: ignore
-        self.get_env = functools.update_wrapper(self._get_env_internal, self.get_env)  # type: ignore
+        self.is_at_home = _wrap_internal(self._is_at_home_internal, self.is_at_home)  # type: ignore
+        self.get_env = _wrap_internal(self._get_env_internal, self.get_env)  # type: ignore
 
-        self.start = functools.update_wrapper(self._start_internal, self.start)  # type: ignore
-        self.call = functools.update_wrapper(self._call_internal, self.call)  # type: ignore
-        self.call_task = functools.update_wrapper(self._call_task_internal, self.call_task)  # type: ignore
-        self.abort = functools.update_wrapper(self._abort_internal, self.abort)  # type: ignore
-        self.metamorph = functools.update_wrapper(self._metamorph_internal, self.metamorph)  # type: ignore
-        self.reboot = functools.update_wrapper(self._reboot_internal, self.reboot)  # type: ignore
-        self.add_webhook = functools.update_wrapper(self._add_webhook_internal, self.add_webhook)  # type: ignore
-        self.set_status_message = functools.update_wrapper(self._set_status_message_internal, self.set_status_message)  # type: ignore
+        self.start = _wrap_internal(self._start_internal, self.start)  # type: ignore
+        self.call = _wrap_internal(self._call_internal, self.call)  # type: ignore
+        self.call_task = _wrap_internal(self._call_task_internal, self.call_task)  # type: ignore
+        self.abort = _wrap_internal(self._abort_internal, self.abort)  # type: ignore
+        self.metamorph = _wrap_internal(self._metamorph_internal, self.metamorph)  # type: ignore
+        self.reboot = _wrap_internal(self._reboot_internal, self.reboot)  # type: ignore
+        self.add_webhook = _wrap_internal(self._add_webhook_internal, self.add_webhook)  # type: ignore
+        self.set_status_message = _wrap_internal(self._set_status_message_internal, self.set_status_message)  # type: ignore
 
-        self.config = config or Configuration()
-        self.apify_client = self.new_client()
-        self.event_manager = EventManager(config=self.config)
+        self._config: Configuration = config or Configuration()
+        self._apify_client = self.new_client()
+        self._event_manager = EventManager(config=self._config)
 
         self._is_initialized = False
 
@@ -111,38 +124,51 @@ class Actor(metaclass=_ActorContextManager):
     ) -> bool:
         """TODO: docs."""
         # TODO: fail with the right exception
+        # TODO: rethrow exception, or not?
         if exc_type:
             print(exc_type)
             print(exc_value)
             print(traceback)
             await self.fail()
-            return True
+            return False
         else:
             await self.exit()
-            return False
-
-    @classproperty
-    def apify_client(cls) -> ApifyClientAsync:  # noqa: N805
-        """TODO: docs."""
-        return cls._get_default_instance().apify_client
-
-    @classproperty
-    def config(cls) -> Configuration:  # noqa: N805
-        """TODO: docs."""
-        if not cls._config:
-            cls._config = Configuration()
-        return cls._config
-
-    def _raise_if_not_initialized(self) -> None:
-        if not self._is_initialized:
-            raise RuntimeError('The actor was not initialized!')
+            return True
 
     @classmethod
     def _get_default_instance(cls) -> 'Actor':
         if not cls._default_instance:
-            cls._default_instance = Actor(config=cls.config)
+            cls._default_instance = cls(config=Configuration.get_global_configuration())
 
         return cls._default_instance
+
+    @dualproperty
+    def apify_client(self_or_cls) -> ApifyClientAsync:  # noqa: N805
+        """TODO: docs."""
+        if isinstance(self_or_cls, type):
+            return self_or_cls._get_default_instance()._apify_client
+        else:
+            return self_or_cls._apify_client
+
+    @dualproperty
+    def config(self_or_cls) -> Configuration:  # noqa: N805
+        """TODO: docs."""
+        if isinstance(self_or_cls, type):
+            return self_or_cls._get_default_instance()._config
+        else:
+            return self_or_cls._config
+
+    @dualproperty
+    def event_manager(self_or_cls) -> EventManager:  # noqa: N805
+        """TODO: docs."""
+        if isinstance(self_or_cls, type):
+            return self_or_cls._get_default_instance()._event_manager
+        else:
+            return self_or_cls._event_manager
+
+    def _raise_if_not_initialized(self) -> None:
+        if not self._is_initialized:
+            raise RuntimeError('The actor was not initialized!')
 
     @classmethod
     async def init(cls) -> None:
@@ -156,24 +182,24 @@ class Actor(metaclass=_ActorContextManager):
         print('Initializing actor...')
         _log_system_info()
 
-        await self.event_manager.init()
+        await self._event_manager.init()
 
         self._send_persist_state_interval_task = asyncio.create_task(
             _run_func_at_interval_async(
-                lambda: self.event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False}),
-                self.config.persist_state_interval_millis / 1000,
+                lambda: self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False}),
+                self._config.persist_state_interval_millis / 1000,
             ),
         )
 
         if not self.is_at_home():
             self._send_system_info_interval_task = asyncio.create_task(
                 _run_func_at_interval_async(
-                    lambda: self.event_manager.emit(ActorEventType.SYSTEM_INFO, self._get_system_info()),
-                    self.config.system_info_interval_millis / 1000,
+                    lambda: self._event_manager.emit(ActorEventType.SYSTEM_INFO, self._get_system_info()),
+                    self._config.system_info_interval_millis / 1000,
                 ),
             )
 
-        self.event_manager.on(ActorEventType.MIGRATING, self._respond_to_migrating_event)
+        self._event_manager.on(ActorEventType.MIGRATING, self._respond_to_migrating_event)
 
         # The CPU usage is calculated as an average between two last calls to psutil
         # We need to make a first, dummy call, so the next calls have something to compare itself agains
@@ -190,8 +216,8 @@ class Actor(metaclass=_ActorContextManager):
             'cpuCurrentUsage': cpu_usage_percent,
             'memCurrentBytes': memory_usage_bytes,
         }
-        if self.config.max_used_cpu_ratio:
-            result['isCpuOverloaded'] = (cpu_usage_percent > 100 * self.config.max_used_cpu_ratio)
+        if self._config.max_used_cpu_ratio:
+            result['isCpuOverloaded'] = (cpu_usage_percent > 100 * self._config.max_used_cpu_ratio)
 
         return result
 
@@ -199,7 +225,7 @@ class Actor(metaclass=_ActorContextManager):
         # Don't emit any more regular persist state events
         if self._send_persist_state_interval_task:
             self._send_persist_state_interval_task.cancel()
-        self.event_manager.emit(ActorEventType.PERSIST_STATE, {'is_migrating': True})
+        self._event_manager.emit(ActorEventType.PERSIST_STATE, {'is_migrating': True})
 
     @classmethod
     async def exit(cls, *, exit_code: int = 0) -> None:
@@ -220,13 +246,13 @@ class Actor(metaclass=_ActorContextManager):
             await self._send_system_info_interval_task
 
         # Send final persist state event
-        self.event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False})
+        self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False})
 
         # Sleep for a bit so that the listeners have a chance to trigger,
         await asyncio.sleep(0.1)
 
         # TODO: optional timeout for waiting for all event handlers to finish
-        await self.event_manager.close()
+        await self._event_manager.close()
 
         # TODO: once we have in-memory storage, teardown the in-memory storage client here
 
@@ -293,8 +319,9 @@ class Actor(metaclass=_ActorContextManager):
         min_delay_between_retries_millis: Optional[int] = None,
         timeout_secs: Optional[int] = None,
     ) -> ApifyClientAsync:
-        token = token or self.config.token
-        api_url = api_url or self.config.api_base_url
+        """TODO: docs."""
+        token = token or self._config.token
+        api_url = api_url or self._config.api_base_url
         return ApifyClientAsync(
             token=token,
             api_url=api_url,
@@ -315,10 +342,10 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not dataset_id_or_name:
-            dataset_id_or_name = self.config.default_dataset_id
+            dataset_id_or_name = self._config.default_dataset_id
 
-        dataset = await self.apify_client.datasets().get_or_create(name=dataset_id_or_name)
-        return self.apify_client.dataset(dataset['id'])
+        dataset = await self._apify_client.datasets().get_or_create(name=dataset_id_or_name)
+        return self._apify_client.dataset(dataset['id'])
 
     @classmethod
     async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStoreClientAsync:
@@ -331,10 +358,10 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not key_value_store_id_or_name:
-            key_value_store_id_or_name = self.config.default_key_value_store_id
+            key_value_store_id_or_name = self._config.default_key_value_store_id
 
-        key_value_store = await self.apify_client.key_value_stores().get_or_create(name=key_value_store_id_or_name)
-        return self.apify_client.key_value_store(key_value_store['id'])
+        key_value_store = await self._apify_client.key_value_stores().get_or_create(name=key_value_store_id_or_name)
+        return self._apify_client.key_value_store(key_value_store['id'])
 
     @classmethod
     async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None) -> RequestQueueClientAsync:
@@ -347,10 +374,10 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not request_queue_id_or_name:
-            request_queue_id_or_name = self.config.default_request_queue_id
+            request_queue_id_or_name = self._config.default_request_queue_id
 
-        request_queue = await self.apify_client.request_queues().get_or_create(name=request_queue_id_or_name)
-        return self.apify_client.request_queue(request_queue['id'])
+        request_queue = await self._apify_client.request_queues().get_or_create(name=request_queue_id_or_name)
+        return self._apify_client.request_queue(request_queue['id'])
 
     @classmethod
     async def push_data(cls, data: Any) -> None:
@@ -379,7 +406,7 @@ class Actor(metaclass=_ActorContextManager):
 
         # TODO: decryption
 
-        return await self.get_value(self.config.input_key)
+        return await self.get_value(self._config.input_key)
 
     @classmethod
     async def get_value(cls, key: str) -> Any:
@@ -420,7 +447,7 @@ class Actor(metaclass=_ActorContextManager):
     def _on_internal(self, event: ActorEventType, listener: Callable) -> Callable:
         self._raise_if_not_initialized()
 
-        return self.event_manager.on(event, listener)
+        return self._event_manager.on(event, listener)
 
     @classmethod
     def off(cls, event: ActorEventType, listener: Optional[Callable]) -> None:
@@ -430,7 +457,7 @@ class Actor(metaclass=_ActorContextManager):
     def _off_internal(self, event: ActorEventType, listener: Optional[Callable]) -> None:
         self._raise_if_not_initialized()
 
-        return self.event_manager.off(event, listener)
+        return self._event_manager.off(event, listener)
 
     @classmethod
     def is_at_home(cls) -> bool:
@@ -438,7 +465,7 @@ class Actor(metaclass=_ActorContextManager):
         return cls._get_default_instance().is_at_home()
 
     def _is_at_home_internal(self) -> bool:
-        return self.config.is_at_home
+        return self._config.is_at_home
 
     @classmethod
     def get_env(cls) -> Dict:
@@ -449,7 +476,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         return {
-            env_var.name.lower(): _fetch_and_parse_env_var(env_var.value) for env_var in ApifyEnvVars
+            env_var.name.lower(): _fetch_and_parse_env_var(env_var) for env_var in ApifyEnvVars
         }
 
     @classmethod
@@ -492,12 +519,13 @@ class Actor(metaclass=_ActorContextManager):
         wait_for_finish: Optional[int] = None,
         webhooks: Optional[List[Dict]] = None,
     ) -> Dict:
+        """TODO: docs."""
         self._raise_if_not_initialized()
 
         if token:
             client = self.new_client(token=token)
         else:
-            client = self.apify_client
+            client = self._apify_client
 
         return await client.actor(actor_id).start(
             run_input=run_input,
@@ -528,16 +556,17 @@ class Actor(metaclass=_ActorContextManager):
         self,
         run_id: str,
         *,
-        gracefully: Optional[bool] = None,
-        status_message: Optional[str] = None,
         token: Optional[str] = None,
+        status_message: Optional[str] = None,
+        gracefully: Optional[bool] = None,
     ) -> Dict:
+        """TODO: docs."""
         self._raise_if_not_initialized()
 
         if token:
             client = self.new_client(token=token)
         else:
-            client = self.apify_client
+            client = self._apify_client
 
         if status_message:
             await client.run(run_id).update(status_message=status_message)
@@ -584,12 +613,13 @@ class Actor(metaclass=_ActorContextManager):
         webhooks: Optional[List[Dict]] = None,
         wait_secs: Optional[int] = None,
     ) -> Optional[Dict]:
+        """TODO: docs."""
         self._raise_if_not_initialized()
 
         if token:
             client = self.new_client(token=token)
         else:
-            client = self.apify_client
+            client = self._apify_client
 
         return await client.actor(actor_id).call(
             run_input=run_input,
@@ -638,12 +668,13 @@ class Actor(metaclass=_ActorContextManager):
         wait_secs: Optional[int] = None,
         token: Optional[str] = None,
     ) -> Optional[Dict]:
+        """TODO: docs."""
         self._raise_if_not_initialized()
 
         if token:
             client = self.new_client(token=token)
         else:
-            client = self.apify_client
+            client = self._apify_client
 
         return await client.task(task_id).call(
             task_input=task_input,
@@ -682,6 +713,7 @@ class Actor(metaclass=_ActorContextManager):
         content_type: Optional[str] = None,
         custom_after_sleep_millis: Optional[int] = None,
     ) -> None:
+        """TODO: docs."""
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
@@ -689,12 +721,12 @@ class Actor(metaclass=_ActorContextManager):
             return
 
         if not custom_after_sleep_millis:
-            custom_after_sleep_millis = self.config.metamorph_after_sleep_millis
+            custom_after_sleep_millis = self._config.metamorph_after_sleep_millis
 
         # If is_at_home() is True, config.actor_run_id is always set
-        actor_run_id = cast(str, self.config.actor_run_id)
+        assert self._config.actor_run_id is not None
 
-        await self.apify_client.run(actor_run_id).metamorph(
+        await self._apify_client.run(self._config.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
             target_actor_build=target_actor_build,
@@ -716,14 +748,14 @@ class Actor(metaclass=_ActorContextManager):
             print('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
-        self.event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': True})
+        self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': True})
 
-        await self.event_manager.wait_for_all_listeners_to_complete()
+        await self._event_manager.wait_for_all_listeners_to_complete()
 
         # If is_at_home() is True, config.actor_id is always set
-        actor_id = cast(str, self.config.actor_id)
+        assert self._config.actor_id is not None
 
-        await self.metamorph(actor_id)
+        await self.metamorph(self._config.actor_id)
 
     @classmethod
     async def add_webhook(
@@ -756,6 +788,7 @@ class Actor(metaclass=_ActorContextManager):
         do_not_retry: Optional[bool] = None,
         idempotency_key: Optional[str] = None,
     ) -> Optional[Dict]:
+        """TODO: docs."""
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
@@ -763,10 +796,10 @@ class Actor(metaclass=_ActorContextManager):
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        actor_run_id = self.config.actor_run_id
+        assert self._config.actor_run_id is not None
 
-        return await self.apify_client.webhooks().create(
-            actor_run_id=actor_run_id,
+        return await self._apify_client.webhooks().create(
+            actor_run_id=self._config.actor_run_id,
             event_types=event_types,
             request_url=request_url,
             payload_template=payload_template,
@@ -776,14 +809,18 @@ class Actor(metaclass=_ActorContextManager):
         )
 
     @classmethod
-    async def set_status_message(cls, status_message: str) -> Dict:
+    async def set_status_message(cls, status_message: str) -> Optional[Dict]:
         """TODO: docs."""
         return await cls._get_default_instance().set_status_message(status_message=status_message)
 
-    async def _set_status_message_internal(self, status_message: str) -> Dict:
+    async def _set_status_message_internal(self, status_message: str) -> Optional[Dict]:
         self._raise_if_not_initialized()
 
-        # If is_at_home() is True, config.actor_run_id is always set
-        actor_run_id = cast(str, self.config.actor_run_id)
+        if not self.is_at_home():
+            print('Actor.set_status_message() is only supported when running on the Apify platform.')
+            return None
 
-        return await self.apify_client.run(actor_run_id).update(status_message=status_message)
+        # If is_at_home() is True, config.actor_run_id is always set
+        assert self._config.actor_run_id is not None
+
+        return await self._apify_client.run(self._config.actor_run_id).update(status_message=status_message)
