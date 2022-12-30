@@ -287,7 +287,7 @@ def _is_file_or_bytes(value: Any) -> bool:
     return isinstance(value, (bytes, bytearray, io.IOBase))
 
 
-def _maybe_parse_body(body: bytes, content_type: str) -> Any:
+def _maybe_parse_body(body: bytes, content_type: str) -> Any:  # TODO: Improve return type
     try:
         if _is_content_type_json(content_type):
             return json.loads(body)  # Returns any
