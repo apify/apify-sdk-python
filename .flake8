@@ -19,6 +19,7 @@ ignore =
     D408
     D409
     D413
+    U101
 ignore-decorators = _make_async_docs
 per-file-ignores =
     docs/*: D

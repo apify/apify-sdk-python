@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import List, Literal, get_args
 
 
 class ActorEventType(str, Enum):
@@ -33,9 +34,11 @@ class ApifyEnvVars(str, Enum):
     CONTAINER_PORT = 'APIFY_CONTAINER_PORT'
     CONTAINER_URL = 'APIFY_CONTAINER_URL'
     DEDICATED_CPUS = 'APIFY_DEDICATED_CPUS'
+    DEFAULT_BROWSER_PATH = 'APIFY_DEFAULT_BROWSER_PATH'
     DEFAULT_DATASET_ID = 'APIFY_DEFAULT_DATASET_ID'
     DEFAULT_KEY_VALUE_STORE_ID = 'APIFY_DEFAULT_KEY_VALUE_STORE_ID'
     DEFAULT_REQUEST_QUEUE_ID = 'APIFY_DEFAULT_REQUEST_QUEUE_ID'
+    DISABLE_BROWSER_SANDBOX = 'APIFY_DISABLE_BROWSER_SANDBOX'
     DISABLE_OUTDATED_WARNING = 'APIFY_DISABLE_OUTDATED_WARNING'
     FACT = 'APIFY_FACT'
     HEADLESS = 'APIFY_HEADLESS'
@@ -60,29 +63,73 @@ class ApifyEnvVars(str, Enum):
     WORKFLOW_KEY = 'APIFY_WORKFLOW_KEY'
     XVFB = 'APIFY_XVFB'
 
-    # Extra ones not in consts:
+    # Extra ones not in @apify/consts:
     METAMORPH_AFTER_SLEEP_MILLIS = 'APIFY_METAMORPH_AFTER_SLEEP_MILLIS'
     PERSIST_STATE_INTERVAL_MILLIS = 'APIFY_PERSIST_STATE_INTERVAL_MILLIS'
     PURGE_ON_START = 'APIFY_PURGE_ON_START'
 
 
-INTEGER_ENV_VARS = [
-    ApifyEnvVars.CONTAINER_PORT.value,
-    ApifyEnvVars.DEDICATED_CPUS.value,
-    ApifyEnvVars.MEMORY_MBYTES.value,
-    ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS.value,
-    ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS.value,
-    ApifyEnvVars.PROXY_PORT.value,
+_INTEGER_ENV_VARS_TYPE = Literal[
+    ApifyEnvVars.CONTAINER_PORT,
+    ApifyEnvVars.DEDICATED_CPUS,
+    ApifyEnvVars.LOG_LEVEL,
+    ApifyEnvVars.MEMORY_MBYTES,
+    ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS,
+    ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS,
+    ApifyEnvVars.PROXY_PORT,
 ]
 
-BOOL_ENV_VARS = [
-    ApifyEnvVars.HEADLESS.value,
-    ApifyEnvVars.IS_AT_HOME.value,
-    ApifyEnvVars.PURGE_ON_START.value,
-    ApifyEnvVars.XVFB.value,
+INTEGER_ENV_VARS: List[_INTEGER_ENV_VARS_TYPE] = list(get_args(_INTEGER_ENV_VARS_TYPE))
+
+_BOOL_ENV_VARS_TYPE = Literal[
+    ApifyEnvVars.DISABLE_BROWSER_SANDBOX,
+    ApifyEnvVars.DISABLE_OUTDATED_WARNING,
+    ApifyEnvVars.HEADLESS,
+    ApifyEnvVars.IS_AT_HOME,
+    ApifyEnvVars.PURGE_ON_START,
+    ApifyEnvVars.XVFB,
 ]
 
-DATETIME_ENV_VARS = [
-    ApifyEnvVars.STARTED_AT.value,
-    ApifyEnvVars.TIMEOUT_AT.value,
+BOOL_ENV_VARS: List[_BOOL_ENV_VARS_TYPE] = list(get_args(_BOOL_ENV_VARS_TYPE))
+
+_DATETIME_ENV_VARS_TYPE = Literal[
+    ApifyEnvVars.STARTED_AT,
+    ApifyEnvVars.TIMEOUT_AT,
 ]
+
+DATETIME_ENV_VARS: List[_DATETIME_ENV_VARS_TYPE] = list(get_args(_DATETIME_ENV_VARS_TYPE))
+
+_STRING_ENV_VARS_TYPE = Literal[
+    ApifyEnvVars.ACT_ID,
+    ApifyEnvVars.ACT_RUN_ID,
+    ApifyEnvVars.ACTOR_BUILD_ID,
+    ApifyEnvVars.ACTOR_BUILD_NUMBER,
+    ApifyEnvVars.ACTOR_EVENTS_WS_URL,
+    ApifyEnvVars.ACTOR_ID,
+    ApifyEnvVars.ACTOR_RUN_ID,
+    ApifyEnvVars.ACTOR_TASK_ID,
+    ApifyEnvVars.API_BASE_URL,
+    ApifyEnvVars.API_PUBLIC_BASE_URL,
+    ApifyEnvVars.CHROME_EXECUTABLE_PATH,
+    ApifyEnvVars.CONTAINER_URL,
+    ApifyEnvVars.DEFAULT_BROWSER_PATH,
+    ApifyEnvVars.DEFAULT_DATASET_ID,
+    ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID,
+    ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID,
+    ApifyEnvVars.FACT,
+    ApifyEnvVars.INPUT_KEY,
+    ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_FILE,
+    ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_PASSPHRASE,
+    ApifyEnvVars.LOCAL_STORAGE_DIR,
+    ApifyEnvVars.LOG_FORMAT,
+    ApifyEnvVars.META_ORIGIN,
+    ApifyEnvVars.PROXY_HOSTNAME,
+    ApifyEnvVars.PROXY_PASSWORD,
+    ApifyEnvVars.PROXY_STATUS_URL,
+    ApifyEnvVars.SDK_LATEST_VERSION,
+    ApifyEnvVars.TOKEN,
+    ApifyEnvVars.USER_ID,
+    ApifyEnvVars.WORKFLOW_KEY,
+]
+
+STRING_ENV_VARS: List[_STRING_ENV_VARS_TYPE] = list(get_args(_STRING_ENV_VARS_TYPE))

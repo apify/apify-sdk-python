@@ -256,4 +256,4 @@ TODO: docs.
 
 * **Return type**
 
-  `Dict`
+  `Optional[Dict]`
