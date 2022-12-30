@@ -6,9 +6,17 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import aioshutil
 
-from ..._utils import _filter_out_none_values_recursively, _json_dumps
+from ..._utils import (
+    _filter_out_none_values_recursively,
+    _force_rename,
+    _json_dumps,
+    _raise_on_duplicate_storage,
+    _raise_on_non_existing_storage,
+    _unique_key_to_request_id,
+    uuid_regex,
+)
+from ...consts import StorageTypes
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
-from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, _unique_key_to_request_id, uuid_regex
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage

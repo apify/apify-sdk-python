@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List
 import aioshutil
 
 from ..._types import JSONSerializable
-from ..._utils import ListPage
+from ..._utils import ListPage, _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, uuid_regex
+from ...consts import StorageTypes
 from ..file_storage_utils import _update_dataset_items, _update_metadata
-from ._utils import StorageTypes, _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, uuid_regex
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage

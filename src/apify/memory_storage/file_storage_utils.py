@@ -21,7 +21,7 @@ async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata:
         await f.write(_json_dumps(data).encode('utf-8'))
 
 
-async def _check_conditions(entity_directory: str, persist_storage: bool) -> None:
+async def _check_and_ensure_dir(entity_directory: str, persist_storage: bool) -> None:
     # Skip writing files to the disk if the client has the option set to false
     if not persist_storage:
         return
@@ -36,7 +36,7 @@ async def _update_dataset_items(
     entity_directory: str,
     persist_storage: bool,
 ) -> None:
-    await _check_conditions(entity_directory, persist_storage)
+    await _check_and_ensure_dir(entity_directory, persist_storage)
     # Save all the new items to the disk
     for idx, item in data:
         file_path = os.path.join(entity_directory, f'{idx}.json')
@@ -52,7 +52,7 @@ async def _set_or_delete_key_value_store_record(
     should_set: bool,
     write_metadata: bool,
 ) -> None:
-    await _check_conditions(entity_directory, persist_storage)
+    await _check_and_ensure_dir(entity_directory, persist_storage)
 
     # Create files for the record
     record_path = os.path.join(entity_directory, f"""{record['key']}.{record['extension']}""")
@@ -85,7 +85,7 @@ async def _update_request_queue_item(
     entity_directory: str,
     persist_storage: bool,
 ) -> None:
-    await _check_conditions(entity_directory, persist_storage)
+    await _check_and_ensure_dir(entity_directory, persist_storage)
 
     # Write the request to the file
     file_path = os.path.join(entity_directory, f'{request_id}.json')
