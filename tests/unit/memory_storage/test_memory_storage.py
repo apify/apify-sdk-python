@@ -7,16 +7,16 @@ from apify.memory_storage.memory_storage import MemoryStorage
 
 @pytest.mark.asyncio
 async def test_write_metadata(tmp_path: str) -> None:
-    DATASET_NAME = 'test'
-    DATASET_NO_METADATA_NAME = 'test-no-metadata'
+    dataset_name = 'test'
+    dataset_no_metadata_name = 'test-no-metadata'
     ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
     ms_no_metadata = MemoryStorage(local_data_directory=tmp_path, write_metadata=False)
     datasets_client = ms.datasets()
     datasets_no_metadata_client = ms_no_metadata.datasets()
-    await datasets_client.get_or_create(name=DATASET_NAME)
-    await datasets_no_metadata_client.get_or_create(name=DATASET_NO_METADATA_NAME)
-    assert os.path.exists(os.path.join(ms.datasets_directory, DATASET_NAME, '__metadata__.json')) is True
-    assert os.path.exists(os.path.join(ms_no_metadata.datasets_directory, DATASET_NO_METADATA_NAME, '__metadata__.json')) is False
+    await datasets_client.get_or_create(name=dataset_name)
+    await datasets_no_metadata_client.get_or_create(name=dataset_no_metadata_name)
+    assert os.path.exists(os.path.join(ms.datasets_directory, dataset_name, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(ms_no_metadata.datasets_directory, dataset_no_metadata_name, '__metadata__.json')) is False
 
 
 @pytest.mark.asyncio
