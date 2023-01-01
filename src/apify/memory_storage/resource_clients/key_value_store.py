@@ -50,7 +50,7 @@ class KeyValueStoreClient:
         found = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if found:
-            await found.update_timestamps(False)
+            await found._update_timestamps(False)
             return found.to_key_value_store_info()
 
         return None
@@ -83,7 +83,7 @@ class KeyValueStoreClient:
         await _force_rename(previous_dir, existing_store_by_id.key_value_store_directory)
 
         # Update timestamps
-        await existing_store_by_id.update_timestamps(True)
+        await existing_store_by_id._update_timestamps(True)
 
         return existing_store_by_id.to_key_value_store_info()
 
@@ -130,7 +130,7 @@ class KeyValueStoreClient:
         is_last_selected_item_absolutely_last = last_item_in_store == last_selected_item
         next_exclusive_start_key = None if is_last_selected_item_absolutely_last else last_selected_item['key']
 
-        await existing_store_by_id.update_timestamps(False)
+        await existing_store_by_id._update_timestamps(False)
 
         return {
             'count': len(items),
@@ -163,7 +163,7 @@ class KeyValueStoreClient:
         if not as_bytes:
             record['value'] = _maybe_parse_body(record['value'], record['contentType'])
 
-        await existing_store_by_id.update_timestamps(False)
+        await existing_store_by_id._update_timestamps(False)
 
         return record
 
@@ -210,7 +210,7 @@ class KeyValueStoreClient:
 
         existing_store_by_id.key_value_entries[key] = record
 
-        await existing_store_by_id.update_timestamps(True)
+        await existing_store_by_id._update_timestamps(True)
         await _set_or_delete_key_value_store_record(
             entity_directory=existing_store_by_id.key_value_store_directory,
             persist_storage=self.client.persist_storage,
@@ -231,7 +231,7 @@ class KeyValueStoreClient:
 
         if entry is not None:
             del existing_store_by_id.key_value_entries[key]
-            await existing_store_by_id.update_timestamps(True)
+            await existing_store_by_id._update_timestamps(True)
             await _set_or_delete_key_value_store_record(
                 entity_directory=existing_store_by_id.key_value_store_directory,
                 persist_storage=self.client.persist_storage,
@@ -251,7 +251,7 @@ class KeyValueStoreClient:
             'userId': '1',
         }
 
-    async def update_timestamps(self, has_been_modified: bool) -> None:
+    async def _update_timestamps(self, has_been_modified: bool) -> None:
         """TODO: docs."""
         self.accessed_at = datetime.utcnow()
 

@@ -45,7 +45,7 @@ class RequestQueueClient:
         found = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if found:
-            await found.update_timestamps(False)
+            await found._update_timestamps(False)
             return found.to_request_queue_info()
 
         return None
@@ -78,7 +78,7 @@ class RequestQueueClient:
         await _force_rename(previous_dir, existing_store_by_id.request_queue_directory)
 
         # Update timestamps
-        await existing_store_by_id.update_timestamps(True)
+        await existing_store_by_id._update_timestamps(True)
 
         return existing_store_by_id.to_request_queue_info()
 
@@ -100,7 +100,7 @@ class RequestQueueClient:
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
-        await existing_store_by_id.update_timestamps(False)
+        await existing_store_by_id._update_timestamps(False)
 
         items: List[Dict] = []
 
@@ -131,7 +131,7 @@ class RequestQueueClient:
 
         # We already have the request present, so we return information about it
         if existing_request_with_id is not None:
-            await existing_store_by_id.update_timestamps(False)
+            await existing_store_by_id._update_timestamps(False)
 
             return {
                 'requestId': existing_request_with_id['id'],
@@ -141,7 +141,7 @@ class RequestQueueClient:
 
         existing_store_by_id.requests[request_model['id']] = request_model
         existing_store_by_id.pending_request_count += 1 if request_model['orderNo'] is None else 0
-        await existing_store_by_id.update_timestamps(True)
+        await existing_store_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,
             request_id=request_model['id'],
@@ -164,7 +164,7 @@ class RequestQueueClient:
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self.id)
 
-        await existing_store_by_id.update_timestamps(False)
+        await existing_store_by_id._update_timestamps(False)
 
         request = existing_store_by_id.requests.get(request_id)
         return self._json_to_request(request['json'] if request is not None else None)
@@ -202,7 +202,7 @@ class RequestQueueClient:
             handled_count_adjustment = -handled_count_adjustment
 
         existing_store_by_id.pending_request_count += handled_count_adjustment
-        await existing_store_by_id.update_timestamps(True)
+        await existing_store_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,
             request_id=request_model['id'],
@@ -228,7 +228,7 @@ class RequestQueueClient:
         if request:
             del existing_store_by_id.requests[request_id]
             existing_store_by_id.pending_request_count -= 0 if request['orderNo'] is None else 1
-            await existing_store_by_id.update_timestamps(True)
+            await existing_store_by_id._update_timestamps(True)
             await _delete_request(entity_directory=existing_store_by_id.request_queue_directory, request_id=request_id)
 
     def to_request_queue_info(self) -> Dict:
@@ -247,7 +247,7 @@ class RequestQueueClient:
             'userId': '1',
         }
 
-    async def update_timestamps(self, has_been_modified: bool) -> None:
+    async def _update_timestamps(self, has_been_modified: bool) -> None:
         """TODO: docs."""
         self.accessed_at = datetime.utcnow()
 

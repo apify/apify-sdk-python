@@ -43,7 +43,7 @@ class DatasetClient:
         found = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
         if found:
-            await found.update_timestamps(False)
+            await found._update_timestamps(False)
             return found.to_dataset_info()
 
         return None
@@ -76,7 +76,7 @@ class DatasetClient:
         await _force_rename(previous_dir, existing_store_by_id.dataset_directory)
 
         # Update timestamps
-        await existing_store_by_id.update_timestamps(True)
+        await existing_store_by_id._update_timestamps(True)
 
         return existing_store_by_id.to_dataset_info()
 
@@ -124,7 +124,7 @@ class DatasetClient:
             entry_number = self._generate_local_entry_name(idx)
             items.append(existing_store_by_id.dataset_entries[entry_number])
 
-        await existing_store_by_id.update_timestamps(False)
+        await existing_store_by_id._update_timestamps(False)
 
         if desc:
             items.reverse()
@@ -254,7 +254,7 @@ class DatasetClient:
         for id in added_ids:
             data_entries.append((id, existing_store_by_id.dataset_entries[id]))
 
-        await existing_store_by_id.update_timestamps(True)
+        await existing_store_by_id._update_timestamps(True)
 
         await _update_dataset_items(
             data=data_entries,
@@ -273,7 +273,7 @@ class DatasetClient:
             'modifiedAt': self.modified_at,
         }
 
-    async def update_timestamps(self, has_been_modified: bool) -> None:
+    async def _update_timestamps(self, has_been_modified: bool) -> None:
         """TODO: docs."""
         self.accessed_at = datetime.utcnow()
 
