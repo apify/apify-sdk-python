@@ -5,10 +5,12 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.request_queue_collection import RequestQueueCollectionClient
 
+from ._common import memory_storage
+
 
 @pytest.fixture()
-def request_queues_client(tmp_path: str) -> RequestQueueCollectionClient:
-    return MemoryStorage(local_data_directory=tmp_path, write_metadata=True).request_queues()
+def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollectionClient:
+    return memory_storage.request_queues()
 
 
 @pytest.mark.asyncio

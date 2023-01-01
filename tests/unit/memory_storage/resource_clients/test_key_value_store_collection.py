@@ -5,10 +5,12 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.key_value_store_collection import KeyValueStoreCollectionClient
 
+from ._common import memory_storage
+
 
 @pytest.fixture()
-def key_value_stores_client(tmp_path: str) -> KeyValueStoreCollectionClient:
-    return MemoryStorage(local_data_directory=tmp_path, write_metadata=True).key_value_stores()
+def key_value_stores_client(memory_storage: MemoryStorage) -> KeyValueStoreCollectionClient:
+    return memory_storage.key_value_stores()
 
 
 @pytest.mark.asyncio

@@ -5,10 +5,12 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.dataset_collection import DatasetCollectionClient
 
+from ._common import memory_storage
+
 
 @pytest.fixture()
-def datasets_client(tmp_path: str) -> DatasetCollectionClient:
-    return MemoryStorage(local_data_directory=tmp_path, write_metadata=True).datasets()
+def datasets_client(memory_storage: MemoryStorage) -> DatasetCollectionClient:
+    return memory_storage.datasets()
 
 
 @pytest.mark.asyncio
