@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List
 import aioshutil
 
 from ..._types import JSONSerializable
-from ..._utils import ListPage, _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, uuid_regex
+from ..._utils import ListPage, _force_rename, _is_uuid, _raise_on_duplicate_storage, _raise_on_non_existing_storage
 from ...consts import StorageTypes
 from ..file_storage_utils import _update_dataset_items, _update_metadata
 
@@ -28,7 +28,7 @@ class DatasetClient:
     accessed_at = datetime.utcnow()
     modified_at = datetime.utcnow()
     item_count = 0
-    dataset_entries: Dict[str, Dict] = {}
+    dataset_entries: Dict[str, Dict]
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """TODO: docs."""
@@ -36,6 +36,7 @@ class DatasetClient:
         self.dataset_directory = os.path.join(base_storage_directory, name or self.id)
         self.client = client
         self.name = name
+        self.dataset_entries = {}
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""
@@ -364,9 +365,9 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
                 item_count += 1
 
     if id is None and name is None:
-        is_uuid = uuid_regex.match(entry_name_or_id)
+        is_uuid = _is_uuid(entry_name_or_id)
 
-        if is_uuid is not None:
+        if is_uuid:
             id = entry_name_or_id
         else:
             name = entry_name_or_id

@@ -30,7 +30,7 @@ class RequestQueueClient:
     modified_at = datetime.utcnow()
     handled_request_count = 0
     pending_request_count = 0
-    requests: Dict[str, Dict] = {}
+    requests: Dict[str, Dict]
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """TODO: docs."""
@@ -38,6 +38,7 @@ class RequestQueueClient:
         self.request_queue_directory = os.path.join(base_storage_directory, name or self.id)
         self.client = client
         self.name = name
+        self.requests = {}
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""

@@ -17,9 +17,9 @@ from .resource_clients.request_queue_collection import RequestQueueCollectionCli
 class MemoryStorage:
     """Class representing an in-memory storage."""
 
-    datasets_handled: List[DatasetClient] = []
-    key_value_stores_handled: List[KeyValueStoreClient] = []
-    request_queues_handled: List[RequestQueueClient] = []
+    datasets_handled: List[DatasetClient]
+    key_value_stores_handled: List[KeyValueStoreClient]
+    request_queues_handled: List[RequestQueueClient]
 
     def __init__(
         self, *, local_data_directory: str = './storage', write_metadata: Optional[bool] = False, persist_storage: Optional[bool] = True,
@@ -31,6 +31,9 @@ class MemoryStorage:
         self.request_queues_directory = os.path.join(self.local_data_directory, 'request_queues')
         self.write_metadata = write_metadata or '*' in os.getenv('DEBUG', '')
         self.persist_storage = persist_storage or not any(s in os.getenv('APIFY_PERSIST_STORAGE', 'true') for s in ['false', '0', ''])
+        self.datasets_handled = []
+        self.key_value_stores_handled = []
+        self.request_queues_handled = []
 
     def datasets(self) -> DatasetCollectionClient:
         """TODO: docs."""
