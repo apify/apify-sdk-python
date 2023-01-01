@@ -276,7 +276,6 @@ def test__json_dumps() -> None:
             'abc': 'def',
         },
     })
-    print(actual)
     assert actual == expected
 
 
