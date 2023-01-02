@@ -68,6 +68,8 @@ class Actor(metaclass=_ActorContextManager):
     _apify_client: ApifyClientAsync
     _config: Configuration
     _event_manager: EventManager
+    _send_system_info_interval_task: Optional[asyncio.Task] = None
+    _send_persist_state_interval_task: Optional[asyncio.Task] = None
 
     def __init__(self, config: Optional[Configuration] = None) -> None:
         """TODO: docs."""
@@ -238,7 +240,6 @@ class Actor(metaclass=_ActorContextManager):
         print(f'Exiting actor with exit code {exit_code}')
 
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
-            self._send_persist_state_interval_task.cancel()
             self._send_persist_state_interval_task.cancel()
             try:
                 await self._send_persist_state_interval_task
