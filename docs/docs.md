@@ -267,7 +267,7 @@ Create a ProxyConfiguration object with the passed proxy configuration.
 Configures connection to a proxy server with the provided options.
 Proxy servers are used to prevent target websites from blocking your crawlers based on IP address rate limits or blacklists.
 
-For more details and code examples, see the [{@apilink](mailto:{@apilink) ProxyConfiguration} class.
+For more details and code examples, see the ProxyConfiguration class.
 
 * **Parameters**
 
