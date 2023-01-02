@@ -190,7 +190,8 @@ class KeyValueStoreClient:
         if content_type is None:
             # TODO: Add streaming support for this method...
             if _is_file_or_bytes(value):
-                content_type = 'application/octet-stream'
+                raise NotImplementedError('Such value for set_record is not supported in local memory storage')
+                # content_type = 'application/octet-stream'
             elif isinstance(value, str):
                 content_type = 'text/plain; charset=utf-8'
             else:

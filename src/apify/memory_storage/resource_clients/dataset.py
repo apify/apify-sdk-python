@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
 
 """
+ This is what API returns in the x-apify-pagination-limit
+ header when no limit query parameter is used.
+ """
+LIST_ITEMS_LIMIT = 999_999_999_999
+
+"""
  Number of characters of the dataset item file names.
  E.g.: 000000019.json - 9 digits
 """
@@ -94,8 +100,8 @@ class DatasetClient:
     async def list_items(
         self,
         *,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
+        offset: int = 0,
+        limit: int = LIST_ITEMS_LIMIT,
         clean: Optional[bool] = None,
         desc: Optional[bool] = None,
         fields: Optional[List[str]] = None,
@@ -114,7 +120,7 @@ class DatasetClient:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
 
         start, end = existing_store_by_id._get_start_and_end_indexes(
-            max(existing_store_by_id.item_count - (offset or 0) - (limit or 0), 0) if desc else offset or 0,
+            max(existing_store_by_id.item_count - offset - limit, 0) if desc else offset or 0,
             limit,
         )
 

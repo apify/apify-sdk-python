@@ -28,7 +28,7 @@ class RequestQueueClient:
     created_at = datetime.utcnow()
     accessed_at = datetime.utcnow()
     modified_at = datetime.utcnow()
-    handled_request_count = 0
+    handled_request_count = 0  # TODO: Does not seem to be implemented in crawelee, always 0
     pending_request_count = 0
     requests: Dict[str, Dict]
 
@@ -120,6 +120,7 @@ class RequestQueueClient:
 
     async def add_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:
         """TODO: docs."""
+        # TODO: Throw if uniqueKey or url missing from request dict, also do for update_request...
         existing_store_by_id = _find_or_cache_request_queue_by_possible_id(self.client, self.name or self.id)
 
         if existing_store_by_id is None:
@@ -140,7 +141,8 @@ class RequestQueueClient:
             }
 
         existing_store_by_id.requests[request_model['id']] = request_model
-        existing_store_by_id.pending_request_count += 1 if request_model['orderNo'] is None else 0
+        # TODO: Validate the next line logic, seems wrong in crawlee
+        existing_store_by_id.pending_request_count += 0 if request_model['orderNo'] is None else 1
         await existing_store_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,
@@ -192,16 +194,16 @@ class RequestQueueClient:
         # the handled counts are updated correctly in all cases.
         existing_store_by_id.requests[request_model['id']] = request_model
 
-        handled_count_adjustment = 0
+        pending_count_adjustment = 0
         is_request_handled_state_changing = type(existing_request['orderNo']) != type(request_model['orderNo'])  # noqa
         request_was_handled_before_update = existing_request['orderNo'] is None
 
+        # We add 1 pending request if previous state was handled
+        # TODO: Validate the next 2 lines logic, seems wrong in crawlee
         if is_request_handled_state_changing:
-            handled_count_adjustment += 1
-        if request_was_handled_before_update:
-            handled_count_adjustment = -handled_count_adjustment
+            pending_count_adjustment = 1 if request_was_handled_before_update else -1
 
-        existing_store_by_id.pending_request_count += handled_count_adjustment
+        existing_store_by_id.pending_request_count += pending_count_adjustment
         await existing_store_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,

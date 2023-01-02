@@ -5,11 +5,11 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.request_queue_collection import RequestQueueCollectionClient
 
-from ._common import memory_storage
+from ._common import memory_storage  # noqa: F401
 
 
 @pytest.fixture()
-def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollectionClient:
+def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollectionClient:  # noqa: F811
     return memory_storage.request_queues()
 
 

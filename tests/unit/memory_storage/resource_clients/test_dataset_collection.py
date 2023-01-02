@@ -5,11 +5,11 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.dataset_collection import DatasetCollectionClient
 
-from ._common import memory_storage
+from ._common import memory_storage  # noqa: F401
 
 
 @pytest.fixture()
-def datasets_client(memory_storage: MemoryStorage) -> DatasetCollectionClient:
+def datasets_client(memory_storage: MemoryStorage) -> DatasetCollectionClient:  # noqa: F811
     return memory_storage.datasets()
 
 
