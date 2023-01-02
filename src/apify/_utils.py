@@ -155,15 +155,12 @@ def _maybe_parse_int(val: str) -> Optional[int]:
 
 
 async def _run_func_at_interval_async(func: Callable, interval_secs: float) -> None:
-    try:
-        started_at = time.time()
-        while True:
-            elapsed_secs = time.time() - started_at
-            sleep_for_secs = interval_secs - (elapsed_secs % interval_secs)
-            await asyncio.sleep(sleep_for_secs)
+    started_at = time.time()
+    while True:
+        elapsed_secs = time.time() - started_at
+        sleep_for_secs = interval_secs - (elapsed_secs % interval_secs)
+        await asyncio.sleep(sleep_for_secs)
 
-            res = func()
-            if inspect.isawaitable(res):
-                await res
-    except asyncio.CancelledError:
-        pass
+        res = func()
+        if inspect.isawaitable(res):
+            await res
