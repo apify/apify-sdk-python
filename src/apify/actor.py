@@ -351,8 +351,14 @@ class Actor(metaclass=_ActorContextManager):
         if not dataset_id_or_name:
             dataset_id_or_name = self._config.default_dataset_id
 
-        dataset = await self._apify_client.datasets().get_or_create(name=dataset_id_or_name)
-        return self._apify_client.dataset(dataset['id'])
+        dataset_client = self._apify_client.dataset(dataset_id_or_name)
+
+        if await dataset_client.get():
+            return dataset_client
+
+        else:
+            dataset = await self._apify_client.datasets().get_or_create(name=dataset_id_or_name)
+            return self._apify_client.dataset(dataset['id'])
 
     @classmethod
     async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStoreClientAsync:
@@ -367,8 +373,14 @@ class Actor(metaclass=_ActorContextManager):
         if not key_value_store_id_or_name:
             key_value_store_id_or_name = self._config.default_key_value_store_id
 
-        key_value_store = await self._apify_client.key_value_stores().get_or_create(name=key_value_store_id_or_name)
-        return self._apify_client.key_value_store(key_value_store['id'])
+        store_client = self._apify_client.key_value_store(key_value_store_id_or_name)
+
+        if await store_client.get():
+            return store_client
+
+        else:
+            key_value_store = await self._apify_client.key_value_stores().get_or_create(name=key_value_store_id_or_name)
+            return self._apify_client.key_value_store(key_value_store['id'])
 
     @classmethod
     async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None) -> RequestQueueClientAsync:
@@ -383,8 +395,14 @@ class Actor(metaclass=_ActorContextManager):
         if not request_queue_id_or_name:
             request_queue_id_or_name = self._config.default_request_queue_id
 
-        request_queue = await self._apify_client.request_queues().get_or_create(name=request_queue_id_or_name)
-        return self._apify_client.request_queue(request_queue['id'])
+        queue_client = self._apify_client.request_queue(request_queue_id_or_name)
+
+        if await queue_client.get():
+            return queue_client
+
+        else:
+            request_queue = await self._apify_client.request_queues().get_or_create(name=request_queue_id_or_name)
+            return self._apify_client.request_queue(request_queue['id'])
 
     @classmethod
     async def push_data(cls, data: Any) -> None:
@@ -424,6 +442,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         key_value_store_client = await self.open_key_value_store()
+        print(key)
         record = await key_value_store_client.get_record(key)
         if record:
             return record['value']
