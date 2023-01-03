@@ -3,7 +3,7 @@ import functools
 import inspect
 from datetime import datetime
 from types import TracebackType
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Type, TypeVar, cast
+from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
 from apify_client.clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
@@ -20,6 +20,7 @@ from ._utils import (
 from .config import Configuration
 from .consts import ActorEventType, ApifyEnvVars
 from .event_manager import EventManager
+from .proxy_configuration import ProxyConfiguration
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -68,6 +69,8 @@ class Actor(metaclass=_ActorContextManager):
     _apify_client: ApifyClientAsync
     _config: Configuration
     _event_manager: EventManager
+    _send_system_info_interval_task: Optional[asyncio.Task] = None
+    _send_persist_state_interval_task: Optional[asyncio.Task] = None
 
     def __init__(self, config: Optional[Configuration] = None) -> None:
         """TODO: docs."""
@@ -104,6 +107,7 @@ class Actor(metaclass=_ActorContextManager):
         self.reboot = _wrap_internal(self._reboot_internal, self.reboot)  # type: ignore
         self.add_webhook = _wrap_internal(self._add_webhook_internal, self.add_webhook)  # type: ignore
         self.set_status_message = _wrap_internal(self._set_status_message_internal, self.set_status_message)  # type: ignore
+        self.create_proxy_configuration = _wrap_internal(self._create_proxy_configuration_internal, self.create_proxy_configuration)  # type: ignore
 
         self._config: Configuration = config or Configuration()
         self._apify_client = self.new_client()
@@ -239,11 +243,17 @@ class Actor(metaclass=_ActorContextManager):
 
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
             self._send_persist_state_interval_task.cancel()
-            await self._send_persist_state_interval_task
+            try:
+                await self._send_persist_state_interval_task
+            except asyncio.CancelledError:
+                pass
 
         if self._send_system_info_interval_task and not self._send_system_info_interval_task.cancelled():
             self._send_system_info_interval_task.cancel()
-            await self._send_system_info_interval_task
+            try:
+                await self._send_system_info_interval_task
+            except asyncio.CancelledError:
+                pass
 
         # Send final persist state event
         self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False})
@@ -344,8 +354,14 @@ class Actor(metaclass=_ActorContextManager):
         if not dataset_id_or_name:
             dataset_id_or_name = self._config.default_dataset_id
 
-        dataset = await self._apify_client.datasets().get_or_create(name=dataset_id_or_name)
-        return self._apify_client.dataset(dataset['id'])
+        dataset_client = self._apify_client.dataset(dataset_id_or_name)
+
+        if await dataset_client.get():
+            return dataset_client
+
+        else:
+            dataset = await self._apify_client.datasets().get_or_create(name=dataset_id_or_name)
+            return self._apify_client.dataset(dataset['id'])
 
     @classmethod
     async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStoreClientAsync:
@@ -360,8 +376,14 @@ class Actor(metaclass=_ActorContextManager):
         if not key_value_store_id_or_name:
             key_value_store_id_or_name = self._config.default_key_value_store_id
 
-        key_value_store = await self._apify_client.key_value_stores().get_or_create(name=key_value_store_id_or_name)
-        return self._apify_client.key_value_store(key_value_store['id'])
+        store_client = self._apify_client.key_value_store(key_value_store_id_or_name)
+
+        if await store_client.get():
+            return store_client
+
+        else:
+            key_value_store = await self._apify_client.key_value_stores().get_or_create(name=key_value_store_id_or_name)
+            return self._apify_client.key_value_store(key_value_store['id'])
 
     @classmethod
     async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None) -> RequestQueueClientAsync:
@@ -376,8 +398,14 @@ class Actor(metaclass=_ActorContextManager):
         if not request_queue_id_or_name:
             request_queue_id_or_name = self._config.default_request_queue_id
 
-        request_queue = await self._apify_client.request_queues().get_or_create(name=request_queue_id_or_name)
-        return self._apify_client.request_queue(request_queue['id'])
+        queue_client = self._apify_client.request_queue(request_queue_id_or_name)
+
+        if await queue_client.get():
+            return queue_client
+
+        else:
+            request_queue = await self._apify_client.request_queues().get_or_create(name=request_queue_id_or_name)
+            return self._apify_client.request_queue(request_queue['id'])
 
     @classmethod
     async def push_data(cls, data: Any) -> None:
@@ -824,3 +852,77 @@ class Actor(metaclass=_ActorContextManager):
         assert self._config.actor_run_id is not None
 
         return await self._apify_client.run(self._config.actor_run_id).update(status_message=status_message)
+
+    @classmethod
+    async def create_proxy_configuration(
+        cls,
+        *,
+        password: Optional[str] = None,
+        groups: Optional[List[str]] = None,
+        country_code: Optional[str] = None,
+        proxy_urls: Optional[List[str]] = None,
+        new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None,
+        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
+    ) -> Optional[ProxyConfiguration]:
+        """Create a ProxyConfiguration object with the passed proxy configuration.
+
+        Configures connection to a proxy server with the provided options.
+        Proxy servers are used to prevent target websites from blocking your crawlers based on IP address rate limits or blacklists.
+
+        For more details and code examples, see the `ProxyConfiguration` class.
+
+        Args:
+            password (str, optional): Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
+            groups (list of str, optional): Proxy groups which the Apify Proxy should use, if provided.
+            country_code (str, optional): Country which the Apify Proxy should use, if provided.
+            proxy_urls (list of str, optional): Custom proxy server URLs which should be rotated through.
+            new_url_function (Callable, optional): Function which returns a custom proxy URL to be used.
+            actor_proxy_input (dict, optional): Proxy configuration field from the actor input, if actor has such input field.
+
+        Returns:
+            ProxyConfiguration, optional: ProxyConfiguration object with the passed configuration,
+                                          or None, if no proxy should be used based on the configuration.
+        """
+        return await cls._get_default_instance().create_proxy_configuration(
+            password=password,
+            groups=groups,
+            country_code=country_code,
+            proxy_urls=proxy_urls,
+            new_url_function=new_url_function,
+            actor_proxy_input=actor_proxy_input,
+        )
+
+    async def _create_proxy_configuration_internal(
+        self,
+        *,
+        password: Optional[str] = None,
+        groups: Optional[List[str]] = None,
+        country_code: Optional[str] = None,
+        proxy_urls: Optional[List[str]] = None,
+        new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None,
+        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
+    ) -> Optional[ProxyConfiguration]:
+        self._raise_if_not_initialized()
+
+        if actor_proxy_input is not None:
+            if actor_proxy_input.get('useApifyProxy', False):
+                country_code = country_code or actor_proxy_input.get('apifyProxyCountry', None)
+                groups = groups or actor_proxy_input.get('apifyProxyGroups', None)
+            else:
+                proxy_urls = actor_proxy_input.get('proxyUrls', [])
+                if not proxy_urls:
+                    return None
+
+        proxy_configuration = ProxyConfiguration(
+            password=password,
+            groups=groups,
+            country_code=country_code,
+            proxy_urls=proxy_urls,
+            new_url_function=new_url_function,
+            actor_config=self._config,
+            apify_client=self._apify_client,
+        )
+
+        await proxy_configuration.initialize()
+
+        return proxy_configuration

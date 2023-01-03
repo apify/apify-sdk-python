@@ -129,6 +129,10 @@ async def test__run_func_at_interval_async() -> None:
     assert test_var == 3
 
     sync_increment_task.cancel()
+    try:
+        await sync_increment_task
+    except asyncio.CancelledError:
+        pass
 
     await asyncio.sleep(1)
     assert test_var == 3
@@ -153,6 +157,10 @@ async def test__run_func_at_interval_async() -> None:
     assert test_var == 3
 
     async_increment_task.cancel()
+    try:
+        await async_increment_task
+    except asyncio.CancelledError:
+        pass
 
     await asyncio.sleep(1)
     assert test_var == 3
