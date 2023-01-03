@@ -217,7 +217,7 @@ class TestProxyConfigurationNewUrl:
         await proxy_configuration_1.new_url(session_id=session_id)
         await proxy_configuration_2.new_url(session_id=session_id)
 
-        assert proxy_configuration_1._used_proxy_urls is not proxy_configuration_2._proxy_urls
+        assert proxy_configuration_1._used_proxy_urls is not proxy_configuration_2._used_proxy_urls
 
 
 class TestProxyConfigurationNewProxyInfo:
