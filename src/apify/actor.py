@@ -445,7 +445,6 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         key_value_store_client = await self.open_key_value_store()
-        print(key)
         record = await key_value_store_client.get_record(key)
         if record:
             return record['value']
