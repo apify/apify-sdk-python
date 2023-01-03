@@ -12,7 +12,7 @@ module.exports = {
     baseUrl: '/sdk-python',
     trailingSlash: false,
     organizationName: 'apify',
-    projectName: 'apify-sdk-js-v2',
+    projectName: 'apify-sdk-python-v2',
     scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
     onBrokenLinks:
@@ -37,7 +37,7 @@ module.exports = {
                             to: 'api/apify',
                             label: 'API',
                             position: 'left',
-                            activeBaseRegex: 'sdk-js/(api|typedefs)(?!.*/changelog)',
+                            activeBaseRegex: 'sdk-python/(api|typedefs)(?!.*/changelog)',
                         },
                         {
                             to: 'api/apify/changelog',
