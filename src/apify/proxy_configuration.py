@@ -109,10 +109,10 @@ class ProxyConfiguration:
     is_man_in_the_middle = False
 
     _next_custom_url_index = 0
-    _proxy_urls: List[str] = []
-    _used_proxy_urls: Dict[str, str] = {}
+    _proxy_urls: List[str]
+    _used_proxy_urls: Dict[str, str]
     _new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None
-    _groups: List[str] = []
+    _groups: List[str]
     _country_code: Optional[str] = None
     _password: Optional[str] = None
     _hostname: str
@@ -169,9 +169,10 @@ class ProxyConfiguration:
         self._port = self._actor_config.proxy_port
         self._password = password or self._actor_config.proxy_password
 
-        self._proxy_urls = proxy_urls or []
+        self._proxy_urls = list(proxy_urls) if proxy_urls else []
+        self._used_proxy_urls = {}
         self._new_url_function = new_url_function
-        self._groups = groups or []
+        self._groups = list(groups) if groups else []
         self._country_code = country_code
         self._uses_apify_proxy = not (proxy_urls or new_url_function)
 

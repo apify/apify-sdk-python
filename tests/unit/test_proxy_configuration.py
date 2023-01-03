@@ -80,7 +80,12 @@ class TestProxyConfigurationNewUrl:
             country_code=country_code,
         )
         proxy_url = await proxy_configuration.new_url()
-        assert proxy_url == 'http://groups-GROUP1+GROUP2,country-US:abcd1234@proxy.apify.com:8000'
+
+        expected_username = f'groups-{"+".join(groups)},country-{country_code}'
+        expected_hostname = 'proxy.apify.com'
+        expected_port = 8000
+
+        assert proxy_url == f'http://{expected_username}:{password}@{expected_hostname}:{expected_port}'
 
     @pytest.mark.asyncio
     async def test_new_url_session_id(self) -> None:
@@ -98,8 +103,13 @@ class TestProxyConfigurationNewUrl:
             '1', '0.34252352', 123456, 'XXXXXXXXXXxxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXXXXXXXXXX',
         ]
         for session_id in session_ids:
-            assert await proxy_configuration.new_url(session_id) \
-                == f'http://groups-GROUP1+GROUP2,session-{session_id},country-US:abcd1234@proxy.apify.com:8000'
+            expected_username = f'groups-{"+".join(groups)},session-{session_id},country-{country_code}'
+            expected_hostname = 'proxy.apify.com'
+            expected_port = 8000
+
+            proxy_url = await proxy_configuration.new_url(session_id)
+
+            assert proxy_url == f'http://{expected_username}:{password}@{expected_hostname}:{expected_port}'
 
         for invalid_session_id in ['a-b', 'a$b', 'XXXXXXXXXXxxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXXXXXXXXXXTooLong']:
             with pytest.raises(ValueError, match=re.escape(str(invalid_session_id))):
@@ -183,6 +193,32 @@ class TestProxyConfigurationNewUrl:
         with pytest.raises(ValueError, match='The provided "new_url_function" did not return a valid URL'):
             await proxy_configuration.new_url()
 
+    @pytest.mark.asyncio
+    async def test_proxy_configuration_not_sharing_references(self) -> None:
+        urls = [
+            'http://proxy-example-1.com:8000',
+            'http://proxy-example-2.com:8000',
+        ]
+        proxy_configuration_1 = ProxyConfiguration(
+            proxy_urls=urls,
+        )
+
+        urls.append('http://proxy-example-3.com:8000')
+        proxy_configuration_2 = ProxyConfiguration(
+            proxy_urls=urls,
+        )
+
+        assert proxy_configuration_1 is not None
+        assert proxy_configuration_2 is not None
+
+        assert proxy_configuration_1._proxy_urls is not proxy_configuration_2._proxy_urls
+
+        session_id = 'ABCD'
+        await proxy_configuration_1.new_url(session_id=session_id)
+        await proxy_configuration_2.new_url(session_id=session_id)
+
+        assert proxy_configuration_1._used_proxy_urls is not proxy_configuration_2._proxy_urls
+
 
 class TestProxyConfigurationNewProxyInfo:
     @pytest.mark.asyncio
@@ -196,14 +232,19 @@ class TestProxyConfigurationNewProxyInfo:
             country_code=country_code,
         )
         proxy_info = await proxy_configuration.new_proxy_info()
+
+        expected_hostname = 'proxy.apify.com'
+        expected_port = 8000
+        expected_username = f'groups-{"+".join(groups)},country-{country_code}'
+
         assert proxy_info == {
-            'url': 'http://groups-GROUP1+GROUP2,country-US:abcd1234@proxy.apify.com:8000',
-            'hostname': 'proxy.apify.com',
-            'port': 8000,
-            'groups': ['GROUP1', 'GROUP2'],
-            'country_code': 'US',
-            'username': 'groups-GROUP1+GROUP2,country-US',
-            'password': 'abcd1234',
+            'url': f'http://{expected_username}:{password}@{expected_hostname}:{expected_port}',
+            'hostname': expected_hostname,
+            'port': expected_port,
+            'groups': groups,
+            'country_code': country_code,
+            'username': expected_username,
+            'password': password,
         }
 
     @pytest.mark.asyncio
@@ -338,7 +379,7 @@ class TestProxyConfigurationInitialize:
         assert proxy_configuration._password == different_dummy_password
         assert proxy_configuration.is_man_in_the_middle is True
 
-        out, err = capsys.readouterr()
+        out, _ = capsys.readouterr()
         assert 'The Apify Proxy password you provided belongs to a different user' in out
 
     @pytest.mark.asyncio
@@ -377,7 +418,7 @@ class TestProxyConfigurationInitialize:
 
         await proxy_configuration.initialize()
 
-        out, err = capsys.readouterr()
+        out, _ = capsys.readouterr()
         assert 'Apify Proxy access check timed out' in out
 
     @pytest.mark.asyncio
