@@ -19,8 +19,8 @@ jobs:
 
             -   name: Set git identity
                 run: |
-                    git config --global user.name "Martin Adámek"
-                    git config --global user.email "martin@apify.com"
+                    git config --global user.name "Jindřich Bär"
+                    git config --global user.email "commits@jindrich.bar"
 
             #    - name: Cache node_modules
             #      uses: actions/cache@v2
@@ -34,5 +34,5 @@ jobs:
                     npm ci --force
                     npm run deploy
                 env:
-                    GIT_USER: "B4nan:${{ secrets.GH_TOKEN }}"
-                    GH_TOKEN: ${{ secrets.GH_TOKEN }}
+                    GIT_USER: "barjin:${{ secrets.GITHUB_TOKEN }}"
+                    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

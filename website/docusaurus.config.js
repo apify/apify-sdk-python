@@ -12,7 +12,7 @@ module.exports = {
     baseUrl: '/sdk-python',
     trailingSlash: false,
     organizationName: 'apify',
-    projectName: 'apify-sdk-python-v2',
+    projectName: 'apify-sdk-python',
     scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
     onBrokenLinks:
