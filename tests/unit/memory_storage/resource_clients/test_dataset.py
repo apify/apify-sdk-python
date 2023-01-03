@@ -1,23 +1,19 @@
 import os
 
 import pytest
-import pytest_asyncio
 
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.dataset import DatasetClient
 
-from ._common import memory_storage  # noqa: F401
 
-
-@pytest_asyncio.fixture()
-async def dataset_client(memory_storage: MemoryStorage) -> DatasetClient:  # noqa: F811
+@pytest.fixture()
+async def dataset_client(memory_storage: MemoryStorage) -> DatasetClient:
     datasets_client = memory_storage.datasets()
     dataset_info = await datasets_client.get_or_create(name='test')
     return memory_storage.dataset(id=dataset_info['id'])
 
 
-@pytest.mark.asyncio
-async def test_nonexistent(memory_storage: MemoryStorage) -> None:  # noqa: F811
+async def test_nonexistent(memory_storage: MemoryStorage) -> None:
     dataset_client = memory_storage.dataset(id='clearly not a uuid')
     assert await dataset_client.get() is None
     with pytest.raises(ValueError):
@@ -27,14 +23,12 @@ async def test_nonexistent(memory_storage: MemoryStorage) -> None:  # noqa: F811
     await dataset_client.delete()
 
 
-@pytest.mark.asyncio
 async def test_not_implemented(dataset_client: DatasetClient) -> None:
     with pytest.raises(NotImplementedError):
         await dataset_client.stream_items()
         await dataset_client.get_items_as_bytes()
 
 
-@pytest.mark.asyncio
 async def test_get(dataset_client: DatasetClient) -> None:
     info = await dataset_client.get()
     assert info is not None
@@ -42,7 +36,6 @@ async def test_get(dataset_client: DatasetClient) -> None:
     assert info['accessedAt'] != info['createdAt']
 
 
-@pytest.mark.asyncio
 async def test_update(dataset_client: DatasetClient) -> None:
     new_dataset_name = 'test-update'
     old_dataset_info = await dataset_client.get()
@@ -63,7 +56,6 @@ async def test_update(dataset_client: DatasetClient) -> None:
         await dataset_client.update(name=new_dataset_name)
 
 
-@pytest.mark.asyncio
 async def test_delete(dataset_client: DatasetClient) -> None:
     dataset_info = await dataset_client.get()
     assert dataset_info is not None
@@ -75,7 +67,6 @@ async def test_delete(dataset_client: DatasetClient) -> None:
     await dataset_client.delete()
 
 
-@pytest.mark.asyncio
 async def test_push_items(dataset_client: DatasetClient) -> None:
     await dataset_client.push_items('{"test": "JSON from a string"}')
     await dataset_client.push_items({'abc': {'def': {'ghi': '123'}}})
@@ -89,7 +80,6 @@ async def test_push_items(dataset_client: DatasetClient) -> None:
     assert list_page.count == 22
 
 
-@pytest.mark.asyncio
 async def test_list_items(dataset_client: DatasetClient) -> None:
     item_count = 100
     used_offset = 10
@@ -118,7 +108,6 @@ async def test_list_items(dataset_client: DatasetClient) -> None:
     assert list_desc_true.desc is True
 
 
-@pytest.mark.asyncio
 async def test_iterate_items(dataset_client: DatasetClient) -> None:
     item_count = 100
     await dataset_client.push_items([{'id': i} for i in range(item_count)])

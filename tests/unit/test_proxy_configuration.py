@@ -69,7 +69,7 @@ class TestProxyConfiguration:
 
 
 class TestProxyConfigurationNewUrl:
-    @pytest.mark.asyncio
+
     async def test_new_url_basic(self) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
@@ -87,7 +87,6 @@ class TestProxyConfigurationNewUrl:
 
         assert proxy_url == f'http://{expected_username}:{password}@{expected_hostname}:{expected_port}'
 
-    @pytest.mark.asyncio
     async def test_new_url_session_id(self) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
@@ -115,7 +114,6 @@ class TestProxyConfigurationNewUrl:
             with pytest.raises(ValueError, match=re.escape(str(invalid_session_id))):
                 await proxy_configuration.new_url(invalid_session_id)
 
-    @pytest.mark.asyncio
     async def test_rotating_custom_urls(self) -> None:
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
         proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
@@ -127,7 +125,6 @@ class TestProxyConfigurationNewUrl:
         assert await proxy_configuration.new_url() == proxy_urls[1]
         assert await proxy_configuration.new_url() == proxy_urls[2]
 
-    @pytest.mark.asyncio
     async def test_rotating_custom_urls_with_sessions(self) -> None:
         sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
@@ -150,7 +147,6 @@ class TestProxyConfigurationNewUrl:
         assert await proxy_configuration.new_url(sessions[1]) == proxy_urls[1]
         assert await proxy_configuration.new_url(sessions[3]) == proxy_urls[0]
 
-    @pytest.mark.asyncio
     async def test_custom_new_url_function(self) -> None:
         custom_urls = [
             'http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333',
@@ -166,7 +162,6 @@ class TestProxyConfigurationNewUrl:
         for custom_url in reversed(custom_urls):
             assert await proxy_configuration.new_url() == custom_url
 
-    @pytest.mark.asyncio
     async def test_custom_new_url_function_async(self) -> None:
         custom_urls = [
             'http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333',
@@ -183,7 +178,6 @@ class TestProxyConfigurationNewUrl:
         for custom_url in reversed(custom_urls):
             assert await proxy_configuration.new_url() == custom_url
 
-    @pytest.mark.asyncio
     async def test_invalid_custom_new_url_function(self) -> None:
         def custom_new_url_function(_session_id: Optional[str]) -> str:
             raise ValueError()
@@ -193,7 +187,6 @@ class TestProxyConfigurationNewUrl:
         with pytest.raises(ValueError, match='The provided "new_url_function" did not return a valid URL'):
             await proxy_configuration.new_url()
 
-    @pytest.mark.asyncio
     async def test_proxy_configuration_not_sharing_references(self) -> None:
         urls = [
             'http://proxy-example-1.com:8000',
@@ -221,7 +214,7 @@ class TestProxyConfigurationNewUrl:
 
 
 class TestProxyConfigurationNewProxyInfo:
-    @pytest.mark.asyncio
+
     async def test_new_proxy_info_basic(self) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
@@ -247,7 +240,6 @@ class TestProxyConfigurationNewProxyInfo:
             'password': password,
         }
 
-    @pytest.mark.asyncio
     async def test_new_proxy_info_rotates_urls(self) -> None:
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
         proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
@@ -259,7 +251,6 @@ class TestProxyConfigurationNewProxyInfo:
         assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[1]
         assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[2]
 
-    @pytest.mark.asyncio
     async def test_new_proxy_info_rotates_urls_with_sessions(self) -> None:
         sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
@@ -295,7 +286,7 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
 
 
 class TestProxyConfigurationInitialize:
-    @pytest.mark.asyncio
+
     async def test_initialize_basic(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -323,14 +314,12 @@ class TestProxyConfigurationInitialize:
         assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore
         assert len(route.calls) == 1
 
-    @pytest.mark.asyncio
     async def test_initialize_no_password_no_token(self) -> None:
         proxy_configuration = ProxyConfiguration()
 
         with pytest.raises(ValueError, match='Apify Proxy password must be provided'):
             await proxy_configuration.initialize()
 
-    @pytest.mark.asyncio
     async def test_initialize_manual_password(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -352,7 +341,6 @@ class TestProxyConfigurationInitialize:
         assert proxy_configuration._password == DUMMY_PASSWORD
         assert proxy_configuration.is_man_in_the_middle is False
 
-    @pytest.mark.asyncio
     async def test_initialize_manual_password_different_than_user_one(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -382,7 +370,6 @@ class TestProxyConfigurationInitialize:
         out, _ = capsys.readouterr()
         assert 'The Apify Proxy password you provided belongs to a different user' in out
 
-    @pytest.mark.asyncio
     async def test_initialize_not_connected(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -402,7 +389,6 @@ class TestProxyConfigurationInitialize:
         with pytest.raises(ConnectionError, match=dummy_connection_error):
             await proxy_configuration.initialize()
 
-    @pytest.mark.asyncio
     async def test_initialize_status_page_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -421,7 +407,6 @@ class TestProxyConfigurationInitialize:
         out, _ = capsys.readouterr()
         assert 'Apify Proxy access check timed out' in out
 
-    @pytest.mark.asyncio
     async def test_initialize_not_called_non_apify_proxy(
         self,
         monkeypatch: pytest.MonkeyPatch,

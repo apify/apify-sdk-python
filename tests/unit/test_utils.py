@@ -108,7 +108,6 @@ def test__maybe_parse_int() -> None:
     assert _maybe_parse_int('abcd') is None
 
 
-@pytest.mark.asyncio
 async def test__run_func_at_interval_async() -> None:
     # Test that it works with a synchronous functions
     test_var = 0
@@ -222,7 +221,6 @@ def test__is_file_or_bytes() -> None:  # Copypasted from client
     assert _is_file_or_bytes(None) is False
 
 
-@pytest.mark.asyncio
 async def test__force_remove(tmp_path: str) -> None:
     test_file_path = os.path.join(tmp_path, 'test.txt')
     # Does not crash/raise when the file does not exist
@@ -293,7 +291,6 @@ def test__unique_key_to_request_id() -> None:
     assert _unique_key_to_request_id('test') == 'n4bQgYhMfWWaLqg'
 
 
-@pytest.mark.asyncio
 async def test__force_rename(tmp_path: str) -> None:
     src_dir = os.path.join(tmp_path, 'src')
     dst_dir = os.path.join(tmp_path, 'dst')

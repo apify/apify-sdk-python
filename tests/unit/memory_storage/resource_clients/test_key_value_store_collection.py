@@ -5,15 +5,12 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.key_value_store_collection import KeyValueStoreCollectionClient
 
-from ._common import memory_storage  # noqa: F401
-
 
 @pytest.fixture()
-def key_value_stores_client(memory_storage: MemoryStorage) -> KeyValueStoreCollectionClient:  # noqa: F811
+def key_value_stores_client(memory_storage: MemoryStorage) -> KeyValueStoreCollectionClient:
     return memory_storage.key_value_stores()
 
 
-@pytest.mark.asyncio
 async def test_get_or_create(key_value_stores_client: KeyValueStoreCollectionClient) -> None:
     kvs_name = 'test'
     # A new kvs gets created
@@ -28,7 +25,6 @@ async def test_get_or_create(key_value_stores_client: KeyValueStoreCollectionCli
     assert kvs_info['createdAt'] == kvs_info_existing['createdAt']
 
 
-@pytest.mark.asyncio
 async def test_list(key_value_stores_client: KeyValueStoreCollectionClient) -> None:
     assert key_value_stores_client.list().count == 0
     kvs_info = await key_value_stores_client.get_or_create(name='kvs')

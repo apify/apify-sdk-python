@@ -5,15 +5,12 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.dataset_collection import DatasetCollectionClient
 
-from ._common import memory_storage  # noqa: F401
-
 
 @pytest.fixture()
-def datasets_client(memory_storage: MemoryStorage) -> DatasetCollectionClient:  # noqa: F811
+def datasets_client(memory_storage: MemoryStorage) -> DatasetCollectionClient:
     return memory_storage.datasets()
 
 
-@pytest.mark.asyncio
 async def test_get_or_create(datasets_client: DatasetCollectionClient) -> None:
     dataset_name = 'test'
     # A new dataset gets created
@@ -28,7 +25,6 @@ async def test_get_or_create(datasets_client: DatasetCollectionClient) -> None:
     assert dataset_info['createdAt'] == dataset_info_existing['createdAt']
 
 
-@pytest.mark.asyncio
 async def test_list(datasets_client: DatasetCollectionClient) -> None:
     assert datasets_client.list().count == 0
     dataset_info = await datasets_client.get_or_create(name='dataset')

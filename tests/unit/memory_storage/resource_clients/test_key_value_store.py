@@ -1,23 +1,19 @@
 import os
 
 import pytest
-import pytest_asyncio
 
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.key_value_store import KeyValueStoreClient
 
-from ._common import memory_storage  # noqa: F401
 
-
-@pytest_asyncio.fixture()
-async def key_value_store_client(memory_storage: MemoryStorage) -> KeyValueStoreClient:  # noqa: F811
+@pytest.fixture()
+async def key_value_store_client(memory_storage: MemoryStorage) -> KeyValueStoreClient:
     key_value_stores_client = memory_storage.key_value_stores()
     kvs_info = await key_value_stores_client.get_or_create(name='test')
     return memory_storage.key_value_store(id=kvs_info['id'])
 
 
-@pytest.mark.asyncio
-async def test_nonexistent(memory_storage: MemoryStorage) -> None:  # noqa: F811
+async def test_nonexistent(memory_storage: MemoryStorage) -> None:
     kvs_client = memory_storage.key_value_store(id='clearly not a uuid')
     assert await kvs_client.get() is None
     with pytest.raises(ValueError):
@@ -30,13 +26,11 @@ async def test_nonexistent(memory_storage: MemoryStorage) -> None:  # noqa: F811
     await kvs_client.delete()
 
 
-@pytest.mark.asyncio
 async def test_not_implemented(key_value_store_client: KeyValueStoreClient) -> None:
     with pytest.raises(NotImplementedError):
         await key_value_store_client.stream_record('test')
 
 
-@pytest.mark.asyncio
 async def test_get(key_value_store_client: KeyValueStoreClient) -> None:
     info = await key_value_store_client.get()
     assert info is not None
@@ -44,7 +38,6 @@ async def test_get(key_value_store_client: KeyValueStoreClient) -> None:
     assert info['accessedAt'] != info['createdAt']
 
 
-@pytest.mark.asyncio
 async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
     new_kvs_name = 'test-update'
     old_kvs_info = await key_value_store_client.get()
@@ -65,7 +58,6 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
         await key_value_store_client.update(name=new_kvs_name)
 
 
-@pytest.mark.asyncio
 async def test_delete(key_value_store_client: KeyValueStoreClient) -> None:
     kvs_info = await key_value_store_client.get()
     assert kvs_info is not None
@@ -77,7 +69,6 @@ async def test_delete(key_value_store_client: KeyValueStoreClient) -> None:
     await key_value_store_client.delete()
 
 
-@pytest.mark.asyncio
 async def test_list_keys(key_value_store_client: KeyValueStoreClient) -> None:
     record_count = 4
     used_limit = 2
@@ -106,7 +97,6 @@ async def test_list_keys(key_value_store_client: KeyValueStoreClient) -> None:
     assert keys_exclusive_start['items'][-1]['key'] == keys_exclusive_start['nextExclusiveStartKey']
 
 
-@pytest.mark.asyncio
 async def test_get_and_set_record(key_value_store_client: KeyValueStoreClient) -> None:
     # Test setting dict record
     dict_record_key = 'test-dict'
@@ -134,7 +124,6 @@ async def test_get_and_set_record(key_value_store_client: KeyValueStoreClient) -
         await key_value_store_client.set_record('bytes', 'test'.encode('utf-8'))
 
 
-@pytest.mark.asyncio
 async def test_get_record_as_bytes(key_value_store_client: KeyValueStoreClient) -> None:
     record_key = 'test'
     record_value = 'testing'
@@ -144,7 +133,6 @@ async def test_get_record_as_bytes(key_value_store_client: KeyValueStoreClient) 
     assert record_info['value'] == record_value.encode('utf-8')
 
 
-@pytest.mark.asyncio
 async def test_delete_record(key_value_store_client: KeyValueStoreClient) -> None:
     record_key = 'test'
     await key_value_store_client.set_record(record_key, 'test')

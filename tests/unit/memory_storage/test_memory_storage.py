@@ -1,11 +1,8 @@
 import os
 
-import pytest
-
 from apify.memory_storage.memory_storage import MemoryStorage
 
 
-@pytest.mark.asyncio
 async def test_write_metadata(tmp_path: str) -> None:
     dataset_name = 'test'
     dataset_no_metadata_name = 'test-no-metadata'
@@ -19,7 +16,6 @@ async def test_write_metadata(tmp_path: str) -> None:
     assert os.path.exists(os.path.join(ms_no_metadata.datasets_directory, dataset_no_metadata_name, '__metadata__.json')) is False
 
 
-@pytest.mark.asyncio
 async def test_persist_storage(tmp_path: str) -> None:
     ms = MemoryStorage(local_data_directory=tmp_path, persist_storage=True)
     ms_no_persist = MemoryStorage(local_data_directory=tmp_path, persist_storage=False)
@@ -33,7 +29,6 @@ async def test_persist_storage(tmp_path: str) -> None:
     assert os.path.exists(os.path.join(ms_no_persist.key_value_stores_directory, kvs_no_metadata_info['name'], 'test.json')) is False
 
 
-@pytest.mark.asyncio
 async def test_purge_datasets(tmp_path: str) -> None:
     ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
     # Create default and non-default datasets
@@ -51,7 +46,6 @@ async def test_purge_datasets(tmp_path: str) -> None:
     assert non_default_dataset_info['name'] in folders_after_purge
 
 
-@pytest.mark.asyncio
 async def test_purge_key_value_stores(tmp_path: str) -> None:
     ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
 
@@ -81,7 +75,6 @@ async def test_purge_key_value_stores(tmp_path: str) -> None:
     assert 'test.json' not in default_folder_files_after_purge
 
 
-@pytest.mark.asyncio
 async def test_purge_request_queues(tmp_path: str) -> None:
     ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
     # Create default and non-default request queues

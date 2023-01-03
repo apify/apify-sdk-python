@@ -5,15 +5,12 @@ import pytest
 from apify.memory_storage.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients.request_queue_collection import RequestQueueCollectionClient
 
-from ._common import memory_storage  # noqa: F401
-
 
 @pytest.fixture()
-def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollectionClient:  # noqa: F811
+def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollectionClient:
     return memory_storage.request_queues()
 
 
-@pytest.mark.asyncio
 async def test_get_or_create(request_queues_client: RequestQueueCollectionClient) -> None:
     rq_name = 'test'
     # A new request queue gets created
@@ -28,7 +25,6 @@ async def test_get_or_create(request_queues_client: RequestQueueCollectionClient
     assert rq_info['createdAt'] == rq_existing['createdAt']
 
 
-@pytest.mark.asyncio
 async def test_list(request_queues_client: RequestQueueCollectionClient) -> None:
     assert request_queues_client.list().count == 0
     rq_info = await request_queues_client.get_or_create(name='dataset')

@@ -57,70 +57,70 @@ class DatasetClient:
     async def update(self, *, name: Optional[str] = None) -> Dict:
         """TODO: docs."""
         # Check by id
-        existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
-        if existing_store_by_id is None:
+        if existing_dataset_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
 
         # Skip if no changes
         if name is None:
-            return existing_store_by_id.to_dataset_info()
+            return existing_dataset_by_id.to_dataset_info()
 
         # Check that name is not in use already
-        existing_store_by_name = next(
-            (store for store in self.client.datasets_handled if store.name and store.name.lower() == name.lower()), None)
+        existing_dataset_by_name = next(
+            (dataset for dataset in self.client.datasets_handled if dataset.name and dataset.name.lower() == name.lower()), None)
 
-        if existing_store_by_name is not None:
+        if existing_dataset_by_name is not None:
             _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', name)
 
-        existing_store_by_id.name = name
+        existing_dataset_by_id.name = name
 
-        previous_dir = existing_store_by_id.dataset_directory
+        previous_dir = existing_dataset_by_id.dataset_directory
 
-        existing_store_by_id.dataset_directory = os.path.join(self.client.datasets_directory, name)
+        existing_dataset_by_id.dataset_directory = os.path.join(self.client.datasets_directory, name)
 
-        await _force_rename(previous_dir, existing_store_by_id.dataset_directory)
+        await _force_rename(previous_dir, existing_dataset_by_id.dataset_directory)
 
         # Update timestamps
-        await existing_store_by_id._update_timestamps(True)
+        await existing_dataset_by_id._update_timestamps(True)
 
-        return existing_store_by_id.to_dataset_info()
+        return existing_dataset_by_id.to_dataset_info()
 
     async def delete(self) -> None:
         """TODO: docs."""
-        store = next((store for store in self.client.datasets_handled if store.id == self.id), None)
+        dataset = next((dataset for dataset in self.client.datasets_handled if dataset.id == self.id), None)
 
-        if store is not None:
-            self.client.datasets_handled.remove(store)
-            store.item_count = 0
-            store.dataset_entries.clear()
+        if dataset is not None:
+            self.client.datasets_handled.remove(dataset)
+            dataset.item_count = 0
+            dataset.dataset_entries.clear()
 
-            await aioshutil.rmtree(store.dataset_directory)
+            await aioshutil.rmtree(dataset.dataset_directory)
 
     async def list_items(
         self,
         *,
         offset: int = 0,
         limit: int = LIST_ITEMS_LIMIT,
-        clean: Optional[bool] = None,
+        _clean: Optional[bool] = None,
         desc: Optional[bool] = None,
-        fields: Optional[List[str]] = None,
-        omit: Optional[List[str]] = None,
-        unwind: Optional[str] = None,
-        skip_empty: Optional[bool] = None,
-        skip_hidden: Optional[bool] = None,
-        flatten: Optional[List[str]] = None,
-        view: Optional[str] = None,
+        _fields: Optional[List[str]] = None,
+        _omit: Optional[List[str]] = None,
+        _unwind: Optional[str] = None,
+        _skip_empty: Optional[bool] = None,
+        _skip_hidden: Optional[bool] = None,
+        _flatten: Optional[List[str]] = None,
+        _view: Optional[str] = None,
     ) -> ListPage:
         """TODO: docs."""
         # Check by id
-        existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
-        if existing_store_by_id is None:
+        if existing_dataset_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
 
-        start, end = existing_store_by_id._get_start_and_end_indexes(
-            max(existing_store_by_id.item_count - offset - limit, 0) if desc else offset or 0,
+        start, end = existing_dataset_by_id._get_start_and_end_indexes(
+            max(existing_dataset_by_id.item_count - offset - limit, 0) if desc else offset or 0,
             limit,
         )
 
@@ -128,9 +128,9 @@ class DatasetClient:
 
         for idx in range(start, end):
             entry_number = self._generate_local_entry_name(idx)
-            items.append(existing_store_by_id.dataset_entries[entry_number])
+            items.append(existing_dataset_by_id.dataset_entries[entry_number])
 
-        await existing_store_by_id._update_timestamps(False)
+        await existing_dataset_by_id._update_timestamps(False)
 
         if desc:
             items.reverse()
@@ -141,7 +141,7 @@ class DatasetClient:
             'items': items,
             'limit': limit,
             'offset': offset,
-            'total': existing_store_by_id.item_count,
+            'total': existing_dataset_by_id.item_count,
         })
 
     async def iterate_items(
@@ -149,13 +149,13 @@ class DatasetClient:
         *,
         offset: int = 0,
         limit: Optional[int] = None,
-        clean: Optional[bool] = None,
+        _clean: Optional[bool] = None,
         desc: Optional[bool] = None,
-        fields: Optional[List[str]] = None,
-        omit: Optional[List[str]] = None,
-        unwind: Optional[str] = None,
-        skip_empty: Optional[bool] = None,
-        skip_hidden: Optional[bool] = None,
+        _fields: Optional[List[str]] = None,
+        _omit: Optional[List[str]] = None,
+        _unwind: Optional[str] = None,
+        _skip_empty: Optional[bool] = None,
+        _skip_hidden: Optional[bool] = None,
     ) -> AsyncGenerator:  # TODO: Copy-pasted from client
         """TODO: docs."""
         cache_size = 1000
@@ -177,13 +177,7 @@ class DatasetClient:
             current_items_page = await self.list_items(
                 offset=current_offset,
                 limit=current_limit,
-                clean=clean,
                 desc=desc,
-                fields=fields,
-                omit=omit,
-                unwind=unwind,
-                skip_empty=skip_empty,
-                skip_hidden=skip_hidden,
             )
 
             current_offset += current_items_page.count
@@ -196,22 +190,22 @@ class DatasetClient:
     async def get_items_as_bytes(
         self,
         *,
-        item_format: str = 'json',
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-        desc: Optional[bool] = None,
-        clean: Optional[bool] = None,
-        bom: Optional[bool] = None,
-        delimiter: Optional[str] = None,
-        fields: Optional[List[str]] = None,
-        omit: Optional[List[str]] = None,
-        unwind: Optional[str] = None,
-        skip_empty: Optional[bool] = None,
-        skip_header_row: Optional[bool] = None,
-        skip_hidden: Optional[bool] = None,
-        xml_root: Optional[str] = None,
-        xml_row: Optional[str] = None,
-        flatten: Optional[List[str]] = None,
+        _item_format: str = 'json',
+        _offset: Optional[int] = None,
+        _limit: Optional[int] = None,
+        _desc: Optional[bool] = None,
+        _clean: Optional[bool] = None,
+        _bom: Optional[bool] = None,
+        _delimiter: Optional[str] = None,
+        _fields: Optional[List[str]] = None,
+        _omit: Optional[List[str]] = None,
+        _unwind: Optional[str] = None,
+        _skip_empty: Optional[bool] = None,
+        _skip_header_row: Optional[bool] = None,
+        _skip_hidden: Optional[bool] = None,
+        _xml_root: Optional[str] = None,
+        _xml_row: Optional[str] = None,
+        _flatten: Optional[List[str]] = None,
     ) -> bytes:
         """TODO: docs."""
         raise NotImplementedError('This method is not supported in local memory storage')
@@ -219,21 +213,21 @@ class DatasetClient:
     async def stream_items(
         self,
         *,
-        item_format: str = 'json',
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-        desc: Optional[bool] = None,
-        clean: Optional[bool] = None,
-        bom: Optional[bool] = None,
-        delimiter: Optional[str] = None,
-        fields: Optional[List[str]] = None,
-        omit: Optional[List[str]] = None,
-        unwind: Optional[str] = None,
-        skip_empty: Optional[bool] = None,
-        skip_header_row: Optional[bool] = None,
-        skip_hidden: Optional[bool] = None,
-        xml_root: Optional[str] = None,
-        xml_row: Optional[str] = None,
+        _item_format: str = 'json',
+        _offset: Optional[int] = None,
+        _limit: Optional[int] = None,
+        _desc: Optional[bool] = None,
+        _clean: Optional[bool] = None,
+        _bom: Optional[bool] = None,
+        _delimiter: Optional[str] = None,
+        _fields: Optional[List[str]] = None,
+        _omit: Optional[List[str]] = None,
+        _unwind: Optional[str] = None,
+        _skip_empty: Optional[bool] = None,
+        _skip_header_row: Optional[bool] = None,
+        _skip_hidden: Optional[bool] = None,
+        _xml_root: Optional[str] = None,
+        _xml_row: Optional[str] = None,
     ) -> AsyncIterator:
         """TODO: docs."""
         raise NotImplementedError('This method is not supported in local memory storage')
@@ -241,30 +235,30 @@ class DatasetClient:
     async def push_items(self, items: JSONSerializable) -> None:
         """TODO: docs."""
         # Check by id
-        existing_store_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
 
-        if existing_store_by_id is None:
+        if existing_dataset_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
 
         normalized = self._normalize_items(items)
 
         added_ids: List[str] = []
         for entry in normalized:
-            existing_store_by_id.item_count += 1
-            idx = self._generate_local_entry_name(existing_store_by_id.item_count)
+            existing_dataset_by_id.item_count += 1
+            idx = self._generate_local_entry_name(existing_dataset_by_id.item_count)
 
-            existing_store_by_id.dataset_entries[idx] = entry
+            existing_dataset_by_id.dataset_entries[idx] = entry
             added_ids.append(idx)
 
         data_entries: List[Tuple[str, Dict]] = []
         for id in added_ids:
-            data_entries.append((id, existing_store_by_id.dataset_entries[id]))
+            data_entries.append((id, existing_dataset_by_id.dataset_entries[id]))
 
-        await existing_store_by_id._update_timestamps(True)
+        await existing_dataset_by_id._update_timestamps(True)
 
         await _update_dataset_items(
             data=data_entries,
-            entity_directory=existing_store_by_id.dataset_directory,
+            entity_directory=existing_dataset_by_id.dataset_directory,
             persist_storage=self.client.persist_storage,
         )
 
@@ -322,8 +316,8 @@ class DatasetClient:
 
 def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['DatasetClient']:
     # First check memory cache
-    found = next((store for store in client.datasets_handled
-                  if store.id == entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
+    found = next((dataset for dataset in client.datasets_handled
+                  if dataset.id == entry_name_or_id or (dataset.name and dataset.name.lower() == entry_name_or_id.lower())), None)
 
     if found is not None:
         return found
@@ -349,7 +343,7 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
             if entry.name == '__metadata__.json':
                 has_seen_metadata_file = True
 
-                # We have found the store metadata file, build out information based on it
+                # We have found the dataset's metadata file, build out information based on it
                 with open(os.path.join(datasets_dir, entry.name)) as f:
                     metadata = json.load(f)
                 id = metadata['id']

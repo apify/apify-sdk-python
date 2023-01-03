@@ -55,7 +55,7 @@ class MemoryStorage:
         """TODO: docs."""
         return RequestQueueCollectionClient(base_storage_directory=self.request_queues_directory, client=self)
 
-    def request_queue(self, *, id: str, client_key: Optional[str] = None, timeout_secs: Optional[int] = None) -> RequestQueueClient:
+    def request_queue(self, *, id: str, _client_key: Optional[str] = None, _timeout_secs: Optional[int] = None) -> RequestQueueClient:
         """TODO: docs."""
         return RequestQueueClient(base_storage_directory=self.request_queues_directory, client=self, id=id)
 

@@ -178,7 +178,7 @@ async def _run_func_at_interval_async(func: Callable, interval_secs: float) -> N
             await res
 
 
-class ListPage:
+class ListPage:  # TODO: Rather use exported version from Apify client
     """A single page of items returned from a list() method."""
 
     #: list: List of returned objects on this page

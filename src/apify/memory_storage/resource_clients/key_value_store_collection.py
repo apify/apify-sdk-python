@@ -30,7 +30,7 @@ class KeyValueStoreCollectionClient:
             'items': sorted(map(map_store, self.client.key_value_stores_handled), key=itemgetter('createdAt')),
         })
 
-    async def get_or_create(self, *, name: Optional[str] = None, schema: Optional[Dict] = None) -> Dict:
+    async def get_or_create(self, *, name: Optional[str] = None, _schema: Optional[Dict] = None) -> Dict:
         """TODO: docs."""
         if name:
             found = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=name)

@@ -1,12 +1,13 @@
 import asyncio
 import inspect
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Tuple, get_type_hints
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple, get_type_hints
 
 import pytest
 
 from apify import Actor
 from apify.config import Configuration
+from apify.memory_storage.memory_storage import MemoryStorage
 from apify_client.client import ApifyClientAsync
 
 
@@ -107,3 +108,10 @@ class ApifyClientAsyncPatcher:
 @pytest.fixture
 def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAsyncPatcher:
     return ApifyClientAsyncPatcher(monkeypatch)
+
+
+@pytest.fixture()
+async def memory_storage(tmp_path: str) -> AsyncIterator[MemoryStorage]:
+    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+    yield ms
+    await ms.purge()

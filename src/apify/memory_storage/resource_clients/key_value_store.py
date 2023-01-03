@@ -175,7 +175,7 @@ class KeyValueStoreClient:
         """TODO: docs."""
         return await self._get_record_internal(key, as_bytes=True)
 
-    async def stream_record(self, key: str) -> AsyncIterator[Optional[Dict]]:
+    async def stream_record(self, _key: str) -> AsyncIterator[Optional[Dict]]:
         """TODO: docs."""
         raise NotImplementedError('This method is not supported in local memory storage')
 
