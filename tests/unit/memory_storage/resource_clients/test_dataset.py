@@ -10,11 +10,11 @@ from apify.memory_storage.resource_clients.dataset import DatasetClient
 async def dataset_client(memory_storage: MemoryStorage) -> DatasetClient:
     datasets_client = memory_storage.datasets()
     dataset_info = await datasets_client.get_or_create(name='test')
-    return memory_storage.dataset(id=dataset_info['id'])
+    return memory_storage.dataset(dataset_info['id'])
 
 
 async def test_nonexistent(memory_storage: MemoryStorage) -> None:
-    dataset_client = memory_storage.dataset(id='clearly not a uuid')
+    dataset_client = memory_storage.dataset(dataset_id='clearly not a uuid')
     assert await dataset_client.get() is None
     with pytest.raises(ValueError):
         await dataset_client.update(name='test-update')

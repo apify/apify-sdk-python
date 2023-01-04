@@ -25,8 +25,8 @@ async def test_persist_storage(tmp_path: str) -> None:
     kvs_no_metadata_client = ms_no_persist.key_value_stores()
     kvs_info = await kvs_client.get_or_create(name='kvs')
     kvs_no_metadata_info = await kvs_no_metadata_client.get_or_create(name='kvs-no-persist')
-    await ms.key_value_store(id=kvs_info['id']).set_record('test', {'x': 1}, 'application/json')
-    await ms_no_persist.key_value_store(id=kvs_no_metadata_info['id']).set_record('test', {'x': 1}, 'application/json')
+    await ms.key_value_store(kvs_info['id']).set_record('test', {'x': 1}, 'application/json')
+    await ms_no_persist.key_value_store(kvs_no_metadata_info['id']).set_record('test', {'x': 1}, 'application/json')
     assert os.path.exists(os.path.join(ms._key_value_stores_directory, kvs_info['name'], 'test.json')) is True
     assert os.path.exists(os.path.join(ms_no_persist._key_value_stores_directory, kvs_no_metadata_info['name'], 'test.json')) is False
 
@@ -81,7 +81,7 @@ async def test_purge_key_value_stores(tmp_path: str) -> None:
     kvs_client = ms.key_value_stores()
     default_kvs_info = await kvs_client.get_or_create(name='default')
     non_default_kvs_info = await kvs_client.get_or_create(name='non-default')
-    default_kvs_client = ms.key_value_store(id=default_kvs_info['id'])
+    default_kvs_client = ms.key_value_store(default_kvs_info['id'])
     # INPUT.json should be kept
     await default_kvs_client.set_record('INPUT', {'abc': 123}, 'application/json')
     # test.json should not be kept

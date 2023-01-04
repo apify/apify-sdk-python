@@ -10,11 +10,11 @@ from apify.memory_storage.resource_clients.key_value_store import KeyValueStoreC
 async def key_value_store_client(memory_storage: MemoryStorage) -> KeyValueStoreClient:
     key_value_stores_client = memory_storage.key_value_stores()
     kvs_info = await key_value_stores_client.get_or_create(name='test')
-    return memory_storage.key_value_store(id=kvs_info['id'])
+    return memory_storage.key_value_store(kvs_info['id'])
 
 
 async def test_nonexistent(memory_storage: MemoryStorage) -> None:
-    kvs_client = memory_storage.key_value_store(id='clearly not a uuid')
+    kvs_client = memory_storage.key_value_store(key_value_store_id='clearly not a uuid')
     assert await kvs_client.get() is None
     with pytest.raises(ValueError):
         await kvs_client.update(name='test-update')

@@ -11,11 +11,11 @@ from apify.memory_storage.resource_clients.request_queue import RequestQueueClie
 async def request_queue_client(memory_storage: MemoryStorage) -> RequestQueueClient:
     request_queues_client = memory_storage.request_queues()
     rq_info = await request_queues_client.get_or_create(name='test')
-    return memory_storage.request_queue(id=rq_info['id'])
+    return memory_storage.request_queue(rq_info['id'])
 
 
 async def test_nonexistent(memory_storage: MemoryStorage) -> None:
-    request_queue_client = memory_storage.request_queue(id='clearly not a uuid')
+    request_queue_client = memory_storage.request_queue(request_queue_id='clearly not a uuid')
     assert await request_queue_client.get() is None
     with pytest.raises(ValueError):
         await request_queue_client.update(name='test-update')
