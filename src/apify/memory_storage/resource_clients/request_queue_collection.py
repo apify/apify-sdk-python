@@ -12,38 +12,45 @@ if TYPE_CHECKING:
 class RequestQueueCollectionClient:
     """TODO: docs."""
 
+    _request_queues_directory: str
+    _client: 'MemoryStorage'
+
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage') -> None:
         """TODO: docs."""
-        self.request_queues_directory = base_storage_directory
-        self.client = client
+        self._request_queues_directory = base_storage_directory
+        self._client = client
 
     def list(self) -> ListPage:
         """TODO: docs."""
         def map_store(store: RequestQueueClient) -> Dict:
             return store.to_request_queue_info()
         return ListPage({
-            'total': len(self.client.request_queues_handled),
-            'count': len(self.client.request_queues_handled),
+            'total': len(self._client._request_queues_handled),
+            'count': len(self._client._request_queues_handled),
             'offset': 0,
-            'limit': len(self.client.request_queues_handled),
+            'limit': len(self._client._request_queues_handled),
             'desc': False,
-            'items': sorted(map(map_store, self.client.request_queues_handled), key=itemgetter('createdAt')),
+            'items': sorted(map(map_store, self._client._request_queues_handled), key=itemgetter('createdAt')),
         })
 
     async def get_or_create(self, *, name: Optional[str] = None) -> Dict:
         """TODO: docs."""
         if name:
-            found = _find_or_cache_request_queue_by_possible_id(self.client, name)
+            found = _find_or_cache_request_queue_by_possible_id(self._client, name)
 
             if found:
                 return found.to_request_queue_info()
 
-        new_store = RequestQueueClient(name=name, base_storage_directory=self.request_queues_directory, client=self.client)
-        self.client.request_queues_handled.append(new_store)
+        new_queue = RequestQueueClient(name=name, base_storage_directory=self._request_queues_directory, client=self._client)
+        self._client._request_queues_handled.append(new_queue)
 
-        request_queue_info = new_store.to_request_queue_info()
+        request_queue_info = new_queue.to_request_queue_info()
 
         # Write to the disk
-        await _update_metadata(data=request_queue_info, entity_directory=new_store.request_queue_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(
+            data=request_queue_info,
+            entity_directory=new_queue._request_queue_directory,
+            write_metadata=self._client._write_metadata,
+        )
 
         return request_queue_info

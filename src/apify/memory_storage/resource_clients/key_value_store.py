@@ -1,3 +1,4 @@
+import io
 import json
 import mimetypes
 import os
@@ -32,22 +33,26 @@ DEFAULT_LOCAL_FILE_EXTENSION = 'bin'
 class KeyValueStoreClient:
     """TODO: docs."""
 
-    created_at = datetime.utcnow()
-    accessed_at = datetime.utcnow()
-    modified_at = datetime.utcnow()
-    key_value_entries: Dict[str, Dict]
+    _id: str
+    _key_value_store_directory: str
+    _client: 'MemoryStorage'
+    _name: str
+    _key_value_entries: Dict[str, Dict]
+    _created_at = datetime.utcnow()
+    _accessed_at = datetime.utcnow()
+    _modified_at = datetime.utcnow()
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """TODO: docs."""
-        self.id = str(uuid.uuid4()) if id is None else id
-        self.key_value_store_directory = os.path.join(base_storage_directory, name or self.id)
-        self.client = client
-        self.name = name
-        self.key_value_entries = {}
+        self._id = str(uuid.uuid4()) if id is None else id
+        self._key_value_store_directory = os.path.join(base_storage_directory, name or self._id)
+        self._client = client
+        self._name = name
+        self._key_value_entries = {}
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""
-        found = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        found = _find_or_cache_key_value_store_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if found:
             await found._update_timestamps(False)
@@ -58,10 +63,10 @@ class KeyValueStoreClient:
     async def update(self, *, name: Optional[str] = None) -> Dict:
         """TODO: docs."""
         # Check by id
-        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
 
         # Skip if no changes
         if name is None:
@@ -69,18 +74,18 @@ class KeyValueStoreClient:
 
         # Check that name is not in use already
         existing_store_by_name = next(
-            (store for store in self.client.key_value_stores_handled if store.name and store.name.lower() == name.lower()), None)
+            (store for store in self._client._key_value_stores_handled if store._name and store._name.lower() == name.lower()), None)
 
         if existing_store_by_name is not None:
             _raise_on_duplicate_storage(StorageTypes.KEY_VALUE_STORE, 'name', name)
 
-        existing_store_by_id.name = name
+        existing_store_by_id._name = name
 
-        previous_dir = existing_store_by_id.key_value_store_directory
+        previous_dir = existing_store_by_id._key_value_store_directory
 
-        existing_store_by_id.key_value_store_directory = os.path.join(self.client.key_value_stores_directory, name)
+        existing_store_by_id._key_value_store_directory = os.path.join(self._client._key_value_stores_directory, name)
 
-        await _force_rename(previous_dir, existing_store_by_id.key_value_store_directory)
+        await _force_rename(previous_dir, existing_store_by_id._key_value_store_directory)
 
         # Update timestamps
         await existing_store_by_id._update_timestamps(True)
@@ -89,25 +94,25 @@ class KeyValueStoreClient:
 
     async def delete(self) -> None:
         """TODO: docs."""
-        store = next((store for store in self.client.key_value_stores_handled if store.id == self.id), None)
+        store = next((store for store in self._client._key_value_stores_handled if store._id == self._id), None)
 
         if store is not None:
-            self.client.key_value_stores_handled.remove(store)
-            store.key_value_entries.clear()
+            self._client._key_value_stores_handled.remove(store)
+            store._key_value_entries.clear()
 
-            await aioshutil.rmtree(store.key_value_store_directory)
+            await aioshutil.rmtree(store._key_value_store_directory)
 
     async def list_keys(self, *, limit: int = DEFAULT_API_PARAM_LIMIT, exclusive_start_key: Optional[str] = None) -> Dict:
         """TODO: docs."""
         # Check by id
-        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self._client, self._name or self._id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
 
         items = []
 
-        for record in existing_store_by_id.key_value_entries.values():
+        for record in existing_store_by_id._key_value_entries.values():
             size = len(record['value'])
             items.append({
                 'key': record['key'],
@@ -143,12 +148,12 @@ class KeyValueStoreClient:
 
     async def _get_record_internal(self, key: str, as_bytes: bool = False) -> Optional[Dict]:
         # Check by id
-        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self._client, self._name or self._id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
 
-        entry = existing_store_by_id.key_value_entries.get(key)
+        entry = existing_store_by_id._key_value_entries.get(key)
 
         if entry is None:
             return None
@@ -182,16 +187,17 @@ class KeyValueStoreClient:
     async def set_record(self, key: str, value: Any, content_type: Optional[str] = None) -> None:
         """TODO: docs."""
         # Check by id
-        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self._client, self._name or self._id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
+
+        if isinstance(value, io.IOBase):
+            raise NotImplementedError('File-like values are not supported in local memory storage')
 
         if content_type is None:
-            # TODO: Add streaming support for this method...
             if _is_file_or_bytes(value):
-                raise NotImplementedError('Such value for set_record is not supported in local memory storage')
-                # content_type = 'application/octet-stream'
+                content_type = 'application/octet-stream'
             elif isinstance(value, str):
                 content_type = 'text/plain; charset=utf-8'
             else:
@@ -209,69 +215,69 @@ class KeyValueStoreClient:
             'content_type': content_type,
         }
 
-        existing_store_by_id.key_value_entries[key] = record
+        existing_store_by_id._key_value_entries[key] = record
 
         await existing_store_by_id._update_timestamps(True)
         await _set_or_delete_key_value_store_record(
-            entity_directory=existing_store_by_id.key_value_store_directory,
-            persist_storage=self.client.persist_storage,
+            entity_directory=existing_store_by_id._key_value_store_directory,
+            persist_storage=self._client._persist_storage,
             record=record,
             should_set=True,
-            write_metadata=self.client.write_metadata,
+            write_metadata=self._client._write_metadata,
         )
 
     async def delete_record(self, key: str) -> None:
         """TODO: docs."""
         # Check by id
-        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self.client, self.name or self.id)
+        existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self._client, self._name or self._id)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self.id)
+            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
 
-        entry = existing_store_by_id.key_value_entries.get(key)
+        entry = existing_store_by_id._key_value_entries.get(key)
 
         if entry is not None:
-            del existing_store_by_id.key_value_entries[key]
+            del existing_store_by_id._key_value_entries[key]
             await existing_store_by_id._update_timestamps(True)
             await _set_or_delete_key_value_store_record(
-                entity_directory=existing_store_by_id.key_value_store_directory,
-                persist_storage=self.client.persist_storage,
+                entity_directory=existing_store_by_id._key_value_store_directory,
+                persist_storage=self._client._persist_storage,
                 record=entry,
                 should_set=False,
-                write_metadata=self.client.write_metadata,
+                write_metadata=self._client._write_metadata,
             )
 
     def to_key_value_store_info(self) -> Dict:
         """TODO: docs."""
         return {
-            'id': self.id,
-            'name': self.name,
-            'accessedAt': self.accessed_at,
-            'createdAt': self.created_at,
-            'modifiedAt': self.modified_at,
+            'id': self._id,
+            'name': self._name,
+            'accessedAt': self._accessed_at,
+            'createdAt': self._created_at,
+            'modifiedAt': self._modified_at,
             'userId': '1',
         }
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
         """TODO: docs."""
-        self.accessed_at = datetime.utcnow()
+        self._accessed_at = datetime.utcnow()
 
         if has_been_modified:
-            self.modified_at = datetime.utcnow()
+            self._modified_at = datetime.utcnow()
 
         kv_store_info = self.to_key_value_store_info()
-        await _update_metadata(data=kv_store_info, entity_directory=self.key_value_store_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(data=kv_store_info, entity_directory=self._key_value_store_directory, write_metadata=self._client._write_metadata)
 
 
 def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['KeyValueStoreClient']:
     # First check memory cache
-    found = next((store for store in client.key_value_stores_handled
-                  if store.id == entry_name_or_id or (store.name and store.name.lower() == entry_name_or_id.lower())), None)
+    found = next((store for store in client._key_value_stores_handled
+                  if store._id == entry_name_or_id or (store._name and store._name.lower() == entry_name_or_id.lower())), None)
 
     if found is not None:
         return found
 
-    key_value_store_dir = os.path.join(client.key_value_stores_directory, entry_name_or_id)
+    key_value_store_dir = os.path.join(client._key_value_stores_directory, entry_name_or_id)
     # Check if directory exists
     if not os.access(key_value_store_dir, os.F_OK):
         return None
@@ -380,16 +386,16 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
         else:
             name = entry_name_or_id
 
-    new_client = KeyValueStoreClient(base_storage_directory=client.key_value_stores_directory, client=client, id=id, name=name)
+    new_client = KeyValueStoreClient(base_storage_directory=client._key_value_stores_directory, client=client, id=id, name=name)
 
     # Overwrite properties
-    new_client.accessed_at = accessed_at
-    new_client.created_at = created_at
-    new_client.modified_at = modified_at
+    new_client._accessed_at = accessed_at
+    new_client._created_at = created_at
+    new_client._modified_at = modified_at
 
     for key, record in internal_records.items():
-        new_client.key_value_entries[key] = record
+        new_client._key_value_entries[key] = record
 
-    client.key_value_stores_handled.append(new_client)
+    client._key_value_stores_handled.append(new_client)
 
     return new_client

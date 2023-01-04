@@ -34,7 +34,7 @@ async def test_not_implemented(key_value_store_client: KeyValueStoreClient) -> N
 async def test_get(key_value_store_client: KeyValueStoreClient) -> None:
     info = await key_value_store_client.get()
     assert info is not None
-    assert info['id'] == key_value_store_client.id
+    assert info['id'] == key_value_store_client._id
     assert info['accessedAt'] != info['createdAt']
 
 
@@ -42,8 +42,8 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
     new_kvs_name = 'test-update'
     old_kvs_info = await key_value_store_client.get()
     assert old_kvs_info is not None
-    old_kvs_directory = os.path.join(key_value_store_client.client.key_value_stores_directory, old_kvs_info['name'])
-    new_kvs_directory = os.path.join(key_value_store_client.client.key_value_stores_directory, new_kvs_name)
+    old_kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, old_kvs_info['name'])
+    new_kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, new_kvs_name)
     assert os.path.exists(os.path.join(old_kvs_directory, '__metadata__.json')) is True
     assert os.path.exists(os.path.join(new_kvs_directory, '__metadata__.json')) is False
     updated_kvs_info = await key_value_store_client.update(name=new_kvs_name)
@@ -61,7 +61,7 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
 async def test_delete(key_value_store_client: KeyValueStoreClient) -> None:
     kvs_info = await key_value_store_client.get()
     assert kvs_info is not None
-    kvs_directory = os.path.join(key_value_store_client.client.key_value_stores_directory, kvs_info['name'])
+    kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, kvs_info['name'])
     assert os.path.exists(os.path.join(kvs_directory, '__metadata__.json')) is True
     await key_value_store_client.delete()
     assert os.path.exists(os.path.join(kvs_directory, '__metadata__.json')) is False
@@ -97,7 +97,7 @@ async def test_list_keys(key_value_store_client: KeyValueStoreClient) -> None:
     assert keys_exclusive_start['items'][-1]['key'] == keys_exclusive_start['nextExclusiveStartKey']
 
 
-async def test_get_and_set_record(key_value_store_client: KeyValueStoreClient) -> None:
+async def test_get_and_set_record(tmp_path: str, key_value_store_client: KeyValueStoreClient) -> None:
     # Test setting dict record
     dict_record_key = 'test-dict'
     await key_value_store_client.set_record(dict_record_key, {'test': 123})
@@ -115,13 +115,24 @@ async def test_get_and_set_record(key_value_store_client: KeyValueStoreClient) -
     # Test setting explicit json record but use str as value, i.e. json dumps is skipped
     explicit_json_key = 'test-json'
     await key_value_store_client.set_record(explicit_json_key, '{"test": "explicit string"}', 'application/json')
-    explicit_json_record_info = await key_value_store_client.get_record(explicit_json_key)
-    assert explicit_json_record_info is not None
-    assert 'application/json' in explicit_json_record_info['contentType']
-    assert explicit_json_record_info['value']['test'] == 'explicit string'
+    bytes_record_info = await key_value_store_client.get_record(explicit_json_key)
+    assert bytes_record_info is not None
+    assert 'application/json' in bytes_record_info['contentType']
+    assert bytes_record_info['value']['test'] == 'explicit string'
     # Test using bytes
+    bytes_key = 'test-json'
+    bytes_value = 'testing bytes set_record'.encode('utf-8')
+    await key_value_store_client.set_record(bytes_key, bytes_value, 'unknown')
+    bytes_record_info = await key_value_store_client.get_record(bytes_key)
+    assert bytes_record_info is not None
+    assert 'unknown' in bytes_record_info['contentType']
+    assert bytes_record_info['value'] == bytes_value
+    assert bytes_record_info['value'].decode('utf-8') == bytes_value.decode('utf-8')
+    # Test using file descriptor
     with pytest.raises(NotImplementedError):
-        await key_value_store_client.set_record('bytes', 'test'.encode('utf-8'))
+        with open(os.path.join(tmp_path, 'test.json'), 'w+') as f:
+            f.write('Test')
+            await key_value_store_client.set_record('file', f)
 
 
 async def test_get_record_as_bytes(key_value_store_client: KeyValueStoreClient) -> None:

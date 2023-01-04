@@ -14,10 +14,10 @@ def datasets_client(memory_storage: MemoryStorage) -> DatasetCollectionClient:
 async def test_get_or_create(datasets_client: DatasetCollectionClient) -> None:
     dataset_name = 'test'
     # A new dataset gets created
-    assert os.path.exists(os.path.join(datasets_client.datasets_directory, dataset_name, '__metadata__.json')) is False
+    assert os.path.exists(os.path.join(datasets_client._datasets_directory, dataset_name, '__metadata__.json')) is False
     dataset_info = await datasets_client.get_or_create(name=dataset_name)
     assert dataset_info['name'] == dataset_name
-    assert os.path.exists(os.path.join(datasets_client.datasets_directory, dataset_name, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(datasets_client._datasets_directory, dataset_name, '__metadata__.json')) is True
     # Another get_or_create call returns the same dataset
     dataset_info_existing = await datasets_client.get_or_create(name=dataset_name)
     assert dataset_info['id'] == dataset_info_existing['id']

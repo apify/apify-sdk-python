@@ -30,23 +30,27 @@ LOCAL_ENTRY_NAME_DIGITS = 9
 class DatasetClient:
     """TODO: docs."""
 
-    created_at = datetime.utcnow()
-    accessed_at = datetime.utcnow()
-    modified_at = datetime.utcnow()
-    item_count = 0
-    dataset_entries: Dict[str, Dict]
+    _id: str
+    _dataset_directory: str
+    _client: 'MemoryStorage'
+    _name: str
+    _dataset_entries: Dict[str, Dict]
+    _created_at = datetime.utcnow()
+    _accessed_at = datetime.utcnow()
+    _modified_at = datetime.utcnow()
+    _item_count = 0
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """TODO: docs."""
-        self.id = str(uuid.uuid4()) if id is None else id
-        self.dataset_directory = os.path.join(base_storage_directory, name or self.id)
-        self.client = client
-        self.name = name
-        self.dataset_entries = {}
+        self._id = str(uuid.uuid4()) if id is None else id
+        self._dataset_directory = os.path.join(base_storage_directory, name or self._id)
+        self._client = client
+        self._name = name
+        self._dataset_entries = {}
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""
-        found = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        found = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if found:
             await found._update_timestamps(False)
@@ -57,10 +61,10 @@ class DatasetClient:
     async def update(self, *, name: Optional[str] = None) -> Dict:
         """TODO: docs."""
         # Check by id
-        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if existing_dataset_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
+            _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
 
         # Skip if no changes
         if name is None:
@@ -68,18 +72,18 @@ class DatasetClient:
 
         # Check that name is not in use already
         existing_dataset_by_name = next(
-            (dataset for dataset in self.client.datasets_handled if dataset.name and dataset.name.lower() == name.lower()), None)
+            (dataset for dataset in self._client._datasets_handled if dataset._name and dataset._name.lower() == name.lower()), None)
 
         if existing_dataset_by_name is not None:
             _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', name)
 
-        existing_dataset_by_id.name = name
+        existing_dataset_by_id._name = name
 
-        previous_dir = existing_dataset_by_id.dataset_directory
+        previous_dir = existing_dataset_by_id._dataset_directory
 
-        existing_dataset_by_id.dataset_directory = os.path.join(self.client.datasets_directory, name)
+        existing_dataset_by_id._dataset_directory = os.path.join(self._client._datasets_directory, name)
 
-        await _force_rename(previous_dir, existing_dataset_by_id.dataset_directory)
+        await _force_rename(previous_dir, existing_dataset_by_id._dataset_directory)
 
         # Update timestamps
         await existing_dataset_by_id._update_timestamps(True)
@@ -88,14 +92,14 @@ class DatasetClient:
 
     async def delete(self) -> None:
         """TODO: docs."""
-        dataset = next((dataset for dataset in self.client.datasets_handled if dataset.id == self.id), None)
+        dataset = next((dataset for dataset in self._client._datasets_handled if dataset._id == self._id), None)
 
         if dataset is not None:
-            self.client.datasets_handled.remove(dataset)
-            dataset.item_count = 0
-            dataset.dataset_entries.clear()
+            self._client._datasets_handled.remove(dataset)
+            dataset._item_count = 0
+            dataset._dataset_entries.clear()
 
-            await aioshutil.rmtree(dataset.dataset_directory)
+            await aioshutil.rmtree(dataset._dataset_directory)
 
     async def list_items(
         self,
@@ -114,13 +118,13 @@ class DatasetClient:
     ) -> ListPage:
         """TODO: docs."""
         # Check by id
-        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if existing_dataset_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
+            _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
 
         start, end = existing_dataset_by_id._get_start_and_end_indexes(
-            max(existing_dataset_by_id.item_count - offset - limit, 0) if desc else offset or 0,
+            max(existing_dataset_by_id._item_count - offset - limit, 0) if desc else offset or 0,
             limit,
         )
 
@@ -128,7 +132,7 @@ class DatasetClient:
 
         for idx in range(start, end):
             entry_number = self._generate_local_entry_name(idx)
-            items.append(existing_dataset_by_id.dataset_entries[entry_number])
+            items.append(existing_dataset_by_id._dataset_entries[entry_number])
 
         await existing_dataset_by_id._update_timestamps(False)
 
@@ -141,7 +145,7 @@ class DatasetClient:
             'items': items,
             'limit': limit,
             'offset': offset,
-            'total': existing_dataset_by_id.item_count,
+            'total': existing_dataset_by_id._item_count,
         })
 
     async def iterate_items(
@@ -235,58 +239,58 @@ class DatasetClient:
     async def push_items(self, items: JSONSerializable) -> None:
         """TODO: docs."""
         # Check by id
-        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self.client, entry_name_or_id=self.name or self.id)
+        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if existing_dataset_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.DATASET, self.id)
+            _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
 
         normalized = self._normalize_items(items)
 
         added_ids: List[str] = []
         for entry in normalized:
-            existing_dataset_by_id.item_count += 1
-            idx = self._generate_local_entry_name(existing_dataset_by_id.item_count)
+            existing_dataset_by_id._item_count += 1
+            idx = self._generate_local_entry_name(existing_dataset_by_id._item_count)
 
-            existing_dataset_by_id.dataset_entries[idx] = entry
+            existing_dataset_by_id._dataset_entries[idx] = entry
             added_ids.append(idx)
 
         data_entries: List[Tuple[str, Dict]] = []
         for id in added_ids:
-            data_entries.append((id, existing_dataset_by_id.dataset_entries[id]))
+            data_entries.append((id, existing_dataset_by_id._dataset_entries[id]))
 
         await existing_dataset_by_id._update_timestamps(True)
 
         await _update_dataset_items(
             data=data_entries,
-            entity_directory=existing_dataset_by_id.dataset_directory,
-            persist_storage=self.client.persist_storage,
+            entity_directory=existing_dataset_by_id._dataset_directory,
+            persist_storage=self._client._persist_storage,
         )
 
     def to_dataset_info(self) -> Dict:
         """TODO: docs."""
         return {
-            'id': self.id,
-            'name': self.name,
-            'itemCount': self.item_count,
-            'accessedAt': self.accessed_at,
-            'createdAt': self.created_at,
-            'modifiedAt': self.modified_at,
+            'id': self._id,
+            'name': self._name,
+            'itemCount': self._item_count,
+            'accessedAt': self._accessed_at,
+            'createdAt': self._created_at,
+            'modifiedAt': self._modified_at,
         }
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
         """TODO: docs."""
-        self.accessed_at = datetime.utcnow()
+        self._accessed_at = datetime.utcnow()
 
         if has_been_modified:
-            self.modified_at = datetime.utcnow()
+            self._modified_at = datetime.utcnow()
 
         dataset_info = self.to_dataset_info()
-        await _update_metadata(data=dataset_info, entity_directory=self.dataset_directory, write_metadata=self.client.write_metadata)
+        await _update_metadata(data=dataset_info, entity_directory=self._dataset_directory, write_metadata=self._client._write_metadata)
 
     def _get_start_and_end_indexes(self, offset: int, limit: Optional[int] = None) -> Tuple[int, int]:
-        actual_limit = limit or self.item_count
+        actual_limit = limit or self._item_count
         start = offset + 1
-        end = min(offset + actual_limit, self.item_count) + 1
+        end = min(offset + actual_limit, self._item_count) + 1
         return (start, end)
 
     def _generate_local_entry_name(self, idx: int) -> str:
@@ -316,13 +320,13 @@ class DatasetClient:
 
 def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['DatasetClient']:
     # First check memory cache
-    found = next((dataset for dataset in client.datasets_handled
-                  if dataset.id == entry_name_or_id or (dataset.name and dataset.name.lower() == entry_name_or_id.lower())), None)
+    found = next((dataset for dataset in client._datasets_handled
+                  if dataset._id == entry_name_or_id or (dataset._name and dataset._name.lower() == entry_name_or_id.lower())), None)
 
     if found is not None:
         return found
 
-    datasets_dir = os.path.join(client.datasets_directory, entry_name_or_id)
+    datasets_dir = os.path.join(client._datasets_directory, entry_name_or_id)
     # Check if directory exists
     if not os.access(datasets_dir, os.F_OK):
         return None
@@ -372,17 +376,17 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
         else:
             name = entry_name_or_id
 
-    new_client = DatasetClient(base_storage_directory=client.datasets_directory, client=client, id=id, name=name)
+    new_client = DatasetClient(base_storage_directory=client._datasets_directory, client=client, id=id, name=name)
 
     # Overwrite properties
-    new_client.accessed_at = accessed_at
-    new_client.created_at = created_at
-    new_client.modified_at = modified_at
-    new_client.item_count = item_count
+    new_client._accessed_at = accessed_at
+    new_client._created_at = created_at
+    new_client._modified_at = modified_at
+    new_client._item_count = item_count
 
     for entry_id, content in entries.items():
-        new_client.dataset_entries[entry_id] = content
+        new_client._dataset_entries[entry_id] = content
 
-    client.datasets_handled.append(new_client)
+    client._datasets_handled.append(new_client)
 
     return new_client
