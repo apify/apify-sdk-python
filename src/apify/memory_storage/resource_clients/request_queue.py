@@ -28,7 +28,7 @@ class RequestQueueClient:
     _id: str
     _request_queue_directory: str
     _client: 'MemoryStorage'
-    _name: str
+    _name: Optional[str]
     _requests: Dict[str, Dict]
     _created_at = datetime.utcnow()
     _accessed_at = datetime.utcnow()

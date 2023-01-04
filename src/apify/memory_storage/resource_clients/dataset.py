@@ -33,7 +33,7 @@ class DatasetClient:
     _id: str
     _dataset_directory: str
     _client: 'MemoryStorage'
-    _name: str
+    _name: Optional[str]
     _dataset_entries: Dict[str, Dict]
     _created_at = datetime.utcnow()
     _accessed_at = datetime.utcnow()

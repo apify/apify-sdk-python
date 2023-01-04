@@ -36,7 +36,7 @@ class KeyValueStoreClient:
     _id: str
     _key_value_store_directory: str
     _client: 'MemoryStorage'
-    _name: str
+    _name: Optional[str]
     _key_value_entries: Dict[str, Dict]
     _created_at = datetime.utcnow()
     _accessed_at = datetime.utcnow()
