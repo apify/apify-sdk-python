@@ -23,7 +23,7 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
 
 
 class TestActorCreateProxyConfiguration:
-    @pytest.mark.asyncio
+
     async def test_create_proxy_configuration_basic(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -61,7 +61,6 @@ class TestActorCreateProxyConfiguration:
 
         await Actor.exit()
 
-    @pytest.mark.asyncio
     async def test_create_proxy_configuration_actor_proxy_input(
         self,
         monkeypatch: pytest.MonkeyPatch,

@@ -57,6 +57,8 @@ setup(
         'pyee ~= 9.0.4',
         'typing-extensions ~= 4.4.0',
         'websockets ~= 10.4',
+        'aiofiles ~= 22.1.0',
+        'aioshutil ~= 1.2',
     ],
     extras_require={
         'dev': [
@@ -79,6 +81,7 @@ setup(
             'sphinx ~= 5.3.0',
             'sphinx-autodoc-typehints ~= 1.19.5',
             'sphinx-markdown-builder == 0.5.4',  # pinned to 0.5.4, because 0.5.5 has a formatting bug
+            'types-aiofiles ~= 22.1.0.4',
             'types-psutil ~= 5.9.5.5',
             'types-setuptools ~= 65.6.0.1',
         ],

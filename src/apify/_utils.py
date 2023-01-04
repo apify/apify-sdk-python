@@ -1,13 +1,23 @@
 import asyncio
+import base64
+import contextlib
+import hashlib
 import inspect
+import io
+import json
+import mimetypes
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Generic, Optional, TypeVar, Union, overload
+from typing import Any, Callable, Dict, Generic, List, NoReturn, Optional, TypeVar, Union, cast, overload
 
+import aioshutil
 import psutil
+from aiofiles import ospath
+from aiofiles.os import remove, rename
 
 from apify_client import __version__ as client_version
 
@@ -20,7 +30,9 @@ from .consts import (
     BOOL_ENV_VARS,
     DATETIME_ENV_VARS,
     INTEGER_ENV_VARS,
+    REQUEST_ID_LENGTH,
     ApifyEnvVars,
+    StorageTypes,
 )
 
 
@@ -164,3 +176,137 @@ async def _run_func_at_interval_async(func: Callable, interval_secs: float) -> N
         res = func()
         if inspect.isawaitable(res):
             await res
+
+
+class ListPage:  # TODO: Rather use exported version from Apify client
+    """A single page of items returned from a list() method."""
+
+    #: list: List of returned objects on this page
+    items: List
+    #: int: Count of the returned objects on this page
+    count: int
+    #: int: The limit on the number of returned objects offset specified in the API call
+    offset: int
+    #: int: The offset of the first object specified in the API call
+    limit: int
+    #: int: Total number of objects matching the API call criteria
+    total: int
+    #: bool: Whether the listing is descending or not
+    desc: bool
+
+    def __init__(self, data: Dict) -> None:
+        """Initialize a ListPage instance from the API response data."""
+        self.items = data['items'] if 'items' in data else []
+        self.offset = data['offset'] if 'offset' in data else 0
+        self.limit = data['limit'] if 'limit' in data else 0
+        self.count = data['count'] if 'count' in data else len(self.items)
+        self.total = data['total'] if 'total' in data else self.offset + self.count
+        self.desc = data['desc'] if 'desc' in data else False
+
+
+async def _force_remove(filename: str) -> None:
+    """JS-like rm(filename, { force: true })."""
+    with contextlib.suppress(FileNotFoundError):
+        await remove(filename)
+
+
+def _json_serializer(obj: Any) -> str:  # TODO: Decide how to parse/dump/handle datetimes!
+    if isinstance(obj, (datetime)):
+        return obj.isoformat(timespec='milliseconds') + 'Z'
+    else:
+        return str(obj)
+
+
+def _filter_out_none_values_recursively(dictionary: Dict) -> Dict:
+    """Return copy of the dictionary, recursively omitting all keys for which values are None."""
+    return cast(dict, _filter_out_none_values_recursively_internal(dictionary))
+
+
+# Unfortunately, it's necessary to have an internal function for the correct result typing, without having to create complicated overloads
+def _filter_out_none_values_recursively_internal(dictionary: Dict, remove_empty_dicts: Optional[bool] = None) -> Optional[Dict]:
+    result = {}
+    for k, v in dictionary.items():
+        if isinstance(v, dict):
+            v = _filter_out_none_values_recursively_internal(v, remove_empty_dicts is True or remove_empty_dicts is None)
+        if v is not None:
+            result[k] = v
+    if not result and remove_empty_dicts:
+        return None
+    return result
+
+
+def _json_dumps(obj: Any) -> str:
+    """Dump JSON to a string with the correct settings and serializer."""
+    return json.dumps(obj, ensure_ascii=False, indent=2, default=_json_serializer)
+
+
+uuid_regex = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
+
+
+def _is_uuid(string: str) -> bool:
+    """Test whether the given string matches UUID format."""
+    return bool(uuid_regex.match(string))
+
+
+def _raise_on_non_existing_storage(client_type: StorageTypes, id: str) -> NoReturn:
+    raise ValueError(f'{client_type} with id: {id} does not exist.')
+
+
+def _raise_on_duplicate_storage(client_type: StorageTypes, key_name: str, value: str) -> NoReturn:
+    raise ValueError(f'{client_type} with {key_name}: {value} already exists.')
+
+
+def _guess_file_extension(content_type: str) -> Optional[str]:
+    """Guess the file extension based on content type."""
+    # e.g. mimetypes.guess_extension('application/json ') does not work...
+    actual_content_type = content_type.split(';')[0].strip()
+    ext = mimetypes.guess_extension(actual_content_type)
+    # Remove the leading dot if extension successfully parsed
+    return ext[1:] if ext is not None else ext
+
+
+def _is_content_type_json(content_type: str) -> bool:
+    return bool(re.search(r'^application/json', content_type, flags=re.IGNORECASE))
+
+
+def _is_content_type_xml(content_type: str) -> bool:
+    return bool(re.search(r'^application/.*xml$', content_type, flags=re.IGNORECASE))
+
+
+def _is_content_type_text(content_type: str) -> bool:
+    return bool(re.search(r'^text/', content_type, flags=re.IGNORECASE))
+
+
+def _is_file_or_bytes(value: Any) -> bool:
+    # The check for IOBase is not ideal, it would be better to use duck typing,
+    # but then the check would be super complex, judging from how the 'requests' library does it.
+    # This way should be good enough for the vast majority of use cases, if it causes issues, we can improve it later.
+    return isinstance(value, (bytes, bytearray, io.IOBase))
+
+
+def _maybe_parse_body(body: bytes, content_type: str) -> Any:  # TODO: Improve return type
+    try:
+        if _is_content_type_json(content_type):
+            return json.loads(body)  # Returns any
+        elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
+            return body.decode('utf-8')  # TODO: Check if utf-8 can be assumed
+    except ValueError as err:
+        print('_maybe_parse_body error', err)
+    return body
+
+
+def _unique_key_to_request_id(unique_key: str) -> str:
+    """Generate request ID based on unique key in a deterministic way."""
+    id = re.sub(r'(\+|\/|=)', '', base64.b64encode(hashlib.sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
+
+    return id[:REQUEST_ID_LENGTH] if len(id) > REQUEST_ID_LENGTH else id
+
+
+async def _force_rename(src_dir: str, dst_dir: str) -> None:
+    """Rename a directory. Checks for existence of soruce directory and removes destination directory if it exists."""
+    # Make sure source directory exists
+    if await ospath.exists(src_dir):
+        # Remove destination directory if it exists
+        if await ospath.exists(dst_dir):
+            await aioshutil.rmtree(dst_dir, ignore_errors=True)
+        await rename(src_dir, dst_dir)

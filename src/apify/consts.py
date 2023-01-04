@@ -133,3 +133,16 @@ _STRING_ENV_VARS_TYPE = Literal[
 ]
 
 STRING_ENV_VARS: List[_STRING_ENV_VARS_TYPE] = list(get_args(_STRING_ENV_VARS_TYPE))
+
+
+class StorageTypes(str, Enum):
+    """Possible Apify storage types."""
+
+    DATASET = 'Dataset'
+    KEY_VALUE_STORE = 'Key-value store'
+    REQUEST_QUEUE = 'Request queue'
+
+
+DEFAULT_API_PARAM_LIMIT = 1000
+
+REQUEST_ID_LENGTH = 15
