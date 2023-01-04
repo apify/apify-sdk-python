@@ -95,7 +95,8 @@ class RequestQueueClient:
             queue._pending_request_count = 0
             queue._requests.clear()
 
-            await aioshutil.rmtree(queue._request_queue_directory)
+            if os.path.exists(queue._request_queue_directory):
+                await aioshutil.rmtree(queue._request_queue_directory)
 
     async def list_head(self, *, limit: Optional[int] = None) -> Dict:
         """TODO: docs."""

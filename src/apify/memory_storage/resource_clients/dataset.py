@@ -99,7 +99,8 @@ class DatasetClient:
             dataset._item_count = 0
             dataset._dataset_entries.clear()
 
-            await aioshutil.rmtree(dataset._dataset_directory)
+            if os.path.exists(dataset._dataset_directory):
+                await aioshutil.rmtree(dataset._dataset_directory)
 
     async def list_items(
         self,

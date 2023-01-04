@@ -34,6 +34,9 @@ class MemoryStorage:
     _key_value_stores_handled: List[KeyValueStoreClient]
     _request_queues_handled: List[RequestQueueClient]
 
+    _purged: bool = False
+    """Indicates whether a purge was already performed on this instance"""
+
     def __init__(
         self, *, local_data_directory: str = './storage', write_metadata: Optional[bool] = None, persist_storage: Optional[bool] = None,
     ) -> None:

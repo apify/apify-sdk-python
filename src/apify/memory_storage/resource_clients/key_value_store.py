@@ -100,7 +100,8 @@ class KeyValueStoreClient:
             self._client._key_value_stores_handled.remove(store)
             store._key_value_entries.clear()
 
-            await aioshutil.rmtree(store._key_value_store_directory)
+            if os.path.exists(store._key_value_store_directory):
+                await aioshutil.rmtree(store._key_value_store_directory)
 
     async def list_keys(self, *, limit: int = DEFAULT_API_PARAM_LIMIT, exclusive_start_key: Optional[str] = None) -> Dict:
         """TODO: docs."""

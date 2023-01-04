@@ -6,7 +6,7 @@ from types import TracebackType
 from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
-from apify_client.clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
+from apify_client.clients import DatasetClientAsync, RequestQueueClientAsync
 from apify_client.consts import WebhookEventType
 
 from ._utils import (
@@ -21,6 +21,8 @@ from .config import Configuration
 from .consts import ActorEventType, ApifyEnvVars
 from .event_manager import EventManager
 from .proxy_configuration import ProxyConfiguration
+from .memory_storage.memory_storage import MemoryStorage
+from .storages.key_value_store import KeyValueStore
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -67,6 +69,7 @@ class Actor(metaclass=_ActorContextManager):
 
     _default_instance: Optional['Actor'] = None
     _apify_client: ApifyClientAsync
+    _memory_storage: MemoryStorage
     _config: Configuration
     _event_manager: EventManager
     _send_system_info_interval_task: Optional[asyncio.Task] = None
@@ -111,6 +114,7 @@ class Actor(metaclass=_ActorContextManager):
 
         self._config: Configuration = config or Configuration()
         self._apify_client = self.new_client()
+        self._memory_storage = MemoryStorage() # TODO: Use config + check crawlee impl
         self._event_manager = EventManager(config=self._config)
 
         self._is_initialized = False
@@ -364,11 +368,11 @@ class Actor(metaclass=_ActorContextManager):
             return self._apify_client.dataset(dataset['id'])
 
     @classmethod
-    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStoreClientAsync:
+    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStore:
         """TODO: docs."""
         return await cls._get_default_instance().open_key_value_store(key_value_store_id_or_name=key_value_store_id_or_name)
 
-    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStoreClientAsync:
+    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStore:
         # TODO: this should return a KeyValueStore class rather than the raw client
 
         self._raise_if_not_initialized()
@@ -376,14 +380,7 @@ class Actor(metaclass=_ActorContextManager):
         if not key_value_store_id_or_name:
             key_value_store_id_or_name = self._config.default_key_value_store_id
 
-        store_client = self._apify_client.key_value_store(key_value_store_id_or_name)
-
-        if await store_client.get():
-            return store_client
-
-        else:
-            key_value_store = await self._apify_client.key_value_stores().get_or_create(name=key_value_store_id_or_name)
-            return self._apify_client.key_value_store(key_value_store['id'])
+        return await KeyValueStore.open(key_value_store_id_or_name, self._apify_client if self.is_at_home() else self._memory_storage)
 
     @classmethod
     async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None) -> RequestQueueClientAsync:
@@ -444,8 +441,8 @@ class Actor(metaclass=_ActorContextManager):
     async def _get_value_internal(self, key: str) -> Any:
         self._raise_if_not_initialized()
 
-        key_value_store_client = await self.open_key_value_store()
-        record = await key_value_store_client.get_record(key)
+        key_value_store = await self.open_key_value_store()
+        record = await key_value_store.get_value(key)
         if record:
             return record['value']
         return None
@@ -464,8 +461,8 @@ class Actor(metaclass=_ActorContextManager):
 
         content_type = options['content_type'] if options else None
 
-        key_value_store_client = await self.open_key_value_store()
-        return await key_value_store_client.set_record(key, value, content_type=content_type)
+        key_value_store = await self.open_key_value_store()
+        return await key_value_store.set_value(key, value, content_type=content_type)
 
     @classmethod
     def on(cls, event: ActorEventType, listener: Callable) -> Callable:
