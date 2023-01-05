@@ -1,7 +1,8 @@
 from operator import itemgetter
 from typing import TYPE_CHECKING, Dict, Optional
 
-from ..._utils import ListPage
+from apify_client._utils import ListPage
+
 from ..file_storage_utils import _update_metadata
 from .key_value_store import KeyValueStoreClient, _find_or_cache_key_value_store_by_possible_id
 
