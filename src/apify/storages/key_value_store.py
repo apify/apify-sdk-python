@@ -10,6 +10,32 @@ from ._utils import _purge_default_storages
 T = TypeVar('T')
 # S = TypeVar('S', dict)
 
+"""
+Copy-paste of method interfaces from Crawlee's implementation
+constructor(options: KeyValueStoreOptions, readonly config = Configuration.getGlobalConfig()) {
+    this.id = options.id;
+    this.name = options.name;
+    this.client = options.client.keyValueStore(this.id);
+}
+async getValue<T = unknown>(key: string): Promise<T | null>
+async getValue<T = unknown>(key: string, defaultValue: T): Promise<T>
+async getValue<T = unknown>(key: string, defaultValue?: T): Promise<T | null>
+async getAutoSavedValue<T extends Dictionary = Dictionary>(key: string, defaultValue = {} as T): Promise<T>
+private ensurePersistStateEvent(): void
+async setValue<T>(key: string, value: T | null, options: RecordOptions = {}): Promise<void>
+async drop(): Promise<void>
+clearCache(): void
+async forEachKey(iteratee: KeyConsumer, options: KeyValueStoreIteratorOptions = {}): Promise<void>
+private async _forEachKey(iteratee: KeyConsumer, options: KeyValueStoreIteratorOptions = {}, index = 0): Promise<void>
+static async open(storeIdOrName?: string | null, options: StorageManagerOptions = {}): Promise<KeyValueStore>
+static async getValue<T = unknown>(key: string): Promise<T | null>
+static async getValue<T = unknown>(key: string, defaultValue: T): Promise<T>
+static async getValue<T = unknown>(key: string, defaultValue?: T): Promise<T | null>
+static async getAutoSavedValue<T extends Dictionary = Dictionary>(key: string, defaultValue = {} as T): Promise<T>
+static async setValue<T>(key: string, value: T | null, options: RecordOptions = {}): Promise<void>
+static async getInput<T = Dictionary | string | Buffer>(): Promise<T | null>
+"""
+
 
 class KeyValueStore:
     _id: str
