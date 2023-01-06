@@ -34,8 +34,6 @@ jobs:
 
             -   name: Build & deploy docs
                 run: |
-                    # install project deps
-                    npm ci --force
                     # go to website dir
                     cd website
                     # install website deps
