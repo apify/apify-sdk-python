@@ -95,14 +95,15 @@ class KeyValueStore:
 
     async def _for_each_key(self, exclusive_start_key: Optional[str] = None, index: int = 0) -> AsyncIterator[Tuple[Dict, int, int]]:
         """TODO: docs."""
-        list_keys = await self._client.list_keys(exclusive_start_key=exclusive_start_key, limit=1)
+        list_keys = await self._client.list_keys(exclusive_start_key=exclusive_start_key)
         for item in list_keys['items']:
             yield item, index, item['size']
             index += 1
 
-        if list_keys['isTruncated']:  # TODO: Can we somehow simplify this with a recursion return? Possibly try AsyncGenerator or some Union[...]
-            async for i, idx, size in self._for_each_key(list_keys['nextExclusiveStartKey'], index):
-                yield i, idx, size
+        # TODO: Can we somehow simplify this? it seems you cannot do 'yield from' in an async method https://stackoverflow.com/a/47378063
+        if list_keys['isTruncated']:
+            async for x in self._for_each_key(list_keys['nextExclusiveStartKey'], index):
+                yield x
 
     # async def _ensure_persist_state_event(self):
     #     pass
