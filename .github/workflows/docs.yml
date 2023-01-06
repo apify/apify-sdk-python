@@ -9,10 +9,13 @@ on:
 
 jobs:
     build:
+        if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
         runs-on: ubuntu-latest
 
         steps:
             -   uses: actions/checkout@v3
+                with:
+                    token: ${{ secrets.GH_TOKEN }}
             -   name: Use Node.js 16
                 uses: actions/setup-node@v2-beta
                 with:
@@ -20,8 +23,8 @@ jobs:
 
             -   name: Set git identity
                 run: |
-                    git config --global user.name "Jindřich Bär"
-                    git config --global user.email "commits@jindrich.bar"
+                    git config --global user.name "Martin Adámek"
+                    git config --global user.email "martin@apify.com"
 
             #    - name: Cache node_modules
             #      uses: actions/cache@v2
@@ -31,9 +34,25 @@ jobs:
 
             -   name: Build & deploy docs
                 run: |
-                    cd website
+                    # install project deps
                     npm ci --force
+                    # go to website dir
+                    cd website
+                    # install website deps
+                    npm ci --force
+                    # install the latest theme version
+                    npm update @apify/docs-theme
+                    # build and deploy the docs
                     npm run deploy
                 env:
-                    GIT_USER: "barjin:${{ secrets.GITHUB_TOKEN }}"
-                    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    GIT_USER: "B4nan:${{ secrets.GH_TOKEN }}"
+                    GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+            -   name: Commit the updated package(-lock).json
+                uses: stefanzweifel/git-auto-commit-action@v4
+                with:
+                  commit_message: 'chore: Automatic theme updating workflow [skip ci]'
+                  file_pattern: 'website/package*.json'
+                  commit_user_name: Apify Bot
+                  commit_user_email: my-github-actions-bot@example.org
+                  commit_author: Apify Bot <apify@apify.com>
