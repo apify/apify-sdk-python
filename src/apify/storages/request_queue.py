@@ -1,3 +1,12 @@
+from typing import Any, Dict, Optional, TypedDict, TypeVar, Union, overload
+
+from apify_client import ApifyClientAsync
+from apify_client.clients import RequestQueueClientAsync
+
+from ..config import Configuration
+from ..memory_storage import MemoryStorage
+from ..memory_storage.resource_clients import RequestQueueClient
+from ._utils import _purge_default_storages
 
 """
 Copy-paste of method interfaces from Crawlee's implementation
@@ -34,5 +43,27 @@ async handledCount(): Promise<number>
 async getInfo(): Promise<RequestQueueInfo | undefined>
 static async open(queueIdOrName?: string | null, options: StorageManagerOptions = {}): Promise<RequestQueue>
 """
+
+
 class RequestQueue:
-    pass
+    _id: str
+    _name: Optional[str]
+    _client: Union[RequestQueueClientAsync, RequestQueueClient]
+
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+        """TODO: docs (constructor should be "internal")."""
+        self._id = id
+        self._name = name
+        self._client = client.request_queue(self._id)
+
+    @classmethod
+    async def open(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'RequestQueue':
+        if config.purge_on_start:
+            await _purge_default_storages(client)
+
+        request_queue_client = client.request_queue(store_id_or_name)
+        request_queue_info = await request_queue_client.get()
+        if not request_queue_info:
+            request_queue_info = await client.request_queues().get_or_create(name=store_id_or_name)
+
+        return RequestQueue(request_queue_info['id'], request_queue_info['name'], client)

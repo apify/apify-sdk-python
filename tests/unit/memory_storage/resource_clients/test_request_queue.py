@@ -3,8 +3,8 @@ from datetime import datetime
 
 import pytest
 
-from apify.memory_storage.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients.request_queue import RequestQueueClient
+from apify.memory_storage import MemoryStorage
+from apify.memory_storage.resource_clients import RequestQueueClient
 
 
 @pytest.fixture()

@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, List, NoReturn, Optional, TypeVar, Union, cast, overload
+from typing import Any, Callable, Dict, Generic, NoReturn, Optional, TypeVar, Union, cast, overload
 
 import aioshutil
 import psutil

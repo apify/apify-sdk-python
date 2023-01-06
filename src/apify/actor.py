@@ -6,7 +6,6 @@ from types import TracebackType
 from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
-from apify_client.clients import DatasetClientAsync, RequestQueueClientAsync
 from apify_client.consts import WebhookEventType
 
 from ._utils import (
@@ -20,9 +19,9 @@ from ._utils import (
 from .config import Configuration
 from .consts import ActorEventType, ApifyEnvVars
 from .event_manager import EventManager
+from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
-from .memory_storage.memory_storage import MemoryStorage
-from .storages.key_value_store import KeyValueStore
+from .storages import Dataset, KeyValueStore, RequestQueue
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -112,9 +111,9 @@ class Actor(metaclass=_ActorContextManager):
         self.set_status_message = _wrap_internal(self._set_status_message_internal, self.set_status_message)  # type: ignore
         self.create_proxy_configuration = _wrap_internal(self._create_proxy_configuration_internal, self.create_proxy_configuration)  # type: ignore
 
-        self._config: Configuration = config or Configuration()
+        self._config: Configuration = config or Configuration()  # TODO: why not call Configuration.get_global_configuration()???
         self._apify_client = self.new_client()
-        self._memory_storage = MemoryStorage() # TODO: Use config + check crawlee impl
+        self._memory_storage = MemoryStorage()  # TODO: Use config + check crawlee impl
         self._event_manager = EventManager(config=self._config)
 
         self._is_initialized = False
@@ -344,13 +343,17 @@ class Actor(metaclass=_ActorContextManager):
             timeout_secs=timeout_secs,
         )
 
+    # TODO: SDK JS injects the correct client into the Configuration via useStorageClient
+    def _get_storage_client(self, force_cloud: bool) -> Union[ApifyClientAsync, MemoryStorage]:
+        return self._apify_client if self.is_at_home() or force_cloud else self._memory_storage
+
     # TODO: create proper Dataset, KeyValueStore and RequestQueue class
     @classmethod
-    async def open_dataset(cls, dataset_id_or_name: Optional[str] = None) -> DatasetClientAsync:
+    async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         """TODO: docs."""
-        return await cls._get_default_instance().open_dataset(dataset_id_or_name=dataset_id_or_name)
+        return await cls._get_default_instance().open_dataset(dataset_id_or_name=dataset_id_or_name, force_cloud=force_cloud)
 
-    async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None) -> DatasetClientAsync:
+    async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         # TODO: this should return a Dataset class rather than the raw client
 
         self._raise_if_not_initialized()
@@ -358,36 +361,31 @@ class Actor(metaclass=_ActorContextManager):
         if not dataset_id_or_name:
             dataset_id_or_name = self._config.default_dataset_id
 
-        dataset_client = self._apify_client.dataset(dataset_id_or_name)
-
-        if await dataset_client.get():
-            return dataset_client
-
-        else:
-            dataset = await self._apify_client.datasets().get_or_create(name=dataset_id_or_name)
-            return self._apify_client.dataset(dataset['id'])
+        return await Dataset.open(dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStore:
+    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         """TODO: docs."""
-        return await cls._get_default_instance().open_key_value_store(key_value_store_id_or_name=key_value_store_id_or_name)
+        return await cls._get_default_instance().open_key_value_store(key_value_store_id_or_name=key_value_store_id_or_name, force_cloud=force_cloud)
 
-    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None) -> KeyValueStore:
-        # TODO: this should return a KeyValueStore class rather than the raw client
-
+    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         self._raise_if_not_initialized()
 
         if not key_value_store_id_or_name:
             key_value_store_id_or_name = self._config.default_key_value_store_id
 
-        return await KeyValueStore.open(key_value_store_id_or_name, self._apify_client if self.is_at_home() else self._memory_storage)
+        return await KeyValueStore.open(key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None) -> RequestQueueClientAsync:
+    async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None, force_cloud: bool = False) -> RequestQueue:
         """TODO: docs."""
-        return await cls._get_default_instance().open_request_queue(request_queue_id_or_name=request_queue_id_or_name)
+        return await cls._get_default_instance().open_request_queue(request_queue_id_or_name=request_queue_id_or_name, force_cloud=force_cloud)
 
-    async def _open_request_queue_internal(self, request_queue_id_or_name: Optional[str] = None) -> RequestQueueClientAsync:
+    async def _open_request_queue_internal(
+        self,
+        request_queue_id_or_name: Optional[str] = None,
+        force_cloud: bool = False,
+    ) -> RequestQueue:
         # TODO: this should return a RequestQueue class rather than the raw client
 
         self._raise_if_not_initialized()
@@ -395,19 +393,12 @@ class Actor(metaclass=_ActorContextManager):
         if not request_queue_id_or_name:
             request_queue_id_or_name = self._config.default_request_queue_id
 
-        queue_client = self._apify_client.request_queue(request_queue_id_or_name)
-
-        if await queue_client.get():
-            return queue_client
-
-        else:
-            request_queue = await self._apify_client.request_queues().get_or_create(name=request_queue_id_or_name)
-            return self._apify_client.request_queue(request_queue['id'])
+        return await RequestQueue.open(request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
     async def push_data(cls, data: Any) -> None:
         """TODO: docs."""
-        return await cls._get_default_instance().push_data(data=data)
+        await cls._get_default_instance().push_data(data=data)
 
     async def _push_data_internal(self, data: Any) -> None:
         self._raise_if_not_initialized()
@@ -418,8 +409,8 @@ class Actor(metaclass=_ActorContextManager):
         if not isinstance(data, list):
             data = [data]
 
-        dataset_client = await self.open_dataset()
-        return await dataset_client.push_items(data)
+        dataset = await self.open_dataset()
+        await dataset.push_data(data)
 
     @classmethod
     async def get_input(cls) -> Any:
@@ -442,10 +433,8 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         key_value_store = await self.open_key_value_store()
-        record = await key_value_store.get_value(key)
-        if record:
-            return record['value']
-        return None
+        value = await key_value_store.get_value(key)
+        return value
 
     @classmethod
     async def set_value(cls, key: str, value: Any, options: Optional[Dict] = None) -> None:

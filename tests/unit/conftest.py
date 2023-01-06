@@ -7,7 +7,7 @@ import pytest
 
 from apify import Actor
 from apify.config import Configuration
-from apify.memory_storage.memory_storage import MemoryStorage
+from apify.memory_storage import MemoryStorage
 from apify_client.client import ApifyClientAsync
 
 

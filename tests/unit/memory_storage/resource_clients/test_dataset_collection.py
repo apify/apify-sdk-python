@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from apify.memory_storage.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients.dataset_collection import DatasetCollectionClient
+from apify.memory_storage import MemoryStorage
+from apify.memory_storage.resource_clients import DatasetCollectionClient
 
 
 @pytest.fixture()

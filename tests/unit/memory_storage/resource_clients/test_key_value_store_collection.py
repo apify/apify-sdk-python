@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from apify.memory_storage.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients.key_value_store_collection import KeyValueStoreCollectionClient
+from apify.memory_storage import MemoryStorage
+from apify.memory_storage.resource_clients import KeyValueStoreCollectionClient
 
 
 @pytest.fixture()
