@@ -347,19 +347,13 @@ class Actor(metaclass=_ActorContextManager):
     def _get_storage_client(self, force_cloud: bool) -> Union[ApifyClientAsync, MemoryStorage]:
         return self._apify_client if self.is_at_home() or force_cloud else self._memory_storage
 
-    # TODO: create proper Dataset, KeyValueStore and RequestQueue class
     @classmethod
     async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         """TODO: docs."""
         return await cls._get_default_instance().open_dataset(dataset_id_or_name=dataset_id_or_name, force_cloud=force_cloud)
 
     async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
-        # TODO: this should return a Dataset class rather than the raw client
-
         self._raise_if_not_initialized()
-
-        if not dataset_id_or_name:
-            dataset_id_or_name = self._config.default_dataset_id
 
         return await Dataset.open(dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
@@ -370,9 +364,6 @@ class Actor(metaclass=_ActorContextManager):
 
     async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         self._raise_if_not_initialized()
-
-        if not key_value_store_id_or_name:
-            key_value_store_id_or_name = self._config.default_key_value_store_id
 
         return await KeyValueStore.open(key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
@@ -386,12 +377,7 @@ class Actor(metaclass=_ActorContextManager):
         request_queue_id_or_name: Optional[str] = None,
         force_cloud: bool = False,
     ) -> RequestQueue:
-        # TODO: this should return a RequestQueue class rather than the raw client
-
         self._raise_if_not_initialized()
-
-        if not request_queue_id_or_name:
-            request_queue_id_or_name = self._config.default_request_queue_id
 
         return await RequestQueue.open(request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
 
