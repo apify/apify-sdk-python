@@ -6,7 +6,7 @@ from apify_client.clients import RequestQueueClientAsync
 from ..config import Configuration
 from ..memory_storage import MemoryStorage
 from ..memory_storage.resource_clients import RequestQueueClient
-from ._utils import _purge_default_storages
+from ._utils import _crypto_random_object_id, _purge_default_storages
 
 """
 Copy-paste of method interfaces from Crawlee's implementation
@@ -49,21 +49,25 @@ class RequestQueue:
     _id: str
     _name: Optional[str]
     _client: Union[RequestQueueClientAsync, RequestQueueClient]
+    _client_key = _crypto_random_object_id()
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """TODO: docs (constructor should be "internal")."""
         self._id = id
         self._name = name
-        self._client = client.request_queue(self._id)
+        self._client = client.request_queue(self._id, client_key=self._client_key)
 
     @classmethod
-    async def open(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'RequestQueue':
+    async def open(cls, request_queue_id_or_name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'RequestQueue':
         if config.purge_on_start:
             await _purge_default_storages(client)
 
-        request_queue_client = client.request_queue(store_id_or_name)
+        if not request_queue_id_or_name:
+            request_queue_id_or_name = config.default_request_queue_id
+
+        request_queue_client = client.request_queue(request_queue_id_or_name)
         request_queue_info = await request_queue_client.get()
         if not request_queue_info:
-            request_queue_info = await client.request_queues().get_or_create(name=store_id_or_name)
+            request_queue_info = await client.request_queues().get_or_create(name=request_queue_id_or_name)
 
         return RequestQueue(request_queue_info['id'], request_queue_info['name'], client)

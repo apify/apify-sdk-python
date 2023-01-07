@@ -86,7 +86,7 @@ class MemoryStorage:
         """Retrieve the sub-client for manipulating request queues."""
         return RequestQueueCollectionClient(base_storage_directory=self._request_queues_directory, client=self)
 
-    def request_queue(self, request_queue_id: str, *, _client_key: Optional[str] = None) -> RequestQueueClient:
+    def request_queue(self, request_queue_id: str, *, client_key: Optional[str] = None) -> RequestQueueClient:  # noqa: U100
         """Retrieve the sub-client for manipulating a single request queue.
 
         Args:

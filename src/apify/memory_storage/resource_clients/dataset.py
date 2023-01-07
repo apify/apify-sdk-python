@@ -2,7 +2,7 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Tuple, Union
 
 import aioshutil
 
@@ -107,17 +107,17 @@ class DatasetClient:
     async def list_items(
         self,
         *,
-        offset: int = 0,
-        limit: int = LIST_ITEMS_LIMIT,
-        _clean: Optional[bool] = None,
+        offset: Optional[int] = 0,
+        limit: Optional[int] = LIST_ITEMS_LIMIT,
+        clean: Optional[bool] = None,  # noqa: U100
         desc: Optional[bool] = None,
-        _fields: Optional[List[str]] = None,
-        _omit: Optional[List[str]] = None,
-        _unwind: Optional[str] = None,
-        _skip_empty: Optional[bool] = None,
-        _skip_hidden: Optional[bool] = None,
-        _flatten: Optional[List[str]] = None,
-        _view: Optional[str] = None,
+        fields: Optional[List[str]] = None,  # noqa: U100
+        omit: Optional[List[str]] = None,  # noqa: U100
+        unwind: Optional[str] = None,  # noqa: U100
+        skip_empty: Optional[bool] = None,  # noqa: U100
+        skip_hidden: Optional[bool] = None,  # noqa: U100
+        flatten: Optional[List[str]] = None,  # noqa: U100
+        view: Optional[str] = None,
     ) -> ListPage:
         """TODO: docs."""
         # Check by id
@@ -127,7 +127,7 @@ class DatasetClient:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
 
         start, end = existing_dataset_by_id._get_start_and_end_indexes(
-            max(existing_dataset_by_id._item_count - offset - limit, 0) if desc else offset or 0,
+            max(existing_dataset_by_id._item_count - (offset or 0) - (limit or LIST_ITEMS_LIMIT), 0) if desc else offset or 0,
             limit,
         )
 
@@ -156,14 +156,14 @@ class DatasetClient:
         *,
         offset: int = 0,
         limit: Optional[int] = None,
-        _clean: Optional[bool] = None,
+        clean: Optional[bool] = None,  # noqa: U100
         desc: Optional[bool] = None,
-        _fields: Optional[List[str]] = None,
-        _omit: Optional[List[str]] = None,
-        _unwind: Optional[str] = None,
-        _skip_empty: Optional[bool] = None,
-        _skip_hidden: Optional[bool] = None,
-    ) -> AsyncGenerator:  # TODO: Copy-pasted from client
+        fields: Optional[List[str]] = None,  # noqa: U100
+        omit: Optional[List[str]] = None,  # noqa: U100
+        unwind: Optional[str] = None,  # noqa: U100
+        skip_empty: Optional[bool] = None,  # noqa: U100
+        skip_hidden: Optional[bool] = None,  # noqa: U100
+    ) -> AsyncIterator[Dict]:
         """TODO: docs."""
         cache_size = 1000
         first_item = offset
