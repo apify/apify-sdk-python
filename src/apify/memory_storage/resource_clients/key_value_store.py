@@ -38,9 +38,9 @@ class KeyValueStoreClient:
     _client: 'MemoryStorage'
     _name: Optional[str]
     _key_value_entries: Dict[str, Dict]
-    _created_at = datetime.utcnow()
-    _accessed_at = datetime.utcnow()
-    _modified_at = datetime.utcnow()
+    _created_at: datetime
+    _accessed_at: datetime
+    _modified_at: datetime
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """TODO: docs."""
@@ -49,6 +49,9 @@ class KeyValueStoreClient:
         self._client = client
         self._name = name
         self._key_value_entries = {}
+        self._created_at = datetime.utcnow()
+        self._accessed_at = datetime.utcnow()
+        self._modified_at = datetime.utcnow()
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""

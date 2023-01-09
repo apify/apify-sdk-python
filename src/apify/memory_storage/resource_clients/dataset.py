@@ -37,9 +37,9 @@ class DatasetClient:
     _client: 'MemoryStorage'
     _name: Optional[str]
     _dataset_entries: Dict[str, Dict]
-    _created_at = datetime.utcnow()
-    _accessed_at = datetime.utcnow()
-    _modified_at = datetime.utcnow()
+    _created_at: datetime
+    _accessed_at: datetime
+    _modified_at: datetime
     _item_count = 0
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
@@ -49,6 +49,9 @@ class DatasetClient:
         self._client = client
         self._name = name
         self._dataset_entries = {}
+        self._created_at = datetime.utcnow()
+        self._accessed_at = datetime.utcnow()
+        self._modified_at = datetime.utcnow()
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""
@@ -117,7 +120,7 @@ class DatasetClient:
         skip_empty: Optional[bool] = None,  # noqa: U100
         skip_hidden: Optional[bool] = None,  # noqa: U100
         flatten: Optional[List[str]] = None,  # noqa: U100
-        view: Optional[str] = None,
+        view: Optional[str] = None, # noqa: U100
     ) -> ListPage:
         """TODO: docs."""
         # Check by id
