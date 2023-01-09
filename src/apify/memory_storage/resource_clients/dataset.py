@@ -120,7 +120,7 @@ class DatasetClient:
         skip_empty: Optional[bool] = None,  # noqa: U100
         skip_hidden: Optional[bool] = None,  # noqa: U100
         flatten: Optional[List[str]] = None,  # noqa: U100
-        view: Optional[str] = None, # noqa: U100
+        view: Optional[str] = None,  # noqa: U100
     ) -> ListPage:
         """TODO: docs."""
         # Check by id
