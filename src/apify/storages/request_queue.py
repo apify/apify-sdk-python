@@ -104,7 +104,7 @@ class RequestQueue:
     def _get_default_name(cls, config: Configuration) -> str:
         return config.default_request_queue_id
 
-    async def add_request(request_like: Dict, forefront: bool = False):
+    async def add_request(request_like: Dict, forefront: bool = False) -> Dict:
         pass
     # async addRequest(requestLike: Request | RequestOptions, options: RequestQueueOperationOptions = {}): Promise<QueueOperationInfo> {
     #     ow(requestLike, ow.object.partialShape({
@@ -164,10 +164,144 @@ class RequestQueue:
     #     return new Request(requestOptions as unknown as RequestOptions);
     # }
 
+    async def fetch_next_request(self) -> Optional[Dict]:
+        pass
+    # async fetchNextRequest<T extends Dictionary = Dictionary>(): Promise<Request<T> | null> {
+    #     await this._ensureHeadIsNonEmpty();
+
+    #     const nextRequestId = this.queueHeadDict.removeFirst();
+
+    #     // We are likely done at this point.
+    #     if (!nextRequestId) return null;
+
+    #     // This should never happen, but...
+    #     if (this.inProgress.has(nextRequestId) || this.recentlyHandled.get(nextRequestId)) {
+    #         this.log.warning('Queue head returned a request that is already in progress?!', {
+    #             nextRequestId,
+    #             inProgress: this.inProgress.has(nextRequestId),
+    #             recentlyHandled: !!this.recentlyHandled.get(nextRequestId),
+    #         });
+    #         return null;
+    #     }
+
+    #     this.inProgress.add(nextRequestId);
+    #     this.lastActivity = new Date();
+
+    #     let request;
+    #     try {
+    #         request = await this.getRequest(nextRequestId);
+    #     } catch (e) {
+    #         // On error, remove the request from in progress, otherwise it would be there forever
+    #         this.inProgress.delete(nextRequestId);
+    #         throw e;
+    #     }
+
+    #     // NOTE: It can happen that the queue head index is inconsistent with the main queue table. This can occur in two situations:
+
+    #     // 1) Queue head index is ahead of the main table and the request is not present in the main table yet (i.e. getRequest() returned null).
+    #     //    In this case, keep the request marked as in progress for a short while,
+    #     //    so that isFinished() doesn't return true and _ensureHeadIsNonEmpty() doesn't not load the request
+    #     //    into the queueHeadDict straight again. After the interval expires, fetchNextRequest()
+    #     //    will try to fetch this request again, until it eventually appears in the main table.
+    #     if (!request) {
+    #         this.log.debug('Cannot find a request from the beginning of queue, will be retried later', { nextRequestId });
+    #         setTimeout(() => {
+    #             this.inProgress.delete(nextRequestId);
+    #         }, STORAGE_CONSISTENCY_DELAY_MILLIS);
+    #         return null;
+    #     }
+
+    #     // 2) Queue head index is behind the main table and the underlying request was already handled
+    #     //    (by some other client, since we keep the track of handled requests in recentlyHandled dictionary).
+    #     //    We just add the request to the recentlyHandled dictionary so that next call to _ensureHeadIsNonEmpty()
+    #     //    will not put the request again to queueHeadDict.
+    #     if (request.handledAt) {
+    #         this.log.debug('Request fetched from the beginning of queue was already handled', { nextRequestId });
+    #         this.recentlyHandled.add(nextRequestId, true);
+    #         return null;
+    #     }
+
+    #     return request;
+    # }
+
+    async def mark_request_as_handled(self, request: Dict) -> Optional[Dict]:
+        pass
+    # async markRequestHandled(request: Request): Promise<QueueOperationInfo | null> {
+    #     this.lastActivity = new Date();
+    #     ow(request, ow.object.partialShape({
+    #         id: ow.string,
+    #         uniqueKey: ow.string,
+    #         handledAt: ow.optional.string,
+    #     }));
+
+    #     if (!this.inProgress.has(request.id)) {
+    #         this.log.debug(`Cannot mark request ${request.id} as handled, because it is not in progress!`, { requestId: request.id });
+    #         return null;
+    #     }
+
+    #     const handledAt = request.handledAt ?? new Date().toISOString();
+    #     const queueOperationInfo = await this.client.updateRequest({ ...request, handledAt }) as QueueOperationInfo;
+    #     request.handledAt = handledAt;
+    #     queueOperationInfo.uniqueKey = request.uniqueKey;
+
+    #     this.inProgress.delete(request.id);
+    #     this.recentlyHandled.add(request.id, true);
+
+    #     if (!queueOperationInfo.wasAlreadyHandled) {
+    #         this.assumedHandledCount++;
+    #     }
+
+    #     this._cacheRequest(getRequestId(request.uniqueKey), queueOperationInfo);
+
+    #     return queueOperationInfo;
+    # }
+
+    async def reclaim_request(self, request: Dict, forefront: bool = False) -> Optional[Dict]:
+        pass
+    # async reclaimRequest(request: Request, options: RequestQueueOperationOptions = {}): Promise<QueueOperationInfo | null> {
+    #     this.lastActivity = new Date();
+    #     ow(request, ow.object.partialShape({
+    #         id: ow.string,
+    #         uniqueKey: ow.string,
+    #     }));
+    #     ow(options, ow.object.exactShape({
+    #         forefront: ow.optional.boolean,
+    #     }));
+
+    #     const { forefront = false } = options;
+
+    #     if (!this.inProgress.has(request.id)) {
+    #         this.log.debug(`Cannot reclaim request ${request.id}, because it is not in progress!`, { requestId: request.id });
+    #         return null;
+    #     }
+
+    #     // TODO: If request hasn't been changed since the last getRequest(),
+    #     //   we don't need to call updateRequest() and thus improve performance.
+    #     const queueOperationInfo = await this.client.updateRequest(request, { forefront }) as QueueOperationInfo;
+    #     queueOperationInfo.uniqueKey = request.uniqueKey;
+    #     this._cacheRequest(getRequestId(request.uniqueKey), queueOperationInfo);
+
+    #     // Wait a little to increase a chance that the next call to fetchNextRequest() will return the request with updated data.
+    #     // This is to compensate for the limitation of DynamoDB, where writes might not be immediately visible to subsequent reads.
+    #     setTimeout(() => {
+    #         if (!this.inProgress.has(request.id)) {
+    #             this.log.debug('The request is no longer marked as in progress in the queue?!', { requestId: request.id });
+    #             return;
+    #         }
+
+    #         this.inProgress.delete(request.id);
+
+    #         // Performance optimization: add request straight to head if possible
+    #         this._maybeAddRequestToQueueHead(request.id, forefront);
+    #     }, STORAGE_CONSISTENCY_DELAY_MILLIS);
+
+    #     return queueOperationInfo;
+    # }
+
     def _in_progress_count(self) -> int:
         return len(self._in_progress)
 
-    async def _is_empty(self) -> bool:
+    async def is_empty(self) -> bool:
         await self._ensure_head_is_non_empty()
         return len(self._queue_head_dict) == 0
 
@@ -307,4 +441,5 @@ class RequestQueue:
     async def handled_count(self) -> int:
         # NOTE: We keep this function for compatibility with RequestList.handledCount()
         rq_info = await self.get_info()
-        return rq_info['handledRequestCount'] if rq_info is not None else 0
+        # TODO: int() wrapping to trick mypy is hacky, use typed dict?
+        return int(rq_info['handledRequestCount']) if rq_info is not None else 0
