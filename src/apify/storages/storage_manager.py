@@ -57,11 +57,11 @@ class StorageManager:
         if used_config.purge_on_start:
             await _purge_default_storages(used_client)
 
-        storage = await storage_class.open(store_id_or_name, used_client, used_config)
+        storage = await storage_class._create_instance(store_id_or_name, used_client, used_config)
 
         storage_manager._cache[storage_class][storage._id] = storage
         if storage._name is not None:
-            storage_manager._cache[storage_class][storage._name] = storage  # TODO: Is this ok?
+            storage_manager._cache[storage_class][storage._name] = storage
         return storage
 
     @classmethod
