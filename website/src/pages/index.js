@@ -9,6 +9,8 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './index.module.css';
 
+import ApifyLogo from '@apify/docs-theme/static/img/apify_logo.svg';
+
 function Hero() {
     return (
         <header className={clsx('container', styles.heroBanner)}>
@@ -40,7 +42,7 @@ function Hero() {
                 </div>
                 <div className={clsx(styles.relative, 'col', 'col--5')}>
                     <div className={styles.logoBlur}>
-                        <img src={require('../../static/img/logo-blur.png').default} className={clsx(styles.hideSmall)} />
+                        <img src={useBaseUrl('img/logo-blur.png')} className={clsx(styles.hideSmall)} />
                     </div>
                     <div className={styles.codeBlock}>
                         <CodeBlock className="language-bash">
@@ -54,7 +56,6 @@ function Hero() {
 }
 
 export default function Home() {
-    const SvgLogo = require('../../static/img/apify_logo.svg').default;
     const { siteConfig } = useDocusaurusContext();
     return (
         <Layout
@@ -64,7 +65,7 @@ export default function Home() {
             <div className="container">
                 <div className="row">
                     <div className="col text--center padding-top--lg padding-bottom--xl">
-                        <SvgLogo className={styles.bottomLogo} />
+                        <ApifyLogo className={styles.bottomLogo} />
                     </div>
                 </div>
             </div>
