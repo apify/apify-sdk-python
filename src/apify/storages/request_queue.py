@@ -66,6 +66,7 @@ class RequestQueue:
     _id: str
     _name: Optional[str]
     _client: Union[RequestQueueClientAsync, RequestQueueClient]
+    _config: Configuration
     _client_key = _crypto_random_object_id()
     _queue_head_dict: OrderedDict[str, str]
     _query_queue_head_promise: Optional[Coroutine]
@@ -77,11 +78,12 @@ class RequestQueue:
     _assumed_handled_count = 0
     _requests_cache: LRUCache
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> None:
         """TODO: docs (constructor should be "internal")."""
         self._id = id
         self._name = name
         self._client = client.request_queue(self._id, client_key=self._client_key)
+        self._config = config
         self._queue_head_dict = OrderedDict()
         self._query_queue_head_promise = None
         self._in_progress = set()
@@ -96,7 +98,7 @@ class RequestQueue:
         if not request_queue_info:
             request_queue_info = await client.request_queues().get_or_create(name=request_queue_id_or_name)
 
-        return RequestQueue(request_queue_info['id'], request_queue_info['name'], client)
+        return RequestQueue(request_queue_info['id'], request_queue_info['name'], client, config)
 
     async def add_request(request_like: Dict, forefront: bool = False):
         pass

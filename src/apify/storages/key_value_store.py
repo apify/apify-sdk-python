@@ -14,11 +14,6 @@ T = TypeVar('T')
 
 """
 Copy-paste of method interfaces from Crawlee's implementation
-constructor(options: KeyValueStoreOptions, readonly config = Configuration.getGlobalConfig()) {
-    this.id = options.id;
-    this.name = options.name;
-    this.client = options.client.keyValueStore(this.id);
-}
 async getValue<T = unknown>(key: string): Promise<T | null>
 async getValue<T = unknown>(key: string, defaultValue: T): Promise<T>
 async getValue<T = unknown>(key: string, defaultValue?: T): Promise<T | null>
@@ -45,16 +40,18 @@ class KeyValueStore:
     _id: str
     _name: Optional[str]
     _client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
+    _config: Configuration
     # _persist_state_event_started: bool = False
 
     # _cache: Dict[str, Dict]
     """Cache for persistent (auto-saved) values. When we try to set such value, the cache will be updated automatically."""
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> None:
         """TODO: docs (constructor should be "internal")."""
         self._id = id
         self._name = name
         self._client = client.key_value_store(self._id)
+        self._config = config
 
     @classmethod
     async def _create_instance(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'KeyValueStore':
@@ -64,7 +61,7 @@ class KeyValueStore:
         if not key_value_store_info:
             key_value_store_info = await client.key_value_stores().get_or_create(name=store_id_or_name)
 
-        return KeyValueStore(key_value_store_info['id'], key_value_store_info['name'], client)
+        return KeyValueStore(key_value_store_info['id'], key_value_store_info['name'], client, config)
 
     @overload
     async def get_value(self, key: str) -> Any:  # noqa: U100

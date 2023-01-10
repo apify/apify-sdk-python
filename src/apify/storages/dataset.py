@@ -42,12 +42,14 @@ class Dataset:
     _id: str
     _name: Optional[str]
     _client: Union[DatasetClientAsync, DatasetClient]
+    _config: Configuration
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> None:
         """TODO: docs (constructor should be "internal")."""
         self._id = id
         self._name = name
         self._client = client.dataset(self._id)
+        self._config = config
 
     @classmethod
     async def _create_instance(cls, dataset_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'Dataset':
@@ -56,7 +58,7 @@ class Dataset:
         if not dataset_info:
             dataset_info = await client.datasets().get_or_create(name=dataset_id_or_name)
 
-        return Dataset(dataset_info['id'], dataset_info['name'], client)
+        return Dataset(dataset_info['id'], dataset_info['name'], client, config)
 
     async def push_data(self, data: JSONSerializable) -> None:
         # const dispatch = (payload: string) => this.client.pushItems(payload);
