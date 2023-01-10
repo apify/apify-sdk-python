@@ -50,7 +50,7 @@ class Dataset:
         self._client = client.dataset(self._id)
 
     @classmethod
-    async def open(cls, dataset_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'Dataset':
+    async def _create_instance(cls, dataset_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'Dataset':
         dataset_client = client.dataset(dataset_id_or_name)
         dataset_info = await dataset_client.get()
         if not dataset_info:

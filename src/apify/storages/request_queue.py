@@ -90,7 +90,7 @@ class RequestQueue:
         self._requests_cache = LRUCache(max_length=MAX_CACHED_REQUESTS)
 
     @classmethod
-    async def open(cls, request_queue_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'RequestQueue':
+    async def _create_instance(cls, request_queue_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'RequestQueue':
         request_queue_client = client.request_queue(request_queue_id_or_name)
         request_queue_info = await request_queue_client.get()
         if not request_queue_info:

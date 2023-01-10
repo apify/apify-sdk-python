@@ -57,7 +57,7 @@ class KeyValueStore:
         self._client = client.key_value_store(self._id)
 
     @classmethod
-    async def open(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'KeyValueStore':
+    async def _create_instance(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'KeyValueStore':
         """TODO: docs."""
         key_value_store_client = client.key_value_store(store_id_or_name)
         key_value_store_info = await key_value_store_client.get()
