@@ -355,6 +355,9 @@ class Actor(metaclass=_ActorContextManager):
     async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         self._raise_if_not_initialized()
 
+        if not dataset_id_or_name:
+            dataset_id_or_name = self._config.default_dataset_id
+
         return await StorageManager.open_storage(Dataset, dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
@@ -364,6 +367,9 @@ class Actor(metaclass=_ActorContextManager):
 
     async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         self._raise_if_not_initialized()
+
+        if not key_value_store_id_or_name:
+            key_value_store_id_or_name = self._config.default_key_value_store_id
 
         return await StorageManager.open_storage(KeyValueStore, key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
@@ -378,6 +384,9 @@ class Actor(metaclass=_ActorContextManager):
         force_cloud: bool = False,
     ) -> RequestQueue:
         self._raise_if_not_initialized()
+
+        if not request_queue_id_or_name:
+            request_queue_id_or_name = self._config.default_request_queue_id
 
         return await StorageManager.open_storage(RequestQueue, request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
 

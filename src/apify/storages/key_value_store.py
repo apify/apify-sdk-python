@@ -7,7 +7,6 @@ from apify_client.clients import KeyValueStoreClientAsync
 from ..config import Configuration
 from ..memory_storage import MemoryStorage
 from ..memory_storage.resource_clients import KeyValueStoreClient
-from ._utils import _purge_default_storages
 from .storage_manager import StorageManager
 
 T = TypeVar('T')
@@ -58,14 +57,8 @@ class KeyValueStore:
         self._client = client.key_value_store(self._id)
 
     @classmethod
-    async def open(cls, store_id_or_name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'KeyValueStore':
+    async def open(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'KeyValueStore':
         """TODO: docs."""
-        if config.purge_on_start:
-            await _purge_default_storages(client)
-
-        if not store_id_or_name:
-            store_id_or_name = config.default_key_value_store_id
-
         key_value_store_client = client.key_value_store(store_id_or_name)
         key_value_store_info = await key_value_store_client.get()
         if not key_value_store_info:

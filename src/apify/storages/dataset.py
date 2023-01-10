@@ -11,6 +11,7 @@ from ..memory_storage import MemoryStorage
 from ..memory_storage.resource_clients import DatasetClient
 from ._utils import _purge_default_storages
 from .key_value_store import KeyValueStore
+from .storage_manager import StorageManager
 
 """
 Copy-paste of method interfaces from Crawlee's implementation
@@ -49,13 +50,7 @@ class Dataset:
         self._client = client.dataset(self._id)
 
     @classmethod
-    async def open(cls, dataset_id_or_name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'Dataset':
-        if config.purge_on_start:
-            await _purge_default_storages(client)
-
-        if not dataset_id_or_name:
-            dataset_id_or_name = config.default_dataset_id
-
+    async def open(cls, dataset_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'Dataset':
         dataset_client = client.dataset(dataset_id_or_name)
         dataset_info = await dataset_client.get()
         if not dataset_info:
@@ -124,8 +119,8 @@ class Dataset:
         )
 
     async def export_to(self, key: str, from_dataset: str, to_key_value_store: Optional[str] = None, content_type: Optional[str] = None) -> None:
-        raise NotImplementedError('Not implemented yet')
-        # key_value_store = await KeyValueStore.open(to_key_value_store, self._client, Configuration.get_global_configuration())
+        # raise NotImplementedError('Not implemented yet')
+        key_value_store = await StorageManager.open_storage(KeyValueStore, to_key_value_store) # TODO fix: resolve how to nicely pass default storage ids around
         # const kvStore = await KeyValueStore.open(options?.toKVS ?? null);
         # const items: Data[] = [];
 
@@ -192,9 +187,5 @@ class Dataset:
 
     async def drop(self) -> None:
         """TODO: docs."""
-        # await this.client.delete();
-        # const manager = StorageManager.getManager(Dataset, this.config);
-        # manager.closeStorage(this);
         await self._client.delete()
-        # TODO: Resolve circular imports...
-        # await StorageManager.close_storage(StorageTypes.DATASET, self._id)
+        await StorageManager.close_storage(self.__class__, self._id, self._name)
