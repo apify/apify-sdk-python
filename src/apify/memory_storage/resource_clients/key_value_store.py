@@ -123,6 +123,16 @@ class KeyValueStoreClient:
                 'size': size,
             })
 
+        if len(items) == 0:
+            return {
+                'count': len(items),
+                'limit': limit,
+                'exclusiveStartKey': exclusive_start_key,
+                'isTruncated': False,
+                'nextExclusiveStartKey': None,
+                'items': items,
+            }
+
         # Lexically sort to emulate the API
         items = sorted(items, key=itemgetter('key'))
 

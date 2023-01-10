@@ -1,5 +1,4 @@
 import asyncio
-import functools
 import inspect
 from datetime import datetime
 from types import TracebackType
@@ -14,6 +13,7 @@ from ._utils import (
     _get_memory_usage_bytes,
     _log_system_info,
     _run_func_at_interval_async,
+    _wrap_internal,
     dualproperty,
 )
 from .config import Configuration
@@ -21,25 +21,16 @@ from .consts import ActorEventType, ApifyEnvVars
 from .event_manager import EventManager
 from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
+from .storage_client_manager import StorageClientManager
 from .storages import Dataset, KeyValueStore, RequestQueue, StorageManager
 
 MainReturnType = TypeVar('MainReturnType')
 
-T = TypeVar('T', bound=Callable)
-U = TypeVar('U', bound=Callable)
-
-
-def _wrap_internal(implementation: T, metadata_source: U) -> U:
-    @functools.wraps(metadata_source)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        return implementation(*args, **kwargs)
-
-    return cast(U, wrapper)
-
-
 # This metaclass is needed so you can do `with Actor: ...` instead of `with Actor() as a: ...`
 # and have automatic `Actor.init()` and `Actor.exit()`
 # TODO: decide if this mumbo jumbo is worth it or not, or if it maybe breaks something
+
+
 class _ActorContextManager(type):
     @staticmethod
     async def __aenter__() -> Type['Actor']:
@@ -198,7 +189,7 @@ class Actor(metaclass=_ActorContextManager):
         )
 
         if self.is_at_home():
-            self._config.storage_client_manager.set_storage_client(self._apify_client)
+            StorageClientManager.set_storage_client(self._apify_client)
         else:
             self._send_system_info_interval_task = asyncio.create_task(
                 _run_func_at_interval_async(
@@ -355,9 +346,6 @@ class Actor(metaclass=_ActorContextManager):
     async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         self._raise_if_not_initialized()
 
-        if not dataset_id_or_name:
-            dataset_id_or_name = self._config.default_dataset_id
-
         return await StorageManager.open_storage(Dataset, dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
@@ -367,9 +355,6 @@ class Actor(metaclass=_ActorContextManager):
 
     async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         self._raise_if_not_initialized()
-
-        if not key_value_store_id_or_name:
-            key_value_store_id_or_name = self._config.default_key_value_store_id
 
         return await StorageManager.open_storage(KeyValueStore, key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
@@ -384,9 +369,6 @@ class Actor(metaclass=_ActorContextManager):
         force_cloud: bool = False,
     ) -> RequestQueue:
         self._raise_if_not_initialized()
-
-        if not request_queue_id_or_name:
-            request_queue_id_or_name = self._config.default_request_queue_id
 
         return await StorageManager.open_storage(RequestQueue, request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
 

@@ -3,35 +3,13 @@ from typing import Any, AsyncIterator, Dict, Optional, Tuple, TypeVar, Union, ov
 from apify_client import ApifyClientAsync
 from apify_client.clients import KeyValueStoreClientAsync
 
-# from ..consts import StorageTypes
+from .._utils import _wrap_internal
 from ..config import Configuration
 from ..memory_storage import MemoryStorage
 from ..memory_storage.resource_clients import KeyValueStoreClient
 from .storage_manager import StorageManager
 
 T = TypeVar('T')
-# S = TypeVar('S', dict)
-
-"""
-Copy-paste of method interfaces from Crawlee's implementation
-async getValue<T = unknown>(key: string): Promise<T | null>
-async getValue<T = unknown>(key: string, defaultValue: T): Promise<T>
-async getValue<T = unknown>(key: string, defaultValue?: T): Promise<T | null>
-async getAutoSavedValue<T extends Dictionary = Dictionary>(key: string, defaultValue = {} as T): Promise<T>
-private ensurePersistStateEvent(): void
-async setValue<T>(key: string, value: T | null, options: RecordOptions = {}): Promise<void>
-async drop(): Promise<void>
-clearCache(): void
-async forEachKey(iteratee: KeyConsumer, options: KeyValueStoreIteratorOptions = {}): Promise<void>
-private async _forEachKey(iteratee: KeyConsumer, options: KeyValueStoreIteratorOptions = {}, index = 0): Promise<void>
-static async open(storeIdOrName?: string | null, options: StorageManagerOptions = {}): Promise<KeyValueStore>
-static async getValue<T = unknown>(key: string): Promise<T | null>
-static async getValue<T = unknown>(key: string, defaultValue: T): Promise<T>
-static async getValue<T = unknown>(key: string, defaultValue?: T): Promise<T | null>
-static async getAutoSavedValue<T extends Dictionary = Dictionary>(key: string, defaultValue = {} as T): Promise<T>
-static async setValue<T>(key: string, value: T | null, options: RecordOptions = {}): Promise<void>
-static async getInput<T = Dictionary | string | Buffer>(): Promise<T | null>
-"""
 
 
 class KeyValueStore:
@@ -46,62 +24,80 @@ class KeyValueStore:
     # _cache: Dict[str, Dict]
     """Cache for persistent (auto-saved) values. When we try to set such value, the cache will be updated automatically."""
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """TODO: docs (constructor should be "internal")."""
+        self.get_value = _wrap_internal(self._get_value_internal, self.get_value)  # type: ignore
+        self.set_value = _wrap_internal(self._set_value_internal, self.set_value)  # type: ignore
         self._id = id
         self._name = name
         self._client = client.key_value_store(self._id)
-        self._config = config
+        self._config = Configuration.get_global_configuration()  # We always use the global config
 
     @classmethod
-    async def _create_instance(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'KeyValueStore':
+    async def _create_instance(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> 'KeyValueStore':
         """TODO: docs."""
         key_value_store_client = client.key_value_store(store_id_or_name)
         key_value_store_info = await key_value_store_client.get()
         if not key_value_store_info:
             key_value_store_info = await client.key_value_stores().get_or_create(name=store_id_or_name)
 
-        return KeyValueStore(key_value_store_info['id'], key_value_store_info['name'], client, config)
+        return KeyValueStore(key_value_store_info['id'], key_value_store_info['name'], client)
+
+    @classmethod
+    def _get_default_name(cls, config: Configuration) -> str:
+        return config.default_key_value_store_id
 
     @overload
-    async def get_value(self, key: str) -> Any:  # noqa: U100
-        """TODO: docs."""
+    @classmethod
+    async def get_value(cls, key: str) -> Any:  # noqa: U100
         ...
 
     @overload
-    async def get_value(self, key: str, default_value: T) -> T:  # noqa: U100
-        """TODO: docs."""
+    @classmethod
+    async def get_value(cls, key: str, default_value: T) -> T:  # noqa: U100
         ...
 
-    async def get_value(self, key: str, default_value: Optional[T] = None) -> Optional[T]:
+    @overload
+    @classmethod
+    async def get_value(cls, key: str, default_value: Optional[T] = None) -> Optional[T]:  # noqa: U100
+        ...
+
+    @classmethod
+    async def get_value(cls, key: str, default_value: Optional[T] = None) -> Optional[T]:
         """TODO: docs."""
+        store = await cls.open()
+        return await store.get_value(key, default_value)
+
+    async def _get_value_internal(self, key: str, default_value: Optional[T] = None) -> Optional[T]:
         record = await self._client.get_record(key)
         return record['value'] if record else default_value
 
     # async def get_auto_saved_value(self, key: str, default_value: Optional[S] = None) -> Optional[S]:
     #     pass
 
-    def for_each_key(self, exclusive_start_key: Optional[str] = None) -> AsyncIterator[Tuple[Dict, int, int]]:
+    async def for_each_key(self, exclusive_start_key: Optional[str] = None) -> AsyncIterator[Tuple[Dict, int, int]]:
         """TODO: docs."""
-        return self._for_each_key(exclusive_start_key)
+        index = 0
+        while True:
+            list_keys = await self._client.list_keys(exclusive_start_key=exclusive_start_key)
+            for item in list_keys['items']:
+                yield item, index, item['size']
+                index += 1
 
-    async def _for_each_key(self, exclusive_start_key: Optional[str] = None, index: int = 0) -> AsyncIterator[Tuple[Dict, int, int]]:
-        """TODO: docs."""
-        list_keys = await self._client.list_keys(exclusive_start_key=exclusive_start_key)
-        for item in list_keys['items']:
-            yield item, index, item['size']
-            index += 1
-
-        # TODO: Can we somehow simplify this? it seems you cannot do 'yield from' in an async method https://stackoverflow.com/a/47378063
-        if list_keys['isTruncated']:
-            async for x in self._for_each_key(list_keys['nextExclusiveStartKey'], index):
-                yield x
+            if not list_keys['isTruncated']:
+                break
+            exclusive_start_key = list_keys['nextExclusiveStartKey']
 
     # async def _ensure_persist_state_event(self):
     #     pass
 
-    async def set_value(self, key: str, value: Optional[T], content_type: Optional[str] = None) -> None:
+    @classmethod
+    async def set_value(cls, key: str, value: Optional[T], content_type: Optional[str] = None) -> None:
         """TODO: docs."""
+        store = await cls.open()
+        return await store.set_value(key, value, content_type)
+
+    async def _set_value_internal(self, key: str, value: Optional[T], content_type: Optional[str] = None) -> None:
         if value is None:
             return await self._client.delete_record(key)
 
@@ -117,3 +113,8 @@ class KeyValueStore:
         """TODO: docs."""
         await self._client.delete()
         await StorageManager.close_storage(self.__class__, self._id, self._name)
+
+    @classmethod
+    async def open(cls, store_id_or_name: Optional[str] = None, config: Optional[Configuration] = None) -> 'KeyValueStore':
+        """TODO: docs."""
+        return await StorageManager.open_storage(cls, store_id_or_name, None, config)

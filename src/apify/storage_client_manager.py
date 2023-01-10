@@ -1,32 +1,38 @@
-from typing import TYPE_CHECKING, Union
+from typing import Optional, Union
 
 from apify_client import ApifyClientAsync
 
+from .config import Configuration
 from .memory_storage import MemoryStorage
-
-if TYPE_CHECKING:
-    from .config import Configuration
 
 
 class StorageClientManager:
     """Some logic stolen from Configuration.ts in crawlee, TODO: look for docs there."""
 
-    _config: 'Configuration'
+    _config: Configuration
 
     _client: Union[ApifyClientAsync, MemoryStorage]
 
-    def __init__(self, config: 'Configuration') -> None:
-        """TODO: docs."""
-        self._config = config
-        self._client = self._create_memory_storage()
+    _default_instance: Optional['StorageClientManager'] = None
 
-    def get_storage_client(self) -> Union[ApifyClientAsync, MemoryStorage]:
+    def __init__(self) -> None:
         """TODO: docs."""
-        return self._client
+        self._config = Configuration.get_global_configuration()
+        self._client = MemoryStorage(persist_storage=self._config.persist_storage)
 
-    def _create_memory_storage(self) -> MemoryStorage:
-        return MemoryStorage(persist_storage=self._config.persist_storage)
-
-    def set_storage_client(self, client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    @classmethod
+    def get_storage_client(cls) -> Union[ApifyClientAsync, MemoryStorage]:
         """TODO: docs."""
-        self._client = client
+        return cls._get_default_instance()._client
+
+    @classmethod
+    def set_storage_client(cls, client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+        """TODO: docs."""
+        cls._get_default_instance()._client = client
+
+    @classmethod
+    def _get_default_instance(cls) -> 'StorageClientManager':
+        if cls._default_instance is None:
+            cls._default_instance = cls()
+
+        return cls._default_instance

@@ -78,12 +78,12 @@ class RequestQueue:
     _assumed_handled_count = 0
     _requests_cache: LRUCache
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """TODO: docs (constructor should be "internal")."""
         self._id = id
         self._name = name
         self._client = client.request_queue(self._id, client_key=self._client_key)
-        self._config = config
+        self._config = Configuration.get_global_configuration()  # We always use the global config
         self._queue_head_dict = OrderedDict()
         self._query_queue_head_promise = None
         self._in_progress = set()
@@ -92,13 +92,17 @@ class RequestQueue:
         self._requests_cache = LRUCache(max_length=MAX_CACHED_REQUESTS)
 
     @classmethod
-    async def _create_instance(cls, request_queue_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage], config: Configuration) -> 'RequestQueue':
+    async def _create_instance(cls, request_queue_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> 'RequestQueue':
         request_queue_client = client.request_queue(request_queue_id_or_name)
         request_queue_info = await request_queue_client.get()
         if not request_queue_info:
             request_queue_info = await client.request_queues().get_or_create(name=request_queue_id_or_name)
 
-        return RequestQueue(request_queue_info['id'], request_queue_info['name'], client, config)
+        return RequestQueue(request_queue_info['id'], request_queue_info['name'], client)
+
+    @classmethod
+    def _get_default_name(cls, config: Configuration) -> str:
+        return config.default_request_queue_id
 
     async def add_request(request_like: Dict, forefront: bool = False):
         pass

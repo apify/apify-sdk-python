@@ -4,6 +4,7 @@ from apify_client import ApifyClientAsync
 
 from ..config import Configuration
 from ..memory_storage import MemoryStorage
+from ..storage_client_manager import StorageClientManager
 
 if TYPE_CHECKING:
     from .dataset import Dataset
@@ -38,27 +39,36 @@ class StorageManager:
     async def open_storage(
         cls,
         storage_class: Type[T],
-        store_id_or_name: str,
+        store_id_or_name: Optional[str] = None,
         client: Optional[Union[ApifyClientAsync, MemoryStorage]] = None,
         config: Optional[Configuration] = None,
     ) -> T:
         """TODO: docs."""
         storage_manager = StorageManager._get_default_instance()
+        used_config = config or storage_manager._config
+        used_client = client or StorageClientManager.get_storage_client()
+
+        # Create cache for the given storage class if missing
         if storage_class not in storage_manager._cache:
             storage_manager._cache[storage_class] = {}
 
+        # Fetch default name
+        if not store_id_or_name:
+            store_id_or_name = storage_class._get_default_name(used_config)
+
+        # Try to get the storage instance from cache
         storage = storage_manager._cache[storage_class].get(store_id_or_name, None)
         if storage is not None:
             return cast(T, storage)  # TODO: This cast is a bit nasty, discuss a solution
 
-        used_config = config or storage_manager._config
-        used_client = client or used_config.storage_client_manager.get_storage_client()
-
+        # Purge default storages if configured
         if used_config.purge_on_start:
             await _purge_default_storages(used_client)
 
-        storage = await storage_class._create_instance(store_id_or_name, used_client, used_config)
+        # Create the storage
+        storage = await storage_class._create_instance(store_id_or_name, used_client)
 
+        # Cache by id and name
         storage_manager._cache[storage_class][storage._id] = storage
         if storage._name is not None:
             storage_manager._cache[storage_class][storage._name] = storage

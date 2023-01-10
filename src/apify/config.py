@@ -2,7 +2,6 @@ from typing import Optional
 
 from ._utils import _fetch_and_parse_env_var
 from .consts import ApifyEnvVars
-from .storage_client_manager import StorageClientManager
 
 
 class Configuration:
@@ -52,8 +51,6 @@ class Configuration:
 
         self.system_info_interval_millis = 60000
         self.max_used_cpu_ratio = 0.95
-
-        self.storage_client_manager = StorageClientManager(self)
 
     @classmethod
     def _get_default_instance(cls) -> 'Configuration':

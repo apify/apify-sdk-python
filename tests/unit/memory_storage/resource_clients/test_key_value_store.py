@@ -69,6 +69,13 @@ async def test_delete(key_value_store_client: KeyValueStoreClient) -> None:
     await key_value_store_client.delete()
 
 
+async def test_list_keys_empty(key_value_store_client: KeyValueStoreClient) -> None:
+    keys = await key_value_store_client.list_keys()
+    assert len(keys['items']) == 0
+    assert keys['count'] == 0
+    assert keys['isTruncated'] is False
+
+
 async def test_list_keys(key_value_store_client: KeyValueStoreClient) -> None:
     record_count = 4
     used_limit = 2

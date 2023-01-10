@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import contextlib
+import functools
 import hashlib
 import inspect
 import io
@@ -284,3 +285,14 @@ async def _force_rename(src_dir: str, dst_dir: str) -> None:
         if await ospath.exists(dst_dir):
             await aioshutil.rmtree(dst_dir, ignore_errors=True)
         await rename(src_dir, dst_dir)
+
+ImplementationType = TypeVar('ImplementationType', bound=Callable)
+MetadataType = TypeVar('MetadataType', bound=Callable)
+
+
+def _wrap_internal(implementation: ImplementationType, metadata_source: MetadataType) -> MetadataType:
+    @functools.wraps(metadata_source)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        return implementation(*args, **kwargs)
+
+    return cast(MetadataType, wrapper)
