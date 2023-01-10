@@ -1,7 +1,6 @@
-# TODO: randbytes added in 3.9, mypy nicely caught it even though I have 3.10 locally...
-# from random import randbytes
+from collections import OrderedDict
 from secrets import token_bytes
-from typing import Union
+from typing import Generic, Optional, TypeVar, Union
 
 from apify_client import ApifyClientAsync
 
@@ -25,3 +24,47 @@ def _crypto_random_object_id(length: int = 17) -> str:
     for i in reversed(range(length)):  # TODO: Benchmark performance impact of reverse
         string += chars[(bytes[i] | 0) % chars_len]
     return string
+
+
+T = TypeVar('T')
+
+
+class LRUCache(Generic[T]):
+    """Attempt to reimplement LRUCache from `@apify/datastructures` using `OrderedDict`."""
+
+    _cache: OrderedDict[str, T]
+
+    _max_length: int
+
+    def __init__(self, max_length: int) -> None:
+        """Crete a LRUCache with a specific max_length."""
+        self._cache = OrderedDict[str, T]()
+        self._max_length = max_length
+
+    def get(self, key: str) -> Optional[T]:
+        """Get an item from the cache. Move it to the end if present."""
+        val = self._cache.get(key)
+        if val is not None:
+            self._cache.move_to_end(key)
+        return val
+
+    def add(self, key: str, value: T) -> bool:
+        """Add an item to the cache. Remove least used item if max_length exceeded."""
+        if key in self._cache:
+            return False
+        self._cache[key] = value
+        if len(self._cache) > self._max_length:
+            self._cache.popitem(last=False)
+        return True
+
+    def remove(self, key: str) -> Optional[T]:
+        """Remove an item from the cache."""
+        return self._cache.pop(key)
+
+    def clear(self) -> None:
+        """Clear the cache."""
+        self._cache.clear()
+
+    def length(self) -> int:
+        """Get the number of items in the cache."""
+        return len(self._cache)
