@@ -2,6 +2,7 @@ from typing import Optional
 
 from ._utils import _fetch_and_parse_env_var
 from .consts import ApifyEnvVars
+from .storage_client_manager import StorageClientManager
 
 
 class Configuration:
@@ -37,6 +38,7 @@ class Configuration:
         self.meta_origin = _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN)
         self.metamorph_after_sleep_millis = _fetch_and_parse_env_var(ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS, 300000)
         self.persist_state_interval_millis = _fetch_and_parse_env_var(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, 60000)
+        self.persist_storage = _fetch_and_parse_env_var(ApifyEnvVars.PERSIST_STORAGE)
         self.proxy_hostname = _fetch_and_parse_env_var(ApifyEnvVars.PROXY_HOSTNAME, 'proxy.apify.com')
         self.proxy_password = _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PASSWORD)
         self.proxy_port = _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PORT, 8000)
@@ -50,6 +52,8 @@ class Configuration:
 
         self.system_info_interval_millis = 60000
         self.max_used_cpu_ratio = 0.95
+
+        self.storage_client_manager = StorageClientManager(self)
 
     @classmethod
     def _get_default_instance(cls) -> 'Configuration':

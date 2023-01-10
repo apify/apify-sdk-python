@@ -21,7 +21,7 @@ from .consts import ActorEventType, ApifyEnvVars
 from .event_manager import EventManager
 from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
-from .storages import Dataset, KeyValueStore, RequestQueue
+from .storages import Dataset, KeyValueStore, RequestQueue, StorageManager
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -111,9 +111,8 @@ class Actor(metaclass=_ActorContextManager):
         self.set_status_message = _wrap_internal(self._set_status_message_internal, self.set_status_message)  # type: ignore
         self.create_proxy_configuration = _wrap_internal(self._create_proxy_configuration_internal, self.create_proxy_configuration)  # type: ignore
 
-        self._config: Configuration = config or Configuration()  # TODO: why not call Configuration.get_global_configuration()???
+        self._config: Configuration = config or Configuration()
         self._apify_client = self.new_client()
-        self._memory_storage = MemoryStorage()  # TODO: Use config + check crawlee impl
         self._event_manager = EventManager(config=self._config)
 
         self._is_initialized = False
@@ -198,7 +197,9 @@ class Actor(metaclass=_ActorContextManager):
             ),
         )
 
-        if not self.is_at_home():
+        if self.is_at_home():
+            self._config.storage_client_manager.set_storage_client(self._apify_client)
+        else:
             self._send_system_info_interval_task = asyncio.create_task(
                 _run_func_at_interval_async(
                     lambda: self._event_manager.emit(ActorEventType.SYSTEM_INFO, self._get_system_info()),
@@ -343,9 +344,8 @@ class Actor(metaclass=_ActorContextManager):
             timeout_secs=timeout_secs,
         )
 
-    # TODO: SDK JS injects the correct client into the Configuration via useStorageClient
-    def _get_storage_client(self, force_cloud: bool) -> Union[ApifyClientAsync, MemoryStorage]:
-        return self._apify_client if self.is_at_home() or force_cloud else self._memory_storage
+    def _get_storage_client(self, force_cloud: bool) -> Optional[ApifyClientAsync]:
+        return self._apify_client if force_cloud else None
 
     @classmethod
     async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
@@ -355,7 +355,7 @@ class Actor(metaclass=_ActorContextManager):
     async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         self._raise_if_not_initialized()
 
-        return await Dataset.open(dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
+        return await StorageManager.open_storage(Dataset, dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
     async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
@@ -365,7 +365,7 @@ class Actor(metaclass=_ActorContextManager):
     async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         self._raise_if_not_initialized()
 
-        return await KeyValueStore.open(key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
+        return await StorageManager.open_storage(KeyValueStore, key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
     async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None, force_cloud: bool = False) -> RequestQueue:
@@ -379,7 +379,7 @@ class Actor(metaclass=_ActorContextManager):
     ) -> RequestQueue:
         self._raise_if_not_initialized()
 
-        return await RequestQueue.open(request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
+        return await StorageManager.open_storage(RequestQueue, request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
     async def push_data(cls, data: Any) -> None:

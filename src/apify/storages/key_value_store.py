@@ -8,8 +8,7 @@ from ..config import Configuration
 from ..memory_storage import MemoryStorage
 from ..memory_storage.resource_clients import KeyValueStoreClient
 from ._utils import _purge_default_storages
-
-# from .storage_manager import StorageManager
+from .storage_manager import StorageManager
 
 T = TypeVar('T')
 # S = TypeVar('S', dict)
@@ -126,9 +125,5 @@ class KeyValueStore:
 
     async def drop(self) -> None:
         """TODO: docs."""
-        # await this.client.delete();
-        # const manager = StorageManager.getManager(KeyValueStore, this.config);
-        # manager.closeStorage(this);
         await self._client.delete()
-        # TODO: Resolve circular imports...
-        # await StorageManager.close_storage(StorageTypes.KEY_VALUE_STORE, self._id)
+        await StorageManager.close_storage(self.__class__, self._id, self._name)
