@@ -149,8 +149,8 @@ class DatasetClient:
             'count': len(items),
             'desc': desc or False,
             'items': items,
-            'limit': limit,
-            'offset': offset,
+            'limit': limit or LIST_ITEMS_LIMIT,
+            'offset': offset or 0,
             'total': existing_dataset_by_id._item_count,
         })
 
