@@ -124,4 +124,4 @@ def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAs
 async def memory_storage(tmp_path: str) -> AsyncIterator[MemoryStorage]:
     ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)  # TODO: Remove write_metadata=True as it's not the default setting...
     yield ms
-    await ms.purge() # TODO: Do we want this here? there are unit tests specifically for purge
+    await ms.purge()  # TODO: Do we want this here? there are unit tests specifically for purge

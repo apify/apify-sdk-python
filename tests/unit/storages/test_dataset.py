@@ -24,8 +24,9 @@ async def test_drop() -> None:
     dataset2 = await Dataset.open()
     assert dataset1 is not dataset2
 
+
 async def test_export(dataset: Dataset) -> None:
-    expected_csv = "id,test\r\n0,test\r\n1,test\r\n2,test\r\n"
+    expected_csv = 'id,test\r\n0,test\r\n1,test\r\n2,test\r\n'
     expected_json = [{'id': 0, 'test': 'test'}, {'id': 1, 'test': 'test'}, {'id': 2, 'test': 'test'}]
     desired_item_count = 3
     await dataset.push_data([{'id': i, 'test': 'test'} for i in range(desired_item_count)])
@@ -57,6 +58,7 @@ async def test_get_data(dataset: Dataset) -> None:  # We don't test everything, 
     assert list_page.offset == 0
     assert list_page.items[0]['id'] == 0
     assert list_page.items[-1]['id'] == desired_item_count - 1
+
 
 async def test_iterate_items(dataset: Dataset) -> None:
     desired_item_count = 3
