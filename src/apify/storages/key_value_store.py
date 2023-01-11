@@ -19,10 +19,6 @@ class KeyValueStore:
     _name: Optional[str]
     _client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
     _config: Configuration
-    # _persist_state_event_started: bool = False
-
-    # _cache: Dict[str, Dict]
-    """Cache for persistent (auto-saved) values. When we try to set such value, the cache will be updated automatically."""
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """TODO: docs (constructor should be "internal")."""
@@ -72,9 +68,6 @@ class KeyValueStore:
         record = await self._client.get_record(key)
         return record['value'] if record else default_value
 
-    # async def get_auto_saved_value(self, key: str, default_value: Optional[S] = None) -> Optional[S]:
-    #     pass
-
     async def for_each_key(self, exclusive_start_key: Optional[str] = None) -> AsyncIterator[Tuple[Dict, int, int]]:
         """TODO: docs."""
         index = 0
@@ -87,9 +80,6 @@ class KeyValueStore:
             if not list_keys['isTruncated']:
                 break
             exclusive_start_key = list_keys['nextExclusiveStartKey']
-
-    # async def _ensure_persist_state_event(self):
-    #     pass
 
     @classmethod
     async def set_value(cls, key: str, value: Optional[T], content_type: Optional[str] = None) -> None:
@@ -105,9 +95,6 @@ class KeyValueStore:
         # value = maybeStringify(value, optionsCopy)
 
         return await self._client.set_record(key, value, content_type)
-
-    # async def _clear_cache(self) -> None:  # TODO: Crawlee has this only for tests, so most probably not even needed
-    #     self._cache.clear()
 
     async def drop(self) -> None:
         """TODO: docs."""

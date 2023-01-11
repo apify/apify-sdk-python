@@ -176,7 +176,7 @@ class KeyValueStoreClient:
             'key': entry['key'],
             'value': entry['value'],
             # To guess the type, we need a real file name, not just the extension. e.g. 'file.json' instead of 'json'
-            'contentType': entry.get('content_type') or mimetypes.guess_type(f"file.{entry['extension']}")[0],  # TODO: Default value?
+            'contentType': entry.get('content_type') or mimetypes.guess_type(f"file.{entry['extension']}")[0],
         }
 
         if not as_bytes:
@@ -340,9 +340,6 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                 content_type = 'text/plain'
             extension = _guess_file_extension(content_type)
 
-            # TODO: Check necessity of final_file_content in Python
-            final_file_content = file_content
-
             if file_extension == '':
                 # We need to override and then restore the warnings filter so that the warning gets printed out,
                 # Otherwise it would be silently swallowed
@@ -354,12 +351,10 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                         Warning,
                         stacklevel=2,
                     )
-                # final_file_content = file_content
             elif 'application/json' in content_type:
                 try:
                     # Try parsing the JSON ahead of time (not ideal but solves invalid files being loaded into stores)
                     json.loads(file_content)
-                    # final_file_content = file_content
                 except json.JSONDecodeError:
                     # We need to override and then restore the warnings filter so that the warning gets printed out,
                     # Otherwise it would be silently swallowed
@@ -372,8 +367,6 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                             stacklevel=2,
                         )
                     continue
-            # elif 'text/plain' in content_type:
-            #     final_file_content = file_content
 
             name_split = entry.name.split('.')
 
@@ -385,7 +378,7 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
             new_record = {
                 'key': key,
                 'extension': extension,
-                'value': final_file_content,
+                'value': file_content,
                 'content_type': content_type,
                 **internal_records.get(key, {}),
             }

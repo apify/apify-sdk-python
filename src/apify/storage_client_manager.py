@@ -7,7 +7,7 @@ from .memory_storage import MemoryStorage
 
 
 class StorageClientManager:
-    """Some logic stolen from Configuration.ts in crawlee, TODO: look for docs there."""
+    """TODO: docs."""
 
     _config: Configuration
 

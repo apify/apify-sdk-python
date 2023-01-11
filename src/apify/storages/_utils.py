@@ -67,4 +67,7 @@ class LRUCache(Generic[T]):
 
     def length(self) -> int:
         """Get the number of items in the cache."""
+        return self.__len__()
+
+    def __len__(self) -> int:
         return len(self._cache)
