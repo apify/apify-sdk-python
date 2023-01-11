@@ -43,7 +43,7 @@ class LRUCache(Generic[T]):
         self._cache = OrderedDict()
         self._max_length = max_length
 
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str) -> Optional[T]:  # TODO: Consider making this __getitem__ to be more Pythonic
         """Get an item from the cache. Move it to the end if present."""
         val = self._cache.get(key)
         if val is not None:
@@ -67,9 +67,6 @@ class LRUCache(Generic[T]):
         """Clear the cache."""
         self._cache.clear()
 
-    def length(self) -> int:
-        """Get the number of items in the cache."""
-        return self.__len__()
-
     def __len__(self) -> int:
+        """Get the number of items in the cache."""
         return len(self._cache)
