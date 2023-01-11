@@ -1,6 +1,8 @@
 from collections import OrderedDict
 from secrets import token_bytes
-from typing import Generic, Optional, TypeVar, Union
+from typing import Generic, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import TypeVar, Union
 
 from apify_client import ApifyClientAsync
 
@@ -32,13 +34,13 @@ T = TypeVar('T')
 class LRUCache(Generic[T]):
     """Attempt to reimplement LRUCache from `@apify/datastructures` using `OrderedDict`."""
 
-    _cache: OrderedDict[str, T]
+    _cache: OrderedDictType[str, T]
 
     _max_length: int
 
     def __init__(self, max_length: int) -> None:
         """Crete a LRUCache with a specific max_length."""
-        self._cache = OrderedDict[str, T]()
+        self._cache = OrderedDict()
         self._max_length = max_length
 
     def get(self, key: str) -> Optional[T]:
