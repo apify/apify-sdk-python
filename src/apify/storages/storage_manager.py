@@ -11,9 +11,13 @@ if TYPE_CHECKING:
     from .key_value_store import KeyValueStore
     from .request_queue import RequestQueue
 
-from ._utils import _purge_default_storages
-
 T = TypeVar('T', 'Dataset', 'KeyValueStore', 'RequestQueue')
+
+
+async def _purge_default_storages(client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    if isinstance(client, MemoryStorage) and not client._purged:
+        client._purged = True
+        await client.purge()
 
 
 class StorageManager:
@@ -59,7 +63,8 @@ class StorageManager:
         # Try to get the storage instance from cache
         storage = storage_manager._cache[storage_class].get(store_id_or_name, None)
         if storage is not None:
-            return cast(T, storage)  # TODO: This cast is a bit nasty, discuss a solution
+            # This cast is needed since we're storing all storages in one union dictionary
+            return cast(T, storage)
 
         # Purge default storages if configured
         if used_config.purge_on_start:

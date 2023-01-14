@@ -339,33 +339,34 @@ class Actor(metaclass=_ActorContextManager):
         return self._apify_client if force_cloud else None
 
     @classmethod
-    async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
+    async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
         """TODO: docs."""
         return await cls._get_default_instance().open_dataset(dataset_id_or_name=dataset_id_or_name, force_cloud=force_cloud)
 
-    async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
+    async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
         self._raise_if_not_initialized()
 
         return await StorageManager.open_storage(Dataset, dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
+    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
         """TODO: docs."""
         return await cls._get_default_instance().open_key_value_store(key_value_store_id_or_name=key_value_store_id_or_name, force_cloud=force_cloud)
 
-    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
+    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
         self._raise_if_not_initialized()
 
         return await StorageManager.open_storage(KeyValueStore, key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None, force_cloud: bool = False) -> RequestQueue:
+    async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> RequestQueue:
         """TODO: docs."""
         return await cls._get_default_instance().open_request_queue(request_queue_id_or_name=request_queue_id_or_name, force_cloud=force_cloud)
 
     async def _open_request_queue_internal(
         self,
         request_queue_id_or_name: Optional[str] = None,
+        *,
         force_cloud: bool = False,
     ) -> RequestQueue:
         self._raise_if_not_initialized()
