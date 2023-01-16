@@ -70,7 +70,7 @@ TODO: docs.
 
 ***
 
-#### async classmethod open_dataset(dataset_id_or_name=None, force_cloud=False)
+#### async classmethod open_dataset(dataset_id_or_name=None, \*, force_cloud=False)
 
 TODO: docs.
 
@@ -80,7 +80,7 @@ TODO: docs.
 
 ***
 
-#### async classmethod open_key_value_store(key_value_store_id_or_name=None, force_cloud=False)
+#### async classmethod open_key_value_store(key_value_store_id_or_name=None, \*, force_cloud=False)
 
 TODO: docs.
 
@@ -90,7 +90,7 @@ TODO: docs.
 
 ***
 
-#### async classmethod open_request_queue(request_queue_id_or_name=None, force_cloud=False)
+#### async classmethod open_request_queue(request_queue_id_or_name=None, \*, force_cloud=False)
 
 TODO: docs.
 
