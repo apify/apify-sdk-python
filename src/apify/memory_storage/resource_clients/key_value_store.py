@@ -38,9 +38,9 @@ class KeyValueStoreClient:
     _client: 'MemoryStorage'
     _name: Optional[str]
     _key_value_entries: Dict[str, Dict]
-    _created_at = datetime.utcnow()
-    _accessed_at = datetime.utcnow()
-    _modified_at = datetime.utcnow()
+    _created_at: datetime
+    _accessed_at: datetime
+    _modified_at: datetime
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """TODO: docs."""
@@ -49,6 +49,9 @@ class KeyValueStoreClient:
         self._client = client
         self._name = name
         self._key_value_entries = {}
+        self._created_at = datetime.utcnow()
+        self._accessed_at = datetime.utcnow()
+        self._modified_at = datetime.utcnow()
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""
@@ -100,7 +103,8 @@ class KeyValueStoreClient:
             self._client._key_value_stores_handled.remove(store)
             store._key_value_entries.clear()
 
-            await aioshutil.rmtree(store._key_value_store_directory)
+            if os.path.exists(store._key_value_store_directory):
+                await aioshutil.rmtree(store._key_value_store_directory)
 
     async def list_keys(self, *, limit: int = DEFAULT_API_PARAM_LIMIT, exclusive_start_key: Optional[str] = None) -> Dict:
         """TODO: docs."""
@@ -118,6 +122,16 @@ class KeyValueStoreClient:
                 'key': record['key'],
                 'size': size,
             })
+
+        if len(items) == 0:
+            return {
+                'count': len(items),
+                'limit': limit,
+                'exclusiveStartKey': exclusive_start_key,
+                'isTruncated': False,
+                'nextExclusiveStartKey': None,
+                'items': items,
+            }
 
         # Lexically sort to emulate the API
         items = sorted(items, key=itemgetter('key'))
@@ -162,7 +176,7 @@ class KeyValueStoreClient:
             'key': entry['key'],
             'value': entry['value'],
             # To guess the type, we need a real file name, not just the extension. e.g. 'file.json' instead of 'json'
-            'contentType': entry.get('content_type') or mimetypes.guess_type(f"file.{entry['extension']}")[0],  # TODO: Default value?
+            'contentType': entry.get('content_type') or mimetypes.guess_type(f"file.{entry['extension']}")[0],
         }
 
         if not as_bytes:
@@ -326,9 +340,6 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                 content_type = 'text/plain'
             extension = _guess_file_extension(content_type)
 
-            # TODO: Check necessity of final_file_content in Python
-            final_file_content = file_content
-
             if file_extension == '':
                 # We need to override and then restore the warnings filter so that the warning gets printed out,
                 # Otherwise it would be silently swallowed
@@ -340,12 +351,10 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                         Warning,
                         stacklevel=2,
                     )
-                # final_file_content = file_content
             elif 'application/json' in content_type:
                 try:
                     # Try parsing the JSON ahead of time (not ideal but solves invalid files being loaded into stores)
                     json.loads(file_content)
-                    # final_file_content = file_content
                 except json.JSONDecodeError:
                     # We need to override and then restore the warnings filter so that the warning gets printed out,
                     # Otherwise it would be silently swallowed
@@ -358,8 +367,6 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                             stacklevel=2,
                         )
                     continue
-            # elif 'text/plain' in content_type:
-            #     final_file_content = file_content
 
             name_split = entry.name.split('.')
 
@@ -371,7 +378,7 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
             new_record = {
                 'key': key,
                 'extension': extension,
-                'value': final_file_content,
+                'value': file_content,
                 'content_type': content_type,
                 **internal_records.get(key, {}),
             }

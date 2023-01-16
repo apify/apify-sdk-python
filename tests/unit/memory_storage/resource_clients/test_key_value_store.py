@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from apify.memory_storage.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients.key_value_store import KeyValueStoreClient
+from apify.memory_storage import MemoryStorage
+from apify.memory_storage.resource_clients import KeyValueStoreClient
 
 
 @pytest.fixture()
@@ -67,6 +67,13 @@ async def test_delete(key_value_store_client: KeyValueStoreClient) -> None:
     assert os.path.exists(os.path.join(kvs_directory, '__metadata__.json')) is False
     # Does not crash when called again
     await key_value_store_client.delete()
+
+
+async def test_list_keys_empty(key_value_store_client: KeyValueStoreClient) -> None:
+    keys = await key_value_store_client.list_keys()
+    assert len(keys['items']) == 0
+    assert keys['count'] == 0
+    assert keys['isTruncated'] is False
 
 
 async def test_list_keys(key_value_store_client: KeyValueStoreClient) -> None:

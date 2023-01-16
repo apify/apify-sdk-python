@@ -30,9 +30,9 @@ class RequestQueueClient:
     _client: 'MemoryStorage'
     _name: Optional[str]
     _requests: Dict[str, Dict]
-    _created_at = datetime.utcnow()
-    _accessed_at = datetime.utcnow()
-    _modified_at = datetime.utcnow()
+    _created_at: datetime
+    _accessed_at: datetime
+    _modified_at: datetime
     _handled_request_count = 0  # TODO: Does not seem to be implemented in crawelee, always 0
     _pending_request_count = 0
 
@@ -43,6 +43,9 @@ class RequestQueueClient:
         self._client = client
         self._name = name
         self._requests = {}
+        self._created_at = datetime.utcnow()
+        self._accessed_at = datetime.utcnow()
+        self._modified_at = datetime.utcnow()
 
     async def get(self) -> Optional[Dict]:
         """TODO: docs."""
@@ -95,7 +98,8 @@ class RequestQueueClient:
             queue._pending_request_count = 0
             queue._requests.clear()
 
-            await aioshutil.rmtree(queue._request_queue_directory)
+            if os.path.exists(queue._request_queue_directory):
+                await aioshutil.rmtree(queue._request_queue_directory)
 
     async def list_head(self, *, limit: Optional[int] = None) -> Dict:
         """TODO: docs."""

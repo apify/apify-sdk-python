@@ -7,15 +7,25 @@ import pytest
 
 from apify import Actor
 from apify.config import Configuration
-from apify.memory_storage.memory_storage import MemoryStorage
+from apify.memory_storage import MemoryStorage
+from apify.storage_client_manager import StorageClientManager
+from apify.storages import StorageManager
 from apify_client.client import ApifyClientAsync
 
 
 # To isolate the tests, we need to reset the used singletons before each test case
+# We also patch the default storage client with a tmp_path
 @pytest.fixture(autouse=True)
-def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
+def reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path: str) -> None:
     monkeypatch.setattr(Actor, '_default_instance', None)
     monkeypatch.setattr(Configuration, '_default_instance', None)
+    monkeypatch.setattr(StorageManager, '_default_instance', None)
+    monkeypatch.setattr(StorageClientManager, '_default_instance', None)
+    patched_memory_storage = MemoryStorage(local_data_directory=tmp_path)
+
+    def get_storage_client() -> 'MemoryStorage':
+        return patched_memory_storage
+    monkeypatch.setattr(StorageClientManager, 'get_storage_client', get_storage_client)
 
 
 # TODO: decide if this is worth maintaining
@@ -112,6 +122,6 @@ def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAs
 
 @pytest.fixture()
 async def memory_storage(tmp_path: str) -> AsyncIterator[MemoryStorage]:
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)  # TODO: Remove write_metadata=True as it's not the default setting...
     yield ms
-    await ms.purge()
+    await ms.purge()  # TODO: Do we want this here? there are unit tests specifically for purge

@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from apify.memory_storage.memory_storage import MemoryStorage
+from apify.memory_storage import MemoryStorage
 
 
 async def test_write_metadata(tmp_path: str) -> None:

@@ -37,6 +37,7 @@ class Configuration:
         self.meta_origin = _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN)
         self.metamorph_after_sleep_millis = _fetch_and_parse_env_var(ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS, 300000)
         self.persist_state_interval_millis = _fetch_and_parse_env_var(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, 60000)
+        self.persist_storage = _fetch_and_parse_env_var(ApifyEnvVars.PERSIST_STORAGE)
         self.proxy_hostname = _fetch_and_parse_env_var(ApifyEnvVars.PROXY_HOSTNAME, 'proxy.apify.com')
         self.proxy_password = _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PASSWORD)
         self.proxy_port = _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PORT, 8000)

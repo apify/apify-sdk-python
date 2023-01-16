@@ -34,6 +34,9 @@ class MemoryStorage:
     _key_value_stores_handled: List[KeyValueStoreClient]
     _request_queues_handled: List[RequestQueueClient]
 
+    _purged: bool = False
+    """Indicates whether a purge was already performed on this instance"""
+
     def __init__(
         self, *, local_data_directory: str = './storage', write_metadata: Optional[bool] = None, persist_storage: Optional[bool] = None,
     ) -> None:
@@ -83,7 +86,7 @@ class MemoryStorage:
         """Retrieve the sub-client for manipulating request queues."""
         return RequestQueueCollectionClient(base_storage_directory=self._request_queues_directory, client=self)
 
-    def request_queue(self, request_queue_id: str, *, _client_key: Optional[str] = None) -> RequestQueueClient:
+    def request_queue(self, request_queue_id: str, *, client_key: Optional[str] = None) -> RequestQueueClient:  # noqa: U100
         """Retrieve the sub-client for manipulating a single request queue.
 
         Args:
