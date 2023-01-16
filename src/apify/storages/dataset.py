@@ -252,8 +252,6 @@ class Dataset:
             skip_hidden=skip_hidden,
         )
 
-    # TODO: Do map and reduce methods make sense in Python?
-
     async def drop(self) -> None:
         """TODO: docs."""
         await self._client.delete()
