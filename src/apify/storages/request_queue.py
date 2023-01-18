@@ -348,7 +348,8 @@ class RequestQueue:
         # If ensureConsistency=true then we must ensure that either:
         # - queueModifiedAt is older than queryStartedAt by at least API_PROCESSED_REQUESTS_DELAY_MILLIS
         # - hadMultipleClients=false and this.assumedTotalCount<=this.assumedHandledCount
-        is_database_consistent = (queue_head['queryStartedAt'] - queue_head['queueModifiedAt']).seconds >= (API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000)
+        is_database_consistent = (queue_head['queryStartedAt'] - queue_head['queueModifiedAt']
+                                  ).seconds >= (API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000)
         is_locally_consistent = not queue_head['hadMultipleClients'] and self._assumed_total_count <= self._assumed_handled_count
         # Consistent information from one source is enough to consider request queue finished.
         should_repeat_for_consistency = ensure_consistency and not is_database_consistent and not is_locally_consistent
