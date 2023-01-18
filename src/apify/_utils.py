@@ -9,11 +9,16 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import sys
 import time
+from collections import OrderedDict
+from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, NoReturn, Optional, TypeVar, Union, cast, overload
+from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, NoReturn, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import TypeVar, Union, ValuesView, cast, overload
 
 import aioshutil
 import psutil
@@ -296,3 +301,59 @@ def _wrap_internal(implementation: ImplementationType, metadata_source: Metadata
         return implementation(*args, **kwargs)
 
     return cast(MetadataType, wrapper)
+
+
+def _crypto_random_object_id(length: int = 17) -> str:
+    """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
+    chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    return ''.join(secrets.choice(chars) for _ in range(length))
+
+
+T = TypeVar('T')
+
+
+class LRUCache(MutableMapping, Generic[T]):
+    """Attempt to reimplement LRUCache from `@apify/datastructures` using `OrderedDict`."""
+
+    _cache: OrderedDictType[str, T]
+
+    _max_length: int
+
+    def __init__(self, max_length: int) -> None:
+        """Create a LRUCache with a specific max_length."""
+        self._cache = OrderedDict()
+        self._max_length = max_length
+
+    def __getitem__(self, key: str) -> T:
+        """Get an item from the cache. Move it to the end if present."""
+        val = self._cache[key]
+        self._cache.move_to_end(key)
+        return val
+
+    # Sadly TS impl returns bool indicating whether the key was already present or not
+    def __setitem__(self, key: str, value: T) -> None:
+        """Add an item to the cache. Remove least used item if max_length exceeded."""
+        self._cache[key] = value
+        if len(self._cache) > self._max_length:
+            self._cache.popitem(last=False)
+
+    def __delitem__(self, key: str) -> None:
+        """Remove an item from the cache."""
+        # TODO: maybe do? self._cache.__delitem__(key)
+        del self._cache[key]
+
+    def __iter__(self) -> Iterator:
+        """Iterate over the keys of the cache in order of insertion."""
+        yield from self._cache.__iter__()
+
+    def __len__(self) -> int:
+        """Get the number of items in the cache."""
+        return len(self._cache)
+
+    def values(self) -> ValuesView[T]:  # Needed so we don't mutate the cache by __getitem__
+        """Iterate over the values in the cache in order of insertion."""
+        return self._cache.values()
+
+    def items(self) -> ItemsView[str, T]:  # Needed so we don't mutate the cache by __getitem__
+        """Iterate over the pairs of (key, value) in the cache in order of insertion."""
+        return self._cache.items()
