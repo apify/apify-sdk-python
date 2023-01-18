@@ -21,7 +21,7 @@ class RequestQueueCollectionClient:
         self._request_queues_directory = base_storage_directory
         self._client = client
 
-    def list(self) -> ListPage:
+    def list(self) -> ListPage[Dict]:
         """TODO: docs."""
         def map_store(store: RequestQueueClient) -> Dict:
             return store.to_request_queue_info()

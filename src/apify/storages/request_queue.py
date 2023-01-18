@@ -390,11 +390,3 @@ class RequestQueue:
     async def get_info(self) -> Optional[Dict]:
         """TODO: docs."""
         return await self._client.get()
-
-    # async def handled_count(self) -> int:
-    #     """TODO: docs."""
-    #     # TODO: Do we even need this?
-    #     # NOTE: We keep this function for compatibility with RequestList.handledCount()
-    #     rq_info = await self.get_info()
-    #     # TODO: int() wrapping to trick mypy is hacky, use typed dict?
-    #     return int(rq_info['handledRequestCount']) if rq_info is not None else 0

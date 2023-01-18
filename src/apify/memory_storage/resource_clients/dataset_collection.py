@@ -21,7 +21,7 @@ class DatasetCollectionClient:
         self._datasets_directory = base_storage_directory
         self._client = client
 
-    def list(self) -> ListPage:
+    def list(self) -> ListPage[Dict]:
         """TODO: docs."""
         def map_store(store: DatasetClient) -> Dict:
             return store.to_dataset_info()

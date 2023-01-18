@@ -327,6 +327,7 @@ class LRUCache(MutableMapping, Generic[T]):
     def __getitem__(self, key: str) -> T:
         """Get an item from the cache. Move it to the end if present."""
         val = self._cache[key]
+        # No 'key in cache' condition since the previous line would raise KeyError
         self._cache.move_to_end(key)
         return val
 
