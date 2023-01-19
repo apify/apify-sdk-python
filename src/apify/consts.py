@@ -5,8 +5,6 @@ from typing import List, Literal, get_args
 class ActorEventType(str, Enum):
     """Possible values of actor event type."""
 
-    #: Info about CPU usage of the actor
-    CPU_INFO = 'cpuInfo'
     #: Info about resource usage of the actor
     SYSTEM_INFO = 'systemInfo'
     #: Sent when the actor is about to migrate
@@ -135,6 +133,13 @@ _STRING_ENV_VARS_TYPE = Literal[
 ]
 
 STRING_ENV_VARS: List[_STRING_ENV_VARS_TYPE] = list(get_args(_STRING_ENV_VARS_TYPE))
+
+
+class ActorExitCodes(int, Enum):
+    """Usual actor exit codes."""
+
+    SUCCESS = 0
+    ERROR_USER_FUNCTION_THREW = 91
 
 
 class StorageTypes(str, Enum):

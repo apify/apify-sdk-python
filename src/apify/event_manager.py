@@ -1,11 +1,13 @@
 import asyncio
 import inspect
 import json
-from typing import Any, Callable, Optional, Set
+from collections import defaultdict
+from typing import Any, Callable, Dict, List, Optional, Set
 
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
 
+from ._utils import _maybe_extract_enum_member_value
 from .config import Configuration
 from .consts import ActorEventType
 
@@ -17,13 +19,16 @@ class EventManager:
     _process_platform_messages_task: Optional[asyncio.Task] = None
     _send_persist_state_interval_task: Optional[asyncio.Task] = None
     _send_system_info_interval_task: Optional[asyncio.Task] = None
-    _listener_tasks: Set[asyncio.Task] = set()
+    _listener_tasks: Set[asyncio.Task]
+    _listeners_to_wrappers: Dict[ActorEventType, Dict[Callable, List[Callable]]]
 
     def __init__(self, config: Configuration) -> None:
         """TODO: docs."""
         self._config = config
         self._event_emitter = AsyncIOEventEmitter()
         self._initialized = False
+        self._listener_tasks = set()
+        self._listeners_to_wrappers = defaultdict(lambda: defaultdict(list))
 
     async def init(self) -> None:
         """TODO: docs."""
@@ -56,10 +61,12 @@ class EventManager:
 
         self._initialized = False
 
-    def on(self, event: ActorEventType, listener: Callable) -> Callable:
+    def on(self, event_name: ActorEventType, listener: Callable) -> Callable:
         """TODO: docs."""
         if not self._initialized:
             raise RuntimeError('EventManager was not initialized!')
+
+        event_name = _maybe_extract_enum_member_value(event_name)
 
         async def inner_wrapper(*args: Any, **kwargs: Any) -> None:
             if inspect.iscoroutinefunction(listener):
@@ -70,28 +77,42 @@ class EventManager:
         async def outer_wrapper(*args: Any, **kwargs: Any) -> None:
             listener_task = asyncio.create_task(inner_wrapper(*args, **kwargs))
             self._listener_tasks.add(listener_task)
-            await listener_task
-            self._listener_tasks.remove(listener_task)
+            try:
+                await listener_task
+            finally:
+                self._listener_tasks.remove(listener_task)
 
-        return self._event_emitter.add_listener(event, outer_wrapper)
+        self._listeners_to_wrappers[event_name][listener].append(outer_wrapper)
 
-    def off(self, event: ActorEventType, listener: Optional[Callable]) -> None:
+        return self._event_emitter.add_listener(event_name, outer_wrapper)
+
+    def off(self, event_name: ActorEventType, listener: Optional[Callable] = None) -> None:
         """TODO: docs."""
         if not self._initialized:
             raise RuntimeError('EventManager was not initialized!')
 
+        event_name = _maybe_extract_enum_member_value(event_name)
+
         if listener:
-            self._event_emitter.remove_listener(event, listener)
+            for listener_wrapper in self._listeners_to_wrappers[event_name][listener]:
+                self._event_emitter.remove_listener(event_name, listener_wrapper)
+            self._listeners_to_wrappers[event_name][listener] = []
         else:
-            self._event_emitter.remove_all_listeners(event)
+            self._listeners_to_wrappers[event_name] = defaultdict(list)
+            self._event_emitter.remove_all_listeners(event_name)
 
     def emit(self, event_name: ActorEventType, data: Any) -> None:
         """TODO: docs."""
+        event_name = _maybe_extract_enum_member_value(event_name)
+
         self._event_emitter.emit(event_name, data)
 
     async def wait_for_all_listeners_to_complete(self) -> None:
         """TODO: docs."""
-        await asyncio.gather(*self._listener_tasks)
+        try:
+            await asyncio.gather(*self._listener_tasks)
+        except Exception:
+            pass
 
     async def _process_platform_messages(self) -> None:
         # This should be called only on the platform, where we have the ACTOR_EVENTS_WS_URL configured
