@@ -43,19 +43,21 @@ and it should be called only once.
 
 ***
 
-#### async classmethod exit(\*, exit_code=0)
+#### async classmethod exit(\*, exit_code=0, event_listeners_timeout_secs=5)
 
 Exit the actor instance.
 
 This stops the Actor instance.
 It cancels all the intervals for regularly sending PERSIST_STATE events,
 sends a final PERSIST_STATE event,
-waits for all the event handlers to finish,
+waits for all the event listeners to finish,
 and stops the event manager.
 
 * **Parameters**
 
   * **exit_code** (`int`, *optional*) – The exit code with which the actor should fail (defaults to 0).
+
+  * **event_listeners_timeout_secs** (`int`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting
 
 * **Return type**
 
@@ -497,11 +499,15 @@ and the new input is stored under the INPUT-METAMORPH-1 key in the same default 
 
 ***
 
-#### async classmethod reboot()
+#### async classmethod reboot(\*, event_listeners_timeout_secs=5)
 
 Internally reboot this actor.
 
 The system stops the current container and starts a new one, with the same run ID and default storages.
+
+* **Parameters**
+
+  * **event_listeners_timeout_secs** (`int`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting
 
 * **Return type**
 

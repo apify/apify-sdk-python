@@ -21,7 +21,7 @@ from ._utils import (
     dualproperty,
 )
 from .config import Configuration
-from .consts import ActorEventType, ActorExitCodes, ApifyEnvVars
+from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventType, ActorExitCodes, ApifyEnvVars
 from .event_manager import EventManager
 from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
@@ -207,6 +207,8 @@ class Actor(metaclass=_ActorContextManager):
         if self._is_initialized:
             raise RuntimeError('The actor was already initialized!')
 
+        self._is_exiting = False
+
         print('Initializing actor...')
         _log_system_info()
 
@@ -259,28 +261,7 @@ class Actor(metaclass=_ActorContextManager):
             self._send_persist_state_interval_task.cancel()
         self._event_manager.emit(ActorEventType.PERSIST_STATE, {'is_migrating': True})
 
-    @classmethod
-    async def exit(cls, *, exit_code: int = 0) -> None:
-        """Exit the actor instance.
-
-        This stops the Actor instance.
-        It cancels all the intervals for regularly sending `PERSIST_STATE` events,
-        sends a final `PERSIST_STATE` event,
-        waits for all the event handlers to finish,
-        and stops the event manager.
-
-        Args:
-            exit_code (int, optional): The exit code with which the actor should fail (defaults to `0`).
-        """
-        return await cls._get_default_instance().exit(exit_code=exit_code)
-
-    async def _exit_internal(self, *, exit_code: int = 0) -> None:
-        self._raise_if_not_initialized()
-
-        self._is_exiting = True
-
-        print(f'Exiting actor with exit code {exit_code}')
-
+    async def _cancel_event_emitting_intervals(self) -> None:
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
             self._send_persist_state_interval_task.cancel()
             try:
@@ -295,14 +276,51 @@ class Actor(metaclass=_ActorContextManager):
             except asyncio.CancelledError:
                 pass
 
+    @classmethod
+    async def exit(
+        cls,
+        *,
+        exit_code: int = 0,
+        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+    ) -> None:
+        """Exit the actor instance.
+
+        This stops the Actor instance.
+        It cancels all the intervals for regularly sending `PERSIST_STATE` events,
+        sends a final `PERSIST_STATE` event,
+        waits for all the event listeners to finish,
+        and stops the event manager.
+
+        Args:
+            exit_code (int, optional): The exit code with which the actor should fail (defaults to `0`).
+            event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
+        """
+        return await cls._get_default_instance().exit(
+            exit_code=exit_code,
+            event_listeners_timeout_secs=event_listeners_timeout_secs,
+        )
+
+    async def _exit_internal(
+        self,
+        *,
+        exit_code: int = 0,
+        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+    ) -> None:
+        self._raise_if_not_initialized()
+
+        self._is_exiting = True
+
+        print(f'Exiting actor with exit code {exit_code}')
+
+        await self._cancel_event_emitting_intervals()
+
         # Send final persist state event
         self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False})
 
         # Sleep for a bit so that the listeners have a chance to trigger,
         await asyncio.sleep(0.1)
 
-        # TODO: optional timeout for waiting for all event handlers to finish
-        await self._event_manager.close()
+        await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 
         # TODO: once we have in-memory storage, teardown the in-memory storage client here
 
@@ -1003,23 +1021,36 @@ class Actor(metaclass=_ActorContextManager):
             await asyncio.sleep(custom_after_sleep_millis / 1000)
 
     @classmethod
-    async def reboot(cls) -> None:
+    async def reboot(
+        cls,
+        *,
+        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+    ) -> None:
         """Internally reboot this actor.
 
         The system stops the current container and starts a new one, with the same run ID and default storages.
-        """
-        return await cls._get_default_instance().reboot()
 
-    async def _reboot_internal(self) -> None:
+        Args:
+            event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
+        """
+        return await cls._get_default_instance().reboot(event_listeners_timeout_secs=event_listeners_timeout_secs)
+
+    async def _reboot_internal(
+        self,
+        *,
+        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+    ) -> None:
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
             print('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
+        await self._cancel_event_emitting_intervals()
+
         self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': True})
 
-        await self._event_manager.wait_for_all_listeners_to_complete()
+        await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 
         # If is_at_home() is True, config.actor_id is always set
         assert self._config.actor_id is not None
