@@ -37,7 +37,7 @@ class KeyValueStore:
         if not key_value_store_info:
             key_value_store_info = await client.key_value_stores().get_or_create(name=store_id_or_name)
 
-        return KeyValueStore(key_value_store_info['id'], key_value_store_info['name'], client)
+        return KeyValueStore(key_value_store_info['id'], key_value_store_info.get('name'), client)
 
     @classmethod
     def _get_default_name(cls, config: Configuration) -> str:
