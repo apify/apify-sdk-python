@@ -41,7 +41,7 @@ class Dataset:
         if not dataset_info:
             dataset_info = await client.datasets().get_or_create(name=dataset_id_or_name)
 
-        return Dataset(dataset_info['id'], dataset_info['name'], client)
+        return Dataset(dataset_info['id'], dataset_info.get('name'), client)
 
     @classmethod
     def _get_default_name(cls, config: Configuration) -> str:
