@@ -32,7 +32,7 @@ class RequestQueue:
         if not request_queue_info:
             request_queue_info = await client.request_queues().get_or_create(name=request_queue_id_or_name)
 
-        return RequestQueue(request_queue_info['id'], request_queue_info['name'], client)
+        return RequestQueue(request_queue_info['id'], request_queue_info.get('name'), client)
 
     @classmethod
     def _get_default_name(cls, config: Configuration) -> str:
