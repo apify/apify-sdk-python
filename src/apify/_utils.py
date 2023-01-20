@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import builtins
 import contextlib
 import functools
 import hashlib
@@ -45,6 +46,8 @@ def _log_system_info() -> None:
     print(f'    Apify Client version: {client_version}')
     print(f'    OS: {sys.platform}')
     print(f'    Python version: {python_version}')
+    if _is_running_in_ipython():
+        print('    Running in IPython: True')
 
 
 DualPropertyType = TypeVar('DualPropertyType')
@@ -296,3 +299,7 @@ def _wrap_internal(implementation: ImplementationType, metadata_source: Metadata
         return implementation(*args, **kwargs)
 
     return cast(MetadataType, wrapper)
+
+
+def _is_running_in_ipython() -> bool:
+    return getattr(builtins, '__IPYTHON__', False)
