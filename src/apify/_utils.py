@@ -11,7 +11,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, NoReturn, Optional, TypeVar, Union, cast, overload
 
@@ -155,7 +155,7 @@ def _maybe_parse_bool(val: Optional[str]) -> bool:
 
 def _maybe_parse_datetime(val: str) -> Union[datetime, str]:
     try:
-        return datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone.utc)
+        return datetime.fromisoformat(val)
     except ValueError:
         return val
 
