@@ -43,7 +43,7 @@ class StorageManager:
     async def open_storage(
         cls,
         storage_class: Type[T],
-        store_id_or_name: Optional[str] = None,
+        storage_id_or_name: Optional[str] = None,
         client: Optional[Union[ApifyClientAsync, MemoryStorage]] = None,
         config: Optional[Configuration] = None,
     ) -> T:
@@ -57,11 +57,11 @@ class StorageManager:
             storage_manager._cache[storage_class] = {}
 
         # Fetch default name
-        if not store_id_or_name:
-            store_id_or_name = storage_class._get_default_name(used_config)
+        if not storage_id_or_name:
+            storage_id_or_name = storage_class._get_default_name(used_config)
 
         # Try to get the storage instance from cache
-        storage = storage_manager._cache[storage_class].get(store_id_or_name, None)
+        storage = storage_manager._cache[storage_class].get(storage_id_or_name, None)
         if storage is not None:
             # This cast is needed since we're storing all storages in one union dictionary
             return cast(T, storage)
@@ -71,7 +71,7 @@ class StorageManager:
             await _purge_default_storages(used_client)
 
         # Create the storage
-        storage = await storage_class._create_instance(store_id_or_name, used_client)
+        storage = await storage_class._create_instance(storage_id_or_name, used_client)
 
         # Cache by id and name
         storage_manager._cache[storage_class][storage._id] = storage
