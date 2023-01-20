@@ -5,7 +5,7 @@ from collections import OrderedDict
 from datetime import datetime
 from typing import Coroutine, Dict, Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Set, TypedDict, Union
+from typing import Set, Union
 
 from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync
@@ -46,21 +46,6 @@ STORAGE_CONSISTENCY_DELAY_MILLIS = 3000
  Indicates how long it usually takes for the underlying storage to propagate all writes
  to be available to subsequent reads.
 """
-
-
-class QueueOperationInfo(TypedDict):
-    """TODO: docs."""
-
-    was_already_present: bool
-    """Indicates if request was already present in the queue."""
-
-    was_already_handled: bool
-    """Indicates if request was already marked as handled."""
-
-    request_id: str
-    """The id of the added request"""
-
-    unique_key: str
 
 
 class RequestQueue:
