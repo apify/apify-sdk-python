@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import builtins
 import contextlib
 import functools
 import hashlib
@@ -50,6 +51,8 @@ def _log_system_info() -> None:
     print(f'    Apify Client version: {client_version}')
     print(f'    OS: {sys.platform}')
     print(f'    Python version: {python_version}')
+    if _is_running_in_ipython():
+        print('    Running in IPython: True')
 
 
 DualPropertyType = TypeVar('DualPropertyType')
@@ -358,3 +361,7 @@ class LRUCache(MutableMapping, Generic[T]):
     def items(self) -> ItemsView[str, T]:  # Needed so we don't mutate the cache by __getitem__
         """Iterate over the pairs of (key, value) in the cache in order of insertion."""
         return self._cache.items()
+
+
+def _is_running_in_ipython() -> bool:
+    return getattr(builtins, '__IPYTHON__', False)
