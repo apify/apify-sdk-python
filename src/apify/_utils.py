@@ -14,7 +14,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, NoReturn, Optional, TypeVar, Union, cast, overload
+from typing import Any, Callable, Dict, Generic, NoReturn, Optional, Type, TypeVar, Union, cast, overload
 
 import aioshutil
 import psutil
@@ -51,17 +51,35 @@ def _log_system_info() -> None:
 
 
 DualPropertyType = TypeVar('DualPropertyType')
+DualPropertyOwner = TypeVar('DualPropertyOwner')
 
 
 class dualproperty(Generic[DualPropertyType]):  # noqa: N801
-    """TODO: no docs."""
+    """Descriptor combining `property` and `classproperty`.
+
+    When accessing the decorated attribute on an instance, it calls the getter with the instance as the first argument,
+    and when accessing it on a class, it calls the getter with the class as the first argument.
+    """
 
     def __init__(self, getter: Callable[..., DualPropertyType]) -> None:
-        """TODO: no docs."""
+        """Initialize the dualproperty.
+
+        Args:
+            getter (Callable): The getter of the property.
+            It should accept either an instance or a class as its first argument.
+        """
         self.getter = getter
 
-    def __get__(self, obj: Any, owner: Any) -> DualPropertyType:
-        """TODO: no docs."""
+    def __get__(self, obj: Optional[DualPropertyOwner], owner: Type[DualPropertyOwner]) -> DualPropertyType:
+        """Call the getter with the right object.
+
+        Args:
+            obj (Optional[T]): The instance of class T on which the getter will be called
+            owner (Type[T]): The class object of class T on which the getter will be called, if obj is None
+
+        Returns:
+            The result of the getter.
+        """
         return self.getter(obj or owner)
 
 
