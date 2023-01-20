@@ -5,12 +5,16 @@ from .consts import ApifyEnvVars
 
 
 class Configuration:
-    """TODO: docs."""
+    """A class for specifying the configuration of an actor.
+
+    Can be used either globally via `Configuration.get_global_configuration()`,
+    or it can be specific to each `Actor` instance on the `actor.config` property.
+    """
 
     _default_instance: Optional['Configuration'] = None
 
     def __init__(self) -> None:
-        """TODO: docs."""
+        """Create a `Configuration` instance."""
         self.actor_build_id = _fetch_and_parse_env_var(ApifyEnvVars.ACTOR_BUILD_ID)
         self.actor_build_number = _fetch_and_parse_env_var(ApifyEnvVars.ACTOR_BUILD_NUMBER)
         self.actor_events_ws_url = _fetch_and_parse_env_var(ApifyEnvVars.ACTOR_EVENTS_WS_URL)
@@ -61,5 +65,9 @@ class Configuration:
 
     @classmethod
     def get_global_configuration(cls) -> 'Configuration':
-        """TODO: docs."""
+        """Retrive the global configuration.
+
+        The global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.
+        Also accessible via `Actor.config`.
+        """
         return cls._get_default_instance()
