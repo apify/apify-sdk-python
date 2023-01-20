@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Optional, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Dict, Optional, Protocol, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
 
@@ -11,7 +11,19 @@ if TYPE_CHECKING:
     from .key_value_store import KeyValueStore
     from .request_queue import RequestQueue
 
-T = TypeVar('T', 'Dataset', 'KeyValueStore', 'RequestQueue')
+T = TypeVar('T', 'Dataset', 'KeyValueStore', 'RequestQueue', covariant=True)
+
+
+class Storage(Protocol[T]):
+    """TODO: Docs."""
+
+    @classmethod
+    def _create_instance(cls, storage_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> T:  # noqa: U100
+        ...
+
+    @classmethod
+    def _get_default_name(cls, config: Configuration) -> str:  # noqa: U100
+        ...
 
 
 async def _purge_default_storages(client: Union[ApifyClientAsync, MemoryStorage]) -> None:
@@ -24,7 +36,7 @@ class StorageManager:
     """TODO: docs."""
 
     _default_instance: Optional['StorageManager'] = None
-    _cache: Dict[Type[Union['Dataset', 'KeyValueStore', 'RequestQueue']], Dict[str, Union['Dataset', 'KeyValueStore', 'RequestQueue']]]
+    _cache: Dict[Type[Storage], Dict[str, Storage]]
     _config: Configuration
 
     def __init__(self) -> None:
@@ -80,7 +92,7 @@ class StorageManager:
         return storage
 
     @classmethod
-    async def close_storage(cls, storage_class: Type[Union['Dataset', 'KeyValueStore', 'RequestQueue']], id: str, name: Optional[str]) -> None:
+    async def close_storage(cls, storage_class: Type[Storage], id: str, name: Optional[str]) -> None:
         """TODO: docs."""
         storage_manager = StorageManager._get_default_instance()
         del storage_manager._cache[storage_class][id]

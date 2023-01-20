@@ -390,3 +390,8 @@ class RequestQueue:
     async def get_info(self) -> Optional[Dict]:
         """TODO: docs."""
         return await self._client.get()
+
+    @classmethod
+    async def open(cls, request_queue_id_or_name: Optional[str] = None, config: Optional[Configuration] = None) -> 'RequestQueue':
+        """TODO: docs."""
+        return await StorageManager.open_storage(cls, request_queue_id_or_name, None, config)
