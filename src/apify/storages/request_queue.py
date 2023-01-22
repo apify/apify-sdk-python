@@ -54,7 +54,6 @@ class RequestQueue:
     _id: str
     _name: Optional[str]
     _client: Union[RequestQueueClientAsync, RequestQueueClient]
-    _config: Configuration
     _client_key = _crypto_random_object_id()
     _queue_head_dict: OrderedDictType[str, str]
     _query_queue_head_promise: Optional[Coroutine]
@@ -71,7 +70,6 @@ class RequestQueue:
         self._id = id
         self._name = name
         self._client = client.request_queue(self._id, client_key=self._client_key)
-        self._config = Configuration.get_global_configuration()  # We always use the global config
         self._queue_head_dict = OrderedDict()
         self._query_queue_head_promise = None
         self._in_progress = set()
@@ -169,7 +167,7 @@ class RequestQueue:
         """
         if request is None:
             logging.debug(f'Cannot find a request from the beginning of queue, will be retried later. nextRequestId: {next_request_id}')
-            asyncio.get_event_loop().call_later(STORAGE_CONSISTENCY_DELAY_MILLIS // 1000, lambda: self._in_progress.remove(next_request_id))
+            asyncio.get_running_loop().call_later(STORAGE_CONSISTENCY_DELAY_MILLIS // 1000, lambda: self._in_progress.remove(next_request_id))
             return None
 
         """ 2) Queue head index is behind the main table and the underlying request was already handled
@@ -231,7 +229,7 @@ class RequestQueue:
             # Performance optimization: add request straight to head if possible
             self._maybe_add_request_to_queue_head(request['id'], forefront)
 
-        asyncio.get_event_loop().call_later(STORAGE_CONSISTENCY_DELAY_MILLIS // 1000, callback)
+        asyncio.get_running_loop().call_later(STORAGE_CONSISTENCY_DELAY_MILLIS // 1000, callback)
 
         return queue_operation_info
 

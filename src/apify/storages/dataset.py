@@ -21,7 +21,6 @@ class Dataset:
     _id: str
     _name: Optional[str]
     _client: Union[DatasetClientAsync, DatasetClient]
-    _config: Configuration
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """TODO: docs (constructor should be "internal")."""
@@ -32,7 +31,6 @@ class Dataset:
         self._id = id
         self._name = name
         self._client = client.dataset(self._id)
-        self._config = Configuration.get_global_configuration()  # We always use the global config
 
     @classmethod
     async def _create_instance(cls, dataset_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> 'Dataset':

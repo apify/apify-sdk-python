@@ -18,7 +18,6 @@ class KeyValueStore:
     _id: str
     _name: Optional[str]
     _client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
-    _config: Configuration
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """TODO: docs (constructor should be "internal")."""
@@ -27,7 +26,6 @@ class KeyValueStore:
         self._id = id
         self._name = name
         self._client = client.key_value_store(self._id)
-        self._config = Configuration.get_global_configuration()  # We always use the global config
 
     @classmethod
     async def _create_instance(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> 'KeyValueStore':
