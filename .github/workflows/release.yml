@@ -48,7 +48,7 @@ jobs:
       run: make type-check
 
     - name: Unit tests
-      run: make test
+      run: make unit-tests
 
   check_docs:
     name: Check whether the documentation is up to date
