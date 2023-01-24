@@ -45,8 +45,8 @@ async def test_for_each_key(key_value_store: KeyValueStore) -> None:
 
     for i in range(2001):
         await key_value_store.set_value(str(i).zfill(4), i)
-    async for item, index, _ in key_value_store.for_each_key():
-        assert item['key'] == str(index).zfill(4)
+    async for key, index, _ in key_value_store.for_each_key():
+        assert key == str(index).zfill(4)
     assert index == 2000
 
 
