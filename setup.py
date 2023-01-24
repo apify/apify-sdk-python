@@ -77,6 +77,7 @@ setup(
             'pytest ~= 7.2.0',
             'pytest-asyncio ~= 0.20.3',
             'pytest-randomly ~= 3.12.0',
+            'pytest-xdist ~= 3.1.0',
             'respx ~= 0.20.1',
             'sphinx ~= 5.3.0',
             'sphinx-autodoc-typehints ~= 1.19.5',
