@@ -31,7 +31,7 @@ module.exports = {
                             docId: 'index',
                             label: 'Docs',
                             position: 'left',
-                            activeBaseRegex: 'docs',
+                            activeBaseRegex: 'docs(?!.*/changelog)',
                         },
                         {
                             to: 'api/apify',
@@ -40,7 +40,7 @@ module.exports = {
                             activeBaseRegex: 'sdk-python/(api|typedefs)(?!.*/changelog)',
                         },
                         {
-                            to: '/changelog',
+                            to: 'docs/changelog',
                             label: 'Changelog',
                             position: 'left',
                             activeBaseRegex: 'changelog',
