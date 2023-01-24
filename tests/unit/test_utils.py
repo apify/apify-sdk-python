@@ -1,8 +1,8 @@
 import asyncio
+import datetime
 import io
 import os
 import uuid
-from datetime import datetime, timezone
 from enum import Enum
 
 import pytest
@@ -36,23 +36,23 @@ from apify.consts import ApifyEnvVars, StorageTypes
 
 
 def test__fetch_and_parse_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
-    time_now = datetime.now(timezone.utc)
     monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'True')
     monkeypatch.setenv(ApifyEnvVars.MEMORY_MBYTES, '1024')
     monkeypatch.setenv(ApifyEnvVars.META_ORIGIN, 'API')
-    monkeypatch.setenv(ApifyEnvVars.STARTED_AT, time_now.isoformat())
+    monkeypatch.setenv(ApifyEnvVars.STARTED_AT, '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_BOOL', '1')
-    monkeypatch.setenv('DUMMY_DATETIME', time_now.isoformat())
+    monkeypatch.setenv('DUMMY_DATETIME', '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_INT', '1')
     monkeypatch.setenv('DUMMY_STRING', 'DUMMY')
 
     assert _fetch_and_parse_env_var(ApifyEnvVars.IS_AT_HOME) is True
     assert _fetch_and_parse_env_var(ApifyEnvVars.MEMORY_MBYTES) == 1024
     assert _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN) == 'API'
-    assert _fetch_and_parse_env_var(ApifyEnvVars.STARTED_AT) == time_now
+    assert _fetch_and_parse_env_var(ApifyEnvVars.STARTED_AT) == \
+        datetime.datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=datetime.timezone.utc)
 
     assert _fetch_and_parse_env_var('DUMMY_BOOL') == '1'  # type: ignore
-    assert _fetch_and_parse_env_var('DUMMY_DATETIME') == time_now.isoformat()  # type: ignore
+    assert _fetch_and_parse_env_var('DUMMY_DATETIME') == '2022-12-02T15:19:34.907Z'  # type: ignore
     assert _fetch_and_parse_env_var('DUMMY_INT') == '1'  # type: ignore
     assert _fetch_and_parse_env_var('DUMMY_STRING') == 'DUMMY'  # type: ignore
     assert _fetch_and_parse_env_var('NONEXISTENT_ENV_VAR') is None  # type: ignore
@@ -93,9 +93,9 @@ def test__maybe_parse_bool() -> None:
 
 
 def test__maybe_parse_datetime() -> None:
-    time_now = datetime.now(timezone.utc)
-    assert _maybe_parse_datetime(time_now.isoformat()) == time_now
-    assert _maybe_parse_datetime('2022-12-02T15:19:34.907') == datetime.fromisoformat('2022-12-02T15:19:34.907')
+    assert _maybe_parse_datetime('2022-12-02T15:19:34.907Z') == \
+        datetime.datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=datetime.timezone.utc)
+    assert _maybe_parse_datetime('2022-12-02T15:19:34.907') == '2022-12-02T15:19:34.907'
     assert _maybe_parse_datetime('anything') == 'anything'
 
 
