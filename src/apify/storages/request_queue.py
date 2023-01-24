@@ -248,6 +248,7 @@ class RequestQueue:
 
         Args:
             request (dict): The request to mark as handled.
+
         Returns:
             dict, optional: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
                 `None` if the given request was not in progress.
