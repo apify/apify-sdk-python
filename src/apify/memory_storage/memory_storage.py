@@ -125,8 +125,7 @@ class MemoryStorage:
                 if request_queue_folder.name == 'default' or request_queue_folder.name.startswith('__APIFY_TEMPORARY'):
                     await self._batch_remove_files(request_queue_folder.path)
 
-    def teardown(self) -> None:
-        """TODO: docs."""
+    def teardown(self) -> None:  # noqa: D102
         # We don't need to wait for anything here since we don't have worker threads for fs operations
         pass
 
