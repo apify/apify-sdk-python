@@ -123,12 +123,10 @@ class KeyValueStore:
                 where `key` is the record key, and `info` is an object that contains a single property `size`
                 indicating size of the record in bytes.
         """
-        index = 0
         while True:
             list_keys = await self._client.list_keys(exclusive_start_key=exclusive_start_key)
             for item in list_keys['items']:
                 yield IterateKeysTuple(item['key'], {'size': item['size']})
-                index += 1
 
             if not list_keys['isTruncated']:
                 break
