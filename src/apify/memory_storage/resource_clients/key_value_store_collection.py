@@ -21,7 +21,7 @@ class KeyValueStoreCollectionClient:
         self._key_value_stores_directory = base_storage_directory
         self._client = client
 
-    def list(self) -> ListPage:
+    def list(self) -> ListPage[Dict]:
         """TODO: docs."""
         def map_store(store: KeyValueStoreClient) -> Dict:
             return store.to_key_value_store_info()
