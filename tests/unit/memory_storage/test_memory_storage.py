@@ -118,3 +118,13 @@ async def test_purge_request_queues(tmp_path: str) -> None:
     folders_after_purge = os.listdir(ms._request_queues_directory)
     assert default_rq_info['name'] not in folders_after_purge
     assert non_default_rq_info['name'] in folders_after_purge
+
+
+async def test_not_implemented_method(tmp_path: str) -> None:
+    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+    ddt = ms.dataset('test')
+    with pytest.raises(NotImplementedError):
+        await ddt.stream_items(item_format='json')
+
+    with pytest.raises(NotImplementedError):
+        await ddt.stream_items(item_format='json')
