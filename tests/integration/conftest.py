@@ -144,7 +144,7 @@ async def make_actor(actor_base_source_files: Dict[str, Union[str, bytes]], apif
             if isinstance(file_contents, str):
                 file_format = 'TEXT'
                 if file_name.endswith('.py'):
-                    file_contents = textwrap.dedent(file_contents)
+                    file_contents = textwrap.dedent(file_contents).lstrip()
             else:
                 file_format = 'BASE64'
                 file_contents = base64.b64encode(file_contents).decode('utf-8')
