@@ -12,14 +12,18 @@ from apify_client import ApifyClientAsync
 from apify_client.clients.resource_clients import ActorClientAsync
 from apify_client.consts import ActorJobStatus, ActorSourceType
 
-from ._fix_pytest import *  # noqa: F401,F403 # this is needed only for its side effects
 from ._utils import generate_unique_resource_name
 
 TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 
 
-@pytest.fixture(scope='session')
+# This fixture can't be session-scoped,
+# because then you start getting `RuntimeError: Event loop is closed` errors,
+# because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
+# but `pytest-asyncio` closes the event loop after each test,
+# and uses a new one for the next test.
+@pytest.fixture
 def apify_client_async() -> ApifyClientAsync:
     api_token = os.getenv(TOKEN_ENV_VAR)
     api_url = os.getenv(API_URL_ENV_VAR)
