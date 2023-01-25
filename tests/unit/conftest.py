@@ -28,9 +28,7 @@ def reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path:
     monkeypatch.setattr(StorageClientManager, 'get_storage_client', get_storage_client)
 
 
-# TODO: decide if this is worth maintaining
-# We could just mock the Apify API HTTP responses with respx and get the same results
-# (but this was fun to write!)
+# This class is used to patch the ApifyClientAsync methods to return a fixed value or be replaced with another method.
 class ApifyClientAsyncPatcher:
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.monkeypatch = monkeypatch
