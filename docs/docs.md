@@ -146,7 +146,23 @@ That’s useful if you want to use the client as a different Apify user than the
 
 #### async classmethod open_dataset(dataset_id_or_name=None, \*, force_cloud=False)
 
-TODO: docs.
+Open a dataset.
+
+Datasets are used to store structured data where each object stored has the same attributes,
+such as online store products or real estate offers.
+The actual data is stored either on the local filesystem or in the Apify cloud.
+
+* **Parameters**
+
+  * **dataset_id_or_name** (`str`, *optional*) – ID or name of the dataset to be opened.
+  If not provided, the method returns the default dataset associated with the actor run.
+
+  * **force_cloud** (`bool`, *optional*) – If set to True then the Apify cloud storage is always used.
+  This way it is possible to combine local and cloud storage.
+
+* **Returns**
+
+  An instance of the Dataset class for the given ID or name.
 
 * **Return type**
 
@@ -156,7 +172,23 @@ TODO: docs.
 
 #### async classmethod open_key_value_store(key_value_store_id_or_name=None, \*, force_cloud=False)
 
-TODO: docs.
+Open a key-value store.
+
+Key-value stores are used to store records or files, along with their MIME content type.
+The records are stored and retrieved using a unique key.
+The actual data is stored either on a local filesystem or in the Apify cloud.
+
+* **Parameters**
+
+  * **key_value_store_id_or_name** (`str`, *optional*) – ID or name of the key-value store to be opened.
+  If not provided, the method returns the default key-value store associated with the actor run.
+
+  * **force_cloud** (`bool`, *optional*) – If set to True then the Apify cloud storage is always used.
+  This way it is possible to combine local and cloud storage.
+
+* **Returns**
+
+  An instance of the KeyValueStore class for the given ID or name.
 
 * **Return type**
 
@@ -166,7 +198,24 @@ TODO: docs.
 
 #### async classmethod open_request_queue(request_queue_id_or_name=None, \*, force_cloud=False)
 
-TODO: docs.
+Open a request queue.
+
+Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
+The queue is used for deep crawling of websites, where you start with several URLs and then
+recursively follow links to other pages. The data structure supports both breadth-first
+and depth-first crawling orders.
+
+* **Parameters**
+
+  * **request_queue_id_or_name** (`str`, *optional*) – ID or name of the request queue to be opened.
+  If not provided, the method returns the default request queue associated with the actor run.
+
+  * **force_cloud** (`bool`, *optional*) – If set to True then the Apify cloud storage is always used.
+  This way it is possible to combine local and cloud storage.
+
+* **Returns**
+
+  An instance of the RequestQueue class for the given ID or name.
 
 * **Return type**
 

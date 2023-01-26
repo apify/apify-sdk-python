@@ -15,7 +15,7 @@ T = TypeVar('T', 'Dataset', 'KeyValueStore', 'RequestQueue', covariant=True)
 
 
 class Storage(Protocol[T]):
-    """TODO: Docs."""
+    """A protocol defining common interface for storage classes."""
 
     @classmethod
     def _create_instance(cls, storage_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> T:  # noqa: U100
@@ -33,16 +33,14 @@ async def _purge_default_storages(client: Union[ApifyClientAsync, MemoryStorage]
 
 
 class StorageManager:
-    """TODO: docs."""
+    """A class for managing storages."""
 
     _default_instance: Optional['StorageManager'] = None
     _cache: Dict[Type[Storage], Dict[str, Storage]]
-    _config: Configuration
 
     def __init__(self) -> None:
-        """TODO: docs."""
+        """Create a `StorageManager` instance."""
         self._cache = {}
-        self._config = Configuration.get_global_configuration()
 
     @classmethod
     def _get_default_instance(cls) -> 'StorageManager':
@@ -59,9 +57,23 @@ class StorageManager:
         client: Optional[Union[ApifyClientAsync, MemoryStorage]] = None,
         config: Optional[Configuration] = None,
     ) -> T:
-        """TODO: docs."""
+        """Open a storage of the given class, or return a cached storage object if it was opened before.
+
+        Opens a new storage (`Dataset`, `KeyValueStore`, or `RequestQueue`) with the given ID or name.
+        Returns the cached storage object if the storage was opened before.
+
+        Args:
+            storage_class (Type[Dataset] or Type[KeyValueStore] or Type[RequestQueue]): Class of the storage to be opened.
+            storage_id_or_name (str, optional): ID or name of the storage to be opened. If omitted, an unnamed storage will be opened.
+            client (ApifyClientAsync or MemoryStorage, optional): The storage client which should be used in the storage.
+                If omitted, the default client will be used.
+            config (Configuration, optional): The actor configuration to be used in this call. If omitted, the global configuration will be used.
+
+        Returns:
+            An instance of the storage given by `storage_class`.
+        """
         storage_manager = StorageManager._get_default_instance()
-        used_config = config or storage_manager._config
+        used_config = config or Configuration.get_global_configuration()
         used_client = client or StorageClientManager.get_storage_client()
 
         # Create cache for the given storage class if missing
@@ -93,7 +105,13 @@ class StorageManager:
 
     @classmethod
     async def close_storage(cls, storage_class: Type[Storage], id: str, name: Optional[str]) -> None:
-        """TODO: docs."""
+        """Close the given storage by removing it from the cache.
+
+        Args:
+            storage_class (Type[Dataset] or Type[KeyValueStore] or Type[RequestQueue]): Class of the storage to be closed.
+            id (str): ID of the storage to be closed.
+            name (str, optional): Name of the storage to be closed.
+        """
         storage_manager = StorageManager._get_default_instance()
         del storage_manager._cache[storage_class][id]
         if name is not None:

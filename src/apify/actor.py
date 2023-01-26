@@ -478,7 +478,22 @@ class Actor(metaclass=_ActorContextManager):
 
     @classmethod
     async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
-        """TODO: docs."""
+        """Open a dataset.
+
+        Datasets are used to store structured data where each object stored has the same attributes,
+        such as online store products or real estate offers.
+        The actual data is stored either on the local filesystem or in the Apify cloud.
+
+        Args:
+            dataset_id_or_name (str, optional): ID or name of the dataset to be opened.
+                If not provided, the method returns the default dataset associated with the actor run.
+            force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
+                This way it is possible to combine local and cloud storage.
+
+        Returns:
+            Dataset: An instance of the `Dataset` class for the given ID or name.
+
+        """
         return await cls._get_default_instance().open_dataset(dataset_id_or_name=dataset_id_or_name, force_cloud=force_cloud)
 
     async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
@@ -488,7 +503,21 @@ class Actor(metaclass=_ActorContextManager):
 
     @classmethod
     async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
-        """TODO: docs."""
+        """Open a key-value store.
+
+        Key-value stores are used to store records or files, along with their MIME content type.
+        The records are stored and retrieved using a unique key.
+        The actual data is stored either on a local filesystem or in the Apify cloud.
+
+        Args:
+            key_value_store_id_or_name (str, optional): ID or name of the key-value store to be opened.
+                If not provided, the method returns the default key-value store associated with the actor run.
+            force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
+                This way it is possible to combine local and cloud storage.
+
+        Returns:
+            KeyValueStore: An instance of the `KeyValueStore` class for the given ID or name.
+        """
         return await cls._get_default_instance().open_key_value_store(key_value_store_id_or_name=key_value_store_id_or_name, force_cloud=force_cloud)
 
     async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
@@ -498,7 +527,22 @@ class Actor(metaclass=_ActorContextManager):
 
     @classmethod
     async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> RequestQueue:
-        """TODO: docs."""
+        """Open a request queue.
+
+        Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
+        The queue is used for deep crawling of websites, where you start with several URLs and then
+        recursively follow links to other pages. The data structure supports both breadth-first
+        and depth-first crawling orders.
+
+        Args:
+            request_queue_id_or_name (str, optional): ID or name of the request queue to be opened.
+                If not provided, the method returns the default request queue associated with the actor run.
+            force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
+                This way it is possible to combine local and cloud storage.
+
+        Returns:
+            RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
+        """
         return await cls._get_default_instance().open_request_queue(request_queue_id_or_name=request_queue_id_or_name, force_cloud=force_cloud)
 
     async def _open_request_queue_internal(
