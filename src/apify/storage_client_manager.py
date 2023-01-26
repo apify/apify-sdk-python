@@ -7,7 +7,7 @@ from .memory_storage import MemoryStorage
 
 
 class StorageClientManager:
-    """TODO: docs."""
+    """A class for managing storage clients."""
 
     _config: Configuration
 
@@ -16,18 +16,26 @@ class StorageClientManager:
     _default_instance: Optional['StorageClientManager'] = None
 
     def __init__(self) -> None:
-        """TODO: docs."""
+        """Create a `StorageClientManager` instance."""
         self._config = Configuration.get_global_configuration()
         self._client = MemoryStorage(persist_storage=self._config.persist_storage)
 
     @classmethod
     def get_storage_client(cls) -> Union[ApifyClientAsync, MemoryStorage]:
-        """TODO: docs."""
+        """Get the current storage client instance.
+
+        Returns:
+            ApifyClientAsync or MemoryStorage: The current storage client instance.
+        """
         return cls._get_default_instance()._client
 
     @classmethod
     def set_storage_client(cls, client: Union[ApifyClientAsync, MemoryStorage]) -> None:
-        """TODO: docs."""
+        """Set the storage client.
+
+        Args:
+            client (ApifyClientAsync or MemoryStorage): The instance of a storage client.
+        """
         cls._get_default_instance()._client = client
 
     @classmethod
