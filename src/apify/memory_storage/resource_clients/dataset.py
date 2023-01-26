@@ -262,10 +262,10 @@ class DatasetClient:
             for item in current_items_page.items:
                 yield item
 
-    async def get_items_as_bytes(self, *_args: Any, **_kwargs: Any) -> None:  # noqa: D102
+    async def get_items_as_bytes(self, *_args: Any, **_kwargs: Any) -> bytes:  # noqa: D102
         raise NotImplementedError('This method is not supported in local memory storage.')
 
-    async def stream_items(self, *_args: Any, **_kwargs: Any) -> None:  # noqa: D102
+    async def stream_items(self, *_args: Any, **_kwargs: Any) -> AsyncIterator:  # noqa: D102
         raise NotImplementedError('This method is not supported in local memory storage')
 
     async def push_items(self, items: JSONSerializable) -> None:
