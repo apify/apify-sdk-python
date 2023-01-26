@@ -12,14 +12,14 @@ class TestActorInit:
         async with Actor:
             assert Actor._get_default_instance()._is_initialized
             # TODO: More checks
-        assert not Actor._get_default_instance()._is_initialized
+        assert Actor._get_default_instance()._is_initialized is False
 
     async def test_actor_init(self) -> None:
         my_actor = Actor()
         await my_actor.init()
         assert my_actor._is_initialized is True
         await my_actor.exit()
-        assert not my_actor._is_initialized
+        assert my_actor._is_initialized is False
 
     async def test_double_init(self) -> None:
         my_actor = Actor()
@@ -52,8 +52,8 @@ class TestActorExit:
             await my_actior.exit()
         # NOTE: Actor didn't call sys.exit() during testing.
         assert is_persist_event_emitted
-        assert not is_migration
-        assert not my_actior._is_initialized
+        assert is_migration is False
+        assert my_actior._is_initialized is False
 
     async def test_raise_on_exit_witout_init(self) -> None:
         with pytest.raises(RuntimeError):
