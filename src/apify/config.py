@@ -52,8 +52,8 @@ class Configuration:
         self.token = _fetch_and_parse_env_var(ApifyEnvVars.TOKEN)
         self.user_id = _fetch_and_parse_env_var(ApifyEnvVars.USER_ID)
         self.xvfb = _fetch_and_parse_env_var(ApifyEnvVars.XVFB, False)
+        self.system_info_interval_millis = _fetch_and_parse_env_var(ApifyEnvVars.SYSTEM_INFO_INTERVAL_MILLIS, 60000)
 
-        self.system_info_interval_millis = 60000
         self.max_used_cpu_ratio = 0.95
 
     @classmethod
