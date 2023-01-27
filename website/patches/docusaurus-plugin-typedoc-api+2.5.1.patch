@@ -1,0 +1,44 @@
+diff --git a/node_modules/docusaurus-plugin-typedoc-api/lib/index.js b/node_modules/docusaurus-plugin-typedoc-api/lib/index.js
+index 8c9d33a..0f9f3cc 100644
+--- a/node_modules/docusaurus-plugin-typedoc-api/lib/index.js
++++ b/node_modules/docusaurus-plugin-typedoc-api/lib/index.js
+@@ -55,7 +55,8 @@ const DEFAULT_OPTIONS = {
+   routeBasePath: 'api',
+   tsconfigName: 'tsconfig.json',
+   typedocOptions: {},
+-  versions: {}
++  versions: {},
++  pathToTypedocJSON: false,
+ };
+ 
+ async function importFile(file) {
+@@ -152,7 +153,15 @@ function typedocApiPlugin(context, pluginOptions) {
+ 
+           if (metadata.versionName === server.CURRENT_VERSION_NAME) {
+             const outFile = path__default.default.join(context.generatedFilesDir, `api-typedoc-${pluginId}.json`);
+-            await data.generateJson(projectRoot, entryPoints, outFile, options);
++            if (!options.pathToTypedocJSON) {
++              await data.generateJson(projectRoot, entryPoints, outFile, options)
++            }
++            else {
++              if (!fs.existsSync(context.generatedFilesDir)){
++                fs.mkdirSync(context.generatedFilesDir, { recursive: true });
++              }
++              fs.copyFileSync(options.pathToTypedocJSON, outFile);
++            } 
+             packages = data.flattenAndGroupPackages(packageConfigs, await importFile(outFile), metadata.versionPath, options); // Versioned data is stored in the file system
+           } else {
+             const outDir = path__default.default.join(versionsDocsDir, `version-${metadata.versionName}`);
+diff --git a/node_modules/docusaurus-plugin-typedoc-api/lib/plugin/sidebar.js b/node_modules/docusaurus-plugin-typedoc-api/lib/plugin/sidebar.js
+index 8878837..e9d2822 100644
+--- a/node_modules/docusaurus-plugin-typedoc-api/lib/plugin/sidebar.js
++++ b/node_modules/docusaurus-plugin-typedoc-api/lib/plugin/sidebar.js
+@@ -12,7 +12,7 @@ const data = require('./data.js');
+ 
+ function groupSidebarItems(map, groups) {
+   const items = [];
+-  const sortedGroups = groups.sort((a, b) => a.title.localeCompare(b.title));
++  const sortedGroups = groups;
+ 
+   function getLastItemInGroup(index) {
+     const length = sortedGroups[index]?.children?.length;

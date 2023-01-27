@@ -34,10 +34,13 @@ jobs:
 
             -   name: Build & deploy docs
                 run: |
-                    # go to website dir
+                    # (install tools and) generate reference docs from the source files
+                    sudo apt-get update
+                    sudo apt-get install python3-pip
+                    python3 -m pip install pydoc-markdown
                     cd website
-                    # install website deps
                     npm ci --force
+                    node ./transformDocs.js <(pydoc-markdown --quiet --dump ../pydoc-markdown.yml)
                     # install the latest theme version
                     npm update @apify/docs-theme
                     # build and deploy the docs

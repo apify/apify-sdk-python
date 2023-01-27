@@ -50,10 +50,15 @@ setup(
     package_data={'apify': ['py.typed']},
     python_requires='>=3.8',
     install_requires=[
-        'apify-client ~= 0.7.0b30',
+        'apify-client ~= 0.7.0b39',
+        'httpx ~= 0.23.0',
         'psutil ~= 5.9.4',
+        'pydantic ~= 1.10.2',
         'pyee ~= 9.0.4',
+        'typing-extensions ~= 4.4.0',
         'websockets ~= 10.4',
+        'aiofiles ~= 22.1.0',
+        'aioshutil ~= 1.2',
     ],
     extras_require={
         'dev': [
@@ -71,9 +76,13 @@ setup(
             'pre-commit ~= 2.20.0',
             'pytest ~= 7.2.0',
             'pytest-asyncio ~= 0.20.3',
+            'pytest-randomly ~= 3.12.0',
+            'pytest-xdist ~= 3.1.0',
+            'respx ~= 0.20.1',
             'sphinx ~= 5.3.0',
             'sphinx-autodoc-typehints ~= 1.19.5',
             'sphinx-markdown-builder == 0.5.4',  # pinned to 0.5.4, because 0.5.5 has a formatting bug
+            'types-aiofiles ~= 22.1.0.4',
             'types-psutil ~= 5.9.5.5',
             'types-setuptools ~= 65.6.0.1',
         ],

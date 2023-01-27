@@ -13,9 +13,9 @@ repos:
       language: system
       pass_filenames: false
 
-    - id: unit-test
+    - id: unit-tests
       name: "Run unit tests"
-      entry: "make test"
+      entry: "make unit-tests"
       language: system
       pass_filenames: false
 
