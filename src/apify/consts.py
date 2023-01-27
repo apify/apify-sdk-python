@@ -5,8 +5,6 @@ from typing import List, Literal, get_args
 class ActorEventType(str, Enum):
     """Possible values of actor event type."""
 
-    #: Info about CPU usage of the actor
-    CPU_INFO = 'cpuInfo'
     #: Info about resource usage of the actor
     SYSTEM_INFO = 'systemInfo'
     #: Sent when the actor is about to migrate
@@ -51,6 +49,7 @@ class ApifyEnvVars(str, Enum):
     LOG_LEVEL = 'APIFY_LOG_LEVEL'
     MEMORY_MBYTES = 'APIFY_MEMORY_MBYTES'
     META_ORIGIN = 'APIFY_META_ORIGIN'
+    PERSIST_STORAGE = 'APIFY_PERSIST_STORAGE'
     PROXY_HOSTNAME = 'APIFY_PROXY_HOSTNAME'
     PROXY_PASSWORD = 'APIFY_PROXY_PASSWORD'
     PROXY_PORT = 'APIFY_PROXY_PORT'
@@ -67,6 +66,7 @@ class ApifyEnvVars(str, Enum):
     METAMORPH_AFTER_SLEEP_MILLIS = 'APIFY_METAMORPH_AFTER_SLEEP_MILLIS'
     PERSIST_STATE_INTERVAL_MILLIS = 'APIFY_PERSIST_STATE_INTERVAL_MILLIS'
     PURGE_ON_START = 'APIFY_PURGE_ON_START'
+    SYSTEM_INFO_INTERVAL_MILLIS = 'APIFY_SYSTEM_INFO_INTERVAL_MILLIS'
 
 
 _INTEGER_ENV_VARS_TYPE = Literal[
@@ -77,6 +77,7 @@ _INTEGER_ENV_VARS_TYPE = Literal[
     ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS,
     ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS,
     ApifyEnvVars.PROXY_PORT,
+    ApifyEnvVars.SYSTEM_INFO_INTERVAL_MILLIS,
 ]
 
 INTEGER_ENV_VARS: List[_INTEGER_ENV_VARS_TYPE] = list(get_args(_INTEGER_ENV_VARS_TYPE))
@@ -86,6 +87,7 @@ _BOOL_ENV_VARS_TYPE = Literal[
     ApifyEnvVars.DISABLE_OUTDATED_WARNING,
     ApifyEnvVars.HEADLESS,
     ApifyEnvVars.IS_AT_HOME,
+    ApifyEnvVars.PERSIST_STORAGE,
     ApifyEnvVars.PURGE_ON_START,
     ApifyEnvVars.XVFB,
 ]
@@ -133,3 +135,27 @@ _STRING_ENV_VARS_TYPE = Literal[
 ]
 
 STRING_ENV_VARS: List[_STRING_ENV_VARS_TYPE] = list(get_args(_STRING_ENV_VARS_TYPE))
+
+
+class ActorExitCodes(int, Enum):
+    """Usual actor exit codes."""
+
+    SUCCESS = 0
+    ERROR_USER_FUNCTION_THREW = 91
+
+
+class StorageTypes(str, Enum):
+    """Possible Apify storage types."""
+
+    DATASET = 'Dataset'
+    KEY_VALUE_STORE = 'Key-value store'
+    REQUEST_QUEUE = 'Request queue'
+
+
+DEFAULT_API_PARAM_LIMIT = 1000
+
+REQUEST_ID_LENGTH = 15
+
+REQUEST_QUEUE_HEAD_MAX_LIMIT = 1000
+
+EVENT_LISTENERS_TIMEOUT_SECS = 5

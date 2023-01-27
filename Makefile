@@ -12,13 +12,16 @@ install-dev:
 lint:
 	python3 -m flake8
 
-test:
-	python3 -m pytest -ra tests
+unit-tests:
+	python3 -m pytest -n auto -ra tests/unit
+
+integration-tests:
+	python3 -m pytest -ra tests/integration
 
 type-check:
 	python3 -m mypy
 
-check-code: lint type-check test
+check-code: lint type-check unit-tests
 
 format:
 	python3 -m isort src tests
