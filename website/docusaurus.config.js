@@ -1,6 +1,7 @@
 /* eslint-disable global-require,import/no-extraneous-dependencies */
 const { config } = require('@apify/docs-theme');
 const { externalLinkProcessor } = require('./tools/utils/externalLink');
+const { groupSort } = require('./transformDocs.js');
 
 const { absoluteUrl } = config;
 
@@ -34,7 +35,7 @@ module.exports = {
                             activeBaseRegex: 'docs(?!.*/changelog)',
                         },
                         {
-                            to: 'api/apify',
+                            to: 'api',
                             label: 'API',
                             position: 'left',
                             activeBaseRegex: 'sdk-python/(api|typedefs)(?!.*/changelog)',
@@ -73,21 +74,20 @@ module.exports = {
         ],
     ]),
     plugins: [
-        // [
-        //     'docusaurus-plugin-typedoc-api',
-        //     {
-        //         projectRoot: `${__dirname}/..`,
-        //         changelogs: true,
-        //         readmes: true,
-        //         sortPackages: (a, b) => {
-        //             return packagesOrder.indexOf(a.packageName) - packagesOrder.indexOf(b.packageName);
-        //         },
-        //         packages: packages.map((name) => ({ path: `packages/${name}` })),
-        //         typedocOptions: {
-        //             excludeExternals: false,
-        //         },
-        //     },
-        // ],
+        [
+            'docusaurus-plugin-typedoc-api',
+            {
+                projectRoot: `.`,
+                changelogs: false,
+                readmes: false,
+                packages: [{ path: '.' }],
+                typedocOptions: {
+                    excludeExternals: false,
+                },
+                pathToTypedocJSON: `${__dirname}/api-typedoc-generated.json`,
+                sortSidebar: groupSort,
+            },
+        ],
         // [
         //     'docusaurus-gtm-plugin',
         //     {
