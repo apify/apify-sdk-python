@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict, Optional, Tuple, TypeVar, Union, overload
+from typing import Any, AsyncIterator, NamedTuple, Optional, TypedDict, TypeVar, Union, overload
 
 from apify_client import ApifyClientAsync
 from apify_client.clients import KeyValueStoreClientAsync
@@ -10,6 +10,8 @@ from ..memory_storage.resource_clients import KeyValueStoreClient
 from .storage_manager import StorageManager
 
 T = TypeVar('T')
+IterateKeysInfo = TypedDict('IterateKeysInfo', {'size': int})
+IterateKeysTuple = NamedTuple('IterateKeysTuple', [('key', str), ('info', IterateKeysInfo)])
 
 
 class KeyValueStore:
@@ -110,23 +112,22 @@ class KeyValueStore:
         record = await self._client.get_record(key)
         return record['value'] if record else default_value
 
-    async def for_each_key(self, exclusive_start_key: Optional[str] = None) -> AsyncIterator[Tuple[str, int, Dict]]:
+    async def iterate_keys(self, exclusive_start_key: Optional[str] = None) -> AsyncIterator[IterateKeysTuple]:
         """Iterate over the keys in the key-value store.
 
         Args:
             exclusive_start_key (str, optional): All keys up to this one (including) are skipped from the result.
 
         Yields:
-            tuple[str, int, dict]: A tuple `(key, index, info)`,
-                where `key` is the record key, `index` is a zero-based index of the key in the current iteration
-                (regardless of `exclusive_start_key`) and `info` is an object that contains a single property `size`
+            IterateKeysTuple: A tuple `(key, info)`,
+                where `key` is the record key, and `info` is an object that contains a single property `size`
                 indicating size of the record in bytes.
         """
         index = 0
         while True:
             list_keys = await self._client.list_keys(exclusive_start_key=exclusive_start_key)
             for item in list_keys['items']:
-                yield item['key'], index, {'size': item['size']}
+                yield IterateKeysTuple(item['key'], {'size': item['size']})
                 index += 1
 
             if not list_keys['isTruncated']:
