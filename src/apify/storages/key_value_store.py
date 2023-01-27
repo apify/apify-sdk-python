@@ -21,7 +21,7 @@ class KeyValueStore:
     for saving and reading data records or files. Each data record is
     represented by a unique key and associated with a MIME content type.
 
-    Do not instantiate this class directly, use the `KeyValueStore.open` function instead.
+    Do not instantiate this class directly, use the `Actor.open_key_value_store()` function instead.
 
     Each crawler run is associated with a default key-value store, which is created exclusively
     for the run. By convention, the crawler input and output are stored into the

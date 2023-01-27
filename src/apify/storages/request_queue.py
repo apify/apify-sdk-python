@@ -60,7 +60,7 @@ class RequestQueue:
     To add a single URL multiple times to the queue,
     corresponding request dictionary will need to have different `uniqueKey` properties.
 
-    Do not instantiate this class directly, use the `RequestQueue.open` function instead.
+    Do not instantiate this class directly, use the `Actor.open_request_queue()` function instead.
 
     `RequestQueue` stores its data either on local disk or in the Apify cloud,
     depending on whether the `APIFY_LOCAL_STORAGE_DIR` or `APIFY_TOKEN` environment variables are set.

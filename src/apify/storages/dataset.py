@@ -22,7 +22,7 @@ class Dataset:
     Dataset is an append-only storage - you can only add new records to it but you cannot modify or remove existing records.
     Typically it is used to store crawling results.
 
-    Do not instantiate this class directly, use the `Dataset.open` function instead.
+    Do not instantiate this class directly, use the `Actor.open_dataset()` function instead.
 
     `Dataset` stores its data either on local disk or in the Apify cloud,
     depending on whether the `APIFY_LOCAL_STORAGE_DIR` or `APIFY_TOKEN` environment variables are set.
