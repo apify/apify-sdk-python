@@ -11,18 +11,22 @@ if TYPE_CHECKING:
 
 
 class RequestQueueCollectionClient:
-    """TODO: docs."""
+    """Sub-client for manipulating request queues."""
 
     _request_queues_directory: str
     _client: 'MemoryStorage'
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage') -> None:
-        """TODO: docs."""
+        """Initialize the RequestQueueCollectionClient with the passed arguments."""
         self._request_queues_directory = base_storage_directory
         self._client = client
 
-    def list(self) -> ListPage[Dict]:
-        """TODO: docs."""
+    def list(self) -> ListPage:
+        """List the available request queues.
+
+        Returns:
+            ListPage: The list of available request queues matching the specified filters.
+        """
         def map_store(store: RequestQueueClient) -> Dict:
             return store.to_request_queue_info()
         return ListPage({
@@ -35,7 +39,14 @@ class RequestQueueCollectionClient:
         })
 
     async def get_or_create(self, *, name: Optional[str] = None) -> Dict:
-        """TODO: docs."""
+        """Retrieve a named request queue, or create a new one when it doesn't exist.
+
+        Args:
+            name (str, optional): The name of the request queue to retrieve or create.
+
+        Returns:
+            dict: The retrieved or newly-created request queue.
+        """
         if name:
             found = _find_or_cache_request_queue_by_possible_id(self._client, name)
 

@@ -125,11 +125,6 @@ class MemoryStorage:
                 if request_queue_folder.name == 'default' or request_queue_folder.name.startswith('__APIFY_TEMPORARY'):
                     await self._batch_remove_files(request_queue_folder.path)
 
-    def teardown(self) -> None:
-        """TODO: docs."""
-        # We don't need to wait for anything here since we don't have worker threads for fs operations
-        pass
-
     async def _handle_default_key_value_store(self, folder: str) -> None:
         """Remove everything from the default key-value store folder except `possible_input_keys`."""
         folder_exists = await ospath.exists(folder)

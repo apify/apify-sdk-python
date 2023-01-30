@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class RequestQueueClient:
-    """TODO: docs."""
+    """Sub-client for manipulating a single request queue."""
 
     _id: str
     _request_queue_directory: str
@@ -37,7 +37,7 @@ class RequestQueueClient:
     _pending_request_count = 0
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
-        """TODO: docs."""
+        """Initialize the RequestQueueClient."""
         self._id = str(uuid.uuid4()) if id is None else id
         self._request_queue_directory = os.path.join(base_storage_directory, name or self._id)
         self._client = client
@@ -48,7 +48,11 @@ class RequestQueueClient:
         self._modified_at = datetime.utcnow()
 
     async def get(self) -> Optional[Dict]:
-        """TODO: docs."""
+        """Retrieve the request queue.
+
+        Returns:
+            dict, optional: The retrieved request queue, or None, if it does not exist
+        """
         found = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
         if found:
@@ -58,7 +62,14 @@ class RequestQueueClient:
         return None
 
     async def update(self, *, name: Optional[str] = None) -> Dict:
-        """TODO: docs."""
+        """Update the request queue with specified fields.
+
+        Args:
+            name (str, optional): The new name for the request queue
+
+        Returns:
+            dict: The updated request queue
+        """
         # Check by id
         existing_queue_by_id = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
@@ -90,7 +101,7 @@ class RequestQueueClient:
         return existing_queue_by_id.to_request_queue_info()
 
     async def delete(self) -> None:
-        """TODO: docs."""
+        """Delete the request queue."""
         queue = next((queue for queue in self._client._request_queues_handled if queue._id == self._id), None)
 
         if queue is not None:
@@ -102,7 +113,14 @@ class RequestQueueClient:
                 await aioshutil.rmtree(queue._request_queue_directory)
 
     async def list_head(self, *, limit: Optional[int] = None) -> Dict:
-        """TODO: docs."""
+        """Retrieve a given number of requests from the beginning of the queue.
+
+        Args:
+            limit (int, optional): How many requests to retrieve
+
+        Returns:
+            dict: The desired number of requests from the beginning of the queue.
+        """
         existing_queue_by_id = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
         if existing_queue_by_id is None:
@@ -127,7 +145,15 @@ class RequestQueueClient:
         }
 
     async def add_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:
-        """TODO: docs."""
+        """Add a request to the queue.
+
+        Args:
+            request (dict): The request to add to the queue
+            forefront (bool, optional): Whether to add the request to the head or the end of the queue
+
+        Returns:
+            dict: The added request.
+        """
         # TODO: Throw if uniqueKey or url missing from request dict, also do for update_request...
         existing_queue_by_id = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
@@ -168,7 +194,14 @@ class RequestQueueClient:
         }
 
     async def get_request(self, request_id: str) -> Optional[Dict]:
-        """TODO: docs."""
+        """Retrieve a request from the queue.
+
+        Args:
+            request_id (str): ID of the request to retrieve
+
+        Returns:
+            dict, optional: The retrieved request, or None, if it did not exist.
+        """
         existing_queue_by_id = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
         if existing_queue_by_id is None:
@@ -180,7 +213,15 @@ class RequestQueueClient:
         return self._json_to_request(request['json'] if request is not None else None)
 
     async def update_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:
-        """TODO: docs."""
+        """Update a request in the queue.
+
+        Args:
+            request (dict): The updated request
+            forefront (bool, optional): Whether to put the updated request in the beginning or the end of the queue
+
+        Returns:
+            dict: The updated request
+        """
         existing_queue_by_id = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
         if existing_queue_by_id is None:
@@ -227,7 +268,11 @@ class RequestQueueClient:
         }
 
     async def delete_request(self, request_id: str) -> None:
-        """TODO: docs."""
+        """Delete a request from the queue.
+
+        Args:
+            request_id (str): ID of the request to delete.
+        """
         existing_queue_by_id = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
         if existing_queue_by_id is None:
@@ -242,7 +287,7 @@ class RequestQueueClient:
             await _delete_request(entity_directory=existing_queue_by_id._request_queue_directory, request_id=request_id)
 
     def to_request_queue_info(self) -> Dict:
-        """TODO: docs."""
+        """Retrieve the request queue store info."""
         return {
             'accessedAt': self._accessed_at,
             'createdAt': self._created_at,
@@ -258,7 +303,6 @@ class RequestQueueClient:
         }
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
-        """TODO: docs."""
         self._accessed_at = datetime.utcnow()
 
         if has_been_modified:
