@@ -42,8 +42,7 @@ class TestActorOpenDataset:
 class TestActorPushData:
 
     async def test_push_data(self) -> None:
-        my_actor = Actor()
-        async with my_actor:
+        async with Actor() as my_actor:
             dataset = await my_actor.open_dataset()
             desired_item_count = 100
             await dataset.push_data([{'id': i} for i in range(desired_item_count)])

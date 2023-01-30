@@ -26,11 +26,10 @@ class TestKeyValueStoreOnActor:
             await Actor.open_key_value_store()
 
     async def test_get_set_value(self) -> None:
-        my_actor = Actor()
         test_key = 'test_key'
         test_value = 'test_value'
         test_content_type = 'text/plain'
-        async with my_actor:
+        async with Actor() as my_actor:
             await my_actor.set_value(key=test_key, value=test_value, content_type=test_content_type)
             value = await my_actor.get_value(key=test_key)
             assert value == test_value
@@ -40,7 +39,6 @@ class TestKeyValueStoreOnActor:
         test_input = {'foo': 'bar'}
         kvs_info = await memory_storage.key_value_stores().get_or_create(name='default')
         await memory_storage.key_value_store(kvs_info['id']).set_record(key=input_key, value=_json_dumps(test_input), content_type='application/json')
-        my_actor = Actor()
-        async with my_actor:
+        async with Actor() as my_actor:
             input = await my_actor.get_input()
             assert input['foo'] == test_input['foo']
