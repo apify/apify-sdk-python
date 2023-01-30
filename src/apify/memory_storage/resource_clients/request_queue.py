@@ -154,7 +154,6 @@ class RequestQueueClient:
         Returns:
             dict: The added request.
         """
-        # TODO: Throw if uniqueKey or url missing from request dict, also do for update_request...
         existing_queue_by_id = _find_or_cache_request_queue_by_possible_id(self._client, self._name or self._id)
 
         if existing_queue_by_id is None:
@@ -175,7 +174,6 @@ class RequestQueueClient:
             }
 
         existing_queue_by_id._requests[request_model['id']] = request_model
-        # TODO: Validate the next line logic, seems wrong in crawlee
         existing_queue_by_id._pending_request_count += 0 if request_model['orderNo'] is None else 1
         await existing_queue_by_id._update_timestamps(True)
         await _update_request_queue_item(
@@ -248,7 +246,6 @@ class RequestQueueClient:
         request_was_handled_before_update = existing_request['orderNo'] is None
 
         # We add 1 pending request if previous state was handled
-        # TODO: Validate the next 2 lines logic, seems wrong in crawlee
         if is_request_handled_state_changing:
             pending_count_adjustment = 1 if request_was_handled_before_update else -1
 
