@@ -7,7 +7,7 @@ import uuid
 import warnings
 from datetime import datetime
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Optional, Union
 
 import aioshutil
 
