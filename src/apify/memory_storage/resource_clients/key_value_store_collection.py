@@ -11,18 +11,22 @@ if TYPE_CHECKING:
 
 
 class KeyValueStoreCollectionClient:
-    """TODO: docs."""
+    """Sub-client for manipulating key-value stores."""
 
     _key_value_stores_directory: str
     _client: 'MemoryStorage'
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage') -> None:
-        """TODO: docs."""
+        """Initialize the KeyValueStoreCollectionClient with the passed arguments."""
         self._key_value_stores_directory = base_storage_directory
         self._client = client
 
-    def list(self) -> ListPage[Dict]:
-        """TODO: docs."""
+    def list(self) -> ListPage:
+        """List the available key-value stores.
+
+        Returns:
+            ListPage: The list of available key-value stores matching the specified filters.
+        """
         def map_store(store: KeyValueStoreClient) -> Dict:
             return store.to_key_value_store_info()
         return ListPage({
@@ -35,7 +39,15 @@ class KeyValueStoreCollectionClient:
         })
 
     async def get_or_create(self, *, name: Optional[str] = None, _schema: Optional[Dict] = None) -> Dict:
-        """TODO: docs."""
+        """Retrieve a named key-value store, or create a new one when it doesn't exist.
+
+        Args:
+            name (str, optional): The name of the key-value store to retrieve or create.
+            schema (Dict, optional): The schema of the key-value store
+
+        Returns:
+            dict: The retrieved or newly-created key-value store.
+        """
         if name:
             found = _find_or_cache_key_value_store_by_possible_id(client=self._client, entry_name_or_id=name)
 
