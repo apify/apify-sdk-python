@@ -48,13 +48,13 @@ class MemoryStorage:
             persist_storage (bool, optional): Whether to persist the data to the `local_data_directory` or just keep them in memory
             write_metadata (bool, optional): Whether to persist metadata of the storages as well
         """
-        self._local_data_directory = local_data_directory or os.getenv(ApifyEnvVars.LOCAL_STORAGE_DIR.value) or './storage'
+        self._local_data_directory = local_data_directory or os.getenv(ApifyEnvVars.LOCAL_STORAGE_DIR) or './storage'
         self._datasets_directory = os.path.join(self._local_data_directory, 'datasets')
         self._key_value_stores_directory = os.path.join(self._local_data_directory, 'key_value_stores')
         self._request_queues_directory = os.path.join(self._local_data_directory, 'request_queues')
         self._write_metadata = write_metadata if write_metadata is not None else '*' in os.getenv('DEBUG', '')
         self._persist_storage = persist_storage if persist_storage is not None else not any(
-            os.getenv(ApifyEnvVars.PERSIST_STORAGE.value, 'true') == s for s in ['false', '0', ''])
+            os.getenv(ApifyEnvVars.PERSIST_STORAGE, 'true') == s for s in ['false', '0', ''])
         self._datasets_handled = []
         self._key_value_stores_handled = []
         self._request_queues_handled = []

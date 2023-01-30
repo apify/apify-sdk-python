@@ -10,7 +10,7 @@ from apify.storages import StorageManager
 
 async def run_e2e_test(monkeypatch: pytest.MonkeyPatch, tmp_path: str, purge_on_start: bool = True) -> None:
     # Configure purging env var
-    monkeypatch.setenv(ApifyEnvVars.PURGE_ON_START.value, 'true' if purge_on_start else 'false')
+    monkeypatch.setenv(ApifyEnvVars.PURGE_ON_START, 'true' if purge_on_start else 'false')
     # Store old storage client so we have the object reference for comparison
     old_client = StorageClientManager.get_storage_client()
     async with Actor:
