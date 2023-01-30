@@ -47,7 +47,7 @@ class MemoryStorage:
             persist_storage (bool, optional): Whether to persist the data to the `local_data_directory` or just keep them in memory
             write_metadata (bool, optional): Whether to persist metadata of the storages as well
         """
-        self._local_data_directory = local_data_directory
+        self._local_data_directory = local_data_directory  # TODO: Make this work with `APIFY_LOCAL_STORAGE_DIR`
         self._datasets_directory = os.path.join(self._local_data_directory, 'datasets')
         self._key_value_stores_directory = os.path.join(self._local_data_directory, 'key_value_stores')
         self._request_queues_directory = os.path.join(self._local_data_directory, 'request_queues')
