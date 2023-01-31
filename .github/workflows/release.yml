@@ -24,54 +24,20 @@ on:
 jobs:
   lint_and_test:
     name: Lint and run unit tests
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+    uses: ./.github/workflows/lint_and_test.yaml
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install dependencies
-      run: make install-dev
-
-    - name: Lint
-      run: make lint
-
-    - name: Type check
-      run: make type-check
-
-    - name: Unit tests
-      run: make unit-tests
+  integration_tests:
+    name: Run integration tests
+    uses: ./.github/workflows/integration_tests.yaml
+    secrets: inherit
 
   check_docs:
     name: Check whether the documentation is up to date
-    runs-on: ubuntu-20.04
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.8
-
-    - name: Install dependencies
-      run: make install-dev
-
-    - name: Check whether docs are built from the latest code
-      run: make check-docs
+    uses: ./.github/workflows/check_docs.yaml
 
   deploy:
     name: Publish to PyPI
-    needs: [lint_and_test, check_docs]
+    needs: [lint_and_test, integration_tests, check_docs]
     runs-on: ubuntu-20.04
 
     steps:

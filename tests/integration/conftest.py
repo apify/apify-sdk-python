@@ -2,11 +2,13 @@ import base64
 import inspect
 import os
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 from typing import AsyncIterator, Awaitable, Callable, Dict, List, Mapping, Optional, Protocol, Union
 
 import pytest
+from filelock import FileLock
 
 from apify_client import ApifyClientAsync
 from apify_client.clients.resource_clients import ActorClientAsync
@@ -16,6 +18,7 @@ from ._utils import generate_unique_resource_name
 
 TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
+SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 
 
 # This fixture can't be session-scoped,
@@ -34,8 +37,40 @@ def apify_client_async() -> ApifyClientAsync:
     return ApifyClientAsync(api_token, api_url=api_url)
 
 
+# Build the package wheel if it hasn't been built yet, and return the path to the wheel
 @pytest.fixture(scope='session')
-def actor_base_source_files() -> Dict[str, Union[str, bytes]]:
+def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -> Path:
+    # Make sure the wheel is not being built concurrently across all the pytest-xdist runners,
+    # through locking the building process with a temp file
+    with FileLock(tmp_path_factory.getbasetemp().parent / 'sdk_wheel_build.lock'):
+        # Make sure the wheel is built exactly once across across all the pytest-xdist runners,
+        # through an indicator file saying that the wheel was already built
+        was_wheel_built_this_test_run_file = tmp_path_factory.getbasetemp() / f'wheel_was_built_in_run_{testrun_uid}'
+        if not was_wheel_built_this_test_run_file.exists():
+            subprocess.run('python setup.py bdist_wheel', cwd=SDK_ROOT_PATH, shell=True, check=True, capture_output=True)
+            was_wheel_built_this_test_run_file.touch()
+
+        # Read the current package version, necessary for getting the right wheel filename
+        version_file = (SDK_ROOT_PATH / 'src/apify/_version.py').read_text(encoding='utf-8')
+        sdk_version = None
+        for line in version_file.splitlines():
+            if line.startswith('__version__'):
+                delim = '"' if '"' in line else "'"
+                sdk_version = line.split(delim)[1]
+                break
+        else:
+            raise RuntimeError('Unable to find version string.')
+
+        wheel_path = SDK_ROOT_PATH / 'dist' / f'apify-{sdk_version}-py3-none-any.whl'
+
+        # Just to be sure
+        assert wheel_path.exists()
+
+        return wheel_path
+
+
+@pytest.fixture(scope='session')
+def actor_base_source_files(sdk_wheel_path: Path) -> Dict[str, Union[str, bytes]]:
     """Create a dictionary of the base source files for a testing actor.
 
     It takes the files from `tests/integration/actor_source_base`,
@@ -57,24 +92,14 @@ def actor_base_source_files() -> Dict[str, Union[str, bytes]]:
         except ValueError:
             source_files[relative_path] = path.read_bytes()
 
-    # Then build the SDK and the wheel to the source files
-    subprocess.run('python setup.py bdist_wheel', cwd=sdk_root_path, shell=True, check=True, capture_output=True)
+    sdk_wheel_file_name = sdk_wheel_path.name
+    source_files[sdk_wheel_file_name] = sdk_wheel_path.read_bytes()
 
-    version_file = (sdk_root_path / 'src/apify/_version.py').read_text(encoding='utf-8')
-    sdk_version = None
-    for line in version_file.splitlines():
-        if line.startswith('__version__'):
-            delim = '"' if '"' in line else "'"
-            sdk_version = line.split(delim)[1]
-            break
-    else:
-        raise RuntimeError('Unable to find version string.')
+    source_files['requirements.txt'] = str(source_files['requirements.txt']).replace('APIFY_SDK_WHEEL_PLACEHOLDER', f'./{sdk_wheel_file_name}')
 
-    wheel_file_name = f'apify-{sdk_version}-py3-none-any.whl'
-    wheel_path = sdk_root_path / 'dist' / wheel_file_name
-
-    source_files[wheel_file_name] = wheel_path.read_bytes()
-    source_files['requirements.txt'] = str(source_files['requirements.txt']).replace('APIFY_SDK_WHEEL_PLACEHOLDER', f'./{wheel_file_name}')
+    current_major_minor_python_version = '.'.join([str(x) for x in sys.version_info[:2]])
+    integration_tests_python_version = os.getenv('INTEGRATION_TESTS_PYTHON_VERSION') or current_major_minor_python_version
+    source_files['Dockerfile'] = str(source_files['Dockerfile']).replace('BASE_IMAGE_VERSION_PLACEHOLDER', integration_tests_python_version)
 
     return source_files
 

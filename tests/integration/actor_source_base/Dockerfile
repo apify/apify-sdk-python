@@ -1,6 +1,5 @@
-# TODO: make the Python version a parameter
-# so we can run integration tests in GitHub with a matrix of Python versions
-FROM apify/actor-python:3.9
+# The test fixture will put the right Python version here
+FROM apify/actor-python:BASE_IMAGE_VERSION_PLACEHOLDER
 
 COPY . ./
 
