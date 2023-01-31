@@ -403,9 +403,8 @@ def _budget_ow(
     def validate_single(field_value: Any, expected_type: Type, required: bool, name: str) -> None:
         if field_value is None and required:
             raise ValueError(f'"{name}" is required!')
-        actual_type = type(field_value)
-        if (field_value is not None or required) and actual_type != expected_type:
-            raise ValueError(f'"{name}" must be of type "{expected_type.__name__}" but it is "{actual_type.__name__}"!')
+        if (field_value is not None or required) and not isinstance(field_value, expected_type):
+            raise ValueError(f'"{name}" must be of type "{expected_type.__name__}" but it is "{type(field_value).__name__}"!')
 
     # Validate object
     if isinstance(value, dict) and isinstance(predicate, dict):

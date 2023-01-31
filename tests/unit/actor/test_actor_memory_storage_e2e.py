@@ -8,7 +8,11 @@ from apify.storage_client_manager import StorageClientManager
 from apify.storages import StorageManager
 
 
-async def run_e2e_test(monkeypatch: pytest.MonkeyPatch, tmp_path: str, purge_on_start: bool = True) -> None:
+@pytest.mark.parametrize('purge_on_start', [True, False])
+async def test_actor_memory_storage_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: str, purge_on_start: bool) -> None:
+    """This test simulates two clean runs using memory storage.
+    The second run attempts to access data created by the first one.
+    We run 2 configurations with different `purge_on_start`."""
     # Configure purging env var
     monkeypatch.setenv(ApifyEnvVars.PURGE_ON_START, 'true' if purge_on_start else 'false')
     # Store old storage client so we have the object reference for comparison
@@ -48,11 +52,3 @@ async def run_e2e_test(monkeypatch: pytest.MonkeyPatch, tmp_path: str, purge_on_
         else:
             assert default_value == 'default value'
         assert non_default_value == 'non-default value'
-
-
-async def test_actor_memory_storage_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: str) -> None:
-    """This test simulates two clean runs using memory storage.
-    The second run attempts to access data created by the first one.
-    We run 2 configurations with different `purge_on_start`."""
-    await run_e2e_test(monkeypatch, tmp_path, purge_on_start=True)
-    await run_e2e_test(monkeypatch, tmp_path, purge_on_start=False)

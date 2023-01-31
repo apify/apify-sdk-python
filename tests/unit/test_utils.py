@@ -3,6 +3,7 @@ import datetime
 import io
 import os
 import uuid
+from collections import OrderedDict
 from enum import Enum
 
 import pytest
@@ -340,3 +341,9 @@ def test__budget_ow() -> None:
         _budget_ow({}, {'id': (str, True)})
     with pytest.raises(ValueError, match='must be of type'):
         _budget_ow({'id': 123}, {'id': (str, True)})
+    # Check if subclasses pass the check
+    _budget_ow({
+        'ordered_dict': OrderedDict(),
+    }, {
+        'ordered_dict': (dict, False),
+    })

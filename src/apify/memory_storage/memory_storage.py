@@ -6,6 +6,7 @@ import aioshutil
 from aiofiles import ospath
 from aiofiles.os import rename, scandir
 
+from .._utils import _maybe_parse_bool
 from ..consts import ApifyEnvVars
 from .resource_clients.dataset import DatasetClient
 from .resource_clients.dataset_collection import DatasetCollectionClient
@@ -53,8 +54,7 @@ class MemoryStorage:
         self._key_value_stores_directory = os.path.join(self._local_data_directory, 'key_value_stores')
         self._request_queues_directory = os.path.join(self._local_data_directory, 'request_queues')
         self._write_metadata = write_metadata if write_metadata is not None else '*' in os.getenv('DEBUG', '')
-        self._persist_storage = persist_storage if persist_storage is not None else not any(
-            os.getenv(ApifyEnvVars.PERSIST_STORAGE, 'true') == s for s in ['false', '0', ''])
+        self._persist_storage = persist_storage if persist_storage is not None else _maybe_parse_bool(os.getenv(ApifyEnvVars.PERSIST_STORAGE, 'true'))
         self._datasets_handled = []
         self._key_value_stores_handled = []
         self._request_queues_handled = []
