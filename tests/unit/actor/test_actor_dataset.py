@@ -30,13 +30,12 @@ class TestActorOpenDataset:
         memory_storage: MemoryStorage,
     ) -> None:
         default_dataset_name = 'my-new-default-name'
-        dataset_info = await memory_storage.datasets().get_or_create(name=default_dataset_name)
+        await memory_storage.datasets().get_or_create(name=default_dataset_name)
         monkeypatch.setenv(ApifyEnvVars.DEFAULT_DATASET_ID, default_dataset_name)
         async with Actor:
             ddt = await Actor.open_dataset()
-            info = await ddt.get_info()
-            assert info['name'] == default_dataset_name  # type: ignore
-        await memory_storage.dataset(dataset_info['id']).delete()
+            assert ddt._name == default_dataset_name
+            await memory_storage.dataset(ddt._id).delete()
 
 
 class TestActorPushData:
