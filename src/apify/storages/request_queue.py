@@ -49,7 +49,35 @@ STORAGE_CONSISTENCY_DELAY_MILLIS = 3000
 
 
 class RequestQueue:
-    """TODO: docs."""
+    """Represents a queue of URLs to crawl.
+
+    Can be used for deep crawling of websites where you start with several URLs and then recursively
+    follow links to other pages. The data structure supports both breadth-first and depth-first crawling orders.
+
+    Each URL is represented using an instance of the {@apilink Request} class.
+    The queue can only contain unique URLs. More precisely, it can only contain request dictionaries
+    with distinct `uniqueKey` properties. By default, `uniqueKey` is generated from the URL, but it can also be overridden.
+    To add a single URL multiple times to the queue,
+    corresponding request dictionary will need to have different `uniqueKey` properties.
+
+    Do not instantiate this class directly, use the `Actor.open_request_queue()` function instead.
+
+    `RequestQueue` stores its data either on local disk or in the Apify cloud,
+    depending on whether the `APIFY_LOCAL_STORAGE_DIR` or `APIFY_TOKEN` environment variables are set.
+
+    If the `APIFY_LOCAL_STORAGE_DIR` environment variable is set, the data is stored in
+    the local directory in the following files:
+    ```
+    {APIFY_LOCAL_STORAGE_DIR}/request_queues/{QUEUE_ID}/{REQUEST_ID}.json
+    ```
+    Note that `{QUEUE_ID}` is the name or ID of the request queue. The default request queue has ID: `default`,
+    unless you override it by setting the `APIFY_DEFAULT_REQUEST_QUEUE_ID` environment variable.
+    The `{REQUEST_ID}` is the id of the request.
+
+    If the `APIFY_TOKEN` environment variable is set but `APIFY_LOCAL_STORAGE_DIR` is not, the data is stored in the
+    [Apify Request Queue](https://docs.apify.com/storage/request-queue)
+    cloud storage.
+    """
 
     _id: str
     _name: Optional[str]
@@ -66,7 +94,15 @@ class RequestQueue:
     _requests_cache: LRUCache[Dict]
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
-        """TODO: docs (constructor should be "internal")."""
+        """Create a `RequestQueue` instance.
+
+        Do not use the constructor directly, use the `RequestQueue.open` function instead.
+
+        Args:
+            id (str): ID of the request queue.
+            name (str, optional): Name of the request queue.
+            client (ApifyClientAsync or MemoryStorage): The storage client which should be used.
+        """
         self._id = id
         self._name = name
         self._client = client.request_queue(self._id, client_key=self._client_key)
@@ -90,13 +126,17 @@ class RequestQueue:
     def _get_default_name(cls, config: Configuration) -> str:
         return config.default_request_queue_id
 
-    async def add_request(self, request_like: Dict, *, forefront: bool = False) -> Dict:  # TODO: Validate request with pydantic
-        """TODO: docs."""
+    async def add_request(self, request: Dict, *, forefront: bool = False) -> Dict:  # TODO: Validate request with pydantic
+        """Add a request to the queue.
+
+        Args:
+            request (dict): The request to add to the queue
+            forefront (bool, optional): Whether to add the request to the head or the end of the queue
+
+        Returns:
+            dict: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
+        """
         self._last_activity = datetime.utcnow()
-        #     const request = requestLike instanceof Request
-        #         ? requestLike
-        #         : new Request(requestLike);
-        request = request_like
 
         cache_key = _unique_key_to_request_id(request['uniqueKey'])
         cached_info = self._requests_cache.get(cache_key)
@@ -126,11 +166,30 @@ class RequestQueue:
         return queue_operation_info
 
     async def get_request(self, request_id: str) -> Optional[Dict]:
-        """TODO: docs."""
+        """Retrieve a request from the queue.
+
+        Args:
+            request_id (str): ID of the request to retrieve.
+
+        Returns:
+            dict, optional: The retrieved request, or `None`, if it does not exist.
+        """
         return await self._client.get_request(request_id)  # TODO: Maybe create a Request class?
 
     async def fetch_next_request(self) -> Optional[Dict]:
-        """TODO: docs."""
+        """Return the next request in the queue to be processed.
+
+        Once you successfully finish processing of the request, you need to call
+        `RequestQueue.mark_request_as_handled` to mark the request as handled in the queue.
+        If there was some error in processing the request, call `RequestQueue.reclaim_request` instead,
+        so that the queue will give the request to some other consumer in another call to the `fetch_next_request` method.
+
+        Note that the `None` return value does not mean the queue processing finished, it means there are currently no pending requests.
+        To check whether all requests in queue were finished, use `RequestQueue.is_finished` instead.
+
+        Returns:
+            dict, optional: The request or `None` if there are no more pending requests.
+        """
         await self._ensure_head_is_non_empty()
 
         # We are likely done at this point.
@@ -183,7 +242,17 @@ class RequestQueue:
         return request
 
     async def mark_request_as_handled(self, request: Dict) -> Optional[Dict]:  # TODO: Validate request with pydantic
-        """TODO: docs."""
+        """Mark a request as handled after successful processing.
+
+        Handled requests will never again be returned by the `RequestQueue.fetch_next_request` method.
+
+        Args:
+            request (dict): The request to mark as handled.
+
+        Returns:
+            dict, optional: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
+                `None` if the given request was not in progress.
+        """
         self._last_activity = datetime.utcnow()
         if request['id'] not in self._in_progress:
             logging.debug(f'Cannot mark request {request["id"]} as handled, because it is not in progress!')
@@ -204,7 +273,18 @@ class RequestQueue:
         return queue_operation_info
 
     async def reclaim_request(self, request: Dict, forefront: bool = False) -> Optional[Dict]:  # TODO: Validate request with pydantic
-        """TODO: docs."""
+        """Reclaim a failed request back to the queue.
+
+        The request will be returned for processing later again
+        by another call to `RequestQueue.fetchNextRequest`.
+
+        Args:
+            request (dict): The request to return to the queue.
+            forefront (bool, optional): Whether to add the request to the head or the end of the queue
+        Returns:
+            dict, optional: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
+                `None` if the given request was not in progress.
+        """
         self._last_activity = datetime.utcnow()
 
         if request['id'] not in self._in_progress:
@@ -237,12 +317,24 @@ class RequestQueue:
         return len(self._in_progress)
 
     async def is_empty(self) -> bool:
-        """TODO: docs."""
+        """Check whether the queue is empty.
+
+        Returns:
+            bool: `True` if the next call to `RequestQueue.fetchNextRequest` would return `None`, otherwise `False`.
+        """
         await self._ensure_head_is_non_empty()
         return len(self._queue_head_dict) == 0
 
     async def is_finished(self) -> bool:
-        """TODO: docs."""
+        """Check whether the queue is finished.
+
+        Due to the nature of distributed storage used by the queue,
+        the function might occasionally return a false negative,
+        but it will never return a false positive.
+
+        Returns:
+            bool: `True` if all requests were already handled and there are no more left. `False` otherwise.
+        """
         if self._in_progress_count() > 0 and (datetime.utcnow() - self._last_activity).seconds > self._internal_timeout_seconds:
             message = f'The request queue seems to be stuck for {self._internal_timeout_seconds}s, resetting internal state.'
             logging.warning(message)
@@ -366,15 +458,33 @@ class RequestQueue:
             self._queue_head_dict[request_id] = request_id
 
     async def drop(self) -> None:
-        """TODO: docs."""
+        """Remove the request queue either from the Apify cloud storage or from the local directory."""
         await self._client.delete()
         await StorageManager.close_storage(self.__class__, self._id, self._name)
 
     async def get_info(self) -> Optional[Dict]:
-        """TODO: docs."""
+        """Get an object containing general information about the request queue.
+
+        Returns:
+            dict: Object returned by calling the GET request queue API endpoint.
+        """
         return await self._client.get()
 
     @classmethod
     async def open(cls, request_queue_id_or_name: Optional[str] = None, config: Optional[Configuration] = None) -> 'RequestQueue':
-        """TODO: docs."""
+        """Open a request queue.
+
+        Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
+        The queue is used for deep crawling of websites, where you start with several URLs and then
+        recursively follow links to other pages. The data structure supports both breadth-first
+        and depth-first crawling orders.
+
+        Args:
+            request_queue_id_or_name (str, optional): ID or name of the request queue to be opened.
+                If not provided, the method returns the default request queue associated with the actor run.
+            config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
+
+        Returns:
+            RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
+        """
         return await StorageManager.open_storage(cls, request_queue_id_or_name, None, config)

@@ -16,3 +16,4 @@ storage/
 
 .vscode
 .idea
+.DS_Store
