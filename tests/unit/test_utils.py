@@ -3,12 +3,14 @@ import datetime
 import io
 import os
 import uuid
+from collections import OrderedDict
 from enum import Enum
 
 import pytest
 from aiofiles.os import mkdir
 
 from apify._utils import (
+    _budget_ow,
     _crypto_random_object_id,
     _fetch_and_parse_env_var,
     _filter_out_none_values_recursively,
@@ -323,3 +325,25 @@ def test__crypto_random_object_id() -> None:
     long_random_object_id = _crypto_random_object_id(1000)
     for char in long_random_object_id:
         assert char in 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+
+def test__budget_ow() -> None:
+    _budget_ow({
+        'a': 123,
+        'b': 'string',
+        'c': datetime.datetime.utcnow(),
+    }, {
+        'a': (int, True),
+        'b': (str, False),
+        'c': (datetime.datetime, True),
+    })
+    with pytest.raises(ValueError, match='required'):
+        _budget_ow({}, {'id': (str, True)})
+    with pytest.raises(ValueError, match='must be of type'):
+        _budget_ow({'id': 123}, {'id': (str, True)})
+    # Check if subclasses pass the check
+    _budget_ow({
+        'ordered_dict': OrderedDict(),
+    }, {
+        'ordered_dict': (dict, False),
+    })

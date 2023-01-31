@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 import pytest
 
@@ -27,9 +28,22 @@ async def test_drop() -> None:
     assert rq1 is not rq2
 
 
+async def test_get_request(request_queue: RequestQueue) -> None:
+    url = 'https://example.com'
+    add_request_info = await request_queue.add_request({
+        'uniqueKey': url,
+        'url': url,
+    })
+    request = await request_queue.get_request(add_request_info['requestId'])
+    assert request is not None
+    assert request['url'] == url
+
+
 async def test_add_fetch_handle_request(request_queue: RequestQueue) -> None:
     url = 'https://example.com'
     assert await request_queue.is_empty() is True
+    with pytest.raises(ValueError, match='"url" is required'):
+        await request_queue.add_request({})
     add_request_info = await request_queue.add_request({
         'uniqueKey': url,
         'url': url,
@@ -41,6 +55,7 @@ async def test_add_fetch_handle_request(request_queue: RequestQueue) -> None:
     next = await request_queue.fetch_next_request()
     assert next is not None
     # Mark it as handled
+    next['handledAt'] = datetime.utcnow()
     queue_operation_info = await request_queue.mark_request_as_handled(next)
     assert queue_operation_info is not None
     assert queue_operation_info['uniqueKey'] == url

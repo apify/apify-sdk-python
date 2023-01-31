@@ -40,15 +40,16 @@ async def test_get(key_value_store_client: KeyValueStoreClient) -> None:
 
 async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
     new_kvs_name = 'test-update'
+    await key_value_store_client.set_record('test', {'abc': 123})
     old_kvs_info = await key_value_store_client.get()
     assert old_kvs_info is not None
     old_kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, old_kvs_info['name'])
     new_kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, new_kvs_name)
-    assert os.path.exists(os.path.join(old_kvs_directory, '__metadata__.json')) is True
-    assert os.path.exists(os.path.join(new_kvs_directory, '__metadata__.json')) is False
+    assert os.path.exists(os.path.join(old_kvs_directory, 'test.json')) is True
+    assert os.path.exists(os.path.join(new_kvs_directory, 'test.json')) is False
     updated_kvs_info = await key_value_store_client.update(name=new_kvs_name)
-    assert os.path.exists(os.path.join(old_kvs_directory, '__metadata__.json')) is False
-    assert os.path.exists(os.path.join(new_kvs_directory, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(old_kvs_directory, 'test.json')) is False
+    assert os.path.exists(os.path.join(new_kvs_directory, 'test.json')) is True
     # Only modifiedAt and accessedAt should be different
     assert old_kvs_info['createdAt'] == updated_kvs_info['createdAt']
     assert old_kvs_info['modifiedAt'] != updated_kvs_info['modifiedAt']
@@ -59,12 +60,13 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
 
 
 async def test_delete(key_value_store_client: KeyValueStoreClient) -> None:
+    await key_value_store_client.set_record('test', {'abc': 123})
     kvs_info = await key_value_store_client.get()
     assert kvs_info is not None
     kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, kvs_info['name'])
-    assert os.path.exists(os.path.join(kvs_directory, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(kvs_directory, 'test.json')) is True
     await key_value_store_client.delete()
-    assert os.path.exists(os.path.join(kvs_directory, '__metadata__.json')) is False
+    assert os.path.exists(os.path.join(kvs_directory, 'test.json')) is False
     # Does not crash when called again
     await key_value_store_client.delete()
 

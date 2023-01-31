@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from apify.memory_storage import MemoryStorage
@@ -14,10 +12,8 @@ def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollecti
 async def test_get_or_create(request_queues_client: RequestQueueCollectionClient) -> None:
     rq_name = 'test'
     # A new request queue gets created
-    assert os.path.exists(os.path.join(request_queues_client._request_queues_directory, rq_name, '__metadata__.json')) is False
     rq_info = await request_queues_client.get_or_create(name=rq_name)
     assert rq_info['name'] == rq_name
-    assert os.path.exists(os.path.join(request_queues_client._request_queues_directory, rq_name, '__metadata__.json')) is True
     # Another get_or_create call returns the same request queue
     rq_existing = await request_queues_client.get_or_create(name=rq_name)
     assert rq_info['id'] == rq_existing['id']

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, NoReturn, Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Type, TypeVar, Union, ValuesView, cast, overload
+from typing import Tuple, Type, TypeVar, Union, ValuesView, cast, overload
 
 import aioshutil
 import psutil
@@ -285,12 +285,12 @@ def _is_file_or_bytes(value: Any) -> bool:
     return isinstance(value, (bytes, bytearray, io.IOBase))
 
 
-def _maybe_parse_body(body: bytes, content_type: str) -> Any:  # TODO: Improve return type
+def _maybe_parse_body(body: bytes, content_type: str) -> Any:
     try:
         if _is_content_type_json(content_type):
             return json.loads(body)  # Returns any
         elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
-            return body.decode('utf-8')  # TODO: Check if utf-8 can be assumed
+            return body.decode('utf-8')
     except ValueError as err:
         print('_maybe_parse_body error', err)
     return body
@@ -361,12 +361,11 @@ class LRUCache(MutableMapping, Generic[T]):
 
     def __delitem__(self, key: str) -> None:
         """Remove an item from the cache."""
-        # TODO: maybe do? self._cache.__delitem__(key)
         del self._cache[key]
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[str]:
         """Iterate over the keys of the cache in order of insertion."""
-        yield from self._cache.__iter__()
+        return self._cache.__iter__()
 
     def __len__(self) -> int:
         """Get the number of items in the cache."""
@@ -383,3 +382,38 @@ class LRUCache(MutableMapping, Generic[T]):
 
 def _is_running_in_ipython() -> bool:
     return getattr(builtins, '__IPYTHON__', False)
+
+
+@overload
+def _budget_ow(value: Union[str, int, float, bool], predicate: Tuple[Type, bool], value_name: str) -> None:  # noqa: U100
+    ...
+
+
+@overload
+def _budget_ow(value: Dict, predicate: Dict[str, Tuple[Type, bool]]) -> None:  # noqa: U100
+    ...
+
+
+def _budget_ow(
+    value: Union[Dict, str, int, float, bool],
+    predicate: Union[Dict[str, Tuple[Type, bool]], Tuple[Type, bool]],
+    value_name: Optional[str] = None,
+) -> None:
+    """Budget version of ow."""
+    def validate_single(field_value: Any, expected_type: Type, required: bool, name: str) -> None:
+        if field_value is None and required:
+            raise ValueError(f'"{name}" is required!')
+        if (field_value is not None or required) and not isinstance(field_value, expected_type):
+            raise ValueError(f'"{name}" must be of type "{expected_type.__name__}" but it is "{type(field_value).__name__}"!')
+
+    # Validate object
+    if isinstance(value, dict) and isinstance(predicate, dict):
+        for key, (field_type, required) in predicate.items():
+            field_value = value.get(key)
+            validate_single(field_value, field_type, required, key)
+    # Validate "primitive"
+    elif isinstance(value, (int, str, float, bool)) and isinstance(predicate, tuple) and value_name is not None:
+        field_type, required = predicate
+        validate_single(value, field_type, required, value_name)
+    else:
+        raise ValueError('Wrong input!')
