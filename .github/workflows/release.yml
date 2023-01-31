@@ -38,7 +38,7 @@ jobs:
   deploy:
     name: Publish to PyPI
     needs: [lint_and_test, integration_tests, check_docs]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
