@@ -17,7 +17,6 @@ class TestActorInit:
     async def test_async_with_actor_properly_initialize(self) -> None:
         async with Actor:
             assert Actor._get_default_instance()._is_initialized
-            # TODO: More checks
         assert Actor._get_default_instance()._is_initialized is False
 
     async def test_actor_init(self) -> None:
