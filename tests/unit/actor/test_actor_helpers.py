@@ -173,7 +173,7 @@ class TestActorCallStartAbortActor:
 
     async def test_actor_call_task(self, apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
         apify_client_async_patcher.patch('task', 'call', return_value=None)
-        task_id = 'some-tasl-id'
+        task_id = 'some-task-id'
         my_actor = Actor()
         await my_actor.init()
         await my_actor.call_task(task_id)
