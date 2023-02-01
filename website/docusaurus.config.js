@@ -28,23 +28,16 @@ module.exports = {
                     title: 'SDK for Python',
                     items: [
                         {
-                            type: 'doc',
-                            docId: 'index',
+                            to: 'docs/guides',
                             label: 'Docs',
                             position: 'left',
-                            activeBaseRegex: 'docs(?!.*/changelog)',
+                            activeBaseRegex: 'docs/guides',
                         },
                         {
-                            to: 'api',
-                            label: 'API',
+                            to: 'docs/examples',
+                            label: 'Examples',
                             position: 'left',
-                            activeBaseRegex: 'sdk-python/(api|typedefs)(?!.*/changelog)',
-                        },
-                        {
-                            to: 'docs/changelog',
-                            label: 'Changelog',
-                            position: 'left',
-                            activeBaseRegex: 'changelog',
+                            activeBaseRegex: 'docs/examples',
                         },
                         // {
                         //     type: 'docsVersionDropdown',
@@ -53,6 +46,23 @@ module.exports = {
                         //     dropdownItemsBefore: [],
                         //     dropdownItemsAfter: [],
                         // },
+                        {
+                            to: '/api',
+                            label: 'Reference',
+                            position: 'left',
+                            activeBaseRegex: '/api',
+                        },
+                        {
+                            to: 'docs/changelog',
+                            label: 'Changelog',
+                            position: 'left',
+                            activeBaseRegex: 'changelog',
+                        },
+                        {
+                            to: 'https://github.com/apify/apify-sdk-python',
+                            label: 'GitHub',
+                            position: 'left',
+                        },
                     ],
                 },
             },
