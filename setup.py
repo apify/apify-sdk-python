@@ -63,6 +63,7 @@ setup(
     extras_require={
         'dev': [
             'autopep8 ~= 2.0.0',
+            'filelock ~= 3.9.0',
             'flake8 ~= 5.0.4',
             'flake8-bugbear ~= 22.10.27',
             'flake8-commas ~= 2.1.0',

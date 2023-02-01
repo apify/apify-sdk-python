@@ -1,0 +1,37 @@
+name: Integration tests
+
+on:
+  workflow_call:
+    secrets:
+      APIFY_TEST_USER_API_TOKEN:
+        description: API token of the Python SDK testing user on Apify
+        required: true
+
+concurrency: # This is to make sure that only one run of this workflow is running at the same time, to not overshoot the test user limits
+  group: integration_tests
+
+jobs:
+  integration_tests:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+      max-parallel: 1 # no concurrency on this level, to not overshoot the test user limits
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: make install-dev
+
+    - name: Run integration tests
+      run: make INTEGRATION_TESTS_CONCURRENCY=8 integration-tests
+      env:
+        APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_API_TOKEN }}
