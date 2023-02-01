@@ -25,7 +25,7 @@ on:
 
 jobs:
   lint_and_test:
-    name: Lint and run unit tests
+    name: Run lint and unit tests
     uses: ./.github/workflows/lint_and_test.yaml
 
   integration_tests:

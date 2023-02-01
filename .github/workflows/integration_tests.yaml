@@ -6,12 +6,6 @@ on:
       APIFY_TEST_USER_API_TOKEN:
         description: API token of the Python SDK testing user on Apify
         required: true
-  push:
-    # master is covered by the `release` workflow
-    branches-ignore:
-      - 'master'
-    tags-ignore:
-      - '**'
 
 concurrency: # This is to make sure that only one run of this workflow is running at the same time, to not overshoot the test user limits
   group: integration_tests

@@ -2,12 +2,6 @@ name: Lint and test
 
 on:
   workflow_call:
-  push:
-    # master is covered by the `release` workflow
-    branches-ignore:
-      - 'master'
-    tags-ignore:
-      - '**'
 
 jobs:
   lint_and_test:
