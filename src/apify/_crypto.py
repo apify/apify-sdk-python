@@ -19,7 +19,7 @@ def public_encrypt(public_key: rsa.RSAPublicKey, value: str) -> dict:
 
     Args:
         public_key (RSAPublicKey): Private key to use for decryption.
-        value (str): Password used to encrypt the private key encoded as base65 string.
+        value (str): Password used to encrypt the private key encoded as base64 string.
 
     Returns:
         disc: Encrypted password and value.
@@ -58,7 +58,7 @@ def private_decrypt(
 
     Args:
         private_key (RSAPrivateKey): Private key to use for decryption.
-        encrypted_password (str): Password used to encrypt the private key encoded as base65 string.
+        encrypted_password (str): Password used to encrypt the private key encoded as base64 string.
         encrypted_value (str): Encrypted value to decrypt as base64 string.
 
     Returns:
@@ -88,10 +88,10 @@ def private_decrypt(
     print(encrypted_data_bytes)
 
     encryption_key_bytes = password_bytes[:ENCRYPTION_KEY_LENGTH]
-    initailization_vector_bytes = password_bytes[ENCRYPTION_KEY_LENGTH:]
+    initialization_vector_bytes = password_bytes[ENCRYPTION_KEY_LENGTH:]
 
     try:
-        cipher = Cipher(algorithms.AES(encryption_key_bytes), modes.GCM(initailization_vector_bytes, authentication_tag_bytes))
+        cipher = Cipher(algorithms.AES(encryption_key_bytes), modes.GCM(initialization_vector_bytes, authentication_tag_bytes))
         decryptor = cipher.decryptor()
         decipher_bytes = decryptor.update(encrypted_data_bytes) + decryptor.finalize()
     except InvalidTagException:
