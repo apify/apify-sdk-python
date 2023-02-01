@@ -10,7 +10,6 @@ import json
 import mimetypes
 import os
 import re
-import secrets
 import sys
 import time
 from collections import OrderedDict
@@ -25,9 +24,11 @@ import aioshutil
 import psutil
 from aiofiles import ospath
 from aiofiles.os import remove, rename
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from apify_client import __version__ as client_version
 
+from ._crypto import private_decrypt
 from ._version import __version__ as sdk_version
 from .consts import (
     _BOOL_ENV_VARS_TYPE,
@@ -36,6 +37,7 @@ from .consts import (
     _STRING_ENV_VARS_TYPE,
     BOOL_ENV_VARS,
     DATETIME_ENV_VARS,
+    ENCRYPTED_INPUT_VALUE_REGEXP,
     INTEGER_ENV_VARS,
     REQUEST_ID_LENGTH,
     ApifyEnvVars,
@@ -324,12 +326,6 @@ def _wrap_internal(implementation: ImplementationType, metadata_source: Metadata
     return cast(MetadataType, wrapper)
 
 
-def _crypto_random_object_id(length: int = 17) -> str:
-    """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
-    chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join(secrets.choice(chars) for _ in range(length))
-
-
 T = TypeVar('T')
 
 
@@ -383,3 +379,23 @@ class LRUCache(MutableMapping, Generic[T]):
 
 def _is_running_in_ipython() -> bool:
     return getattr(builtins, '__IPYTHON__', False)
+
+
+def _decrypt_input_secrets(private_key: RSAPrivateKey, input: Any) -> Any:
+    """Decrypt input secrets."""
+    if not isinstance(input, dict):
+        return input
+
+    for key, value in input.items():
+        if isinstance(value, str):
+            match = ENCRYPTED_INPUT_VALUE_REGEXP.fullmatch(value)
+            if match:
+                encrypted_password = match.group(1)
+                encrypted_value = match.group(2)
+                input[key] = private_decrypt(
+                    private_key,
+                    encrypted_password=encrypted_password,
+                    encrypted_value=encrypted_value,
+                )
+
+    return input

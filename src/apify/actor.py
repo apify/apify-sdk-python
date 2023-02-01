@@ -10,7 +10,9 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar
 from apify_client import ApifyClientAsync
 from apify_client.consts import WebhookEventType
 
+from ._crypto import _load_private_key
 from ._utils import (
+    _decrypt_input_secrets,
     _fetch_and_parse_env_var,
     _get_cpu_usage_percent,
     _get_memory_usage_bytes,
@@ -584,11 +586,19 @@ class Actor(metaclass=_ActorContextManager):
     async def _get_input_internal(self) -> Any:
         self._raise_if_not_initialized()
 
-        # TODO: decryption
+        input_value = await self.get_value(self._config.input_key)
+        input_secrets_private_key = self._config.input_secrets_private_key_file
+        input_secrets_key_passphrase = self._config.input_secrets_private_key_passphrase
+        if input_secrets_private_key and input_secrets_key_passphrase:
+            private_key = _load_private_key(
+                input_secrets_private_key,
+                input_secrets_key_passphrase,
+            )
+            input_value = _decrypt_input_secrets(private_key, input_value)
 
-        return await self.get_value(self._config.input_key)
+        return input_value
 
-    @classmethod
+    @ classmethod
     async def get_value(cls, key: str) -> Any:
         """Get a value from the default key-value store associated with the current actor run.
 
@@ -604,7 +614,7 @@ class Actor(metaclass=_ActorContextManager):
         value = await key_value_store.get_value(key)
         return value
 
-    @classmethod
+    @ classmethod
     async def set_value(
         cls,
         key: str,

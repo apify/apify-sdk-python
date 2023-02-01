@@ -59,6 +59,7 @@ setup(
         'websockets ~= 10.4',
         'aiofiles ~= 22.1.0',
         'aioshutil ~= 1.2',
+        'cryptography ~= 39.0.0',
     ],
     extras_require={
         'dev': [
