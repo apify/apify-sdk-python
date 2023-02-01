@@ -242,7 +242,7 @@ class Dataset:
 
         if content_type == 'text/csv':
             output = io.StringIO()
-            writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)  # TODO: Compare quoting behavior with TS impl
+            writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
             writer.writerows([items[0].keys(), *[item.values() for item in items]])
             value = output.getvalue()
             return await key_value_store.set_value(key, value, content_type)

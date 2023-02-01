@@ -3,12 +3,14 @@ import datetime
 import io
 import os
 import uuid
+from collections import OrderedDict
 from enum import Enum
 
 import pytest
 from aiofiles.os import mkdir
 
 from apify._utils import (
+    _budget_ow,
     _fetch_and_parse_env_var,
     _filter_out_none_values_recursively,
     _filter_out_none_values_recursively_internal,
@@ -314,3 +316,25 @@ async def test__force_rename(tmp_path: str) -> None:
     assert os.path.exists(dst_file) is False
     # src_dir.txt should exist in dst_dir
     assert os.path.exists(os.path.join(dst_dir, 'src_dir.txt')) is True
+
+
+def test__budget_ow() -> None:
+    _budget_ow({
+        'a': 123,
+        'b': 'string',
+        'c': datetime.datetime.utcnow(),
+    }, {
+        'a': (int, True),
+        'b': (str, False),
+        'c': (datetime.datetime, True),
+    })
+    with pytest.raises(ValueError, match='required'):
+        _budget_ow({}, {'id': (str, True)})
+    with pytest.raises(ValueError, match='must be of type'):
+        _budget_ow({'id': 123}, {'id': (str, True)})
+    # Check if subclasses pass the check
+    _budget_ow({
+        'ordered_dict': OrderedDict(),
+    }, {
+        'ordered_dict': (dict, False),
+    })

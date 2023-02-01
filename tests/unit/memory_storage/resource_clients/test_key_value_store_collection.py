@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from apify.memory_storage import MemoryStorage
@@ -14,10 +12,8 @@ def key_value_stores_client(memory_storage: MemoryStorage) -> KeyValueStoreColle
 async def test_get_or_create(key_value_stores_client: KeyValueStoreCollectionClient) -> None:
     kvs_name = 'test'
     # A new kvs gets created
-    assert os.path.exists(os.path.join(key_value_stores_client._key_value_stores_directory, kvs_name, '__metadata__.json')) is False
     kvs_info = await key_value_stores_client.get_or_create(name=kvs_name)
     assert kvs_info['name'] == kvs_name
-    assert os.path.exists(os.path.join(key_value_stores_client._key_value_stores_directory, kvs_name, '__metadata__.json')) is True
     # Another get_or_create call returns the same kvs
     kvs_info_existing = await key_value_stores_client.get_or_create(name=kvs_name)
     assert kvs_info['id'] == kvs_info_existing['id']

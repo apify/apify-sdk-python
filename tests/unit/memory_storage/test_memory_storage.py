@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from apify.consts import ApifyEnvVars
 from apify.memory_storage import MemoryStorage
 
 
@@ -128,3 +129,15 @@ async def test_not_implemented_method(tmp_path: str) -> None:
 
     with pytest.raises(NotImplementedError):
         await ddt.stream_items(item_format='json')
+
+
+async def test_storage_path_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    default_ms = MemoryStorage()
+    assert default_ms._local_data_directory == './storage'
+    # We expect the env var to override the default value
+    monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, './env_var_storage_dir')
+    env_var_ms = MemoryStorage()
+    assert env_var_ms._local_data_directory == './env_var_storage_dir'
+    # We expect the parametrized value to override the env var
+    parametrized_ms = MemoryStorage(local_data_directory='./parametrized_storage_dir')
+    assert parametrized_ms._local_data_directory == './parametrized_storage_dir'

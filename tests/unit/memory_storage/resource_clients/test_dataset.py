@@ -38,15 +38,16 @@ async def test_get(dataset_client: DatasetClient) -> None:
 
 async def test_update(dataset_client: DatasetClient) -> None:
     new_dataset_name = 'test-update'
+    await dataset_client.push_items({'abc': 123})
     old_dataset_info = await dataset_client.get()
     assert old_dataset_info is not None
     old_dataset_directory = os.path.join(dataset_client._client._datasets_directory, old_dataset_info['name'])
     new_dataset_directory = os.path.join(dataset_client._client._datasets_directory, new_dataset_name)
-    assert os.path.exists(os.path.join(old_dataset_directory, '__metadata__.json')) is True
-    assert os.path.exists(os.path.join(new_dataset_directory, '__metadata__.json')) is False
+    assert os.path.exists(os.path.join(old_dataset_directory, '000000001.json')) is True
+    assert os.path.exists(os.path.join(new_dataset_directory, '000000001.json')) is False
     updated_dataset_info = await dataset_client.update(name=new_dataset_name)
-    assert os.path.exists(os.path.join(old_dataset_directory, '__metadata__.json')) is False
-    assert os.path.exists(os.path.join(new_dataset_directory, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(old_dataset_directory, '000000001.json')) is False
+    assert os.path.exists(os.path.join(new_dataset_directory, '000000001.json')) is True
     # Only modifiedAt and accessedAt should be different
     assert old_dataset_info['createdAt'] == updated_dataset_info['createdAt']
     assert old_dataset_info['modifiedAt'] != updated_dataset_info['modifiedAt']
@@ -57,12 +58,13 @@ async def test_update(dataset_client: DatasetClient) -> None:
 
 
 async def test_delete(dataset_client: DatasetClient) -> None:
+    await dataset_client.push_items({'abc': 123})
     dataset_info = await dataset_client.get()
     assert dataset_info is not None
     dataset_directory = os.path.join(dataset_client._client._datasets_directory, dataset_info['name'])
-    assert os.path.exists(os.path.join(dataset_directory, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(dataset_directory, '000000001.json')) is True
     await dataset_client.delete()
-    assert os.path.exists(os.path.join(dataset_directory, '__metadata__.json')) is False
+    assert os.path.exists(os.path.join(dataset_directory, '000000001.json')) is False
     # Does not crash when called again
     await dataset_client.delete()
 

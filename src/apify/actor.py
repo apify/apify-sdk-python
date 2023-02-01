@@ -572,7 +572,7 @@ class Actor(metaclass=_ActorContextManager):
         if not data:
             return
 
-        if not isinstance(data, list):  # TODO: Memory storage does this on its own...
+        if not isinstance(data, list):
             data = [data]
 
         dataset = await self.open_dataset()

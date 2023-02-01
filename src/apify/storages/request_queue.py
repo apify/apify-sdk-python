@@ -11,7 +11,7 @@ from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync
 
 from .._crypto import _crypto_random_object_id
-from .._utils import LRUCache, _unique_key_to_request_id
+from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
 from ..config import Configuration
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from ..memory_storage import MemoryStorage
@@ -127,7 +127,7 @@ class RequestQueue:
     def _get_default_name(cls, config: Configuration) -> str:
         return config.default_request_queue_id
 
-    async def add_request(self, request: Dict, *, forefront: bool = False) -> Dict:  # TODO: Validate request with pydantic
+    async def add_request(self, request: Dict, *, forefront: bool = False) -> Dict:
         """Add a request to the queue.
 
         Args:
@@ -137,7 +137,13 @@ class RequestQueue:
         Returns:
             dict: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
         """
+        _budget_ow(request, {
+            'url': (str, True),
+        })
         self._last_activity = datetime.utcnow()
+
+        if request.get('uniqueKey') is None:
+            request['uniqueKey'] = request['url']  # TODO: Check Request class in crawlee and replicate uniqueKey generation logic...
 
         cache_key = _unique_key_to_request_id(request['uniqueKey'])
         cached_info = self._requests_cache.get(cache_key)
@@ -175,7 +181,8 @@ class RequestQueue:
         Returns:
             dict, optional: The retrieved request, or `None`, if it does not exist.
         """
-        return await self._client.get_request(request_id)  # TODO: Maybe create a Request class?
+        _budget_ow(request_id, (str, True), 'request_id')
+        return await self._client.get_request(request_id)  # TODO: Maybe create a Request dataclass?
 
     async def fetch_next_request(self) -> Optional[Dict]:
         """Return the next request in the queue to be processed.
@@ -242,7 +249,7 @@ class RequestQueue:
 
         return request
 
-    async def mark_request_as_handled(self, request: Dict) -> Optional[Dict]:  # TODO: Validate request with pydantic
+    async def mark_request_as_handled(self, request: Dict) -> Optional[Dict]:
         """Mark a request as handled after successful processing.
 
         Handled requests will never again be returned by the `RequestQueue.fetch_next_request` method.
@@ -254,6 +261,11 @@ class RequestQueue:
             dict, optional: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
                 `None` if the given request was not in progress.
         """
+        _budget_ow(request, {
+            'id': (str, True),
+            'uniqueKey': (str, True),
+            'handledAt': (datetime, False),
+        })
         self._last_activity = datetime.utcnow()
         if request['id'] not in self._in_progress:
             logging.debug(f'Cannot mark request {request["id"]} as handled, because it is not in progress!')
@@ -273,7 +285,7 @@ class RequestQueue:
 
         return queue_operation_info
 
-    async def reclaim_request(self, request: Dict, forefront: bool = False) -> Optional[Dict]:  # TODO: Validate request with pydantic
+    async def reclaim_request(self, request: Dict, forefront: bool = False) -> Optional[Dict]:
         """Reclaim a failed request back to the queue.
 
         The request will be returned for processing later again
@@ -286,6 +298,10 @@ class RequestQueue:
             dict, optional: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
                 `None` if the given request was not in progress.
         """
+        _budget_ow(request, {
+            'id': (str, True),
+            'uniqueKey': (str, True),
+        })
         self._last_activity = datetime.utcnow()
 
         if request['id'] not in self._in_progress:
