@@ -11,7 +11,7 @@ ENCRYPTION_IV_LENGTH = 16
 ENCRYPTION_AUTH_TAG_LENGTH = 16
 
 
-def public_encrypt(public_key: rsa.RSAPublicKey, value: str) -> dict:
+def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     """Encrypts the given value using AES cipher and the password for encryption using the public key.
 
     The encryption password is a string of encryption key and initial vector used for cipher.
@@ -49,10 +49,10 @@ def public_encrypt(public_key: rsa.RSAPublicKey, value: str) -> dict:
 
 
 def private_decrypt(
-    private_key: rsa.RSAPrivateKey,
-    *,
     encrypted_password: str,
     encrypted_value: str,
+    *,
+    private_key: rsa.RSAPrivateKey,
 ) -> str:
     """Decrypts the given encrypted value using the private key and password.
 

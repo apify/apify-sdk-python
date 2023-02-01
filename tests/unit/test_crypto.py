@@ -20,31 +20,31 @@ class TestCrypto():
 
     def test_encrypt_decrypt_varions_string(self) -> None:
         for value in [_crypto_random_object_id(10), '👍', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', ']', '{', '}', '|', ';', ':', '"', "'", ',', '.', '<', '>', '?', '/', '~']:  # noqa: E501
-            encrypted = public_encrypt(PUBLIC_KEY, value)
-            decrypted_value = private_decrypt(PRIVATE_KEY, **encrypted)
+            encrypted = public_encrypt(value, public_key=PUBLIC_KEY)
+            decrypted_value = private_decrypt(**encrypted, private_key=PRIVATE_KEY)
             assert decrypted_value == value
 
     def test_throw_if_password_is_not_valid(self) -> None:
         test_value = 'test'
-        encrypted = public_encrypt(PUBLIC_KEY, test_value)
+        encrypted = public_encrypt(test_value, public_key=PUBLIC_KEY)
         encrypted['encrypted_password'] = base64.b64encode(b'invalid_password').decode('utf-8')
 
         with pytest.raises(ValueError):
-            private_decrypt(PRIVATE_KEY, **encrypted)
+            private_decrypt(**encrypted, private_key=PRIVATE_KEY)
 
     def test_throw_error_if_cipher_is_manipulated(self) -> None:
         test_value = 'test2'
-        encrypted = public_encrypt(PUBLIC_KEY, test_value)
+        encrypted = public_encrypt(test_value, public_key=PUBLIC_KEY)
         encrypted['encrypted_value'] = base64.b64encode(
             b'invalid_cipher' + base64.b64decode(encrypted['encrypted_value'].encode('utf-8'))).decode('utf-8')
 
         with pytest.raises(ValueError):
-            private_decrypt(PRIVATE_KEY, **encrypted)
+            private_decrypt(**encrypted, private_key=PRIVATE_KEY)
 
     def test_same_encrypted_value_should_return_deffirent_cipher(self) -> None:
         test_value = 'test3'
-        encrypted1 = public_encrypt(PUBLIC_KEY, test_value)
-        encrypted2 = public_encrypt(PUBLIC_KEY, test_value)
+        encrypted1 = public_encrypt(test_value, public_key=PUBLIC_KEY)
+        encrypted2 = public_encrypt(test_value, public_key=PUBLIC_KEY)
         assert encrypted1['encrypted_value'] != encrypted2['encrypted_value']
 
     # Check if the method is compatible with js version of the same method in:
@@ -57,8 +57,8 @@ class TestCrypto():
             'encrypted_value': 'k8nkZDCi0hRfBc0RRefxeSHeGV0X60N03VCrhRhENKXBjrF/tEg=',
         }
         decrypted_value = private_decrypt(
-            PRIVATE_KEY,
             **encrypted_value_with_node_js,
+            private_key=PRIVATE_KEY,
         )
 
         assert decrypted_value == value

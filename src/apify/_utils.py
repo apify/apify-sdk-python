@@ -427,9 +427,9 @@ def _decrypt_input_secrets(private_key: RSAPrivateKey, input: Any) -> Any:
                 encrypted_password = match.group(1)
                 encrypted_value = match.group(2)
                 input[key] = private_decrypt(
-                    private_key,
-                    encrypted_password=encrypted_password,
-                    encrypted_value=encrypted_value,
+                    encrypted_password,
+                    encrypted_value,
+                    private_key=private_key,
                 )
 
     return input
