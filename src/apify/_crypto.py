@@ -83,10 +83,6 @@ def private_decrypt(
     # Slice the encrypted into cypher and authentication tag
     authentication_tag_bytes = encrypted_value_bytes[-ENCRYPTION_AUTH_TAG_LENGTH:]
     encrypted_data_bytes = encrypted_value_bytes[:len(encrypted_value_bytes) - ENCRYPTION_AUTH_TAG_LENGTH]
-
-    print(authentication_tag_bytes)
-    print(encrypted_data_bytes)
-
     encryption_key_bytes = password_bytes[:ENCRYPTION_KEY_LENGTH]
     initialization_vector_bytes = password_bytes[ENCRYPTION_KEY_LENGTH:]
 
@@ -105,7 +101,6 @@ def private_decrypt(
 def _load_private_key(private_key_file_base64: str, private_key_password: str) -> rsa.RSAPrivateKey:
     private_key = serialization.load_pem_private_key(base64.b64decode(
         private_key_file_base64.encode('utf-8')), password=private_key_password.encode('utf-8'))
-    print(private_key)
     if not isinstance(private_key, rsa.RSAPrivateKey):
         raise ValueError('Invalid private key.')
 
