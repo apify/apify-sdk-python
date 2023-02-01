@@ -6,6 +6,8 @@ import aioshutil
 from aiofiles import ospath
 from aiofiles.os import rename, scandir
 
+from .._utils import _maybe_parse_bool
+from ..consts import ApifyEnvVars
 from .resource_clients.dataset import DatasetClient
 from .resource_clients.dataset_collection import DatasetCollectionClient
 from .resource_clients.key_value_store import KeyValueStoreClient
@@ -38,7 +40,7 @@ class MemoryStorage:
     """Indicates whether a purge was already performed on this instance"""
 
     def __init__(
-        self, *, local_data_directory: str = './storage', write_metadata: Optional[bool] = None, persist_storage: Optional[bool] = None,
+        self, *, local_data_directory: Optional[str] = None, write_metadata: Optional[bool] = None, persist_storage: Optional[bool] = None,
     ) -> None:
         """Initialize the MemoryStorage.
 
@@ -47,13 +49,12 @@ class MemoryStorage:
             persist_storage (bool, optional): Whether to persist the data to the `local_data_directory` or just keep them in memory
             write_metadata (bool, optional): Whether to persist metadata of the storages as well
         """
-        self._local_data_directory = local_data_directory  # TODO: Make this work with `APIFY_LOCAL_STORAGE_DIR`
+        self._local_data_directory = local_data_directory or os.getenv(ApifyEnvVars.LOCAL_STORAGE_DIR) or './storage'
         self._datasets_directory = os.path.join(self._local_data_directory, 'datasets')
         self._key_value_stores_directory = os.path.join(self._local_data_directory, 'key_value_stores')
         self._request_queues_directory = os.path.join(self._local_data_directory, 'request_queues')
         self._write_metadata = write_metadata if write_metadata is not None else '*' in os.getenv('DEBUG', '')
-        self._persist_storage = persist_storage if persist_storage is not None else not any(
-            os.getenv('APIFY_PERSIST_STORAGE', 'true') == s for s in ['false', '0', ''])
+        self._persist_storage = persist_storage if persist_storage is not None else _maybe_parse_bool(os.getenv(ApifyEnvVars.PERSIST_STORAGE, 'true'))
         self._datasets_handled = []
         self._key_value_stores_handled = []
         self._request_queues_handled = []

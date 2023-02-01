@@ -31,15 +31,19 @@ async def test_get(request_queue_client: RequestQueueClient) -> None:
 
 async def test_update(request_queue_client: RequestQueueClient) -> None:
     new_rq_name = 'test-update'
+    await request_queue_client.add_request({
+        'uniqueKey': 'https://apify.com',
+        'url': 'https://apify.com',
+    })
     old_rq_info = await request_queue_client.get()
     assert old_rq_info is not None
     old_rq_directory = os.path.join(request_queue_client._client._request_queues_directory, old_rq_info['name'])
     new_rq_directory = os.path.join(request_queue_client._client._request_queues_directory, new_rq_name)
-    assert os.path.exists(os.path.join(old_rq_directory, '__metadata__.json')) is True
-    assert os.path.exists(os.path.join(new_rq_directory, '__metadata__.json')) is False
+    assert os.path.exists(os.path.join(old_rq_directory, 'fvwscO2UJLdr10B.json')) is True
+    assert os.path.exists(os.path.join(new_rq_directory, 'fvwscO2UJLdr10B.json')) is False
     updated_rq_info = await request_queue_client.update(name=new_rq_name)
-    assert os.path.exists(os.path.join(old_rq_directory, '__metadata__.json')) is False
-    assert os.path.exists(os.path.join(new_rq_directory, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(old_rq_directory, 'fvwscO2UJLdr10B.json')) is False
+    assert os.path.exists(os.path.join(new_rq_directory, 'fvwscO2UJLdr10B.json')) is True
     # Only modifiedAt and accessedAt should be different
     assert old_rq_info['createdAt'] == updated_rq_info['createdAt']
     assert old_rq_info['modifiedAt'] != updated_rq_info['modifiedAt']
@@ -50,12 +54,16 @@ async def test_update(request_queue_client: RequestQueueClient) -> None:
 
 
 async def test_delete(request_queue_client: RequestQueueClient) -> None:
+    await request_queue_client.add_request({
+        'uniqueKey': 'https://apify.com',
+        'url': 'https://apify.com',
+    })
     rq_info = await request_queue_client.get()
     assert rq_info is not None
     rq_directory = os.path.join(request_queue_client._client._request_queues_directory, rq_info['name'])
-    assert os.path.exists(os.path.join(rq_directory, '__metadata__.json')) is True
+    assert os.path.exists(os.path.join(rq_directory, 'fvwscO2UJLdr10B.json')) is True
     await request_queue_client.delete()
-    assert os.path.exists(os.path.join(rq_directory, '__metadata__.json')) is False
+    assert os.path.exists(os.path.join(rq_directory, 'fvwscO2UJLdr10B.json')) is False
     # Does not crash when called again
     await request_queue_client.delete()
 
