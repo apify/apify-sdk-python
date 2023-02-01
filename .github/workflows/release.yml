@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - master
+    tags-ignore:
+      - '**'
   # A release via GitHub releases will publish a stable version
   release:
     types: [published]
