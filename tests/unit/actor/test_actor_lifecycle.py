@@ -6,6 +6,7 @@ import pytest
 
 from apify import Actor
 from apify.consts import ActorEventType, ApifyEnvVars
+from apify_client import ApifyClientAsync
 
 
 class TestActorInit:
@@ -13,7 +14,6 @@ class TestActorInit:
     async def test_async_with_actor_properly_initialize(self) -> None:
         async with Actor:
             assert Actor._get_default_instance()._is_initialized
-            # TODO: More checks
         assert Actor._get_default_instance()._is_initialized is False
 
     async def test_actor_init(self) -> None:
@@ -77,16 +77,14 @@ class TestActorExit:
 class TestActorFail:
 
     async def test_with_actor_fail(self) -> None:
-        my_actr = Actor()
-        async with my_actr:
-            assert my_actr._is_initialized
-            await my_actr.fail()
-        assert my_actr._is_initialized is False
+        async with Actor() as my_actor:
+            assert my_actor._is_initialized
+            await my_actor.fail()
+        assert my_actor._is_initialized is False
 
     async def test_with_actor_failed(self) -> None:
-        my_actor = Actor()
         try:
-            async with my_actor:
+            async with Actor() as my_actor:
                 assert my_actor._is_initialized
                 raise Exception('Failed')
         except Exception:
@@ -139,3 +137,19 @@ class TestActorMainMethod:
 
         returned_value = await my_actor.main(actor_function)
         assert returned_value == expected_string
+
+    class TestActorNewClient:
+
+        async def test_actor_new_client_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+            token = 'my-token'
+            monkeypatch.setenv(ApifyEnvVars.TOKEN, token)
+            my_actor = Actor()
+            await my_actor.init()
+            client = my_actor.new_client()
+            assert type(client) == ApifyClientAsync
+            assert client.token == token
+            passed_token = 'my-passed-token'
+            client_with_token = my_actor.new_client(token=passed_token)
+            assert type(client_with_token) == ApifyClientAsync
+            assert client_with_token.token == passed_token
+            await my_actor.exit()
