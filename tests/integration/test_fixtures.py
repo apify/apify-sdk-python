@@ -10,8 +10,12 @@ from .conftest import ActorFactory
 class TestMakeActorFixture:
     async def test_main_func(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
+            import os
+
+            from apify.consts import ApifyEnvVars
+
             async with Actor:
-                await Actor.set_value('OUTPUT', 'TESTING_123')
+                await Actor.set_value('OUTPUT', os.getenv(ApifyEnvVars.ACTOR_ID))
 
         actor = await make_actor('make-actor-main-func', main_func=main)
 
@@ -22,7 +26,7 @@ class TestMakeActorFixture:
 
         output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
         assert output_record is not None
-        assert output_record['value'] == 'TESTING_123'
+        assert run_result['actId'] == output_record['value']
 
     async def test_main_py(self, make_actor: ActorFactory) -> None:
         expected_output = f'ACTOR_OUTPUT_{_crypto_random_object_id(5)}'

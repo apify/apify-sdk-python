@@ -352,7 +352,7 @@ Return True when the actor is running on the Apify platform, and False otherwise
 Return a dictionary with information parsed from all the APIFY_XXX environment variables.
 
 For a list of all the environment variables,
-see the [Actor documentation]([https://docs.apify.com/actor/run#environment-variables](https://docs.apify.com/actor/run#environment-variables)).
+see the [Actor documentation]([https://docs.apify.com/actors/development/environment-variables](https://docs.apify.com/actors/development/environment-variables)).
 If some variables are not defined or are invalid, the corresponding value in the resulting dictionary will be None.
 
 * **Return type**
