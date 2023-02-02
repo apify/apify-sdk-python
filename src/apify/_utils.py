@@ -24,11 +24,9 @@ import aioshutil
 import psutil
 from aiofiles import ospath
 from aiofiles.os import remove, rename
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from apify_client import __version__ as client_version
 
-from ._crypto import private_decrypt
 from ._version import __version__ as sdk_version
 from .consts import (
     _BOOL_ENV_VARS_TYPE,
@@ -37,7 +35,6 @@ from .consts import (
     _STRING_ENV_VARS_TYPE,
     BOOL_ENV_VARS,
     DATETIME_ENV_VARS,
-    ENCRYPTED_INPUT_VALUE_REGEXP,
     INTEGER_ENV_VARS,
     REQUEST_ID_LENGTH,
     ApifyEnvVars,
@@ -413,23 +410,3 @@ def _budget_ow(
         validate_single(value, field_type, required, value_name)
     else:
         raise ValueError('Wrong input!')
-
-
-def _decrypt_input_secrets(private_key: RSAPrivateKey, input: Any) -> Any:
-    """Decrypt input secrets."""
-    if not isinstance(input, dict):
-        return input
-
-    for key, value in input.items():
-        if isinstance(value, str):
-            match = ENCRYPTED_INPUT_VALUE_REGEXP.fullmatch(value)
-            if match:
-                encrypted_password = match.group(1)
-                encrypted_value = match.group(2)
-                input[key] = private_decrypt(
-                    encrypted_password,
-                    encrypted_value,
-                    private_key=private_key,
-                )
-
-    return input

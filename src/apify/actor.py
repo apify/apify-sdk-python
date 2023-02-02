@@ -10,9 +10,8 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar
 from apify_client import ApifyClientAsync
 from apify_client.consts import WebhookEventType
 
-from ._crypto import _load_private_key
+from ._crypto import _decrypt_input_secrets, _load_private_key
 from ._utils import (
-    _decrypt_input_secrets,
     _fetch_and_parse_env_var,
     _get_cpu_usage_percent,
     _get_memory_usage_bytes,
@@ -598,7 +597,7 @@ class Actor(metaclass=_ActorContextManager):
 
         return input_value
 
-    @ classmethod
+    @classmethod
     async def get_value(cls, key: str) -> Any:
         """Get a value from the default key-value store associated with the current actor run.
 
@@ -614,7 +613,7 @@ class Actor(metaclass=_ActorContextManager):
         value = await key_value_store.get_value(key)
         return value
 
-    @ classmethod
+    @classmethod
     async def set_value(
         cls,
         key: str,

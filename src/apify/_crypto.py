@@ -1,10 +1,13 @@
 import base64
 import secrets
+from typing import Any
 
 from cryptography.exceptions import InvalidTag as InvalidTagException
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+from .consts import ENCRYPTED_INPUT_VALUE_REGEXP
 
 ENCRYPTION_KEY_LENGTH = 32
 ENCRYPTION_IV_LENGTH = 16
@@ -119,3 +122,23 @@ def _crypto_random_object_id(length: int = 17) -> str:
     """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
     chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
     return ''.join(secrets.choice(chars) for _ in range(length))
+
+
+def _decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:
+    """Decrypt input secrets."""
+    if not isinstance(input, dict):
+        return input
+
+    for key, value in input.items():
+        if isinstance(value, str):
+            match = ENCRYPTED_INPUT_VALUE_REGEXP.fullmatch(value)
+            if match:
+                encrypted_password = match.group(1)
+                encrypted_value = match.group(2)
+                input[key] = private_decrypt(
+                    encrypted_password,
+                    encrypted_value,
+                    private_key=private_key,
+                )
+
+    return input
