@@ -21,8 +21,8 @@ def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     It returns the encrypted password and encrypted value in BASE64 format.
 
     Args:
-        public_key (RSAPublicKey): Private key to use for decryption.
         value (str): Password used to encrypt the private key encoded as base64 string.
+        public_key (RSAPublicKey): Private key to use for decryption.
 
     Returns:
         disc: Encrypted password and value.
@@ -60,9 +60,9 @@ def private_decrypt(
     """Decrypts the given encrypted value using the private key and password.
 
     Args:
-        private_key (RSAPrivateKey): Private key to use for decryption.
         encrypted_password (str): Password used to encrypt the private key encoded as base64 string.
         encrypted_value (str): Encrypted value to decrypt as base64 string.
+        private_key (RSAPrivateKey): Private key to use for decryption.
 
     Returns:
         str: Decrypted value.
