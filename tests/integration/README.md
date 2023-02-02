@@ -30,11 +30,15 @@ This fixture returns a factory function for creating actors on the Apify Platfor
 For the actor source, the fixture takes the files from `tests/integration/actor_source_base`,
 builds the Apify SDK wheel from the current codebase,
 and adds the actor source you passed to the fixture as an argument.
+You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
 The created actor will be uploaded to the platform, built there, and after the test finishes, it will be automatically deleted.
 If the actor build fails, it will not be deleted, so that you can check why the build failed.
 
-You can create actors straight from a Python function:
+### Creating test actor straight from a Python function
+
+You can create actors straight from a Python function.
+This is great because you can have the test actor source code checked with the linter.
 
 ```python
 async def test_something(self, make_actor: ActorFactory) -> None:
@@ -50,8 +54,34 @@ async def test_something(self, make_actor: ActorFactory) -> None:
     assert run_result['status'] == 'SUCCEEDED'
 ```
 
-Or you can pass the `src/main.py` file, if you need something more complex
-(e.g. specify more imports or pass some fixed value to the actor source code):
+These actors will have the `src/main.py` file set to the `main` function definition,
+prepended with `import asyncio` and `from apify import Actor`, for your convenience.
+
+You can also pass extra imports directly to the main function:
+
+```python
+async def test_something(self, make_actor: ActorFactory) -> None:
+    async def main():
+        import os
+        from apify.consts import ActorEventType, ApifyEnvVars
+        async with Actor:
+            print('The actor is running with ' + os.getenv(ApifyEnvVars.MEMORY_MBYTES) + 'MB of memory')
+            await Actor.on(ActorEventType.SYSTEM_INFO, lambda event_data: print(event_data))
+
+    actor = await make_actor('something', main_func=main)
+
+    run_result = await actor.call()
+
+    assert run_result is not None
+    assert run_result['status'] == 'SUCCEEDED'
+```
+
+### Creating actor from source files
+
+You can also pass the source files directly if you need something more complex
+(e.g. pass some fixed value to the actor source code or use multiple source files).
+
+To pass the source code of the `src/main.py` file directly, use the `main_py` argument to `make_actor`:
 
 ```python
 async def test_something(self, make_actor: ActorFactory) -> None:
@@ -76,7 +106,8 @@ async def test_something(self, make_actor: ActorFactory) -> None:
 
 ```
 
-Or you can pass multiple source files, if you need something really complex:
+Or you can pass multiple source files with the `source_files` argument,
+if you need something really complex:
 
 ```python
 async def test_something(self, make_actor: ActorFactory) -> None:
@@ -104,5 +135,3 @@ async def test_something(self, make_actor: ActorFactory) -> None:
     assert actor_run is not None
     assert actor_run['status'] == 'SUCCEEDED'
 ```
-
-You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
