@@ -2,7 +2,7 @@ import asyncio
 import json
 
 from apify import Actor
-from apify._utils import _crypto_random_object_id
+from apify._crypto import _crypto_random_object_id
 from apify_client import ApifyClientAsync
 
 from ._utils import generate_unique_resource_name
