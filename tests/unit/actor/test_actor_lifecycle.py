@@ -127,6 +127,9 @@ class TestActorMainMethod:
         # NOTE: Actor didn't call sys.exit() during testing, check if fail was called.
         my_actor.fail.assert_called_with(exit_code=91, _exc_type=type(err), _exc_value=err, _exc_traceback=err.__traceback__)
 
+        # This is necessary to stop the event emitting intervals
+        await my_actor.exit()
+
     async def test_actor_main_method_raise_return_value(self) -> None:
         my_actor = Actor()
         expected_string = 'Hello world'

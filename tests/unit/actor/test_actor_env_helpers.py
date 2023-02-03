@@ -48,3 +48,5 @@ class TestGetEnv:
 
         await Actor.init()
         assert expected_get_env == Actor.get_env()
+
+        await Actor.exit()
