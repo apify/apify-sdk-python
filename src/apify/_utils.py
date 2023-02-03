@@ -10,7 +10,6 @@ import json
 import mimetypes
 import os
 import re
-import secrets
 import sys
 import time
 from collections import OrderedDict
@@ -322,12 +321,6 @@ def _wrap_internal(implementation: ImplementationType, metadata_source: Metadata
         return implementation(*args, **kwargs)
 
     return cast(MetadataType, wrapper)
-
-
-def _crypto_random_object_id(length: int = 17) -> str:
-    """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
-    chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 T = TypeVar('T')

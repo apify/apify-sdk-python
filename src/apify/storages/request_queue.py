@@ -10,7 +10,8 @@ from typing import Set, Union
 from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync
 
-from .._utils import LRUCache, _budget_ow, _crypto_random_object_id, _unique_key_to_request_id
+from .._crypto import _crypto_random_object_id
+from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
 from ..config import Configuration
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from ..memory_storage import MemoryStorage

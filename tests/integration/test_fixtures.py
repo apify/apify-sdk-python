@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from apify import Actor
-from apify._utils import _crypto_random_object_id
+from apify._crypto import _crypto_random_object_id
 from apify_client import ApifyClientAsync
 
 from .conftest import ActorFactory

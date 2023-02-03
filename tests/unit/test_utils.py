@@ -11,7 +11,6 @@ from aiofiles.os import mkdir
 
 from apify._utils import (
     _budget_ow,
-    _crypto_random_object_id,
     _fetch_and_parse_env_var,
     _filter_out_none_values_recursively,
     _filter_out_none_values_recursively_internal,
@@ -317,14 +316,6 @@ async def test__force_rename(tmp_path: str) -> None:
     assert os.path.exists(dst_file) is False
     # src_dir.txt should exist in dst_dir
     assert os.path.exists(os.path.join(dst_dir, 'src_dir.txt')) is True
-
-
-def test__crypto_random_object_id() -> None:
-    assert len(_crypto_random_object_id()) == 17
-    assert len(_crypto_random_object_id(5)) == 5
-    long_random_object_id = _crypto_random_object_id(1000)
-    for char in long_random_object_id:
-        assert char in 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 
 def test__budget_ow() -> None:
