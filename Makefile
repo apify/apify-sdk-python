@@ -1,4 +1,4 @@
-.PHONY: clean install-dev lint test type-check check-code format docs check-docs
+.PHONY: clean install-dev lint unit-tests integration-tests type-check check-code format docs check-docs check-changelog-entry
 
 # This is default for local testing, but GitHub workflows override it to a higher value in CI
 INTEGRATION_TESTS_CONCURRENCY = 1
