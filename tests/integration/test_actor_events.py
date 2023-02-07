@@ -2,14 +2,13 @@ import asyncio
 
 from apify import Actor
 from apify.consts import ActorEventType
-from apify_client import ApifyClientAsync
 
 from .conftest import ActorFactory
 
 
 class TestActorEvents:
 
-    async def test_interval_events(self, make_actor: ActorFactory, apify_client_async: ApifyClientAsync) -> None:
+    async def test_interval_events(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import os
 
@@ -33,7 +32,7 @@ class TestActorEvents:
 
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
-        dataset_items_page = await apify_client_async.dataset(run_result['defaultDatasetId']).list_items()
+        dataset_items_page = await actor.last_run().dataset().list_items()
         persist_state_events = [item for item in dataset_items_page.items if item['event_type'] == ActorEventType.PERSIST_STATE]
         system_info_events = [item for item in dataset_items_page.items if item['event_type'] == ActorEventType.SYSTEM_INFO]
         assert len(persist_state_events) > 2

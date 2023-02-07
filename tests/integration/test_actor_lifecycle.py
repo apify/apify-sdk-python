@@ -1,5 +1,4 @@
 from apify import Actor
-from apify_client import ApifyClientAsync
 
 from .conftest import ActorFactory
 
@@ -103,7 +102,7 @@ class TestActorFail:
 
 class TestActorMain:
 
-    async def test_actor_main(self, make_actor: ActorFactory, apify_client_async: ApifyClientAsync) -> None:
+    async def test_actor_main(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async def actor_function() -> None:
                 input = await Actor.get_input()
@@ -141,6 +140,6 @@ class TestActorMain:
         run_with_output = await actor.call(run_input={'set_output': test_output})
         assert run_with_output is not None
         assert run_with_output['status'] == 'SUCCEEDED'
-        output = await apify_client_async.key_value_store(run_with_output['defaultKeyValueStoreId']).get_record('OUTPUT')
+        output = await actor.last_run().key_value_store().get_record('OUTPUT')
         assert output is not None
         assert output['value'] == test_output
