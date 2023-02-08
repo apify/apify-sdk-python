@@ -9,7 +9,6 @@ from .conftest import ActorFactory
 class TestRequestQueue:
     async def test_simple(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
-            import random
             async with Actor:
                 desired_request_count = 100
                 rq = await Actor.open_request_queue()
