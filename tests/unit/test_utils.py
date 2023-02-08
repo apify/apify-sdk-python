@@ -276,7 +276,7 @@ def test__json_dumps() -> None:
   "nested": {
     "abc": "def"
   },
-  "datetime": "2021-12-31 23:00:00+00:00"
+  "datetime": "2022-01-01 00:00:00+00:00"
 }"""
     actual = _json_dumps({
         'string': '123',
@@ -284,7 +284,7 @@ def test__json_dumps() -> None:
         'nested': {
             'abc': 'def',
         },
-        'datetime': datetime(2022, 1, 1).astimezone(timezone.utc),
+        'datetime': datetime(2022, 1, 1, tzinfo=timezone.utc),
     })
     assert actual == expected
 
