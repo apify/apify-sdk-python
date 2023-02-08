@@ -38,7 +38,7 @@ class TestGetEnv:
 
         for datetime_env_var in DATETIME_ENV_VARS:
             datetime_get_env_var = datetime_env_var.name.lower()
-            expected_get_env[datetime_get_env_var] = datetime.now().replace(tzinfo=timezone.utc)
+            expected_get_env[datetime_get_env_var] = datetime.now(timezone.utc)
             monkeypatch.setenv(datetime_env_var, expected_get_env[datetime_get_env_var].strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
 
         for string_env_var in STRING_ENV_VARS:

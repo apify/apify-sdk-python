@@ -49,7 +49,7 @@ class TestMakeActorFixture:
         assert output_record['value'] == expected_output
 
     async def test_source_files(self, make_actor: ActorFactory) -> None:
-        test_started_at = datetime.utcnow().replace(tzinfo=timezone.utc)
+        test_started_at = datetime.now(timezone.utc)
         actor_source_files = {
             'src/utils.py': """
                 from datetime import datetime
@@ -79,7 +79,7 @@ class TestMakeActorFixture:
 
         output_datetime = datetime.fromisoformat(output_record['value']).replace(tzinfo=timezone.utc)
         assert output_datetime > test_started_at
-        assert output_datetime < datetime.utcnow().replace(tzinfo=timezone.utc)
+        assert output_datetime < datetime.now(timezone.utc)
 
 
 class TestApifyClientAsyncFixture:

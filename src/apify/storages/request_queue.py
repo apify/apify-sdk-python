@@ -110,7 +110,7 @@ class RequestQueue:
         self._queue_head_dict = OrderedDict()
         self._query_queue_head_promise = None
         self._in_progress = set()
-        self._last_activity = datetime.utcnow().replace(tzinfo=timezone.utc)
+        self._last_activity = datetime.now(timezone.utc)
         self._recently_handled = LRUCache[bool](max_length=RECENTLY_HANDLED_CACHE_SIZE)
         self._requests_cache = LRUCache(max_length=MAX_CACHED_REQUESTS)
 
@@ -140,7 +140,7 @@ class RequestQueue:
         _budget_ow(request, {
             'url': (str, True),
         })
-        self._last_activity = datetime.utcnow().replace(tzinfo=timezone.utc)
+        self._last_activity = datetime.now(timezone.utc)
 
         if request.get('uniqueKey') is None:
             request['uniqueKey'] = request['url']  # TODO: Check Request class in crawlee and replicate uniqueKey generation logic...
@@ -215,7 +215,7 @@ class RequestQueue:
             })}""")
             return None
         self._in_progress.add(next_request_id)
-        self._last_activity = datetime.utcnow().replace(tzinfo=timezone.utc)
+        self._last_activity = datetime.now(timezone.utc)
 
         try:
             request = await self.get_request(next_request_id)
@@ -266,12 +266,12 @@ class RequestQueue:
             'uniqueKey': (str, True),
             'handledAt': (datetime, False),
         })
-        self._last_activity = datetime.utcnow().replace(tzinfo=timezone.utc)
+        self._last_activity = datetime.now(timezone.utc)
         if request['id'] not in self._in_progress:
             logging.debug(f'Cannot mark request {request["id"]} as handled, because it is not in progress!')
             return None
 
-        request['handledAt'] = request.get('handledAt', datetime.utcnow().replace(tzinfo=timezone.utc))
+        request['handledAt'] = request.get('handledAt', datetime.now(timezone.utc))
         queue_operation_info = await self._client.update_request({**request})
         queue_operation_info['uniqueKey'] = request['uniqueKey']
 
@@ -302,7 +302,7 @@ class RequestQueue:
             'id': (str, True),
             'uniqueKey': (str, True),
         })
-        self._last_activity = datetime.utcnow().replace(tzinfo=timezone.utc)
+        self._last_activity = datetime.now(timezone.utc)
 
         if request['id'] not in self._in_progress:
             logging.debug(f'Cannot reclaim request {request["id"]}, because it is not in progress!')
@@ -352,7 +352,7 @@ class RequestQueue:
         Returns:
             bool: `True` if all requests were already handled and there are no more left. `False` otherwise.
         """
-        seconds_since_last_activity = (datetime.utcnow().replace(tzinfo=timezone.utc) - self._last_activity).seconds
+        seconds_since_last_activity = (datetime.now(timezone.utc) - self._last_activity).seconds
         if self._in_progress_count() > 0 and seconds_since_last_activity > self._internal_timeout_seconds:
             message = f'The request queue seems to be stuck for {self._internal_timeout_seconds}s, resetting internal state.'
             logging.warning(message)
@@ -372,7 +372,7 @@ class RequestQueue:
         self._assumed_total_count = 0
         self._assumed_handled_count = 0
         self._requests_cache.clear()
-        self._last_activity = datetime.utcnow().replace(tzinfo=timezone.utc)
+        self._last_activity = datetime.now(timezone.utc)
 
     def _cache_request(self, cache_key: str, queue_operation_info: Dict) -> None:
         self._requests_cache[cache_key] = {
@@ -383,7 +383,7 @@ class RequestQueue:
         }
 
     async def _queue_query_head(self, limit: int) -> Dict:
-        query_started_at = datetime.utcnow().replace(tzinfo=timezone.utc)
+        query_started_at = datetime.now(timezone.utc)
 
         list_head = await self._client.list_head(limit=limit)
         for request in list_head['items']:
@@ -461,7 +461,7 @@ class RequestQueue:
         # If we are repeating for consistency then wait required time.
         if should_repeat_for_consistency:
             delay_seconds = (API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000) - \
-                (datetime.utcnow().replace(tzinfo=timezone.utc) - queue_head['queueModifiedAt']).seconds
+                (datetime.now(timezone.utc) - queue_head['queueModifiedAt']).seconds
             logging.info(f'Waiting for {delay_seconds}s before considering the queue as finished to ensure that the data is consistent.')
             await asyncio.sleep(delay_seconds)
 

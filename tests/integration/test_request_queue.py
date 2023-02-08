@@ -1,11 +1,8 @@
-import pytest
-
 from apify import Actor
 
 from .conftest import ActorFactory
 
 
-@pytest.mark.only
 class TestRequestQueue:
     async def test_simple(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
