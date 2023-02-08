@@ -1,19 +1,38 @@
 from apify import Actor
 
+from ._utils import generate_unique_resource_name
 from .conftest import ActorFactory
 
 
 class TestActorOpenKeyValueStore:
-    async def test_same_references(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_default(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 kvs1 = await Actor.open_key_value_store()
                 kvs2 = await Actor.open_key_value_store()
                 assert kvs1 is kvs2
 
-        actor = await make_actor('kvs-same-references', main_func=main)
+        actor = await make_actor('kvs-same-ref-default', main_func=main)
 
         run_result = await actor.call()
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
+
+    async def test_same_references_named(self, make_actor: ActorFactory) -> None:
+        kvs_name = generate_unique_resource_name('key-value-store')
+
+        async def main() -> None:
+            async with Actor:
+                input_object = await Actor.get_input()
+                kvs_name = input_object['kvsName']
+                kvs1 = await Actor.open_key_value_store(kvs_name)
+                kvs2 = await Actor.open_key_value_store(kvs_name)
+                assert kvs1 is kvs2
+                await kvs1.drop()
+
+        actor = await make_actor('kvs-same-ref-named', main_func=main)
+
+        run_result = await actor.call(run_input={'kvsName': kvs_name})
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 

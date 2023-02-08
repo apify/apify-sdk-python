@@ -1,5 +1,6 @@
 from apify import Actor
 
+from ._utils import generate_unique_resource_name
 from .conftest import ActorFactory
 
 
@@ -26,15 +27,33 @@ class TestActorPushData:
 
 
 class TestActorOpenDataset:
-    async def test_same_references(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_default(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 dataset1 = await Actor.open_dataset()
                 dataset2 = await Actor.open_dataset()
                 assert dataset1 is dataset2
 
-        actor = await make_actor('dataset-same-references', main_func=main)
+        actor = await make_actor('dataset-same-ref-default', main_func=main)
 
         run_result = await actor.call()
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
+
+    async def test_same_references_named(self, make_actor: ActorFactory) -> None:
+        dataset_name = generate_unique_resource_name('dataset')
+
+        async def main() -> None:
+            async with Actor:
+                input_object = await Actor.get_input()
+                dataset_name = input_object['datasetName']
+                dataset1 = await Actor.open_dataset(dataset_name)
+                dataset2 = await Actor.open_dataset(dataset_name)
+                assert dataset1 is dataset2
+                await dataset1.drop()
+
+        actor = await make_actor('dataset-same-ref-named', main_func=main)
+
+        run_result = await actor.call(run_input={'datasetName': dataset_name})
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
