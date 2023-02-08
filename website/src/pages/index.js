@@ -62,13 +62,6 @@ export default function Home() {
             title={`${siteConfig.title} · ${siteConfig.tagline}`}
             description={siteConfig.description}>
             <Hero />
-            <div className="container">
-                <div className="row">
-                    <div className="col text--center padding-top--lg padding-bottom--xl">
-                        <ApifyLogo className={styles.bottomLogo} />
-                    </div>
-                </div>
-            </div>
         </Layout>
     );
 }
