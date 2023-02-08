@@ -20,7 +20,8 @@ ignore =
     D409
     D413
     U101
-ignore-decorators = _make_async_docs
+unused-arguments-ignore-overload-functions = True
+unused-arguments-ignore-stub-functions = True
 per-file-ignores =
     docs/*: D
     scripts/*: D

@@ -108,11 +108,11 @@ def actor_base_source_files(sdk_wheel_path: Path) -> Dict[str, Union[str, bytes]
 class ActorFactory(Protocol):
     def __call__(
         self,
-        actor_label: str,  # noqa: U100
+        actor_label: str,
         *,
-        main_func: Optional[Callable] = None,  # noqa: U100
-        main_py: Optional[str] = None,  # noqa: U100
-        source_files: Optional[Mapping[str, Union[str, bytes]]] = None,  # noqa: U100
+        main_func: Optional[Callable] = None,
+        main_py: Optional[str] = None,
+        source_files: Optional[Mapping[str, Union[str, bytes]]] = None,
     ) -> Awaitable[ActorClientAsync]:
         ...
 
