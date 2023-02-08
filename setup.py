@@ -50,7 +50,7 @@ setup(
     package_data={'apify': ['py.typed']},
     python_requires='>=3.8',
     install_requires=[
-        'apify-client ~= 0.7.0b39',
+        'apify-client ~= 0.7.0b46',
         'httpx ~= 0.23.0',
         'psutil ~= 5.9.4',
         'pydantic ~= 1.10.2',

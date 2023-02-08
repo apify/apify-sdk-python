@@ -21,8 +21,8 @@ def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     It returns the encrypted password and encrypted value in BASE64 format.
 
     Args:
-        value (str): Password used to encrypt the private key encoded as base64 string.
-        public_key (RSAPublicKey): Private key to use for decryption.
+        value (str): The value which should be encrypted.
+        public_key (RSAPublicKey): Public key to use for encryption.
 
     Returns:
         disc: Encrypted password and value.

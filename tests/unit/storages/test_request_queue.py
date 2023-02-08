@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -55,7 +55,7 @@ async def test_add_fetch_handle_request(request_queue: RequestQueue) -> None:
     next = await request_queue.fetch_next_request()
     assert next is not None
     # Mark it as handled
-    next['handledAt'] = datetime.utcnow()
+    next['handledAt'] = datetime.now(timezone.utc)
     queue_operation_info = await request_queue.mark_request_as_handled(next)
     assert queue_operation_info is not None
     assert queue_operation_info['uniqueKey'] == url
