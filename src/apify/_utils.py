@@ -31,10 +31,12 @@ from ._version import __version__ as sdk_version
 from .consts import (
     _BOOL_ENV_VARS_TYPE,
     _DATETIME_ENV_VARS_TYPE,
+    _FLOAT_ENV_VARS_TYPE,
     _INTEGER_ENV_VARS_TYPE,
     _STRING_ENV_VARS_TYPE,
     BOOL_ENV_VARS,
     DATETIME_ENV_VARS,
+    FLOAT_ENV_VARS,
     INTEGER_ENV_VARS,
     REQUEST_ID_LENGTH,
     ApifyEnvVars,
@@ -114,6 +116,16 @@ def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE, default: datetime
 
 
 @overload
+def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE) -> Optional[float]:  # noqa: U100
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE, default: float) -> float:  # noqa: U100
+    ...
+
+
+@overload
 def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE) -> Optional[int]:  # noqa: U100
     ...
 
@@ -147,11 +159,16 @@ def _fetch_and_parse_env_var(env_var: Any, default: Any = None) -> Any:
 
     if env_var in BOOL_ENV_VARS:
         return _maybe_parse_bool(val)
-    if env_var in INTEGER_ENV_VARS:
-        res = _maybe_parse_int(val)
-        if res is None:
+    if env_var in FLOAT_ENV_VARS:
+        parsed_float = _maybe_parse_float(val)
+        if parsed_float is None:
             return default
-        return res
+        return parsed_float
+    if env_var in INTEGER_ENV_VARS:
+        parsed_int = _maybe_parse_int(val)
+        if parsed_int is None:
+            return default
+        return parsed_int
     if env_var in DATETIME_ENV_VARS:
         return _maybe_parse_datetime(val)
     return val
@@ -183,6 +200,13 @@ def _maybe_parse_datetime(val: str) -> Union[datetime, str]:
         return datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone.utc)
     except ValueError:
         return val
+
+
+def _maybe_parse_float(val: str) -> Optional[float]:
+    try:
+        return float(val)
+    except ValueError:
+        return None
 
 
 def _maybe_parse_int(val: str) -> Optional[int]:

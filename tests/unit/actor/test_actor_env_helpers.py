@@ -6,7 +6,7 @@ from typing import Any, Dict
 import pytest
 
 from apify import Actor
-from apify.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ApifyEnvVars
+from apify.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ApifyEnvVars
 
 
 class TestIsAtHome:
@@ -30,6 +30,11 @@ class TestGetEnv:
             int_get_env_var = int_env_var.name.lower()
             expected_get_env[int_get_env_var] = random.randint(1, 99999)
             monkeypatch.setenv(int_env_var, f'{expected_get_env[int_get_env_var]}')
+
+        for float_env_var in FLOAT_ENV_VARS:
+            float_get_env_var = float_env_var.name.lower()
+            expected_get_env[float_get_env_var] = random.random()
+            monkeypatch.setenv(float_env_var, f'{expected_get_env[float_get_env_var]}')
 
         for bool_env_var in BOOL_ENV_VARS:
             bool_get_env_var = bool_env_var.name.lower()
