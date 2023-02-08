@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -132,7 +132,7 @@ async def test_update_record(request_queue_client: RequestQueueClient) -> None:
     rq_info_before_update = await request_queue_client.get()
     assert rq_info_before_update is not None
     assert rq_info_before_update['pendingRequestCount'] == 1
-    request_update_info = await request_queue_client.update_request({**request, 'handledAt': datetime.utcnow()})
+    request_update_info = await request_queue_client.update_request({**request, 'handledAt': datetime.now(timezone.utc)})
     assert request_update_info['wasAlreadyHandled'] is False
     rq_info_after_update = await request_queue_client.get()
     assert rq_info_after_update is not None

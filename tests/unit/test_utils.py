@@ -1,9 +1,9 @@
 import asyncio
-import datetime
 import io
 import os
 import uuid
 from collections import OrderedDict
+from datetime import datetime, timezone
 from enum import Enum
 
 import pytest
@@ -51,7 +51,7 @@ def test__fetch_and_parse_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _fetch_and_parse_env_var(ApifyEnvVars.MEMORY_MBYTES) == 1024
     assert _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN) == 'API'
     assert _fetch_and_parse_env_var(ApifyEnvVars.STARTED_AT) == \
-        datetime.datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=datetime.timezone.utc)
+        datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=timezone.utc)
 
     assert _fetch_and_parse_env_var('DUMMY_BOOL') == '1'  # type: ignore
     assert _fetch_and_parse_env_var('DUMMY_DATETIME') == '2022-12-02T15:19:34.907Z'  # type: ignore
@@ -96,7 +96,7 @@ def test__maybe_parse_bool() -> None:
 
 def test__maybe_parse_datetime() -> None:
     assert _maybe_parse_datetime('2022-12-02T15:19:34.907Z') == \
-        datetime.datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=datetime.timezone.utc)
+        datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=timezone.utc)
     assert _maybe_parse_datetime('2022-12-02T15:19:34.907') == '2022-12-02T15:19:34.907'
     assert _maybe_parse_datetime('anything') == 'anything'
 
@@ -275,14 +275,16 @@ def test__json_dumps() -> None:
   "number": 456,
   "nested": {
     "abc": "def"
-  }
+  },
+  "datetime": "2021-12-31 23:00:00+00:00"
 }"""
-    actual = _json_dumps({  # TODO: add a date into the object after datetime serialization format is finalized
+    actual = _json_dumps({
         'string': '123',
         'number': 456,
         'nested': {
             'abc': 'def',
         },
+        'datetime': datetime(2022, 1, 1).astimezone(timezone.utc),
     })
     assert actual == expected
 
@@ -322,11 +324,11 @@ def test__budget_ow() -> None:
     _budget_ow({
         'a': 123,
         'b': 'string',
-        'c': datetime.datetime.utcnow(),
+        'c': datetime.now(timezone.utc),
     }, {
         'a': (int, True),
         'b': (str, False),
-        'c': (datetime.datetime, True),
+        'c': (datetime, True),
     })
     with pytest.raises(ValueError, match='required'):
         _budget_ow({}, {'id': (str, True)})
