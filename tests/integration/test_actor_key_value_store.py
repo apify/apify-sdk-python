@@ -73,16 +73,45 @@ class TestActorGetSetValue:
 
 class TestActorGetInput:
     async def test_actor_get_input(self, make_actor: ActorFactory) -> None:
-        async def main() -> None:
-            async with Actor:
-                input_object = await Actor.get_input()
-                assert input_object is not None
-                assert input_object['number'] == 123
-                assert input_object['string'] == 'a string'
-                assert input_object['nested']['test'] == 1
+        actor_source_files = {
+            'INPUT_SCHEMA.json': """
+                {
+                    "title": "Actor get input test",
+                    "type": "object",
+                    "schemaVersion": 1,
+                    "properties": {
+                        "password": {
+                                "title": "Password",
+                                "type": "string",
+                                "description": "A secret, encrypted input field",
+                                "editor": "textfield",
+                                "isSecret": true
+                            }
+                    },
+                    "required": ["password"]
+                }
+            """,
+            'src/main.py': """
+                import asyncio
+                from apify import Actor
 
-        actor = await make_actor('actor-get-input', main_func=main)
+                async def main():
+                    async with Actor:
+                        input_object = await Actor.get_input()
+                        assert input_object is not None
+                        assert input_object['number'] == 123
+                        assert input_object['string'] == 'a string'
+                        assert input_object['nested']['test'] == 1
+                        assert input_object['password'] == 'very secret'
+            """,
+        }
+        actor = await make_actor('actor-get-input', source_files=actor_source_files)
 
-        run_result = await actor.call(run_input={'number': 123, 'string': 'a string', 'nested': {'test': 1}})
+        run_result = await actor.call(run_input={
+            'number': 123,
+            'string': 'a string',
+            'nested': {'test': 1},
+            'password': 'very secret',
+        })
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
