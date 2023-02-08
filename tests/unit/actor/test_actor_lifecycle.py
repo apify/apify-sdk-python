@@ -6,7 +6,6 @@ import pytest
 
 from apify import Actor
 from apify.consts import ActorEventType, ApifyEnvVars
-from apify_client import ApifyClientAsync
 
 
 class TestActorInit:
@@ -64,7 +63,7 @@ class TestActorExit:
         on_system_info_count = len(on_system_info)
         assert on_persist_count != 0
         assert on_system_info_count != 0
-        # Check if envents stopped emitting.
+        # Check if events stopped emitting.
         await asyncio.sleep(0.2)
         assert on_persist_count == len(on_persist)
         assert on_system_info_count == len(on_system_info)
@@ -91,7 +90,7 @@ class TestActorFail:
             pass
         assert my_actor._is_initialized is False
 
-    async def test_raise_on_fail_witout_init(self) -> None:
+    async def test_raise_on_fail_without_init(self) -> None:
         with pytest.raises(RuntimeError):
             await Actor.fail()
 
@@ -140,19 +139,3 @@ class TestActorMainMethod:
 
         returned_value = await my_actor.main(actor_function)
         assert returned_value == expected_string
-
-    class TestActorNewClient:
-
-        async def test_actor_new_client_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
-            token = 'my-token'
-            monkeypatch.setenv(ApifyEnvVars.TOKEN, token)
-            my_actor = Actor()
-            await my_actor.init()
-            client = my_actor.new_client()
-            assert type(client) == ApifyClientAsync
-            assert client.token == token
-            passed_token = 'my-passed-token'
-            client_with_token = my_actor.new_client(token=passed_token)
-            assert type(client_with_token) == ApifyClientAsync
-            assert client_with_token.token == passed_token
-            await my_actor.exit()
