@@ -1,4 +1,3 @@
-
 from apify import Actor
 
 from .conftest import ActorFactory
