@@ -52,7 +52,7 @@ class TestMakeActorFixture:
         test_started_at = datetime.now(timezone.utc)
         actor_source_files = {
             'src/utils.py': """
-                from datetime import datetime
+                from datetime import datetime, timezone
 
                 def get_current_datetime():
                     return datetime.now(timezone.utc)
