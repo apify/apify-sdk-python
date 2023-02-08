@@ -10,7 +10,7 @@ module.exports = {
     title: 'Apify Docs v2',
     tagline: 'Apify Documentation',
     url: absoluteUrl,
-    baseUrl: '/sdk-python',
+    baseUrl: '/api/sdk/python',
     trailingSlash: false,
     organizationName: 'apify',
     projectName: 'apify-sdk-python',
