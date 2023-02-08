@@ -19,9 +19,10 @@ class TestActorPushData:
 
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
-        list_page = await actor.last_run().dataset().list_items(limit=desired_item_count)
+        list_page = await actor.last_run().dataset().list_items()
         assert list_page.items[0]['id'] == 0
         assert list_page.items[-1]['id'] == desired_item_count - 1
+        assert len(list_page.items) == list_page.count == desired_item_count
 
 
 class TestActorOpenDataset:
