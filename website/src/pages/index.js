@@ -22,7 +22,7 @@ function Hero() {
                                 Apify SDK for Python<br /> is a toolkit for<br /> building actors
                             </h1>
                             <h1 className={styles.tagline}>
-                                Apify <span>SDK for Python</span><br /> is a toolkit for<br /> <span>building actors</span>
+                                <span>Apify SDK</span> for <span>Python</span><br /> is a <span>toolkit</span> for<br /> building <span>actors</span>
                             </h1>
                         </div>
                     </div>
