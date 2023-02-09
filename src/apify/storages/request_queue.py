@@ -97,7 +97,7 @@ class RequestQueue:
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """Create a `RequestQueue` instance.
 
-        Do not use the constructor directly, use the `RequestQueue.open` function instead.
+        Do not use the constructor directly, use the `Actor.open_request_queue()` function instead.
 
         Args:
             id (str): ID of the request queue.
@@ -499,8 +499,10 @@ class RequestQueue:
         and depth-first crawling orders.
 
         Args:
-            request_queue_id_or_name (str, optional): ID or name of the request queue to be opened.
-                If not provided, the method returns the default request queue associated with the actor run.
+            id (str, optional): ID of the request queue to be opened.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
+            name (str, optional): Name of the request queue to be opened.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:

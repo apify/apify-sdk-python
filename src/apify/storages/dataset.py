@@ -47,7 +47,7 @@ class Dataset:
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """Create a `Dataset` instance.
 
-        Do not use the constructor directly, use the `Dataset.open` function instead.
+        Do not use the constructor directly, use the `Actor.open_dataset()` function instead.
 
         Args:
             id (str): ID of the dataset.

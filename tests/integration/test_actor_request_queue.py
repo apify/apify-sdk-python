@@ -25,8 +25,8 @@ class TestActorOpenRequestQueue:
             async with Actor:
                 input_object = await Actor.get_input()
                 rq_name = input_object['rqName']
-                rq1 = await Actor.open_request_queue(rq_name)
-                rq2 = await Actor.open_request_queue(rq_name)
+                rq1 = await Actor.open_request_queue(name=rq_name)
+                rq2 = await Actor.open_request_queue(name=rq_name)
                 assert rq1 is rq2
                 await rq1.drop()
 

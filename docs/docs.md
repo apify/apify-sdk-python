@@ -144,7 +144,7 @@ That’s useful if you want to use the client as a different Apify user than the
 
 ***
 
-#### async classmethod open_dataset(dataset_id_or_name=None, \*, force_cloud=False)
+#### async classmethod open_dataset(\*, id=None, name=None, force_cloud=False)
 
 Open a dataset.
 
@@ -154,8 +154,11 @@ The actual data is stored either on the local filesystem or in the Apify cloud.
 
 * **Parameters**
 
-  * **dataset_id_or_name** (`str`, *optional*) – ID or name of the dataset to be opened.
-  If not provided, the method returns the default dataset associated with the actor run.
+  * **id** (`str`, *optional*) – ID of the dataset to be opened.
+  If neither id nor name are provided, the method returns the default dataset associated with the actor run.
+
+  * **name** (`str`, *optional*) – Name of the dataset to be opened.
+  If neither id nor name are provided, the method returns the default dataset associated with the actor run.
 
   * **force_cloud** (`bool`, *optional*) – If set to True then the Apify cloud storage is always used.
   This way it is possible to combine local and cloud storage.
@@ -170,7 +173,7 @@ The actual data is stored either on the local filesystem or in the Apify cloud.
 
 ***
 
-#### async classmethod open_key_value_store(key_value_store_id_or_name=None, \*, force_cloud=False)
+#### async classmethod open_key_value_store(\*, id=None, name=None, force_cloud=False)
 
 Open a key-value store.
 
@@ -180,8 +183,11 @@ The actual data is stored either on a local filesystem or in the Apify cloud.
 
 * **Parameters**
 
-  * **key_value_store_id_or_name** (`str`, *optional*) – ID or name of the key-value store to be opened.
-  If not provided, the method returns the default key-value store associated with the actor run.
+  * **id** (`str`, *optional*) – ID of the key-value store to be opened.
+  If neither id nor name are provided, the method returns the default key-value store associated with the actor run.
+
+  * **name** (`str`, *optional*) – Name of the key-value store to be opened.
+  If neither id nor name are provided, the method returns the default key-value store associated with the actor run.
 
   * **force_cloud** (`bool`, *optional*) – If set to True then the Apify cloud storage is always used.
   This way it is possible to combine local and cloud storage.
@@ -196,7 +202,7 @@ The actual data is stored either on a local filesystem or in the Apify cloud.
 
 ***
 
-#### async classmethod open_request_queue(request_queue_id_or_name=None, \*, force_cloud=False)
+#### async classmethod open_request_queue(\*, id=None, name=None, force_cloud=False)
 
 Open a request queue.
 
@@ -207,8 +213,11 @@ and depth-first crawling orders.
 
 * **Parameters**
 
-  * **request_queue_id_or_name** (`str`, *optional*) – ID or name of the request queue to be opened.
-  If not provided, the method returns the default request queue associated with the actor run.
+  * **id** (`str`, *optional*) – ID of the request queue to be opened.
+  If neither id nor name are provided, the method returns the default request queue associated with the actor run.
+
+  * **name** (`str`, *optional*) – Name of the request queue to be opened.
+  If neither id nor name are provided, the method returns the default request queue associated with the actor run.
 
   * **force_cloud** (`bool`, *optional*) – If set to True then the Apify cloud storage is always used.
   This way it is possible to combine local and cloud storage.

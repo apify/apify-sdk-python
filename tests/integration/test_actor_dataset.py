@@ -47,8 +47,8 @@ class TestActorOpenDataset:
             async with Actor:
                 input_object = await Actor.get_input()
                 dataset_name = input_object['datasetName']
-                dataset1 = await Actor.open_dataset(dataset_name)
-                dataset2 = await Actor.open_dataset(dataset_name)
+                dataset1 = await Actor.open_dataset(name=dataset_name)
+                dataset2 = await Actor.open_dataset(name=dataset_name)
                 assert dataset1 is dataset2
                 await dataset1.drop()
 

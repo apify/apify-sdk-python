@@ -19,7 +19,7 @@ async def test_actor_memory_storage_e2e(monkeypatch: pytest.MonkeyPatch, tmp_pat
     old_client = StorageClientManager.get_storage_client()
     async with Actor:
         old_default_kvs = await Actor.open_key_value_store()
-        old_non_default_kvs = await Actor.open_key_value_store('non-default')
+        old_non_default_kvs = await Actor.open_key_value_store(name='non-default')
         # Create data in default and non-default key-value store
         await old_default_kvs.set_value('test', 'default value')
         await old_non_default_kvs.set_value('test', 'non-default value')
@@ -43,7 +43,7 @@ async def test_actor_memory_storage_e2e(monkeypatch: pytest.MonkeyPatch, tmp_pat
         assert old_client is not StorageClientManager.get_storage_client()
         default_kvs = await Actor.open_key_value_store()
         assert default_kvs is not old_default_kvs
-        non_default_kvs = await Actor.open_key_value_store('non-default')
+        non_default_kvs = await Actor.open_key_value_store(name='non-default')
         assert non_default_kvs is not old_non_default_kvs
         default_value = await default_kvs.get_value('test')
         non_default_value = await non_default_kvs.get_value('test')
