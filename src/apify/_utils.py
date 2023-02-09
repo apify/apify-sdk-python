@@ -96,57 +96,57 @@ def _maybe_extract_enum_member_value(maybe_enum_member: Any) -> Any:
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE) -> Optional[bool]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE) -> Optional[bool]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE, default: bool) -> bool:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE, default: bool) -> bool:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE) -> Optional[Union[datetime, str]]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE) -> Optional[Union[datetime, str]]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE, default: datetime) -> Union[datetime, str]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE, default: datetime) -> Union[datetime, str]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE) -> Optional[float]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE) -> Optional[float]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE, default: float) -> float:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE, default: float) -> float:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE) -> Optional[int]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE) -> Optional[int]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE, default: int) -> int:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE, default: int) -> int:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE, default: str) -> str:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE, default: str) -> str:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE) -> Optional[str]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE) -> Optional[str]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: ApifyEnvVars) -> Optional[Any]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: ApifyEnvVars) -> Optional[Any]:
     ...
 
 
@@ -402,12 +402,12 @@ def _is_running_in_ipython() -> bool:
 
 
 @overload
-def _budget_ow(value: Union[str, int, float, bool], predicate: Tuple[Type, bool], value_name: str) -> None:  # noqa: U100
+def _budget_ow(value: Union[str, int, float, bool], predicate: Tuple[Type, bool], value_name: str) -> None:
     ...
 
 
 @overload
-def _budget_ow(value: Dict, predicate: Dict[str, Tuple[Type, bool]]) -> None:  # noqa: U100
+def _budget_ow(value: Dict, predicate: Dict[str, Tuple[Type, bool]]) -> None:
     ...
 
 

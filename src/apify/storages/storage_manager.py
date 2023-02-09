@@ -18,11 +18,11 @@ class Storage(Protocol[T]):
     """A protocol defining common interface for storage classes."""
 
     @classmethod
-    def _create_instance(cls, storage_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> T:  # noqa: U100
+    def _create_instance(cls, storage_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> T:
         ...
 
     @classmethod
-    def _get_default_name(cls, config: Configuration) -> str:  # noqa: U100
+    def _get_default_name(cls, config: Configuration) -> str:
         ...
 
 

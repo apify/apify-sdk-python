@@ -81,17 +81,17 @@ class KeyValueStore:
 
     @overload
     @classmethod
-    async def get_value(cls, key: str) -> Any:  # noqa: U100
+    async def get_value(cls, key: str) -> Any:
         ...
 
     @overload
     @classmethod
-    async def get_value(cls, key: str, default_value: T) -> T:  # noqa: U100
+    async def get_value(cls, key: str, default_value: T) -> T:
         ...
 
     @overload
     @classmethod
-    async def get_value(cls, key: str, default_value: Optional[T] = None) -> Optional[T]:  # noqa: U100
+    async def get_value(cls, key: str, default_value: Optional[T] = None) -> Optional[T]:
         ...
 
     @classmethod
