@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from apify import Actor
-from apify.consts import ActorEventType, ApifyEnvVars
+from apify.consts import ActorEventTypes, ApifyEnvVars
 
 
 class TestActorInit:
@@ -43,20 +43,20 @@ class TestActorExit:
         on_persist = list()
         on_system_info = list()
 
-        def on_event(event_type: ActorEventType) -> Callable:
+        def on_event(event_type: ActorEventTypes) -> Callable:
             nonlocal on_persist
             nonlocal on_system_info
-            if event_type == ActorEventType.PERSIST_STATE:
+            if event_type == ActorEventTypes.PERSIST_STATE:
                 return lambda data: on_persist.append(data)
-            elif event_type == ActorEventType.SYSTEM_INFO:
+            elif event_type == ActorEventTypes.SYSTEM_INFO:
                 return lambda data: on_system_info.append(data)
             return lambda data: print(data)
 
         my_actor = Actor()
         async with my_actor:
             assert my_actor._is_initialized
-            my_actor.on(ActorEventType.PERSIST_STATE, on_event(ActorEventType.PERSIST_STATE))
-            my_actor.on(ActorEventType.SYSTEM_INFO, on_event(ActorEventType.SYSTEM_INFO))
+            my_actor.on(ActorEventTypes.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
+            my_actor.on(ActorEventTypes.SYSTEM_INFO, on_event(ActorEventTypes.SYSTEM_INFO))
             await asyncio.sleep(1)
 
         on_persist_count = len(on_persist)
@@ -124,7 +124,7 @@ class TestActorMainMethod:
 
         await my_actor.main(actor_function)
         # NOTE: Actor didn't call sys.exit() during testing, check if fail was called.
-        my_actor.fail.assert_called_with(exit_code=91, _exc_type=type(err), _exc_value=err, _exc_traceback=err.__traceback__)
+        my_actor.fail.assert_called_with(exit_code=91, exception=err)
 
         # This is necessary to stop the event emitting intervals
         await my_actor.exit()

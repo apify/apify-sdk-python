@@ -3,7 +3,7 @@ from enum import Enum
 from typing import List, Literal, get_args
 
 
-class ActorEventType(str, Enum):
+class ActorEventTypes(str, Enum):
     """Possible values of actor event type."""
 
     #: Info about resource usage of the actor
