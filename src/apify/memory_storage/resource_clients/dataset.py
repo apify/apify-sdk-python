@@ -1,7 +1,7 @@
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Tuple, Union
 
 import aioshutil
@@ -49,9 +49,9 @@ class DatasetClient:
         self._client = client
         self._name = name
         self._dataset_entries = {}
-        self._created_at = datetime.utcnow()
-        self._accessed_at = datetime.utcnow()
-        self._modified_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
+        self._accessed_at = datetime.now(timezone.utc)
+        self._modified_at = datetime.now(timezone.utc)
 
     async def get(self) -> Optional[Dict]:
         """Retrieve the dataset.
@@ -315,10 +315,10 @@ class DatasetClient:
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
         """Update the timestamps of the dataset."""
-        self._accessed_at = datetime.utcnow()
+        self._accessed_at = datetime.now(timezone.utc)
 
         if has_been_modified:
-            self._modified_at = datetime.utcnow()
+            self._modified_at = datetime.now(timezone.utc)
 
         dataset_info = self.to_dataset_info()
         await _update_metadata(data=dataset_info, entity_directory=self._dataset_directory, write_metadata=self._client._write_metadata)
@@ -370,9 +370,9 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
     id: Union[str, None] = None
     name: Union[str, None] = None
     item_count = 0
-    created_at = datetime.utcnow()
-    accessed_at = datetime.utcnow()
-    modified_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    accessed_at = datetime.now(timezone.utc)
+    modified_at = datetime.now(timezone.utc)
     entries: Dict[str, Dict] = {}
 
     has_seen_metadata_file = False
@@ -389,9 +389,9 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
                 id = metadata['id']
                 name = metadata['name']
                 item_count = metadata['itemCount']
-                created_at = datetime.strptime(metadata['createdAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                accessed_at = datetime.strptime(metadata['accessedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                modified_at = datetime.strptime(metadata['modifiedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                created_at = datetime.fromisoformat(metadata['createdAt'])
+                accessed_at = datetime.fromisoformat(metadata['accessedAt'])
+                modified_at = datetime.fromisoformat(metadata['modifiedAt'])
 
                 continue
 

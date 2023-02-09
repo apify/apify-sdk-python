@@ -3,7 +3,7 @@ import inspect
 import os
 import sys
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
@@ -247,7 +247,7 @@ class Actor(metaclass=_ActorContextManager):
         memory_usage_bytes = _get_memory_usage_bytes()
         # This is in camel case to be compatible with the events from the platform
         result = {
-            'createdAt': datetime.utcnow().isoformat(timespec='milliseconds') + 'Z',
+            'createdAt': datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
             'cpuCurrentUsage': cpu_usage_percent,
             'memCurrentBytes': memory_usage_bytes,
         }

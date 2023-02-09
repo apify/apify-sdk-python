@@ -234,13 +234,6 @@ async def _force_remove(filename: str) -> None:
         await remove(filename)
 
 
-def _json_serializer(obj: Any) -> str:  # TODO: Decide how to parse/dump/handle datetimes!
-    if isinstance(obj, (datetime)):
-        return obj.isoformat(timespec='milliseconds') + 'Z'
-    else:
-        return str(obj)
-
-
 def _filter_out_none_values_recursively(dictionary: Dict) -> Dict:
     """Return copy of the dictionary, recursively omitting all keys for which values are None."""
     return cast(dict, _filter_out_none_values_recursively_internal(dictionary))
@@ -261,7 +254,7 @@ def _filter_out_none_values_recursively_internal(dictionary: Dict, remove_empty_
 
 def _json_dumps(obj: Any) -> str:
     """Dump JSON to a string with the correct settings and serializer."""
-    return json.dumps(obj, ensure_ascii=False, indent=2, default=_json_serializer)
+    return json.dumps(obj, ensure_ascii=False, indent=2, default=str)
 
 
 uuid_regex = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)

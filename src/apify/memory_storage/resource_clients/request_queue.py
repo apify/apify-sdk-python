@@ -1,7 +1,7 @@
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import aioshutil
@@ -43,9 +43,9 @@ class RequestQueueClient:
         self._client = client
         self._name = name
         self._requests = {}
-        self._created_at = datetime.utcnow()
-        self._accessed_at = datetime.utcnow()
-        self._modified_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
+        self._accessed_at = datetime.now(timezone.utc)
+        self._modified_at = datetime.now(timezone.utc)
 
     async def get(self) -> Optional[Dict]:
         """Retrieve the request queue.
@@ -300,10 +300,10 @@ class RequestQueueClient:
         }
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
-        self._accessed_at = datetime.utcnow()
+        self._accessed_at = datetime.now(timezone.utc)
 
         if has_been_modified:
-            self._modified_at = datetime.utcnow()
+            self._modified_at = datetime.now(timezone.utc)
 
         request_queue_info = self.to_request_queue_info()
         await _update_metadata(data=request_queue_info, entity_directory=self._request_queue_directory, write_metadata=self._client._write_metadata)
@@ -336,7 +336,7 @@ class RequestQueueClient:
         if request.get('handledAt') is not None:
             return None
 
-        timestamp = int(round(datetime.utcnow().timestamp()))
+        timestamp = int(round(datetime.now(timezone.utc).timestamp()))
 
         return -timestamp if forefront else timestamp
 
@@ -356,9 +356,9 @@ def _find_or_cache_request_queue_by_possible_id(client: 'MemoryStorage', entry_n
 
     id: Union[str, None] = None
     name: Union[str, None] = None
-    created_at = datetime.utcnow()
-    accessed_at = datetime.utcnow()
-    modified_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    accessed_at = datetime.now(timezone.utc)
+    modified_at = datetime.now(timezone.utc)
     handled_request_count = 0
     pending_request_count = 0
     entries: List[Dict] = []
@@ -372,9 +372,9 @@ def _find_or_cache_request_queue_by_possible_id(client: 'MemoryStorage', entry_n
                     metadata = json.load(f)
                 id = metadata['id']
                 name = metadata['name']
-                created_at = datetime.strptime(metadata['createdAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                accessed_at = datetime.strptime(metadata['accessedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                modified_at = datetime.strptime(metadata['modifiedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                created_at = datetime.fromisoformat(metadata['createdAt'])
+                accessed_at = datetime.fromisoformat(metadata['accessedAt'])
+                modified_at = datetime.fromisoformat(metadata['modifiedAt'])
                 handled_request_count = metadata['handledRequestCount']
                 pending_request_count = metadata['pendingRequestCount']
 

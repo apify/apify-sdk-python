@@ -52,10 +52,10 @@ class TestMakeActorFixture:
         test_started_at = datetime.now(timezone.utc)
         actor_source_files = {
             'src/utils.py': """
-                from datetime import datetime
+                from datetime import datetime, timezone
 
                 def get_current_datetime():
-                    return datetime.utcnow()
+                    return datetime.now(timezone.utc)
             """,
             'src/main.py': """
                 import asyncio
@@ -77,7 +77,7 @@ class TestMakeActorFixture:
         output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
         assert output_record is not None
 
-        output_datetime = datetime.fromisoformat(output_record['value']).replace(tzinfo=timezone.utc)
+        output_datetime = datetime.fromisoformat(output_record['value'])
         assert output_datetime > test_started_at
         assert output_datetime < datetime.now(timezone.utc)
 

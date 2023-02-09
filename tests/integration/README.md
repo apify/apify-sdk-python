@@ -113,10 +113,10 @@ if you need something really complex:
 async def test_something(self, make_actor: ActorFactory) -> None:
     actor_source_files = {
         'src/utils.py': """
-            from datetime import datetime
+            from datetime import datetime, timezone
 
             def get_current_datetime():
-                return datetime.utcnow()
+                return datetime.now(timezone.utc)
         """,
         'src/main.py': """
             import asyncio

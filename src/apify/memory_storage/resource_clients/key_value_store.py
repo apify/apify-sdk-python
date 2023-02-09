@@ -5,7 +5,7 @@ import os
 import pathlib
 import uuid
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Optional, Union
 
@@ -49,9 +49,9 @@ class KeyValueStoreClient:
         self._client = client
         self._name = name
         self._key_value_entries = {}
-        self._created_at = datetime.utcnow()
-        self._accessed_at = datetime.utcnow()
-        self._modified_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
+        self._accessed_at = datetime.now(timezone.utc)
+        self._modified_at = datetime.now(timezone.utc)
 
     async def get(self) -> Optional[Dict]:
         """Retrieve the key-value store.
@@ -315,10 +315,10 @@ class KeyValueStoreClient:
         }
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
-        self._accessed_at = datetime.utcnow()
+        self._accessed_at = datetime.now(timezone.utc)
 
         if has_been_modified:
-            self._modified_at = datetime.utcnow()
+            self._modified_at = datetime.now(timezone.utc)
 
         kv_store_info = self.to_key_value_store_info()
         await _update_metadata(data=kv_store_info, entity_directory=self._key_value_store_directory, write_metadata=self._client._write_metadata)
@@ -339,9 +339,9 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
 
     id: Union[str, None] = None
     name: Union[str, None] = None
-    created_at = datetime.utcnow()
-    accessed_at = datetime.utcnow()
-    modified_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    accessed_at = datetime.now(timezone.utc)
+    modified_at = datetime.now(timezone.utc)
     internal_records: Dict[str, Dict] = {}
 
     # Access the key value store folder
@@ -353,9 +353,9 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                     metadata = json.load(f)
                 id = metadata['id']
                 name = metadata['name']
-                created_at = datetime.strptime(metadata['createdAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                accessed_at = datetime.strptime(metadata['accessedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                modified_at = datetime.strptime(metadata['modifiedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                created_at = datetime.fromisoformat(metadata['createdAt'])
+                accessed_at = datetime.fromisoformat(metadata['accessedAt'])
+                modified_at = datetime.fromisoformat(metadata['modifiedAt'])
 
                 continue
 
