@@ -1,8 +1,9 @@
+import re
 from enum import Enum
 from typing import List, Literal, get_args
 
 
-class ActorEventType(str, Enum):
+class ActorEventTypes(str, Enum):
     """Possible values of actor event type."""
 
     #: Info about resource usage of the actor
@@ -47,6 +48,7 @@ class ApifyEnvVars(str, Enum):
     LOCAL_STORAGE_DIR = 'APIFY_LOCAL_STORAGE_DIR'
     LOG_FORMAT = 'APIFY_LOG_FORMAT'
     LOG_LEVEL = 'APIFY_LOG_LEVEL'
+    MAX_USED_CPU_RATIO = 'APIFY_MAX_USED_CPU_RATIO'
     MEMORY_MBYTES = 'APIFY_MEMORY_MBYTES'
     META_ORIGIN = 'APIFY_META_ORIGIN'
     PERSIST_STORAGE = 'APIFY_PERSIST_STORAGE'
@@ -81,6 +83,12 @@ _INTEGER_ENV_VARS_TYPE = Literal[
 ]
 
 INTEGER_ENV_VARS: List[_INTEGER_ENV_VARS_TYPE] = list(get_args(_INTEGER_ENV_VARS_TYPE))
+
+_FLOAT_ENV_VARS_TYPE = Literal[
+    ApifyEnvVars.MAX_USED_CPU_RATIO,
+]
+
+FLOAT_ENV_VARS: List[_FLOAT_ENV_VARS_TYPE] = list(get_args(_FLOAT_ENV_VARS_TYPE))
 
 _BOOL_ENV_VARS_TYPE = Literal[
     ApifyEnvVars.DISABLE_BROWSER_SANDBOX,
@@ -159,3 +167,7 @@ REQUEST_ID_LENGTH = 15
 REQUEST_QUEUE_HEAD_MAX_LIMIT = 1000
 
 EVENT_LISTENERS_TIMEOUT_SECS = 5
+
+BASE64_REGEXP = '[-A-Za-z0-9+/]*={0,3}'
+ENCRYPTED_INPUT_VALUE_PREFIX = 'ENCRYPTED_VALUE'
+ENCRYPTED_INPUT_VALUE_REGEXP = re.compile(f'^{ENCRYPTED_INPUT_VALUE_PREFIX}:({BASE64_REGEXP}):({BASE64_REGEXP})$')

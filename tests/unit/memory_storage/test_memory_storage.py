@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from apify.consts import ApifyEnvVars
 from apify.memory_storage import MemoryStorage
 
 
@@ -118,3 +119,25 @@ async def test_purge_request_queues(tmp_path: str) -> None:
     folders_after_purge = os.listdir(ms._request_queues_directory)
     assert default_rq_info['name'] not in folders_after_purge
     assert non_default_rq_info['name'] in folders_after_purge
+
+
+async def test_not_implemented_method(tmp_path: str) -> None:
+    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+    ddt = ms.dataset('test')
+    with pytest.raises(NotImplementedError):
+        await ddt.stream_items(item_format='json')
+
+    with pytest.raises(NotImplementedError):
+        await ddt.stream_items(item_format='json')
+
+
+async def test_storage_path_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    default_ms = MemoryStorage()
+    assert default_ms._local_data_directory == './storage'
+    # We expect the env var to override the default value
+    monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, './env_var_storage_dir')
+    env_var_ms = MemoryStorage()
+    assert env_var_ms._local_data_directory == './env_var_storage_dir'
+    # We expect the parametrized value to override the env var
+    parametrized_ms = MemoryStorage(local_data_directory='./parametrized_storage_dir')
+    assert parametrized_ms._local_data_directory == './parametrized_storage_dir'

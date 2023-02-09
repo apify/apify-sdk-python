@@ -3,25 +3,27 @@ import inspect
 import os
 import sys
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
 from apify_client.consts import WebhookEventType
 
+from ._crypto import _decrypt_input_secrets, _load_private_key
 from ._utils import (
     _fetch_and_parse_env_var,
     _get_cpu_usage_percent,
     _get_memory_usage_bytes,
     _is_running_in_ipython,
     _log_system_info,
+    _maybe_extract_enum_member_value,
     _run_func_at_interval_async,
     _wrap_internal,
     dualproperty,
 )
 from .config import Configuration
-from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventType, ActorExitCodes, ApifyEnvVars
+from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventTypes, ActorExitCodes, ApifyEnvVars
 from .event_manager import EventManager
 from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
@@ -43,17 +45,15 @@ class _ActorContextManager(type):
 
     @staticmethod
     async def __aexit__(
-        exc_type: Optional[Type[BaseException]],
+        _exc_type: Optional[Type[BaseException]],
         exc_value: Optional[BaseException],
-        exc_traceback: Optional[TracebackType],
+        _exc_traceback: Optional[TracebackType],
     ) -> None:
         if not Actor._get_default_instance()._is_exiting:
-            if exc_type:
+            if exc_value:
                 await Actor.fail(
                     exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW.value,
-                    _exc_type=exc_type,
-                    _exc_value=exc_value,
-                    _exc_traceback=exc_traceback,
+                    exception=exc_value,
                 )
             else:
                 await Actor.exit()
@@ -132,9 +132,9 @@ class Actor(metaclass=_ActorContextManager):
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        _exc_type: Optional[Type[BaseException]],
         exc_value: Optional[BaseException],
-        exc_traceback: Optional[TracebackType],
+        _exc_traceback: Optional[TracebackType],
     ) -> None:
         """Exit the Actor, handling any exceptions properly.
 
@@ -143,12 +143,10 @@ class Actor(metaclass=_ActorContextManager):
         the `Actor.fail` method is called.
         """
         if not self._is_exiting:
-            if exc_type:
+            if exc_value:
                 await self.fail(
                     exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW.value,
-                    _exc_type=exc_type,
-                    _exc_value=exc_value,
-                    _exc_traceback=exc_traceback,
+                    exception=exc_value,
                 )
             else:
                 await self.exit()
@@ -218,7 +216,7 @@ class Actor(metaclass=_ActorContextManager):
 
         self._send_persist_state_interval_task = asyncio.create_task(
             _run_func_at_interval_async(
-                lambda: self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False}),
+                lambda: self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False}),
                 self._config.persist_state_interval_millis / 1000,
             ),
         )
@@ -228,12 +226,12 @@ class Actor(metaclass=_ActorContextManager):
         else:
             self._send_system_info_interval_task = asyncio.create_task(
                 _run_func_at_interval_async(
-                    lambda: self._event_manager.emit(ActorEventType.SYSTEM_INFO, self._get_system_info()),
+                    lambda: self._event_manager.emit(ActorEventTypes.SYSTEM_INFO, self._get_system_info()),
                     self._config.system_info_interval_millis / 1000,
                 ),
             )
 
-        self._event_manager.on(ActorEventType.MIGRATING, self._respond_to_migrating_event)
+        self._event_manager.on(ActorEventTypes.MIGRATING, self._respond_to_migrating_event)
 
         # The CPU usage is calculated as an average between two last calls to psutil
         # We need to make a first, dummy call, so the next calls have something to compare itself agains
@@ -246,7 +244,7 @@ class Actor(metaclass=_ActorContextManager):
         memory_usage_bytes = _get_memory_usage_bytes()
         # This is in camel case to be compatible with the events from the platform
         result = {
-            'createdAt': datetime.utcnow().isoformat(timespec='milliseconds') + 'Z',
+            'createdAt': datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
             'cpuCurrentUsage': cpu_usage_percent,
             'memCurrentBytes': memory_usage_bytes,
         }
@@ -259,7 +257,7 @@ class Actor(metaclass=_ActorContextManager):
         # Don't emit any more regular persist state events
         if self._send_persist_state_interval_task:
             self._send_persist_state_interval_task.cancel()
-        self._event_manager.emit(ActorEventType.PERSIST_STATE, {'is_migrating': True})
+        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'is_migrating': True})
 
     async def _cancel_event_emitting_intervals(self) -> None:
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
@@ -310,12 +308,14 @@ class Actor(metaclass=_ActorContextManager):
 
         self._is_exiting = True
 
+        exit_code = _maybe_extract_enum_member_value(exit_code)
+
         print(f'Exiting actor with exit code {exit_code}')
 
         await self._cancel_event_emitting_intervals()
 
         # Send final persist state event
-        self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': False})
+        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
 
         # Sleep for a bit so that the listeners have a chance to trigger,
         await asyncio.sleep(0.1)
@@ -336,9 +336,7 @@ class Actor(metaclass=_ActorContextManager):
         cls,
         *,
         exit_code: int = 1,
-        _exc_type: Optional[Type[BaseException]] = None,
-        _exc_value: Optional[BaseException] = None,
-        _exc_traceback: Optional[TracebackType] = None,
+        exception: Optional[BaseException] = None,
     ) -> None:
         """Fail the actor instance.
 
@@ -347,29 +345,26 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             exit_code (int, optional): The exit code with which the actor should fail (defaults to `1`).
+            exception (BaseException, optional): The exception with which the actor failed.
         """
         return await cls._get_default_instance().fail(
             exit_code=exit_code,
-            _exc_type=_exc_type,
-            _exc_value=_exc_value,
-            _exc_traceback=_exc_traceback,
+            exception=exception,
         )
 
     async def _fail_internal(
         self,
         *,
         exit_code: int = 1,
-        _exc_type: Optional[Type[BaseException]] = None,
-        _exc_value: Optional[BaseException] = None,
-        _exc_traceback: Optional[TracebackType] = None,
+        exception: Optional[BaseException] = None,
     ) -> None:
         self._raise_if_not_initialized()
 
         # In IPython, we don't run `sys.exit()` during actor exits,
         # so the exception traceback will be printed on its own
-        if _exc_type and not _is_running_in_ipython():
+        if exception and not _is_running_in_ipython():
             print('Actor failed with an exception:')
-            traceback.print_exception(_exc_type, _exc_value, _exc_traceback)
+            traceback.print_exception(type(exception), exception, exception.__traceback__)
 
         await self.exit(exit_code=exit_code)
 
@@ -414,9 +409,7 @@ class Actor(metaclass=_ActorContextManager):
         except Exception as e:
             await self.fail(
                 exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW.value,
-                _exc_type=type(e),
-                _exc_value=e,
-                _exc_traceback=e.__traceback__,
+                exception=e,
             )
         return None
 
@@ -477,7 +470,7 @@ class Actor(metaclass=_ActorContextManager):
         return self._apify_client if force_cloud else None
 
     @classmethod
-    async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
+    async def open_dataset(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         """Open a dataset.
 
         Datasets are used to store structured data where each object stored has the same attributes,
@@ -485,8 +478,10 @@ class Actor(metaclass=_ActorContextManager):
         The actual data is stored either on the local filesystem or in the Apify cloud.
 
         Args:
-            dataset_id_or_name (str, optional): ID or name of the dataset to be opened.
-                If not provided, the method returns the default dataset associated with the actor run.
+            id (str, optional): ID of the dataset to be opened.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
+            name (str, optional): Name of the dataset to be opened.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
@@ -494,15 +489,16 @@ class Actor(metaclass=_ActorContextManager):
             Dataset: An instance of the `Dataset` class for the given ID or name.
 
         """
-        return await cls._get_default_instance().open_dataset(dataset_id_or_name=dataset_id_or_name, force_cloud=force_cloud)
+        return await cls._get_default_instance().open_dataset(id=id, name=name, force_cloud=force_cloud)
 
-    async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
+    async def _open_dataset_internal(self, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         self._raise_if_not_initialized()
 
+        dataset_id_or_name = id or name
         return await StorageManager.open_storage(Dataset, dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
+    async def open_key_value_store(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         """Open a key-value store.
 
         Key-value stores are used to store records or files, along with their MIME content type.
@@ -510,23 +506,32 @@ class Actor(metaclass=_ActorContextManager):
         The actual data is stored either on a local filesystem or in the Apify cloud.
 
         Args:
-            key_value_store_id_or_name (str, optional): ID or name of the key-value store to be opened.
-                If not provided, the method returns the default key-value store associated with the actor run.
+            id (str, optional): ID of the key-value store to be opened.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
+            name (str, optional): Name of the key-value store to be opened.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
         Returns:
             KeyValueStore: An instance of the `KeyValueStore` class for the given ID or name.
         """
-        return await cls._get_default_instance().open_key_value_store(key_value_store_id_or_name=key_value_store_id_or_name, force_cloud=force_cloud)
+        return await cls._get_default_instance().open_key_value_store(id=id, name=name, force_cloud=force_cloud)
 
-    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
+    async def _open_key_value_store_internal(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        force_cloud: bool = False,
+    ) -> KeyValueStore:
         self._raise_if_not_initialized()
 
+        key_value_store_id_or_name = id or name
         return await StorageManager.open_storage(KeyValueStore, key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> RequestQueue:
+    async def open_request_queue(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> RequestQueue:
         """Open a request queue.
 
         Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
@@ -535,24 +540,28 @@ class Actor(metaclass=_ActorContextManager):
         and depth-first crawling orders.
 
         Args:
-            request_queue_id_or_name (str, optional): ID or name of the request queue to be opened.
-                If not provided, the method returns the default request queue associated with the actor run.
+            id (str, optional): ID of the request queue to be opened.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
+            name (str, optional): Name of the request queue to be opened.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
         Returns:
             RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
         """
-        return await cls._get_default_instance().open_request_queue(request_queue_id_or_name=request_queue_id_or_name, force_cloud=force_cloud)
+        return await cls._get_default_instance().open_request_queue(id=id, name=name, force_cloud=force_cloud)
 
     async def _open_request_queue_internal(
         self,
-        request_queue_id_or_name: Optional[str] = None,
         *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
         force_cloud: bool = False,
     ) -> RequestQueue:
         self._raise_if_not_initialized()
 
+        request_queue_id_or_name = id or name
         return await StorageManager.open_storage(RequestQueue, request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
@@ -570,7 +579,7 @@ class Actor(metaclass=_ActorContextManager):
         if not data:
             return
 
-        if not isinstance(data, list):  # TODO: Memory storage does this on its own...
+        if not isinstance(data, list):
             data = [data]
 
         dataset = await self.open_dataset()
@@ -584,9 +593,17 @@ class Actor(metaclass=_ActorContextManager):
     async def _get_input_internal(self) -> Any:
         self._raise_if_not_initialized()
 
-        # TODO: decryption
+        input_value = await self.get_value(self._config.input_key)
+        input_secrets_private_key = self._config.input_secrets_private_key_file
+        input_secrets_key_passphrase = self._config.input_secrets_private_key_passphrase
+        if input_secrets_private_key and input_secrets_key_passphrase:
+            private_key = _load_private_key(
+                input_secrets_private_key,
+                input_secrets_key_passphrase,
+            )
+            input_value = _decrypt_input_secrets(private_key, input_value)
 
-        return await self.get_value(self._config.input_key)
+        return input_value
 
     @classmethod
     async def get_value(cls, key: str) -> Any:
@@ -638,49 +655,49 @@ class Actor(metaclass=_ActorContextManager):
         return await key_value_store.set_value(key, value, content_type=content_type)
 
     @classmethod
-    def on(cls, event_name: ActorEventType, listener: Callable) -> Callable:
+    def on(cls, event_name: ActorEventTypes, listener: Callable) -> Callable:
         """Add an event listener to the actor's event manager.
 
         The following events can be emitted:
-         - `ActorEventType.SYSTEM_INFO`:
+         - `ActorEventTypes.SYSTEM_INFO`:
             Emitted every minute, the event data contains info about the resource usage of the actor.
-         - `ActorEventType.MIGRATING`:
+         - `ActorEventTypes.MIGRATING`:
             Emitted when the actor running on the Apify platform is going to be migrated to another worker server soon.
             You can use it to persist the state of the actor and abort the run, to speed up the migration.
-         - `ActorEventType.PERSIST_STATE`:
+         - `ActorEventTypes.PERSIST_STATE`:
             Emitted in regular intervals (by default 60 seconds) to notify the actor that it should persist its state,
             in order to avoid repeating all work when the actor restarts.
             This event is automatically emitted together with the migrating event,
             in which case the `isMigrating` flag in the event data is set to True, otherwise the flag is False.
             Note that this event is provided merely for your convenience,
             you can achieve the same effect using an interval and listening for the migrating event.
-         - `ActorEventType.ABORTING`:
+         - `ActorEventTypes.ABORTING`:
             When a user aborts an actor run on the Apify platform,
             they can choose to abort it gracefully, to allow the actor some time before getting terminated.
             This graceful abort emits the aborting event, which you can use to clean up the actor state.
 
         Args:
-            event_name (ActorEventType): The actor event for which to listen to.
+            event_name (ActorEventTypes): The actor event for which to listen to.
             listener (Callable): The function which is to be called when the event is emitted (can be async).
         """
         return cls._get_default_instance().on(event_name, listener)
 
-    def _on_internal(self, event_name: ActorEventType, listener: Callable) -> Callable:
+    def _on_internal(self, event_name: ActorEventTypes, listener: Callable) -> Callable:
         self._raise_if_not_initialized()
 
         return self._event_manager.on(event_name, listener)
 
     @classmethod
-    def off(cls, event_name: ActorEventType, listener: Optional[Callable] = None) -> None:
+    def off(cls, event_name: ActorEventTypes, listener: Optional[Callable] = None) -> None:
         """Remove a listener, or all listeners, from an actor event.
 
         Args:
-            event_name (ActorEventType): The actor event for which to remove listeners.
+            event_name (ActorEventTypes): The actor event for which to remove listeners.
             listener (Callable, optional): The listener which is supposed to be removed. If not passed, all listeners of this event are removed.
         """
         return cls._get_default_instance().off(event_name, listener)
 
-    def _off_internal(self, event_name: ActorEventType, listener: Optional[Callable] = None) -> None:
+    def _off_internal(self, event_name: ActorEventTypes, listener: Optional[Callable] = None) -> None:
         self._raise_if_not_initialized()
 
         return self._event_manager.off(event_name, listener)
@@ -698,7 +715,7 @@ class Actor(metaclass=_ActorContextManager):
         """Return a dictionary with information parsed from all the `APIFY_XXX` environment variables.
 
         For a list of all the environment variables,
-        see the [Actor documentation](https://docs.apify.com/actor/run#environment-variables).
+        see the [Actor documentation](https://docs.apify.com/actors/development/environment-variables).
         If some variables are not defined or are invalid, the corresponding value in the resulting dictionary will be None.
         """
         return cls._get_default_instance().get_env()
@@ -1092,7 +1109,7 @@ class Actor(metaclass=_ActorContextManager):
 
         await self._cancel_event_emitting_intervals()
 
-        self._event_manager.emit(ActorEventType.PERSIST_STATE, {'isMigrating': True})
+        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
 
         await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from apify import Actor
-from apify.consts import ActorEventType, ApifyEnvVars
+from apify.consts import ActorEventTypes, ApifyEnvVars
 
 
 class TestActorInit:
@@ -13,7 +13,6 @@ class TestActorInit:
     async def test_async_with_actor_properly_initialize(self) -> None:
         async with Actor:
             assert Actor._get_default_instance()._is_initialized
-            # TODO: More checks
         assert Actor._get_default_instance()._is_initialized is False
 
     async def test_actor_init(self) -> None:
@@ -44,27 +43,27 @@ class TestActorExit:
         on_persist = list()
         on_system_info = list()
 
-        def on_event(event_type: ActorEventType) -> Callable:
+        def on_event(event_type: ActorEventTypes) -> Callable:
             nonlocal on_persist
             nonlocal on_system_info
-            if event_type == ActorEventType.PERSIST_STATE:
+            if event_type == ActorEventTypes.PERSIST_STATE:
                 return lambda data: on_persist.append(data)
-            elif event_type == ActorEventType.SYSTEM_INFO:
+            elif event_type == ActorEventTypes.SYSTEM_INFO:
                 return lambda data: on_system_info.append(data)
             return lambda data: print(data)
 
         my_actor = Actor()
         async with my_actor:
             assert my_actor._is_initialized
-            my_actor.on(ActorEventType.PERSIST_STATE, on_event(ActorEventType.PERSIST_STATE))
-            my_actor.on(ActorEventType.SYSTEM_INFO, on_event(ActorEventType.SYSTEM_INFO))
+            my_actor.on(ActorEventTypes.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
+            my_actor.on(ActorEventTypes.SYSTEM_INFO, on_event(ActorEventTypes.SYSTEM_INFO))
             await asyncio.sleep(1)
 
         on_persist_count = len(on_persist)
         on_system_info_count = len(on_system_info)
         assert on_persist_count != 0
         assert on_system_info_count != 0
-        # Check if envents stopped emitting.
+        # Check if events stopped emitting.
         await asyncio.sleep(0.2)
         assert on_persist_count == len(on_persist)
         assert on_system_info_count == len(on_system_info)
@@ -77,23 +76,21 @@ class TestActorExit:
 class TestActorFail:
 
     async def test_with_actor_fail(self) -> None:
-        my_actr = Actor()
-        async with my_actr:
-            assert my_actr._is_initialized
-            await my_actr.fail()
-        assert my_actr._is_initialized is False
+        async with Actor() as my_actor:
+            assert my_actor._is_initialized
+            await my_actor.fail()
+        assert my_actor._is_initialized is False
 
     async def test_with_actor_failed(self) -> None:
-        my_actor = Actor()
         try:
-            async with my_actor:
+            async with Actor() as my_actor:
                 assert my_actor._is_initialized
                 raise Exception('Failed')
         except Exception:
             pass
         assert my_actor._is_initialized is False
 
-    async def test_raise_on_fail_witout_init(self) -> None:
+    async def test_raise_on_fail_without_init(self) -> None:
         with pytest.raises(RuntimeError):
             await Actor.fail()
 
@@ -127,7 +124,10 @@ class TestActorMainMethod:
 
         await my_actor.main(actor_function)
         # NOTE: Actor didn't call sys.exit() during testing, check if fail was called.
-        my_actor.fail.assert_called_with(exit_code=91, _exc_type=type(err), _exc_value=err, _exc_traceback=err.__traceback__)
+        my_actor.fail.assert_called_with(exit_code=91, exception=err)
+
+        # This is necessary to stop the event emitting intervals
+        await my_actor.exit()
 
     async def test_actor_main_method_raise_return_value(self) -> None:
         my_actor = Actor()

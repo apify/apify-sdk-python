@@ -5,7 +5,7 @@ import os
 import pathlib
 import uuid
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Optional, Union
 
@@ -31,7 +31,7 @@ DEFAULT_LOCAL_FILE_EXTENSION = 'bin'
 
 
 class KeyValueStoreClient:
-    """TODO: docs."""
+    """Sub-client for manipulating a single key-value store."""
 
     _id: str
     _key_value_store_directory: str
@@ -43,18 +43,22 @@ class KeyValueStoreClient:
     _modified_at: datetime
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
-        """TODO: docs."""
+        """Initialize the KeyValueStoreClient."""
         self._id = str(uuid.uuid4()) if id is None else id
         self._key_value_store_directory = os.path.join(base_storage_directory, name or self._id)
         self._client = client
         self._name = name
         self._key_value_entries = {}
-        self._created_at = datetime.utcnow()
-        self._accessed_at = datetime.utcnow()
-        self._modified_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
+        self._accessed_at = datetime.now(timezone.utc)
+        self._modified_at = datetime.now(timezone.utc)
 
     async def get(self) -> Optional[Dict]:
-        """TODO: docs."""
+        """Retrieve the key-value store.
+
+        Returns:
+            dict, optional: The retrieved key-value store, or None if it does not exist
+        """
         found = _find_or_cache_key_value_store_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if found:
@@ -64,7 +68,14 @@ class KeyValueStoreClient:
         return None
 
     async def update(self, *, name: Optional[str] = None) -> Dict:
-        """TODO: docs."""
+        """Update the key-value store with specified fields.
+
+        Args:
+            name (str, optional): The new name for key-value store
+
+        Returns:
+            dict: The updated key-value store
+        """
         # Check by id
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
@@ -96,7 +107,7 @@ class KeyValueStoreClient:
         return existing_store_by_id.to_key_value_store_info()
 
     async def delete(self) -> None:
-        """TODO: docs."""
+        """Delete the key-value store."""
         store = next((store for store in self._client._key_value_stores_handled if store._id == self._id), None)
 
         if store is not None:
@@ -107,7 +118,15 @@ class KeyValueStoreClient:
                 await aioshutil.rmtree(store._key_value_store_directory)
 
     async def list_keys(self, *, limit: int = DEFAULT_API_PARAM_LIMIT, exclusive_start_key: Optional[str] = None) -> Dict:
-        """TODO: docs."""
+        """List the keys in the key-value store.
+
+        Args:
+            limit (int, optional): Number of keys to be returned. Maximum value is 1000
+            exclusive_start_key (str, optional): All keys up to this one (including) are skipped from the result
+
+        Returns:
+            dict: The list of keys in the key-value store matching the given arguments
+        """
         # Check by id
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self._client, self._name or self._id)
 
@@ -187,19 +206,38 @@ class KeyValueStoreClient:
         return record
 
     async def get_record(self, key: str) -> Optional[Dict]:
-        """TODO: docs."""
+        """Retrieve the given record from the key-value store.
+
+        Args:
+            key (str): Key of the record to retrieve
+
+        Returns:
+            dict, optional: The requested record, or None, if the record does not exist
+        """
         return await self._get_record_internal(key)
 
     async def get_record_as_bytes(self, key: str) -> Optional[Dict]:
-        """TODO: docs."""
+        """Retrieve the given record from the key-value store, without parsing it.
+
+        Args:
+            key (str): Key of the record to retrieve
+
+        Returns:
+            dict, optional: The requested record, or None, if the record does not exist
+        """
         return await self._get_record_internal(key, as_bytes=True)
 
-    async def stream_record(self, _key: str) -> AsyncIterator[Optional[Dict]]:
-        """TODO: docs."""
+    async def stream_record(self, _key: str) -> AsyncIterator[Optional[Dict]]:  # noqa: D102
         raise NotImplementedError('This method is not supported in local memory storage')
 
     async def set_record(self, key: str, value: Any, content_type: Optional[str] = None) -> None:
-        """TODO: docs."""
+        """Set a value to the given record in the key-value store.
+
+        Args:
+            key (str): The key of the record to save the value to
+            value (Any): The value to save into the record
+            content_type (str, optional): The content type of the saved value
+        """
         # Check by id
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self._client, self._name or self._id)
 
@@ -241,7 +279,11 @@ class KeyValueStoreClient:
         )
 
     async def delete_record(self, key: str) -> None:
-        """TODO: docs."""
+        """Delete the specified record from the key-value store.
+
+        Args:
+            key (str): The key of the record which to delete
+        """
         # Check by id
         existing_store_by_id = _find_or_cache_key_value_store_by_possible_id(self._client, self._name or self._id)
 
@@ -262,7 +304,7 @@ class KeyValueStoreClient:
             )
 
     def to_key_value_store_info(self) -> Dict:
-        """TODO: docs."""
+        """Retrieve the key-value store info."""
         return {
             'id': self._id,
             'name': self._name,
@@ -273,11 +315,10 @@ class KeyValueStoreClient:
         }
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
-        """TODO: docs."""
-        self._accessed_at = datetime.utcnow()
+        self._accessed_at = datetime.now(timezone.utc)
 
         if has_been_modified:
-            self._modified_at = datetime.utcnow()
+            self._modified_at = datetime.now(timezone.utc)
 
         kv_store_info = self.to_key_value_store_info()
         await _update_metadata(data=kv_store_info, entity_directory=self._key_value_store_directory, write_metadata=self._client._write_metadata)
@@ -298,9 +339,9 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
 
     id: Union[str, None] = None
     name: Union[str, None] = None
-    created_at = datetime.utcnow()
-    accessed_at = datetime.utcnow()
-    modified_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    accessed_at = datetime.now(timezone.utc)
+    modified_at = datetime.now(timezone.utc)
     internal_records: Dict[str, Dict] = {}
 
     # Access the key value store folder
@@ -312,9 +353,9 @@ def _find_or_cache_key_value_store_by_possible_id(client: 'MemoryStorage', entry
                     metadata = json.load(f)
                 id = metadata['id']
                 name = metadata['name']
-                created_at = datetime.strptime(metadata['createdAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                accessed_at = datetime.strptime(metadata['accessedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                modified_at = datetime.strptime(metadata['modifiedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                created_at = datetime.fromisoformat(metadata['createdAt'])
+                accessed_at = datetime.fromisoformat(metadata['accessedAt'])
+                modified_at = datetime.fromisoformat(metadata['modifiedAt'])
 
                 continue
 

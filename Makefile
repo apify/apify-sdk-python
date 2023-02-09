@@ -1,4 +1,7 @@
-.PHONY: clean install-dev lint test type-check check-code format docs check-docs
+.PHONY: clean install-dev lint unit-tests integration-tests type-check check-code format docs check-docs check-changelog-entry
+
+# This is default for local testing, but GitHub workflows override it to a higher value in CI
+INTEGRATION_TESTS_CONCURRENCY = 1
 
 clean:
 	rm -rf build dist .mypy_cache .pytest_cache src/*.egg-info __pycache__
@@ -16,7 +19,7 @@ unit-tests:
 	python3 -m pytest -n auto -ra tests/unit
 
 integration-tests:
-	python3 -m pytest -ra tests/integration
+	python3 -m pytest -n $(INTEGRATION_TESTS_CONCURRENCY) -ra tests/integration
 
 type-check:
 	python3 -m mypy

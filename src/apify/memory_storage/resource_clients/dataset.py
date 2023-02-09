@@ -1,7 +1,7 @@
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Tuple, Union
 
 import aioshutil
@@ -30,7 +30,7 @@ LOCAL_ENTRY_NAME_DIGITS = 9
 
 
 class DatasetClient:
-    """TODO: docs."""
+    """Sub-client for manipulating a single dataset."""
 
     _id: str
     _dataset_directory: str
@@ -43,18 +43,22 @@ class DatasetClient:
     _item_count = 0
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
-        """TODO: docs."""
+        """Initialize the DatasetClient."""
         self._id = str(uuid.uuid4()) if id is None else id
         self._dataset_directory = os.path.join(base_storage_directory, name or self._id)
         self._client = client
         self._name = name
         self._dataset_entries = {}
-        self._created_at = datetime.utcnow()
-        self._accessed_at = datetime.utcnow()
-        self._modified_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
+        self._accessed_at = datetime.now(timezone.utc)
+        self._modified_at = datetime.now(timezone.utc)
 
     async def get(self) -> Optional[Dict]:
-        """TODO: docs."""
+        """Retrieve the dataset.
+
+        Returns:
+            dict, optional: The retrieved dataset, or None, if it does not exist
+        """
         found = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
         if found:
@@ -64,7 +68,14 @@ class DatasetClient:
         return None
 
     async def update(self, *, name: Optional[str] = None) -> Dict:
-        """TODO: docs."""
+        """Update the dataset with specified fields.
+
+        Args:
+            name (str, optional): The new name for the dataset
+
+        Returns:
+            dict: The updated dataset
+        """
         # Check by id
         existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
@@ -96,7 +107,7 @@ class DatasetClient:
         return existing_dataset_by_id.to_dataset_info()
 
     async def delete(self) -> None:
-        """TODO: docs."""
+        """Delete the dataset."""
         dataset = next((dataset for dataset in self._client._datasets_handled if dataset._id == self._id), None)
 
         if dataset is not None:
@@ -122,7 +133,35 @@ class DatasetClient:
         flatten: Optional[List[str]] = None,  # noqa: U100
         view: Optional[str] = None,  # noqa: U100
     ) -> ListPage:
-        """TODO: docs."""
+        """List the items of the dataset.
+
+        Args:
+            offset (int, optional): Number of items that should be skipped at the start. The default value is 0
+            limit (int, optional): Maximum number of items to return. By default there is no limit.
+            desc (bool, optional): By default, results are returned in the same order as they were stored.
+                To reverse the order, set this parameter to True.
+            clean (bool, optional): If True, returns only non-empty items and skips hidden fields (i.e. fields starting with the # character).
+                The clean parameter is just a shortcut for skip_hidden=True and skip_empty=True parameters.
+                Note that since some objects might be skipped from the output, that the result might contain less items than the limit value.
+            fields (list of str, optional): A list of fields which should be picked from the items,
+                only these fields will remain in the resulting record objects.
+                Note that the fields in the outputted items are sorted the same way as they are specified in the fields parameter.
+                You can use this feature to effectively fix the output format.
+            omit (list of str, optional): A list of fields which should be omitted from the items.
+            unwind (str, optional): Name of a field which should be unwound.
+                If the field is an array then every element of the array will become a separate record and merged with parent object.
+                If the unwound field is an object then it is merged with the parent object.
+                If the unwound field is missing or its value is neither an array nor an object and therefore cannot be merged with a parent object,
+                then the item gets preserved as it is. Note that the unwound items ignore the desc parameter.
+            skip_empty (bool, optional): If True, then empty items are skipped from the output.
+                Note that if used, the results might contain less items than the limit value.
+            skip_hidden (bool, optional): If True, then hidden fields are skipped from the output, i.e. fields starting with the # character.
+            flatten (list of str, optional): A list of fields that should be flattened
+            view (str, optional): Name of the dataset view to be used
+
+        Returns:
+            ListPage: A page of the list of dataset items according to the specified filters.
+        """
         # Check by id
         existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
@@ -167,7 +206,33 @@ class DatasetClient:
         skip_empty: Optional[bool] = None,  # noqa: U100
         skip_hidden: Optional[bool] = None,  # noqa: U100
     ) -> AsyncIterator[Dict]:
-        """TODO: docs."""
+        """Iterate over the items in the dataset.
+
+        Args:
+            offset (int, optional): Number of items that should be skipped at the start. The default value is 0
+            limit (int, optional): Maximum number of items to return. By default there is no limit.
+            desc (bool, optional): By default, results are returned in the same order as they were stored.
+                To reverse the order, set this parameter to True.
+            clean (bool, optional): If True, returns only non-empty items and skips hidden fields (i.e. fields starting with the # character).
+                The clean parameter is just a shortcut for skip_hidden=True and skip_empty=True parameters.
+                Note that since some objects might be skipped from the output, that the result might contain less items than the limit value.
+            fields (list of str, optional): A list of fields which should be picked from the items,
+                only these fields will remain in the resulting record objects.
+                Note that the fields in the outputted items are sorted the same way as they are specified in the fields parameter.
+                You can use this feature to effectively fix the output format.
+            omit (list of str, optional): A list of fields which should be omitted from the items.
+            unwind (str, optional): Name of a field which should be unwound.
+                If the field is an array then every element of the array will become a separate record and merged with parent object.
+                If the unwound field is an object then it is merged with the parent object.
+                If the unwound field is missing or its value is neither an array nor an object and therefore cannot be merged with a parent object,
+                then the item gets preserved as it is. Note that the unwound items ignore the desc parameter.
+            skip_empty (bool, optional): If True, then empty items are skipped from the output.
+                Note that if used, the results might contain less items than the limit value.
+            skip_hidden (bool, optional): If True, then hidden fields are skipped from the output, i.e. fields starting with the # character.
+
+        Yields:
+            dict: An item from the dataset
+        """
         cache_size = 1000
         first_item = offset
 
@@ -197,53 +262,18 @@ class DatasetClient:
             for item in current_items_page.items:
                 yield item
 
-    async def get_items_as_bytes(
-        self,
-        *,
-        _item_format: str = 'json',
-        _offset: Optional[int] = None,
-        _limit: Optional[int] = None,
-        _desc: Optional[bool] = None,
-        _clean: Optional[bool] = None,
-        _bom: Optional[bool] = None,
-        _delimiter: Optional[str] = None,
-        _fields: Optional[List[str]] = None,
-        _omit: Optional[List[str]] = None,
-        _unwind: Optional[str] = None,
-        _skip_empty: Optional[bool] = None,
-        _skip_header_row: Optional[bool] = None,
-        _skip_hidden: Optional[bool] = None,
-        _xml_root: Optional[str] = None,
-        _xml_row: Optional[str] = None,
-        _flatten: Optional[List[str]] = None,
-    ) -> bytes:
-        """TODO: docs."""
-        raise NotImplementedError('This method is not supported in local memory storage')
+    async def get_items_as_bytes(self, *_args: Any, **_kwargs: Any) -> bytes:  # noqa: D102
+        raise NotImplementedError('This method is not supported in local memory storage.')
 
-    async def stream_items(
-        self,
-        *,
-        _item_format: str = 'json',
-        _offset: Optional[int] = None,
-        _limit: Optional[int] = None,
-        _desc: Optional[bool] = None,
-        _clean: Optional[bool] = None,
-        _bom: Optional[bool] = None,
-        _delimiter: Optional[str] = None,
-        _fields: Optional[List[str]] = None,
-        _omit: Optional[List[str]] = None,
-        _unwind: Optional[str] = None,
-        _skip_empty: Optional[bool] = None,
-        _skip_header_row: Optional[bool] = None,
-        _skip_hidden: Optional[bool] = None,
-        _xml_root: Optional[str] = None,
-        _xml_row: Optional[str] = None,
-    ) -> AsyncIterator:
-        """TODO: docs."""
+    async def stream_items(self, *_args: Any, **_kwargs: Any) -> AsyncIterator:  # noqa: D102
         raise NotImplementedError('This method is not supported in local memory storage')
 
     async def push_items(self, items: JSONSerializable) -> None:
-        """TODO: docs."""
+        """Push items to the dataset.
+
+        Args:
+            items: The items which to push in the dataset. Either a stringified JSON, a dictionary, or a list of strings or dictionaries.
+        """
         # Check by id
         existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
 
@@ -273,7 +303,7 @@ class DatasetClient:
         )
 
     def to_dataset_info(self) -> Dict:
-        """TODO: docs."""
+        """Retrieve the dataset info."""
         return {
             'id': self._id,
             'name': self._name,
@@ -284,11 +314,11 @@ class DatasetClient:
         }
 
     async def _update_timestamps(self, has_been_modified: bool) -> None:
-        """TODO: docs."""
-        self._accessed_at = datetime.utcnow()
+        """Update the timestamps of the dataset."""
+        self._accessed_at = datetime.now(timezone.utc)
 
         if has_been_modified:
-            self._modified_at = datetime.utcnow()
+            self._modified_at = datetime.now(timezone.utc)
 
         dataset_info = self.to_dataset_info()
         await _update_metadata(data=dataset_info, entity_directory=self._dataset_directory, write_metadata=self._client._write_metadata)
@@ -340,9 +370,9 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
     id: Union[str, None] = None
     name: Union[str, None] = None
     item_count = 0
-    created_at = datetime.utcnow()
-    accessed_at = datetime.utcnow()
-    modified_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    accessed_at = datetime.now(timezone.utc)
+    modified_at = datetime.now(timezone.utc)
     entries: Dict[str, Dict] = {}
 
     has_seen_metadata_file = False
@@ -359,9 +389,9 @@ def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or
                 id = metadata['id']
                 name = metadata['name']
                 item_count = metadata['itemCount']
-                created_at = datetime.strptime(metadata['createdAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                accessed_at = datetime.strptime(metadata['accessedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                modified_at = datetime.strptime(metadata['modifiedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                created_at = datetime.fromisoformat(metadata['createdAt'])
+                accessed_at = datetime.fromisoformat(metadata['accessedAt'])
+                modified_at = datetime.fromisoformat(metadata['modifiedAt'])
 
                 continue
 

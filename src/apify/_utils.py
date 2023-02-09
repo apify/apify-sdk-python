@@ -10,7 +10,6 @@ import json
 import mimetypes
 import os
 import re
-import secrets
 import sys
 import time
 from collections import OrderedDict
@@ -19,7 +18,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, NoReturn, Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Type, TypeVar, Union, ValuesView, cast, overload
+from typing import Tuple, Type, TypeVar, Union, ValuesView, cast, overload
 
 import aioshutil
 import psutil
@@ -32,10 +31,12 @@ from ._version import __version__ as sdk_version
 from .consts import (
     _BOOL_ENV_VARS_TYPE,
     _DATETIME_ENV_VARS_TYPE,
+    _FLOAT_ENV_VARS_TYPE,
     _INTEGER_ENV_VARS_TYPE,
     _STRING_ENV_VARS_TYPE,
     BOOL_ENV_VARS,
     DATETIME_ENV_VARS,
+    FLOAT_ENV_VARS,
     INTEGER_ENV_VARS,
     REQUEST_ID_LENGTH,
     ApifyEnvVars,
@@ -95,47 +96,57 @@ def _maybe_extract_enum_member_value(maybe_enum_member: Any) -> Any:
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE) -> Optional[bool]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE) -> Optional[bool]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE, default: bool) -> bool:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE, default: bool) -> bool:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE) -> Optional[Union[datetime, str]]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE) -> Optional[Union[datetime, str]]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE, default: datetime) -> Union[datetime, str]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE, default: datetime) -> Union[datetime, str]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE) -> Optional[int]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE) -> Optional[float]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE, default: int) -> int:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE, default: float) -> float:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE, default: str) -> str:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE) -> Optional[int]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE) -> Optional[str]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE, default: int) -> int:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: ApifyEnvVars) -> Optional[Any]:  # noqa: U100
+def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE, default: str) -> str:
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE) -> Optional[str]:
+    ...
+
+
+@overload
+def _fetch_and_parse_env_var(env_var: ApifyEnvVars) -> Optional[Any]:
     ...
 
 
@@ -148,11 +159,16 @@ def _fetch_and_parse_env_var(env_var: Any, default: Any = None) -> Any:
 
     if env_var in BOOL_ENV_VARS:
         return _maybe_parse_bool(val)
-    if env_var in INTEGER_ENV_VARS:
-        res = _maybe_parse_int(val)
-        if res is None:
+    if env_var in FLOAT_ENV_VARS:
+        parsed_float = _maybe_parse_float(val)
+        if parsed_float is None:
             return default
-        return res
+        return parsed_float
+    if env_var in INTEGER_ENV_VARS:
+        parsed_int = _maybe_parse_int(val)
+        if parsed_int is None:
+            return default
+        return parsed_int
     if env_var in DATETIME_ENV_VARS:
         return _maybe_parse_datetime(val)
     return val
@@ -186,6 +202,13 @@ def _maybe_parse_datetime(val: str) -> Union[datetime, str]:
         return val
 
 
+def _maybe_parse_float(val: str) -> Optional[float]:
+    try:
+        return float(val)
+    except ValueError:
+        return None
+
+
 def _maybe_parse_int(val: str) -> Optional[int]:
     try:
         return int(val)
@@ -211,13 +234,6 @@ async def _force_remove(filename: str) -> None:
         await remove(filename)
 
 
-def _json_serializer(obj: Any) -> str:  # TODO: Decide how to parse/dump/handle datetimes!
-    if isinstance(obj, (datetime)):
-        return obj.isoformat(timespec='milliseconds') + 'Z'
-    else:
-        return str(obj)
-
-
 def _filter_out_none_values_recursively(dictionary: Dict) -> Dict:
     """Return copy of the dictionary, recursively omitting all keys for which values are None."""
     return cast(dict, _filter_out_none_values_recursively_internal(dictionary))
@@ -238,7 +254,7 @@ def _filter_out_none_values_recursively_internal(dictionary: Dict, remove_empty_
 
 def _json_dumps(obj: Any) -> str:
     """Dump JSON to a string with the correct settings and serializer."""
-    return json.dumps(obj, ensure_ascii=False, indent=2, default=_json_serializer)
+    return json.dumps(obj, ensure_ascii=False, indent=2, default=str)
 
 
 uuid_regex = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
@@ -285,12 +301,12 @@ def _is_file_or_bytes(value: Any) -> bool:
     return isinstance(value, (bytes, bytearray, io.IOBase))
 
 
-def _maybe_parse_body(body: bytes, content_type: str) -> Any:  # TODO: Improve return type
+def _maybe_parse_body(body: bytes, content_type: str) -> Any:
     try:
         if _is_content_type_json(content_type):
             return json.loads(body)  # Returns any
         elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
-            return body.decode('utf-8')  # TODO: Check if utf-8 can be assumed
+            return body.decode('utf-8')
     except ValueError as err:
         print('_maybe_parse_body error', err)
     return body
@@ -324,12 +340,6 @@ def _wrap_internal(implementation: ImplementationType, metadata_source: Metadata
     return cast(MetadataType, wrapper)
 
 
-def _crypto_random_object_id(length: int = 17) -> str:
-    """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
-    chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join(secrets.choice(chars) for _ in range(length))
-
-
 T = TypeVar('T')
 
 
@@ -361,12 +371,11 @@ class LRUCache(MutableMapping, Generic[T]):
 
     def __delitem__(self, key: str) -> None:
         """Remove an item from the cache."""
-        # TODO: maybe do? self._cache.__delitem__(key)
         del self._cache[key]
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[str]:
         """Iterate over the keys of the cache in order of insertion."""
-        yield from self._cache.__iter__()
+        return self._cache.__iter__()
 
     def __len__(self) -> int:
         """Get the number of items in the cache."""
@@ -383,3 +392,38 @@ class LRUCache(MutableMapping, Generic[T]):
 
 def _is_running_in_ipython() -> bool:
     return getattr(builtins, '__IPYTHON__', False)
+
+
+@overload
+def _budget_ow(value: Union[str, int, float, bool], predicate: Tuple[Type, bool], value_name: str) -> None:
+    ...
+
+
+@overload
+def _budget_ow(value: Dict, predicate: Dict[str, Tuple[Type, bool]]) -> None:
+    ...
+
+
+def _budget_ow(
+    value: Union[Dict, str, int, float, bool],
+    predicate: Union[Dict[str, Tuple[Type, bool]], Tuple[Type, bool]],
+    value_name: Optional[str] = None,
+) -> None:
+    """Budget version of ow."""
+    def validate_single(field_value: Any, expected_type: Type, required: bool, name: str) -> None:
+        if field_value is None and required:
+            raise ValueError(f'"{name}" is required!')
+        if (field_value is not None or required) and not isinstance(field_value, expected_type):
+            raise ValueError(f'"{name}" must be of type "{expected_type.__name__}" but it is "{type(field_value).__name__}"!')
+
+    # Validate object
+    if isinstance(value, dict) and isinstance(predicate, dict):
+        for key, (field_type, required) in predicate.items():
+            field_value = value.get(key)
+            validate_single(field_value, field_type, required, key)
+    # Validate "primitive"
+    elif isinstance(value, (int, str, float, bool)) and isinstance(predicate, tuple) and value_name is not None:
+        field_type, required = predicate
+        validate_single(value, field_type, required, value_name)
+    else:
+        raise ValueError('Wrong input!')

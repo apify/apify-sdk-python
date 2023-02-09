@@ -6,7 +6,7 @@ from typing import Any, Dict
 import pytest
 
 from apify import Actor
-from apify.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ApifyEnvVars
+from apify.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ApifyEnvVars
 
 
 class TestIsAtHome:
@@ -31,6 +31,11 @@ class TestGetEnv:
             expected_get_env[int_get_env_var] = random.randint(1, 99999)
             monkeypatch.setenv(int_env_var, f'{expected_get_env[int_get_env_var]}')
 
+        for float_env_var in FLOAT_ENV_VARS:
+            float_get_env_var = float_env_var.name.lower()
+            expected_get_env[float_get_env_var] = random.random()
+            monkeypatch.setenv(float_env_var, f'{expected_get_env[float_get_env_var]}')
+
         for bool_env_var in BOOL_ENV_VARS:
             bool_get_env_var = bool_env_var.name.lower()
             expected_get_env[bool_get_env_var] = random.choice([True, False])
@@ -38,7 +43,7 @@ class TestGetEnv:
 
         for datetime_env_var in DATETIME_ENV_VARS:
             datetime_get_env_var = datetime_env_var.name.lower()
-            expected_get_env[datetime_get_env_var] = datetime.now().replace(tzinfo=timezone.utc)
+            expected_get_env[datetime_get_env_var] = datetime.now(timezone.utc)
             monkeypatch.setenv(datetime_env_var, expected_get_env[datetime_get_env_var].strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
 
         for string_env_var in STRING_ENV_VARS:
@@ -48,3 +53,5 @@ class TestGetEnv:
 
         await Actor.init()
         assert expected_get_env == Actor.get_env()
+
+        await Actor.exit()

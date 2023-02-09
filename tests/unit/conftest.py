@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 from collections import defaultdict
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple, get_type_hints
+from typing import Any, Callable, Dict, List, Optional, Tuple, get_type_hints
 
 import pytest
 
@@ -28,9 +28,7 @@ def reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path:
     monkeypatch.setattr(StorageClientManager, 'get_storage_client', get_storage_client)
 
 
-# TODO: decide if this is worth maintaining
-# We could just mock the Apify API HTTP responses with respx and get the same results
-# (but this was fun to write!)
+# This class is used to patch the ApifyClientAsync methods to return a fixed value or be replaced with another method.
 class ApifyClientAsyncPatcher:
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.monkeypatch = monkeypatch
@@ -121,7 +119,5 @@ def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAs
 
 
 @pytest.fixture()
-async def memory_storage(tmp_path: str) -> AsyncIterator[MemoryStorage]:
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)  # TODO: Remove write_metadata=True as it's not the default setting...
-    yield ms
-    await ms.purge()  # TODO: Do we want this here? there are unit tests specifically for purge
+def memory_storage(tmp_path: str) -> MemoryStorage:
+    return MemoryStorage(local_data_directory=tmp_path)
