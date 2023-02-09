@@ -3,7 +3,7 @@ title: Introduction
 sidebar_label: Introduction
 ---
 
-`apify` is the official library to create [Apify Actors] in Python.
+`apify` is the official library to create [Apify Actors](https://docs.apify.com/platform/actors) in Python.
 It provides useful features like automatic retries and convenience functions that improve the experience of using the Apify API.
 
 * [Quick Start](#quick-start)
