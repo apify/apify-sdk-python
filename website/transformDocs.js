@@ -16,7 +16,7 @@ const acc = {
         "summary": [
             {
                 "kind": "text",
-                "text": "Apify SDK is a set of libraries that make it easy to build web crawlers and web scraping scripts that play nice with the Apify Platform. It provides a simple API for running actors and proxy management.\n\n It also provides a powerful data storage API for managing datasets, key-value stores, and request queues. The SDK is written in Python and runs on Python 3.6 and above. It is available on [PyPI](https://pypi.org/project/apify/)."
+                "text": "Apify SDK is a set of libraries that make it easy to build web crawlers and web scraping scripts that play nice with the Apify Platform. It provides a simple API for running actors and proxy management.\n\n It also provides a powerful data storage API for managing datasets, key-value stores, and request queues. The SDK is written in Python and runs on Python 3.8 and above. It is available on [PyPI](https://pypi.org/project/apify/)."
             },
         ]
     },
