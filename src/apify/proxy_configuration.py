@@ -89,21 +89,6 @@ class ProxyConfiguration:
 
     If you want to use your own proxies, use the `proxy_urls` or `new_url_function` constructor options.
     Your list of proxy URLs will be rotated by the configuration, if this option is provided.
-
-    **Example usage:**
-
-    ```python
-
-    proxy_configuration = await Actor.create_proxy_configuration(
-      groups=['GROUP1', 'GROUP2']  # List of Apify Proxy groups
-      country_code='US',
-    )
-
-    proxy_url = await proxy_configuration.new_url()
-
-    with httpx.AsyncClient(proxies=proxy_url) as client:
-        response = await client.get(...)
-    ```
     """
 
     is_man_in_the_middle = False

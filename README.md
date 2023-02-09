@@ -12,7 +12,7 @@ To do that, simply run `pip install apify` in your terminal.
 
 ## Usage
 
-For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/apify-sdk-python) or in [`docs/docs.md`](docs/docs.md).
+For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/sdk/python/) or in [`docs/docs.md`](docs/docs.md).
 
 ## Development
 

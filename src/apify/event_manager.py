@@ -10,7 +10,7 @@ from pyee.asyncio import AsyncIOEventEmitter
 
 from ._utils import _maybe_extract_enum_member_value
 from .config import Configuration
-from .consts import ActorEventType
+from .consts import ActorEventTypes
 
 
 class EventManager:
@@ -25,7 +25,7 @@ class EventManager:
     _send_persist_state_interval_task: Optional[asyncio.Task] = None
     _send_system_info_interval_task: Optional[asyncio.Task] = None
     _listener_tasks: Set[asyncio.Task]
-    _listeners_to_wrappers: Dict[ActorEventType, Dict[Callable, List[Callable]]]
+    _listeners_to_wrappers: Dict[ActorEventTypes, Dict[Callable, List[Callable]]]
 
     def __init__(self, config: Configuration) -> None:
         """Crate an instance of EventManager.
@@ -81,11 +81,11 @@ class EventManager:
 
         self._initialized = False
 
-    def on(self, event_name: ActorEventType, listener: Callable) -> Callable:
+    def on(self, event_name: ActorEventTypes, listener: Callable) -> Callable:
         """Add an event listener to the event manager.
 
         Args:
-            event_name (ActorEventType): The actor event for which to listen to.
+            event_name (ActorEventTypes): The actor event for which to listen to.
             listener (Callable): The function which is to be called when the event is emitted (can be async).
         """
         if not self._initialized:
@@ -111,11 +111,11 @@ class EventManager:
 
         return self._event_emitter.add_listener(event_name, outer_wrapper)
 
-    def off(self, event_name: ActorEventType, listener: Optional[Callable] = None) -> None:
+    def off(self, event_name: ActorEventTypes, listener: Optional[Callable] = None) -> None:
         """Remove a listener, or all listeners, from an actor event.
 
         Args:
-            event_name (ActorEventType): The actor event for which to remove listeners.
+            event_name (ActorEventTypes): The actor event for which to remove listeners.
             listener (Callable, optional): The listener which is supposed to be removed. If not passed, all listeners of this event are removed.
         """
         if not self._initialized:
@@ -131,11 +131,11 @@ class EventManager:
             self._listeners_to_wrappers[event_name] = defaultdict(list)
             self._event_emitter.remove_all_listeners(event_name)
 
-    def emit(self, event_name: ActorEventType, data: Any) -> None:
+    def emit(self, event_name: ActorEventTypes, data: Any) -> None:
         """Emit an actor event manually.
 
         Args:
-            event_name (ActorEventType): The actor event which should be emitted.
+            event_name (ActorEventTypes): The actor event which should be emitted.
             data (Any): The data that should be emitted with the event.
         """
         event_name = _maybe_extract_enum_member_value(event_name)

@@ -15,6 +15,7 @@ subs: List[Tuple[str, Union[str, Callable]]] = [
     (r' None([, ])', r' `None`\1'),  # replace None with `None`, if it's in a normal sentence (surrounded by whitespace or comma)
     (r'\*\*Parameters\*\*\n\n    \*\*', '**Parameters**\n\n    * **'),  # workaround for sphinx bug with single parameter not being rendered as list
     (r'\(`(.*), optional`\)', r'(`\1`, *optional*)'),  # workaround for bug formatting parameter types
+    (r'classmethod ', r''),  # remove classmethod mentions
     # (r'\*\*\[\*\*(\w+)\*\*\]', r'[\1]'),  # workaround for bug formatting parameter types
     (r'  \\\*', r'    *'),  # workaround for bug with nested lists in argument descriptions
     (r'`(\w+)`\[`(\w+)`\]', r'`\1[\2]`'),  # workaround for complex parameter types with backticks
