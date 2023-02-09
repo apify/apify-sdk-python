@@ -478,7 +478,7 @@ class Actor(metaclass=_ActorContextManager):
         return self._apify_client if force_cloud else None
 
     @classmethod
-    async def open_dataset(cls, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
+    async def open_dataset(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         """Open a dataset.
 
         Datasets are used to store structured data where each object stored has the same attributes,
@@ -486,8 +486,10 @@ class Actor(metaclass=_ActorContextManager):
         The actual data is stored either on the local filesystem or in the Apify cloud.
 
         Args:
-            dataset_id_or_name (str, optional): ID or name of the dataset to be opened.
-                If not provided, the method returns the default dataset associated with the actor run.
+            id (str, optional): ID of the dataset to be opened.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
+            name (str, optional): Name of the dataset to be opened.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
@@ -495,15 +497,16 @@ class Actor(metaclass=_ActorContextManager):
             Dataset: An instance of the `Dataset` class for the given ID or name.
 
         """
-        return await cls._get_default_instance().open_dataset(dataset_id_or_name=dataset_id_or_name, force_cloud=force_cloud)
+        return await cls._get_default_instance().open_dataset(id=id, name=name, force_cloud=force_cloud)
 
-    async def _open_dataset_internal(self, dataset_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> Dataset:
+    async def _open_dataset_internal(self, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         self._raise_if_not_initialized()
 
+        dataset_id_or_name = id or name
         return await StorageManager.open_storage(Dataset, dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_key_value_store(cls, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
+    async def open_key_value_store(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
         """Open a key-value store.
 
         Key-value stores are used to store records or files, along with their MIME content type.
@@ -511,23 +514,32 @@ class Actor(metaclass=_ActorContextManager):
         The actual data is stored either on a local filesystem or in the Apify cloud.
 
         Args:
-            key_value_store_id_or_name (str, optional): ID or name of the key-value store to be opened.
-                If not provided, the method returns the default key-value store associated with the actor run.
+            id (str, optional): ID of the key-value store to be opened.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
+            name (str, optional): Name of the key-value store to be opened.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
         Returns:
             KeyValueStore: An instance of the `KeyValueStore` class for the given ID or name.
         """
-        return await cls._get_default_instance().open_key_value_store(key_value_store_id_or_name=key_value_store_id_or_name, force_cloud=force_cloud)
+        return await cls._get_default_instance().open_key_value_store(id=id, name=name, force_cloud=force_cloud)
 
-    async def _open_key_value_store_internal(self, key_value_store_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> KeyValueStore:
+    async def _open_key_value_store_internal(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        force_cloud: bool = False,
+    ) -> KeyValueStore:
         self._raise_if_not_initialized()
 
+        key_value_store_id_or_name = id or name
         return await StorageManager.open_storage(KeyValueStore, key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod
-    async def open_request_queue(cls, request_queue_id_or_name: Optional[str] = None, *, force_cloud: bool = False) -> RequestQueue:
+    async def open_request_queue(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> RequestQueue:
         """Open a request queue.
 
         Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
@@ -536,24 +548,28 @@ class Actor(metaclass=_ActorContextManager):
         and depth-first crawling orders.
 
         Args:
-            request_queue_id_or_name (str, optional): ID or name of the request queue to be opened.
-                If not provided, the method returns the default request queue associated with the actor run.
+            id (str, optional): ID of the request queue to be opened.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
+            name (str, optional): Name of the request queue to be opened.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
         Returns:
             RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
         """
-        return await cls._get_default_instance().open_request_queue(request_queue_id_or_name=request_queue_id_or_name, force_cloud=force_cloud)
+        return await cls._get_default_instance().open_request_queue(id=id, name=name, force_cloud=force_cloud)
 
     async def _open_request_queue_internal(
         self,
-        request_queue_id_or_name: Optional[str] = None,
         *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
         force_cloud: bool = False,
     ) -> RequestQueue:
         self._raise_if_not_initialized()
 
+        request_queue_id_or_name = id or name
         return await StorageManager.open_storage(RequestQueue, request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
 
     @classmethod

@@ -17,6 +17,6 @@ class TestActorOpenRequestQueue:
             rq2 = await Actor.open_request_queue()
             assert rq1 is rq2
             rq_name = 'non-default'
-            rq_named1 = await Actor.open_request_queue(rq_name)
-            rq_named2 = await Actor.open_request_queue(rq_name)
+            rq_named1 = await Actor.open_request_queue(name=rq_name)
+            rq_named2 = await Actor.open_request_queue(name=rq_name)
             assert rq_named1 is rq_named2

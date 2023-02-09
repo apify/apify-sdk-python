@@ -25,8 +25,8 @@ class TestActorOpenKeyValueStore:
             async with Actor:
                 input_object = await Actor.get_input()
                 kvs_name = input_object['kvsName']
-                kvs1 = await Actor.open_key_value_store(kvs_name)
-                kvs2 = await Actor.open_key_value_store(kvs_name)
+                kvs1 = await Actor.open_key_value_store(name=kvs_name)
+                kvs2 = await Actor.open_key_value_store(name=kvs_name)
                 assert kvs1 is kvs2
                 await kvs1.drop()
 
@@ -75,7 +75,7 @@ class TestActorGetSetValue:
             async with Actor:
                 input_object = await Actor.get_input()
                 # Access KVS of the previous 'set' run
-                kvs = await Actor.open_key_value_store(input_object['kvs-id'])
+                kvs = await Actor.open_key_value_store(name=input_object['kvs-id'])
                 value = await kvs.get_value('test')
                 assert value['number'] == 123
                 assert value['string'] == 'a string'

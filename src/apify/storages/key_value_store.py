@@ -53,7 +53,7 @@ class KeyValueStore:
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """Create a `KeyValueStore` instance.
 
-        Do not use the constructor directly, use the `KeyValueStore.open` function instead.
+        Do not use the constructor directly, use the `Actor.open_key_value_store()` function instead.
 
         Args:
             id (str): ID of the key-value store.
