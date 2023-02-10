@@ -178,8 +178,9 @@ class EventManager:
                 async for message in websocket:
                     try:
                         parsed_message = json.loads(message)
+                        assert isinstance(parsed_message, dict)
                         event_name = parsed_message['name']
-                        event_data = parsed_message['data']
+                        event_data = parsed_message.get('data')  # 'data' can be missing
 
                         self._event_emitter.emit(event_name, event_data)
 
