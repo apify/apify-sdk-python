@@ -317,12 +317,10 @@ class Actor(metaclass=_ActorContextManager):
         # Send final persist state event
         self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
 
-        # Sleep for a bit so that the listeners have a chance to trigger,
+        # Sleep for a bit so that the listeners have a chance to trigger
         await asyncio.sleep(0.1)
 
         await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
-
-        # TODO: once we have in-memory storage, teardown the in-memory storage client here
 
         self._is_initialized = False
 

@@ -217,10 +217,15 @@ def _maybe_parse_int(val: str) -> Optional[int]:
 
 
 async def _run_func_at_interval_async(func: Callable, interval_secs: float) -> None:
-    started_at = time.time()
+    started_at = time.perf_counter()
+    sleep_until = started_at
     while True:
-        elapsed_secs = time.time() - started_at
-        sleep_for_secs = interval_secs - (elapsed_secs % interval_secs)
+        now = time.perf_counter()
+        sleep_until += interval_secs
+        while sleep_until < now:
+            sleep_until += interval_secs
+
+        sleep_for_secs = sleep_until - now
         await asyncio.sleep(sleep_for_secs)
 
         res = func()
@@ -277,7 +282,16 @@ def _guess_file_extension(content_type: str) -> Optional[str]:
     """Guess the file extension based on content type."""
     # e.g. mimetypes.guess_extension('application/json ') does not work...
     actual_content_type = content_type.split(';')[0].strip()
+
+    # mimetypes.guess_extension returns 'xsl' in this case, because 'application/xxx' is "structured"
+    # ('text/xml' would be "unstructured" and return 'xml')
+    # we have to explicitly override it here
+    if actual_content_type == 'application/xml':
+        return 'xml'
+
+    # Guess the extension from the mime type
     ext = mimetypes.guess_extension(actual_content_type)
+
     # Remove the leading dot if extension successfully parsed
     return ext[1:] if ext is not None else ext
 
