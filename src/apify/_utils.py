@@ -223,6 +223,7 @@ async def _run_func_at_interval_async(func: Callable, interval_secs: float) -> N
         sleep_for_secs = interval_secs - (elapsed_secs % interval_secs)
         await asyncio.sleep(sleep_for_secs)
 
+        print(f'Calling func at {time.perf_counter()}')
         res = func()
         if inspect.isawaitable(res):
             await res
