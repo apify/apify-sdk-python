@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import datetime, timezone
 
@@ -23,6 +24,7 @@ async def test_nonexistent(memory_storage: MemoryStorage) -> None:
 
 
 async def test_get(request_queue_client: RequestQueueClient) -> None:
+    await asyncio.sleep(0.1)
     info = await request_queue_client.get()
     assert info is not None
     assert info['id'] == request_queue_client._id
@@ -41,6 +43,8 @@ async def test_update(request_queue_client: RequestQueueClient) -> None:
     new_rq_directory = os.path.join(request_queue_client._client._request_queues_directory, new_rq_name)
     assert os.path.exists(os.path.join(old_rq_directory, 'fvwscO2UJLdr10B.json')) is True
     assert os.path.exists(os.path.join(new_rq_directory, 'fvwscO2UJLdr10B.json')) is False
+
+    await asyncio.sleep(0.1)
     updated_rq_info = await request_queue_client.update(name=new_rq_name)
     assert os.path.exists(os.path.join(old_rq_directory, 'fvwscO2UJLdr10B.json')) is False
     assert os.path.exists(os.path.join(new_rq_directory, 'fvwscO2UJLdr10B.json')) is True
@@ -48,6 +52,7 @@ async def test_update(request_queue_client: RequestQueueClient) -> None:
     assert old_rq_info['createdAt'] == updated_rq_info['createdAt']
     assert old_rq_info['modifiedAt'] != updated_rq_info['modifiedAt']
     assert old_rq_info['accessedAt'] != updated_rq_info['accessedAt']
+
     # Should fail with the same name
     with pytest.raises(ValueError):
         await request_queue_client.update(name=new_rq_name)
