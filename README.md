@@ -12,7 +12,7 @@ To do that, simply run `pip install apify` in your terminal.
 
 ## Usage
 
-For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/sdk/python/) or in [`docs/docs.md`](docs/docs.md).
+For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/sdk/python/).
 
 ## Development
 
@@ -60,8 +60,8 @@ you need to set the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to th
 We use the [Google docstring format](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) for documenting the code.
 We document every user-facing class or method, and enforce that using the flake8-docstrings library.
 
-The documentation is then rendered from the docstrings in the code using Sphinx and some heavy post-processing and saved as `docs/docs.md`.
-To generate the documentation, just run `make docs`.
+The documentation is then rendered from the docstrings in the code, using `pydoc-markdown` and some heavy post-processing,
+and from Markdown documents in the `docs` folder, and then rendered using Docusaurus and published to GitHub pages.
 
 ### Release process
 

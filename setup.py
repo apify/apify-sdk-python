@@ -24,7 +24,7 @@ setup(
     author_email='support@apify.com',
     url='https://github.com/apify/apify-sdk-python',
     project_urls={
-        'Documentation': 'https://docs.apify.com/apify-sdk-python',
+        'Documentation': 'https://docs.apify.com/sdk/python/',
         'Source': 'https://github.com/apify/apify-sdk-python',
         'Issue tracker': 'https://github.com/apify/apify-sdk-python/issues',
         'Apify Homepage': 'https://apify.com',
@@ -87,9 +87,6 @@ setup(
             'pytest-timeout ~= 2.1.0',
             'pytest-xdist ~= 3.2.0',
             'respx ~= 0.20.1',
-            'sphinx ~= 6.1.3',
-            'sphinx-autodoc-typehints ~= 1.22',
-            'sphinx-markdown-builder == 0.5.4',  # pinned to 0.5.4, because 0.5.5 has a formatting bug
             'types-aiofiles ~= 22.1.0.4',
             'types-psutil ~= 5.9.5.5',
             'types-setuptools',  # always latest, since we always install latest setuptools

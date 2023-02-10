@@ -1,6 +1,5 @@
 [flake8]
 filename =
-    ./docs/*.py,
     ./scripts/*.py,
     ./src/*.py,
     ./tests/*.py,
@@ -23,6 +22,5 @@ ignore =
 unused-arguments-ignore-overload-functions = True
 unused-arguments-ignore-stub-functions = True
 per-file-ignores =
-    docs/*: D
     scripts/*: D
     tests/*: D
