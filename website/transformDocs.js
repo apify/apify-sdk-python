@@ -64,20 +64,12 @@ const groupsOrdered = [
     'Enumeration Members'
 ];
 
-const hidden = [
-    '_BaseApifyClient',
-    'BaseClient',
-    'ActorJobBaseClient',
-    'ResourceClient',
-    'ResourceCollectionClient',
-    '_BaseApifyClientAsync',
-    'BaseClientAsync',
-    'ActorJobBaseClientAsync',
-    'ResourceClientAsync',
-    'ResourceCollectionClientAsync'
-]
-
-const groupSort = (a, b) => groupsOrdered.indexOf(a.title) - groupsOrdered.indexOf(b.title);
+const groupSort = (a, b) => {
+    if(groupsOrdered.includes(a) && groupsOrdered.includes(b)){
+        return groupsOrdered.indexOf(a) - groupsOrdered.indexOf(b)
+    }
+    return a.localeCompare(b);
+};
 
 // Taken from https://github.com/TypeStrong/typedoc/blob/v0.23.24/src/lib/models/reflections/kind.ts, modified
 const kinds = {
@@ -121,9 +113,37 @@ function inferType(x) {
     }
 }
 
+function sortChildren(acc) {
+    for (let group of acc.groups) {
+        group.children
+            .sort((a, b) => {
+                const firstName = acc.children.find(x => x.id === a).name;
+                const secondName = acc.children.find(x => x.id === b).name;
+                return firstName.localeCompare(secondName);
+            });
+    }
+}
+
+function parseArguments(docstring) {
+    return (docstring
+        .split('Args:')[1] ?? '').split('Returns:')[0]
+        .split(/(^|\n)\s*([\w]+)\s*\(.*?\)\s*:\s*/)
+        .filter(x => x.length > 1)
+        .reduce((p,x,i,a) => {
+            if(i%2 === 0){
+                return {...p, [x]: a[i+1]}
+            }
+            return p;
+        }, {}
+    );
+}
+
+function isHidden(x) {
+    return x.decorations?.some(d => d.name === 'ignore_docs') || !x.docstring?.content;
+}
+
 function traverse(o, parent) {
     for( let x of o.members ?? []) {
-        console.log(x.name);
         let typeDocType = kinds[x.type];
 
         if(x.bases?.includes('Enum')) {
@@ -140,8 +160,7 @@ function traverse(o, parent) {
             }
         }
 
-        if(x.type in kinds && !hidden.includes(x.name)) {
-
+        if(x.type in kinds && !isHidden(x)) {
             let newObj = {
                 id: oid++,
                 name: x.name,
@@ -159,9 +178,12 @@ function traverse(o, parent) {
             };
 
             if(newObj.kindString === 'Method') {
+                const parameters = parseArguments(x.docstring?.content ?? '');
+
                 newObj.signatures = [{
                     id: oid++,
                     name: x.name,
+                    modifiers: x.modifiers ?? [],
                     kind: 4096,
                     kindString: 'Call signature',
                     flags: {},
@@ -182,14 +204,10 @@ function traverse(o, parent) {
                             isOptional: p.datatype?.includes('Optional') ? 'true' : undefined,
                         },
                         type: inferType(p.datatype),
-                        comment: x.docstring ? {
+                        comment: parameters[p.name] ? {
                             summary: [{
                                 kind: 'text',
-                                text: x.docstring?.content
-                                    .slice((() =>{
-                                        const i = x.docstring?.content.toLowerCase().search(p.name.toLowerCase());
-                                        return i === -1 ? x.docstring?.content.length : i;
-                                    })()).split('\n')[0].split('- ')[1],
+                                text: parameters[p.name]
                             }]
                         } : undefined,
                     })).filter(x => x),
@@ -203,7 +221,6 @@ function traverse(o, parent) {
 
             traverse(x, newObj);
 
-            newObj.groups.sort(groupSort);
             const groupName = getGroupName(newObj);
 
             const group = parent.groups.find((g) => g.title === groupName);
@@ -216,6 +233,7 @@ function traverse(o, parent) {
                 });
             }
 
+            sortChildren(newObj);
             parent.children.push(newObj);
         }
     }
@@ -264,6 +282,7 @@ function main() {
         }
     }
     fixRefs(acc);
+    sortChildren(acc);
 
     fs.writeFileSync(path.join(__dirname, 'api-typedoc-generated.json'), JSON.stringify(acc, null, 2));
 }
