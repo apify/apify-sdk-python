@@ -4,9 +4,14 @@ on:
   pull_request:
 
 jobs:
-  lint_and_test:
-    name: Run lint and unit tests
-    uses: ./.github/workflows/lint_and_test.yaml
+  lint_and_type_checks:
+    name: Run lint and type checks
+    uses: ./.github/workflows/lint_and_type_checks.yaml
+
+  unit_tests:
+    name: Run unit tests
+    needs: [lint_and_type_checks]
+    uses: ./.github/workflows/unit_tests.yaml
 
 #  check_docs:
 #    name: Check whether the documentation is up to date
@@ -14,6 +19,6 @@ jobs:
 
 #  integration_tests:
 #    name: Run integration tests
-#    needs: [lint_and_test, check_docs]
+#    needs: [lint_and_type_checks, unit_tests]
 #    uses: ./.github/workflows/integration_tests.yaml
 #    secrets: inherit

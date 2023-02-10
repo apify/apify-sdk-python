@@ -24,9 +24,13 @@ on:
           - 'final'
 
 jobs:
-  lint_and_test:
-    name: Run lint and unit tests
-    uses: ./.github/workflows/lint_and_test.yaml
+  lint_and_type_checks:
+    name: Run lint and type_checks
+    uses: ./.github/workflows/lint_and_type_checks.yaml
+
+  unit_tests:
+    name: Run unit tests
+    uses: ./.github/workflows/unit_tests.yaml
 
   integration_tests:
     name: Run integration tests
@@ -39,7 +43,7 @@ jobs:
 
   deploy:
     name: Publish to PyPI
-    needs: [lint_and_test, integration_tests, check_docs]
+    needs: [lint_and_type_checks, unit_tests, integration_tests, check_docs]
     runs-on: ubuntu-latest
 
     steps:

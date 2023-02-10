@@ -37,10 +37,14 @@ setup(
     long_description_content_type='text/markdown',
 
     classifiers=[
-        'Programming Language :: Python :: 3',
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
-        'Intended Audience :: Developers',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         'Topic :: Software Development :: Libraries',
     ],
     keywords='apify, sdk, actor, scraping, automation',
@@ -71,7 +75,7 @@ setup(
             'flake8-docstrings ~= 1.7.0',
             'flake8-isort ~= 6.0.0',
             'flake8-quotes ~= 3.3.1',
-            'flake8-unused-arguments ~= 0.0.13',  # TODO: remove overload noqa
+            'flake8-unused-arguments ~= 0.0.13',
             'isort ~= 5.12.0',
             'mypy ~= 1.0.0',
             'pep8-naming ~= 0.13.2',

@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import pytest
@@ -32,6 +33,7 @@ async def test_not_implemented(key_value_store_client: KeyValueStoreClient) -> N
 
 
 async def test_get(key_value_store_client: KeyValueStoreClient) -> None:
+    await asyncio.sleep(0.1)
     info = await key_value_store_client.get()
     assert info is not None
     assert info['id'] == key_value_store_client._id
@@ -47,6 +49,8 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
     new_kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, new_kvs_name)
     assert os.path.exists(os.path.join(old_kvs_directory, 'test.json')) is True
     assert os.path.exists(os.path.join(new_kvs_directory, 'test.json')) is False
+
+    await asyncio.sleep(0.1)
     updated_kvs_info = await key_value_store_client.update(name=new_kvs_name)
     assert os.path.exists(os.path.join(old_kvs_directory, 'test.json')) is False
     assert os.path.exists(os.path.join(new_kvs_directory, 'test.json')) is True
@@ -54,6 +58,7 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
     assert old_kvs_info['createdAt'] == updated_kvs_info['createdAt']
     assert old_kvs_info['modifiedAt'] != updated_kvs_info['modifiedAt']
     assert old_kvs_info['accessedAt'] != updated_kvs_info['accessedAt']
+
     # Should fail with the same name
     with pytest.raises(ValueError):
         await key_value_store_client.update(name=new_kvs_name)

@@ -1,6 +1,7 @@
 import asyncio
 import io
 import os
+import time
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -110,35 +111,50 @@ def test__maybe_parse_int() -> None:
     assert _maybe_parse_int('abcd') is None
 
 
-async def test__run_func_at_interval_async() -> None:
+async def test__run_func_at_interval_async__sync_function() -> None:
     # Test that it works with a synchronous functions
+    interval = 1.0
+    initial_delay = 0.5
+    increments = 3
+
     test_var = 0
 
     def sync_increment() -> None:
         nonlocal test_var
         test_var += 1
 
-    sync_increment_task = asyncio.create_task(_run_func_at_interval_async(sync_increment, 0.3))
+    started_at = time.perf_counter()
+    sync_increment_task = asyncio.create_task(_run_func_at_interval_async(sync_increment, interval))
 
-    await asyncio.sleep(0.2)
-    assert test_var == 0
-    await asyncio.sleep(0.3)
-    assert test_var == 1
-    await asyncio.sleep(0.3)
-    assert test_var == 2
-    await asyncio.sleep(0.3)
-    assert test_var == 3
-
-    sync_increment_task.cancel()
     try:
-        await sync_increment_task
-    except asyncio.CancelledError:
-        pass
+        await asyncio.sleep(initial_delay)
 
-    await asyncio.sleep(1)
-    assert test_var == 3
+        for i in range(increments):
+            assert test_var == i
 
+            now = time.perf_counter()
+            sleep_until = started_at + initial_delay + (i + 1) * interval
+            sleep_for_secs = sleep_until - now
+            await asyncio.sleep(sleep_for_secs)
+
+        assert test_var == increments
+    finally:
+        sync_increment_task.cancel()
+        try:
+            await sync_increment_task
+        except asyncio.CancelledError:
+            pass
+
+    await asyncio.sleep(1.5)
+    assert test_var == increments
+
+
+async def test__run_func_at_interval_async_async__function() -> None:
     # Test that it works with an asynchronous functions
+    interval = 1.0
+    initial_delay = 0.5
+    increments = 3
+
     test_var = 0
 
     async def async_increment() -> None:
@@ -146,25 +162,30 @@ async def test__run_func_at_interval_async() -> None:
         await asyncio.sleep(0.1)
         test_var += 1
 
-    async_increment_task = asyncio.create_task(_run_func_at_interval_async(async_increment, 0.3))
+    started_at = time.perf_counter()
+    async_increment_task = asyncio.create_task(_run_func_at_interval_async(async_increment, interval))
 
-    await asyncio.sleep(0.2)
-    assert test_var == 0
-    await asyncio.sleep(0.3)
-    assert test_var == 1
-    await asyncio.sleep(0.3)
-    assert test_var == 2
-    await asyncio.sleep(0.3)
-    assert test_var == 3
-
-    async_increment_task.cancel()
     try:
-        await async_increment_task
-    except asyncio.CancelledError:
-        pass
+        await asyncio.sleep(initial_delay)
 
-    await asyncio.sleep(1)
-    assert test_var == 3
+        for i in range(increments):
+            assert test_var == i
+
+            now = time.perf_counter()
+            sleep_until = started_at + initial_delay + (i + 1) * interval
+            sleep_for_secs = sleep_until - now
+            await asyncio.sleep(sleep_for_secs)
+
+        assert test_var == increments
+    finally:
+        async_increment_task.cancel()
+        try:
+            await async_increment_task
+        except asyncio.CancelledError:
+            pass
+
+    await asyncio.sleep(1.5)
+    assert test_var == increments
 
 
 def test__filter_out_none_values_recursively() -> None:  # Copypasted from client
@@ -256,7 +277,7 @@ def test__raise_on_duplicate_storage() -> None:
 def test__guess_file_extension() -> None:
     # Can guess common types properly
     assert _guess_file_extension('application/json') == 'json'
-    # assert _guess_file_extension('application/xml') == 'xml' # TODO: This shit library returns xsl for no apparent reason
+    assert _guess_file_extension('application/xml') == 'xml'
     assert _guess_file_extension('text/plain') == 'txt'
 
     # Can handle unusual formats
