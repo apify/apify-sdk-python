@@ -133,6 +133,7 @@ async def test__run_func_at_interval_async__sync_function() -> None:
             assert test_var == i
             elapsed_secs = time.perf_counter() - started_at
             sleep_for_secs = interval - ((elapsed_secs - initial_delay) % interval)
+            print(elapsed_secs)
             print(sleep_for_secs)
             await asyncio.sleep(sleep_for_secs)
 
@@ -171,6 +172,8 @@ async def test__run_func_at_interval_async_async__function() -> None:
             assert test_var == i
             elapsed_secs = time.perf_counter() - started_at
             sleep_for_secs = interval - ((elapsed_secs - initial_delay) % interval)
+            print(elapsed_secs)
+            print(sleep_for_secs)
             await asyncio.sleep(sleep_for_secs)
 
         assert test_var == increments
