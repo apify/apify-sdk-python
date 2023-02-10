@@ -218,9 +218,15 @@ def _maybe_parse_int(val: str) -> Optional[int]:
 
 async def _run_func_at_interval_async(func: Callable, interval_secs: float) -> None:
     started_at = time.perf_counter()
+    print(f'Called at {started_at}')
+    sleep_until = started_at
     while True:
-        elapsed_secs = time.perf_counter() - started_at
-        sleep_for_secs = interval_secs - (elapsed_secs % interval_secs)
+        now = time.perf_counter()
+        sleep_until += interval_secs
+        while sleep_until < now:
+            sleep_until += interval_secs
+
+        sleep_for_secs = sleep_until - now
         await asyncio.sleep(sleep_for_secs)
 
         print(f'Calling func at {time.perf_counter()}')
