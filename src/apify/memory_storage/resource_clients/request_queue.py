@@ -33,7 +33,7 @@ class RequestQueueClient:
     _created_at: datetime
     _accessed_at: datetime
     _modified_at: datetime
-    _handled_request_count = 0  # TODO: Does not seem to be implemented in crawelee, always 0
+    _handled_request_count = 0
     _pending_request_count = 0
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
