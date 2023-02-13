@@ -80,6 +80,7 @@ setup(
             'mypy ~= 1.0.0',
             'pep8-naming ~= 0.13.2',
             'pre-commit ~= 3.0.1',
+            'pydoc-markdown ~= 4.6.4',
             'pytest ~= 7.2.0',
             'pytest-asyncio ~= 0.20.3',
             'pytest-only ~= 2.0.0',
