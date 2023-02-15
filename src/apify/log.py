@@ -9,7 +9,7 @@ from colorama import Fore, Style, just_fix_windows_console
 just_fix_windows_console()
 
 
-# Name of the logger used throughout the library
+# Name of the logger used throughout the library (resolves to 'apify')
 logger_name = __name__.split('.')[0]
 
 # Logger used throughout the library
@@ -31,6 +31,9 @@ _LOG_LEVEL_SHORT_ALIAS = {
     logging.ERROR: 'ERROR',
 }
 
+# So that all the log messages have the same alignment
+_LOG_MESSAGE_INDENT = ' ' * 6
+
 
 class ActorLogFormatter(logging.Formatter):
     """Log formatter that prints out the log message nicely formatted, with colored level and stringified extra fields."""
@@ -50,29 +53,33 @@ class ActorLogFormatter(logging.Formatter):
 
         This formats the log record so that it:
         - starts with the level (colorized, and padded to 5 chars so that it is nicely aligned)
-        - then has the actual log message
+        - then has the actual log message, if it's multiline then it's nicely indented
         - then has the stringified extra log fields
         - then, if an exception is a part of the log record, prints the formatted exception
         """
-        level_string = ''
-        if record.levelno != logging.NOTSET:
-            color_code = _LOG_LEVEL_COLOR.get(record.levelno, '')
-            short_alias = _LOG_LEVEL_SHORT_ALIAS.get(record.levelno, record.levelname)
-            level_string = f'{color_code}{short_alias}{Style.RESET_ALL} '
+        # Colorize the log level, and shorten it to 6 chars tops
+        level_color_code = _LOG_LEVEL_COLOR.get(record.levelno, '')
+        level_short_alias = _LOG_LEVEL_SHORT_ALIAS.get(record.levelno, record.levelname)
+        level_string = f'{level_color_code}{level_short_alias}{Style.RESET_ALL} '
 
+        # Format the exception, if there is some
+        # Basically just print the traceback and indent it a bit
         exception_string = ''
         if record.exc_info:
             exc_info = record.exc_info
             record.exc_info = None
             exception_string = ''.join(traceback.format_exception(*exc_info)).rstrip()
-            exception_string = '\n' + textwrap.indent(exception_string, '      ')
+            exception_string = '\n' + textwrap.indent(exception_string, _LOG_MESSAGE_INDENT)
 
-        extra = self._get_extra_fields(record)
+        # Format the extra log record fields, if there were some
+        # Just stringify them to JSON and color them gray
         extra_string = ''
+        extra = self._get_extra_fields(record)
         if extra:
             extra_string = f' {Fore.LIGHTBLACK_EX}({json.dumps(extra, ensure_ascii=False, default=str)}){Style.RESET_ALL}'
 
+        # Format the actual log message, and indent everything but the first line
         log_string = super().format(record)
-        log_string = textwrap.indent(log_string, '      ').lstrip()
+        log_string = textwrap.indent(log_string, _LOG_MESSAGE_INDENT).lstrip()
 
         return f'{level_string}{log_string}{extra_string}{exception_string}'
