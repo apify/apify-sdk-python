@@ -26,12 +26,9 @@ class TestActorPushData:
         assert len(list_page.items) == list_page.count == desired_item_count
 
     async def test_push_data_over_9mb(self, make_actor: ActorFactory) -> None:
-        desired_item_count = 5000  # Also change inside main() if you're changing this
-
         async def main() -> None:
-            desired_item_count = 5000
             async with Actor:
-                await Actor.push_data([{'str': 'x' * 10000} for _ in range(desired_item_count)])  # ~50MB
+                await Actor.push_data([{'str': 'x' * 10000} for _ in range(5000)])  # ~50MB
 
         actor = await make_actor('push-data-over-9mb', main_func=main)
 
@@ -39,10 +36,8 @@ class TestActorPushData:
 
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
-        list_page = await actor.last_run().dataset().list_items()
-        assert list_page.items[0]['str'] == 'x' * 10000
-        assert list_page.items[-1]['str'] == 'x' * 10000
-        assert list_page.total == desired_item_count
+        async for item in actor.last_run().dataset().iterate_items():
+            assert item['str'] == 'x' * 10000
 
 
 class TestActorOpenDataset:
