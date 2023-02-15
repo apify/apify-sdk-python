@@ -64,6 +64,7 @@ setup(
         'aiofiles ~= 22.1.0',
         'aioshutil ~= 1.2',
         'cryptography ~= 39.0.1',
+        'colorama ~= 0.4.6',
     ],
     extras_require={
         'dev': [
@@ -91,6 +92,7 @@ setup(
             'sphinx-autodoc-typehints ~= 1.22',
             'sphinx-markdown-builder == 0.5.4',  # pinned to 0.5.4, because 0.5.5 has a formatting bug
             'types-aiofiles ~= 22.1.0.4',
+            'types-colorama ~= 0.4.15.7',
             'types-psutil ~= 5.9.5.5',
             'types-setuptools',  # always latest, since we always install latest setuptools
         ],

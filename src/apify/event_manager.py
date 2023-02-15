@@ -1,7 +1,6 @@
 import asyncio
 import inspect
 import json
-import traceback
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Set
 
@@ -11,6 +10,7 @@ from pyee.asyncio import AsyncIOEventEmitter
 from ._utils import _maybe_extract_enum_member_value
 from .config import Configuration
 from .consts import ActorEventTypes
+from .log import logger
 
 
 class EventManager:
@@ -53,7 +53,7 @@ class EventManager:
         if self._config.actor_events_ws_url:
             self._process_platform_messages_task = asyncio.create_task(self._process_platform_messages())
         else:
-            print('ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.')
+            logger.debug('APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.')
 
         self._initialized = True
 
@@ -152,13 +152,12 @@ class EventManager:
             results = await asyncio.gather(*self._listener_tasks, return_exceptions=True)
             for result in results:
                 if result is Exception:
-                    print('Exception in one of the event listeners:')
-                    traceback.print_exception(type(result), result, result.__traceback__)
+                    logger.exception('Event manager encountered an exception in one of the event listeners', exc_info=result)
 
         if timeout_secs:
             _, pending = await asyncio.wait([asyncio.create_task(_wait_for_listeners())], timeout=timeout_secs)
             if pending:
-                print('Timed out waiting for event listeners to complete, unfinished event listeners will be canceled')
+                logger.warning('Timed out waiting for event listeners to complete, unfinished event listeners will be canceled')
                 for pending_task in pending:
                     pending_task.cancel()
                     try:
@@ -184,7 +183,7 @@ class EventManager:
 
                         self._event_emitter.emit(event_name, event_data)
 
-                    except Exception as e:
-                        print('Cannot parse actor event', e)
-        except Exception as e:
-            print('Error in websocket connection', e)
+                    except Exception:
+                        logger.exception('Cannot parse actor event', extra={'message': message})
+        except Exception:
+            logger.exception('Error in websocket connection')

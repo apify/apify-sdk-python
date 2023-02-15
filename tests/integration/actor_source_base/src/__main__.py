@@ -1,15 +1,19 @@
 import asyncio
 import logging
 
-from apify_client._logging import _DebugLogFormatter
+from apify.log import ActorLogFormatter
 
 from .main import main
 
-client_logger = logging.getLogger('apify_client')
-if not client_logger.hasHandlers():
-    client_logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler()
-    handler.setFormatter(_DebugLogFormatter())
-    client_logger.addHandler(handler)
+handler = logging.StreamHandler()
+handler.setFormatter(ActorLogFormatter())
+
+apify_client_logger = logging.getLogger('apify_client')
+apify_client_logger.setLevel(logging.DEBUG)
+apify_client_logger.addHandler(handler)
+
+apify_logger = logging.getLogger('apify')
+apify_logger.setLevel(logging.DEBUG)
+apify_logger.addHandler(handler)
 
 asyncio.run(main())

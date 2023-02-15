@@ -11,6 +11,7 @@ from apify_client import ApifyClientAsync
 
 from .config import Configuration
 from .consts import ApifyEnvVars
+from .log import logger
 
 APIFY_PROXY_VALUE_REGEX = r'^[\w._~]+$'
 COUNTRY_CODE_REGEX = r'^[A-Z]{2}$'
@@ -144,8 +145,8 @@ class ProxyConfiguration:
 
         # mypy has a bug with narrowing types for filter (https://github.com/python/mypy/issues/12682)
         if proxy_urls and next(filter(lambda url: 'apify.com' in url, proxy_urls), None):  # type: ignore
-            print('Some Apify proxy features may work incorrectly. Please consider setting up Apify properties instead of `proxy_urls`.\n'
-                  'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration')
+            logger.warning('Some Apify proxy features may work incorrectly. Please consider setting up Apify properties instead of `proxy_urls`.\n'
+                           'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration')
 
         self._actor_config = actor_config or Configuration._get_default_instance()
         self._apify_client = apify_client
@@ -278,8 +279,8 @@ class ProxyConfiguration:
 
                 if self._password:
                     if self._password != password:
-                        print('The Apify Proxy password you provided belongs to'
-                              ' a different user than the Apify token you are using. Are you sure this is correct?')
+                        logger.warning('The Apify Proxy password you provided belongs to'
+                                       ' a different user than the Apify token you are using. Are you sure this is correct?')
                 else:
                     self._password = password
 
@@ -308,8 +309,8 @@ class ProxyConfiguration:
 
             self.is_man_in_the_middle = status['isManInTheMiddle']
         else:
-            print('Apify Proxy access check timed out. Watch out for errors with status code 407. '
-                  "If you see some, it most likely means you don't have access to either all or some of the proxies you're trying to use.")
+            logger.warning('Apify Proxy access check timed out. Watch out for errors with status code 407. '
+                           "If you see some, it most likely means you don't have access to either all or some of the proxies you're trying to use.")
 
     def _get_username(self, session_id: Optional[Union[int, str]] = None) -> str:
         if session_id is not None:
