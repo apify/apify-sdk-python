@@ -104,6 +104,11 @@ class EventManager:
             self._listener_tasks.add(listener_task)
             try:
                 await listener_task
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # We need to swallow the exception and just log it here, since it could break the event emitter otherwise
+                logger.exception('Exception in event listener', extra={'event_name': event_name, 'listener_name': listener.__name__})
             finally:
                 self._listener_tasks.remove(listener_task)
 

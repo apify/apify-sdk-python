@@ -71,6 +71,7 @@ class Actor(metaclass=_ActorContextManager):
     _send_system_info_interval_task: Optional[asyncio.Task] = None
     _send_persist_state_interval_task: Optional[asyncio.Task] = None
     _is_exiting = False
+    _was_final_persist_state_emitted = False
 
     def __init__(self, config: Optional[Configuration] = None) -> None:
         """Create an Actor instance.
@@ -212,6 +213,7 @@ class Actor(metaclass=_ActorContextManager):
             raise RuntimeError('The actor was already initialized!')
 
         self._is_exiting = False
+        self._was_final_persist_state_emitted = False
 
         self.log.info('Initializing actor...')
         _log_system_info()
@@ -259,11 +261,17 @@ class Actor(metaclass=_ActorContextManager):
 
         return result
 
-    def _respond_to_migrating_event(self) -> None:
+    async def _respond_to_migrating_event(self, _event_data: Any) -> None:
         # Don't emit any more regular persist state events
-        if self._send_persist_state_interval_task:
+        if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
             self._send_persist_state_interval_task.cancel()
-        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'is_migrating': True})
+            try:
+                await self._send_persist_state_interval_task
+            except asyncio.CancelledError:
+                pass
+
+        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
+        self._was_final_persist_state_emitted = True
 
     async def _cancel_event_emitting_intervals(self) -> None:
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
@@ -321,7 +329,9 @@ class Actor(metaclass=_ActorContextManager):
         await self._cancel_event_emitting_intervals()
 
         # Send final persist state event
-        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
+        if not self._was_final_persist_state_emitted:
+            self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
+            self._was_final_persist_state_emitted = True
 
         # Sleep for a bit so that the listeners have a chance to trigger
         await asyncio.sleep(0.1)
@@ -1115,6 +1125,7 @@ class Actor(metaclass=_ActorContextManager):
         await self._cancel_event_emitting_intervals()
 
         self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
+        self._was_final_persist_state_emitted = True
 
         await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 
