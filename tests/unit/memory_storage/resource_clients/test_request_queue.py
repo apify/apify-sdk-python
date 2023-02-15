@@ -91,7 +91,6 @@ async def test_list_head(request_queue_client: RequestQueueClient) -> None:
 
 
 async def test_add_record(request_queue_client: RequestQueueClient) -> None:
-    # TODO: How can we test the forefront parameter?
     request_forefront_url = 'https://apify.com'
     request_not_forefront_url = 'https://example.com'
     request_forefront_info = await request_queue_client.add_request({
@@ -126,7 +125,6 @@ async def test_get_record(request_queue_client: RequestQueueClient) -> None:
 
 
 async def test_update_record(request_queue_client: RequestQueueClient) -> None:
-    # TODO: How can we test the forefront parameter?
     request_url = 'https://apify.com'
     request_info = await request_queue_client.add_request({
         'uniqueKey': request_url,

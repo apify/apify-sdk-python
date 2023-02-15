@@ -181,7 +181,7 @@ class RequestQueue:
             dict, optional: The retrieved request, or `None`, if it does not exist.
         """
         _budget_ow(request_id, (str, True), 'request_id')
-        return await self._client.get_request(request_id)  # TODO: Maybe create a Request dataclass?
+        return await self._client.get_request(request_id)
 
     async def fetch_next_request(self) -> Optional[Dict]:
         """Return the next request in the queue to be processed.
