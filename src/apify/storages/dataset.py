@@ -1,7 +1,7 @@
 import csv
 import io
 import math
-from typing import AsyncIterator, Dict, Iterable, List, Optional, Union
+from typing import AsyncIterator, Dict, Iterator, List, Optional, Union
 
 from apify_client import ApifyClientAsync
 from apify_client._utils import ListPage
@@ -27,7 +27,7 @@ def _check_and_serialize(item: JSONSerializable, index: Optional[int] = None) ->
     try:
         payload = _json_dumps(item)
     except Exception as e:
-        raise ValueError(f'Data item{s}is not serializable to JSON.\nCause: {e}')
+        raise ValueError(f'Data item{s}is not serializable to JSON.') from e
 
     length_bytes = len(payload.encode('utf-8'))
     if length_bytes > EFFECTIVE_LIMIT_BYTES:
@@ -36,10 +36,10 @@ def _check_and_serialize(item: JSONSerializable, index: Optional[int] = None) ->
     return payload
 
 
-def _chunk_by_size(items: List[str]) -> Iterable[str]:
-    """Take an array of JSONs, produce list of chunked JSON arrays respecting `EFFECTIVE_LIMIT_BYTES`.
+def _chunk_by_size(items: List[str]) -> Iterator[str]:
+    """Take an array of JSONs, produce iterator of chunked JSON arrays respecting `EFFECTIVE_LIMIT_BYTES`.
 
-    Takes an array of JSONs (payloads) as input and produces an array of JSON strings
+    Takes an array of JSONs (payloads) as input and produces an iterator of JSON strings
     where each string is a JSON array of payloads with a maximum size of `EFFECTIVE_LIMIT_BYTES` per one
     JSON array. Fits as many payloads as possible into a single JSON array and then moves
     on to the next, preserving item order.
@@ -51,27 +51,23 @@ def _chunk_by_size(items: List[str]) -> Iterable[str]:
 
     # Split payloads into buckets of valid size.
     last_chunk_bytes = 2  # Add 2 bytes for [] wrapper.
-    chunks: List[Union[str, List[str]]] = []
+    current_chunk = []
 
     for payload in items:
         length_bytes = len(payload.encode('utf-8'))
 
         if length_bytes <= EFFECTIVE_LIMIT_BYTES and (length_bytes + 2) > EFFECTIVE_LIMIT_BYTES:
             # Handle cases where wrapping with [] would fail, but solo object is fine.
-            chunks.append(payload)
-            last_chunk_bytes = length_bytes
+            yield payload
         elif last_chunk_bytes + length_bytes <= EFFECTIVE_LIMIT_BYTES:
-            # Ensure array.
-            if len(chunks) == 0 or not isinstance(chunks[-1], list):
-                chunks.append([])
-            chunks[-1].append(payload)  # type: ignore
+            current_chunk.append(payload)
             last_chunk_bytes += length_bytes + 1  # Add 1 byte for ',' separator.
         else:
-            chunks.append([payload])
+            yield f'[{",".join(current_chunk)}]'
+            current_chunk = [payload]
             last_chunk_bytes = length_bytes + 2  # Add 2 bytes for [] wrapper.
 
-    # Stringify array chunks.
-    return map(lambda chunk: chunk if isinstance(chunk, str) else f'[{",".join(chunk)}]', chunks)
+    yield f'[{",".join(current_chunk)}]'
 
 
 class Dataset:
