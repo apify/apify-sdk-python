@@ -17,3 +17,6 @@ storage/
 .vscode
 .idea
 .DS_Store
+
+website/docspec-dump.json
+website/api-typedoc-generated.json

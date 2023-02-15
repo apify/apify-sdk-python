@@ -1,59 +1,73 @@
-name: docs
+name: Build and deploy docs
 
 on:
-    push:
-        branches:
-            - master
-            - docs-v2
-    workflow_dispatch:
+  push:
+    branches:
+      - master
+      - docs-v2
+  workflow_dispatch:
 
 jobs:
-    build:
-        if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
-        runs-on: ubuntu-latest
+  build_and_deploy_docs:
+    environment:
+      name: github-pages
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
 
-        steps:
-            -   uses: actions/checkout@v3
-                with:
-                    token: ${{ secrets.GH_TOKEN }}
-            -   name: Use Node.js 16
-                uses: actions/setup-node@v2-beta
-                with:
-                    node-version: 16
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.DOCS_WORKFLOW_GITHUB_TOKEN }}
 
-            -   name: Set git identity
-                run: |
-                    git config --global user.name "Martin Adámek"
-                    git config --global user.email "martin@apify.com"
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: npm
+        cache-dependency-path: website/package-lock.json
 
-            #    - name: Cache node_modules
-            #      uses: actions/cache@v2
-            #      with:
-            #        path: '**/node_modules'
-            #        key: ${{ runner.os }}-${{ matrix.node-version }}-modules-${{ hashFiles('**/yarn.lock') }}
+    - name: Install Node.js dependencies
+      run: |
+        npm install
+        npm update @apify/docs-theme
+      working-directory: ./website
 
-            -   name: Build & deploy docs
-                run: |
-                    # (install tools and) generate reference docs from the source files
-                    sudo apt-get update
-                    sudo apt-get install python3-pip
-                    python3 -m pip install pydoc-markdown
-                    cd website
-                    npm ci --force
-                    node ./transformDocs.js <(pydoc-markdown --quiet --dump ../pydoc-markdown.yml)
-                    # install the latest theme version
-                    npm update @apify/docs-theme
-                    # build and deploy the docs
-                    npm run deploy
-                env:
-                    GIT_USER: "B4nan:${{ secrets.GH_TOKEN }}"
-                    GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    # We do this as early as possible to prevent conflicts if someone else would push something in the meantime
+    - name: Commit the updated package.json and lockfile
+      run: |
+        git config user.name 'GitHub Actions'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        git add website/package.json
+        git add website/package-lock.json
+        git diff-index --quiet HEAD || git commit -m 'chore: Automatic theme updating workflow [skip ci]'
+        git push
 
-            -   name: Commit the updated package(-lock).json
-                uses: stefanzweifel/git-auto-commit-action@v4
-                with:
-                  commit_message: 'chore: Automatic theme updating workflow [skip ci]'
-                  file_pattern: 'website/package*.json'
-                  commit_user_name: Apify Bot
-                  commit_user_email: my-github-actions-bot@example.org
-                  commit_author: Apify Bot <apify@apify.com>
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+
+    - name: Install Python dependencies
+      run: make install-dev
+
+    - name: Build generated API reference
+      run: make build-api-reference
+
+    - name: Build Docusaurus docs
+      run: npm run build
+      working-directory: ./website
+
+    - name: Set up GitHub Pages
+      uses: actions/configure-pages@v3
+
+    - name: Upload GitHub Pages artifact
+      uses: actions/upload-pages-artifact@v1
+      with:
+        path: ./website/build
+
+    - name: Deploy artifact to GitHub Pages
+      uses: actions/deploy-pages@v1
