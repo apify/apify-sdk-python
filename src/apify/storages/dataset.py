@@ -1,7 +1,7 @@
 import csv
 import io
 import math
-from typing import AsyncIterator, Dict, Iterator, List, Optional, Union
+from typing import AsyncIterator, Dict, Iterable, Iterator, List, Optional, Union
 
 from apify_client import ApifyClientAsync
 from apify_client._utils import ListPage
@@ -36,7 +36,7 @@ def _check_and_serialize(item: JSONSerializable, index: Optional[int] = None) ->
     return payload
 
 
-def _chunk_by_size(items: List[str]) -> Iterator[str]:
+def _chunk_by_size(items: Iterable[str]) -> Iterator[str]:
     """Take an array of JSONs, produce iterator of chunked JSON arrays respecting `EFFECTIVE_LIMIT_BYTES`.
 
     Takes an array of JSONs (payloads) as input and produces an iterator of JSON strings
@@ -46,20 +46,13 @@ def _chunk_by_size(items: List[str]) -> Iterator[str]:
 
     The function assumes that none of the items is larger than `EFFECTIVE_LIMIT_BYTES` and does not validate.
     """
-    if len(items) <= 1:
-        return items
-
-    # Split payloads into buckets of valid size.
     last_chunk_bytes = 2  # Add 2 bytes for [] wrapper.
     current_chunk = []
 
     for payload in items:
         length_bytes = len(payload.encode('utf-8'))
 
-        if length_bytes <= EFFECTIVE_LIMIT_BYTES and (length_bytes + 2) > EFFECTIVE_LIMIT_BYTES:
-            # Handle cases where wrapping with [] would fail, but solo object is fine.
-            yield payload
-        elif last_chunk_bytes + length_bytes <= EFFECTIVE_LIMIT_BYTES:
+        if last_chunk_bytes + length_bytes <= EFFECTIVE_LIMIT_BYTES:
             current_chunk.append(payload)
             last_chunk_bytes += length_bytes + 1  # Add 1 byte for ',' separator.
         else:
@@ -152,10 +145,10 @@ class Dataset:
             return await self._client.push_items(payload)
 
         # Handle lists
-        payloads = [_check_and_serialize(item, index) for index, item in enumerate(data)]
+        payloads_generator = (_check_and_serialize(item, index) for index, item in enumerate(data))
 
         # Invoke client in series to preserve the order of data
-        for chunk in _chunk_by_size(payloads):
+        for chunk in _chunk_by_size(payloads_generator):
             await self._client.push_items(chunk)
 
     @classmethod
