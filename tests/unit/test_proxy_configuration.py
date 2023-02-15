@@ -344,7 +344,7 @@ class TestProxyConfigurationInitialize:
     async def test_initialize_manual_password_different_than_user_one(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture,
+        caplog: pytest.LogCaptureFixture,
         respx_mock: MockRouter,
         patched_apify_client: ApifyClientAsync,
     ) -> None:
@@ -367,8 +367,9 @@ class TestProxyConfigurationInitialize:
         assert proxy_configuration._password == different_dummy_password
         assert proxy_configuration.is_man_in_the_middle is True
 
-        out, _ = capsys.readouterr()
-        assert 'The Apify Proxy password you provided belongs to a different user' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'WARNING'
+        assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
 
     async def test_initialize_not_connected(
         self,
@@ -392,7 +393,7 @@ class TestProxyConfigurationInitialize:
     async def test_initialize_status_page_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture,
+        caplog: pytest.LogCaptureFixture,
         respx_mock: MockRouter,
     ) -> None:
         dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
@@ -404,8 +405,9 @@ class TestProxyConfigurationInitialize:
 
         await proxy_configuration.initialize()
 
-        out, _ = capsys.readouterr()
-        assert 'Apify Proxy access check timed out' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'WARNING'
+        assert 'Apify Proxy access check timed out' in caplog.records[0].message
 
     async def test_initialize_not_called_non_apify_proxy(
         self,

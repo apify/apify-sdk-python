@@ -1,8 +1,8 @@
 import asyncio
 import inspect
+import logging
 import os
 import sys
-import traceback
 from datetime import datetime, timezone
 from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
@@ -25,6 +25,7 @@ from ._utils import (
 from .config import Configuration
 from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventTypes, ActorExitCodes, ApifyEnvVars
 from .event_manager import EventManager
+from .log import logger
 from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
 from .storage_client_manager import StorageClientManager
@@ -182,6 +183,11 @@ class Actor(metaclass=_ActorContextManager):
         else:
             return self_or_cls._event_manager
 
+    @dualproperty
+    def log(_self_or_cls) -> logging.Logger:  # noqa: N805
+        """The logging.Logger instance the Actor uses."""  # noqa: D401
+        return logger
+
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
             raise RuntimeError('The actor was not initialized!')
@@ -207,7 +213,7 @@ class Actor(metaclass=_ActorContextManager):
 
         self._is_exiting = False
 
-        print('Initializing actor...')
+        self.log.info('Initializing actor...')
         _log_system_info()
 
         # TODO: Print outdated SDK version warning (we need a new env var for this)
@@ -310,7 +316,7 @@ class Actor(metaclass=_ActorContextManager):
 
         exit_code = _maybe_extract_enum_member_value(exit_code)
 
-        print(f'Exiting actor with exit code {exit_code}')
+        self.log.info('Exiting actor', extra={'exit_code': exit_code})
 
         await self._cancel_event_emitting_intervals()
 
@@ -324,10 +330,12 @@ class Actor(metaclass=_ActorContextManager):
 
         self._is_initialized = False
 
-        if not _is_running_in_ipython() and not os.getenv('PYTEST_CURRENT_TEST', False):
-            sys.exit(exit_code)
+        if _is_running_in_ipython():
+            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in IPython')
+        elif os.getenv('PYTEST_CURRENT_TEST', False):
+            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in an unit test')
         else:
-            print(f'Not calling sys.exit({exit_code}) because actor is running in IPython')
+            sys.exit(exit_code)
 
     @classmethod
     async def fail(
@@ -361,8 +369,7 @@ class Actor(metaclass=_ActorContextManager):
         # In IPython, we don't run `sys.exit()` during actor exits,
         # so the exception traceback will be printed on its own
         if exception and not _is_running_in_ipython():
-            print('Actor failed with an exception:')
-            traceback.print_exception(type(exception), exception, exception.__traceback__)
+            self.log.exception('Actor failed with an exception', exc_info=exception)
 
         await self.exit(exit_code=exit_code)
 
@@ -1060,7 +1067,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.metamorph() is only supported when running on the Apify platform.')
+            self.log.error('Actor.metamorph() is only supported when running on the Apify platform.')
             return
 
         if not custom_after_sleep_millis:
@@ -1102,7 +1109,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.reboot() is only supported when running on the Apify platform.')
+            self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
         await self._cancel_event_emitting_intervals()
@@ -1171,7 +1178,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.add_webhook() is only supported when running on the Apify platform.')
+            self.log.error('Actor.add_webhook() is only supported when running on the Apify platform.')
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
@@ -1203,7 +1210,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.set_status_message() is only supported when running on the Apify platform.')
+            self.log.error('Actor.set_status_message() is only supported when running on the Apify platform.')
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
