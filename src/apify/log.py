@@ -38,6 +38,11 @@ _LOG_MESSAGE_INDENT = ' ' * 6
 class ActorLogFormatter(logging.Formatter):
     """Log formatter that prints out the log message nicely formatted, with colored level and stringified extra fields."""
 
+    # The fields that are added to the log record with `logger.log(..., extra={...})`
+    # are just merged in the log record with the other log record properties, and you can't get them in some nice, isolated way.
+    # So, to get the extra fields, we just compare all the properties present in the log record
+    # with properties present in an empty log record,
+    # and extract all the extra ones not present in the empty log record
     empty_record = logging.LogRecord('dummy', 0, 'dummy', 0, 'dummy', None, None)
 
     def _get_extra_fields(self, record: logging.LogRecord) -> Dict[str, Any]:
