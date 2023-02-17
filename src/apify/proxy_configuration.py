@@ -107,7 +107,7 @@ class ProxyConfiguration:
     _actor_config: Configuration
     _apify_client: Optional[ApifyClientAsync] = None
 
-    @validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @validate_arguments(config={'arbitrary_types_allowed': True})
     def __init__(
         self,
         *,

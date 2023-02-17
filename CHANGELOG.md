@@ -15,6 +15,7 @@ Changelog
 - added unit tests for environment variables handling
 - added unit tests for the `Configuration` class
 - added unit tests for the `EventManager` class
+- added more Flake8 plugins and fixed issues they reported
 
 [0.1.0](../../releases/tag/v0.1.0) - 2023-02-09
 -----------------------------------------------

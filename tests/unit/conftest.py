@@ -16,7 +16,7 @@ from apify_client.client import ApifyClientAsync
 # To isolate the tests, we need to reset the used singletons before each test case
 # We also patch the default storage client with a tmp_path
 @pytest.fixture(autouse=True)
-def reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path: str) -> None:
+def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path: str) -> None:
     monkeypatch.setattr(Actor, '_default_instance', None)
     monkeypatch.setattr(Configuration, '_default_instance', None)
     monkeypatch.setattr(StorageManager, '_default_instance', None)
@@ -118,6 +118,6 @@ def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAs
     return ApifyClientAsyncPatcher(monkeypatch)
 
 
-@pytest.fixture()
+@pytest.fixture
 def memory_storage(tmp_path: str) -> MemoryStorage:
     return MemoryStorage(local_data_directory=tmp_path)

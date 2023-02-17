@@ -4,7 +4,7 @@ from apify.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients import RequestQueueCollectionClient
 
 
-@pytest.fixture()
+@pytest.fixture
 def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollectionClient:
     return memory_storage.request_queues()
 
