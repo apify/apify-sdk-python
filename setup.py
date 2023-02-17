@@ -61,7 +61,6 @@ setup(
         'cryptography ~= 39.0.1',
         'httpx ~= 0.23.0',
         'psutil ~= 5.9.4',
-        'pydantic ~= 1.10.2',
         'pyee ~= 9.0.4',
         'typing-extensions ~= 4.4.0',
         'websockets ~= 10.4',
