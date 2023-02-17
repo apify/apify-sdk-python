@@ -276,10 +276,12 @@ def _is_uuid(string: str) -> bool:
 
 
 def _raise_on_non_existing_storage(client_type: StorageTypes, id: str) -> NoReturn:
+    client_type = _maybe_extract_enum_member_value(client_type)
     raise ValueError(f'{client_type} with id "{id}" does not exist.')
 
 
 def _raise_on_duplicate_storage(client_type: StorageTypes, key_name: str, value: str) -> NoReturn:
+    client_type = _maybe_extract_enum_member_value(client_type)
     raise ValueError(f'{client_type} with {key_name} "{value}" already exists.')
 
 
