@@ -1598,8 +1598,8 @@ If you want to use your own proxies, use the proxy_urls or new_url_function cons
 Your list of proxy URLs will be rotated by the configuration, if this option is provided.
 
 * [async initialize()](#proxyconfiguration-initialize)
-* [new\_url()](#proxyconfiguration-new\_url)
-* [new\_proxy\_info()](#proxyconfiguration-new\_proxy\_info)
+* [async new\_url()](#proxyconfiguration-new\_url)
+* [async new\_proxy\_info()](#proxyconfiguration-new\_proxy\_info)
 
 ***
 
@@ -1619,7 +1619,7 @@ to create a pre-initialized ProxyConfiguration instance instead of calling this 
 
 ***
 
-#### [](#proxyconfiguration-new_url) `ProxyConfiguration.new_url(session_id=None)`
+#### [](#proxyconfiguration-new_url) `async ProxyConfiguration.new_url(session_id=None)`
 
 Return a new proxy URL based on provided configuration options and the sessionId parameter.
 
@@ -1645,7 +1645,7 @@ Return a new proxy URL based on provided configuration options and the sessionId
 
 ***
 
-#### [](#proxyconfiguration-new_proxy_info) `ProxyConfiguration.new_proxy_info(session_id=None)`
+#### [](#proxyconfiguration-new_proxy_info) `async ProxyConfiguration.new_proxy_info(session_id=None)`
 
 Create a new ProxyInfo object.
 
