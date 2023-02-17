@@ -3,7 +3,7 @@ import pytest
 from apify.storages import Dataset, KeyValueStore
 
 
-@pytest.fixture()
+@pytest.fixture
 async def dataset() -> Dataset:
     return await Dataset.open()
 

@@ -6,7 +6,7 @@ import pytest
 from apify.storages import RequestQueue
 
 
-@pytest.fixture()
+@pytest.fixture
 async def request_queue() -> RequestQueue:
     return await RequestQueue.open()
 

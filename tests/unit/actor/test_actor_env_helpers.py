@@ -25,7 +25,7 @@ class TestIsAtHome:
 class TestGetEnv:
     async def test_get_env_use_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Set up random env vars
-        expected_get_env: Dict[str, Any] = dict()
+        expected_get_env: Dict[str, Any] = {}
         for int_env_var in INTEGER_ENV_VARS:
             int_get_env_var = int_env_var.name.lower()
             expected_get_env[int_get_env_var] = random.randint(1, 99999)

@@ -44,7 +44,7 @@ class TestEventManagerLocal:
 
         await event_manager.init()
 
-        event_calls = defaultdict(lambda: list())
+        event_calls = defaultdict(list)
 
         def on_event(event: ActorEventTypes, id: Optional[int] = None) -> Callable:
             def event_handler(data: Any) -> None:

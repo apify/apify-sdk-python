@@ -62,7 +62,7 @@ class TestActorLog:
         run_log_lines = run_log_lines[-expected_log_lines_count:]
 
         # This removes the datetime from the start of log lines
-        run_log_lines = list(map(lambda line: line[25:], run_log_lines))
+        run_log_lines = [line[25:] for line in run_log_lines]
 
         # This might be way too specific and easy to break, but let's hope not
         assert run_log_lines.pop(0) == 'ACTOR: Pulling Docker image from repository.'
