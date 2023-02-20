@@ -29,7 +29,7 @@ class TestCrypto():
         encrypted = public_encrypt(test_value, public_key=PUBLIC_KEY)
         encrypted['encrypted_password'] = base64.b64encode(b'invalid_password').decode('utf-8')
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='Ciphertext length must be equal to key size.'):
             private_decrypt(**encrypted, private_key=PRIVATE_KEY)
 
     def test_throw_error_if_cipher_is_manipulated(self) -> None:
@@ -38,7 +38,7 @@ class TestCrypto():
         encrypted['encrypted_value'] = base64.b64encode(
             b'invalid_cipher' + base64.b64decode(encrypted['encrypted_value'].encode('utf-8'))).decode('utf-8')
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='Decryption failed, malformed encrypted value or password.'):
             private_decrypt(**encrypted, private_key=PRIVATE_KEY)
 
     def test_same_encrypted_value_should_return_deffirent_cipher(self) -> None:

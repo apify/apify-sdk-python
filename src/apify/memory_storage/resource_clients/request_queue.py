@@ -141,7 +141,7 @@ class RequestQueueClient:
             'limit': limit,
             'hadMultipleClients': False,
             'queueModifiedAt': existing_queue_by_id._modified_at,
-            'items': list(map(lambda item: self._json_to_request(item['json']), items)),
+            'items': [self._json_to_request(item['json']) for item in items],
         }
 
     async def add_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:

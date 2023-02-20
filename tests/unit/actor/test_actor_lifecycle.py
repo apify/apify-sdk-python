@@ -40,8 +40,8 @@ class TestActorExit:
     async def test_with_actor_exit(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(ApifyEnvVars.SYSTEM_INFO_INTERVAL_MILLIS, '100')
         monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '100')
-        on_persist = list()
-        on_system_info = list()
+        on_persist = []
+        on_system_info = []
 
         def on_event(event_type: ActorEventTypes) -> Callable:
             nonlocal on_persist

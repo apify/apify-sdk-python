@@ -5,7 +5,7 @@ from apify.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients import DatasetCollectionClient
 
 
-@pytest.fixture()
+@pytest.fixture
 def datasets_client(memory_storage: MemoryStorage) -> DatasetCollectionClient:
     return memory_storage.datasets()
 

@@ -7,7 +7,7 @@ from apify.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients import KeyValueStoreClient
 
 
-@pytest.fixture()
+@pytest.fixture
 async def key_value_store_client(memory_storage: MemoryStorage) -> KeyValueStoreClient:
     key_value_stores_client = memory_storage.key_value_stores()
     kvs_info = await key_value_stores_client.get_or_create(name='test')
@@ -17,18 +17,30 @@ async def key_value_store_client(memory_storage: MemoryStorage) -> KeyValueStore
 async def test_nonexistent(memory_storage: MemoryStorage) -> None:
     kvs_client = memory_storage.key_value_store(key_value_store_id='clearly not a uuid')
     assert await kvs_client.get() is None
-    with pytest.raises(ValueError):
+
+    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
         await kvs_client.update(name='test-update')
+
+    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
         await kvs_client.list_keys()
+
+    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
         await kvs_client.set_record('test', {'abc': 123})
+
+    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
         await kvs_client.get_record('test')
+
+    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
         await kvs_client.get_record_as_bytes('test')
+
+    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
         await kvs_client.delete_record('test')
+
     await kvs_client.delete()
 
 
 async def test_not_implemented(key_value_store_client: KeyValueStoreClient) -> None:
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match='This method is not supported in local memory storage.'):
         await key_value_store_client.stream_record('test')
 
 
@@ -60,7 +72,7 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
     assert old_kvs_info['accessedAt'] != updated_kvs_info['accessedAt']
 
     # Should fail with the same name
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Key-value store with name "test-update" already exists.'):
         await key_value_store_client.update(name=new_kvs_name)
 
 
@@ -143,9 +155,9 @@ async def test_get_and_set_record(tmp_path: str, key_value_store_client: KeyValu
     assert bytes_record_info['value'] == bytes_value
     assert bytes_record_info['value'].decode('utf-8') == bytes_value.decode('utf-8')
     # Test using file descriptor
-    with pytest.raises(NotImplementedError):
-        with open(os.path.join(tmp_path, 'test.json'), 'w+') as f:
-            f.write('Test')
+    with open(os.path.join(tmp_path, 'test.json'), 'w+') as f:
+        f.write('Test')
+        with pytest.raises(NotImplementedError, match='File-like values are not supported in local memory storage'):
             await key_value_store_client.set_record('file', f)
 
 

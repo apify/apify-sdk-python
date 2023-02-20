@@ -77,7 +77,7 @@ def actor_base_source_files(sdk_wheel_path: Path) -> Dict[str, Union[str, bytes]
     builds the Apify SDK wheel from the current codebase,
     and adds them all together in a dictionary.
     """
-    source_files: Dict[str, Union[str, bytes]] = dict()
+    source_files: Dict[str, Union[str, bytes]] = {}
 
     # First read the actor_source_base files
     sdk_root_path = Path(__file__).parent.parent.parent.resolve()

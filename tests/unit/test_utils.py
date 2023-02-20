@@ -265,12 +265,12 @@ def test__is_uuid() -> None:
 
 
 def test__raise_on_non_existing_storage() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Dataset with id ".*" does not exist.'):
         _raise_on_non_existing_storage(StorageTypes.DATASET, str(uuid.uuid4()))
 
 
 def test__raise_on_duplicate_storage() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Dataset with name "test" already exists.'):
         _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', 'test')
 
 
