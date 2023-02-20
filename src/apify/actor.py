@@ -293,7 +293,7 @@ class Actor(metaclass=_ActorContextManager):
         cls,
         *,
         exit_code: int = 0,
-        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        event_listeners_timeout_secs: Optional[float] = EVENT_LISTENERS_TIMEOUT_SECS,
     ) -> None:
         """Exit the actor instance.
 
@@ -305,7 +305,7 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             exit_code (int, optional): The exit code with which the actor should fail (defaults to `0`).
-            event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
+            event_listeners_timeout_secs (float, optional): How long should the actor wait for actor event listeners to finish before exiting
         """
         return await cls._get_default_instance().exit(
             exit_code=exit_code,
@@ -316,7 +316,7 @@ class Actor(metaclass=_ActorContextManager):
         self,
         *,
         exit_code: int = 0,
-        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        event_listeners_timeout_secs: Optional[float] = EVENT_LISTENERS_TIMEOUT_SECS,
     ) -> None:
         self._raise_if_not_initialized()
 

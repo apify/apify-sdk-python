@@ -349,7 +349,7 @@ and stops the event manager.
 
   * **exit_code** (`int`, *optional*) – The exit code with which the actor should fail (defaults to 0).
 
-  * **event_listeners_timeout_secs** (`int`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting
+  * **event_listeners_timeout_secs** (`float`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting
 
 * **Return type**
 

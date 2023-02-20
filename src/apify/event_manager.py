@@ -26,6 +26,7 @@ class EventManager:
     _send_system_info_interval_task: Optional[asyncio.Task] = None
     _listener_tasks: Set[asyncio.Task]
     _listeners_to_wrappers: Dict[ActorEventTypes, Dict[Callable, List[Callable]]]
+    _connected_to_platform_websocket: Optional[asyncio.Future] = None
 
     def __init__(self, config: Configuration) -> None:
         """Crate an instance of EventManager.
@@ -51,20 +52,24 @@ class EventManager:
 
         # Run tasks but don't await them
         if self._config.actor_events_ws_url:
+            self._connected_to_platform_websocket = asyncio.Future()
             self._process_platform_messages_task = asyncio.create_task(self._process_platform_messages())
+            is_connected = await self._connected_to_platform_websocket
+            if not is_connected:
+                raise RuntimeError('Error connecting to platform events websocket!')
         else:
             logger.debug('APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.')
 
         self._initialized = True
 
-    async def close(self, event_listeners_timeout_secs: Optional[int] = None) -> None:
+    async def close(self, event_listeners_timeout_secs: Optional[float] = None) -> None:
         """Initialize the event manager.
 
         This will stop listening for the platform events,
         and it will wait for all the event listeners to finish.
 
         Args:
-            event_listeners_timeout_secs (int, optional): Optional timeout after which the pending event listeners are canceled.
+            event_listeners_timeout_secs (float, optional): Optional timeout after which the pending event listeners are canceled.
         """
         if not self._initialized:
             raise RuntimeError('EventManager was not initialized!')
@@ -147,11 +152,11 @@ class EventManager:
 
         self._event_emitter.emit(event_name, data)
 
-    async def wait_for_all_listeners_to_complete(self, *, timeout_secs: Optional[int] = None) -> None:
+    async def wait_for_all_listeners_to_complete(self, *, timeout_secs: Optional[float] = None) -> None:
         """Wait for all event listeners which are currently being executed to complete.
 
         Args:
-            timeout_secs (int, optional): Timeout for the wait. If the event listeners don't finish until the timeout, they will be canceled.
+            timeout_secs (float, optional): Timeout for the wait. If the event listeners don't finish until the timeout, they will be canceled.
         """
         async def _wait_for_listeners() -> None:
             results = await asyncio.gather(*self._listener_tasks, return_exceptions=True)
@@ -175,10 +180,12 @@ class EventManager:
     async def _process_platform_messages(self) -> None:
         # This should be called only on the platform, where we have the ACTOR_EVENTS_WS_URL configured
         assert self._config.actor_events_ws_url is not None
+        assert self._connected_to_platform_websocket is not None
 
         try:
             async with websockets.client.connect(self._config.actor_events_ws_url) as websocket:
                 self._platform_events_websocket = websocket
+                self._connected_to_platform_websocket.set_result(True)
                 async for message in websocket:
                     try:
                         parsed_message = json.loads(message)
@@ -192,3 +199,4 @@ class EventManager:
                         logger.exception('Cannot parse actor event', extra={'message': message})
         except Exception:
             logger.exception('Error in websocket connection')
+            self._connected_to_platform_websocket.set_result(False)

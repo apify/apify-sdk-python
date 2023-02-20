@@ -51,6 +51,10 @@ class TestGetEnv:
             expected_get_env[string_get_env_var] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
             monkeypatch.setenv(string_env_var, expected_get_env[string_get_env_var])
 
+        # We need this override so that the actor doesn't fail when connecting to the platform events websocket
+        monkeypatch.delenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL)
+        expected_get_env[ApifyEnvVars.ACTOR_EVENTS_WS_URL.name.lower()] = None
+
         await Actor.init()
         assert expected_get_env == Actor.get_env()
 
