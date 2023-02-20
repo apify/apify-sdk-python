@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
 
-from ._utils import _maybe_extract_enum_member_value
+from ._utils import _maybe_extract_enum_member_value, _parse_date_fields
 from .config import Configuration
 from .consts import ActorEventTypes
 from .log import logger
@@ -190,6 +190,7 @@ class EventManager:
                     try:
                         parsed_message = json.loads(message)
                         assert isinstance(parsed_message, dict)
+                        parsed_message = _parse_date_fields(parsed_message)
                         event_name = parsed_message['name']
                         event_data = parsed_message.get('data')  # 'data' can be missing
 

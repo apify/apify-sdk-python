@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from typing import Any, Callable
 from unittest.mock import AsyncMock
 
@@ -67,6 +68,8 @@ class TestActorExit:
         await asyncio.sleep(0.2)
         assert on_persist_count == len(on_persist)
         assert on_system_info_count == len(on_system_info)
+        # Check `createdAt` is a datetime (so it's the same locally and on platform)
+        assert isinstance(on_system_info[0]['createdAt'], datetime)
 
     async def test_raise_on_exit_witout_init(self) -> None:
         with pytest.raises(RuntimeError):

@@ -16,7 +16,7 @@ from collections import OrderedDict
 from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, NoReturn, Optional
+from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, List, NoReturn, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Tuple, Type, TypeVar, Union, ValuesView, cast, overload
 
@@ -448,3 +448,31 @@ def _budget_ow(
         validate_single(value, field_type, required, value_name)
     else:
         raise ValueError('Wrong input!')
+
+
+PARSE_DATE_FIELDS_MAX_DEPTH = 3
+PARSE_DATE_FIELDS_KEY_SUFFIX = 'At'
+ListOrDictOrAny = TypeVar('ListOrDictOrAny', List, Dict, Any)
+
+
+def _parse_date_fields(data: ListOrDictOrAny, max_depth: int = PARSE_DATE_FIELDS_MAX_DEPTH) -> ListOrDictOrAny:
+    if max_depth < 0:
+        return data
+
+    if isinstance(data, list):
+        return [_parse_date_fields(item, max_depth - 1) for item in data]
+
+    if isinstance(data, dict):
+        def parse(key: str, value: object) -> object:
+            parsed_value = value
+            if key.endswith(PARSE_DATE_FIELDS_KEY_SUFFIX) and isinstance(value, str):
+                parsed_value = _maybe_parse_datetime(value)
+            elif isinstance(value, dict):
+                parsed_value = _parse_date_fields(value, max_depth - 1)
+            elif isinstance(value, list):
+                parsed_value = _parse_date_fields(value, max_depth)
+            return parsed_value
+
+        return {key: parse(key, value) for (key, value) in data.items()}
+
+    return data
