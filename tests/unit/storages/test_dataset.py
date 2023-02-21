@@ -3,7 +3,7 @@ import pytest
 from apify.storages import Dataset, KeyValueStore
 
 
-@pytest.fixture()
+@pytest.fixture
 async def dataset() -> Dataset:
     return await Dataset.open()
 
@@ -47,6 +47,22 @@ async def test_push_data(dataset: Dataset) -> None:
     list_page = await dataset.get_data(limit=desired_item_count)
     assert list_page.items[0]['id'] == 0
     assert list_page.items[-1]['id'] == desired_item_count - 1
+
+
+async def test_push_data_empty(dataset: Dataset) -> None:
+    await dataset.push_data([])
+    dataset_info = await dataset.get_info()
+    assert dataset_info is not None
+    assert dataset_info['itemCount'] == 0
+
+
+async def test_push_data_singular(dataset: Dataset) -> None:
+    await dataset.push_data({'id': 1})
+    dataset_info = await dataset.get_info()
+    assert dataset_info is not None
+    assert dataset_info['itemCount'] == 1
+    list_page = await dataset.get_data()
+    assert list_page.items[0]['id'] == 1
 
 
 async def test_get_data(dataset: Dataset) -> None:  # We don't test everything, that's done in memory storage tests

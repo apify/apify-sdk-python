@@ -8,7 +8,7 @@ from apify.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients import RequestQueueClient
 
 
-@pytest.fixture()
+@pytest.fixture
 async def request_queue_client(memory_storage: MemoryStorage) -> RequestQueueClient:
     request_queues_client = memory_storage.request_queues()
     rq_info = await request_queues_client.get_or_create(name='test')
@@ -18,7 +18,7 @@ async def request_queue_client(memory_storage: MemoryStorage) -> RequestQueueCli
 async def test_nonexistent(memory_storage: MemoryStorage) -> None:
     request_queue_client = memory_storage.request_queue(request_queue_id='clearly not a uuid')
     assert await request_queue_client.get() is None
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Request queue with id "clearly not a uuid" does not exist.'):
         await request_queue_client.update(name='test-update')
     await request_queue_client.delete()
 
@@ -54,7 +54,7 @@ async def test_update(request_queue_client: RequestQueueClient) -> None:
     assert old_rq_info['accessedAt'] != updated_rq_info['accessedAt']
 
     # Should fail with the same name
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Request queue with name "test-update" already exists'):
         await request_queue_client.update(name=new_rq_name)
 
 
@@ -91,7 +91,6 @@ async def test_list_head(request_queue_client: RequestQueueClient) -> None:
 
 
 async def test_add_record(request_queue_client: RequestQueueClient) -> None:
-    # TODO: How can we test the forefront parameter?
     request_forefront_url = 'https://apify.com'
     request_not_forefront_url = 'https://example.com'
     request_forefront_info = await request_queue_client.add_request({
@@ -126,7 +125,6 @@ async def test_get_record(request_queue_client: RequestQueueClient) -> None:
 
 
 async def test_update_record(request_queue_client: RequestQueueClient) -> None:
-    # TODO: How can we test the forefront parameter?
     request_url = 'https://apify.com'
     request_info = await request_queue_client.add_request({
         'uniqueKey': request_url,

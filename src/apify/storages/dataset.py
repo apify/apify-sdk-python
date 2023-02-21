@@ -1,18 +1,66 @@
 import csv
 import io
-from typing import AsyncIterator, Dict, List, Optional, Union
+import math
+from typing import AsyncIterator, Dict, Iterable, Iterator, List, Optional, Union
 
 from apify_client import ApifyClientAsync
 from apify_client._utils import ListPage
 from apify_client.clients import DatasetClientAsync
 
 from .._types import JSONSerializable
-from .._utils import _wrap_internal
+from .._utils import _json_dumps, _wrap_internal
 from ..config import Configuration
+from ..consts import MAX_PAYLOAD_SIZE_BYTES
 from ..memory_storage import MemoryStorage
 from ..memory_storage.resource_clients import DatasetClient
 from .key_value_store import KeyValueStore
 from .storage_manager import StorageManager
+
+SAFETY_BUFFER_PERCENT = 0.01 / 100  # 0.01%
+EFFECTIVE_LIMIT_BYTES = MAX_PAYLOAD_SIZE_BYTES - math.ceil(MAX_PAYLOAD_SIZE_BYTES * SAFETY_BUFFER_PERCENT)
+
+
+def _check_and_serialize(item: JSONSerializable, index: Optional[int] = None) -> str:
+    """Accept a JSON serializable object as an input, validate its serializability and its serialized size against `EFFECTIVE_LIMIT_BYTES`."""
+    s = ' ' if index is None else f' at index {index} '
+
+    try:
+        payload = _json_dumps(item)
+    except Exception as e:
+        raise ValueError(f'Data item{s}is not serializable to JSON.') from e
+
+    length_bytes = len(payload.encode('utf-8'))
+    if length_bytes > EFFECTIVE_LIMIT_BYTES:
+        raise ValueError(f'Data item{s}is too large (size: {length_bytes} bytes, limit: {EFFECTIVE_LIMIT_BYTES} bytes)')
+
+    return payload
+
+
+def _chunk_by_size(items: Iterable[str]) -> Iterator[str]:
+    """Take an array of JSONs, produce iterator of chunked JSON arrays respecting `EFFECTIVE_LIMIT_BYTES`.
+
+    Takes an array of JSONs (payloads) as input and produces an iterator of JSON strings
+    where each string is a JSON array of payloads with a maximum size of `EFFECTIVE_LIMIT_BYTES` per one
+    JSON array. Fits as many payloads as possible into a single JSON array and then moves
+    on to the next, preserving item order.
+
+    The function assumes that none of the items is larger than `EFFECTIVE_LIMIT_BYTES` and does not validate.
+    """
+    last_chunk_bytes = 2  # Add 2 bytes for [] wrapper.
+    current_chunk = []
+
+    for payload in items:
+        length_bytes = len(payload.encode('utf-8'))
+
+        if last_chunk_bytes + length_bytes <= EFFECTIVE_LIMIT_BYTES:
+            current_chunk.append(payload)
+            last_chunk_bytes += length_bytes + 1  # Add 1 byte for ',' separator.
+        else:
+            yield f'[{",".join(current_chunk)}]'
+            current_chunk = [payload]
+            last_chunk_bytes = length_bytes + 2  # Add 2 bytes for [] wrapper.
+
+    yield f'[{",".join(current_chunk)}]'
 
 
 class Dataset:
@@ -91,26 +139,17 @@ class Dataset:
         return await dataset.push_data(data)
 
     async def _push_data_internal(self, data: JSONSerializable) -> None:
-        # const dispatch = (payload: string) => this.client.pushItems(payload);
-        # const limit = MAX_PAYLOAD_SIZE_BYTES - Math.ceil(MAX_PAYLOAD_SIZE_BYTES * SAFETY_BUFFER_PERCENT);
+        # Handle singular items
+        if not isinstance(data, list):
+            payload = _check_and_serialize(data)
+            return await self._client.push_items(payload)
 
-        # // Handle singular Objects
-        # if (!Array.isArray(data)) {
-        #     const payload = checkAndSerialize(data, limit);
-        #     return dispatch(payload);
-        # }
+        # Handle lists
+        payloads_generator = (_check_and_serialize(item, index) for index, item in enumerate(data))
 
-        # // Handle Arrays
-        # const payloads = data.map((item, index) => checkAndSerialize(item, limit, index));
-        # const chunks = chunkBySize(payloads, limit);
-
-        # // Invoke client in series to preserve order of data
-        # for (const chunk of chunks) {
-        #     await dispatch(chunk);
-        # }
-        # TODO: Implement the size chunking mechanism from crawlee...
-        # limit = MAX_PAYLOAD_SIZE_BYTES - math.ceil(MAX_PAYLOAD_SIZE_BYTES * SAFETY_BUFFER_PERCENT)
-        await self._client.push_items(data)
+        # Invoke client in series to preserve the order of data
+        for chunk in _chunk_by_size(payloads_generator):
+            await self._client.push_items(chunk)
 
     @classmethod
     async def get_data(

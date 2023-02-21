@@ -228,7 +228,7 @@ class KeyValueStoreClient:
         return await self._get_record_internal(key, as_bytes=True)
 
     async def stream_record(self, _key: str) -> AsyncIterator[Optional[Dict]]:  # noqa: D102
-        raise NotImplementedError('This method is not supported in local memory storage')
+        raise NotImplementedError('This method is not supported in local memory storage.')
 
     async def set_record(self, key: str, value: Any, content_type: Optional[str] = None) -> None:
         """Set a value to the given record in the key-value store.

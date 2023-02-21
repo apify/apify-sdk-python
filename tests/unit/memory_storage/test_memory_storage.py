@@ -124,10 +124,10 @@ async def test_purge_request_queues(tmp_path: str) -> None:
 async def test_not_implemented_method(tmp_path: str) -> None:
     ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
     ddt = ms.dataset('test')
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match='This method is not supported in local memory storage.'):
         await ddt.stream_items(item_format='json')
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match='This method is not supported in local memory storage.'):
         await ddt.stream_items(item_format='json')
 
 

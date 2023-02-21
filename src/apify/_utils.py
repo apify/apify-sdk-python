@@ -16,7 +16,7 @@ from collections import OrderedDict
 from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, NoReturn, Optional
+from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, List, NoReturn, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Tuple, Type, TypeVar, Union, ValuesView, cast, overload
 
@@ -42,18 +42,23 @@ from .consts import (
     ApifyEnvVars,
     StorageTypes,
 )
+from .log import logger
 
 
 def _log_system_info() -> None:
     python_version = '.'.join([str(x) for x in sys.version_info[:3]])
 
-    print('System info:')
-    print(f'    Apify SDK version: {sdk_version}')
-    print(f'    Apify Client version: {client_version}')
-    print(f'    OS: {sys.platform}')
-    print(f'    Python version: {python_version}')
+    system_info: Dict[str, Union[str, bool]] = {
+        'apify_sdk_version': sdk_version,
+        'apify_client_version': client_version,
+        'python_version': python_version,
+        'os': sys.platform,
+    }
+
     if _is_running_in_ipython():
-        print('    Running in IPython: True')
+        system_info['is_running_in_ipython'] = True
+
+    logger.info('System info', extra=system_info)
 
 
 DualPropertyType = TypeVar('DualPropertyType')
@@ -271,11 +276,13 @@ def _is_uuid(string: str) -> bool:
 
 
 def _raise_on_non_existing_storage(client_type: StorageTypes, id: str) -> NoReturn:
-    raise ValueError(f'{client_type} with id: {id} does not exist.')
+    client_type = _maybe_extract_enum_member_value(client_type)
+    raise ValueError(f'{client_type} with id "{id}" does not exist.')
 
 
 def _raise_on_duplicate_storage(client_type: StorageTypes, key_name: str, value: str) -> NoReturn:
-    raise ValueError(f'{client_type} with {key_name}: {value} already exists.')
+    client_type = _maybe_extract_enum_member_value(client_type)
+    raise ValueError(f'{client_type} with {key_name} "{value}" already exists.')
 
 
 def _guess_file_extension(content_type: str) -> Optional[str]:
@@ -321,8 +328,8 @@ def _maybe_parse_body(body: bytes, content_type: str) -> Any:
             return json.loads(body)  # Returns any
         elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
             return body.decode('utf-8')
-    except ValueError as err:
-        print('_maybe_parse_body error', err)
+    except ValueError:
+        logger.exception('Error parsing key-value store record')
     return body
 
 
@@ -441,3 +448,31 @@ def _budget_ow(
         validate_single(value, field_type, required, value_name)
     else:
         raise ValueError('Wrong input!')
+
+
+PARSE_DATE_FIELDS_MAX_DEPTH = 3
+PARSE_DATE_FIELDS_KEY_SUFFIX = 'At'
+ListOrDictOrAny = TypeVar('ListOrDictOrAny', List, Dict, Any)
+
+
+def _parse_date_fields(data: ListOrDictOrAny, max_depth: int = PARSE_DATE_FIELDS_MAX_DEPTH) -> ListOrDictOrAny:
+    if max_depth < 0:
+        return data
+
+    if isinstance(data, list):
+        return [_parse_date_fields(item, max_depth - 1) for item in data]
+
+    if isinstance(data, dict):
+        def parse(key: str, value: object) -> object:
+            parsed_value = value
+            if key.endswith(PARSE_DATE_FIELDS_KEY_SUFFIX) and isinstance(value, str):
+                parsed_value = _maybe_parse_datetime(value)
+            elif isinstance(value, dict):
+                parsed_value = _parse_date_fields(value, max_depth - 1)
+            elif isinstance(value, list):
+                parsed_value = _parse_date_fields(value, max_depth)
+            return parsed_value
+
+        return {key: parse(key, value) for (key, value) in data.items()}
+
+    return data

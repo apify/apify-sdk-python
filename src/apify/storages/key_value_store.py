@@ -148,9 +148,6 @@ class KeyValueStore:
         if value is None:
             return await self._client.delete_record(key)
 
-        # TODO: Why does crawlee run another stringify here?
-        # value = maybeStringify(value, optionsCopy)
-
         return await self._client.set_record(key, value, content_type)
 
     async def drop(self) -> None:

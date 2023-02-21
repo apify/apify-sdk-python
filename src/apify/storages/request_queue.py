@@ -1,6 +1,4 @@
 import asyncio
-import json
-import logging
 from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Coroutine, Dict, Optional
@@ -14,6 +12,7 @@ from .._crypto import _crypto_random_object_id
 from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
 from ..config import Configuration
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
+from ..log import logger
 from ..memory_storage import MemoryStorage
 from ..memory_storage.resource_clients import RequestQueueClient
 from .storage_manager import StorageManager
@@ -182,7 +181,7 @@ class RequestQueue:
             dict, optional: The retrieved request, or `None`, if it does not exist.
         """
         _budget_ow(request_id, (str, True), 'request_id')
-        return await self._client.get_request(request_id)  # TODO: Maybe create a Request dataclass?
+        return await self._client.get_request(request_id)
 
     async def fetch_next_request(self) -> Optional[Dict]:
         """Return the next request in the queue to be processed.
@@ -208,11 +207,11 @@ class RequestQueue:
 
         # This should never happen, but...
         if next_request_id in self._in_progress or self._recently_handled.get(next_request_id):
-            logging.warning(f"""Queue head returned a request that is already in progress?! {json.dumps({
+            logger.warning('Queue head returned a request that is already in progress?!', extra={
                 'nextRequestId': next_request_id,
                 'inProgress': next_request_id in self._in_progress,
                 'recentlyHandled': next_request_id in self._recently_handled,
-            })}""")
+            })
             return None
         self._in_progress.add(next_request_id)
         self._last_activity = datetime.now(timezone.utc)
@@ -233,7 +232,7 @@ class RequestQueue:
                 will try to fetch this request again, until it eventually appears in the main table.
         """
         if request is None:
-            logging.debug(f'Cannot find a request from the beginning of queue, will be retried later. nextRequestId: {next_request_id}')
+            logger.debug('Cannot find a request from the beginning of queue, will be retried later', extra={'nextRequestId': next_request_id})
             asyncio.get_running_loop().call_later(STORAGE_CONSISTENCY_DELAY_MILLIS // 1000, lambda: self._in_progress.remove(next_request_id))
             return None
 
@@ -243,7 +242,7 @@ class RequestQueue:
                will not put the request again to queueHeadDict.
         """
         if request.get('handledAt') is not None:
-            logging.debug(f'Request fetched from the beginning of queue was already handled. nextRequestId: {next_request_id}')
+            logger.debug('Request fetched from the beginning of queue was already handled', extra={'nextRequestId': next_request_id})
             self._recently_handled[next_request_id] = True
             return None
 
@@ -268,7 +267,7 @@ class RequestQueue:
         })
         self._last_activity = datetime.now(timezone.utc)
         if request['id'] not in self._in_progress:
-            logging.debug(f'Cannot mark request {request["id"]} as handled, because it is not in progress!')
+            logger.debug('Cannot mark request as handled, because it is not in progress!', extra={'requestId': request['id']})
             return None
 
         request['handledAt'] = request.get('handledAt', datetime.now(timezone.utc))
@@ -305,7 +304,7 @@ class RequestQueue:
         self._last_activity = datetime.now(timezone.utc)
 
         if request['id'] not in self._in_progress:
-            logging.debug(f'Cannot reclaim request {request["id"]}, because it is not in progress!')
+            logger.debug('Cannot reclaim request, because it is not in progress!', extra={'requestId': request['id']})
             return None
 
         # TODO: If request hasn't been changed since the last getRequest(),
@@ -318,7 +317,7 @@ class RequestQueue:
         # This is to compensate for the limitation of DynamoDB, where writes might not be immediately visible to subsequent reads.
         def callback() -> None:
             if request['id'] not in self._in_progress:
-                logging.debug(f'The request is no longer marked as in progress in the queue?! requestId: {request["id"]}')
+                logger.debug('The request is no longer marked as in progress in the queue?!', {'requestId': request['id']})
                 return
 
             self._in_progress.remove(request['id'])
@@ -355,7 +354,7 @@ class RequestQueue:
         seconds_since_last_activity = (datetime.now(timezone.utc) - self._last_activity).seconds
         if self._in_progress_count() > 0 and seconds_since_last_activity > self._internal_timeout_seconds:
             message = f'The request queue seems to be stuck for {self._internal_timeout_seconds}s, resetting internal state.'
-            logging.warning(message)
+            logger.warning(message)
             self._reset()
 
         if (len(self._queue_head_dict) > 0 or self._in_progress_count() > 0):
@@ -433,7 +432,7 @@ class RequestQueue:
 
         # If limit was not reached in the call then there are no more requests to be returned.
         if (queue_head['prevLimit'] >= REQUEST_QUEUE_HEAD_MAX_LIMIT):
-            logging.warning(f'Reached the maximum number of requests in progress: {REQUEST_QUEUE_HEAD_MAX_LIMIT}.')
+            logger.warning('Reached the maximum number of requests in progress', extra={'limit': REQUEST_QUEUE_HEAD_MAX_LIMIT})
 
         should_repeat_with_higher_limit = len(
             self._queue_head_dict) == 0 and queue_head['wasLimitReached'] and queue_head['prevLimit'] < REQUEST_QUEUE_HEAD_MAX_LIMIT
@@ -462,7 +461,7 @@ class RequestQueue:
         if should_repeat_for_consistency:
             delay_seconds = (API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000) - \
                 (datetime.now(timezone.utc) - queue_head['queueModifiedAt']).seconds
-            logging.info(f'Waiting for {delay_seconds}s before considering the queue as finished to ensure that the data is consistent.')
+            logger.info(f'Waiting for {delay_seconds}s before considering the queue as finished to ensure that the data is consistent.')
             await asyncio.sleep(delay_seconds)
 
         return await self._ensure_head_is_non_empty(ensure_consistency, next_limit, iteration + 1)

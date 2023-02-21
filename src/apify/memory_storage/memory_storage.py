@@ -175,8 +175,7 @@ class MemoryStorage:
         folder_exists = await ospath.exists(folder)
 
         if folder_exists:
-            # TODO: the startswith condition is always False, it's also broken in crawlee...
-            temporary_folder = folder if folder.startswith('__APIFY_TEMPORARY_') else os.path.normpath(
+            temporary_folder = folder if os.path.basename(folder).startswith('__APIFY_TEMPORARY_') else os.path.normpath(
                 os.path.join(folder, f'../__APIFY_TEMPORARY_{counter}__'))
 
             try:

@@ -4,7 +4,7 @@ from apify.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients import KeyValueStoreCollectionClient
 
 
-@pytest.fixture()
+@pytest.fixture
 def key_value_stores_client(memory_storage: MemoryStorage) -> KeyValueStoreCollectionClient:
     return memory_storage.key_value_stores()
 

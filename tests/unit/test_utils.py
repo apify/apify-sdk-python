@@ -30,6 +30,7 @@ from apify._utils import (
     _maybe_parse_bool,
     _maybe_parse_datetime,
     _maybe_parse_int,
+    _parse_date_fields,
     _raise_on_duplicate_storage,
     _raise_on_non_existing_storage,
     _run_func_at_interval_async,
@@ -265,12 +266,12 @@ def test__is_uuid() -> None:
 
 
 def test__raise_on_non_existing_storage() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Dataset with id ".*" does not exist.'):
         _raise_on_non_existing_storage(StorageTypes.DATASET, str(uuid.uuid4()))
 
 
 def test__raise_on_duplicate_storage() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Dataset with name "test" already exists.'):
         _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', 'test')
 
 
@@ -361,3 +362,32 @@ def test__budget_ow() -> None:
     }, {
         'ordered_dict': (dict, False),
     })
+
+
+def test__parse_date_fields() -> None:
+    # works correctly on empty dicts
+    assert _parse_date_fields({}) == {}
+
+    # correctly parses dates on fields ending with -At
+    expected_datetime = datetime(2016, 11, 14, 11, 10, 52, 425000, timezone.utc)
+    assert _parse_date_fields({'createdAt': '2016-11-14T11:10:52.425Z'}) == {'createdAt': expected_datetime}
+
+    # doesn't parse dates on fields not ending with -At
+    assert _parse_date_fields({'saveUntil': '2016-11-14T11:10:52.425Z'}) == {'saveUntil': '2016-11-14T11:10:52.425Z'}
+
+    # parses dates in dicts in lists
+    expected_datetime = datetime(2016, 11, 14, 11, 10, 52, 425000, timezone.utc)
+    assert _parse_date_fields([{'createdAt': '2016-11-14T11:10:52.425Z'}]) == [{'createdAt': expected_datetime}]
+
+    # parses nested dates
+    expected_datetime = datetime(2020, 2, 29, 10, 9, 8, 100000, timezone.utc)
+    assert _parse_date_fields({'a': {'b': {'c': {'createdAt': '2020-02-29T10:09:08.100Z'}}}}) \
+        == {'a': {'b': {'c': {'createdAt': expected_datetime}}}}
+
+    # doesn't parse dates nested too deep
+    expected_datetime = datetime(2020, 2, 29, 10, 9, 8, 100000, timezone.utc)
+    assert _parse_date_fields({'a': {'b': {'c': {'d': {'createdAt': '2020-02-29T10:09:08.100Z'}}}}}) \
+        == {'a': {'b': {'c': {'d': {'createdAt': '2020-02-29T10:09:08.100Z'}}}}}
+
+    # doesn't die when the date can't be parsed
+    assert _parse_date_fields({'createdAt': 'NOT_A_DATE'}) == {'createdAt': 'NOT_A_DATE'}

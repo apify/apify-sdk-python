@@ -7,7 +7,7 @@ import pytest
 from respx import MockRouter
 
 from apify.consts import ApifyEnvVars
-from apify.proxy_configuration import ProxyConfiguration
+from apify.proxy_configuration import ProxyConfiguration, _is_url
 from apify_client import ApifyClientAsync
 
 from .conftest import ApifyClientAsyncPatcher
@@ -63,6 +63,9 @@ class TestProxyConfiguration:
 
         with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
             ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], groups=['GROUP1'])
+
+        with pytest.raises(ValueError, match=re.escape('proxy_urls[0] ("http://bad-url") is not a valid URL')):
+            ProxyConfiguration(proxy_urls=['http://bad-url'])
 
         with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
             ProxyConfiguration(new_url_function=lambda _: 'http://proxy.com:2222', groups=['GROUP1'])
@@ -304,7 +307,7 @@ class TestProxyConfigurationInitialize:
             'isManInTheMiddle': True,
         }))
 
-        proxy_configuration = ProxyConfiguration(apify_client=patched_apify_client)
+        proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
 
         await proxy_configuration.initialize()
 
@@ -344,7 +347,7 @@ class TestProxyConfigurationInitialize:
     async def test_initialize_manual_password_different_than_user_one(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture,
+        caplog: pytest.LogCaptureFixture,
         respx_mock: MockRouter,
         patched_apify_client: ApifyClientAsync,
     ) -> None:
@@ -360,15 +363,16 @@ class TestProxyConfigurationInitialize:
             'isManInTheMiddle': True,
         }))
 
-        proxy_configuration = ProxyConfiguration(apify_client=patched_apify_client)
+        proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
 
         await proxy_configuration.initialize()
 
         assert proxy_configuration._password == different_dummy_password
         assert proxy_configuration.is_man_in_the_middle is True
 
-        out, _ = capsys.readouterr()
-        assert 'The Apify Proxy password you provided belongs to a different user' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'WARNING'
+        assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
 
     async def test_initialize_not_connected(
         self,
@@ -392,7 +396,7 @@ class TestProxyConfigurationInitialize:
     async def test_initialize_status_page_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture,
+        caplog: pytest.LogCaptureFixture,
         respx_mock: MockRouter,
     ) -> None:
         dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
@@ -404,8 +408,9 @@ class TestProxyConfigurationInitialize:
 
         await proxy_configuration.initialize()
 
-        out, _ = capsys.readouterr()
-        assert 'Apify Proxy access check timed out' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'WARNING'
+        assert 'Apify Proxy access check timed out' in caplog.records[0].message
 
     async def test_initialize_not_called_non_apify_proxy(
         self,
@@ -425,3 +430,23 @@ class TestProxyConfigurationInitialize:
 
         assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore
         assert len(route.calls) == 0
+
+
+class TestIsUrl:
+    def test__is_url(self) -> None:
+        assert _is_url('http://dummy-proxy.com:8000') is True
+        assert _is_url('https://example.com') is True
+        assert _is_url('http://localhost') is True
+        assert _is_url('https://12.34.56.78') is True
+        assert _is_url('http://12.34.56.78:9012') is True
+        assert _is_url('http://::1') is True
+        assert _is_url('https://2f45:4da6:8f56:af8c:5dce:c1de:14d2:8661') is True
+
+        assert _is_url('dummy-proxy.com:8000') is False
+        assert _is_url('gyfwgfhkjhljkfhdsf') is False
+        assert _is_url('http://') is False
+        assert _is_url('http://example') is False
+        assert _is_url('http:/example.com') is False
+        assert _is_url('12.34.56.78') is False
+        assert _is_url('::1') is False
+        assert _is_url('https://4da6:8f56:af8c:5dce:c1de:14d2:8661') is False

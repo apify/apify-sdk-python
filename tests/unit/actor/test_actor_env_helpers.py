@@ -25,7 +25,7 @@ class TestIsAtHome:
 class TestGetEnv:
     async def test_get_env_use_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Set up random env vars
-        expected_get_env: Dict[str, Any] = dict()
+        expected_get_env: Dict[str, Any] = {}
         for int_env_var in INTEGER_ENV_VARS:
             int_get_env_var = int_env_var.name.lower()
             expected_get_env[int_get_env_var] = random.randint(1, 99999)
@@ -50,6 +50,10 @@ class TestGetEnv:
             string_get_env_var = string_env_var.name.lower()
             expected_get_env[string_get_env_var] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
             monkeypatch.setenv(string_env_var, expected_get_env[string_get_env_var])
+
+        # We need this override so that the actor doesn't fail when connecting to the platform events websocket
+        monkeypatch.delenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL)
+        expected_get_env[ApifyEnvVars.ACTOR_EVENTS_WS_URL.name.lower()] = None
 
         await Actor.init()
         assert expected_get_env == Actor.get_env()

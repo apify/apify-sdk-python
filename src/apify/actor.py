@@ -1,8 +1,8 @@
 import asyncio
 import inspect
+import logging
 import os
 import sys
-import traceback
 from datetime import datetime, timezone
 from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
@@ -25,6 +25,7 @@ from ._utils import (
 from .config import Configuration
 from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventTypes, ActorExitCodes, ApifyEnvVars
 from .event_manager import EventManager
+from .log import logger
 from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
 from .storage_client_manager import StorageClientManager
@@ -70,6 +71,7 @@ class Actor(metaclass=_ActorContextManager):
     _send_system_info_interval_task: Optional[asyncio.Task] = None
     _send_persist_state_interval_task: Optional[asyncio.Task] = None
     _is_exiting = False
+    _was_final_persist_state_emitted = False
 
     def __init__(self, config: Optional[Configuration] = None) -> None:
         """Create an Actor instance.
@@ -182,6 +184,11 @@ class Actor(metaclass=_ActorContextManager):
         else:
             return self_or_cls._event_manager
 
+    @dualproperty
+    def log(_self_or_cls) -> logging.Logger:  # noqa: N805
+        """The logging.Logger instance the Actor uses."""  # noqa: D401
+        return logger
+
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
             raise RuntimeError('The actor was not initialized!')
@@ -206,8 +213,9 @@ class Actor(metaclass=_ActorContextManager):
             raise RuntimeError('The actor was already initialized!')
 
         self._is_exiting = False
+        self._was_final_persist_state_emitted = False
 
-        print('Initializing actor...')
+        self.log.info('Initializing actor...')
         _log_system_info()
 
         # TODO: Print outdated SDK version warning (we need a new env var for this)
@@ -244,7 +252,7 @@ class Actor(metaclass=_ActorContextManager):
         memory_usage_bytes = _get_memory_usage_bytes()
         # This is in camel case to be compatible with the events from the platform
         result = {
-            'createdAt': datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
+            'createdAt': datetime.now(timezone.utc),
             'cpuCurrentUsage': cpu_usage_percent,
             'memCurrentBytes': memory_usage_bytes,
         }
@@ -253,11 +261,17 @@ class Actor(metaclass=_ActorContextManager):
 
         return result
 
-    def _respond_to_migrating_event(self) -> None:
+    async def _respond_to_migrating_event(self, _event_data: Any) -> None:
         # Don't emit any more regular persist state events
-        if self._send_persist_state_interval_task:
+        if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
             self._send_persist_state_interval_task.cancel()
-        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'is_migrating': True})
+            try:
+                await self._send_persist_state_interval_task
+            except asyncio.CancelledError:
+                pass
+
+        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
+        self._was_final_persist_state_emitted = True
 
     async def _cancel_event_emitting_intervals(self) -> None:
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
@@ -279,7 +293,7 @@ class Actor(metaclass=_ActorContextManager):
         cls,
         *,
         exit_code: int = 0,
-        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        event_listeners_timeout_secs: Optional[float] = EVENT_LISTENERS_TIMEOUT_SECS,
     ) -> None:
         """Exit the actor instance.
 
@@ -291,7 +305,7 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             exit_code (int, optional): The exit code with which the actor should fail (defaults to `0`).
-            event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
+            event_listeners_timeout_secs (float, optional): How long should the actor wait for actor event listeners to finish before exiting
         """
         return await cls._get_default_instance().exit(
             exit_code=exit_code,
@@ -302,7 +316,7 @@ class Actor(metaclass=_ActorContextManager):
         self,
         *,
         exit_code: int = 0,
-        event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        event_listeners_timeout_secs: Optional[float] = EVENT_LISTENERS_TIMEOUT_SECS,
     ) -> None:
         self._raise_if_not_initialized()
 
@@ -310,12 +324,14 @@ class Actor(metaclass=_ActorContextManager):
 
         exit_code = _maybe_extract_enum_member_value(exit_code)
 
-        print(f'Exiting actor with exit code {exit_code}')
+        self.log.info('Exiting actor', extra={'exit_code': exit_code})
 
         await self._cancel_event_emitting_intervals()
 
         # Send final persist state event
-        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
+        if not self._was_final_persist_state_emitted:
+            self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
+            self._was_final_persist_state_emitted = True
 
         # Sleep for a bit so that the listeners have a chance to trigger
         await asyncio.sleep(0.1)
@@ -324,10 +340,12 @@ class Actor(metaclass=_ActorContextManager):
 
         self._is_initialized = False
 
-        if not _is_running_in_ipython() and not os.getenv('PYTEST_CURRENT_TEST', False):
-            sys.exit(exit_code)
+        if _is_running_in_ipython():
+            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in IPython')
+        elif os.getenv('PYTEST_CURRENT_TEST', False):
+            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in an unit test')
         else:
-            print(f'Not calling sys.exit({exit_code}) because actor is running in IPython')
+            sys.exit(exit_code)
 
     @classmethod
     async def fail(
@@ -361,8 +379,7 @@ class Actor(metaclass=_ActorContextManager):
         # In IPython, we don't run `sys.exit()` during actor exits,
         # so the exception traceback will be printed on its own
         if exception and not _is_running_in_ipython():
-            print('Actor failed with an exception:')
-            traceback.print_exception(type(exception), exception, exception.__traceback__)
+            self.log.exception('Actor failed with an exception', exc_info=exception)
 
         await self.exit(exit_code=exit_code)
 
@@ -576,9 +593,6 @@ class Actor(metaclass=_ActorContextManager):
 
         if not data:
             return
-
-        if not isinstance(data, list):
-            data = [data]
 
         dataset = await self.open_dataset()
         await dataset.push_data(data)
@@ -1060,7 +1074,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.metamorph() is only supported when running on the Apify platform.')
+            self.log.error('Actor.metamorph() is only supported when running on the Apify platform.')
             return
 
         if not custom_after_sleep_millis:
@@ -1102,12 +1116,13 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.reboot() is only supported when running on the Apify platform.')
+            self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
         await self._cancel_event_emitting_intervals()
 
         self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
+        self._was_final_persist_state_emitted = True
 
         await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 
@@ -1171,7 +1186,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.add_webhook() is only supported when running on the Apify platform.')
+            self.log.error('Actor.add_webhook() is only supported when running on the Apify platform.')
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
@@ -1203,7 +1218,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            print('Actor.set_status_message() is only supported when running on the Apify platform.')
+            self.log.error('Actor.set_status_message() is only supported when running on the Apify platform.')
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
@@ -1277,8 +1292,8 @@ class Actor(metaclass=_ActorContextManager):
             country_code=country_code,
             proxy_urls=proxy_urls,
             new_url_function=new_url_function,
-            actor_config=self._config,
-            apify_client=self._apify_client,
+            _actor_config=self._config,
+            _apify_client=self._apify_client,
         )
 
         await proxy_configuration.initialize()

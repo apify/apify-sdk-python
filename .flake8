@@ -4,7 +4,10 @@ filename =
     ./src/*.py,
     ./tests/*.py,
     ./setup.py
-max_line_length = 150
+per-file-ignores =
+    scripts/*: D
+    tests/*: D
+
 # Google docstring convention + D204 & D401
 docstring-convention = all
 ignore =
@@ -19,8 +22,9 @@ ignore =
     D409
     D413
     U101
+
+max_line_length = 150
 unused-arguments-ignore-overload-functions = True
 unused-arguments-ignore-stub-functions = True
-per-file-ignores =
-    scripts/*: D
-    tests/*: D
+pytest-fixture-no-parentheses = True
+pytest-mark-no-parentheses = True

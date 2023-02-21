@@ -72,26 +72,30 @@ class TestActorCallStartAbortActor:
 class TestActorMethodsWorksOnlyOnPlatform:
     # NOTE: These medhods will be tested properly using integrations tests.
 
-    async def test_actor_metamorpth_not_work_locally(self, capfd: pytest.CaptureFixture) -> None:
+    async def test_actor_metamorpth_not_work_locally(self, caplog: pytest.LogCaptureFixture) -> None:
         async with Actor() as my_actor:
             await my_actor.metamorph('random-id')
-        out, err = capfd.readouterr()
-        assert 'Actor.metamorph() is only supported when running on the Apify platform.' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'ERROR'
+        assert 'Actor.metamorph() is only supported when running on the Apify platform.' in caplog.records[0].message
 
-    async def test_actor_reboot_not_work_locally(self, capfd: pytest.CaptureFixture) -> None:
+    async def test_actor_reboot_not_work_locally(self, caplog: pytest.LogCaptureFixture) -> None:
         async with Actor() as my_actor:
             await my_actor.reboot()
-        out, err = capfd.readouterr()
-        assert 'Actor.reboot() is only supported when running on the Apify platform.' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'ERROR'
+        assert 'Actor.reboot() is only supported when running on the Apify platform.' in caplog.records[0].message
 
-    async def test_actor_add_webhook_not_work_locally(self, capfd: pytest.CaptureFixture) -> None:
+    async def test_actor_add_webhook_not_work_locally(self, caplog: pytest.LogCaptureFixture) -> None:
         async with Actor() as my_actor:
             await my_actor.add_webhook(event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com')
-        out, err = capfd.readouterr()
-        assert 'Actor.add_webhook() is only supported when running on the Apify platform.' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'ERROR'
+        assert 'Actor.add_webhook() is only supported when running on the Apify platform.' in caplog.records[0].message
 
-    async def test_actor_set_status_message_not_work_locally(self, capfd: pytest.CaptureFixture) -> None:
+    async def test_actor_set_status_message_not_work_locally(self, caplog: pytest.LogCaptureFixture) -> None:
         async with Actor() as my_actor:
             await my_actor.set_status_message('test')
-        out, err = capfd.readouterr()
-        assert 'Actor.set_status_message() is only supported when running on the Apify platform.' in out
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == 'ERROR'
+        assert 'Actor.set_status_message() is only supported when running on the Apify platform.' in caplog.records[0].message

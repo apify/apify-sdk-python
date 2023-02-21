@@ -7,7 +7,7 @@ from apify.memory_storage import MemoryStorage
 from apify.memory_storage.resource_clients import DatasetClient
 
 
-@pytest.fixture()
+@pytest.fixture
 async def dataset_client(memory_storage: MemoryStorage) -> DatasetClient:
     datasets_client = memory_storage.datasets()
     dataset_info = await datasets_client.get_or_create(name='test')
@@ -17,16 +17,21 @@ async def dataset_client(memory_storage: MemoryStorage) -> DatasetClient:
 async def test_nonexistent(memory_storage: MemoryStorage) -> None:
     dataset_client = memory_storage.dataset(dataset_id='clearly not a uuid')
     assert await dataset_client.get() is None
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Dataset with id "clearly not a uuid" does not exist.'):
         await dataset_client.update(name='test-update')
+
+    with pytest.raises(ValueError, match='Dataset with id "clearly not a uuid" does not exist.'):
         await dataset_client.list_items()
+
+    with pytest.raises(ValueError, match='Dataset with id "clearly not a uuid" does not exist.'):
         await dataset_client.push_items([{'abc': 123}])
     await dataset_client.delete()
 
 
 async def test_not_implemented(dataset_client: DatasetClient) -> None:
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match='This method is not supported in local memory storage.'):
         await dataset_client.stream_items()
+    with pytest.raises(NotImplementedError, match='This method is not supported in local memory storage.'):
         await dataset_client.get_items_as_bytes()
 
 
@@ -59,7 +64,7 @@ async def test_update(dataset_client: DatasetClient) -> None:
     assert old_dataset_info['accessedAt'] != updated_dataset_info['accessedAt']
 
     # Should fail with the same name
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Dataset with name "test-update" already exists.'):
         await dataset_client.update(name=new_dataset_name)
 
 
