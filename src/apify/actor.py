@@ -1292,8 +1292,8 @@ class Actor(metaclass=_ActorContextManager):
             country_code=country_code,
             proxy_urls=proxy_urls,
             new_url_function=new_url_function,
-            actor_config=self._config,
-            apify_client=self._apify_client,
+            _actor_config=self._config,
+            _apify_client=self._apify_client,
         )
 
         await proxy_configuration.initialize()
