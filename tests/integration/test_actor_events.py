@@ -11,6 +11,7 @@ class TestActorEvents:
     async def test_interval_events(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import os
+            from datetime import datetime
             from typing import Any, Callable
 
             from apify.consts import ActorEventTypes, ApifyEnvVars
@@ -26,6 +27,10 @@ class TestActorEvents:
                     await Actor.push_data({'event_type': event_type, 'data': data})
                     if event_type == ActorEventTypes.SYSTEM_INFO:
                         was_system_info_emitted = True
+                        # Check that parsing datetimes works correctly
+                        # Check `createdAt` is a datetime (so it's the same locally and on platform)
+                        assert isinstance(data[0]['createdAt'], datetime)
+
                 return log_event
 
             async with Actor:

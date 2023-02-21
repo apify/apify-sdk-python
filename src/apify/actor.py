@@ -252,7 +252,7 @@ class Actor(metaclass=_ActorContextManager):
         memory_usage_bytes = _get_memory_usage_bytes()
         # This is in camel case to be compatible with the events from the platform
         result = {
-            'createdAt': datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
+            'createdAt': datetime.now(timezone.utc),
             'cpuCurrentUsage': cpu_usage_percent,
             'memCurrentBytes': memory_usage_bytes,
         }
