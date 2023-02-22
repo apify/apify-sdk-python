@@ -2,6 +2,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import aioshutil
@@ -36,7 +37,7 @@ class RequestQueueClient:
     _modified_at: datetime
     _handled_request_count = 0
     _pending_request_count = 0
-    _last_used_timestamp = 0.0
+    _last_used_timestamp = Decimal(0.0)
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """Initialize the RequestQueueClient."""
@@ -340,16 +341,18 @@ class RequestQueueClient:
             'url': request['url'],
         }
 
-    def _calculate_order_no(self, request: Dict, forefront: Optional[bool]) -> Optional[float]:
+    def _calculate_order_no(self, request: Dict, forefront: Optional[bool]) -> Optional[Decimal]:
         if request.get('handledAt') is not None:
             return None
 
         # Get the current timestamp in milliseconds
-        timestamp = datetime.now(timezone.utc).timestamp() * 1000
+        timestamp = Decimal(datetime.now(timezone.utc).timestamp()) * 1000
+        timestamp = round(timestamp, 6)
 
         # Make sure that this timestamp was not used yet, so that we have unique orderNos
         if timestamp <= self._last_used_timestamp:
-            timestamp = self._last_used_timestamp + 0.000001
+            timestamp = self._last_used_timestamp + Decimal(0.000001)
+
         self._last_used_timestamp = timestamp
 
         return -timestamp if forefront else timestamp
