@@ -1,7 +1,6 @@
 import asyncio
 import os
 from datetime import datetime, timezone
-from pprint import pprint
 
 import pytest
 
@@ -160,7 +159,6 @@ async def test_delete_record(request_queue_client: RequestQueueClient) -> None:
     await request_queue_client.delete_request(request_info['requestId'])
 
 
-@pytest.mark.only
 async def test_forefront(request_queue_client: RequestQueueClient) -> None:
     # this should create a queue with requests in this order:
     # Handled:
@@ -176,8 +174,6 @@ async def test_forefront(request_queue_client: RequestQueueClient) -> None:
             'url': request_url,
             'handledAt': datetime.now(timezone.utc) if was_handled else None,
         }, forefront=forefront)
-
-    pprint(list(request_queue_client._client._request_queues_handled[0]._requests.items()))
 
     # Check that the queue head (unhandled items) is in the right order
     queue_head = await request_queue_client.list_head()

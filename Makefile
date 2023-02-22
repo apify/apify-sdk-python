@@ -16,7 +16,7 @@ lint:
 	python3 -m flake8
 
 unit-tests:
-	python3 -m pytest -rA tests/unit
+	python3 -m pytest -n auto -ra tests/unit
 
 integration-tests:
 	python3 -m pytest -n $(INTEGRATION_TESTS_CONCURRENCY) -ra tests/integration
