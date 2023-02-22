@@ -157,3 +157,42 @@ async def test_delete_record(request_queue_client: RequestQueueClient) -> None:
     assert rq_info_after_update['pendingRequestCount'] == 0
     # Does not crash when called again
     await request_queue_client.delete_request(request_info['requestId'])
+
+
+async def test_forefront(request_queue_client: RequestQueueClient) -> None:
+    # this should create a queue with requests in this order:
+    # Handled:
+    #     2, 5, 8
+    # Not handled:
+    #     7, 4, 1, 0, 3, 6
+    for i in range(9):
+        request_url = f'http://example.com/{i}'
+        forefront = i % 3 == 1
+        was_handled = i % 3 == 2
+        await request_queue_client.add_request({
+            'uniqueKey': str(i),
+            'url': request_url,
+            'handledAt': datetime.now(timezone.utc) if was_handled else None,
+        }, forefront=forefront)
+
+    # Check that the queue head (unhandled items) is in the right order
+    queue_head = await request_queue_client.list_head()
+    req_unique_keys = [req['uniqueKey'] for req in queue_head['items']]
+    assert req_unique_keys == ['7', '4', '1', '0', '3', '6']
+
+    # Mark request #6 as handled
+    await request_queue_client.update_request({
+        'uniqueKey': '1',
+        'url': 'http://example.com/1',
+        'handledAt': datetime.now(timezone.utc),
+    })
+    # Move request #3 to forefront
+    await request_queue_client.update_request({
+        'uniqueKey': '3',
+        'url': 'http://example.com/3',
+    }, forefront=True)
+
+    # Check that the queue head (unhandled items) is in the right order after the updates
+    queue_head = await request_queue_client.list_head()
+    req_unique_keys = [req['uniqueKey'] for req in queue_head['items']]
+    assert req_unique_keys == ['3', '7', '4', '0', '6']

@@ -62,6 +62,7 @@ setup(
         'httpx ~= 0.23.0',
         'psutil ~= 5.9.4',
         'pyee ~= 9.0.4',
+        'sortedcollections ~= 2.1.0',
         'typing-extensions ~= 4.4.0',
         'websockets ~= 10.4',
     ],
