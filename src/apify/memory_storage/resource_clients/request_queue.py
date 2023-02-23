@@ -110,6 +110,7 @@ class RequestQueueClient:
         if queue is not None:
             self._client._request_queues_handled.remove(queue)
             queue._pending_request_count = 0
+            queue._handled_request_count = 0
             queue._requests.clear()
 
             if os.path.exists(queue._request_queue_directory):
@@ -183,7 +184,10 @@ class RequestQueueClient:
             }
 
         existing_queue_by_id._requests[request_model['id']] = request_model
-        existing_queue_by_id._pending_request_count += 0 if request_model['orderNo'] is None else 1
+        if request_model['orderNo'] is None:
+            existing_queue_by_id._handled_request_count += 1
+        else:
+            existing_queue_by_id._pending_request_count += 1
         await existing_queue_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,
@@ -259,6 +263,7 @@ class RequestQueueClient:
             pending_count_adjustment = 1 if request_was_handled_before_update else -1
 
         existing_queue_by_id._pending_request_count += pending_count_adjustment
+        existing_queue_by_id._handled_request_count -= pending_count_adjustment
         await existing_queue_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,
@@ -288,7 +293,10 @@ class RequestQueueClient:
 
         if request:
             del existing_queue_by_id._requests[request_id]
-            existing_queue_by_id._pending_request_count -= 0 if request['orderNo'] is None else 1
+            if request['orderNo'] is None:
+                existing_queue_by_id._handled_request_count -= 1
+            else:
+                existing_queue_by_id._pending_request_count -= 1
             await existing_queue_by_id._update_timestamps(True)
             await _delete_request(entity_directory=existing_queue_by_id._request_queue_directory, request_id=request_id)
 
