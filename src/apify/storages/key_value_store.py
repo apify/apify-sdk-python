@@ -1,20 +1,20 @@
 from typing import Any, AsyncIterator, NamedTuple, Optional, TypedDict, TypeVar, Union, overload
 
 from apify_client import ApifyClientAsync
-from apify_client.clients import KeyValueStoreClientAsync
+from apify_client.clients import KeyValueStoreClientAsync, KeyValueStoreCollectionClientAsync
 
 from .._utils import _wrap_internal
 from ..config import Configuration
 from ..memory_storage import MemoryStorage
-from ..memory_storage.resource_clients import KeyValueStoreClient
-from .storage_manager import StorageManager
+from ..memory_storage.resource_clients import KeyValueStoreClient, KeyValueStoreCollectionClient
+from .base_storage import BaseStorage
 
 T = TypeVar('T')
 IterateKeysInfo = TypedDict('IterateKeysInfo', {'size': int})
 IterateKeysTuple = NamedTuple('IterateKeysTuple', [('key', str), ('info', IterateKeysInfo)])
 
 
-class KeyValueStore:
+class KeyValueStore(BaseStorage):
     """The `KeyValueStore` class represents a key-value store.
 
     You can imagine it as a simple data storage that is used
@@ -48,7 +48,7 @@ class KeyValueStore:
 
     _id: str
     _name: Optional[str]
-    _client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
+    _key_value_store_client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """Create a `KeyValueStore` instance.
@@ -60,24 +60,36 @@ class KeyValueStore:
             name (str, optional): Name of the key-value store.
             client (ApifyClientAsync or MemoryStorage): The storage client which should be used.
         """
+        super().__init__(id=id, name=name, client=client)
+
         self.get_value = _wrap_internal(self._get_value_internal, self.get_value)  # type: ignore
         self.set_value = _wrap_internal(self._set_value_internal, self.set_value)  # type: ignore
         self._id = id
         self._name = name
-        self._client = client.key_value_store(self._id)
+        self._key_value_store_client = client.key_value_store(self._id)
 
     @classmethod
-    async def _create_instance(cls, store_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> 'KeyValueStore':
-        key_value_store_client = client.key_value_store(store_id_or_name)
-        key_value_store_info = await key_value_store_client.get()
-        if not key_value_store_info:
-            key_value_store_info = await client.key_value_stores().get_or_create(name=store_id_or_name)
-
-        return KeyValueStore(key_value_store_info['id'], key_value_store_info.get('name'), client)
+    def _get_human_friendly_label(cls) -> str:
+        return 'Key-value store'
 
     @classmethod
-    def _get_default_name(cls, config: Configuration) -> str:
+    def _get_default_id(cls, config: Configuration) -> str:
         return config.default_key_value_store_id
+
+    @classmethod
+    def _get_single_storage_client(
+        cls,
+        id: str,
+        client: Union[ApifyClientAsync, MemoryStorage],
+    ) -> Union[KeyValueStoreClientAsync, KeyValueStoreClient]:
+        return client.key_value_store(id)
+
+    @classmethod
+    def _get_storage_collection_client(
+        cls,
+        client: Union[ApifyClientAsync, MemoryStorage],
+    ) -> Union[KeyValueStoreCollectionClientAsync, KeyValueStoreCollectionClient]:
+        return client.key_value_stores()
 
     @overload
     @classmethod
@@ -109,7 +121,7 @@ class KeyValueStore:
         return await store.get_value(key, default_value)
 
     async def _get_value_internal(self, key: str, default_value: Optional[T] = None) -> Optional[T]:
-        record = await self._client.get_record(key)
+        record = await self._key_value_store_client.get_record(key)
         return record['value'] if record else default_value
 
     async def iterate_keys(self, exclusive_start_key: Optional[str] = None) -> AsyncIterator[IterateKeysTuple]:
@@ -124,7 +136,7 @@ class KeyValueStore:
                 indicating size of the record in bytes.
         """
         while True:
-            list_keys = await self._client.list_keys(exclusive_start_key=exclusive_start_key)
+            list_keys = await self._key_value_store_client.list_keys(exclusive_start_key=exclusive_start_key)
             for item in list_keys['items']:
                 yield IterateKeysTuple(item['key'], {'size': item['size']})
 
@@ -146,17 +158,24 @@ class KeyValueStore:
 
     async def _set_value_internal(self, key: str, value: Optional[T], content_type: Optional[str] = None) -> None:
         if value is None:
-            return await self._client.delete_record(key)
+            return await self._key_value_store_client.delete_record(key)
 
-        return await self._client.set_record(key, value, content_type)
+        return await self._key_value_store_client.set_record(key, value, content_type)
 
     async def drop(self) -> None:
         """Remove the key-value store either from the Apify cloud storage or from the local directory."""
-        await self._client.delete()
-        await StorageManager.close_storage(self.__class__, self._id, self._name)
+        await self._key_value_store_client.delete()
+        await self._remove_from_cache()
 
     @classmethod
-    async def open(cls, store_id_or_name: Optional[str] = None, config: Optional[Configuration] = None) -> 'KeyValueStore':
+    async def open(
+        cls,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        force_cloud: bool = False,
+        config: Optional[Configuration] = None,
+    ) -> 'KeyValueStore':
         """Open a key-value store.
 
         Key-value stores are used to store records or files, along with their MIME content type.
@@ -164,11 +183,17 @@ class KeyValueStore:
         The actual data is stored either on a local filesystem or in the Apify cloud.
 
         Args:
-            key_value_store_id_or_name (str, optional): ID or name of the key-value store to be opened.
-                If not provided, the method returns the default key-value store associated with the actor run.
+            id (str, optional): ID of the key-value store to be opened.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
+                If the key-value store with the given ID does not exist, it raises an error.
+            name (str, optional): Name of the key-value store to be opened.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
+                If the key-value store with the given name does not exist, it is created.
+            force_cloud (bool, optional): If set to True, it will open a key-value store on the Apify Platform even when running the actor locally.
+                Defaults to False.
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:
             KeyValueStore: An instance of the `KeyValueStore` class for the given ID or name.
         """
-        return await StorageManager.open_storage(cls, store_id_or_name, None, config)
+        return await super().open(id=id, name=name, force_cloud=force_cloud, config=config)

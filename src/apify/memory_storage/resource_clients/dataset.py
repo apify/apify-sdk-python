@@ -1,17 +1,18 @@
 import json
 import os
-import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import aioshutil
 
 from apify_client._utils import ListPage
 
+from ..._crypto import _crypto_random_object_id
 from ..._types import JSONSerializable
-from ..._utils import _force_rename, _is_uuid, _raise_on_duplicate_storage, _raise_on_non_existing_storage
+from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage
 from ...consts import StorageTypes
 from ..file_storage_utils import _update_dataset_items, _update_metadata
+from .base_resource_client import BaseResourceClient
 
 if TYPE_CHECKING:
     from ..memory_storage import MemoryStorage
@@ -29,12 +30,12 @@ LIST_ITEMS_LIMIT = 999_999_999_999
 LOCAL_ENTRY_NAME_DIGITS = 9
 
 
-class DatasetClient:
+class DatasetClient(BaseResourceClient):
     """Sub-client for manipulating a single dataset."""
 
     _id: str
     _dataset_directory: str
-    _client: 'MemoryStorage'
+    _memory_storage: 'MemoryStorage'
     _name: Optional[str]
     _dataset_entries: Dict[str, Dict]
     _created_at: datetime
@@ -42,11 +43,11 @@ class DatasetClient:
     _modified_at: datetime
     _item_count = 0
 
-    def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
+    def __init__(self, *, base_storage_directory: str, memory_storage: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """Initialize the DatasetClient."""
-        self._id = str(uuid.uuid4()) if id is None else id
+        self._id = id or _crypto_random_object_id()
         self._dataset_directory = os.path.join(base_storage_directory, name or self._id)
-        self._client = client
+        self._memory_storage = memory_storage
         self._name = name
         self._dataset_entries = {}
         self._created_at = datetime.now(timezone.utc)
@@ -59,11 +60,11 @@ class DatasetClient:
         Returns:
             dict, optional: The retrieved dataset, or None, if it does not exist
         """
-        found = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
+        found = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
 
         if found:
             await found._update_timestamps(False)
-            return found.to_dataset_info()
+            return found._to_dataset_info()
 
         return None
 
@@ -77,18 +78,18 @@ class DatasetClient:
             dict: The updated dataset
         """
         # Check by id
-        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
+        existing_dataset_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
 
         if existing_dataset_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
 
         # Skip if no changes
         if name is None:
-            return existing_dataset_by_id.to_dataset_info()
+            return existing_dataset_by_id._to_dataset_info()
 
         # Check that name is not in use already
         existing_dataset_by_name = next(
-            (dataset for dataset in self._client._datasets_handled if dataset._name and dataset._name.lower() == name.lower()), None)
+            (dataset for dataset in self._memory_storage._datasets_handled if dataset._name and dataset._name.lower() == name.lower()), None)
 
         if existing_dataset_by_name is not None:
             _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', name)
@@ -97,21 +98,21 @@ class DatasetClient:
 
         previous_dir = existing_dataset_by_id._dataset_directory
 
-        existing_dataset_by_id._dataset_directory = os.path.join(self._client._datasets_directory, name)
+        existing_dataset_by_id._dataset_directory = os.path.join(self._memory_storage._datasets_directory, name)
 
         await _force_rename(previous_dir, existing_dataset_by_id._dataset_directory)
 
         # Update timestamps
         await existing_dataset_by_id._update_timestamps(True)
 
-        return existing_dataset_by_id.to_dataset_info()
+        return existing_dataset_by_id._to_dataset_info()
 
     async def delete(self) -> None:
         """Delete the dataset."""
-        dataset = next((dataset for dataset in self._client._datasets_handled if dataset._id == self._id), None)
+        dataset = next((dataset for dataset in self._memory_storage._datasets_handled if dataset._id == self._id), None)
 
         if dataset is not None:
-            self._client._datasets_handled.remove(dataset)
+            self._memory_storage._datasets_handled.remove(dataset)
             dataset._item_count = 0
             dataset._dataset_entries.clear()
 
@@ -163,7 +164,7 @@ class DatasetClient:
             ListPage: A page of the list of dataset items according to the specified filters.
         """
         # Check by id
-        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
+        existing_dataset_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
 
         if existing_dataset_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
@@ -275,7 +276,7 @@ class DatasetClient:
             items: The items which to push in the dataset. Either a stringified JSON, a dictionary, or a list of strings or dictionaries.
         """
         # Check by id
-        existing_dataset_by_id = _find_or_cache_dataset_by_possible_id(client=self._client, entry_name_or_id=self._name or self._id)
+        existing_dataset_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
 
         if existing_dataset_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
@@ -299,10 +300,10 @@ class DatasetClient:
         await _update_dataset_items(
             data=data_entries,
             entity_directory=existing_dataset_by_id._dataset_directory,
-            persist_storage=self._client._persist_storage,
+            persist_storage=self._memory_storage._persist_storage,
         )
 
-    def to_dataset_info(self) -> Dict:
+    def _to_dataset_info(self) -> Dict:
         """Retrieve the dataset info."""
         return {
             'id': self._id,
@@ -320,8 +321,8 @@ class DatasetClient:
         if has_been_modified:
             self._modified_at = datetime.now(timezone.utc)
 
-        dataset_info = self.to_dataset_info()
-        await _update_metadata(data=dataset_info, entity_directory=self._dataset_directory, write_metadata=self._client._write_metadata)
+        dataset_info = self._to_dataset_info()
+        await _update_metadata(data=dataset_info, entity_directory=self._dataset_directory, write_metadata=self._memory_storage._write_metadata)
 
     def _get_start_and_end_indexes(self, offset: int, limit: Optional[int] = None) -> Tuple[int, int]:
         actual_limit = limit or self._item_count
@@ -353,76 +354,66 @@ class DatasetClient:
         # filter(None, ..) returns items that are True
         return list(filter(None, result))
 
+    @classmethod
+    def _get_storages_dir(cls, memory_storage: 'MemoryStorage') -> str:
+        return memory_storage._datasets_directory
 
-def _find_or_cache_dataset_by_possible_id(client: 'MemoryStorage', entry_name_or_id: str) -> Optional['DatasetClient']:
-    # First check memory cache
-    found = next((dataset for dataset in client._datasets_handled
-                  if dataset._id == entry_name_or_id or (dataset._name and dataset._name.lower() == entry_name_or_id.lower())), None)
+    @classmethod
+    def _get_storage_client_cache(cls, memory_storage: 'MemoryStorage') -> List['DatasetClient']:
+        return memory_storage._datasets_handled
 
-    if found is not None:
-        return found
+    @classmethod
+    def _create_from_directory(
+        cls,
+        storage_directory: str,
+        memory_storage: 'MemoryStorage',
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> 'DatasetClient':
+        item_count = 0
+        created_at = datetime.now(timezone.utc)
+        accessed_at = datetime.now(timezone.utc)
+        modified_at = datetime.now(timezone.utc)
+        entries: Dict[str, Dict] = {}
 
-    datasets_dir = os.path.join(client._datasets_directory, entry_name_or_id)
-    # Check if directory exists
-    if not os.access(datasets_dir, os.F_OK):
-        return None
+        has_seen_metadata_file = False
 
-    id: Union[str, None] = None
-    name: Union[str, None] = None
-    item_count = 0
-    created_at = datetime.now(timezone.utc)
-    accessed_at = datetime.now(timezone.utc)
-    modified_at = datetime.now(timezone.utc)
-    entries: Dict[str, Dict] = {}
+        # Access the dataset folder
+        for entry in os.scandir(storage_directory):
+            if entry.is_file():
+                if entry.name == '__metadata__.json':
+                    has_seen_metadata_file = True
 
-    has_seen_metadata_file = False
+                    # We have found the dataset's metadata file, build out information based on it
+                    with open(os.path.join(storage_directory, entry.name)) as f:
+                        metadata = json.load(f)
+                    id = metadata['id']
+                    name = metadata['name']
+                    item_count = metadata['itemCount']
+                    created_at = datetime.fromisoformat(metadata['createdAt'])
+                    accessed_at = datetime.fromisoformat(metadata['accessedAt'])
+                    modified_at = datetime.fromisoformat(metadata['modifiedAt'])
 
-    # Access the dataset folder
-    for entry in os.scandir(datasets_dir):
-        if entry.is_file():
-            if entry.name == '__metadata__.json':
-                has_seen_metadata_file = True
+                    continue
 
-                # We have found the dataset's metadata file, build out information based on it
-                with open(os.path.join(datasets_dir, entry.name)) as f:
-                    metadata = json.load(f)
-                id = metadata['id']
-                name = metadata['name']
-                item_count = metadata['itemCount']
-                created_at = datetime.fromisoformat(metadata['createdAt'])
-                accessed_at = datetime.fromisoformat(metadata['accessedAt'])
-                modified_at = datetime.fromisoformat(metadata['modifiedAt'])
+                with open(os.path.join(storage_directory, entry.name)) as f:
+                    entry_content = json.load(f)
+                entry_name = entry.name.split('.')[0]
 
-                continue
+                entries[entry_name] = entry_content
 
-            with open(os.path.join(datasets_dir, entry.name)) as f:
-                entry_content = json.load(f)
-            entry_name = entry.name.split('.')[0]
+                if not has_seen_metadata_file:
+                    item_count += 1
 
-            entries[entry_name] = entry_content
+        new_client = DatasetClient(base_storage_directory=memory_storage._datasets_directory, memory_storage=memory_storage, id=id, name=name)
 
-            if not has_seen_metadata_file:
-                item_count += 1
+        # Overwrite properties
+        new_client._accessed_at = accessed_at
+        new_client._created_at = created_at
+        new_client._modified_at = modified_at
+        new_client._item_count = item_count
 
-    if id is None and name is None:
-        is_uuid = _is_uuid(entry_name_or_id)
+        for entry_id, content in entries.items():
+            new_client._dataset_entries[entry_id] = content
 
-        if is_uuid:
-            id = entry_name_or_id
-        else:
-            name = entry_name_or_id
-
-    new_client = DatasetClient(base_storage_directory=client._datasets_directory, client=client, id=id, name=name)
-
-    # Overwrite properties
-    new_client._accessed_at = accessed_at
-    new_client._created_at = created_at
-    new_client._modified_at = modified_at
-    new_client._item_count = item_count
-
-    for entry_id, content in entries.items():
-        new_client._dataset_entries[entry_id] = content
-
-    client._datasets_handled.append(new_client)
-
-    return new_client
+        return new_client

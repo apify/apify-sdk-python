@@ -18,9 +18,14 @@ class TestOpenKeyValueStore:
             kvs2 = await Actor.open_key_value_store()
             assert kvs1 is kvs2
             kvs_name = 'non-default'
-            kvs_named1 = await Actor.open_key_value_store(name=kvs_name)
-            kvs_named2 = await Actor.open_key_value_store(name=kvs_name)
-            assert kvs_named1 is kvs_named2
+            kvs_by_name_1 = await Actor.open_key_value_store(name=kvs_name)
+            kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
+            assert kvs_by_name_1 is kvs_by_name_2
+
+            kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_by_name_1._id)
+            kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_by_name_1._id)
+            assert kvs_by_id_1 is kvs_by_name_1
+            assert kvs_by_id_2 is kvs_by_id_1
 
 
 class TestKeyValueStoreOnActor:

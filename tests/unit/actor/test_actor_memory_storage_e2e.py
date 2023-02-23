@@ -1,15 +1,16 @@
+from pathlib import Path
+
 import pytest
 
 from apify import Actor
 from apify.config import Configuration
 from apify.consts import ApifyEnvVars
 from apify.memory_storage import MemoryStorage
-from apify.storage_client_manager import StorageClientManager
-from apify.storages import StorageManager
+from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
 
 @pytest.mark.parametrize('purge_on_start', [True, False])
-async def test_actor_memory_storage_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: str, purge_on_start: bool) -> None:
+async def test_actor_memory_storage_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, purge_on_start: bool) -> None:
     """This test simulates two clean runs using memory storage.
     The second run attempts to access data created by the first one.
     We run 2 configurations with different `purge_on_start`."""
@@ -27,12 +28,17 @@ async def test_actor_memory_storage_e2e(monkeypatch: pytest.MonkeyPatch, tmp_pat
     # Clean up singletons and mock a new memory storage
     monkeypatch.setattr(Actor, '_default_instance', None)
     monkeypatch.setattr(Configuration, '_default_instance', None)
-    monkeypatch.setattr(StorageManager, '_default_instance', None)
+    monkeypatch.setattr(Dataset, '_cache_by_id', None)
+    monkeypatch.setattr(Dataset, '_cache_by_name', None)
+    monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
+    monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
+    monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
+    monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
     monkeypatch.setattr(StorageClientManager, '_default_instance', None)
 
-    new_patched_memory_storage = MemoryStorage(local_data_directory=tmp_path)
+    new_patched_memory_storage = MemoryStorage(local_data_directory=str(tmp_path))
 
-    def get_storage_client() -> 'MemoryStorage':
+    def get_storage_client(force_cloud: bool = False) -> 'MemoryStorage':  # noqa: U100
         return new_patched_memory_storage
     monkeypatch.setattr(StorageClientManager, 'get_storage_client', get_storage_client)
 

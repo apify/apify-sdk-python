@@ -11,13 +11,32 @@ async def request_queue() -> RequestQueue:
     return await RequestQueue.open()
 
 
+async def test_open() -> None:
+    default_request_queue = await RequestQueue.open()
+    default_request_queue_by_id = await RequestQueue.open(id=default_request_queue._id)
+
+    assert default_request_queue is default_request_queue_by_id
+
+    request_queue_name = 'dummy-name'
+    named_request_queue = await RequestQueue.open(name=request_queue_name)
+    assert default_request_queue is not named_request_queue
+
+    with pytest.raises(RuntimeError, match='Request queue with id "nonexistent-id" does not exist!'):
+        await RequestQueue.open(id='nonexistent-id')
+
+    # Test that when you try to open a request queue by ID and you use a name of an existing request queue,
+    # it doesn't work
+    with pytest.raises(RuntimeError, match='Request queue with id "dummy-name" does not exist!'):
+        await RequestQueue.open(id='dummy-name')
+
+
 async def test_same_references() -> None:
     rq1 = await RequestQueue.open()
     rq2 = await RequestQueue.open()
     assert rq1 is rq2
     rq_name = 'non-default'
-    rq_named1 = await RequestQueue.open(rq_name)
-    rq_named2 = await RequestQueue.open(rq_name)
+    rq_named1 = await RequestQueue.open(name=rq_name)
+    rq_named2 = await RequestQueue.open(name=rq_name)
     assert rq_named1 is rq_named2
 
 

@@ -5,16 +5,16 @@ from typing import AsyncIterator, Dict, Iterable, Iterator, List, Optional, Unio
 
 from apify_client import ApifyClientAsync
 from apify_client._utils import ListPage
-from apify_client.clients import DatasetClientAsync
+from apify_client.clients import DatasetClientAsync, DatasetCollectionClientAsync
 
 from .._types import JSONSerializable
 from .._utils import _json_dumps, _wrap_internal
 from ..config import Configuration
 from ..consts import MAX_PAYLOAD_SIZE_BYTES
 from ..memory_storage import MemoryStorage
-from ..memory_storage.resource_clients import DatasetClient
+from ..memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
+from .base_storage import BaseStorage
 from .key_value_store import KeyValueStore
-from .storage_manager import StorageManager
 
 SAFETY_BUFFER_PERCENT = 0.01 / 100  # 0.01%
 EFFECTIVE_LIMIT_BYTES = MAX_PAYLOAD_SIZE_BYTES - math.ceil(MAX_PAYLOAD_SIZE_BYTES * SAFETY_BUFFER_PERCENT)
@@ -63,7 +63,7 @@ def _chunk_by_size(items: Iterable[str]) -> Iterator[str]:
     yield f'[{",".join(current_chunk)}]'
 
 
-class Dataset:
+class Dataset(BaseStorage):
     """The `Dataset` class represents a store for structured data where each object stored has the same attributes.
 
     You can imagine it as a table, where each object is a row and its attributes are columns.
@@ -90,7 +90,7 @@ class Dataset:
 
     _id: str
     _name: Optional[str]
-    _client: Union[DatasetClientAsync, DatasetClient]
+    _dataset_client: Union[DatasetClientAsync, DatasetClient]
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
         """Create a `Dataset` instance.
@@ -102,26 +102,33 @@ class Dataset:
             name (str, optional): Name of the dataset.
             client (ApifyClientAsync or MemoryStorage): The storage client which should be used.
         """
+        super().__init__(id=id, name=name, client=client)
+
         self.get_data = _wrap_internal(self._get_data_internal, self.get_data)  # type: ignore
         self.push_data = _wrap_internal(self._push_data_internal, self.push_data)  # type: ignore
         self.export_to_json = _wrap_internal(self._export_to_json_internal, self.export_to_json)  # type: ignore
         self.export_to_csv = _wrap_internal(self._export_to_csv_internal, self.export_to_csv)  # type: ignore
-        self._id = id
-        self._name = name
-        self._client = client.dataset(self._id)
+
+        self._dataset_client = client.dataset(self._id)
 
     @classmethod
-    async def _create_instance(cls, dataset_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> 'Dataset':
-        dataset_client = client.dataset(dataset_id_or_name)
-        dataset_info = await dataset_client.get()
-        if not dataset_info:
-            dataset_info = await client.datasets().get_or_create(name=dataset_id_or_name)
-
-        return Dataset(dataset_info['id'], dataset_info.get('name'), client)
+    def _get_human_friendly_label(cls) -> str:
+        return 'Dataset'
 
     @classmethod
-    def _get_default_name(cls, config: Configuration) -> str:
+    def _get_default_id(cls, config: Configuration) -> str:
         return config.default_dataset_id
+
+    @classmethod
+    def _get_single_storage_client(cls, id: str, client: Union[ApifyClientAsync, MemoryStorage]) -> Union[DatasetClientAsync, DatasetClient]:
+        return client.dataset(id)
+
+    @classmethod
+    def _get_storage_collection_client(
+        cls,
+        client: Union[ApifyClientAsync, MemoryStorage],
+    ) -> Union[DatasetCollectionClientAsync, DatasetCollectionClient]:
+        return client.datasets()
 
     @classmethod
     async def push_data(cls, data: JSONSerializable) -> None:
@@ -142,14 +149,14 @@ class Dataset:
         # Handle singular items
         if not isinstance(data, list):
             payload = _check_and_serialize(data)
-            return await self._client.push_items(payload)
+            return await self._dataset_client.push_items(payload)
 
         # Handle lists
         payloads_generator = (_check_and_serialize(item, index) for index, item in enumerate(data))
 
         # Invoke client in series to preserve the order of data
         for chunk in _chunk_by_size(payloads_generator):
-            await self._client.push_items(chunk)
+            await self._dataset_client.push_items(chunk)
 
     @classmethod
     async def get_data(
@@ -236,7 +243,7 @@ class Dataset:
         #     throw e;
         # }
         # TODO: Simulate the above error in Python and handle accordingly...
-        return await self._client.list_items(
+        return await self._dataset_client.list_items(
             offset=offset,
             limit=limit,
             desc=desc,
@@ -254,23 +261,26 @@ class Dataset:
         self,
         key: str,
         *,
-        to_key_value_store: Optional[str] = None,
+        to_key_value_store_id: Optional[str] = None,
+        to_key_value_store_name: Optional[str] = None,
         content_type: Optional[str] = None,
     ) -> None:
         """Save the entirety of the dataset's contents into one file within a key-value store.
 
         Args:
             key (str): The key to save the data under.
-            to_key_value_store (str, optional): The name of the key-value store in which the result will be saved.
-                Uses default key-value store if omitted.
+            to_key_value_store_id (str, optional): The id of the key-value store in which the result will be saved.
+            to_key_value_store_name (str, optional): The name of the key-value store in which the result will be saved.
+                You must specify only one of `to_key_value_store_id` and `to_key_value_store_name` arguments.
+                If you omit both, it uses the default key-value store.
             content_type (str, optional): Either 'text/csv' or 'application/json'. Defaults to JSON.
         """
-        key_value_store = await KeyValueStore.open(to_key_value_store)
+        key_value_store = await KeyValueStore.open(id=to_key_value_store_id, name=to_key_value_store_name)
         items: List[Dict] = []
         limit = 1000
         offset = 0
         while True:
-            list_items = await self._client.list_items(limit=limit, offset=offset)
+            list_items = await self._dataset_client.list_items(limit=limit, offset=offset)
             items.extend(list_items.items)
             if list_items.total <= offset + list_items.count:
                 break
@@ -296,56 +306,84 @@ class Dataset:
         cls,
         key: str,
         *,
-        from_dataset: Optional[str] = None,
-        to_key_value_store: Optional[str] = None,
+        from_dataset_id: Optional[str] = None,
+        from_dataset_name: Optional[str] = None,
+        to_key_value_store_id: Optional[str] = None,
+        to_key_value_store_name: Optional[str] = None,
     ) -> None:
         """Save the entirety of the dataset's contents into one JSON file within a key-value store.
 
         Args:
             key (str): The key to save the data under.
-            from_dataset (str, optional): The source dataset in case of calling the class method. Uses default dataset if omitted.
-            to_key_value_store (str, optional): The name of the key-value store in which the result will be saved.
-                Uses default key-value store if omitted.
+            from_dataset_id (str, optional): The ID of the dataset in case of calling the class method. Uses default dataset if omitted.
+            from_dataset_name (str, optional): The name of the dataset in case of calling the class method. Uses default dataset if omitted.
+                You must specify only one of `from_dataset_id` and `from_dataset_name` arguments.
+                If you omit both, it uses the default dataset.
+            to_key_value_store_id (str, optional): The id of the key-value store in which the result will be saved.
+            to_key_value_store_name (str, optional): The name of the key-value store in which the result will be saved.
+                You must specify only one of `to_key_value_store_id` and `to_key_value_store_name` arguments.
+                If you omit both, it uses the default key-value store.
         """
-        dataset = await cls.open(from_dataset)
-        await dataset.export_to_json(key, to_key_value_store=to_key_value_store)
+        dataset = await cls.open(id=from_dataset_id, name=from_dataset_name)
+        await dataset.export_to_json(key, to_key_value_store_id=to_key_value_store_id, to_key_value_store_name=to_key_value_store_name)
 
     async def _export_to_json_internal(
         self,
         key: str,
         *,
-        from_dataset: Optional[str] = None,  # noqa: U100
-        to_key_value_store: Optional[str] = None,
+        from_dataset_id: Optional[str] = None,  # noqa: U100
+        from_dataset_name: Optional[str] = None,  # noqa: U100
+        to_key_value_store_id: Optional[str] = None,
+        to_key_value_store_name: Optional[str] = None,
     ) -> None:
-        await self.export_to(key, to_key_value_store=to_key_value_store, content_type='application/json')
+        await self.export_to(
+            key,
+            to_key_value_store_id=to_key_value_store_id,
+            to_key_value_store_name=to_key_value_store_name,
+            content_type='application/json',
+        )
 
     @classmethod
     async def export_to_csv(
         cls,
         key: str,
         *,
-        from_dataset: Optional[str] = None,
-        to_key_value_store: Optional[str] = None,
+        from_dataset_id: Optional[str] = None,
+        from_dataset_name: Optional[str] = None,
+        to_key_value_store_id: Optional[str] = None,
+        to_key_value_store_name: Optional[str] = None,
     ) -> None:
         """Save the entirety of the dataset's contents into one CSV file within a key-value store.
 
         Args:
             key (str): The key to save the data under.
-            from_dataset (str, optional): The source dataset in case of calling the class method. Uses default dataset if omitted.
-            to_key_value_store (str, optional): The name of the key-value store in which the result will be saved.
-                Uses default key-value store if omitted.
+            from_dataset_id (str, optional): The ID of the dataset in case of calling the class method. Uses default dataset if omitted.
+            from_dataset_name (str, optional): The name of the dataset in case of calling the class method. Uses default dataset if omitted.
+                You must specify only one of `from_dataset_id` and `from_dataset_name` arguments.
+                If you omit both, it uses the default dataset.
+            to_key_value_store_id (str, optional): The id of the key-value store in which the result will be saved.
+            to_key_value_store_name (str, optional): The name of the key-value store in which the result will be saved.
+                You must specify only one of `to_key_value_store_id` and `to_key_value_store_name` arguments.
+                If you omit both, it uses the default key-value store.
         """
-        dataset = await cls.open(from_dataset)
-        await dataset.export_to_csv(key, to_key_value_store=to_key_value_store)
+        dataset = await cls.open(id=from_dataset_id, name=from_dataset_name)
+        await dataset.export_to_csv(key, to_key_value_store_id=to_key_value_store_id, to_key_value_store_name=to_key_value_store_name)
 
     async def _export_to_csv_internal(
         self,
         key: str,
         *,
-        from_dataset: Optional[str] = None,  # noqa: U100
-        to_key_value_store: Optional[str] = None,
+        from_dataset_id: Optional[str] = None,  # noqa: U100
+        from_dataset_name: Optional[str] = None,  # noqa: U100
+        to_key_value_store_id: Optional[str] = None,
+        to_key_value_store_name: Optional[str] = None,
     ) -> None:
-        await self.export_to(key, to_key_value_store=to_key_value_store, content_type='text/csv')
+        await self.export_to(
+            key,
+            to_key_value_store_id=to_key_value_store_id,
+            to_key_value_store_name=to_key_value_store_name,
+            content_type='text/csv',
+        )
 
     async def get_info(self) -> Optional[Dict]:
         """Get an object containing general information about the dataset.
@@ -353,7 +391,7 @@ class Dataset:
         Returns:
             dict: Object returned by calling the GET dataset API endpoint.
         """
-        return await self._client.get()
+        return await self._dataset_client.get()
 
     def iterate_items(
         self,
@@ -395,7 +433,7 @@ class Dataset:
         Yields:
             dict: An item from the dataset
         """
-        return self._client.iterate_items(
+        return self._dataset_client.iterate_items(
             offset=offset,
             limit=limit,
             clean=clean,
@@ -409,11 +447,18 @@ class Dataset:
 
     async def drop(self) -> None:
         """Remove the dataset either from the Apify cloud storage or from the local directory."""
-        await self._client.delete()
-        await StorageManager.close_storage(self.__class__, self._id, self._name)
+        await self._dataset_client.delete()
+        await self._remove_from_cache()
 
     @classmethod
-    async def open(cls, dataset_id_or_name: Optional[str] = None, config: Optional[Configuration] = None) -> 'Dataset':
+    async def open(
+        cls,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        force_cloud: bool = False,
+        config: Optional[Configuration] = None,
+    ) -> 'Dataset':
         """Open a dataset.
 
         Datasets are used to store structured data where each object stored has the same attributes,
@@ -421,12 +466,17 @@ class Dataset:
         The actual data is stored either on the local filesystem or in the Apify cloud.
 
         Args:
-            dataset_id_or_name (str, optional): ID or name of the dataset to be opened.
-                If not provided, the method returns the default dataset associated with the actor run.
+            id (str, optional): ID of the dataset to be opened.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
+                If the dataset with the given ID does not exist, it raises an error.
+            name (str, optional): Name of the dataset to be opened.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
+                If the dataset with the given name does not exist, it is created.
+            force_cloud (bool, optional): If set to True, it will open a dataset on the Apify Platform even when running the actor locally.
+                Defaults to False.
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:
             Dataset: An instance of the `Dataset` class for the given ID or name.
-
         """
-        return await StorageManager.open_storage(cls, dataset_id_or_name, None, config)
+        return await super().open(id=id, name=name, force_cloud=force_cloud, config=config)

@@ -1062,7 +1062,7 @@ Get items from the dataset.
 
 ***
 
-#### [](#dataset-export_to) `async Dataset.export_to(key, *, to_key_value_store=None, content_type=None)`
+#### [](#dataset-export_to) `async Dataset.export_to(key, *, to_key_value_store_id=None, to_key_value_store_name=None, content_type=None)`
 
 Save the entirety of the dataset’s contents into one file within a key-value store.
 
@@ -1070,8 +1070,11 @@ Save the entirety of the dataset’s contents into one file within a key-value s
 
   * **key** (`str`) – The key to save the data under.
 
-  * **to_key_value_store** (`str`, *optional*) – The name of the key-value store in which the result will be saved.
-  Uses default key-value store if omitted.
+  * **to_key_value_store_id** (`str`, *optional*) – The id of the key-value store in which the result will be saved.
+
+  * **to_key_value_store_name** (`str`, *optional*) – The name of the key-value store in which the result will be saved.
+  You must specify only one of to_key_value_store_id and to_key_value_store_name arguments.
+  If you omit both, it uses the default key-value store.
 
   * **content_type** (`str`, *optional*) – Either ‘text/csv’ or ‘application/json’. Defaults to JSON.
 
@@ -1081,7 +1084,7 @@ Save the entirety of the dataset’s contents into one file within a key-value s
 
 ***
 
-#### [](#dataset-export_to_json) `async Dataset.export_to_json(key, *, from_dataset=None, to_key_value_store=None)`
+#### [](#dataset-export_to_json) `async Dataset.export_to_json(key, *, from_dataset_id=None, from_dataset_name=None, to_key_value_store_id=None, to_key_value_store_name=None)`
 
 Save the entirety of the dataset’s contents into one JSON file within a key-value store.
 
@@ -1089,10 +1092,17 @@ Save the entirety of the dataset’s contents into one JSON file within a key-va
 
   * **key** (`str`) – The key to save the data under.
 
-  * **from_dataset** (`str`, *optional*) – The source dataset in case of calling the class method. Uses default dataset if omitted.
+  * **from_dataset_id** (`str`, *optional*) – The ID of the dataset in case of calling the class method. Uses default dataset if omitted.
 
-  * **to_key_value_store** (`str`, *optional*) – The name of the key-value store in which the result will be saved.
-  Uses default key-value store if omitted.
+  * **from_dataset_name** (`str`, *optional*) – The name of the dataset in case of calling the class method. Uses default dataset if omitted.
+  You must specify only one of from_dataset_id and from_dataset_name arguments.
+  If you omit both, it uses the default dataset.
+
+  * **to_key_value_store_id** (`str`, *optional*) – The id of the key-value store in which the result will be saved.
+
+  * **to_key_value_store_name** (`str`, *optional*) – The name of the key-value store in which the result will be saved.
+  You must specify only one of to_key_value_store_id and to_key_value_store_name arguments.
+  If you omit both, it uses the default key-value store.
 
 * **Return type**
 
@@ -1100,7 +1110,7 @@ Save the entirety of the dataset’s contents into one JSON file within a key-va
 
 ***
 
-#### [](#dataset-export_to_csv) `async Dataset.export_to_csv(key, *, from_dataset=None, to_key_value_store=None)`
+#### [](#dataset-export_to_csv) `async Dataset.export_to_csv(key, *, from_dataset_id=None, from_dataset_name=None, to_key_value_store_id=None, to_key_value_store_name=None)`
 
 Save the entirety of the dataset’s contents into one CSV file within a key-value store.
 
@@ -1108,10 +1118,17 @@ Save the entirety of the dataset’s contents into one CSV file within a key-val
 
   * **key** (`str`) – The key to save the data under.
 
-  * **from_dataset** (`str`, *optional*) – The source dataset in case of calling the class method. Uses default dataset if omitted.
+  * **from_dataset_id** (`str`, *optional*) – The ID of the dataset in case of calling the class method. Uses default dataset if omitted.
 
-  * **to_key_value_store** (`str`, *optional*) – The name of the key-value store in which the result will be saved.
-  Uses default key-value store if omitted.
+  * **from_dataset_name** (`str`, *optional*) – The name of the dataset in case of calling the class method. Uses default dataset if omitted.
+  You must specify only one of from_dataset_id and from_dataset_name arguments.
+  If you omit both, it uses the default dataset.
+
+  * **to_key_value_store_id** (`str`, *optional*) – The id of the key-value store in which the result will be saved.
+
+  * **to_key_value_store_name** (`str`, *optional*) – The name of the key-value store in which the result will be saved.
+  You must specify only one of to_key_value_store_id and to_key_value_store_name arguments.
+  If you omit both, it uses the default key-value store.
 
 * **Return type**
 
@@ -1188,7 +1205,7 @@ Remove the dataset either from the Apify cloud storage or from the local directo
 
 ***
 
-#### [](#dataset-open) `async Dataset.open(dataset_id_or_name=None, config=None)`
+#### [](#dataset-open) `async Dataset.open(*, id=None, name=None, force_cloud=False, config=None)`
 
 Open a dataset.
 
@@ -1198,8 +1215,16 @@ The actual data is stored either on the local filesystem or in the Apify cloud.
 
 * **Parameters**
 
-  * **dataset_id_or_name** (`str`, *optional*) – ID or name of the dataset to be opened.
-  If not provided, the method returns the default dataset associated with the actor run.
+  * **id** (`str`, *optional*) – ID of the dataset to be opened.
+  If neither id nor name are provided, the method returns the default dataset associated with the actor run.
+  If the dataset with the given ID does not exist, it raises an error.
+
+  * **name** (`str`, *optional*) – Name of the dataset to be opened.
+  If neither id nor name are provided, the method returns the default dataset associated with the actor run.
+  If the dataset with the given name does not exist, it is created.
+
+  * **force_cloud** (`bool`, *optional*) – If set to True, it will open a dataset on the Apify Platform even when running the actor locally.
+  Defaults to False.
 
   * **config** (`Configuration`, *optional*) – A Configuration instance, uses global configuration if omitted.
 
@@ -1324,7 +1349,7 @@ Remove the key-value store either from the Apify cloud storage or from the local
 
 ***
 
-#### [](#keyvaluestore-open) `async KeyValueStore.open(store_id_or_name=None, config=None)`
+#### [](#keyvaluestore-open) `async KeyValueStore.open(*, id=None, name=None, force_cloud=False, config=None)`
 
 Open a key-value store.
 
@@ -1334,8 +1359,16 @@ The actual data is stored either on a local filesystem or in the Apify cloud.
 
 * **Parameters**
 
-  * **key_value_store_id_or_name** (`str`, *optional*) – ID or name of the key-value store to be opened.
-  If not provided, the method returns the default key-value store associated with the actor run.
+  * **id** (`str`, *optional*) – ID of the key-value store to be opened.
+  If neither id nor name are provided, the method returns the default key-value store associated with the actor run.
+  If the key-value store with the given ID does not exist, it raises an error.
+
+  * **name** (`str`, *optional*) – Name of the key-value store to be opened.
+  If neither id nor name are provided, the method returns the default key-value store associated with the actor run.
+  If the key-value store with the given name does not exist, it is created.
+
+  * **force_cloud** (`bool`, *optional*) – If set to True, it will open a key-value store on the Apify Platform even when running the actor locally.
+  Defaults to False.
 
   * **config** (`Configuration`, *optional*) – A Configuration instance, uses global configuration if omitted.
 
@@ -1556,7 +1589,7 @@ Get an object containing general information about the request queue.
 
 ***
 
-#### [](#requestqueue-open) `async RequestQueue.open(request_queue_id_or_name=None, config=None)`
+#### [](#requestqueue-open) `async RequestQueue.open(*, id=None, name=None, force_cloud=False, config=None)`
 
 Open a request queue.
 
@@ -1569,9 +1602,14 @@ and depth-first crawling orders.
 
   * **id** (`str`, *optional*) – ID of the request queue to be opened.
   If neither id nor name are provided, the method returns the default request queue associated with the actor run.
+  If the request queue with the given ID does not exist, it raises an error.
 
   * **name** (`str`, *optional*) – Name of the request queue to be opened.
   If neither id nor name are provided, the method returns the default request queue associated with the actor run.
+  If the request queue with the given name does not exist, it is created.
+
+  * **force_cloud** (`bool`, *optional*) – If set to True, it will open a request queue on the Apify Platform even when running the actor locally.
+  Defaults to False.
 
   * **config** (`Configuration`, *optional*) – A Configuration instance, uses global configuration if omitted.
 

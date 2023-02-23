@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -6,11 +7,11 @@ from apify.consts import ApifyEnvVars
 from apify.memory_storage import MemoryStorage
 
 
-async def test_write_metadata(tmp_path: str) -> None:
+async def test_write_metadata(tmp_path: Path) -> None:
     dataset_name = 'test'
     dataset_no_metadata_name = 'test-no-metadata'
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
-    ms_no_metadata = MemoryStorage(local_data_directory=tmp_path, write_metadata=False)
+    ms = MemoryStorage(local_data_directory=str(tmp_path), write_metadata=True)
+    ms_no_metadata = MemoryStorage(local_data_directory=str(tmp_path), write_metadata=False)
     datasets_client = ms.datasets()
     datasets_no_metadata_client = ms_no_metadata.datasets()
     await datasets_client.get_or_create(name=dataset_name)
@@ -19,9 +20,9 @@ async def test_write_metadata(tmp_path: str) -> None:
     assert os.path.exists(os.path.join(ms_no_metadata._datasets_directory, dataset_no_metadata_name, '__metadata__.json')) is False
 
 
-async def test_persist_storage(tmp_path: str) -> None:
-    ms = MemoryStorage(local_data_directory=tmp_path, persist_storage=True)
-    ms_no_persist = MemoryStorage(local_data_directory=tmp_path, persist_storage=False)
+async def test_persist_storage(tmp_path: Path) -> None:
+    ms = MemoryStorage(local_data_directory=str(tmp_path), persist_storage=True)
+    ms_no_persist = MemoryStorage(local_data_directory=str(tmp_path), persist_storage=False)
     kvs_client = ms.key_value_stores()
     kvs_no_metadata_client = ms_no_persist.key_value_stores()
     kvs_info = await kvs_client.get_or_create(name='kvs')
@@ -32,34 +33,34 @@ async def test_persist_storage(tmp_path: str) -> None:
     assert os.path.exists(os.path.join(ms_no_persist._key_value_stores_directory, kvs_no_metadata_info['name'], 'test.json')) is False
 
 
-def test_config_via_env_vars_persist_storage(monkeypatch: pytest.MonkeyPatch, tmp_path: str) -> None:
+def test_config_via_env_vars_persist_storage(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     # Env var changes persist_storage to False
     monkeypatch.setenv('APIFY_PERSIST_STORAGE', 'false')
-    ms = MemoryStorage(local_data_directory=tmp_path)
+    ms = MemoryStorage(local_data_directory=str(tmp_path))
     assert ms._persist_storage is False
     monkeypatch.setenv('APIFY_PERSIST_STORAGE', '0')
-    ms = MemoryStorage(local_data_directory=tmp_path)
+    ms = MemoryStorage(local_data_directory=str(tmp_path))
     assert ms._persist_storage is False
     monkeypatch.setenv('APIFY_PERSIST_STORAGE', '')
-    ms = MemoryStorage(local_data_directory=tmp_path)
+    ms = MemoryStorage(local_data_directory=str(tmp_path))
     assert ms._persist_storage is False
     # Test if constructor arg takes precedence over env var value
-    ms = MemoryStorage(local_data_directory=tmp_path, persist_storage=True)
+    ms = MemoryStorage(local_data_directory=str(tmp_path), persist_storage=True)
     assert ms._persist_storage is True
 
 
-def test_config_via_env_vars_write_metadata(monkeypatch: pytest.MonkeyPatch, tmp_path: str) -> None:
+def test_config_via_env_vars_write_metadata(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     # Env var changes write_metadata to True
     monkeypatch.setenv('DEBUG', '*')
-    ms = MemoryStorage(local_data_directory=tmp_path)
+    ms = MemoryStorage(local_data_directory=str(tmp_path))
     assert ms._write_metadata is True
     # Test if constructor arg takes precedence over env var value
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=False)
+    ms = MemoryStorage(local_data_directory=str(tmp_path), write_metadata=False)
     assert ms._write_metadata is False
 
 
-async def test_purge_datasets(tmp_path: str) -> None:
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+async def test_purge_datasets(tmp_path: Path) -> None:
+    ms = MemoryStorage(local_data_directory=str(tmp_path), write_metadata=True)
     # Create default and non-default datasets
     datasets_client = ms.datasets()
     default_dataset_info = await datasets_client.get_or_create(name='default')
@@ -75,8 +76,8 @@ async def test_purge_datasets(tmp_path: str) -> None:
     assert non_default_dataset_info['name'] in folders_after_purge
 
 
-async def test_purge_key_value_stores(tmp_path: str) -> None:
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+async def test_purge_key_value_stores(tmp_path: Path) -> None:
+    ms = MemoryStorage(local_data_directory=str(tmp_path), write_metadata=True)
 
     # Create default and non-default key-value stores
     kvs_client = ms.key_value_stores()
@@ -104,8 +105,8 @@ async def test_purge_key_value_stores(tmp_path: str) -> None:
     assert 'test.json' not in default_folder_files_after_purge
 
 
-async def test_purge_request_queues(tmp_path: str) -> None:
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+async def test_purge_request_queues(tmp_path: Path) -> None:
+    ms = MemoryStorage(local_data_directory=str(tmp_path), write_metadata=True)
     # Create default and non-default request queues
     rq_client = ms.request_queues()
     default_rq_info = await rq_client.get_or_create(name='default')
@@ -121,8 +122,8 @@ async def test_purge_request_queues(tmp_path: str) -> None:
     assert non_default_rq_info['name'] in folders_after_purge
 
 
-async def test_not_implemented_method(tmp_path: str) -> None:
-    ms = MemoryStorage(local_data_directory=tmp_path, write_metadata=True)
+async def test_not_implemented_method(tmp_path: Path) -> None:
+    ms = MemoryStorage(local_data_directory=str(tmp_path), write_metadata=True)
     ddt = ms.dataset('test')
     with pytest.raises(NotImplementedError, match='This method is not supported in local memory storage.'):
         await ddt.stream_items(item_format='json')
@@ -132,12 +133,15 @@ async def test_not_implemented_method(tmp_path: str) -> None:
 
 
 async def test_storage_path_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(ApifyEnvVars.LOCAL_STORAGE_DIR)
     default_ms = MemoryStorage()
     assert default_ms._local_data_directory == './storage'
+
     # We expect the env var to override the default value
     monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, './env_var_storage_dir')
     env_var_ms = MemoryStorage()
     assert env_var_ms._local_data_directory == './env_var_storage_dir'
+
     # We expect the parametrized value to override the env var
     parametrized_ms = MemoryStorage(local_data_directory='./parametrized_storage_dir')
     assert parametrized_ms._local_data_directory == './parametrized_storage_dir'

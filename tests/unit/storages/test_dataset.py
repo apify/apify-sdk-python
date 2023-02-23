@@ -8,13 +8,32 @@ async def dataset() -> Dataset:
     return await Dataset.open()
 
 
+async def test_open() -> None:
+    default_dataset = await Dataset.open()
+    default_dataset_by_id = await Dataset.open(id=default_dataset._id)
+
+    assert default_dataset is default_dataset_by_id
+
+    dataset_name = 'dummy-name'
+    named_dataset = await Dataset.open(name=dataset_name)
+    assert default_dataset is not named_dataset
+
+    with pytest.raises(RuntimeError, match='Dataset with id "nonexistent-id" does not exist!'):
+        await Dataset.open(id='nonexistent-id')
+
+    # Test that when you try to open a dataset by ID and you use a name of an existing dataset,
+    # it doesn't work
+    with pytest.raises(RuntimeError, match='Dataset with id "dummy-name" does not exist!'):
+        await Dataset.open(id='dummy-name')
+
+
 async def test_same_references() -> None:
     dataset1 = await Dataset.open()
     dataset2 = await Dataset.open()
     assert dataset1 is dataset2
     dataset_name = 'non-default'
-    dataset_named1 = await Dataset.open(dataset_name)
-    dataset_named2 = await Dataset.open(dataset_name)
+    dataset_named1 = await Dataset.open(name=dataset_name)
+    dataset_named2 = await Dataset.open(name=dataset_name)
     assert dataset_named1 is dataset_named2
 
 

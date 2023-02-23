@@ -20,9 +20,15 @@ class TestActorOpenDataset:
             dataset2 = await Actor.open_dataset()
             assert dataset1 is dataset2
             dataset_name = 'non-default'
-            dataset_named1 = await Actor.open_dataset(name=dataset_name)
-            dataset_named2 = await Actor.open_dataset(name=dataset_name)
-            assert dataset_named1 is dataset_named2
+            dataset_by_name_1 = await Actor.open_dataset(name=dataset_name)
+            dataset_by_name_2 = await Actor.open_dataset(name=dataset_name)
+            assert dataset_by_name_1 is dataset_by_name_2
+
+            dataset_by_id_1 = await Actor.open_dataset(id=dataset_by_name_1._id)
+            dataset_by_id_2 = await Actor.open_dataset(id=dataset_by_name_1._id)
+
+            assert dataset_by_id_1 is dataset_by_name_1
+            assert dataset_by_id_2 is dataset_by_id_1
 
     async def test_open_datatset_based_env_var(
         self,

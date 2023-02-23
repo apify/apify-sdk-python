@@ -28,8 +28,7 @@ from .event_manager import EventManager
 from .log import logger
 from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
-from .storage_client_manager import StorageClientManager
-from .storages import Dataset, KeyValueStore, RequestQueue, StorageManager
+from .storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -220,6 +219,10 @@ class Actor(metaclass=_ActorContextManager):
 
         # TODO: Print outdated SDK version warning (we need a new env var for this)
 
+        StorageClientManager.set_config(self._config)
+        if self._config.token:
+            StorageClientManager.set_cloud_client(self._apify_client)
+
         await self._event_manager.init()
 
         self._send_persist_state_interval_task = asyncio.create_task(
@@ -229,9 +232,7 @@ class Actor(metaclass=_ActorContextManager):
             ),
         )
 
-        if self.is_at_home():
-            StorageClientManager.set_storage_client(self._apify_client)
-        else:
+        if not self.is_at_home():
             self._send_system_info_interval_task = asyncio.create_task(
                 _run_func_at_interval_async(
                     lambda: self._event_manager.emit(ActorEventTypes.SYSTEM_INFO, self._get_system_info()),
@@ -509,8 +510,7 @@ class Actor(metaclass=_ActorContextManager):
     async def _open_dataset_internal(self, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> Dataset:
         self._raise_if_not_initialized()
 
-        dataset_id_or_name = id or name
-        return await StorageManager.open_storage(Dataset, dataset_id_or_name, self._get_storage_client(force_cloud), self._config)
+        return await Dataset.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
 
     @classmethod
     async def open_key_value_store(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> KeyValueStore:
@@ -542,8 +542,7 @@ class Actor(metaclass=_ActorContextManager):
     ) -> KeyValueStore:
         self._raise_if_not_initialized()
 
-        key_value_store_id_or_name = id or name
-        return await StorageManager.open_storage(KeyValueStore, key_value_store_id_or_name, self._get_storage_client(force_cloud), self._config)
+        return await KeyValueStore.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
 
     @classmethod
     async def open_request_queue(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> RequestQueue:
@@ -576,8 +575,7 @@ class Actor(metaclass=_ActorContextManager):
     ) -> RequestQueue:
         self._raise_if_not_initialized()
 
-        request_queue_id_or_name = id or name
-        return await StorageManager.open_storage(RequestQueue, request_queue_id_or_name, self._get_storage_client(force_cloud), self._config)
+        return await RequestQueue.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
 
     @classmethod
     async def push_data(cls, data: Any) -> None:

@@ -61,7 +61,7 @@ class MemoryStorage:
 
     def datasets(self) -> DatasetCollectionClient:
         """Retrieve the sub-client for manipulating datasets."""
-        return DatasetCollectionClient(base_storage_directory=self._datasets_directory, client=self)
+        return DatasetCollectionClient(base_storage_directory=self._datasets_directory, memory_storage=self)
 
     def dataset(self, dataset_id: str) -> DatasetClient:
         """Retrieve the sub-client for manipulating a single dataset.
@@ -69,11 +69,11 @@ class MemoryStorage:
         Args:
             dataset_id (str): ID of the dataset to be manipulated
         """
-        return DatasetClient(base_storage_directory=self._datasets_directory, client=self, id=dataset_id)
+        return DatasetClient(base_storage_directory=self._datasets_directory, memory_storage=self, id=dataset_id)
 
     def key_value_stores(self) -> KeyValueStoreCollectionClient:
         """Retrieve the sub-client for manipulating key-value stores."""
-        return KeyValueStoreCollectionClient(base_storage_directory=self._key_value_stores_directory, client=self)
+        return KeyValueStoreCollectionClient(base_storage_directory=self._key_value_stores_directory, memory_storage=self)
 
     def key_value_store(self, key_value_store_id: str) -> KeyValueStoreClient:
         """Retrieve the sub-client for manipulating a single key-value store.
@@ -81,11 +81,11 @@ class MemoryStorage:
         Args:
             key_value_store_id (str): ID of the key-value store to be manipulated
         """
-        return KeyValueStoreClient(base_storage_directory=self._key_value_stores_directory, client=self, id=key_value_store_id)
+        return KeyValueStoreClient(base_storage_directory=self._key_value_stores_directory, memory_storage=self, id=key_value_store_id)
 
     def request_queues(self) -> RequestQueueCollectionClient:
         """Retrieve the sub-client for manipulating request queues."""
-        return RequestQueueCollectionClient(base_storage_directory=self._request_queues_directory, client=self)
+        return RequestQueueCollectionClient(base_storage_directory=self._request_queues_directory, memory_storage=self)
 
     def request_queue(self, request_queue_id: str, *, client_key: Optional[str] = None) -> RequestQueueClient:  # noqa: U100
         """Retrieve the sub-client for manipulating a single request queue.
@@ -94,7 +94,7 @@ class MemoryStorage:
             request_queue_id (str): ID of the request queue to be manipulated
             client_key (str): A unique identifier of the client accessing the request queue
         """
-        return RequestQueueClient(base_storage_directory=self._request_queues_directory, client=self, id=request_queue_id)
+        return RequestQueueClient(base_storage_directory=self._request_queues_directory, memory_storage=self, id=request_queue_id)
 
     async def purge(self) -> None:
         """Clean up the default storage directories before the run starts.

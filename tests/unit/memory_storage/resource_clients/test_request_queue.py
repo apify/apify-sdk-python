@@ -16,9 +16,9 @@ async def request_queue_client(memory_storage: MemoryStorage) -> RequestQueueCli
 
 
 async def test_nonexistent(memory_storage: MemoryStorage) -> None:
-    request_queue_client = memory_storage.request_queue(request_queue_id='clearly not a uuid')
+    request_queue_client = memory_storage.request_queue(request_queue_id='nonexistent-id')
     assert await request_queue_client.get() is None
-    with pytest.raises(ValueError, match='Request queue with id "clearly not a uuid" does not exist.'):
+    with pytest.raises(ValueError, match='Request queue with id "nonexistent-id" does not exist.'):
         await request_queue_client.update(name='test-update')
     await request_queue_client.delete()
 
@@ -39,8 +39,8 @@ async def test_update(request_queue_client: RequestQueueClient) -> None:
     })
     old_rq_info = await request_queue_client.get()
     assert old_rq_info is not None
-    old_rq_directory = os.path.join(request_queue_client._client._request_queues_directory, old_rq_info['name'])
-    new_rq_directory = os.path.join(request_queue_client._client._request_queues_directory, new_rq_name)
+    old_rq_directory = os.path.join(request_queue_client._memory_storage._request_queues_directory, old_rq_info['name'])
+    new_rq_directory = os.path.join(request_queue_client._memory_storage._request_queues_directory, new_rq_name)
     assert os.path.exists(os.path.join(old_rq_directory, 'fvwscO2UJLdr10B.json')) is True
     assert os.path.exists(os.path.join(new_rq_directory, 'fvwscO2UJLdr10B.json')) is False
 
@@ -65,7 +65,7 @@ async def test_delete(request_queue_client: RequestQueueClient) -> None:
     })
     rq_info = await request_queue_client.get()
     assert rq_info is not None
-    rq_directory = os.path.join(request_queue_client._client._request_queues_directory, rq_info['name'])
+    rq_directory = os.path.join(request_queue_client._memory_storage._request_queues_directory, rq_info['name'])
     assert os.path.exists(os.path.join(rq_directory, 'fvwscO2UJLdr10B.json')) is True
     await request_queue_client.delete()
     assert os.path.exists(os.path.join(rq_directory, 'fvwscO2UJLdr10B.json')) is False
