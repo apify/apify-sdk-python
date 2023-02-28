@@ -2,8 +2,8 @@ from typing import Optional, Union
 
 from apify_client import ApifyClientAsync
 
+from .._memory_storage import MemoryStorageClient
 from ..config import Configuration
-from ..memory_storage import MemoryStorage
 
 
 class StorageClientManager:
@@ -11,7 +11,7 @@ class StorageClientManager:
 
     _config: Configuration
 
-    _local_client: Optional[MemoryStorage] = None
+    _local_client: Optional[MemoryStorageClient] = None
     _cloud_client: Optional[ApifyClientAsync] = None
 
     _default_instance: Optional['StorageClientManager'] = None
@@ -30,15 +30,15 @@ class StorageClientManager:
         cls._get_default_instance()._config = config
 
     @classmethod
-    def get_storage_client(cls, force_cloud: bool = False) -> Union[ApifyClientAsync, MemoryStorage]:
+    def get_storage_client(cls, force_cloud: bool = False) -> Union[ApifyClientAsync, MemoryStorageClient]:
         """Get the current storage client instance.
 
         Returns:
-            ApifyClientAsync or MemoryStorage: The current storage client instance.
+            ApifyClientAsync or MemoryStorageClient: The current storage client instance.
         """
         default_instance = cls._get_default_instance()
         if not default_instance._local_client:
-            default_instance._local_client = MemoryStorage(persist_storage=default_instance._config.persist_storage, write_metadata=True)
+            default_instance._local_client = MemoryStorageClient(persist_storage=default_instance._config.persist_storage, write_metadata=True)
 
         if default_instance._config.is_at_home or force_cloud:
             assert default_instance._cloud_client is not None
@@ -51,7 +51,7 @@ class StorageClientManager:
         """Set the storage client.
 
         Args:
-            client (ApifyClientAsync or MemoryStorage): The instance of a storage client.
+            client (ApifyClientAsync or MemoryStorageClient): The instance of a storage client.
         """
         cls._get_default_instance()._cloud_client = client
 

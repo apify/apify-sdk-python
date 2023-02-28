@@ -1,42 +1,36 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Protocol, Union, cast
+from typing import Dict, Generic, Optional, TypeVar, Union, cast
 
 from typing_extensions import Self
 
 from apify_client import ApifyClientAsync
 
+from .._memory_storage import MemoryStorageClient
+from .._memory_storage.resource_clients import BaseResourceClient, BaseResourceCollectionClient
 from ..config import Configuration
-from ..memory_storage import MemoryStorage
 from .storage_client_manager import StorageClientManager
 
-
-class _SingleStorageClientProtocol(Protocol):
-    async def get(self) -> Optional[Dict]:
-        pass
+BaseResourceClientType = TypeVar('BaseResourceClientType', bound=BaseResourceClient)
+BaseResourceCollectionClientType = TypeVar('BaseResourceCollectionClientType', bound=BaseResourceCollectionClient)
 
 
-class _StorageCollectionClientProtocol(Protocol):
-    async def get_or_create(self, *, name: Optional[str] = None) -> Dict:
-        pass
-
-
-async def _purge_default_storages(client: Union[ApifyClientAsync, MemoryStorage]) -> None:
-    if isinstance(client, MemoryStorage) and not client._purged:
+async def _purge_default_storages(client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
+    if isinstance(client, MemoryStorageClient) and not client._purged:
         client._purged = True
-        await client.purge()
+        await client._purge()
 
 
-class BaseStorage(ABC):
+class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionClientType]):
     """A class for managing storages."""
 
     _id: str
     _name: Optional[str]
-    _storage_client: Union[ApifyClientAsync, MemoryStorage]
+    _storage_client: Union[ApifyClientAsync, MemoryStorageClient]
 
     _cache_by_id: Optional[Dict[str, Self]] = None
     _cache_by_name: Optional[Dict[str, Self]] = None
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]):
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]):
         """Initialize the storage.
 
         Do not use this method directly, but use `Actor.open_<STORAGE>()` instead.
@@ -44,7 +38,7 @@ class BaseStorage(ABC):
         Args:
             id (str): The storage id
             name (str, optional): The storage name
-            client (ApifyClientAsync or MemoryStorage): The storage client
+            client (ApifyClientAsync or MemoryStorageClient): The storage client
         """
         self._id = id
         self._name = name
@@ -62,12 +56,12 @@ class BaseStorage(ABC):
 
     @classmethod
     @abstractmethod
-    def _get_single_storage_client(cls, id: str, client: Union[ApifyClientAsync, MemoryStorage]) -> _SingleStorageClientProtocol:
+    def _get_single_storage_client(cls, id: str, client: Union[ApifyClientAsync, MemoryStorageClient]) -> BaseResourceClientType:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     @abstractmethod
-    def _get_storage_collection_client(cls, client: Union[ApifyClientAsync, MemoryStorage]) -> _StorageCollectionClientProtocol:
+    def _get_storage_collection_client(cls, client: Union[ApifyClientAsync, MemoryStorageClient]) -> BaseResourceCollectionClientType:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
@@ -78,6 +72,7 @@ class BaseStorage(ABC):
             cls._cache_by_name = {}
 
     @classmethod
+    @abstractmethod
     async def open(
         cls,
         *,
@@ -103,7 +98,7 @@ class BaseStorage(ABC):
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:
-            An instance of the storage given by `storage_class`.
+            An instance of the storage.
         """
         cls._ensure_caches_initialized()
         assert cls._cache_by_id is not None
@@ -114,13 +109,12 @@ class BaseStorage(ABC):
         used_config = config or Configuration.get_global_configuration()
         used_client = StorageClientManager.get_storage_client(force_cloud=force_cloud)
 
-        # Fetch default name
+        is_default_storage_on_local = False
+        # Fetch default ID if no ID or name was passed
         if not id and not name:
-            default_id = cls._get_default_id(used_config)
-            if isinstance(used_client, ApifyClientAsync):
-                id = default_id
-            else:
-                name = default_id
+            if isinstance(used_client, MemoryStorageClient):
+                is_default_storage_on_local = True
+            id = cls._get_default_id(used_config)
 
         # Try to get the storage instance from cache
         cached_storage = None
@@ -138,12 +132,15 @@ class BaseStorage(ABC):
             await _purge_default_storages(used_client)
 
         # Create the storage
-        if id:
+        if id and not is_default_storage_on_local:
             single_storage_client = cls._get_single_storage_client(id, used_client)
             storage_info = await single_storage_client.get()
             if not storage_info:
                 storage_label = cls._get_human_friendly_label()
                 raise RuntimeError(f'{storage_label} with id "{id}" does not exist!')
+        elif is_default_storage_on_local:
+            storage_collection_client = cls._get_storage_collection_client(used_client)
+            storage_info = await storage_collection_client.get_or_create(name=name, _id=id)
         else:
             storage_collection_client = cls._get_storage_collection_client(used_client)
             storage_info = await storage_collection_client.get_or_create(name=name)
@@ -159,6 +156,6 @@ class BaseStorage(ABC):
     async def _remove_from_cache(self) -> None:
         if self.__class__._cache_by_id is not None:
             del self.__class__._cache_by_id[self._id]
-            if self.__class__._cache_by_name is not None:
-                if self._name is not None:
-                    del self.__class__._cache_by_name[self._name]
+
+        if self._name and self.__class__._cache_by_name is not None:
+            del self.__class__._cache_by_name[self._name]

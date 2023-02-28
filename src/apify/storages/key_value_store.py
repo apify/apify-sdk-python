@@ -3,10 +3,10 @@ from typing import Any, AsyncIterator, NamedTuple, Optional, TypedDict, TypeVar,
 from apify_client import ApifyClientAsync
 from apify_client.clients import KeyValueStoreClientAsync, KeyValueStoreCollectionClientAsync
 
+from .._memory_storage import MemoryStorageClient
+from .._memory_storage.resource_clients import KeyValueStoreClient, KeyValueStoreCollectionClient
 from .._utils import _wrap_internal
 from ..config import Configuration
-from ..memory_storage import MemoryStorage
-from ..memory_storage.resource_clients import KeyValueStoreClient, KeyValueStoreCollectionClient
 from .base_storage import BaseStorage
 
 T = TypeVar('T')
@@ -50,7 +50,7 @@ class KeyValueStore(BaseStorage):
     _name: Optional[str]
     _key_value_store_client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
         """Create a `KeyValueStore` instance.
 
         Do not use the constructor directly, use the `Actor.open_key_value_store()` function instead.
@@ -58,7 +58,7 @@ class KeyValueStore(BaseStorage):
         Args:
             id (str): ID of the key-value store.
             name (str, optional): Name of the key-value store.
-            client (ApifyClientAsync or MemoryStorage): The storage client which should be used.
+            client (ApifyClientAsync or MemoryStorageClient): The storage client which should be used.
         """
         super().__init__(id=id, name=name, client=client)
 
@@ -80,14 +80,14 @@ class KeyValueStore(BaseStorage):
     def _get_single_storage_client(
         cls,
         id: str,
-        client: Union[ApifyClientAsync, MemoryStorage],
+        client: Union[ApifyClientAsync, MemoryStorageClient],
     ) -> Union[KeyValueStoreClientAsync, KeyValueStoreClient]:
         return client.key_value_store(id)
 
     @classmethod
     def _get_storage_collection_client(
         cls,
-        client: Union[ApifyClientAsync, MemoryStorage],
+        client: Union[ApifyClientAsync, MemoryStorageClient],
     ) -> Union[KeyValueStoreCollectionClientAsync, KeyValueStoreCollectionClient]:
         return client.key_value_stores()
 

@@ -2,8 +2,8 @@
 import pytest
 
 from apify import Actor
+from apify._memory_storage import MemoryStorageClient
 from apify.consts import ApifyEnvVars
-from apify.memory_storage import MemoryStorage
 
 # NOTE: We only test the dataset methond available on Actor class/instance. Actual tests for the implementations are in storages/.
 
@@ -33,15 +33,14 @@ class TestActorOpenDataset:
     async def test_open_datatset_based_env_var(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        memory_storage: MemoryStorage,
+        memory_storage_client: MemoryStorageClient,
     ) -> None:
-        default_dataset_name = 'my-new-default-name'
-        await memory_storage.datasets().get_or_create(name=default_dataset_name)
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_DATASET_ID, default_dataset_name)
+        default_dataset_id = 'my-new-default-id'
+        monkeypatch.setenv(ApifyEnvVars.DEFAULT_DATASET_ID, default_dataset_id)
         async with Actor:
             ddt = await Actor.open_dataset()
-            assert ddt._name == default_dataset_name
-            await memory_storage.dataset(ddt._id).delete()
+            assert ddt._id == default_dataset_id
+            await memory_storage_client.dataset(ddt._id).delete()
 
 
 class TestActorPushData:

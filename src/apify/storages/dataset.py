@@ -7,12 +7,12 @@ from apify_client import ApifyClientAsync
 from apify_client._utils import ListPage
 from apify_client.clients import DatasetClientAsync, DatasetCollectionClientAsync
 
+from .._memory_storage import MemoryStorageClient
+from .._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
 from .._types import JSONSerializable
 from .._utils import _json_dumps, _wrap_internal
 from ..config import Configuration
 from ..consts import MAX_PAYLOAD_SIZE_BYTES
-from ..memory_storage import MemoryStorage
-from ..memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
 from .base_storage import BaseStorage
 from .key_value_store import KeyValueStore
 
@@ -92,7 +92,7 @@ class Dataset(BaseStorage):
     _name: Optional[str]
     _dataset_client: Union[DatasetClientAsync, DatasetClient]
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
         """Create a `Dataset` instance.
 
         Do not use the constructor directly, use the `Actor.open_dataset()` function instead.
@@ -100,7 +100,7 @@ class Dataset(BaseStorage):
         Args:
             id (str): ID of the dataset.
             name (str, optional): Name of the dataset.
-            client (ApifyClientAsync or MemoryStorage): The storage client which should be used.
+            client (ApifyClientAsync or MemoryStorageClient): The storage client which should be used.
         """
         super().__init__(id=id, name=name, client=client)
 
@@ -120,13 +120,13 @@ class Dataset(BaseStorage):
         return config.default_dataset_id
 
     @classmethod
-    def _get_single_storage_client(cls, id: str, client: Union[ApifyClientAsync, MemoryStorage]) -> Union[DatasetClientAsync, DatasetClient]:
+    def _get_single_storage_client(cls, id: str, client: Union[ApifyClientAsync, MemoryStorageClient]) -> Union[DatasetClientAsync, DatasetClient]:
         return client.dataset(id)
 
     @classmethod
     def _get_storage_collection_client(
         cls,
-        client: Union[ApifyClientAsync, MemoryStorage],
+        client: Union[ApifyClientAsync, MemoryStorageClient],
     ) -> Union[DatasetCollectionClientAsync, DatasetCollectionClient]:
         return client.datasets()
 

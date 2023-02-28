@@ -4,13 +4,16 @@ Changelog
 [0.2.0](../../releases/tag/v0.2.0) - Upcoming
 ---------------------------------------------
 
+### Breaking changes
+
+- fixed local `MemoryStorageClient` not handling the difference between storage `id` and `name` correctly
+
 ### Fixed
 
 - fixed parsing messages from the platform events websocket when they have no event data
 - fixed `EventManager` not waiting for platform events websocket connection during initialization
 - fixed local `RequestQueueClient` not respecting the `forefront` argument
 - fixed local `RequestQueueClient` not counting the `handledRequestCount` property
-- fixed local `MemoryStorage` not handling the difference between storage `id` and `name` correctly
 
 ### Internal changes
 

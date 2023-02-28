@@ -11,6 +11,7 @@ from apify_client import ApifyClientAsync
 from apify_client.consts import WebhookEventType
 
 from ._crypto import _decrypt_input_secrets, _load_private_key
+from ._memory_storage import MemoryStorageClient
 from ._utils import (
     _fetch_and_parse_env_var,
     _get_cpu_usage_percent,
@@ -26,7 +27,6 @@ from .config import Configuration
 from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventTypes, ActorExitCodes, ApifyEnvVars
 from .event_manager import EventManager
 from .log import logger
-from .memory_storage import MemoryStorage
 from .proxy_configuration import ProxyConfiguration
 from .storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
@@ -64,7 +64,7 @@ class Actor(metaclass=_ActorContextManager):
 
     _default_instance: Optional['Actor'] = None
     _apify_client: ApifyClientAsync
-    _memory_storage: MemoryStorage
+    _memory_storage_client: MemoryStorageClient
     _config: Configuration
     _event_manager: EventManager
     _send_system_info_interval_task: Optional[asyncio.Task] = None

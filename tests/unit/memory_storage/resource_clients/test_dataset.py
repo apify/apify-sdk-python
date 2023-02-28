@@ -3,19 +3,19 @@ import os
 
 import pytest
 
-from apify.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients import DatasetClient
+from apify._memory_storage import MemoryStorageClient
+from apify._memory_storage.resource_clients import DatasetClient
 
 
 @pytest.fixture
-async def dataset_client(memory_storage: MemoryStorage) -> DatasetClient:
-    datasets_client = memory_storage.datasets()
+async def dataset_client(memory_storage_client: MemoryStorageClient) -> DatasetClient:
+    datasets_client = memory_storage_client.datasets()
     dataset_info = await datasets_client.get_or_create(name='test')
-    return memory_storage.dataset(dataset_info['id'])
+    return memory_storage_client.dataset(dataset_info['id'])
 
 
-async def test_nonexistent(memory_storage: MemoryStorage) -> None:
-    dataset_client = memory_storage.dataset(dataset_id='nonexistent-id')
+async def test_nonexistent(memory_storage_client: MemoryStorageClient) -> None:
+    dataset_client = memory_storage_client.dataset(dataset_id='nonexistent-id')
     assert await dataset_client.get() is None
     with pytest.raises(ValueError, match='Dataset with id "nonexistent-id" does not exist.'):
         await dataset_client.update(name='test-update')
@@ -49,8 +49,8 @@ async def test_update(dataset_client: DatasetClient) -> None:
 
     old_dataset_info = await dataset_client.get()
     assert old_dataset_info is not None
-    old_dataset_directory = os.path.join(dataset_client._memory_storage._datasets_directory, old_dataset_info['name'])
-    new_dataset_directory = os.path.join(dataset_client._memory_storage._datasets_directory, new_dataset_name)
+    old_dataset_directory = os.path.join(dataset_client._memory_storage_client._datasets_directory, old_dataset_info['name'])
+    new_dataset_directory = os.path.join(dataset_client._memory_storage_client._datasets_directory, new_dataset_name)
     assert os.path.exists(os.path.join(old_dataset_directory, '000000001.json')) is True
     assert os.path.exists(os.path.join(new_dataset_directory, '000000001.json')) is False
 
@@ -72,7 +72,7 @@ async def test_delete(dataset_client: DatasetClient) -> None:
     await dataset_client.push_items({'abc': 123})
     dataset_info = await dataset_client.get()
     assert dataset_info is not None
-    dataset_directory = os.path.join(dataset_client._memory_storage._datasets_directory, dataset_info['name'])
+    dataset_directory = os.path.join(dataset_client._memory_storage_client._datasets_directory, dataset_info['name'])
     assert os.path.exists(os.path.join(dataset_directory, '000000001.json')) is True
     await dataset_client.delete()
     assert os.path.exists(os.path.join(dataset_directory, '000000001.json')) is False

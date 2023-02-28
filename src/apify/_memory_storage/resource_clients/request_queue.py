@@ -21,15 +21,15 @@ from ..file_storage_utils import _delete_request, _update_metadata, _update_requ
 from .base_resource_client import BaseResourceClient
 
 if TYPE_CHECKING:
-    from ..memory_storage import MemoryStorage
+    from ..memory_storage_client import MemoryStorageClient
 
 
 class RequestQueueClient(BaseResourceClient):
     """Sub-client for manipulating a single request queue."""
 
     _id: str
-    _request_queue_directory: str
-    _memory_storage: 'MemoryStorage'
+    _resource_directory: str
+    _memory_storage_client: 'MemoryStorageClient'
     _name: Optional[str]
     _requests: ValueSortedDict
     _created_at: datetime
@@ -39,11 +39,18 @@ class RequestQueueClient(BaseResourceClient):
     _pending_request_count = 0
     _last_used_timestamp = Decimal(0.0)
 
-    def __init__(self, *, base_storage_directory: str, memory_storage: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        *,
+        base_storage_directory: str,
+        memory_storage_client: 'MemoryStorageClient',
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """Initialize the RequestQueueClient."""
         self._id = id or _crypto_random_object_id()
-        self._request_queue_directory = os.path.join(base_storage_directory, name or self._id)
-        self._memory_storage = memory_storage
+        self._resource_directory = os.path.join(base_storage_directory, name or self._id)
+        self._memory_storage_client = memory_storage_client
         self._name = name
         self._requests = ValueSortedDict(lambda req: req.get('orderNo') or -float('inf'))
         self._created_at = datetime.now(timezone.utc)
@@ -56,11 +63,11 @@ class RequestQueueClient(BaseResourceClient):
         Returns:
             dict, optional: The retrieved request queue, or None, if it does not exist
         """
-        found = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        found = self._find_or_create_client_by_id_or_name(memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if found:
             await found._update_timestamps(False)
-            return found._to_request_queue_info()
+            return found._to_resource_info()
 
         return None
 
@@ -74,47 +81,48 @@ class RequestQueueClient(BaseResourceClient):
             dict: The updated request queue
         """
         # Check by id
-        existing_queue_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_queue_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
 
         # Skip if no changes
         if name is None:
-            return existing_queue_by_id._to_request_queue_info()
+            return existing_queue_by_id._to_resource_info()
 
         # Check that name is not in use already
         existing_queue_by_name = next(
-            (queue for queue in self._memory_storage._request_queues_handled if queue._name and queue._name.lower() == name.lower()), None)
+            (queue for queue in self._memory_storage_client._request_queues_handled if queue._name and queue._name.lower() == name.lower()), None)
 
         if existing_queue_by_name is not None:
             _raise_on_duplicate_storage(StorageTypes.REQUEST_QUEUE, 'name', name)
 
         existing_queue_by_id._name = name
 
-        previous_dir = existing_queue_by_id._request_queue_directory
+        previous_dir = existing_queue_by_id._resource_directory
 
-        existing_queue_by_id._request_queue_directory = os.path.join(self._memory_storage._request_queues_directory, name)
+        existing_queue_by_id._resource_directory = os.path.join(self._memory_storage_client._request_queues_directory, name)
 
-        await _force_rename(previous_dir, existing_queue_by_id._request_queue_directory)
+        await _force_rename(previous_dir, existing_queue_by_id._resource_directory)
 
         # Update timestamps
         await existing_queue_by_id._update_timestamps(True)
 
-        return existing_queue_by_id._to_request_queue_info()
+        return existing_queue_by_id._to_resource_info()
 
     async def delete(self) -> None:
         """Delete the request queue."""
-        queue = next((queue for queue in self._memory_storage._request_queues_handled if queue._id == self._id), None)
+        queue = next((queue for queue in self._memory_storage_client._request_queues_handled if queue._id == self._id), None)
 
         if queue is not None:
-            self._memory_storage._request_queues_handled.remove(queue)
+            self._memory_storage_client._request_queues_handled.remove(queue)
             queue._pending_request_count = 0
             queue._handled_request_count = 0
             queue._requests.clear()
 
-            if os.path.exists(queue._request_queue_directory):
-                await aioshutil.rmtree(queue._request_queue_directory)
+            if os.path.exists(queue._resource_directory):
+                await aioshutil.rmtree(queue._resource_directory)
 
     async def list_head(self, *, limit: Optional[int] = None) -> Dict:
         """Retrieve a given number of requests from the beginning of the queue.
@@ -125,7 +133,8 @@ class RequestQueueClient(BaseResourceClient):
         Returns:
             dict: The desired number of requests from the beginning of the queue.
         """
-        existing_queue_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_queue_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
@@ -164,7 +173,8 @@ class RequestQueueClient(BaseResourceClient):
         Returns:
             dict: The added request.
         """
-        existing_queue_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_queue_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
@@ -192,8 +202,8 @@ class RequestQueueClient(BaseResourceClient):
         await _update_request_queue_item(
             request=request_model,
             request_id=request_model['id'],
-            entity_directory=existing_queue_by_id._request_queue_directory,
-            persist_storage=self._memory_storage._persist_storage,
+            entity_directory=existing_queue_by_id._resource_directory,
+            persist_storage=self._memory_storage_client._persist_storage,
         )
 
         return {
@@ -213,7 +223,8 @@ class RequestQueueClient(BaseResourceClient):
         Returns:
             dict, optional: The retrieved request, or None, if it did not exist.
         """
-        existing_queue_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_queue_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
@@ -233,7 +244,8 @@ class RequestQueueClient(BaseResourceClient):
         Returns:
             dict: The updated request
         """
-        existing_queue_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_queue_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
@@ -268,8 +280,8 @@ class RequestQueueClient(BaseResourceClient):
         await _update_request_queue_item(
             request=request_model,
             request_id=request_model['id'],
-            entity_directory=existing_queue_by_id._request_queue_directory,
-            persist_storage=self._memory_storage._persist_storage,
+            entity_directory=existing_queue_by_id._resource_directory,
+            persist_storage=self._memory_storage_client._persist_storage,
         )
 
         return {
@@ -284,7 +296,8 @@ class RequestQueueClient(BaseResourceClient):
         Args:
             request_id (str): ID of the request to delete.
         """
-        existing_queue_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_queue_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
@@ -298,9 +311,9 @@ class RequestQueueClient(BaseResourceClient):
             else:
                 existing_queue_by_id._pending_request_count -= 1
             await existing_queue_by_id._update_timestamps(True)
-            await _delete_request(entity_directory=existing_queue_by_id._request_queue_directory, request_id=request_id)
+            await _delete_request(entity_directory=existing_queue_by_id._resource_directory, request_id=request_id)
 
-    def _to_request_queue_info(self) -> Dict:
+    def _to_resource_info(self) -> Dict:
         """Retrieve the request queue store info."""
         return {
             'accessedAt': self._accessed_at,
@@ -322,11 +335,11 @@ class RequestQueueClient(BaseResourceClient):
         if has_been_modified:
             self._modified_at = datetime.now(timezone.utc)
 
-        request_queue_info = self._to_request_queue_info()
+        request_queue_info = self._to_resource_info()
         await _update_metadata(
             data=request_queue_info,
-            entity_directory=self._request_queue_directory,
-            write_metadata=self._memory_storage._write_metadata,
+            entity_directory=self._resource_directory,
+            write_metadata=self._memory_storage_client._write_metadata,
         )
 
     def _json_to_request(self, request_json: Optional[str]) -> Optional[dict]:
@@ -370,18 +383,18 @@ class RequestQueueClient(BaseResourceClient):
         return -timestamp if forefront else timestamp
 
     @classmethod
-    def _get_storages_dir(cls, memory_storage: 'MemoryStorage') -> str:
-        return memory_storage._request_queues_directory
+    def _get_storages_dir(cls, memory_storage_client: 'MemoryStorageClient') -> str:
+        return memory_storage_client._request_queues_directory
 
     @classmethod
-    def _get_storage_client_cache(cls, memory_storage: 'MemoryStorage') -> List['RequestQueueClient']:
-        return memory_storage._request_queues_handled
+    def _get_storage_client_cache(cls, memory_storage_client: 'MemoryStorageClient') -> List['RequestQueueClient']:
+        return memory_storage_client._request_queues_handled
 
     @classmethod
     def _create_from_directory(
         cls,
         storage_directory: str,
-        memory_storage: 'MemoryStorage',
+        memory_storage_client: 'MemoryStorageClient',
         id: Optional[str] = None,
         name: Optional[str] = None,
     ) -> 'RequestQueueClient':
@@ -414,8 +427,8 @@ class RequestQueueClient(BaseResourceClient):
                 entries.append(request)
 
         new_client = cls(
-            base_storage_directory=memory_storage._request_queues_directory,
-            memory_storage=memory_storage,
+            base_storage_directory=memory_storage_client._request_queues_directory,
+            memory_storage_client=memory_storage_client,
             id=id,
             name=name,
         )

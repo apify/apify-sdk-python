@@ -9,12 +9,12 @@ from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
 
 from .._crypto import _crypto_random_object_id
+from .._memory_storage import MemoryStorageClient
+from .._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
 from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
 from ..config import Configuration
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from ..log import logger
-from ..memory_storage import MemoryStorage
-from ..memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
 from .base_storage import BaseStorage
 
 MAX_CACHED_REQUESTS = 1_000_000
@@ -91,7 +91,7 @@ class RequestQueue(BaseStorage):
     _assumed_handled_count = 0
     _requests_cache: LRUCache[Dict]
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
         """Create a `RequestQueue` instance.
 
         Do not use the constructor directly, use the `Actor.open_request_queue()` function instead.
@@ -99,7 +99,7 @@ class RequestQueue(BaseStorage):
         Args:
             id (str): ID of the request queue.
             name (str, optional): Name of the request queue.
-            client (ApifyClientAsync or MemoryStorage): The storage client which should be used.
+            client (ApifyClientAsync or MemoryStorageClient): The storage client which should be used.
         """
         super().__init__(id=id, name=name, client=client)
 
@@ -123,14 +123,14 @@ class RequestQueue(BaseStorage):
     def _get_single_storage_client(
         cls,
         id: str,
-        client: Union[ApifyClientAsync, MemoryStorage],
+        client: Union[ApifyClientAsync, MemoryStorageClient],
     ) -> Union[RequestQueueClientAsync, RequestQueueClient]:
         return client.request_queue(id)
 
     @classmethod
     def _get_storage_collection_client(
         cls,
-        client: Union[ApifyClientAsync, MemoryStorage],
+        client: Union[ApifyClientAsync, MemoryStorageClient],
     ) -> Union[RequestQueueCollectionClientAsync, RequestQueueCollectionClient]:
         return client.request_queues()
 

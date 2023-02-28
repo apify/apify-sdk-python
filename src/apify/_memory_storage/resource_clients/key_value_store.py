@@ -25,7 +25,7 @@ from ..file_storage_utils import _set_or_delete_key_value_store_record, _update_
 from .base_resource_client import BaseResourceClient
 
 if TYPE_CHECKING:
-    from ..memory_storage import MemoryStorage
+    from ..memory_storage_client import MemoryStorageClient
 
 DEFAULT_LOCAL_FILE_EXTENSION = 'bin'
 
@@ -34,19 +34,26 @@ class KeyValueStoreClient(BaseResourceClient):
     """Sub-client for manipulating a single key-value store."""
 
     _id: str
-    _key_value_store_directory: str
-    _memory_storage: 'MemoryStorage'
+    _resource_directory: str
+    _memory_storage_client: 'MemoryStorageClient'
     _name: Optional[str]
     _key_value_entries: Dict[str, Dict]
     _created_at: datetime
     _accessed_at: datetime
     _modified_at: datetime
 
-    def __init__(self, *, base_storage_directory: str, memory_storage: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        *,
+        base_storage_directory: str,
+        memory_storage_client: 'MemoryStorageClient',
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """Initialize the KeyValueStoreClient."""
         self._id = id or _crypto_random_object_id()
-        self._key_value_store_directory = os.path.join(base_storage_directory, name or self._id)
-        self._memory_storage = memory_storage
+        self._resource_directory = os.path.join(base_storage_directory, name or self._id)
+        self._memory_storage_client = memory_storage_client
         self._name = name
         self._key_value_entries = {}
         self._created_at = datetime.now(timezone.utc)
@@ -59,11 +66,11 @@ class KeyValueStoreClient(BaseResourceClient):
         Returns:
             dict, optional: The retrieved key-value store, or None if it does not exist
         """
-        found = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        found = self._find_or_create_client_by_id_or_name(memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if found:
             await found._update_timestamps(False)
-            return found._to_key_value_store_info()
+            return found._to_resource_info()
 
         return None
 
@@ -77,45 +84,46 @@ class KeyValueStoreClient(BaseResourceClient):
             dict: The updated key-value store
         """
         # Check by id
-        existing_store_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_store_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
 
         # Skip if no changes
         if name is None:
-            return existing_store_by_id._to_key_value_store_info()
+            return existing_store_by_id._to_resource_info()
 
         # Check that name is not in use already
         existing_store_by_name = next(
-            (store for store in self._memory_storage._key_value_stores_handled if store._name and store._name.lower() == name.lower()), None)
+            (store for store in self._memory_storage_client._key_value_stores_handled if store._name and store._name.lower() == name.lower()), None)
 
         if existing_store_by_name is not None:
             _raise_on_duplicate_storage(StorageTypes.KEY_VALUE_STORE, 'name', name)
 
         existing_store_by_id._name = name
 
-        previous_dir = existing_store_by_id._key_value_store_directory
+        previous_dir = existing_store_by_id._resource_directory
 
-        existing_store_by_id._key_value_store_directory = os.path.join(self._memory_storage._key_value_stores_directory, name)
+        existing_store_by_id._resource_directory = os.path.join(self._memory_storage_client._key_value_stores_directory, name)
 
-        await _force_rename(previous_dir, existing_store_by_id._key_value_store_directory)
+        await _force_rename(previous_dir, existing_store_by_id._resource_directory)
 
         # Update timestamps
         await existing_store_by_id._update_timestamps(True)
 
-        return existing_store_by_id._to_key_value_store_info()
+        return existing_store_by_id._to_resource_info()
 
     async def delete(self) -> None:
         """Delete the key-value store."""
-        store = next((store for store in self._memory_storage._key_value_stores_handled if store._id == self._id), None)
+        store = next((store for store in self._memory_storage_client._key_value_stores_handled if store._id == self._id), None)
 
         if store is not None:
-            self._memory_storage._key_value_stores_handled.remove(store)
+            self._memory_storage_client._key_value_stores_handled.remove(store)
             store._key_value_entries.clear()
 
-            if os.path.exists(store._key_value_store_directory):
-                await aioshutil.rmtree(store._key_value_store_directory)
+            if os.path.exists(store._resource_directory):
+                await aioshutil.rmtree(store._resource_directory)
 
     async def list_keys(self, *, limit: int = DEFAULT_API_PARAM_LIMIT, exclusive_start_key: Optional[str] = None) -> Dict:
         """List the keys in the key-value store.
@@ -128,7 +136,8 @@ class KeyValueStoreClient(BaseResourceClient):
             dict: The list of keys in the key-value store matching the given arguments
         """
         # Check by id
-        existing_store_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_store_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
@@ -181,7 +190,8 @@ class KeyValueStoreClient(BaseResourceClient):
 
     async def _get_record_internal(self, key: str, as_bytes: bool = False) -> Optional[Dict]:
         # Check by id
-        existing_store_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_store_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
@@ -239,7 +249,8 @@ class KeyValueStoreClient(BaseResourceClient):
             content_type (str, optional): The content type of the saved value
         """
         # Check by id
-        existing_store_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_store_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
@@ -271,11 +282,11 @@ class KeyValueStoreClient(BaseResourceClient):
 
         await existing_store_by_id._update_timestamps(True)
         await _set_or_delete_key_value_store_record(
-            entity_directory=existing_store_by_id._key_value_store_directory,
-            persist_storage=self._memory_storage._persist_storage,
+            entity_directory=existing_store_by_id._resource_directory,
+            persist_storage=self._memory_storage_client._persist_storage,
             record=record,
             should_set=True,
-            write_metadata=self._memory_storage._write_metadata,
+            write_metadata=self._memory_storage_client._write_metadata,
         )
 
     async def delete_record(self, key: str) -> None:
@@ -285,7 +296,8 @@ class KeyValueStoreClient(BaseResourceClient):
             key (str): The key of the record which to delete
         """
         # Check by id
-        existing_store_by_id = self._find_or_create_client_by_id_or_name(memory_storage=self._memory_storage, id=self._id, name=self._name)
+        existing_store_by_id = self._find_or_create_client_by_id_or_name(
+            memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
@@ -296,14 +308,14 @@ class KeyValueStoreClient(BaseResourceClient):
             del existing_store_by_id._key_value_entries[key]
             await existing_store_by_id._update_timestamps(True)
             await _set_or_delete_key_value_store_record(
-                entity_directory=existing_store_by_id._key_value_store_directory,
-                persist_storage=self._memory_storage._persist_storage,
+                entity_directory=existing_store_by_id._resource_directory,
+                persist_storage=self._memory_storage_client._persist_storage,
                 record=entry,
                 should_set=False,
-                write_metadata=self._memory_storage._write_metadata,
+                write_metadata=self._memory_storage_client._write_metadata,
             )
 
-    def _to_key_value_store_info(self) -> Dict:
+    def _to_resource_info(self) -> Dict:
         """Retrieve the key-value store info."""
         return {
             'id': self._id,
@@ -320,26 +332,26 @@ class KeyValueStoreClient(BaseResourceClient):
         if has_been_modified:
             self._modified_at = datetime.now(timezone.utc)
 
-        kv_store_info = self._to_key_value_store_info()
+        kv_store_info = self._to_resource_info()
         await _update_metadata(
             data=kv_store_info,
-            entity_directory=self._key_value_store_directory,
-            write_metadata=self._memory_storage._write_metadata,
+            entity_directory=self._resource_directory,
+            write_metadata=self._memory_storage_client._write_metadata,
         )
 
     @classmethod
-    def _get_storages_dir(cls, memory_storage: 'MemoryStorage') -> str:
-        return memory_storage._key_value_stores_directory
+    def _get_storages_dir(cls, memory_storage_client: 'MemoryStorageClient') -> str:
+        return memory_storage_client._key_value_stores_directory
 
     @classmethod
-    def _get_storage_client_cache(cls, memory_storage: 'MemoryStorage') -> List['KeyValueStoreClient']:
-        return memory_storage._key_value_stores_handled
+    def _get_storage_client_cache(cls, memory_storage_client: 'MemoryStorageClient') -> List['KeyValueStoreClient']:
+        return memory_storage_client._key_value_stores_handled
 
     @classmethod
     def _create_from_directory(
         cls,
         storage_directory: str,
-        memory_storage: 'MemoryStorage',
+        memory_storage_client: 'MemoryStorageClient',
         id: Optional[str] = None,
         name: Optional[str] = None,
     ) -> 'KeyValueStoreClient':
@@ -431,8 +443,8 @@ class KeyValueStoreClient(BaseResourceClient):
                 internal_records[key] = new_record
 
         new_client = KeyValueStoreClient(
-            base_storage_directory=memory_storage._key_value_stores_directory,
-            memory_storage=memory_storage,
+            base_storage_directory=memory_storage_client._key_value_stores_directory,
+            memory_storage_client=memory_storage_client,
             id=id,
             name=name,
         )
