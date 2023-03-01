@@ -10,6 +10,9 @@ from typing import AsyncIterator, Awaitable, Callable, Dict, List, Mapping, Opti
 import pytest
 from filelock import FileLock
 
+from apify import Actor
+from apify.config import Configuration
+from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 from apify_client import ApifyClientAsync
 from apify_client.clients.resource_clients import ActorClientAsync
 from apify_client.consts import ActorJobStatus, ActorSourceType
@@ -19,6 +22,21 @@ from ._utils import generate_unique_resource_name
 TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
+
+
+# To isolate the tests, we need to reset the used singletons before each test case
+# We also patch the default storage client with a tmp_path
+@pytest.fixture(autouse=True)
+def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Actor, '_default_instance', None)
+    monkeypatch.setattr(Configuration, '_default_instance', None)
+    monkeypatch.setattr(Dataset, '_cache_by_id', None)
+    monkeypatch.setattr(Dataset, '_cache_by_name', None)
+    monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
+    monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
+    monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
+    monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
+    monkeypatch.setattr(StorageClientManager, '_default_instance', None)
 
 
 # This fixture can't be session-scoped,

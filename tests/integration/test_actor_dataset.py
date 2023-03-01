@@ -1,4 +1,8 @@
+import pytest
+
 from apify import Actor
+from apify.consts import ApifyEnvVars
+from apify_client import ApifyClientAsync
 
 from ._utils import generate_unique_resource_name
 from .conftest import ActorFactory
@@ -61,13 +65,44 @@ class TestActorOpenDataset:
             async with Actor:
                 input_object = await Actor.get_input()
                 dataset_name = input_object['datasetName']
-                dataset1 = await Actor.open_dataset(name=dataset_name)
-                dataset2 = await Actor.open_dataset(name=dataset_name)
-                assert dataset1 is dataset2
-                await dataset1.drop()
+                dataset_by_name_1 = await Actor.open_dataset(name=dataset_name)
+                dataset_by_name_2 = await Actor.open_dataset(name=dataset_name)
+                assert dataset_by_name_1 is dataset_by_name_2
+
+                dataset_by_id_1 = await Actor.open_dataset(id=dataset_by_name_1._id)
+                dataset_by_id_2 = await Actor.open_dataset(id=dataset_by_name_1._id)
+                assert dataset_by_id_1 is dataset_by_name_1
+                assert dataset_by_id_2 is dataset_by_id_1
+
+                await dataset_by_name_1.drop()
 
         actor = await make_actor('dataset-same-ref-named', main_func=main)
 
         run_result = await actor.call(run_input={'datasetName': dataset_name})
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
+
+    async def test_force_cloud(self, apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+        assert apify_client_async.token is not None
+        monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
+
+        dataset_name = generate_unique_resource_name('dataset')
+        dataset_item = {'foo': 'bar'}
+
+        async with Actor:
+            dataset = await Actor.open_dataset(name=dataset_name, force_cloud=True)
+            dataset_id = dataset._id
+
+            await dataset.push_data(dataset_item)
+
+        dataset_client = apify_client_async.dataset(dataset_id)
+
+        try:
+            dataset_details = await dataset_client.get()
+            assert dataset_details is not None
+            assert dataset_details.get('name') == dataset_name
+
+            dataset_items = await dataset_client.list_items()
+            assert dataset_items.items == [dataset_item]
+        finally:
+            await dataset_client.delete()

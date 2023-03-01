@@ -2,10 +2,10 @@ import asyncio
 import io
 import os
 import time
-import uuid
 from collections import OrderedDict
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 
 import pytest
 from aiofiles.os import mkdir
@@ -24,7 +24,6 @@ from apify._utils import (
     _is_content_type_text,
     _is_content_type_xml,
     _is_file_or_bytes,
-    _is_uuid,
     _json_dumps,
     _maybe_extract_enum_member_value,
     _maybe_parse_bool,
@@ -245,7 +244,7 @@ def test__is_file_or_bytes() -> None:  # Copypasted from client
     assert _is_file_or_bytes(None) is False
 
 
-async def test__force_remove(tmp_path: str) -> None:
+async def test__force_remove(tmp_path: Path) -> None:
     test_file_path = os.path.join(tmp_path, 'test.txt')
     # Does not crash/raise when the file does not exist
     assert os.path.exists(test_file_path) is False
@@ -259,15 +258,9 @@ async def test__force_remove(tmp_path: str) -> None:
     assert os.path.exists(test_file_path) is False
 
 
-def test__is_uuid() -> None:
-    assert _is_uuid(str(uuid.uuid4())) is True
-    assert _is_uuid('clearly not a UUID') is False
-    assert _is_uuid('') is False
-
-
 def test__raise_on_non_existing_storage() -> None:
-    with pytest.raises(ValueError, match='Dataset with id ".*" does not exist.'):
-        _raise_on_non_existing_storage(StorageTypes.DATASET, str(uuid.uuid4()))
+    with pytest.raises(ValueError, match='Dataset with id "kckxQw6j6AtrgyA09" does not exist.'):
+        _raise_on_non_existing_storage(StorageTypes.DATASET, 'kckxQw6j6AtrgyA09')
 
 
 def test__raise_on_duplicate_storage() -> None:
@@ -317,7 +310,7 @@ def test__unique_key_to_request_id() -> None:
     assert _unique_key_to_request_id('test') == 'n4bQgYhMfWWaLqg'
 
 
-async def test__force_rename(tmp_path: str) -> None:
+async def test__force_rename(tmp_path: Path) -> None:
     src_dir = os.path.join(tmp_path, 'src')
     dst_dir = os.path.join(tmp_path, 'dst')
     src_file = os.path.join(src_dir, 'src_dir.txt')

@@ -8,13 +8,32 @@ async def key_value_store() -> KeyValueStore:
     return await KeyValueStore.open()
 
 
+async def test_open() -> None:
+    default_key_value_store = await KeyValueStore.open()
+    default_key_value_store_by_id = await KeyValueStore.open(id=default_key_value_store._id)
+
+    assert default_key_value_store is default_key_value_store_by_id
+
+    key_value_store_name = 'dummy-name'
+    named_key_value_store = await KeyValueStore.open(name=key_value_store_name)
+    assert default_key_value_store is not named_key_value_store
+
+    with pytest.raises(RuntimeError, match='Key-value store with id "nonexistent-id" does not exist!'):
+        await KeyValueStore.open(id='nonexistent-id')
+
+    # Test that when you try to open a key-value store by ID and you use a name of an existing key-value store,
+    # it doesn't work
+    with pytest.raises(RuntimeError, match='Key-value store with id "dummy-name" does not exist!'):
+        await KeyValueStore.open(id='dummy-name')
+
+
 async def test_same_references() -> None:
     kvs1 = await KeyValueStore.open()
     kvs2 = await KeyValueStore.open()
     assert kvs1 is kvs2
     kvs_name = 'non-default'
-    kvs_named1 = await KeyValueStore.open(kvs_name)
-    kvs_named2 = await KeyValueStore.open(kvs_name)
+    kvs_named1 = await KeyValueStore.open(name=kvs_name)
+    kvs_named2 = await KeyValueStore.open(name=kvs_name)
     assert kvs_named1 is kvs_named2
 
 

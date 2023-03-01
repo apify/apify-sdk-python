@@ -65,6 +65,7 @@ class Configuration:
             token (str, optional): The API token for the Apify API this actor should use.
             system_info_interval_millis (str, optional): How often should the actor emit the SYSTEM_INFO event when running locally.
         """
+        # TODO: Document all these members
         self.actor_build_id = _fetch_and_parse_env_var(ApifyEnvVars.ACTOR_BUILD_ID)
         self.actor_build_number = _fetch_and_parse_env_var(ApifyEnvVars.ACTOR_BUILD_NUMBER)
         self.actor_events_ws_url = _fetch_and_parse_env_var(ApifyEnvVars.ACTOR_EVENTS_WS_URL)
@@ -92,7 +93,7 @@ class Configuration:
         self.meta_origin = _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN)
         self.metamorph_after_sleep_millis = metamorph_after_sleep_millis or _fetch_and_parse_env_var(ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS, 300000)  # noqa: E501
         self.persist_state_interval_millis = persist_state_interval_millis or _fetch_and_parse_env_var(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, 60000)  # noqa: E501
-        self.persist_storage = persist_storage or _fetch_and_parse_env_var(ApifyEnvVars.PERSIST_STORAGE)
+        self.persist_storage = persist_storage or _fetch_and_parse_env_var(ApifyEnvVars.PERSIST_STORAGE, True)
         self.proxy_hostname = proxy_hostname or _fetch_and_parse_env_var(ApifyEnvVars.PROXY_HOSTNAME, 'proxy.apify.com')
         self.proxy_password = proxy_password or _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PASSWORD)
         self.proxy_port = proxy_port or _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PORT, 8000)
