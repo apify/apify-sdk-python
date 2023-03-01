@@ -9,15 +9,14 @@ from apify._memory_storage.resource_clients import KeyValueStoreClient
 
 
 @pytest.fixture
-async def key_value_store_client() -> KeyValueStoreClient:
-    memory_storage_client = MemoryStorageClient()
+async def key_value_store_client(memory_storage_client: MemoryStorageClient) -> KeyValueStoreClient:
     key_value_stores_client = memory_storage_client.key_value_stores()
     kvs_info = await key_value_stores_client.get_or_create(name='test')
     return memory_storage_client.key_value_store(kvs_info['id'])
 
 
-async def test_nonexistent() -> None:
-    kvs_client = MemoryStorageClient().key_value_store(key_value_store_id='nonexistent-id')
+async def test_nonexistent(memory_storage_client: MemoryStorageClient) -> None:
+    kvs_client = memory_storage_client.key_value_store(key_value_store_id='nonexistent-id')
     assert await kvs_client.get() is None
 
     with pytest.raises(ValueError, match='Key-value store with id "nonexistent-id" does not exist.'):
