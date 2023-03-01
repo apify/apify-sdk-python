@@ -1,0 +1,59 @@
+---
+title: Actor structure
+sidebar_label: Actor structure
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import CodeBlock from '@theme/CodeBlock';
+
+All Python actor templates follow the same structure.
+
+The `.actor` folder contains the [actor configuration](https://docs.apify.com/platform/actors/development/actor-config),
+like the actor's input and schema, and the Dockerfile necessary to run the actor on the Apify Platform.
+
+The actor's runtime dependencies are specified in the `requirements.txt` file,
+following the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
+
+The actor's source code is in the `src` folder. There are two important files in the folder:
+`main.py`, which contains the main function of the actor,
+and `__main__.py`, which is the entrypoint of the actor package,
+which sets up the actor [logger](../concepts/logging),
+and executes the actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+
+<Tabs>
+    <TabItem value="main.py" label="main.py" default>
+        <CodeBlock language="python">{
+`from apify import Actor
+${''}
+async def main():
+    async with Actor:
+        print('Actor input:', await Actor.get_input())
+        await Actor.set_value('OUTPUT', 'Hello, world!')`
+        }</CodeBlock>
+    </TabItem>
+    <TabItem value="__main__.py" label="__main.py__">
+        <CodeBlock language="python">{
+`import asyncio
+import logging
+${''}
+from apify.log import ActorLogFormatter
+${''}
+from .main import main
+${''}
+handler = logging.StreamHandler()
+handler.setFormatter(ActorLogFormatter())
+${''}
+apify_logger = logging.getLogger('apify')
+apify_logger.setLevel(logging.DEBUG)
+apify_logger.addHandler(handler)
+${''}
+asyncio.run(main())`
+        }</CodeBlock>
+    </TabItem>
+</Tabs>
+
+If you want to modify the actor structure,
+you need to make sure that your actor will be executable as a module, via `python -m src`,
+as that is the command started by `apify run` in the Apify CLI.
+We recommend keeping the entrypoint for the actor in the `src/__main__.py` file.

@@ -70,7 +70,8 @@ Publishing new versions to [PyPI](https://pypi.org/project/apify) happens automa
 On each commit to the `master` branch, a new beta release is published, taking the version number from `src/apify/_version.py`
 and automatically incrementing the beta version suffix by 1 from the last beta release published to PyPI.
 
-A stable version is published when a new release is created using GitHub Releases, again taking the version number from `src/apify/_version.py`. The built package assets are automatically uploaded to the GitHub release.
+A stable version is published when a new release is created using GitHub Releases, again taking the version number from `src/apify/_version.py`.
+The built package assets are automatically uploaded to the GitHub release.
 
 If there is already a stable version with the same version number as in `src/apify/_version.py` published to PyPI, the publish process fails,
 so don't forget to update the version number before releasing a new version.

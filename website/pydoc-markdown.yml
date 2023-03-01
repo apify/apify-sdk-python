@@ -4,7 +4,6 @@ loaders:
 processors:
   - type: filter
     skip_empty_modules: true
-  - type: smart
   - type: crossref
 renderer:
   type: docusaurus

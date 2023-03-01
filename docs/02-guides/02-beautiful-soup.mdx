@@ -1,0 +1,65 @@
+---
+title: Using Beautiful Soup
+sidebar_label: Using Beautiful Soup
+---
+
+<!-- TODO: link the correct actor template -->
+
+[Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) is a Python library for pulling data out of HTML and XML files.
+It provides simple methods and Pythonic idioms for navigating, searching, and modifying a website's element tree,
+allowing you to quickly extract the data you need.
+
+This is a simple actor that recursively scrapes titles from all linked websites,
+up to a maximum depth.
+starting from URLs in the actor input.
+
+It uses `requests` to fetch the pages,
+and BeautifulSoup to parse their content and read
+
+```python title="src/main.py"
+from urllib.parse import urljoin
+import requests
+from apify import Actor
+from bs4 import BeautifulSoup
+
+async def main():
+    async with Actor:
+        # Read the actor input
+        actor_input = await Actor.get_input() or {}
+        start_urls = actor_input.get('start_urls', [])
+        max_depth = actor_input.get('max_depth', 2)
+
+        # Enqueue the starting URLs in the default request queue
+        default_queue = await Actor.open_request_queue()
+        for url in start_urls:
+            print(f'Enqueuing {url}...')
+            await default_queue.add_request({ 'url': url, 'maxDepth': max_depth })
+
+        # Process the requests in the queue one by one
+        while request := await default_queue.fetch_next_request():
+            url = request['url']
+            print(f'Scraping {url}...')
+
+            # Fetch the URL using `requests` and parse it using `BeautifulSoup`
+            response = requests.get(url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            # If we haven't reached the max depth,
+            # look for nested links and enqueue their targets
+            if request['maxDepth'] > 0:
+                for link in soup.find_all('a'):
+                    link_href = link.get('href')
+                    link_url = urljoin(url, link_href)
+                    if link_url.startswith(('http://', 'https://')):
+                        print(f'Enqueuing {link_url}...')
+                        await default_queue.add_request({
+                            'url': link_url,
+                            'maxDepth': request['maxDepth'] - 1,
+                        })
+
+            # Push the title of the page into the default dataset
+            await Actor.push_data({ 'url': url, 'title': soup.title.string })
+
+            # Mark the request as handled so it's not processed again
+            await default_queue.mark_request_as_handled(request)
+```

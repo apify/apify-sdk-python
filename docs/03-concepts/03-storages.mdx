@@ -1,0 +1,113 @@
+---
+title: Working with storages
+sidebar_label: Working with storages
+---
+
+The `Actor` class provides methods to work either with the default storages of the actor, or with any other storage, named or unnamed.
+
+## Types of storages
+
+There are three types of storages available to actors.
+
+First are [datasets](https://docs.apify.com/platform/storage/dataset), which are append-only tables for storing the results of your actors.
+You can open a dataset through the [`Actor.open_dataset()`](../../reference/class/Actor#open_dataset) method,
+and work with it through the resulting [`Dataset`](../../reference/class/Dataset) class instance.
+
+Next there are [key-value stores](https://docs.apify.com/platform/storage/key-value-store),
+which function as a read/write storage for storing file-like objects, typically the actor state or binary results.
+You can open a key-value store through the [`Actor.open_key_value_store()`](../../reference/class/Actor#open_key_value_store) method,
+and work with it through the resulting [`KeyValueStore`](../../reference/class/KeyValueStore) class instance.
+
+Finally, there are [request queues](https://docs.apify.com/platform/storage/request-queue),
+which are queues into which you can put URLs that you want to scrape,
+and from which the actor can dequeue them and process them.
+You can open a request queue through the [`Actor.open_request_queue()`](../../reference/class/Actor#open_request_queue) method,
+and work with it through the resulting [`RequestQueue`](../../reference/class/RequestQueue) class instance.
+
+## Convenience methods for working with default storages
+
+Each actor run has its default dataset, default key-value store and default request queue.
+
+There are several methods for directly working with the default key-value store or default dataset of the actor.
+
+[`Actor.get_value('my-record')`](../../reference/class/Actor#get_value) reads a record from the default key-value store of the actor.
+
+[`Actor.set_value('my-record', 'my-value')`](../../reference/class/Actor#set_value) saves a new value to the record in the default key-value store.
+
+[`Actor.get_input()`](../../reference/class/Actor#get_input) reads the actor input from the default key-value store of the actor.
+
+[`Actor.push_data([{'result': 'Hello, world!'}, ...])`](../../reference/class/Actor#push_data) saves results to the default dataset of the actor.
+
+## Opening named and unnamed storages
+
+The [`Actor.open_dataset()`](../../reference/class/Actor#open_dataset),
+[`Actor.open_key_value_store()`](../../reference/class/Actor#open_key_value_store)
+and [`Actor.open_request_queue()`](../../reference/class/Actor#open_request_queue) methods
+can be used to open any storage for reading and writing.
+You can either use them without arguments to open the default storages,
+or you can pass a storage ID or name to open another storage.
+
+```python title="src/main.py"
+from apify import Actor
+
+async def main():
+    async with Actor:
+        # Work with the default dataset of the actor
+        dataset = await Actor.open_dataset()
+        await dataset.push_data({'result': 'Hello, world!'})
+
+        # Work with the key-value store with ID 'mIJVZsRQrDQf4rUAf'
+        key_value_store = await Actor.open_key_value_store(id='mIJVZsRQrDQf4rUAf')
+        await key_value_store.set_value('record', 'Hello, world!')
+
+        # Work with the request queue with name 'my-queue'
+        request_queue = await Actor.open_request_queue(name='my-queue')
+        await request_queue.add_request({ 'uniqueKey': 'v0Nr', 'url': 'https://example.com' })
+```
+
+<!-- TODO:
+
+- local storages
+- local storages persistence
+- deleting storages
+
+## Datasets
+
+### Reading & writing items
+
+- push_data
+- get_data
+- iterate_items
+
+### Exporting items
+
+- export_to
+- export_to_csv
+- export_to_json
+
+## Key-value stores
+
+### Reading & writing records
+
+- set_value
+- get_value
+- iterate_keys
+- get_public_url
+
+- content types
+- listing records
+
+## Request queues
+
+### Writing requests
+
+- add_request
+- fetch_next_request
+- get_info
+- get_request
+- is_empty
+- is_finished
+- mark_request_as_handled
+- reclaim_request
+
+-->

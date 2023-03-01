@@ -12,20 +12,12 @@ const acc = {
     'originalName': '',
     'children': [],
     'groups': [],
-    "comment": {
-        "summary": [
-            {
-                "kind": "text",
-                "text": "Apify SDK is a set of libraries that make it easy to build web crawlers and web scraping scripts that play nice with the Apify Platform. It provides a simple API for running actors and proxy management.\n\n It also provides a powerful data storage API for managing datasets, key-value stores, and request queues. The SDK is written in Python and runs on Python 3.8 and above. It is available on [PyPI](https://pypi.org/project/apify/)."
-            },
-        ]
-    },
-    "sources": [
+    'sources': [
         {
-            "fileName": "src/index.ts",
-            "line": 1,
-            "character": 0,
-            "url": "https://github.com/apify/apify-sdk-python/blob/123456/src/dummy.py"
+            'fileName': 'src/index.ts',
+            'line': 1,
+            'character': 0,
+            'url': 'https://github.com/apify/apify-sdk-python/blob/123456/src/dummy.py'
         }
     ]
 };
@@ -35,8 +27,7 @@ let oid = 1;
 function getGroupName(object) {
     const groupPredicates = {
         'Errors': (x) => x.name.toLowerCase().includes('error'),
-        'Async Resource Clients': (x) => x.name.toLowerCase().includes('async'),
-        'Resource Clients': (x) => x.name.toLowerCase().includes('client'),
+        'Main Classes': (x) => ['actor', 'dataset', 'keyvaluestore', 'requestqueue'].includes(x.name.toLowerCase()),
         'Helper Classes': (x) => x.kindString === 'Class',
         'Methods': (x) => x.kindString === 'Method',
         'Constructors': (x) => x.kindString === 'Constructor',
@@ -44,7 +35,7 @@ function getGroupName(object) {
         'Enumerations': (x) => x.kindString === 'Enumeration',
         'Enumeration Members': (x) => x.kindString === 'Enumeration Member',
     };
-    
+
     const [group] = Object.entries(groupPredicates).find(
         ([_, predicate]) => predicate(object)
     );
@@ -53,14 +44,13 @@ function getGroupName(object) {
 }
 
 const groupsOrdered = [
-    'Resource Clients',
-    'Async Resource Clients',
+    'Main Classes',
     'Helper Classes',
-    'Enumerations',
     'Errors',
     'Constructors',
     'Methods',
     'Properties',
+    'Enumerations',
     'Enumeration Members'
 ];
 
@@ -79,7 +69,7 @@ const kinds = {
     },
     'function': {
         kind: 2048,
-        kindString: "Method",
+        kindString: 'Method',
     },
     'data': {
         kind: 1024,
@@ -87,11 +77,11 @@ const kinds = {
     },
     'enum': {
         kind: 8,
-        kindString: "Enumeration",
+        kindString: 'Enumeration',
     },
     'enumValue': {
         kind: 16,
-        kindString: "Enumeration Member",
+        kindString: 'Enumeration Member',
     },
 }
 
@@ -122,6 +112,7 @@ function sortChildren(acc) {
                 return firstName.localeCompare(secondName);
             });
     }
+    acc.groups.sort((a, b) => groupSort(a.title, b.title));
 }
 
 function parseArguments(docstring) {
@@ -139,7 +130,7 @@ function parseArguments(docstring) {
 }
 
 function isHidden(x) {
-    return x.decorations?.some(d => d.name === 'ignore_docs') || !x.docstring?.content;
+    return x.decorations?.some(d => d.name === 'ignore_docs') || x.name === 'ignore_docs' || !x.docstring?.content;
 }
 
 function traverse(o, parent) {
@@ -148,6 +139,10 @@ function traverse(o, parent) {
 
         if(x.bases?.includes('Enum')) {
             typeDocType = kinds['enum'];
+        }
+
+        if (x.decorations?.some(d => d.name === 'dualproperty')) {
+            typeDocType = kinds['data'];
         }
 
         let type = inferType(x.datatype);
@@ -195,7 +190,7 @@ function traverse(o, parent) {
                         }],
                     } : undefined,
                     type: inferType(x.return_type),
-                    parameters: x.args.map((p) => (p.name === 'self' ? undefined : {
+                    parameters: x.args.map((p) => ((p.name === 'self' || p.name === 'cls') ? undefined : {
                         id: oid++,
                         name: p.name,
                         kind: 32768,
@@ -243,7 +238,7 @@ function main() {
     const argv = process.argv.slice(2);
 
     const rawdump = fs.readFileSync(argv[0], 'utf8');
-    const modules = rawdump.split('\n').filter((line) => line !== '');   
+    const modules = rawdump.split('\n').filter((line) => line !== '');
 
     for (const module of modules) {
         const o = JSON.parse(module);
@@ -260,7 +255,7 @@ function main() {
         }
     }
     collectIds(acc);
-    
+
     function fixRefs(o) {
         for (const child of o.children ?? []) {
             if (child.type?.type === 'reference') {

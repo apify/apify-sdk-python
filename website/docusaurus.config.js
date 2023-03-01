@@ -7,7 +7,7 @@ const { absoluteUrl } = config;
 
 /** @type {Partial<import('@docusaurus/types').DocusaurusConfig>} */
 module.exports = {
-    title: 'Apify Docs v2',
+    title: 'Apify SDK for Python',
     tagline: 'Apify Documentation',
     url: absoluteUrl,
     baseUrl: '/sdk/python',
@@ -25,19 +25,13 @@ module.exports = {
             '@apify/docs-theme',
             {
                 subNavbar: {
-                    title: 'SDK for Python',
+                    title: 'Apify SDK for Python',
                     items: [
                         {
-                            to: 'docs/guides',
+                            to: 'docs/overview/introduction',
                             label: 'Docs',
                             position: 'left',
-                            activeBaseRegex: 'docs/guides',
-                        },
-                        {
-                            to: 'docs/examples',
-                            label: 'Examples',
-                            position: 'left',
-                            activeBaseRegex: 'docs/examples',
+                            activeBaseRegex: 'docs',
                         },
                         // {
                         //     type: 'docsVersionDropdown',
@@ -93,6 +87,7 @@ module.exports = {
                 packages: [{ path: '.' }],
                 typedocOptions: {
                     excludeExternals: false,
+                    categoryOrder: ["Main Clients", "*"]
                 },
                 pathToTypedocJSON: `${__dirname}/api-typedoc-generated.json`,
                 sortSidebar: groupSort,

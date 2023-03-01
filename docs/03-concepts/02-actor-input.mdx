@@ -1,0 +1,27 @@
+---
+title: Actor input
+sidebar_label: Actor input
+---
+
+The actor gets its [input](https://docs.apify.com/platform/actors/running/input) from the input record in its default key-value store.
+
+To access it, instead of having to read the record manually,
+you can use the [`Actor.get_input()`](../../reference/class/Actor#get_input) convenience method.
+It will get the input record key from the actor configuration,
+read the record from the default key-value store,
+and decrypt any [secret input fields](https://docs.apify.com/platform/actors/development/secret-input).
+
+For example, if an actor received a JSON input with two fields,
+`{ "firstNumber": 1, "secondNumber": 2 }`,
+this is how you might process it:
+
+```python title="src/main.py"
+from apify import Actor
+
+async def main():
+    async with Actor:
+        actor_input = await Actor.get_input() or {}
+        first_number = actor_input.get('firstNumber')
+        second_number = actor_input.get('secondNumber')
+        print(f'Sum: {first_number + second_number}')
+```

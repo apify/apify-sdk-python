@@ -1,15 +1,12 @@
 import React from 'react';
 import clsx from 'clsx';
-import Admonition from '@theme/Admonition';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import CodeBlock from '@theme/CodeBlock';
-import ThemedImage from '@theme/ThemedImage';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './index.module.css';
 
-import ApifyLogo from '@apify/docs-theme/static/img/apify_logo.svg';
 
 function Hero() {
     return (
@@ -28,13 +25,17 @@ function Hero() {
                     </div>
                     <div className="row">
                         <div className="col">
-                            <h2>Run Actors on the Apify platform directly from your Python code.</h2>
+                            <h2></h2>
+                            <h2>
+                                The Apify SDK for Python is the official library to create Apify Actors in Python.
+                                It provides useful features like actor lifecycle management, local storage emulation, and actor event handling.
+                            </h2>
                         </div>
                     </div>
                     <div className="row">
                         <div className="col">
                             <div className={styles.heroButtons}>
-                                <Link to="docs/guides" className={styles.getStarted}>Get Started</Link>
+                                <Link to="docs/overview/introduction" className={styles.getStarted}>Get Started</Link>
                                 <iframe src="https://ghbtns.com/github-btn.html?user=apify&repo=apify-sdk-python&type=star&count=true&size=large" frameBorder="0" scrolling="0" width="170" height="30" title="GitHub"></iframe>
                             </div>
                         </div>
@@ -62,6 +63,33 @@ export default function Home() {
             title={`${siteConfig.title} · ${siteConfig.tagline}`}
             description={siteConfig.description}>
             <Hero />
+            <div>
+                <div className="container">
+                    <div className="row padding-horiz--md" >
+                        <div className="col col--4">
+                            <p style={{ lineHeight: '200%' }}>
+                            For example, the Apify SDK makes it easy to read the actor input with the <code>Actor.get_input()</code> method,
+                            and to save scraped data from your actors to a dataset
+                                {' '}by simply using the <code>Actor.push_data()</code> method.
+                            </p>
+                        </div>
+                        <div className="col col--8">
+                            <CodeBlock language='python'>{
+`from apify import Actor
+from bs4 import BeautifulSoup
+import requests
+
+async def main():
+    async with Actor:
+        input = await Actor.get_input()
+        response = requests.get(input['url'])
+        soup = BeautifulSoup(response.content, 'html.parser')
+        await Actor.push_data({ 'url': url, 'title': soup.title.string })`
+                            }</CodeBlock>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </Layout>
     );
 }
