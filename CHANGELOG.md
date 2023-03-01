@@ -8,6 +8,10 @@ Changelog
 
 - fixed local `MemoryStorageClient` not handling the difference between storage `id` and `name` correctly
 
+### Added
+
+- Added the `KeyValueStore.get_public_url()` method to get public URLs of key-value store records
+
 ### Fixed
 
 - fixed parsing messages from the platform events websocket when they have no event data

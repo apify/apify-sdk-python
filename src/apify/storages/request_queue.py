@@ -84,7 +84,7 @@ class RequestQueue(BaseStorage):
     _requests_cache: LRUCache[Dict]
 
     @ignore_docs
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration) -> None:
         """Create a `RequestQueue` instance.
 
         Do not use the constructor directly, use the `Actor.open_request_queue()` function instead.
@@ -93,8 +93,9 @@ class RequestQueue(BaseStorage):
             id (str): ID of the request queue.
             name (str, optional): Name of the request queue.
             client (ApifyClientAsync or MemoryStorageClient): The storage client which should be used.
+            config (Configuration): The configuration which should be used.
         """
-        super().__init__(id=id, name=name, client=client)
+        super().__init__(id=id, name=name, client=client, config=config)
 
         self._request_queue_client = client.request_queue(self._id, client_key=self._client_key)
         self._queue_head_dict = OrderedDict()

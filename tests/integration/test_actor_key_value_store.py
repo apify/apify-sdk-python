@@ -169,3 +169,24 @@ class TestActorGetInput:
         })
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
+
+
+@pytest.mark.only
+class TestGetPublicUrl:
+    async def test_get_public_url(self, make_actor: ActorFactory) -> None:
+        async def main() -> None:
+            async with Actor:
+                public_api_url = Actor.config.api_public_base_url
+                default_store_id = Actor.config.default_key_value_store_id
+
+                store = await Actor.open_key_value_store()
+                record_url = await store.get_public_url('dummy')
+                print(record_url)
+
+                assert record_url == f'{public_api_url}/v2/key-value-stores/{default_store_id}/records/dummy'
+
+        actor = await make_actor('kvs-get-public-url', main_func=main)
+
+        run_result = await actor.call()
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'

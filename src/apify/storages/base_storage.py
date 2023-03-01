@@ -28,11 +28,12 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
     _id: str
     _name: Optional[str]
     _storage_client: Union[ApifyClientAsync, MemoryStorageClient]
+    _config: Configuration
 
     _cache_by_id: Optional[Dict[str, Self]] = None
     _cache_by_name: Optional[Dict[str, Self]] = None
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]):
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration):
         """Initialize the storage.
 
         Do not use this method directly, but use `Actor.open_<STORAGE>()` instead.
@@ -41,10 +42,12 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
             id (str): The storage id
             name (str, optional): The storage name
             client (ApifyClientAsync or MemoryStorageClient): The storage client
+            config (Configuration): The configuration
         """
         self._id = id
         self._name = name
         self._storage_client = client
+        self._config = config
 
     @classmethod
     @abstractmethod
@@ -147,7 +150,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
             storage_collection_client = cls._get_storage_collection_client(used_client)
             storage_info = await storage_collection_client.get_or_create(name=name)
 
-        storage = cls(storage_info['id'], storage_info.get('name'), used_client)
+        storage = cls(storage_info['id'], storage_info.get('name'), used_client, used_config)
 
         # Cache by id and name
         cls._cache_by_id[storage._id] = storage
