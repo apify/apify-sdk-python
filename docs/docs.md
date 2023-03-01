@@ -275,7 +275,7 @@ All public classes, methods and their parameters can be inspected in this API re
 
 ### [](#actor) Actor
 
-Class representing an Apify Actor.
+The main class of the SDK, through which all the actor operations should be done.
 
 * [\_\_init\_\_()](#actor-\_\_init\_\_)
 * [async init()](#actor-init)
@@ -1276,6 +1276,7 @@ If the APIFY_TOKEN environment variable is set but APIFY_LOCAL_STORAGE_DIR is no
 * [async get\_value()](#keyvaluestore-get\_value)
 * [async iterate\_keys()](#keyvaluestore-iterate\_keys)
 * [async set\_value()](#keyvaluestore-set\_value)
+* [async get\_public\_url()](#keyvaluestore-get\_public\_url)
 * [async drop()](#keyvaluestore-drop)
 * [async open()](#keyvaluestore-open)
 
@@ -1339,6 +1340,20 @@ Set or delete a value in the key-value store.
 * **Return type**
 
   `None`
+
+***
+
+#### [](#keyvaluestore-get_public_url) `async KeyValueStore.get_public_url(key)`
+
+Get a URL for the given key that may be used to publicly access the value in the remote key-value store.
+
+* **Parameters**
+
+  * **key** (`str`) – The key for which the URL should be generated.
+
+* **Return type**
+
+  `str`
 
 ***
 

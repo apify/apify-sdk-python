@@ -51,7 +51,7 @@ class KeyValueStore(BaseStorage):
     _key_value_store_client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
 
     @ignore_docs
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration) -> None:
         """Create a `KeyValueStore` instance.
 
         Do not use the constructor directly, use the `Actor.open_key_value_store()` function instead.
@@ -60,11 +60,13 @@ class KeyValueStore(BaseStorage):
             id (str): ID of the key-value store.
             name (str, optional): Name of the key-value store.
             client (ApifyClientAsync or MemoryStorageClient): The storage client which should be used.
+            config (Configuration): The configuration which should be used.
         """
-        super().__init__(id=id, name=name, client=client)
+        super().__init__(id=id, name=name, client=client, config=config)
 
         self.get_value = _wrap_internal(self._get_value_internal, self.get_value)  # type: ignore
         self.set_value = _wrap_internal(self._set_value_internal, self.set_value)  # type: ignore
+        self.get_public_url = _wrap_internal(self._get_public_url_internal, self.get_public_url)  # type: ignore
         self._id = id
         self._name = name
         self._key_value_store_client = client.key_value_store(self._id)
@@ -162,6 +164,24 @@ class KeyValueStore(BaseStorage):
             return await self._key_value_store_client.delete_record(key)
 
         return await self._key_value_store_client.set_record(key, value, content_type)
+
+    @classmethod
+    async def get_public_url(cls, key: str) -> str:
+        """Get a URL for the given key that may be used to publicly access the value in the remote key-value store.
+
+        Args:
+            key (str): The key for which the URL should be generated.
+        """
+        store = await cls.open()
+        return await store.get_public_url(key)
+
+    async def _get_public_url_internal(self, key: str) -> str:
+        if not isinstance(self._key_value_store_client, KeyValueStoreClientAsync):
+            raise RuntimeError('Cannot generate a public URL for this key-value store as it is not on the Apify Platform!')
+
+        public_api_url = self._config.api_public_base_url
+
+        return f'{public_api_url}/v2/key-value-stores/{self._id}/records/{key}'
 
     async def drop(self) -> None:
         """Remove the key-value store either from the Apify cloud storage or from the local directory."""

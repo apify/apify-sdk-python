@@ -61,7 +61,7 @@ class _ActorContextManager(type):
 
 
 class Actor(metaclass=_ActorContextManager):
-    """Class representing an Apify Actor."""
+    """The main class of the SDK, through which all the actor operations should be done."""
 
     _default_instance: Optional['Actor'] = None
     _apify_client: ApifyClientAsync

@@ -93,7 +93,7 @@ class Dataset(BaseStorage):
     _dataset_client: Union[DatasetClientAsync, DatasetClient]
 
     @ignore_docs
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration) -> None:
         """Create a `Dataset` instance.
 
         Do not use the constructor directly, use the `Actor.open_dataset()` function instead.
@@ -102,8 +102,9 @@ class Dataset(BaseStorage):
             id (str): ID of the dataset.
             name (str, optional): Name of the dataset.
             client (ApifyClientAsync or MemoryStorageClient): The storage client which should be used.
+            config (Configuration): The configuration which should be used.
         """
-        super().__init__(id=id, name=name, client=client)
+        super().__init__(id=id, name=name, client=client, config=config)
 
         self.get_data = _wrap_internal(self._get_data_internal, self.get_data)  # type: ignore
         self.push_data = _wrap_internal(self._push_data_internal, self.push_data)  # type: ignore
