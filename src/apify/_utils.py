@@ -40,12 +40,18 @@ from .consts import (
     INTEGER_ENV_VARS,
     REQUEST_ID_LENGTH,
     ApifyEnvVars,
-    StorageTypes,
+    _StorageTypes,
 )
-from .log import logger
+
+T = TypeVar('T')
 
 
-def _log_system_info() -> None:
+def ignore_docs(method: T) -> T:
+    """Mark that a method's documentation should not be rendered. Functionally, this decorator is a noop."""
+    return method
+
+
+def _get_system_info() -> Dict:
     python_version = '.'.join([str(x) for x in sys.version_info[:3]])
 
     system_info: Dict[str, Union[str, bool]] = {
@@ -58,13 +64,14 @@ def _log_system_info() -> None:
     if _is_running_in_ipython():
         system_info['is_running_in_ipython'] = True
 
-    logger.info('System info', extra=system_info)
+    return system_info
 
 
 DualPropertyType = TypeVar('DualPropertyType')
 DualPropertyOwner = TypeVar('DualPropertyOwner')
 
 
+@ignore_docs
 class dualproperty(Generic[DualPropertyType]):  # noqa: N801
     """Descriptor combining `property` and `classproperty`.
 
@@ -267,12 +274,12 @@ def _json_dumps(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, indent=2, default=str)
 
 
-def _raise_on_non_existing_storage(client_type: StorageTypes, id: str) -> NoReturn:
+def _raise_on_non_existing_storage(client_type: _StorageTypes, id: str) -> NoReturn:
     client_type = _maybe_extract_enum_member_value(client_type)
     raise ValueError(f'{client_type} with id "{id}" does not exist.')
 
 
-def _raise_on_duplicate_storage(client_type: StorageTypes, key_name: str, value: str) -> NoReturn:
+def _raise_on_duplicate_storage(client_type: _StorageTypes, key_name: str, value: str) -> NoReturn:
     client_type = _maybe_extract_enum_member_value(client_type)
     raise ValueError(f'{client_type} with {key_name} "{value}" already exists.')
 
@@ -315,13 +322,10 @@ def _is_file_or_bytes(value: Any) -> bool:
 
 
 def _maybe_parse_body(body: bytes, content_type: str) -> Any:
-    try:
-        if _is_content_type_json(content_type):
-            return json.loads(body)  # Returns any
-        elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
-            return body.decode('utf-8')
-    except ValueError:
-        logger.exception('Error parsing key-value store record')
+    if _is_content_type_json(content_type):
+        return json.loads(body)  # Returns any
+    elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
+        return body.decode('utf-8')
     return body
 
 
@@ -353,9 +357,7 @@ def _wrap_internal(implementation: ImplementationType, metadata_source: Metadata
     return cast(MetadataType, wrapper)
 
 
-T = TypeVar('T')
-
-
+@ignore_docs
 class LRUCache(MutableMapping, Generic[T]):
     """Attempt to reimplement LRUCache from `@apify/datastructures` using `OrderedDict`."""
 

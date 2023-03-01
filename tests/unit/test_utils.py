@@ -34,8 +34,9 @@ from apify._utils import (
     _raise_on_non_existing_storage,
     _run_func_at_interval_async,
     _unique_key_to_request_id,
+    ignore_docs,
 )
-from apify.consts import ApifyEnvVars, StorageTypes
+from apify.consts import ApifyEnvVars, _StorageTypes
 
 
 def test__fetch_and_parse_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -260,12 +261,12 @@ async def test__force_remove(tmp_path: Path) -> None:
 
 def test__raise_on_non_existing_storage() -> None:
     with pytest.raises(ValueError, match='Dataset with id "kckxQw6j6AtrgyA09" does not exist.'):
-        _raise_on_non_existing_storage(StorageTypes.DATASET, 'kckxQw6j6AtrgyA09')
+        _raise_on_non_existing_storage(_StorageTypes.DATASET, 'kckxQw6j6AtrgyA09')
 
 
 def test__raise_on_duplicate_storage() -> None:
     with pytest.raises(ValueError, match='Dataset with name "test" already exists.'):
-        _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', 'test')
+        _raise_on_duplicate_storage(_StorageTypes.DATASET, 'name', 'test')
 
 
 def test__guess_file_extension() -> None:
@@ -384,3 +385,11 @@ def test__parse_date_fields() -> None:
 
     # doesn't die when the date can't be parsed
     assert _parse_date_fields({'createdAt': 'NOT_A_DATE'}) == {'createdAt': 'NOT_A_DATE'}
+
+
+def test_ignore_docs() -> None:
+    def testing_function(_a: str, _b: str) -> str:
+        """Dummy docstring"""
+        return 'dummy'
+
+    assert testing_function is ignore_docs(testing_function)

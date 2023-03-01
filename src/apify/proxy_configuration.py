@@ -9,6 +9,7 @@ from typing_extensions import NotRequired
 
 from apify_client import ApifyClientAsync
 
+from ._utils import ignore_docs
 from .config import Configuration
 from .consts import ApifyEnvVars
 from .log import logger
@@ -122,6 +123,7 @@ class ProxyConfiguration:
     _actor_config: Configuration
     _apify_client: Optional[ApifyClientAsync] = None
 
+    @ignore_docs
     def __init__(
         self,
         *,

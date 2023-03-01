@@ -10,7 +10,7 @@ from apify_client.clients import DatasetClientAsync, DatasetCollectionClientAsyn
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
 from .._types import JSONSerializable
-from .._utils import _json_dumps, _wrap_internal
+from .._utils import _json_dumps, _wrap_internal, ignore_docs
 from ..config import Configuration
 from ..consts import MAX_PAYLOAD_SIZE_BYTES
 from .base_storage import BaseStorage
@@ -92,6 +92,7 @@ class Dataset(BaseStorage):
     _name: Optional[str]
     _dataset_client: Union[DatasetClientAsync, DatasetClient]
 
+    @ignore_docs
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
         """Create a `Dataset` instance.
 

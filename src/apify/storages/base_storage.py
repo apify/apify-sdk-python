@@ -7,6 +7,7 @@ from apify_client import ApifyClientAsync
 
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import BaseResourceClient, BaseResourceCollectionClient
+from .._utils import ignore_docs
 from ..config import Configuration
 from .storage_client_manager import StorageClientManager
 
@@ -20,6 +21,7 @@ async def _purge_default_storages(client: Union[ApifyClientAsync, MemoryStorageC
         await client._purge()
 
 
+@ignore_docs
 class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionClientType]):
     """A class for managing storages."""
 

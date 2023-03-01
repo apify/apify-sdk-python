@@ -6,7 +6,7 @@ import aioshutil
 from aiofiles import ospath
 from aiofiles.os import rename, scandir
 
-from .._utils import _maybe_parse_bool
+from .._utils import _maybe_parse_bool, ignore_docs
 from ..consts import ApifyEnvVars
 from .resource_clients.dataset import DatasetClient
 from .resource_clients.dataset_collection import DatasetCollectionClient
@@ -23,6 +23,7 @@ The metadata of the storages is also persisted if `write_metadata` is True.
 """
 
 
+@ignore_docs
 class MemoryStorageClient:
     """Class representing an in-memory storage."""
 

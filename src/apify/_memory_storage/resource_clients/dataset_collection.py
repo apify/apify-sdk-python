@@ -2,10 +2,12 @@ from typing import Dict, List, Optional, Type
 
 from apify_client._utils import ListPage
 
+from ..._utils import ignore_docs
 from .base_resource_collection_client import BaseResourceCollectionClient
 from .dataset import DatasetClient
 
 
+@ignore_docs
 class DatasetCollectionClient(BaseResourceCollectionClient):
     """Sub-client for manipulating datasets."""
 

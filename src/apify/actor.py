@@ -16,12 +16,13 @@ from ._utils import (
     _fetch_and_parse_env_var,
     _get_cpu_usage_percent,
     _get_memory_usage_bytes,
+    _get_system_info,
     _is_running_in_ipython,
-    _log_system_info,
     _maybe_extract_enum_member_value,
     _run_func_at_interval_async,
     _wrap_internal,
     dualproperty,
+    ignore_docs,
 )
 from .config import Configuration
 from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventTypes, ActorExitCodes, ApifyEnvVars
@@ -75,6 +76,9 @@ class Actor(metaclass=_ActorContextManager):
     def __init__(self, config: Optional[Configuration] = None) -> None:
         """Create an Actor instance.
 
+        Note that you don't have to do this, all the methods on this class function as classmethods too,
+        and that is their preferred usage.
+
         Args:
             config (Configuration, optional): The actor configuration to be used. If not passed, a new Configuration instance will be created.
         """
@@ -119,6 +123,7 @@ class Actor(metaclass=_ActorContextManager):
 
         self._is_initialized = False
 
+    @ignore_docs
     async def __aenter__(self) -> 'Actor':
         """Initialize the Actor.
 
@@ -131,6 +136,7 @@ class Actor(metaclass=_ActorContextManager):
         await self.init()
         return self
 
+    @ignore_docs
     async def __aexit__(
         self,
         _exc_type: Optional[Type[BaseException]],
@@ -215,7 +221,7 @@ class Actor(metaclass=_ActorContextManager):
         self._was_final_persist_state_emitted = False
 
         self.log.info('Initializing actor...')
-        _log_system_info()
+        self.log.info('System info', extra=_get_system_info())
 
         # TODO: Print outdated SDK version warning (we need a new env var for this)
 

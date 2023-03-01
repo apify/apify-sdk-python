@@ -6,6 +6,8 @@ from typing import Any, Dict
 
 from colorama import Fore, Style, just_fix_windows_console
 
+from ._utils import ignore_docs
+
 just_fix_windows_console()
 
 
@@ -36,7 +38,14 @@ _LOG_MESSAGE_INDENT = ' ' * 6
 
 
 class ActorLogFormatter(logging.Formatter):
-    """Log formatter that prints out the log message nicely formatted, with colored level and stringified extra fields."""
+    """Log formatter that prints out the log message nicely formatted, with colored level and stringified extra fields.
+
+    It formats the log records so that they:
+    - start with the level (colorized, and padded to 5 chars so that it is nicely aligned)
+    - then have the actual log message, if it's multiline then it's nicely indented
+    - then have the stringified extra log fields
+    - then, if an exception is a part of the log record, prints the formatted exception.
+    """
 
     # The fields that are added to the log record with `logger.log(..., extra={...})`
     # are just merged in the log record with the other log record properties, and you can't get them in some nice, isolated way.
@@ -53,6 +62,7 @@ class ActorLogFormatter(logging.Formatter):
 
         return extra_fields
 
+    @ignore_docs
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record nicely.
 
@@ -60,7 +70,7 @@ class ActorLogFormatter(logging.Formatter):
         - starts with the level (colorized, and padded to 5 chars so that it is nicely aligned)
         - then has the actual log message, if it's multiline then it's nicely indented
         - then has the stringified extra log fields
-        - then, if an exception is a part of the log record, prints the formatted exception
+        - then, if an exception is a part of the log record, prints the formatted exception.
         """
         # Colorize the log level, and shorten it to 6 chars tops
         level_color_code = _LOG_LEVEL_COLOR.get(record.levelno, '')

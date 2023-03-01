@@ -9,27 +9,24 @@ from apify_client._utils import ListPage
 
 from ..._crypto import _crypto_random_object_id
 from ..._types import JSONSerializable
-from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage
-from ...consts import StorageTypes
+from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, ignore_docs
+from ...consts import _StorageTypes
 from ..file_storage_utils import _update_dataset_items, _update_metadata
 from .base_resource_client import BaseResourceClient
 
 if TYPE_CHECKING:
     from ..memory_storage_client import MemoryStorageClient
 
-"""
- This is what API returns in the x-apify-pagination-limit
- header when no limit query parameter is used.
- """
+# This is what API returns in the x-apify-pagination-limit
+# header when no limit query parameter is used.
 LIST_ITEMS_LIMIT = 999_999_999_999
 
-"""
- Number of characters of the dataset item file names.
- E.g.: 000000019.json - 9 digits
-"""
+# Number of characters of the dataset item file names.
+# E.g.: 000000019.json - 9 digits
 LOCAL_ENTRY_NAME_DIGITS = 9
 
 
+@ignore_docs
 class DatasetClient(BaseResourceClient):
     """Sub-client for manipulating a single dataset."""
 
@@ -92,7 +89,7 @@ class DatasetClient(BaseResourceClient):
         )
 
         if existing_dataset_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.DATASET, self._id)
 
         # Skip if no changes
         if name is None:
@@ -103,7 +100,7 @@ class DatasetClient(BaseResourceClient):
             (dataset for dataset in self._memory_storage_client._datasets_handled if dataset._name and dataset._name.lower() == name.lower()), None)
 
         if existing_dataset_by_name is not None:
-            _raise_on_duplicate_storage(StorageTypes.DATASET, 'name', name)
+            _raise_on_duplicate_storage(_StorageTypes.DATASET, 'name', name)
 
         existing_dataset_by_id._name = name
 
@@ -182,7 +179,7 @@ class DatasetClient(BaseResourceClient):
         )
 
         if existing_dataset_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.DATASET, self._id)
 
         start, end = existing_dataset_by_id._get_start_and_end_indexes(
             max(existing_dataset_by_id._item_count - (offset or 0) - (limit or LIST_ITEMS_LIMIT), 0) if desc else offset or 0,
@@ -295,7 +292,7 @@ class DatasetClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_dataset_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.DATASET, self._id)
 
         normalized = self._normalize_items(items)
 

@@ -19,8 +19,10 @@ from ..._utils import (
     _maybe_parse_body,
     _raise_on_duplicate_storage,
     _raise_on_non_existing_storage,
+    ignore_docs,
 )
-from ...consts import DEFAULT_API_PARAM_LIMIT, StorageTypes
+from ...consts import DEFAULT_API_PARAM_LIMIT, _StorageTypes
+from ...log import logger
 from ..file_storage_utils import _set_or_delete_key_value_store_record, _update_metadata
 from .base_resource_client import BaseResourceClient
 
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
 DEFAULT_LOCAL_FILE_EXTENSION = 'bin'
 
 
+@ignore_docs
 class KeyValueStoreClient(BaseResourceClient):
     """Sub-client for manipulating a single key-value store."""
 
@@ -88,7 +91,7 @@ class KeyValueStoreClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.KEY_VALUE_STORE, self._id)
 
         # Skip if no changes
         if name is None:
@@ -99,7 +102,7 @@ class KeyValueStoreClient(BaseResourceClient):
             (store for store in self._memory_storage_client._key_value_stores_handled if store._name and store._name.lower() == name.lower()), None)
 
         if existing_store_by_name is not None:
-            _raise_on_duplicate_storage(StorageTypes.KEY_VALUE_STORE, 'name', name)
+            _raise_on_duplicate_storage(_StorageTypes.KEY_VALUE_STORE, 'name', name)
 
         existing_store_by_id._name = name
 
@@ -140,7 +143,7 @@ class KeyValueStoreClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.KEY_VALUE_STORE, self._id)
 
         items = []
 
@@ -194,7 +197,7 @@ class KeyValueStoreClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.KEY_VALUE_STORE, self._id)
 
         entry = existing_store_by_id._key_value_entries.get(key)
 
@@ -209,7 +212,10 @@ class KeyValueStoreClient(BaseResourceClient):
         }
 
         if not as_bytes:
-            record['value'] = _maybe_parse_body(record['value'], record['contentType'])
+            try:
+                record['value'] = _maybe_parse_body(record['value'], record['contentType'])
+            except ValueError:
+                logger.exception('Error parsing key-value store record')
 
         await existing_store_by_id._update_timestamps(False)
 
@@ -253,7 +259,7 @@ class KeyValueStoreClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.KEY_VALUE_STORE, self._id)
 
         if isinstance(value, io.IOBase):
             raise NotImplementedError('File-like values are not supported in local memory storage')
@@ -300,7 +306,7 @@ class KeyValueStoreClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_store_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.KEY_VALUE_STORE, self._id)
 
         entry = existing_store_by_id._key_value_entries.get(key)
 
