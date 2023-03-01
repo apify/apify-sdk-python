@@ -31,6 +31,7 @@ async def test_same_references() -> None:
     kvs1 = await KeyValueStore.open()
     kvs2 = await KeyValueStore.open()
     assert kvs1 is kvs2
+
     kvs_name = 'non-default'
     kvs_named1 = await KeyValueStore.open(name=kvs_name)
     kvs_named2 = await KeyValueStore.open(name=kvs_name)

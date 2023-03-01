@@ -7,12 +7,13 @@ from typing import Any, Callable, Dict, List, Optional, Set
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
 
-from ._utils import _maybe_extract_enum_member_value, _parse_date_fields
+from ._utils import _maybe_extract_enum_member_value, _parse_date_fields, ignore_docs
 from .config import Configuration
 from .consts import ActorEventTypes
 from .log import logger
 
 
+@ignore_docs
 class EventManager:
     """A class for managing actor events.
 

@@ -65,10 +65,13 @@ async def test_delete(request_queue_client: RequestQueueClient) -> None:
     })
     rq_info = await request_queue_client.get()
     assert rq_info is not None
+
     rq_directory = os.path.join(request_queue_client._memory_storage_client._request_queues_directory, rq_info['name'])
     assert os.path.exists(os.path.join(rq_directory, 'fvwscO2UJLdr10B.json')) is True
+
     await request_queue_client.delete()
     assert os.path.exists(os.path.join(rq_directory, 'fvwscO2UJLdr10B.json')) is False
+
     # Does not crash when called again
     await request_queue_client.delete()
 
@@ -101,10 +104,12 @@ async def test_add_record(request_queue_client: RequestQueueClient) -> None:
         'uniqueKey': request_not_forefront_url,
         'url': request_not_forefront_url,
     }, forefront=False)
+
     assert request_forefront_info.get('requestId') is not None
     assert request_not_forefront_info.get('requestId') is not None
     assert request_forefront_info['wasAlreadyHandled'] is False
     assert request_not_forefront_info['wasAlreadyHandled'] is False
+
     rq_info = await request_queue_client.get()
     assert rq_info is not None
     assert rq_info['pendingRequestCount'] == rq_info['totalRequestCount'] == 2
@@ -121,6 +126,7 @@ async def test_get_record(request_queue_client: RequestQueueClient) -> None:
     assert request is not None
     assert 'id' in request.keys()
     assert request['url'] == request['uniqueKey'] == request_url
+
     # Non-existent id
     assert (await request_queue_client.get_request('non-existent id')) is None
 
@@ -133,12 +139,15 @@ async def test_update_record(request_queue_client: RequestQueueClient) -> None:
     })
     request = await request_queue_client.get_request(request_info['requestId'])
     assert request is not None
+
     rq_info_before_update = await request_queue_client.get()
     assert rq_info_before_update is not None
     assert rq_info_before_update['pendingRequestCount'] == 1
     assert rq_info_before_update['handledRequestCount'] == 0
+
     request_update_info = await request_queue_client.update_request({**request, 'handledAt': datetime.now(timezone.utc)})
     assert request_update_info['wasAlreadyHandled'] is False
+
     rq_info_after_update = await request_queue_client.get()
     assert rq_info_after_update is not None
     assert rq_info_after_update['pendingRequestCount'] == 0

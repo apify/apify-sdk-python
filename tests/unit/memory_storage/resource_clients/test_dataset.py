@@ -85,6 +85,7 @@ async def test_push_items(dataset_client: DatasetClient) -> None:
     await dataset_client.push_items({'abc': {'def': {'ghi': '123'}}})
     await dataset_client.push_items(['{"test-json-parse": "JSON from a string"}' for _ in range(10)])
     await dataset_client.push_items([{'test-dict': i} for i in range(10)])
+
     list_page = await dataset_client.list_items()
     assert list_page.items[0]['test'] == 'JSON from a string'
     assert list_page.items[1]['abc']['def']['ghi'] == '123'

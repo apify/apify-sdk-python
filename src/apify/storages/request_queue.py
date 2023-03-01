@@ -11,7 +11,7 @@ from apify_client.clients import RequestQueueClientAsync, RequestQueueCollection
 from .._crypto import _crypto_random_object_id
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
-from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
+from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id, ignore_docs
 from ..config import Configuration
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from ..log import logger
@@ -19,33 +19,25 @@ from .base_storage import BaseStorage
 
 MAX_CACHED_REQUESTS = 1_000_000
 
+# When requesting queue head we always fetch requestsInProgressCount * QUERY_HEAD_BUFFER number of requests.
 QUERY_HEAD_MIN_LENGTH = 100
-"""When requesting queue head we always fetch requestsInProgressCount * QUERY_HEAD_BUFFER number of requests."""
 
 QUERY_HEAD_BUFFER = 3
 
+# If queue was modified (request added/updated/deleted) before more than API_PROCESSED_REQUESTS_DELAY_MILLIS
+# then we assume the get head operation to be consistent.
 API_PROCESSED_REQUESTS_DELAY_MILLIS = 10_000
-"""
- If queue was modified (request added/updated/deleted) before more than API_PROCESSED_REQUESTS_DELAY_MILLIS
- then we assume the get head operation to be consistent.
-"""
 
+# How many times we try to get queue head with queueModifiedAt older than API_PROCESSED_REQUESTS_DELAY_MILLIS.
 MAX_QUERIES_FOR_CONSISTENCY = 6
-"""
- How many times we try to get queue head with queueModifiedAt older than API_PROCESSED_REQUESTS_DELAY_MILLIS.
-"""
 
+# This number must be large enough so that processing of all these requests cannot be done in
+# a time lower than expected maximum latency of DynamoDB, but low enough not to waste too much memory.
 RECENTLY_HANDLED_CACHE_SIZE = 1000
-"""
- This number must be large enough so that processing of all these requests cannot be done in
- a time lower than expected maximum latency of DynamoDB, but low enough not to waste too much memory.
-"""
 
+# Indicates how long it usually takes for the underlying storage to propagate all writes
+# to be available to subsequent reads.
 STORAGE_CONSISTENCY_DELAY_MILLIS = 3000
-"""
- Indicates how long it usually takes for the underlying storage to propagate all writes
- to be available to subsequent reads.
-"""
 
 
 class RequestQueue(BaseStorage):
@@ -91,6 +83,7 @@ class RequestQueue(BaseStorage):
     _assumed_handled_count = 0
     _requests_cache: LRUCache[Dict]
 
+    @ignore_docs
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
         """Create a `RequestQueue` instance.
 

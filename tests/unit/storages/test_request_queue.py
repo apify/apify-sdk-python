@@ -34,6 +34,7 @@ async def test_same_references() -> None:
     rq1 = await RequestQueue.open()
     rq2 = await RequestQueue.open()
     assert rq1 is rq2
+
     rq_name = 'non-default'
     rq_named1 = await RequestQueue.open(name=rq_name)
     rq_named2 = await RequestQueue.open(name=rq_name)
@@ -70,9 +71,11 @@ async def test_add_fetch_handle_request(request_queue: RequestQueue) -> None:
     assert add_request_info['wasAlreadyPresent'] is False
     assert add_request_info['wasAlreadyHandled'] is False
     assert await request_queue.is_empty() is False
+
     # Fetch the request
     next = await request_queue.fetch_next_request()
     assert next is not None
+
     # Mark it as handled
     next['handledAt'] = datetime.now(timezone.utc)
     queue_operation_info = await request_queue.mark_request_as_handled(next)
@@ -91,6 +94,7 @@ async def test_reclaim_request(request_queue: RequestQueue) -> None:
     next = await request_queue.fetch_next_request()
     assert next is not None
     assert next['uniqueKey'] == url
+
     # Reclaim
     await request_queue.reclaim_request(next)
     # Try to fetch again after a few secs

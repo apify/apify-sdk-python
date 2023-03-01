@@ -15,8 +15,9 @@ from ..._utils import (
     _raise_on_duplicate_storage,
     _raise_on_non_existing_storage,
     _unique_key_to_request_id,
+    ignore_docs,
 )
-from ...consts import StorageTypes
+from ...consts import _StorageTypes
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
 from .base_resource_client import BaseResourceClient
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from ..memory_storage_client import MemoryStorageClient
 
 
+@ignore_docs
 class RequestQueueClient(BaseResourceClient):
     """Sub-client for manipulating a single request queue."""
 
@@ -85,7 +87,7 @@ class RequestQueueClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
         # Skip if no changes
         if name is None:
@@ -96,7 +98,7 @@ class RequestQueueClient(BaseResourceClient):
             (queue for queue in self._memory_storage_client._request_queues_handled if queue._name and queue._name.lower() == name.lower()), None)
 
         if existing_queue_by_name is not None:
-            _raise_on_duplicate_storage(StorageTypes.REQUEST_QUEUE, 'name', name)
+            _raise_on_duplicate_storage(_StorageTypes.REQUEST_QUEUE, 'name', name)
 
         existing_queue_by_id._name = name
 
@@ -137,7 +139,7 @@ class RequestQueueClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
         await existing_queue_by_id._update_timestamps(False)
 
@@ -177,7 +179,7 @@ class RequestQueueClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
         request_model = self._create_internal_request(request, forefront)
 
@@ -227,7 +229,7 @@ class RequestQueueClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
         await existing_queue_by_id._update_timestamps(False)
 
@@ -248,7 +250,7 @@ class RequestQueueClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
         request_model = self._create_internal_request(request, forefront)
 
@@ -300,7 +302,7 @@ class RequestQueueClient(BaseResourceClient):
             memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if existing_queue_by_id is None:
-            _raise_on_non_existing_storage(StorageTypes.REQUEST_QUEUE, self._id)
+            _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
         request = existing_queue_by_id._requests.get(request_id)
 

@@ -4,7 +4,6 @@ from .conftest import ActorFactory
 
 
 class TestActorInit:
-
     async def test_actor_init(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             my_actor = Actor()
@@ -51,7 +50,6 @@ class TestActorInit:
 
 
 class TestActorExit:
-
     async def test_actor_exit_code(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
@@ -68,7 +66,6 @@ class TestActorExit:
 
 
 class TestActorFail:
-
     async def test_fail_exit_code(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
@@ -101,7 +98,6 @@ class TestActorFail:
 
 
 class TestActorMain:
-
     async def test_actor_main(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async def actor_function() -> None:

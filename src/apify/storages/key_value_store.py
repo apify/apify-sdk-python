@@ -5,7 +5,7 @@ from apify_client.clients import KeyValueStoreClientAsync, KeyValueStoreCollecti
 
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import KeyValueStoreClient, KeyValueStoreCollectionClient
-from .._utils import _wrap_internal
+from .._utils import _wrap_internal, ignore_docs
 from ..config import Configuration
 from .base_storage import BaseStorage
 
@@ -50,6 +50,7 @@ class KeyValueStore(BaseStorage):
     _name: Optional[str]
     _key_value_store_client: Union[KeyValueStoreClientAsync, KeyValueStoreClient]
 
+    @ignore_docs
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
         """Create a `KeyValueStore` instance.
 

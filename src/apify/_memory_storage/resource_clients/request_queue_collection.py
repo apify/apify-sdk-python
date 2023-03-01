@@ -2,10 +2,12 @@ from typing import Dict, List, Optional, Type
 
 from apify_client._utils import ListPage
 
+from ..._utils import ignore_docs
 from .base_resource_collection_client import BaseResourceCollectionClient
 from .request_queue import RequestQueueClient
 
 
+@ignore_docs
 class RequestQueueCollectionClient(BaseResourceCollectionClient):
     """Sub-client for manipulating request queues."""
 

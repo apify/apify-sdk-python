@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Dict, Generic, List, Optional, Type, TypeVar
 
 from apify_client._utils import ListPage
 
+from ..._utils import ignore_docs
 from ..file_storage_utils import _update_metadata
 from .base_resource_client import BaseResourceClient
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 ResourceClientType = TypeVar('ResourceClientType', bound=BaseResourceClient, contravariant=True)
 
 
+@ignore_docs
 class BaseResourceCollectionClient(ABC, Generic[ResourceClientType]):
     """Base class for resource collection clients."""
 

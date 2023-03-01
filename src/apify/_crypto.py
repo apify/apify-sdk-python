@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from ._utils import ignore_docs
 from .consts import ENCRYPTED_INPUT_VALUE_REGEXP
 
 ENCRYPTION_KEY_LENGTH = 32
@@ -14,6 +15,7 @@ ENCRYPTION_IV_LENGTH = 16
 ENCRYPTION_AUTH_TAG_LENGTH = 16
 
 
+@ignore_docs
 def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     """Encrypts the given value using AES cipher and the password for encryption using the public key.
 
@@ -51,6 +53,7 @@ def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     }
 
 
+@ignore_docs
 def private_decrypt(
     encrypted_password: str,
     encrypted_value: str,

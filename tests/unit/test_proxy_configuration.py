@@ -72,7 +72,6 @@ class TestProxyConfiguration:
 
 
 class TestProxyConfigurationNewUrl:
-
     async def test_new_url_basic(self) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
@@ -217,7 +216,6 @@ class TestProxyConfigurationNewUrl:
 
 
 class TestProxyConfigurationNewProxyInfo:
-
     async def test_new_proxy_info_basic(self) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
@@ -289,7 +287,6 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
 
 
 class TestProxyConfigurationInitialize:
-
     async def test_initialize_basic(
         self,
         monkeypatch: pytest.MonkeyPatch,

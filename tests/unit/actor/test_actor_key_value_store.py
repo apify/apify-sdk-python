@@ -11,12 +11,12 @@ from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_K
 
 # NOTE: We only test the key-value store methond available on Actor class/instance. Actual tests for the implementations are in storages/.
 class TestOpenKeyValueStore:
-
     async def test_same_references(self) -> None:
         async with Actor:
             kvs1 = await Actor.open_key_value_store()
             kvs2 = await Actor.open_key_value_store()
             assert kvs1 is kvs2
+
             kvs_name = 'non-default'
             kvs_by_name_1 = await Actor.open_key_value_store(name=kvs_name)
             kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
@@ -29,7 +29,6 @@ class TestOpenKeyValueStore:
 
 
 class TestKeyValueStoreOnActor:
-
     async def test_throws_without_init(self) -> None:
         with pytest.raises(RuntimeError):
             await Actor.open_key_value_store()

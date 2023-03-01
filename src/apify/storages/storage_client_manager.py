@@ -3,9 +3,11 @@ from typing import Optional, Union
 from apify_client import ApifyClientAsync
 
 from .._memory_storage import MemoryStorageClient
+from .._utils import ignore_docs
 from ..config import Configuration
 
 
+@ignore_docs
 class StorageClientManager:
     """A class for managing storage clients."""
 
