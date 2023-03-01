@@ -2,9 +2,11 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import aioshutil
+from sortedcollections import ValueSortedDict  # type: ignore
 
 from ..._utils import (
     _filter_out_none_values_recursively,
@@ -29,12 +31,13 @@ class RequestQueueClient:
     _request_queue_directory: str
     _client: 'MemoryStorage'
     _name: Optional[str]
-    _requests: Dict[str, Dict]
+    _requests: ValueSortedDict
     _created_at: datetime
     _accessed_at: datetime
     _modified_at: datetime
     _handled_request_count = 0
     _pending_request_count = 0
+    _last_used_timestamp = Decimal(0.0)
 
     def __init__(self, *, base_storage_directory: str, client: 'MemoryStorage', id: Optional[str] = None, name: Optional[str] = None) -> None:
         """Initialize the RequestQueueClient."""
@@ -42,7 +45,7 @@ class RequestQueueClient:
         self._request_queue_directory = os.path.join(base_storage_directory, name or self._id)
         self._client = client
         self._name = name
-        self._requests = {}
+        self._requests = ValueSortedDict(lambda req: req.get('orderNo') or -float('inf'))
         self._created_at = datetime.now(timezone.utc)
         self._accessed_at = datetime.now(timezone.utc)
         self._modified_at = datetime.now(timezone.utc)
@@ -107,6 +110,7 @@ class RequestQueueClient:
         if queue is not None:
             self._client._request_queues_handled.remove(queue)
             queue._pending_request_count = 0
+            queue._handled_request_count = 0
             queue._requests.clear()
 
             if os.path.exists(queue._request_queue_directory):
@@ -130,11 +134,17 @@ class RequestQueueClient:
 
         items: List[Dict] = []
 
-        for request in existing_queue_by_id._requests.values():
+        # Iterate all requests in the queue which have sorted key larger than infinity, which means `orderNo` is not `None`
+        # This will iterate them in order of `orderNo`
+        for request_key in existing_queue_by_id._requests.irange_key(min_key=-float('inf'), inclusive=(False, True)):
             if len(items) == limit:
                 break
 
-            if request['orderNo']:
+            request = existing_queue_by_id._requests.get(request_key)
+
+            # Check that the request still exists and was not handled,
+            # in case something deleted it or marked it as handled concurrenctly
+            if request and request['orderNo']:
                 items.append(request)
 
         return {
@@ -174,7 +184,10 @@ class RequestQueueClient:
             }
 
         existing_queue_by_id._requests[request_model['id']] = request_model
-        existing_queue_by_id._pending_request_count += 0 if request_model['orderNo'] is None else 1
+        if request_model['orderNo'] is None:
+            existing_queue_by_id._handled_request_count += 1
+        else:
+            existing_queue_by_id._pending_request_count += 1
         await existing_queue_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,
@@ -250,6 +263,7 @@ class RequestQueueClient:
             pending_count_adjustment = 1 if request_was_handled_before_update else -1
 
         existing_queue_by_id._pending_request_count += pending_count_adjustment
+        existing_queue_by_id._handled_request_count -= pending_count_adjustment
         await existing_queue_by_id._update_timestamps(True)
         await _update_request_queue_item(
             request=request_model,
@@ -279,7 +293,10 @@ class RequestQueueClient:
 
         if request:
             del existing_queue_by_id._requests[request_id]
-            existing_queue_by_id._pending_request_count -= 0 if request['orderNo'] is None else 1
+            if request['orderNo'] is None:
+                existing_queue_by_id._handled_request_count -= 1
+            else:
+                existing_queue_by_id._pending_request_count -= 1
             await existing_queue_by_id._update_timestamps(True)
             await _delete_request(entity_directory=existing_queue_by_id._request_queue_directory, request_id=request_id)
 
@@ -332,11 +349,19 @@ class RequestQueueClient:
             'url': request['url'],
         }
 
-    def _calculate_order_no(self, request: Dict, forefront: Optional[bool]) -> Optional[int]:
+    def _calculate_order_no(self, request: Dict, forefront: Optional[bool]) -> Optional[Decimal]:
         if request.get('handledAt') is not None:
             return None
 
-        timestamp = int(round(datetime.now(timezone.utc).timestamp()))
+        # Get the current timestamp in milliseconds
+        timestamp = Decimal(datetime.now(timezone.utc).timestamp()) * 1000
+        timestamp = round(timestamp, 6)
+
+        # Make sure that this timestamp was not used yet, so that we have unique orderNos
+        if timestamp <= self._last_used_timestamp:
+            timestamp = self._last_used_timestamp + Decimal(0.000001)
+
+        self._last_used_timestamp = timestamp
 
         return -timestamp if forefront else timestamp
 
