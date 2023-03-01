@@ -104,6 +104,7 @@ async def test_list_keys(key_value_store_client: KeyValueStoreClient) -> None:
     await key_value_store_client.set_record('a', 'test')
     await key_value_store_client.set_record('d', 'test')
     await key_value_store_client.set_record('c', 'test')
+
     # Default settings
     keys = await key_value_store_client.list_keys()
     assert keys['items'][0]['key'] == 'a'
@@ -132,6 +133,7 @@ async def test_get_and_set_record(tmp_path: Path, key_value_store_client: KeyVal
     assert dict_record_info is not None
     assert 'application/json' in dict_record_info['contentType']
     assert dict_record_info['value']['test'] == 123
+
     # Test setting str record
     str_record_key = 'test-str'
     await key_value_store_client.set_record(str_record_key, 'test')
@@ -139,6 +141,7 @@ async def test_get_and_set_record(tmp_path: Path, key_value_store_client: KeyVal
     assert str_record_info is not None
     assert 'text/plain' in str_record_info['contentType']
     assert str_record_info['value'] == 'test'
+
     # Test setting explicit json record but use str as value, i.e. json dumps is skipped
     explicit_json_key = 'test-json'
     await key_value_store_client.set_record(explicit_json_key, '{"test": "explicit string"}', 'application/json')
@@ -146,6 +149,7 @@ async def test_get_and_set_record(tmp_path: Path, key_value_store_client: KeyVal
     assert bytes_record_info is not None
     assert 'application/json' in bytes_record_info['contentType']
     assert bytes_record_info['value']['test'] == 'explicit string'
+
     # Test using bytes
     bytes_key = 'test-json'
     bytes_value = 'testing bytes set_record'.encode('utf-8')
@@ -155,6 +159,7 @@ async def test_get_and_set_record(tmp_path: Path, key_value_store_client: KeyVal
     assert 'unknown' in bytes_record_info['contentType']
     assert bytes_record_info['value'] == bytes_value
     assert bytes_record_info['value'].decode('utf-8') == bytes_value.decode('utf-8')
+
     # Test using file descriptor
     with open(os.path.join(tmp_path, 'test.json'), 'w+') as f:
         f.write('Test')

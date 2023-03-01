@@ -17,7 +17,6 @@ PUBLIC_KEY = _load_public_key(PUBLIC_KEY_PEM_BASE64)
 
 
 class TestCrypto():
-
     def test_encrypt_decrypt_varions_string(self) -> None:
         for value in [_crypto_random_object_id(10), '👍', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', ']', '{', '}', '|', ';', ':', '"', "'", ',', '.', '<', '>', '?', '/', '~']:  # noqa: E501
             encrypted = public_encrypt(value, public_key=PUBLIC_KEY)

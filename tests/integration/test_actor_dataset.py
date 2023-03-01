@@ -9,7 +9,6 @@ from .conftest import ActorFactory
 
 
 class TestActorPushData:
-
     async def test_push_data(self, make_actor: ActorFactory) -> None:
         desired_item_count = 100  # Also change inside main() if you're changing this
 

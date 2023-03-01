@@ -70,6 +70,7 @@ async def test_purge_datasets(tmp_path: Path) -> None:
     folders_before_purge = os.listdir(ms._datasets_directory)
     assert default_dataset_info['name'] in folders_before_purge
     assert non_default_dataset_info['name'] in folders_before_purge
+
     await ms._purge()
     folders_after_purge = os.listdir(ms._datasets_directory)
     assert default_dataset_info['name'] not in folders_after_purge
@@ -96,6 +97,7 @@ async def test_purge_key_value_stores(tmp_path: Path) -> None:
     default_folder_files_before_purge = os.listdir(os.path.join(ms._key_value_stores_directory, 'default'))
     assert 'INPUT.json' in default_folder_files_before_purge
     assert 'test.json' in default_folder_files_before_purge
+
     await ms._purge()
     folders_after_purge = os.listdir(ms._key_value_stores_directory)
     assert default_kvs_info['name'] in folders_after_purge

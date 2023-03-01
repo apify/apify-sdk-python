@@ -4,7 +4,6 @@ from .conftest import ActorFactory
 
 
 class TestActorCreateProxyConfiguration:
-
     async def test_create_proxy_configuration_basic(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             groups = ['SHADER']

@@ -31,6 +31,7 @@ async def test_same_references() -> None:
     dataset1 = await Dataset.open()
     dataset2 = await Dataset.open()
     assert dataset1 is dataset2
+
     dataset_name = 'non-default'
     dataset_named1 = await Dataset.open(name=dataset_name)
     dataset_named2 = await Dataset.open(name=dataset_name)

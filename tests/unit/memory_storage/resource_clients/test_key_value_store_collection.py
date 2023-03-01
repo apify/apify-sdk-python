@@ -14,6 +14,7 @@ async def test_get_or_create(key_value_stores_client: KeyValueStoreCollectionCli
     # A new kvs gets created
     kvs_info = await key_value_stores_client.get_or_create(name=kvs_name)
     assert kvs_info['name'] == kvs_name
+
     # Another get_or_create call returns the same kvs
     kvs_info_existing = await key_value_stores_client.get_or_create(name=kvs_name)
     assert kvs_info['id'] == kvs_info_existing['id']
@@ -27,6 +28,7 @@ async def test_list(key_value_stores_client: KeyValueStoreCollectionClient) -> N
     kvs_list = await key_value_stores_client.list()
     assert kvs_list.count == 1
     assert kvs_list.items[0]['name'] == kvs_info['name']
+
     # Test sorting behavior
     newer_kvs_info = await key_value_stores_client.get_or_create(name='newer-kvs')
     kvs_list_sorting = await key_value_stores_client.list()

@@ -23,7 +23,6 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
 
 
 class TestActorCreateProxyConfiguration:
-
     async def test_create_proxy_configuration_basic(
         self,
         monkeypatch: pytest.MonkeyPatch,

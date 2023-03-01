@@ -6,7 +6,6 @@ from apify import Actor
 
 
 class TestActorOpenRequestQueue:
-
     async def test_throws_without_init(self) -> None:
         with pytest.raises(RuntimeError):
             await Actor.open_request_queue()
@@ -16,6 +15,7 @@ class TestActorOpenRequestQueue:
             rq1 = await Actor.open_request_queue()
             rq2 = await Actor.open_request_queue()
             assert rq1 is rq2
+
             rq_name = 'non-default'
             rq_by_name_1 = await Actor.open_key_value_store(name=rq_name)
             rq_by_name_2 = await Actor.open_key_value_store(name=rq_name)

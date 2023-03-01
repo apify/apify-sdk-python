@@ -14,6 +14,7 @@ async def test_get_or_create(request_queues_client: RequestQueueCollectionClient
     # A new request queue gets created
     rq_info = await request_queues_client.get_or_create(name=rq_name)
     assert rq_info['name'] == rq_name
+
     # Another get_or_create call returns the same request queue
     rq_existing = await request_queues_client.get_or_create(name=rq_name)
     assert rq_info['id'] == rq_existing['id']
@@ -27,6 +28,7 @@ async def test_list(request_queues_client: RequestQueueCollectionClient) -> None
     rq_list = await request_queues_client.list()
     assert rq_list.count == 1
     assert rq_list.items[0]['name'] == rq_info['name']
+
     # Test sorting behavior
     newer_rq_info = await request_queues_client.get_or_create(name='newer-dataset')
     rq_list_sorting = await request_queues_client.list()

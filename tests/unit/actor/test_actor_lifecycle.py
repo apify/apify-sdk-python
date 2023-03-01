@@ -10,7 +10,6 @@ from apify.consts import ActorEventTypes, ApifyEnvVars
 
 
 class TestActorInit:
-
     async def test_async_with_actor_properly_initialize(self) -> None:
         async with Actor:
             assert Actor._get_default_instance()._is_initialized
@@ -18,13 +17,16 @@ class TestActorInit:
 
     async def test_actor_init(self) -> None:
         my_actor = Actor()
+
         await my_actor.init()
         assert my_actor._is_initialized is True
+
         await my_actor.exit()
         assert my_actor._is_initialized is False
 
     async def test_double_init(self) -> None:
         my_actor = Actor()
+
         await my_actor.init()
         with pytest.raises(RuntimeError):
             await my_actor.init()
@@ -37,7 +39,6 @@ class TestActorInit:
 
 
 class TestActorExit:
-
     async def test_with_actor_exit(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(ApifyEnvVars.SYSTEM_INFO_INTERVAL_MILLIS, '100')
         monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '100')
@@ -64,6 +65,7 @@ class TestActorExit:
         on_system_info_count = len(on_system_info)
         assert on_persist_count != 0
         assert on_system_info_count != 0
+
         # Check if events stopped emitting.
         await asyncio.sleep(0.2)
         assert on_persist_count == len(on_persist)
@@ -77,7 +79,6 @@ class TestActorExit:
 
 
 class TestActorFail:
-
     async def test_with_actor_fail(self) -> None:
         async with Actor() as my_actor:
             assert my_actor._is_initialized
@@ -103,7 +104,6 @@ class TestActorFail:
 
 
 class TestActorMainMethod:
-
     async def test_actor_main_method(self) -> None:
         my_actor = Actor()
         main_was_called = False

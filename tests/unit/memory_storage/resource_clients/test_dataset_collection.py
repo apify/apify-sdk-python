@@ -15,6 +15,7 @@ async def test_get_or_create(datasets_client: DatasetCollectionClient) -> None:
     # A new dataset gets created
     dataset_info = await datasets_client.get_or_create(name=dataset_name)
     assert dataset_info['name'] == dataset_name
+
     # Another get_or_create call returns the same dataset
     dataset_info_existing = await datasets_client.get_or_create(name=dataset_name)
     assert dataset_info['id'] == dataset_info_existing['id']
@@ -28,6 +29,7 @@ async def test_list(datasets_client: DatasetCollectionClient) -> None:
     dataset_list = await datasets_client.list()
     assert dataset_list.count == 1
     assert dataset_list.items[0]['name'] == dataset_info['name']
+
     # Test sorting behavior
     newer_dataset_info = await datasets_client.get_or_create(name='newer-dataset')
     dataset_list_sorting = await datasets_client.list()

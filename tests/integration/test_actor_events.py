@@ -7,7 +7,6 @@ from .conftest import ActorFactory
 
 
 class TestActorEvents:
-
     async def test_interval_events(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import os
