@@ -2,8 +2,8 @@
 import pytest
 
 from apify import Actor
+from apify._memory_storage import MemoryStorageClient
 from apify.consts import ApifyEnvVars
-from apify.memory_storage import MemoryStorage
 
 # NOTE: We only test the dataset methond available on Actor class/instance. Actual tests for the implementations are in storages/.
 
@@ -20,22 +20,27 @@ class TestActorOpenDataset:
             dataset2 = await Actor.open_dataset()
             assert dataset1 is dataset2
             dataset_name = 'non-default'
-            dataset_named1 = await Actor.open_dataset(name=dataset_name)
-            dataset_named2 = await Actor.open_dataset(name=dataset_name)
-            assert dataset_named1 is dataset_named2
+            dataset_by_name_1 = await Actor.open_dataset(name=dataset_name)
+            dataset_by_name_2 = await Actor.open_dataset(name=dataset_name)
+            assert dataset_by_name_1 is dataset_by_name_2
+
+            dataset_by_id_1 = await Actor.open_dataset(id=dataset_by_name_1._id)
+            dataset_by_id_2 = await Actor.open_dataset(id=dataset_by_name_1._id)
+
+            assert dataset_by_id_1 is dataset_by_name_1
+            assert dataset_by_id_2 is dataset_by_id_1
 
     async def test_open_datatset_based_env_var(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        memory_storage: MemoryStorage,
+        memory_storage_client: MemoryStorageClient,
     ) -> None:
-        default_dataset_name = 'my-new-default-name'
-        await memory_storage.datasets().get_or_create(name=default_dataset_name)
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_DATASET_ID, default_dataset_name)
+        default_dataset_id = 'my-new-default-id'
+        monkeypatch.setenv(ApifyEnvVars.DEFAULT_DATASET_ID, default_dataset_id)
         async with Actor:
             ddt = await Actor.open_dataset()
-            assert ddt._name == default_dataset_name
-            await memory_storage.dataset(ddt._id).delete()
+            assert ddt._id == default_dataset_id
+            await memory_storage_client.dataset(ddt._id).delete()
 
 
 class TestActorPushData:

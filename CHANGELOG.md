@@ -4,6 +4,10 @@ Changelog
 [0.2.0](../../releases/tag/v0.2.0) - Upcoming
 ---------------------------------------------
 
+### Breaking changes
+
+- fixed local `MemoryStorageClient` not handling the difference between storage `id` and `name` correctly
+
 ### Fixed
 
 - fixed parsing messages from the platform events websocket when they have no event data

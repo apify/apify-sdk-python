@@ -1,4 +1,8 @@
+import pytest
+
 from apify import Actor
+from apify.consts import ApifyEnvVars
+from apify_client import ApifyClientAsync
 
 from ._utils import generate_unique_resource_name
 from .conftest import ActorFactory
@@ -25,16 +29,47 @@ class TestActorOpenKeyValueStore:
             async with Actor:
                 input_object = await Actor.get_input()
                 kvs_name = input_object['kvsName']
-                kvs1 = await Actor.open_key_value_store(name=kvs_name)
-                kvs2 = await Actor.open_key_value_store(name=kvs_name)
-                assert kvs1 is kvs2
-                await kvs1.drop()
+                kvs_by_name_1 = await Actor.open_key_value_store(name=kvs_name)
+                kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
+                assert kvs_by_name_1 is kvs_by_name_2
+
+                kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_by_name_1._id)
+                kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_by_name_1._id)
+                assert kvs_by_id_1 is kvs_by_name_1
+                assert kvs_by_id_2 is kvs_by_id_1
+
+                await kvs_by_name_1.drop()
 
         actor = await make_actor('kvs-same-ref-named', main_func=main)
 
         run_result = await actor.call(run_input={'kvsName': kvs_name})
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
+
+    async def test_force_cloud(self, apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+        assert apify_client_async.token is not None
+        monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
+
+        key_value_store_name = generate_unique_resource_name('key_value_store')
+
+        async with Actor:
+            key_value_store = await Actor.open_key_value_store(name=key_value_store_name, force_cloud=True)
+            key_value_store_id = key_value_store._id
+
+            await key_value_store.set_value('foo', 'bar')
+
+        key_value_store_client = apify_client_async.key_value_store(key_value_store_id)
+
+        try:
+            key_value_store_details = await key_value_store_client.get()
+            assert key_value_store_details is not None
+            assert key_value_store_details.get('name') == key_value_store_name
+
+            key_value_store_record = await key_value_store_client.get_record('foo')
+            assert key_value_store_record is not None
+            assert key_value_store_record['value'] == 'bar'
+        finally:
+            await key_value_store_client.delete()
 
 
 class TestActorGetSetValue:
@@ -75,7 +110,7 @@ class TestActorGetSetValue:
             async with Actor:
                 input_object = await Actor.get_input()
                 # Access KVS of the previous 'set' run
-                kvs = await Actor.open_key_value_store(name=input_object['kvs-id'])
+                kvs = await Actor.open_key_value_store(id=input_object['kvs-id'])
                 value = await kvs.get_value('test')
                 assert value['number'] == 123
                 assert value['string'] == 'a string'

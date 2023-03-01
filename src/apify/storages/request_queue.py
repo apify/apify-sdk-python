@@ -6,16 +6,16 @@ from typing import OrderedDict as OrderedDictType
 from typing import Set, Union
 
 from apify_client import ApifyClientAsync
-from apify_client.clients import RequestQueueClientAsync
+from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
 
 from .._crypto import _crypto_random_object_id
+from .._memory_storage import MemoryStorageClient
+from .._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
 from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
 from ..config import Configuration
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from ..log import logger
-from ..memory_storage import MemoryStorage
-from ..memory_storage.resource_clients import RequestQueueClient
-from .storage_manager import StorageManager
+from .base_storage import BaseStorage
 
 MAX_CACHED_REQUESTS = 1_000_000
 
@@ -48,7 +48,7 @@ STORAGE_CONSISTENCY_DELAY_MILLIS = 3000
 """
 
 
-class RequestQueue:
+class RequestQueue(BaseStorage):
     """Represents a queue of URLs to crawl.
 
     Can be used for deep crawling of websites where you start with several URLs and then recursively
@@ -79,9 +79,7 @@ class RequestQueue:
     cloud storage.
     """
 
-    _id: str
-    _name: Optional[str]
-    _client: Union[RequestQueueClientAsync, RequestQueueClient]
+    _request_queue_client: Union[RequestQueueClientAsync, RequestQueueClient]
     _client_key = _crypto_random_object_id()
     _queue_head_dict: OrderedDictType[str, str]
     _query_queue_head_promise: Optional[Coroutine]
@@ -93,7 +91,7 @@ class RequestQueue:
     _assumed_handled_count = 0
     _requests_cache: LRUCache[Dict]
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorage]) -> None:
+    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
         """Create a `RequestQueue` instance.
 
         Do not use the constructor directly, use the `Actor.open_request_queue()` function instead.
@@ -101,11 +99,11 @@ class RequestQueue:
         Args:
             id (str): ID of the request queue.
             name (str, optional): Name of the request queue.
-            client (ApifyClientAsync or MemoryStorage): The storage client which should be used.
+            client (ApifyClientAsync or MemoryStorageClient): The storage client which should be used.
         """
-        self._id = id
-        self._name = name
-        self._client = client.request_queue(self._id, client_key=self._client_key)
+        super().__init__(id=id, name=name, client=client)
+
+        self._request_queue_client = client.request_queue(self._id, client_key=self._client_key)
         self._queue_head_dict = OrderedDict()
         self._query_queue_head_promise = None
         self._in_progress = set()
@@ -114,17 +112,27 @@ class RequestQueue:
         self._requests_cache = LRUCache(max_length=MAX_CACHED_REQUESTS)
 
     @classmethod
-    async def _create_instance(cls, request_queue_id_or_name: str, client: Union[ApifyClientAsync, MemoryStorage]) -> 'RequestQueue':
-        request_queue_client = client.request_queue(request_queue_id_or_name)
-        request_queue_info = await request_queue_client.get()
-        if not request_queue_info:
-            request_queue_info = await client.request_queues().get_or_create(name=request_queue_id_or_name)
-
-        return RequestQueue(request_queue_info['id'], request_queue_info.get('name'), client)
+    def _get_human_friendly_label(cls) -> str:
+        return 'Request queue'
 
     @classmethod
-    def _get_default_name(cls, config: Configuration) -> str:
+    def _get_default_id(cls, config: Configuration) -> str:
         return config.default_request_queue_id
+
+    @classmethod
+    def _get_single_storage_client(
+        cls,
+        id: str,
+        client: Union[ApifyClientAsync, MemoryStorageClient],
+    ) -> Union[RequestQueueClientAsync, RequestQueueClient]:
+        return client.request_queue(id)
+
+    @classmethod
+    def _get_storage_collection_client(
+        cls,
+        client: Union[ApifyClientAsync, MemoryStorageClient],
+    ) -> Union[RequestQueueCollectionClientAsync, RequestQueueCollectionClient]:
+        return client.request_queues()
 
     async def add_request(self, request: Dict, *, forefront: bool = False) -> Dict:
         """Add a request to the queue.
@@ -158,7 +166,7 @@ class RequestQueue:
                 'uniqueKey': cached_info['uniqueKey'],
             }
 
-        queue_operation_info = await self._client.add_request(request, forefront=forefront)
+        queue_operation_info = await self._request_queue_client.add_request(request, forefront=forefront)
         queue_operation_info['uniqueKey'] = request['uniqueKey']
 
         self._cache_request(cache_key, queue_operation_info)
@@ -181,7 +189,7 @@ class RequestQueue:
             dict, optional: The retrieved request, or `None`, if it does not exist.
         """
         _budget_ow(request_id, (str, True), 'request_id')
-        return await self._client.get_request(request_id)
+        return await self._request_queue_client.get_request(request_id)
 
     async def fetch_next_request(self) -> Optional[Dict]:
         """Return the next request in the queue to be processed.
@@ -271,7 +279,7 @@ class RequestQueue:
             return None
 
         request['handledAt'] = request.get('handledAt', datetime.now(timezone.utc))
-        queue_operation_info = await self._client.update_request({**request})
+        queue_operation_info = await self._request_queue_client.update_request({**request})
         queue_operation_info['uniqueKey'] = request['uniqueKey']
 
         self._in_progress.remove(request['id'])
@@ -309,7 +317,7 @@ class RequestQueue:
 
         # TODO: If request hasn't been changed since the last getRequest(),
         #       we don't need to call updateRequest() and thus improve performance.
-        queue_operation_info = await self._client.update_request(request, forefront=forefront)
+        queue_operation_info = await self._request_queue_client.update_request(request, forefront=forefront)
         queue_operation_info['uniqueKey'] = request['uniqueKey']
         self._cache_request(_unique_key_to_request_id(request['uniqueKey']), queue_operation_info)
 
@@ -384,7 +392,7 @@ class RequestQueue:
     async def _queue_query_head(self, limit: int) -> Dict:
         query_started_at = datetime.now(timezone.utc)
 
-        list_head = await self._client.list_head(limit=limit)
+        list_head = await self._request_queue_client.list_head(limit=limit)
         for request in list_head['items']:
             # Queue head index might be behind the main table, so ensure we don't recycle requests
             if not request['id'] or not request['uniqueKey'] or request['id'] in self._in_progress or self._recently_handled.get(request['id']):
@@ -477,8 +485,8 @@ class RequestQueue:
 
     async def drop(self) -> None:
         """Remove the request queue either from the Apify cloud storage or from the local directory."""
-        await self._client.delete()
-        await StorageManager.close_storage(self.__class__, self._id, self._name)
+        await self._request_queue_client.delete()
+        await self._remove_from_cache()
 
     async def get_info(self) -> Optional[Dict]:
         """Get an object containing general information about the request queue.
@@ -486,10 +494,17 @@ class RequestQueue:
         Returns:
             dict: Object returned by calling the GET request queue API endpoint.
         """
-        return await self._client.get()
+        return await self._request_queue_client.get()
 
     @classmethod
-    async def open(cls, request_queue_id_or_name: Optional[str] = None, config: Optional[Configuration] = None) -> 'RequestQueue':
+    async def open(
+        cls,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        force_cloud: bool = False,
+        config: Optional[Configuration] = None,
+    ) -> 'RequestQueue':
         """Open a request queue.
 
         Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
@@ -500,11 +515,15 @@ class RequestQueue:
         Args:
             id (str, optional): ID of the request queue to be opened.
                 If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
+                If the request queue with the given ID does not exist, it raises an error.
             name (str, optional): Name of the request queue to be opened.
                 If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
+                If the request queue with the given name does not exist, it is created.
+            force_cloud (bool, optional): If set to True, it will open a request queue on the Apify Platform even when running the actor locally.
+                Defaults to False.
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:
             RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
         """
-        return await StorageManager.open_storage(cls, request_queue_id_or_name, None, config)
+        return await super().open(id=id, name=name, force_cloud=force_cloud, config=config)

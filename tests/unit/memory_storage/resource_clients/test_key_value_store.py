@@ -1,39 +1,40 @@
 import asyncio
 import os
+from pathlib import Path
 
 import pytest
 
-from apify.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients import KeyValueStoreClient
+from apify._memory_storage import MemoryStorageClient
+from apify._memory_storage.resource_clients import KeyValueStoreClient
 
 
 @pytest.fixture
-async def key_value_store_client(memory_storage: MemoryStorage) -> KeyValueStoreClient:
-    key_value_stores_client = memory_storage.key_value_stores()
+async def key_value_store_client(memory_storage_client: MemoryStorageClient) -> KeyValueStoreClient:
+    key_value_stores_client = memory_storage_client.key_value_stores()
     kvs_info = await key_value_stores_client.get_or_create(name='test')
-    return memory_storage.key_value_store(kvs_info['id'])
+    return memory_storage_client.key_value_store(kvs_info['id'])
 
 
-async def test_nonexistent(memory_storage: MemoryStorage) -> None:
-    kvs_client = memory_storage.key_value_store(key_value_store_id='clearly not a uuid')
+async def test_nonexistent(memory_storage_client: MemoryStorageClient) -> None:
+    kvs_client = memory_storage_client.key_value_store(key_value_store_id='nonexistent-id')
     assert await kvs_client.get() is None
 
-    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
+    with pytest.raises(ValueError, match='Key-value store with id "nonexistent-id" does not exist.'):
         await kvs_client.update(name='test-update')
 
-    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
+    with pytest.raises(ValueError, match='Key-value store with id "nonexistent-id" does not exist.'):
         await kvs_client.list_keys()
 
-    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
+    with pytest.raises(ValueError, match='Key-value store with id "nonexistent-id" does not exist.'):
         await kvs_client.set_record('test', {'abc': 123})
 
-    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
+    with pytest.raises(ValueError, match='Key-value store with id "nonexistent-id" does not exist.'):
         await kvs_client.get_record('test')
 
-    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
+    with pytest.raises(ValueError, match='Key-value store with id "nonexistent-id" does not exist.'):
         await kvs_client.get_record_as_bytes('test')
 
-    with pytest.raises(ValueError, match='Key-value store with id "clearly not a uuid" does not exist.'):
+    with pytest.raises(ValueError, match='Key-value store with id "nonexistent-id" does not exist.'):
         await kvs_client.delete_record('test')
 
     await kvs_client.delete()
@@ -57,8 +58,8 @@ async def test_update(key_value_store_client: KeyValueStoreClient) -> None:
     await key_value_store_client.set_record('test', {'abc': 123})
     old_kvs_info = await key_value_store_client.get()
     assert old_kvs_info is not None
-    old_kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, old_kvs_info['name'])
-    new_kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, new_kvs_name)
+    old_kvs_directory = os.path.join(key_value_store_client._memory_storage_client._key_value_stores_directory, old_kvs_info['name'])
+    new_kvs_directory = os.path.join(key_value_store_client._memory_storage_client._key_value_stores_directory, new_kvs_name)
     assert os.path.exists(os.path.join(old_kvs_directory, 'test.json')) is True
     assert os.path.exists(os.path.join(new_kvs_directory, 'test.json')) is False
 
@@ -80,7 +81,7 @@ async def test_delete(key_value_store_client: KeyValueStoreClient) -> None:
     await key_value_store_client.set_record('test', {'abc': 123})
     kvs_info = await key_value_store_client.get()
     assert kvs_info is not None
-    kvs_directory = os.path.join(key_value_store_client._client._key_value_stores_directory, kvs_info['name'])
+    kvs_directory = os.path.join(key_value_store_client._memory_storage_client._key_value_stores_directory, kvs_info['name'])
     assert os.path.exists(os.path.join(kvs_directory, 'test.json')) is True
     await key_value_store_client.delete()
     assert os.path.exists(os.path.join(kvs_directory, 'test.json')) is False
@@ -123,7 +124,7 @@ async def test_list_keys(key_value_store_client: KeyValueStoreClient) -> None:
     assert keys_exclusive_start['items'][-1]['key'] == keys_exclusive_start['nextExclusiveStartKey']
 
 
-async def test_get_and_set_record(tmp_path: str, key_value_store_client: KeyValueStoreClient) -> None:
+async def test_get_and_set_record(tmp_path: Path, key_value_store_client: KeyValueStoreClient) -> None:
     # Test setting dict record
     dict_record_key = 'test-dict'
     await key_value_store_client.set_record(dict_record_key, {'test': 123})

@@ -267,14 +267,6 @@ def _json_dumps(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, indent=2, default=str)
 
 
-uuid_regex = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
-
-
-def _is_uuid(string: str) -> bool:
-    """Test whether the given string matches UUID format."""
-    return bool(uuid_regex.match(string))
-
-
 def _raise_on_non_existing_storage(client_type: StorageTypes, id: str) -> NoReturn:
     client_type = _maybe_extract_enum_member_value(client_type)
     raise ValueError(f'{client_type} with id "{id}" does not exist.')

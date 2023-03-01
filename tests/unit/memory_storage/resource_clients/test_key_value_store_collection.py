@@ -1,12 +1,12 @@
 import pytest
 
-from apify.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients import KeyValueStoreCollectionClient
+from apify._memory_storage import MemoryStorageClient
+from apify._memory_storage.resource_clients import KeyValueStoreCollectionClient
 
 
 @pytest.fixture
-def key_value_stores_client(memory_storage: MemoryStorage) -> KeyValueStoreCollectionClient:
-    return memory_storage.key_value_stores()
+def key_value_stores_client(memory_storage_client: MemoryStorageClient) -> KeyValueStoreCollectionClient:
+    return memory_storage_client.key_value_stores()
 
 
 async def test_get_or_create(key_value_stores_client: KeyValueStoreCollectionClient) -> None:
@@ -22,14 +22,14 @@ async def test_get_or_create(key_value_stores_client: KeyValueStoreCollectionCli
 
 
 async def test_list(key_value_stores_client: KeyValueStoreCollectionClient) -> None:
-    assert key_value_stores_client.list().count == 0
+    assert (await key_value_stores_client.list()).count == 0
     kvs_info = await key_value_stores_client.get_or_create(name='kvs')
-    kvs_list = key_value_stores_client.list()
+    kvs_list = await key_value_stores_client.list()
     assert kvs_list.count == 1
     assert kvs_list.items[0]['name'] == kvs_info['name']
     # Test sorting behavior
     newer_kvs_info = await key_value_stores_client.get_or_create(name='newer-kvs')
-    kvs_list_sorting = key_value_stores_client.list()
+    kvs_list_sorting = await key_value_stores_client.list()
     assert kvs_list_sorting.count == 2
     assert kvs_list_sorting.items[0]['name'] == kvs_info['name']
     assert kvs_list_sorting.items[1]['name'] == newer_kvs_info['name']

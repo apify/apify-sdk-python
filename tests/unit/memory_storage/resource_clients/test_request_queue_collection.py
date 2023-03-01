@@ -1,12 +1,12 @@
 import pytest
 
-from apify.memory_storage import MemoryStorage
-from apify.memory_storage.resource_clients import RequestQueueCollectionClient
+from apify._memory_storage import MemoryStorageClient
+from apify._memory_storage.resource_clients import RequestQueueCollectionClient
 
 
 @pytest.fixture
-def request_queues_client(memory_storage: MemoryStorage) -> RequestQueueCollectionClient:
-    return memory_storage.request_queues()
+def request_queues_client(memory_storage_client: MemoryStorageClient) -> RequestQueueCollectionClient:
+    return memory_storage_client.request_queues()
 
 
 async def test_get_or_create(request_queues_client: RequestQueueCollectionClient) -> None:
@@ -22,14 +22,14 @@ async def test_get_or_create(request_queues_client: RequestQueueCollectionClient
 
 
 async def test_list(request_queues_client: RequestQueueCollectionClient) -> None:
-    assert request_queues_client.list().count == 0
+    assert (await request_queues_client.list()).count == 0
     rq_info = await request_queues_client.get_or_create(name='dataset')
-    rq_list = request_queues_client.list()
+    rq_list = await request_queues_client.list()
     assert rq_list.count == 1
     assert rq_list.items[0]['name'] == rq_info['name']
     # Test sorting behavior
     newer_rq_info = await request_queues_client.get_or_create(name='newer-dataset')
-    rq_list_sorting = request_queues_client.list()
+    rq_list_sorting = await request_queues_client.list()
     assert rq_list_sorting.count == 2
     assert rq_list_sorting.items[0]['name'] == rq_info['name']
     assert rq_list_sorting.items[1]['name'] == newer_rq_info['name']

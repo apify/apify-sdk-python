@@ -1,31 +1,35 @@
 import asyncio
 import inspect
 from collections import defaultdict
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, get_type_hints
 
 import pytest
 
 from apify import Actor
+from apify._memory_storage import MemoryStorageClient
 from apify.config import Configuration
-from apify.memory_storage import MemoryStorage
-from apify.storage_client_manager import StorageClientManager
-from apify.storages import StorageManager
+from apify.consts import ApifyEnvVars
+from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 from apify_client.client import ApifyClientAsync
 
 
 # To isolate the tests, we need to reset the used singletons before each test case
-# We also patch the default storage client with a tmp_path
+# We also set the MemoryStorageClient to use a temp path
 @pytest.fixture(autouse=True)
-def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path: str) -> None:
+def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(Actor, '_default_instance', None)
     monkeypatch.setattr(Configuration, '_default_instance', None)
-    monkeypatch.setattr(StorageManager, '_default_instance', None)
+    monkeypatch.setattr(Dataset, '_cache_by_id', None)
+    monkeypatch.setattr(Dataset, '_cache_by_name', None)
+    monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
+    monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
+    monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
+    monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
     monkeypatch.setattr(StorageClientManager, '_default_instance', None)
-    patched_memory_storage = MemoryStorage(local_data_directory=tmp_path)
 
-    def get_storage_client() -> 'MemoryStorage':
-        return patched_memory_storage
-    monkeypatch.setattr(StorageClientManager, 'get_storage_client', get_storage_client)
+    # This forces the MemoryStorageClient to use tmp_path for its storage dir
+    monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
 
 
 # This class is used to patch the ApifyClientAsync methods to return a fixed value or be replaced with another method.
@@ -119,5 +123,5 @@ def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAs
 
 
 @pytest.fixture
-def memory_storage(tmp_path: str) -> MemoryStorage:
-    return MemoryStorage(local_data_directory=tmp_path)
+def memory_storage_client() -> MemoryStorageClient:
+    return MemoryStorageClient(write_metadata=True, persist_storage=True)
