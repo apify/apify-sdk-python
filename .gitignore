@@ -11,12 +11,12 @@ __pycache__
 *.egg
 dist/
 build/
-# default folder for memory storage data
-storage/
 
 .vscode
 .idea
 .DS_Store
 
-website/docspec-dump.json
-website/api-typedoc-generated.json
+docs/changelog.md
+
+# default folder for memory storage data
+storage/

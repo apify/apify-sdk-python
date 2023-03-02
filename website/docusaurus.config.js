@@ -31,15 +31,8 @@ module.exports = {
                             to: 'docs/overview/introduction',
                             label: 'Docs',
                             position: 'left',
-                            activeBaseRegex: 'docs',
+                            activeBaseRegex: '/docs(?!/changelog)',
                         },
-                        // {
-                        //     type: 'docsVersionDropdown',
-                        //     position: 'left',
-                        //     className: 'navbar__item', // fixes margin around dropdown - hackish, should be fixed in theme
-                        //     dropdownItemsBefore: [],
-                        //     dropdownItemsAfter: [],
-                        // },
                         {
                             to: '/reference',
                             label: 'Reference',
@@ -50,7 +43,7 @@ module.exports = {
                             to: 'docs/changelog',
                             label: 'Changelog',
                             position: 'left',
-                            activeBaseRegex: 'changelog',
+                            activeBaseRegex: '/docs/changelog',
                         },
                         {
                             href: 'https://github.com/apify/apify-sdk-python',
@@ -68,8 +61,6 @@ module.exports = {
             /** @type {import('@docusaurus/preset-classic').Options} */
             ({
                 docs: {
-                    showLastUpdateAuthor: true,
-                    showLastUpdateTime: true,
                     path: '../docs',
                     sidebarPath: './sidebars.js',
                     rehypePlugins: [externalLinkProcessor],
@@ -81,26 +72,25 @@ module.exports = {
         [
             'docusaurus-plugin-typedoc-api',
             {
-                projectRoot: `.`,
+                projectRoot: '.',
                 changelogs: false,
                 readmes: false,
                 packages: [{ path: '.' }],
                 typedocOptions: {
                     excludeExternals: false,
-                    categoryOrder: ["Main Clients", "*"]
                 },
                 pathToTypedocJSON: `${__dirname}/api-typedoc-generated.json`,
                 sortSidebar: groupSort,
                 routeBasePath: 'reference',
             },
         ],
-        // [
-        //     'docusaurus-gtm-plugin',
-        //     {
-        //         id: 'GTM-TKBX678',
-        //     },
-        // ],
     ],
-    themeConfig: config.themeConfig,
-    staticDirectories: ['node_modules/@apify/docs-theme/static']
+    themeConfig: {
+        ...config.themeConfig,
+        tableOfContents: {
+            ...config.themeConfig.tableOfContents,
+            maxHeadingLevel: 5,
+        },
+    },
+    staticDirectories: ['node_modules/@apify/docs-theme/static', 'static'],
 };

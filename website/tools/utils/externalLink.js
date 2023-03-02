@@ -12,7 +12,7 @@ function isInternal(href) {
         (internalUrl) => href.host === internalUrl
             || (!href.protocol && !href.host && (href.pathname || href.hash)),
     );
-};
+}
 
 /**
  * @type {import('unified').Plugin}

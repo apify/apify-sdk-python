@@ -7,7 +7,6 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './index.module.css';
 
-
 function Hero() {
     return (
         <header className={clsx('container', styles.heroBanner)}>
@@ -60,7 +59,6 @@ export default function Home() {
     const { siteConfig } = useDocusaurusContext();
     return (
         <Layout
-            title={`${siteConfig.title} · ${siteConfig.tagline}`}
             description={siteConfig.description}>
             <Hero />
             <div>
@@ -74,8 +72,7 @@ export default function Home() {
                             </p>
                         </div>
                         <div className="col col--8">
-                            <CodeBlock language='python'>{
-`from apify import Actor
+                            <CodeBlock language='python'>{`from apify import Actor
 from bs4 import BeautifulSoup
 import requests
 
