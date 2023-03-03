@@ -24,7 +24,7 @@ setup(
     author_email='support@apify.com',
     url='https://github.com/apify/apify-sdk-python',
     project_urls={
-        'Documentation': 'https://docs.apify.com/apify-sdk-python',
+        'Documentation': 'https://docs.apify.com/sdk/python/',
         'Source': 'https://github.com/apify/apify-sdk-python',
         'Issue tracker': 'https://github.com/apify/apify-sdk-python/issues',
         'Apify Homepage': 'https://apify.com',

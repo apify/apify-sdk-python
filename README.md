@@ -1,7 +1,10 @@
 # Apify SDK for Python
 
-Apify SDK is the core set of tools and utilities that we've built to help make your interaction with the [Apify Platform](https://apify.com) easier.
-It's still under heavy development, check back in a few weeks if you want to use it!
+The Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors) in Python.
+It provides useful features like actor lifecycle management, local storage emulation, and actor event handling.
+
+If you just need to access the [Apify API](https://docs.apify.com/api/v2) from your Python applications,
+check out the [Apify Client for Python](https://docs.apify.com/api/client/python) instead.
 
 ## Installation
 
