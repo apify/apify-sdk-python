@@ -19,6 +19,7 @@ Changelog
 - fixed local `RequestQueueClient` not respecting the `forefront` argument
 - fixed local `RequestQueueClient` not counting the `handledRequestCount` property
 - stopped calling `sys.exit()` in a nested asyncio loop
+- stopped purging storages by default
 
 ### Internal changes
 

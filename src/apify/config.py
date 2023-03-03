@@ -98,7 +98,7 @@ class Configuration:
         self.proxy_password = proxy_password or _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PASSWORD)
         self.proxy_port = proxy_port or _fetch_and_parse_env_var(ApifyEnvVars.PROXY_PORT, 8000)
         self.proxy_status_url = proxy_status_url or _fetch_and_parse_env_var(ApifyEnvVars.PROXY_STATUS_URL, 'http://proxy.apify.com')
-        self.purge_on_start = purge_on_start or _fetch_and_parse_env_var(ApifyEnvVars.PURGE_ON_START, True)
+        self.purge_on_start = purge_on_start or _fetch_and_parse_env_var(ApifyEnvVars.PURGE_ON_START, False)
         self.started_at = _fetch_and_parse_env_var(ApifyEnvVars.STARTED_AT)
         self.timeout_at = _fetch_and_parse_env_var(ApifyEnvVars.TIMEOUT_AT)
         self.token = token or _fetch_and_parse_env_var(ApifyEnvVars.TOKEN)
