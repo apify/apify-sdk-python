@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from datetime import datetime, timezone
@@ -40,6 +41,7 @@ class RequestQueueClient(BaseResourceClient):
     _handled_request_count = 0
     _pending_request_count = 0
     _last_used_timestamp = Decimal(0.0)
+    _file_operation_lock: asyncio.Lock
 
     def __init__(
         self,
@@ -58,6 +60,7 @@ class RequestQueueClient(BaseResourceClient):
         self._created_at = datetime.now(timezone.utc)
         self._accessed_at = datetime.now(timezone.utc)
         self._modified_at = datetime.now(timezone.utc)
+        self._file_operation_lock = asyncio.Lock()
 
     async def get(self) -> Optional[Dict]:
         """Retrieve the request queue.
@@ -68,8 +71,9 @@ class RequestQueueClient(BaseResourceClient):
         found = self._find_or_create_client_by_id_or_name(memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if found:
-            await found._update_timestamps(False)
-            return found._to_resource_info()
+            async with found._file_operation_lock:
+                await found._update_timestamps(False)
+                return found._to_resource_info()
 
         return None
 
@@ -93,38 +97,40 @@ class RequestQueueClient(BaseResourceClient):
         if name is None:
             return existing_queue_by_id._to_resource_info()
 
-        # Check that name is not in use already
-        existing_queue_by_name = next(
-            (queue for queue in self._memory_storage_client._request_queues_handled if queue._name and queue._name.lower() == name.lower()), None)
+        async with existing_queue_by_id._file_operation_lock:
+            # Check that name is not in use already
+            existing_queue_by_name = next(
+                (queue for queue in self._memory_storage_client._request_queues_handled if queue._name and queue._name.lower() == name.lower()), None)
 
-        if existing_queue_by_name is not None:
-            _raise_on_duplicate_storage(_StorageTypes.REQUEST_QUEUE, 'name', name)
+            if existing_queue_by_name is not None:
+                _raise_on_duplicate_storage(_StorageTypes.REQUEST_QUEUE, 'name', name)
 
-        existing_queue_by_id._name = name
+            existing_queue_by_id._name = name
 
-        previous_dir = existing_queue_by_id._resource_directory
+            previous_dir = existing_queue_by_id._resource_directory
 
-        existing_queue_by_id._resource_directory = os.path.join(self._memory_storage_client._request_queues_directory, name)
+            existing_queue_by_id._resource_directory = os.path.join(self._memory_storage_client._request_queues_directory, name)
 
-        await _force_rename(previous_dir, existing_queue_by_id._resource_directory)
+            await _force_rename(previous_dir, existing_queue_by_id._resource_directory)
 
-        # Update timestamps
-        await existing_queue_by_id._update_timestamps(True)
+            # Update timestamps
+            await existing_queue_by_id._update_timestamps(True)
 
-        return existing_queue_by_id._to_resource_info()
+            return existing_queue_by_id._to_resource_info()
 
     async def delete(self) -> None:
         """Delete the request queue."""
         queue = next((queue for queue in self._memory_storage_client._request_queues_handled if queue._id == self._id), None)
 
         if queue is not None:
-            self._memory_storage_client._request_queues_handled.remove(queue)
-            queue._pending_request_count = 0
-            queue._handled_request_count = 0
-            queue._requests.clear()
+            async with queue._file_operation_lock:
+                self._memory_storage_client._request_queues_handled.remove(queue)
+                queue._pending_request_count = 0
+                queue._handled_request_count = 0
+                queue._requests.clear()
 
-            if os.path.exists(queue._resource_directory):
-                await aioshutil.rmtree(queue._resource_directory)
+                if os.path.exists(queue._resource_directory):
+                    await aioshutil.rmtree(queue._resource_directory)
 
     async def list_head(self, *, limit: Optional[int] = None) -> Dict:
         """Retrieve a given number of requests from the beginning of the queue.
@@ -141,29 +147,30 @@ class RequestQueueClient(BaseResourceClient):
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
-        await existing_queue_by_id._update_timestamps(False)
+        async with existing_queue_by_id._file_operation_lock:
+            await existing_queue_by_id._update_timestamps(False)
 
-        items: List[Dict] = []
+            items: List[Dict] = []
 
-        # Iterate all requests in the queue which have sorted key larger than infinity, which means `orderNo` is not `None`
-        # This will iterate them in order of `orderNo`
-        for request_key in existing_queue_by_id._requests.irange_key(min_key=-float('inf'), inclusive=(False, True)):
-            if len(items) == limit:
-                break
+            # Iterate all requests in the queue which have sorted key larger than infinity, which means `orderNo` is not `None`
+            # This will iterate them in order of `orderNo`
+            for request_key in existing_queue_by_id._requests.irange_key(min_key=-float('inf'), inclusive=(False, True)):
+                if len(items) == limit:
+                    break
 
-            request = existing_queue_by_id._requests.get(request_key)
+                request = existing_queue_by_id._requests.get(request_key)
 
-            # Check that the request still exists and was not handled,
-            # in case something deleted it or marked it as handled concurrenctly
-            if request and request['orderNo']:
-                items.append(request)
+                # Check that the request still exists and was not handled,
+                # in case something deleted it or marked it as handled concurrenctly
+                if request and request['orderNo']:
+                    items.append(request)
 
-        return {
-            'limit': limit,
-            'hadMultipleClients': False,
-            'queueModifiedAt': existing_queue_by_id._modified_at,
-            'items': [self._json_to_request(item['json']) for item in items],
-        }
+            return {
+                'limit': limit,
+                'hadMultipleClients': False,
+                'queueModifiedAt': existing_queue_by_id._modified_at,
+                'items': [self._json_to_request(item['json']) for item in items],
+            }
 
     async def add_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:
         """Add a request to the queue.
@@ -183,38 +190,39 @@ class RequestQueueClient(BaseResourceClient):
 
         request_model = self._create_internal_request(request, forefront)
 
-        existing_request_with_id = existing_queue_by_id._requests.get(request_model['id'])
+        async with existing_queue_by_id._file_operation_lock:
+            existing_request_with_id = existing_queue_by_id._requests.get(request_model['id'])
 
-        # We already have the request present, so we return information about it
-        if existing_request_with_id is not None:
-            await existing_queue_by_id._update_timestamps(False)
+            # We already have the request present, so we return information about it
+            if existing_request_with_id is not None:
+                await existing_queue_by_id._update_timestamps(False)
+
+                return {
+                    'requestId': existing_request_with_id['id'],
+                    'wasAlreadyHandled': existing_request_with_id['orderNo'] is None,
+                    'wasAlreadyPresent': True,
+                }
+
+            existing_queue_by_id._requests[request_model['id']] = request_model
+            if request_model['orderNo'] is None:
+                existing_queue_by_id._handled_request_count += 1
+            else:
+                existing_queue_by_id._pending_request_count += 1
+            await existing_queue_by_id._update_timestamps(True)
+            await _update_request_queue_item(
+                request=request_model,
+                request_id=request_model['id'],
+                entity_directory=existing_queue_by_id._resource_directory,
+                persist_storage=self._memory_storage_client._persist_storage,
+            )
 
             return {
-                'requestId': existing_request_with_id['id'],
-                'wasAlreadyHandled': existing_request_with_id['orderNo'] is None,
-                'wasAlreadyPresent': True,
+                'requestId': request_model['id'],
+                # We return wasAlreadyHandled: false even though the request may
+                # have been added as handled, because that's how API behaves.
+                'wasAlreadyHandled': False,
+                'wasAlreadyPresent': False,
             }
-
-        existing_queue_by_id._requests[request_model['id']] = request_model
-        if request_model['orderNo'] is None:
-            existing_queue_by_id._handled_request_count += 1
-        else:
-            existing_queue_by_id._pending_request_count += 1
-        await existing_queue_by_id._update_timestamps(True)
-        await _update_request_queue_item(
-            request=request_model,
-            request_id=request_model['id'],
-            entity_directory=existing_queue_by_id._resource_directory,
-            persist_storage=self._memory_storage_client._persist_storage,
-        )
-
-        return {
-            'requestId': request_model['id'],
-            # We return wasAlreadyHandled: false even though the request may
-            # have been added as handled, because that's how API behaves.
-            'wasAlreadyHandled': False,
-            'wasAlreadyPresent': False,
-        }
 
     async def get_request(self, request_id: str) -> Optional[Dict]:
         """Retrieve a request from the queue.
@@ -231,10 +239,11 @@ class RequestQueueClient(BaseResourceClient):
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
-        await existing_queue_by_id._update_timestamps(False)
+        async with existing_queue_by_id._file_operation_lock:
+            await existing_queue_by_id._update_timestamps(False)
 
-        request = existing_queue_by_id._requests.get(request_id)
-        return self._json_to_request(request['json'] if request is not None else None)
+            request = existing_queue_by_id._requests.get(request_id)
+            return self._json_to_request(request['json'] if request is not None else None)
 
     async def update_request(self, request: Dict, *, forefront: Optional[bool] = None) -> Dict:
         """Update a request in the queue.
@@ -264,33 +273,34 @@ class RequestQueueClient(BaseResourceClient):
         if existing_request is None:
             return await self.add_request(request, forefront=forefront)
 
-        # When updating the request, we need to make sure that
-        # the handled counts are updated correctly in all cases.
-        existing_queue_by_id._requests[request_model['id']] = request_model
+        async with existing_queue_by_id._file_operation_lock:
+            # When updating the request, we need to make sure that
+            # the handled counts are updated correctly in all cases.
+            existing_queue_by_id._requests[request_model['id']] = request_model
 
-        pending_count_adjustment = 0
-        is_request_handled_state_changing = type(existing_request['orderNo']) != type(request_model['orderNo'])  # noqa
-        request_was_handled_before_update = existing_request['orderNo'] is None
+            pending_count_adjustment = 0
+            is_request_handled_state_changing = type(existing_request['orderNo']) != type(request_model['orderNo'])  # noqa
+            request_was_handled_before_update = existing_request['orderNo'] is None
 
-        # We add 1 pending request if previous state was handled
-        if is_request_handled_state_changing:
-            pending_count_adjustment = 1 if request_was_handled_before_update else -1
+            # We add 1 pending request if previous state was handled
+            if is_request_handled_state_changing:
+                pending_count_adjustment = 1 if request_was_handled_before_update else -1
 
-        existing_queue_by_id._pending_request_count += pending_count_adjustment
-        existing_queue_by_id._handled_request_count -= pending_count_adjustment
-        await existing_queue_by_id._update_timestamps(True)
-        await _update_request_queue_item(
-            request=request_model,
-            request_id=request_model['id'],
-            entity_directory=existing_queue_by_id._resource_directory,
-            persist_storage=self._memory_storage_client._persist_storage,
-        )
+            existing_queue_by_id._pending_request_count += pending_count_adjustment
+            existing_queue_by_id._handled_request_count -= pending_count_adjustment
+            await existing_queue_by_id._update_timestamps(True)
+            await _update_request_queue_item(
+                request=request_model,
+                request_id=request_model['id'],
+                entity_directory=existing_queue_by_id._resource_directory,
+                persist_storage=self._memory_storage_client._persist_storage,
+            )
 
-        return {
-            'requestId': request_model['id'],
-            'wasAlreadyHandled': request_was_handled_before_update,
-            'wasAlreadyPresent': True,
-        }
+            return {
+                'requestId': request_model['id'],
+                'wasAlreadyHandled': request_was_handled_before_update,
+                'wasAlreadyPresent': True,
+            }
 
     async def delete_request(self, request_id: str) -> None:
         """Delete a request from the queue.
@@ -304,16 +314,17 @@ class RequestQueueClient(BaseResourceClient):
         if existing_queue_by_id is None:
             _raise_on_non_existing_storage(_StorageTypes.REQUEST_QUEUE, self._id)
 
-        request = existing_queue_by_id._requests.get(request_id)
+        async with existing_queue_by_id._file_operation_lock:
+            request = existing_queue_by_id._requests.get(request_id)
 
-        if request:
-            del existing_queue_by_id._requests[request_id]
-            if request['orderNo'] is None:
-                existing_queue_by_id._handled_request_count -= 1
-            else:
-                existing_queue_by_id._pending_request_count -= 1
-            await existing_queue_by_id._update_timestamps(True)
-            await _delete_request(entity_directory=existing_queue_by_id._resource_directory, request_id=request_id)
+            if request:
+                del existing_queue_by_id._requests[request_id]
+                if request['orderNo'] is None:
+                    existing_queue_by_id._handled_request_count -= 1
+                else:
+                    existing_queue_by_id._pending_request_count -= 1
+                await existing_queue_by_id._update_timestamps(True)
+                await _delete_request(entity_directory=existing_queue_by_id._resource_directory, request_id=request_id)
 
     def _to_resource_info(self) -> Dict:
         """Retrieve the request queue store info."""

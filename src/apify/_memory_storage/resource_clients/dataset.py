@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from datetime import datetime, timezone
@@ -39,6 +40,7 @@ class DatasetClient(BaseResourceClient):
     _accessed_at: datetime
     _modified_at: datetime
     _item_count = 0
+    _file_operation_lock: asyncio.Lock
 
     def __init__(
         self,
@@ -57,6 +59,7 @@ class DatasetClient(BaseResourceClient):
         self._created_at = datetime.now(timezone.utc)
         self._accessed_at = datetime.now(timezone.utc)
         self._modified_at = datetime.now(timezone.utc)
+        self._file_operation_lock = asyncio.Lock()
 
     async def get(self) -> Optional[Dict]:
         """Retrieve the dataset.
@@ -67,8 +70,9 @@ class DatasetClient(BaseResourceClient):
         found = self._find_or_create_client_by_id_or_name(memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if found:
-            await found._update_timestamps(False)
-            return found._to_resource_info()
+            async with found._file_operation_lock:
+                await found._update_timestamps(False)
+                return found._to_resource_info()
 
         return None
 
@@ -95,23 +99,26 @@ class DatasetClient(BaseResourceClient):
         if name is None:
             return existing_dataset_by_id._to_resource_info()
 
-        # Check that name is not in use already
-        existing_dataset_by_name = next(
-            (dataset for dataset in self._memory_storage_client._datasets_handled if dataset._name and dataset._name.lower() == name.lower()), None)
+        async with existing_dataset_by_id._file_operation_lock:
+            # Check that name is not in use already
+            existing_dataset_by_name = next(
+                (dataset for dataset in self._memory_storage_client._datasets_handled if dataset._name and dataset._name.lower() == name.lower()),
+                None,
+            )
 
-        if existing_dataset_by_name is not None:
-            _raise_on_duplicate_storage(_StorageTypes.DATASET, 'name', name)
+            if existing_dataset_by_name is not None:
+                _raise_on_duplicate_storage(_StorageTypes.DATASET, 'name', name)
 
-        existing_dataset_by_id._name = name
+            existing_dataset_by_id._name = name
 
-        previous_dir = existing_dataset_by_id._resource_directory
+            previous_dir = existing_dataset_by_id._resource_directory
 
-        existing_dataset_by_id._resource_directory = os.path.join(self._memory_storage_client._datasets_directory, name)
+            existing_dataset_by_id._resource_directory = os.path.join(self._memory_storage_client._datasets_directory, name)
 
-        await _force_rename(previous_dir, existing_dataset_by_id._resource_directory)
+            await _force_rename(previous_dir, existing_dataset_by_id._resource_directory)
 
-        # Update timestamps
-        await existing_dataset_by_id._update_timestamps(True)
+            # Update timestamps
+            await existing_dataset_by_id._update_timestamps(True)
 
         return existing_dataset_by_id._to_resource_info()
 
@@ -120,12 +127,13 @@ class DatasetClient(BaseResourceClient):
         dataset = next((dataset for dataset in self._memory_storage_client._datasets_handled if dataset._id == self._id), None)
 
         if dataset is not None:
-            self._memory_storage_client._datasets_handled.remove(dataset)
-            dataset._item_count = 0
-            dataset._dataset_entries.clear()
+            async with dataset._file_operation_lock:
+                self._memory_storage_client._datasets_handled.remove(dataset)
+                dataset._item_count = 0
+                dataset._dataset_entries.clear()
 
-            if os.path.exists(dataset._resource_directory):
-                await aioshutil.rmtree(dataset._resource_directory)
+                if os.path.exists(dataset._resource_directory):
+                    await aioshutil.rmtree(dataset._resource_directory)
 
     async def list_items(
         self,
@@ -181,30 +189,31 @@ class DatasetClient(BaseResourceClient):
         if existing_dataset_by_id is None:
             _raise_on_non_existing_storage(_StorageTypes.DATASET, self._id)
 
-        start, end = existing_dataset_by_id._get_start_and_end_indexes(
-            max(existing_dataset_by_id._item_count - (offset or 0) - (limit or LIST_ITEMS_LIMIT), 0) if desc else offset or 0,
-            limit,
-        )
+        async with existing_dataset_by_id._file_operation_lock:
+            start, end = existing_dataset_by_id._get_start_and_end_indexes(
+                max(existing_dataset_by_id._item_count - (offset or 0) - (limit or LIST_ITEMS_LIMIT), 0) if desc else offset or 0,
+                limit,
+            )
 
-        items = []
+            items = []
 
-        for idx in range(start, end):
-            entry_number = self._generate_local_entry_name(idx)
-            items.append(existing_dataset_by_id._dataset_entries[entry_number])
+            for idx in range(start, end):
+                entry_number = self._generate_local_entry_name(idx)
+                items.append(existing_dataset_by_id._dataset_entries[entry_number])
 
-        await existing_dataset_by_id._update_timestamps(False)
+            await existing_dataset_by_id._update_timestamps(False)
 
-        if desc:
-            items.reverse()
+            if desc:
+                items.reverse()
 
-        return ListPage({
-            'count': len(items),
-            'desc': desc or False,
-            'items': items,
-            'limit': limit or LIST_ITEMS_LIMIT,
-            'offset': offset or 0,
-            'total': existing_dataset_by_id._item_count,
-        })
+            return ListPage({
+                'count': len(items),
+                'desc': desc or False,
+                'items': items,
+                'limit': limit or LIST_ITEMS_LIMIT,
+                'offset': offset or 0,
+                'total': existing_dataset_by_id._item_count,
+            })
 
     async def iterate_items(
         self,
@@ -308,13 +317,14 @@ class DatasetClient(BaseResourceClient):
         for id in added_ids:
             data_entries.append((id, existing_dataset_by_id._dataset_entries[id]))
 
-        await existing_dataset_by_id._update_timestamps(True)
+        async with existing_dataset_by_id._file_operation_lock:
+            await existing_dataset_by_id._update_timestamps(True)
 
-        await _update_dataset_items(
-            data=data_entries,
-            entity_directory=existing_dataset_by_id._resource_directory,
-            persist_storage=self._memory_storage_client._persist_storage,
-        )
+            await _update_dataset_items(
+                data=data_entries,
+                entity_directory=existing_dataset_by_id._resource_directory,
+                persist_storage=self._memory_storage_client._persist_storage,
+            )
 
     def _to_resource_info(self) -> Dict:
         """Retrieve the dataset info."""

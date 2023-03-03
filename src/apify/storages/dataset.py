@@ -450,7 +450,7 @@ class Dataset(BaseStorage):
     async def drop(self) -> None:
         """Remove the dataset either from the Apify cloud storage or from the local directory."""
         await self._dataset_client.delete()
-        await self._remove_from_cache()
+        self._remove_from_cache()
 
     @classmethod
     async def open(
