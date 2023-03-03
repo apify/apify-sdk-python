@@ -171,7 +171,6 @@ class TestActorGetInput:
         assert run_result['status'] == 'SUCCEEDED'
 
 
-@pytest.mark.only
 class TestGetPublicUrl:
     async def test_get_public_url(self, make_actor: ActorFactory) -> None:
         async def main() -> None:

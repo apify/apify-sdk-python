@@ -1,13 +1,18 @@
+from typing import Callable
+
 import pytest
 
 from apify import Actor
-from apify.config import Configuration
 from apify.consts import ApifyEnvVars
-from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
+from apify.storages import StorageClientManager
 
 
 @pytest.mark.parametrize('purge_on_start', [True, False])
-async def test_actor_memory_storage_client_e2e(monkeypatch: pytest.MonkeyPatch, purge_on_start: bool) -> None:
+async def test_actor_memory_storage_client_e2e(
+    monkeypatch: pytest.MonkeyPatch,
+    purge_on_start: bool,
+    reset_default_instances: Callable[[], None],
+) -> None:
     """This test simulates two clean runs using memory storage.
     The second run attempts to access data created by the first one.
     We run 2 configurations with different `purge_on_start`."""
@@ -22,19 +27,10 @@ async def test_actor_memory_storage_client_e2e(monkeypatch: pytest.MonkeyPatch, 
         await old_default_kvs.set_value('test', 'default value')
         await old_non_default_kvs.set_value('test', 'non-default value')
 
-    # Clean up singletons and mock a new memory storage
-    monkeypatch.setattr(Actor, '_default_instance', None)
-    monkeypatch.setattr(Configuration, '_default_instance', None)
-    monkeypatch.setattr(Dataset, '_cache_by_id', None)
-    monkeypatch.setattr(Dataset, '_cache_by_name', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
-    monkeypatch.setattr(StorageClientManager, '_default_instance', None)
-
     # We simulate another clean run, we expect the memory storage to read from the local data directory
     # Default storages are purged based on purge_on_start parameter.
+    reset_default_instances()
+
     async with Actor:
         # Check if we're using a different memory storage instance
         assert old_client is not StorageClientManager.get_storage_client()
