@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 from typing import List, Optional
@@ -37,7 +38,9 @@ class MemoryStorageClient:
     _key_value_stores_handled: List[KeyValueStoreClient]
     _request_queues_handled: List[RequestQueueClient]
 
-    _purged: bool = False
+    _purged_on_start: bool = False
+    _purge_lock: asyncio.Lock
+
     """Indicates whether a purge was already performed on this instance"""
 
     def __init__(
@@ -59,6 +62,7 @@ class MemoryStorageClient:
         self._datasets_handled = []
         self._key_value_stores_handled = []
         self._request_queues_handled = []
+        self._purge_lock = asyncio.Lock()
 
     def datasets(self) -> DatasetCollectionClient:
         """Retrieve the sub-client for manipulating datasets."""
@@ -96,6 +100,19 @@ class MemoryStorageClient:
             client_key (str): A unique identifier of the client accessing the request queue
         """
         return RequestQueueClient(base_storage_directory=self._request_queues_directory, memory_storage_client=self, id=request_queue_id)
+
+    async def _purge_on_start(self) -> None:
+        # Optimistic, non-blocking check
+        if self._purged_on_start is True:
+            return
+
+        async with self._purge_lock:
+            # Another check under the lock just to be sure
+            if self._purged_on_start is True:
+                return  # type: ignore[unreachable] # Mypy doesn't understand that the _purged_on_start can change while we're getting the async lock
+
+            await self._purge()
+            self._purged_on_start = True
 
     async def _purge(self) -> None:
         """Clean up the default storage directories before the run starts.

@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Generic, Optional, TypeVar, Union, cast
 
@@ -15,12 +16,6 @@ BaseResourceClientType = TypeVar('BaseResourceClientType', bound=BaseResourceCli
 BaseResourceCollectionClientType = TypeVar('BaseResourceCollectionClientType', bound=BaseResourceCollectionClient)
 
 
-async def _purge_default_storages(client: Union[ApifyClientAsync, MemoryStorageClient]) -> None:
-    if isinstance(client, MemoryStorageClient) and not client._purged:
-        client._purged = True
-        await client._purge()
-
-
 @ignore_docs
 class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionClientType]):
     """A class for managing storages."""
@@ -32,6 +27,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
 
     _cache_by_id: Optional[Dict[str, Self]] = None
     _cache_by_name: Optional[Dict[str, Self]] = None
+    _storage_creating_lock: Optional[asyncio.Lock] = None
 
     def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration):
         """Initialize the storage.
@@ -70,11 +66,13 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
-    def _ensure_caches_initialized(cls) -> None:
+    def _ensure_class_initialized(cls) -> None:
         if cls._cache_by_id is None:
             cls._cache_by_id = {}
         if cls._cache_by_name is None:
             cls._cache_by_name = {}
+        if cls._storage_creating_lock is None:
+            cls._storage_creating_lock = asyncio.Lock()
 
     @classmethod
     @abstractmethod
@@ -105,7 +103,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
         Returns:
             An instance of the storage.
         """
-        cls._ensure_caches_initialized()
+        cls._ensure_class_initialized()
         assert cls._cache_by_id is not None
         assert cls._cache_by_name is not None
 
@@ -134,31 +132,35 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
 
         # Purge default storages if configured
         if used_config.purge_on_start:
-            await _purge_default_storages(used_client)
+            if isinstance(used_client, MemoryStorageClient):
+                await used_client._purge_on_start()
 
-        # Create the storage
-        if id and not is_default_storage_on_local:
-            single_storage_client = cls._get_single_storage_client(id, used_client)
-            storage_info = await single_storage_client.get()
-            if not storage_info:
-                storage_label = cls._get_human_friendly_label()
-                raise RuntimeError(f'{storage_label} with id "{id}" does not exist!')
-        elif is_default_storage_on_local:
-            storage_collection_client = cls._get_storage_collection_client(used_client)
-            storage_info = await storage_collection_client.get_or_create(name=name, _id=id)
-        else:
-            storage_collection_client = cls._get_storage_collection_client(used_client)
-            storage_info = await storage_collection_client.get_or_create(name=name)
+        assert cls._storage_creating_lock is not None
+        async with cls._storage_creating_lock:
+            # Create the storage
+            if id and not is_default_storage_on_local:
+                single_storage_client = cls._get_single_storage_client(id, used_client)
+                storage_info = await single_storage_client.get()
+                if not storage_info:
+                    storage_label = cls._get_human_friendly_label()
+                    raise RuntimeError(f'{storage_label} with id "{id}" does not exist!')
+            elif is_default_storage_on_local:
+                storage_collection_client = cls._get_storage_collection_client(used_client)
+                storage_info = await storage_collection_client.get_or_create(name=name, _id=id)
+            else:
+                storage_collection_client = cls._get_storage_collection_client(used_client)
+                storage_info = await storage_collection_client.get_or_create(name=name)
 
-        storage = cls(storage_info['id'], storage_info.get('name'), used_client, used_config)
+            storage = cls(storage_info['id'], storage_info.get('name'), used_client, used_config)
 
-        # Cache by id and name
-        cls._cache_by_id[storage._id] = storage
-        if storage._name is not None:
-            cls._cache_by_name[storage._name] = storage
+            # Cache by id and name
+            cls._cache_by_id[storage._id] = storage
+            if storage._name is not None:
+                cls._cache_by_name[storage._name] = storage
+
         return storage
 
-    async def _remove_from_cache(self) -> None:
+    def _remove_from_cache(self) -> None:
         if self.__class__._cache_by_id is not None:
             del self.__class__._cache_by_id[self._id]
 

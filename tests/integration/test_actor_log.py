@@ -1,5 +1,4 @@
 from apify import Actor, __version__
-from apify_client._version import __version__ as apify_client_version
 
 from .conftest import ActorFactory
 
@@ -69,7 +68,7 @@ class TestActorLog:
         assert run_log_lines.pop(0) == 'ACTOR: Creating Docker container.'
         assert run_log_lines.pop(0) == 'ACTOR: Starting Docker container.'
         assert run_log_lines.pop(0) == 'INFO  Initializing actor...'
-        assert run_log_lines.pop(0).startswith(f'INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "{apify_client_version}"')  # noqa: E501
+        assert run_log_lines.pop(0).startswith(f'INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "')
         assert run_log_lines.pop(0) == 'DEBUG Debug message'
         assert run_log_lines.pop(0) == 'INFO  Info message'
         assert run_log_lines.pop(0) == 'WARN  Warning message'

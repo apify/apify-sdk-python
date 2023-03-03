@@ -18,6 +18,9 @@ Changelog
 - fixed `EventManager` not waiting for platform events websocket connection during initialization
 - fixed local `RequestQueueClient` not respecting the `forefront` argument
 - fixed local `RequestQueueClient` not counting the `handledRequestCount` property
+- fixed local storage operations possibly running in parallel
+- stopped calling `sys.exit()` in a nested asyncio loop
+- stopped purging storages by default
 
 ### Internal changes
 

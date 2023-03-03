@@ -480,7 +480,7 @@ class RequestQueue(BaseStorage):
     async def drop(self) -> None:
         """Remove the request queue either from the Apify cloud storage or from the local directory."""
         await self._request_queue_client.delete()
-        await self._remove_from_cache()
+        self._remove_from_cache()
 
     async def get_info(self) -> Optional[Dict]:
         """Get an object containing general information about the request queue.

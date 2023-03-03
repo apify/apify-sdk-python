@@ -351,6 +351,8 @@ class Actor(metaclass=_ActorContextManager):
             self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in IPython')
         elif os.getenv('PYTEST_CURRENT_TEST', False):
             self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in an unit test')
+        elif hasattr(asyncio, '_nest_patched'):
+            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in a nested event loop')
         else:
             sys.exit(exit_code)
 
