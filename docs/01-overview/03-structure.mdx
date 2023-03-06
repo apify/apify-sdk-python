@@ -9,17 +9,17 @@ import CodeBlock from '@theme/CodeBlock';
 
 All Python actor templates follow the same structure.
 
-The `.actor` folder contains the [actor configuration](https://docs.apify.com/platform/actors/development/actor-config),
-like the actor's input and schema, and the Dockerfile necessary to run the actor on the Apify Platform.
+The `.actor` directory contains the [actor configuration](https://docs.apify.com/platform/actors/development/actor-config),
+including the actor's input and schema and the Dockerfile necessary to run the actor on the Apify Platform.
 
-The actor's runtime dependencies are specified in the `requirements.txt` file,
-following the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
+The actor's runtime dependencies are listed in the `requirements.txt` file,
+which follows the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
 
-The actor's source code is in the `src` folder. There are two important files in the folder:
+The actor's source code is in the `src` folder. This folder contains two important files:
 `main.py`, which contains the main function of the actor,
-and `__main__.py`, which is the entrypoint of the actor package,
-which sets up the actor [logger](../concepts/logging),
-and executes the actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+and `__main__.py`, which is the entry point of the actor package,
+setting up the actor [logger](../concepts/logging)
+and executing the actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
 
 <Tabs>
     <TabItem value="main.py" label="main.py" default>
@@ -54,6 +54,6 @@ asyncio.run(main())`
 </Tabs>
 
 If you want to modify the actor structure,
-you need to make sure that your actor will be executable as a module, via `python -m src`,
-as that is the command started by `apify run` in the Apify CLI.
-We recommend keeping the entrypoint for the actor in the `src/__main__.py` file.
+make sure that your actor is executable as a module, via `python -m src`,
+as it is the command started by `apify run` in the Apify CLI.
+We suggest keeping the entry point for the actor in the `src/__main__.py` file.

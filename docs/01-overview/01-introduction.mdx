@@ -3,7 +3,7 @@ title: Introduction
 sidebar_label: Introduction
 ---
 
-Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors) in Python.
+Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors) with Python.
 
 ```python
 from apify import Actor
@@ -17,14 +17,14 @@ async def main():
         await Actor.push_data({ 'url': url, 'title': soup.title.string })
 ```
 
-## What are actors?
+## What are Apify actors?
 
 Actors are serverless cloud programs that can do almost anything a human can do in a web browser.
-They can do anything from small tasks like filling in forms or unsubscribing from online services,
-all the way up to scraping and processing vast numbers of web pages.
+From simple tasks like filling out forms or unsubscribing from online services,
+to scraping and processing large amounts of web content.
 
-They can be run either locally, or on the [Apify Platform](https://docs.apify.com/platform/),
-where you can run them at scale, monitor them, schedule them, or publish and monetize them.
+Actors can be run either locally, or on the [Apify Platform](https://docs.apify.com/platform/),
+where you can run them at scale, monitor them, create schedules, and even monetize them.
 
 If you're new to Apify, learn [what is Apify](https://docs.apify.com/platform/about) in the Apify Platform documentation.
 
@@ -39,9 +39,8 @@ To create and run Python actors locally, check the documentation for [how to cre
 
 ### Guides
 
-To see how you can use the Apify SDK with other popular libraries used for web scraping,
-check out our guides for using
-[Requests and HTTPX](../guides/requests-and-httpx),
+Our guides offer insight on integrating the Apify SDK with some of the most popular web scraping libraries,
+such as [Requests and HTTPX](../guides/requests-and-httpx),
 [Beautiful Soup](../guides/beautiful-soup),
 [Playwright](../guides/playwright),
 [Selenium](../guides/selenium),
@@ -51,7 +50,7 @@ or [Scrapy](../guides/scrapy).
 
 To learn more about the features of the Apify SDK and how to use them,
 check out the Usage Concepts section in the sidebar,
-particularly the guides for the [Actor lifecycle](../concepts/actor-lifecycle),
+especially the guides for the [Actor lifecycle](../concepts/actor-lifecycle),
 [working with storages](../concepts/storages),
 [handling actor events](../concepts/actor-events)
-or [how to use proxies](../concepts/proxy-management).
+and [how to use proxies](../concepts/proxy-management).

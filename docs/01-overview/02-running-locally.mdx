@@ -9,27 +9,18 @@ import CodeBlock from '@theme/CodeBlock';
 
 ## Requirements
 
-The Apify SDK supports Python versions 3.8 and above.
-To run Python actors locally, you'll have to have a supported Python version available.
+The Apify SDK requires Python version 3.8 or above to run Python actors locally.
 
 ## Creating your first actor
 
-To create a new Apify actor on your computer, you can use the [Apify CLI](https://docs.apify.com/cli),
-and select one of the Python actor templates.
-
-<!-- TODO: link the correct actor template -->
-
-For example, to create an actor from the "[beta] Python SDK" template,
-you can use the [`apify create` command](https://docs.apify.com/cli/docs/reference#apify-create-actorname).
+To create a new Apify actor on your computer, using the [Apify CLI](https://docs.apify.com/cli) and select one of the Python actor templates, for example the "[beta] Python SDK" template.
+You can use the [`apify create` command](https://docs.apify.com/cli/docs/reference#apify-create-actorname) to do so:
 
 ```bash
 apify create my-first-actor --template python-start
 ```
 
-This will create a new folder called `my-first-actor`,
-download and extract the "Getting started with Python" actor template there,
-create a virtual environment in `my-first-actor/.venv`,
-and install the actor dependencies in it.
+This will create a new folder called `my-first-actor`, download and extract the "Getting started with Python" actor template there, and create a virtual environment in `my-first-actor/.venv`, and install the actor dependencies in it.
 
 ## Running the actor
 
@@ -40,18 +31,13 @@ cd my-first-actor
 apify run
 ```
 
-This will activate the virtual environment in `.venv` (if no other virtual environment is activated yet),
-start the actor, passing the right environment variables for local running,
-and configure it to use local storages from the `storage` folder.
-
+This will activate the virtual environment in `.venv` (if no other virtual environment is activated yet), start the actor, passing the right environment variables for local running, and configure it to use local storages from the `storage` folder.
 The actor input, for example, will be in `storage/key_value_stores/default/INPUT.json`.
 
 ## Adding dependencies
 
 Adding dependencies into the actor is simple.
-
 First, add them in the [`requirements.txt`](https://pip.pypa.io/en/stable/reference/requirements-file-format/) file in the actor source folder.
-
 Then, activate the virtual environment in `.venv`:
 
 <Tabs groupId="operating-systems">
