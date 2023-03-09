@@ -26,7 +26,7 @@ function Hero() {
                         <div className="col">
                             <h2></h2>
                             <h2>
-                                The Apify SDK for Python is the official library to create Apify Actors in Python.
+                                The Apify SDK for Python is the official library for creating Apify Actors in Python.
                                 It provides useful features like actor lifecycle management, local storage emulation, and actor event handling.
                             </h2>
                         </div>

@@ -48,8 +48,8 @@ Then you generate proxy URLs using the [`ProxyConfiguration.new_url()`](../../re
 ### Apify Proxy vs. your own proxies
 
 The `ProxyConfiguration` class covers both Apify Proxy and custom proxy URLs,
-so that you can easily switch between proxy providers,
-however, some features of the class are available only to Apify Proxy users,
+so that you can easily switch between proxy providers.
+However, some features of the class are available only to Apify Proxy users,
 mainly because Apify Proxy is what one would call a super-proxy.
 It's not a single proxy server, but an API endpoint that allows connection
 through millions of different IP addresses.
@@ -141,8 +141,8 @@ proxy_url_without_Session = await proxy_configuration.new_url()
 
 ### Configuring proxy based on Actor input
 
-To make selecting proxies the Actor uses easier,
-you can use an input field with editor [`proxy` in your input schema](https://docs.apify.com/platform/actors/development/input-schema#object).
+To make selecting the proxies that the Actor uses easier,
+you can use an input field with the editor [`proxy` in your input schema](https://docs.apify.com/platform/actors/development/input-schema#object).
 This input will then be filled with a dictionary containing the proxy settings you or the users of your Actor selected for the Actor run.
 
 You can then use that input to create the proxy configuration:

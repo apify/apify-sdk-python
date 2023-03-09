@@ -27,7 +27,7 @@ apify create my-first-actor --template python-start
 ```
 
 This will create a new folder called `my-first-actor`,
-download and extract the "Getting started with Python" Actor template there,
+then download and extract the "Getting started with Python" Actor template there,
 create a virtual environment in `my-first-actor/.venv`,
 and install the Actor dependencies in it.
 
@@ -41,7 +41,7 @@ apify run
 ```
 
 This will activate the virtual environment in `.venv` (if no other virtual environment is activated yet),
-start the Actor, passing the right environment variables for local running,
+then start the Actor, passing the right environment variables for local running,
 and configure it to use local storages from the `storage` folder.
 
 The Actor input, for example, will be in `storage/key_value_stores/default/INPUT.json`.
@@ -52,7 +52,7 @@ Adding dependencies into the Actor is simple.
 
 First, add them in the [`requirements.txt`](https://pip.pypa.io/en/stable/reference/requirements-file-format/) file in the Actor source folder.
 
-Then, activate the virtual environment in `.venv`:
+Then activate the virtual environment in `.venv`:
 
 <Tabs groupId="operating-systems">
     <TabItem value="unix" label="Linux / macOS" default>
@@ -67,7 +67,7 @@ Then, activate the virtual environment in `.venv`:
     </TabItem>
 </Tabs>
 
-Then, install the dependencies:
+Then install the dependencies:
 
 ```bash
 python -m pip install -r requirements.txt

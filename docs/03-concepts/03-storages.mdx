@@ -18,8 +18,8 @@ which function as a read/write storage for storing file-like objects, typically 
 You can open a key-value store through the [`Actor.open_key_value_store()`](../../reference/class/Actor#open_key_value_store) method,
 and work with it through the resulting [`KeyValueStore`](../../reference/class/KeyValueStore) class instance.
 
-Finally, there are [request queues](https://docs.apify.com/platform/storage/request-queue),
-which are queues into which you can put URLs that you want to scrape,
+Finally, there are [request queues](https://docs.apify.com/platform/storage/request-queue).
+These are queues into which you can put the URLs you want to scrape,
 and from which the Actor can dequeue them and process them.
 You can open a request queue through the [`Actor.open_request_queue()`](../../reference/class/Actor#open_request_queue) method,
 and work with it through the resulting [`RequestQueue`](../../reference/class/RequestQueue) class instance.
@@ -32,12 +32,12 @@ To be able to develop Actors locally,
 the storages that the Apify platform provides are emulated on the local filesystem.
 
 The storage contents are loaded from and saved to the `storage` folder in the Actor's main folder.
-Each type of storages is stored in its own subfolder, so e.g. datasets are stored in the `storage/datasets` folder.
+Each storage type is stored in its own subfolder, so for example datasets are stored in the `storage/datasets` folder.
 
 Each storage is then stored in its own folder, named after the storage, or called `default` if it's the default storage.
-For example, a request queue with name `my-queue` would be stored in `storage/request_queues/my-queue`.
+For example, a request queue with the name `my-queue` would be stored in `storage/request_queues/my-queue`.
 
-Each dataset item, key-value store record or request in a request queue is then stored in its own file in the storage folder.
+Each dataset item, key-value store record, or request in a request queue is then stored in its own file in the storage folder.
 Dataset items and request queue requests are always JSON files, and key-value store records can be any file type, based on its content type.
 For example, the Actor input is typically stored in `storage/key_value_stores/default/INPUT.json`.
 
@@ -85,7 +85,7 @@ async def main():
         key_value_store = await Actor.open_key_value_store(id='mIJVZsRQrDQf4rUAf')
         await key_value_store.set_value('record', 'Hello, world!')
 
-        # Work with the request queue with name 'my-queue'
+        # Work with the request queue with the name 'my-queue'
         request_queue = await Actor.open_request_queue(name='my-queue')
         await request_queue.add_request({ 'uniqueKey': 'v0Nr', 'url': 'https://example.com' })
 ```
@@ -102,7 +102,7 @@ from apify import Actor
 
 async def main():
     async with Actor:
-        # Open a key-value store with name 'my-cool-store'
+        # Open a key-value store with the name 'my-cool-store'
         key_value_store = await Actor.open_key_value_store(name='my-cool-store')
         await key_value_store.set_value('record', 'Hello, world!')
         ...
@@ -190,7 +190,7 @@ To get an iterator of the key-value store record keys,
 you can use the [`KeyValueStore.iterate_keys()`](../../reference/class/KeyValueStore#iterate_keys) method.
 
 ```python
-# Print the info for each of the records
+# Print the info for each record
 print('Records in store:')
 async for (key, info) in store.iterate_keys():
     print(f'{key=}, {info=}')
@@ -228,7 +228,7 @@ you can use the [`RequestQueue.get_request()`](../../reference/class/RequestQueu
 
 To mark a request as handled, you can use the [`RequestQueue.mark_request_as_handled()`](../../reference/class/RequestQueue#mark_request_as_handled) method.
 
-To mark a request as not handlec, so that it gets retried,
+To mark a request as not handled, so that it gets retried,
 you can use the [`RequestQueue.reclaim_request()`](../../reference/class/RequestQueue#reclaim_request) method.
 
 To check if all the requests in the queue are handled,

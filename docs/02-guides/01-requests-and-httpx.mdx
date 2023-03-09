@@ -8,7 +8,7 @@ sidebar_label: Using Requests and HTTPX
 ## Requests
 
 [`requests`](https://requests.readthedocs.io) is one of the most popular Python libraries for doing HTTP requests.
-To use it in your Actors, there is no special configuration needed.
+To use it in your Actors, no special configuration is needed.
 Just put `requests` in your `requirements.txt` file, reinstall dependencies if you're running the Actor locally,
 and you're good to go.
 
@@ -24,7 +24,7 @@ async def main():
 
 ### Using proxies with requests
 
-To use the Apify Proxy with `requests`,
+To use Apify Proxy with `requests`,
 you can just generate a proxy URL through [`Actor.create_proxy_configuration()`](../../reference/class/Actor#create_proxy_configuration),
 and pass it to `requests` using the [`proxies` argument](https://requests.readthedocs.io/en/latest/user/advanced/#proxies):
 
@@ -51,8 +51,8 @@ To learn more about using proxies in your Actor with `requests`, check the [docu
 
 Another very popular Python library for performing HTTP requests is [`HTTPX`](https://www.python-httpx.org/).
 Its main advantage over `requests` is the ability to [perform asynchronous HTTP requests](https://www.python-httpx.org/async/),
-making it ideal for large scale, parallel web scraping.
-To use it in your Actors, there is no special configuration needed.
+making it ideal for large-scale, parallel web scraping.
+To use it in your Actors, no special configuration is needed.
 Just put `httpx` in your `requirements.txt` file, reinstall dependencies if you're running the Actor locally,
 and you're good to go.
 
@@ -75,7 +75,7 @@ async def main():
 
 ### Using proxies with HTTPX
 
-To use the Apify Proxy with `httpx`,
+To use Apify Proxy with `httpx`,
 you can just generate a proxy URL through [`Actor.create_proxy_configuration()`](../../reference/class/Actor#create_proxy_configuration),
 and pass it to `httpx` using the [`proxies` argument](https://requests.readthedocs.io/en/latest/user/advanced/#proxies):
 
