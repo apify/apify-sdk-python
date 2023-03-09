@@ -6,77 +6,57 @@ It provides useful features like actor lifecycle management, local storage emula
 If you just need to access the [Apify API](https://docs.apify.com/api/v2) from your Python applications,
 check out the [Apify Client for Python](https://docs.apify.com/api/client/python) instead.
 
-## Installation
-
-Requires Python 3.8+
-
-You can install the package from its [PyPI listing](https://pypi.org/project/apify).
-To do that, simply run `pip install apify` in your terminal.
-
-## Usage
+## Documentation
 
 For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/sdk/python/).
 
-## Development
+## Example
 
-### Environment
+```python
+from apify import Actor
+from bs4 import BeautifulSoup
+import requests
 
-For local development, it is required to have Python 3.8 installed.
-
-It is recommended to set up a virtual environment while developing this package to isolate your development environment,
-however, due to the many varied ways Python can be installed and virtual environments can be set up,
-this is left up to the developers to do themselves.
-
-One recommended way is with the built-in `venv` module:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
+async def main():
+    async with Actor:
+        response = requests.get('https://apify.com')
+        soup = BeautifulSoup(response.content, 'html.parser')
+        await Actor.push_data({ 'url': url, 'title': soup.title.string })
 ```
 
-To improve on the experience, you can use [pyenv](https://github.com/pyenv/pyenv) to have an environment with a pinned Python version,
-and [direnv](https://github.com/direnv/direnv) to automatically activate/deactivate the environment when you enter/exit the project folder.
+## What are Actors?
 
-### Dependencies
+Actors are serverless cloud programs that can do almost anything a human can do in a web browser.
+They can do anything from small tasks such as filling in forms or unsubscribing from online services,
+all the way up to scraping and processing vast numbers of web pages.
 
-To install this package and its development dependencies, run `make install-dev`
+They can be run either locally, or on the [Apify platform](https://docs.apify.com/platform/),
+where you can run them at scale, monitor them, schedule them, or publish and monetize them.
 
-### Formatting
+If you're new to Apify, learn [what is Apify](https://docs.apify.com/platform/about) in the Apify platform documentation.
 
-We use `autopep8` and `isort` to automatically format the code to a common format. To run the formatting, just run `make format`.
+## Creating Actors
 
-### Linting, type-checking and unit testing
+To create and run Actors through Apify Console,
+see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template).
 
-We use `flake8` for linting, `mypy` for type checking and `pytest` for unit testing. To run these tools, just run `make check-code`.
+To create and run Python Actors locally, check the documentation for [how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/overview/running-locally).
 
-### Integration tests
+## Guides
 
-We have integration tests which build and run actors using the Python SDK on the Apify Platform.
-To run these tests, you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to use for the tests,
-and then start them with `make integration-tests`.
+To see how you can use the Apify SDK with other popular libraries used for web scraping,
+check out our guides for using
+[Requests and HTTPX](https://docs.apify.com/sdk/python/docs/guides/requests-and-httpx),
+[Beautiful Soup](https://docs.apify.com/sdk/python/docs/guides/beautiful-soup),
+[Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright),
+[Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium),
+or [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy).
 
-If you want to run the integration tests on a different environment than the main Apify Platform,
-you need to set the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to the right URL to the Apify API you want to use.
+## Usage concepts
 
-### Documentation
-
-We use the [Google docstring format](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) for documenting the code.
-We document every user-facing class or method, and enforce that using the flake8-docstrings library.
-
-The documentation is then rendered from the docstrings in the code, using `pydoc-markdown` and some heavy post-processing,
-and from Markdown documents in the `docs` folder, and then rendered using Docusaurus and published to GitHub pages.
-
-### Release process
-
-Publishing new versions to [PyPI](https://pypi.org/project/apify) happens automatically through GitHub Actions.
-
-On each commit to the `master` branch, a new beta release is published, taking the version number from `src/apify/_version.py`
-and automatically incrementing the beta version suffix by 1 from the last beta release published to PyPI.
-
-A stable version is published when a new release is created using GitHub Releases, again taking the version number from `src/apify/_version.py`.
-The built package assets are automatically uploaded to the GitHub release.
-
-If there is already a stable version with the same version number as in `src/apify/_version.py` published to PyPI, the publish process fails,
-so don't forget to update the version number before releasing a new version.
-The release process also fails when the released version is not described in `CHANGELOG.md`,
-so don't forget to describe the changes in the new version there.
+To learn more about the features of the Apify SDK and how to use them,
+check out the Usage Concepts section in the sidebar,
+particularly the guides for the [Actor lifecycle](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle),
+[working with storages](https://docs.apify.com/sdk/python/docs/concepts/storages),
+[handling Actor events](https://docs.apify.com/sdk/python/docs/concepts/actor-events)
+or [how to use proxies](https://docs.apify.com/sdk/python/docs/concepts/proxy-management).
