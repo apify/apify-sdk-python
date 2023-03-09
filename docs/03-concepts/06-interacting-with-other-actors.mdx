@@ -3,11 +3,11 @@ title: Interacting with other Actors
 sidebar_label: Interacting with other Actors
 ---
 
-There are several methods that interact with other Actors and Actor tasks on the Apify Platform.
+There are several methods that interact with other Actors and Actor tasks on the Apify platform.
 
 ## Actor.start()
 
-The [`Actor.start()`](../../reference/class/Actor#start) method starts another Actor on the Apify Platform,
+The [`Actor.start()`](../../reference/class/Actor#start) method starts another Actor on the Apify platform,
 and immediately returns the details of the started Actor run.
 
 ```python
@@ -18,7 +18,7 @@ print(f'Started run ID: {actor_run_details["id"]}')
 
 ## Actor.call()
 
-The [`Actor.call()`](../../reference/class/Actor#call) method starts another Actor on the Apify Platform,
+The [`Actor.call()`](../../reference/class/Actor#call) method starts another Actor on the Apify platform,
 and waits for the started Actor run to finish.
 
 ```python
@@ -34,7 +34,7 @@ screenshot = await run_client().key_value_store().get_value('OUTPUT')
 ## Actor.call_task()
 
 The [`Actor.call_task()`](../../reference/class/Actor#call_task) method
-starts an [actor task](https://docs.apify.com/platform/actors/tasks) on the Apify Platform,
+starts an [actor task](https://docs.apify.com/platform/actors/tasks) on the Apify platform,
 and waits for the started Actor run to finish.
 
 ```python

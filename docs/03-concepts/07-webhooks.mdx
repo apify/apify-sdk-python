@@ -3,14 +3,14 @@ title: Creating webhooks
 sidebar_label: Creating webhooks
 ---
 
-Webhooks allow you to configure the Apify Platform to perform an action when a certain event occurs.
+Webhooks allow you to configure the Apify platform to perform an action when a certain event occurs.
 For example, you can use them to start another Actor when the current run finishes or fails.
 
 You can learn more in the [documentation for webhooks](https://docs.apify.com/platform/integrations/webhooks).
 
 ## Creating an ad-hoc webhook dynamically
 
-Besides creating webhooks manually in the Apify Console, or through the Apify API,
+Besides creating webhooks manually in Apify Console, or through the Apify API,
 you can also create [ad-hoc webhooks](https://docs.apify.com/platform/integrations/webhooks/ad-hoc-webhooks)
 dynamically from the code of your Actor using the [`Actor.add_webhook()`](../../reference/class/Actor#add_webhook) method:
 
@@ -26,7 +26,7 @@ async def main():
         raise RuntimeError('I am an error and I know it!')
 ```
 
-Note that webhooks are only supported when running on the Apify Platform.
+Note that webhooks are only supported when running on the Apify platform.
 When running the Actor locally, the method will print a warning and have no effect.
 
 ### Preventing duplicate webhooks

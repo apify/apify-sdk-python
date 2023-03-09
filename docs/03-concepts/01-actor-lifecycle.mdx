@@ -75,7 +75,7 @@ async def main():
 ## Actor status message
 
 To inform you or the users running your Actors about the progress of their runs,
-you can set the status message for the run, which will then be visible in the run detail in the Apify Console,
+you can set the status message for the run, which will then be visible in the run detail in Apify Console,
 or accessible through the Apify API.
 
 To set the status message for the Actor run, you can use the [`Actor.set_status_message()`](../../reference/class/Actor#set_status_message) method.
@@ -100,7 +100,7 @@ async def main():
 
 Sometimes, you want to restart your Actor to make it run from the beginning again.
 To do that, you can use the [`Actor.reboot()`](../../reference/class/Actor#reboot) method.
-When you call it, the Apify Platform stops the container of the run,
+When you call it, the Apify platform stops the container of the run,
 and starts a new container of the same Actor,with the same run ID and storages.
 
 Don't do it unconditionally, or you can get the Actor in a reboot loop.
