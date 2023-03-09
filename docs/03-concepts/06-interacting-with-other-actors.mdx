@@ -1,25 +1,25 @@
 ---
-title: Interacting with other actors
-sidebar_label: Interacting with other actors
+title: Interacting with other Actors
+sidebar_label: Interacting with other Actors
 ---
 
-There are several methods that interact with other actors and actor tasks on the Apify Platform.
+There are several methods that interact with other Actors and Actor tasks on the Apify Platform.
 
 ## Actor.start()
 
-The [`Actor.start()`](../../reference/class/Actor#start) method starts another actor on the Apify Platform,
-and immediately returns the details of the started actor run.
+The [`Actor.start()`](../../reference/class/Actor#start) method starts another Actor on the Apify Platform,
+and immediately returns the details of the started Actor run.
 
 ```python
-# Start your own actor named 'my-fancy-actor'
+# Start your own Actor named 'my-fancy-actor'
 actor_run_details = await Actor.start('~my-fancy-actor', {'foo': 'bar'})
 print(f'Started run ID: {actor_run_details["id"]}')
 ```
 
 ## Actor.call()
 
-The [`Actor.call()`](../../reference/class/Actor#call) method starts another actor on the Apify Platform,
-and waits for the started actor run to finish.
+The [`Actor.call()`](../../reference/class/Actor#call) method starts another Actor on the Apify Platform,
+and waits for the started Actor run to finish.
 
 ```python
 # Start the `apify/screenshot-url`, wait for it to finish, and get its output
@@ -35,10 +35,10 @@ screenshot = await run_client().key_value_store().get_value('OUTPUT')
 
 The [`Actor.call_task()`](../../reference/class/Actor#call_task) method
 starts an [actor task](https://docs.apify.com/platform/actors/tasks) on the Apify Platform,
-and waits for the started actor run to finish.
+and waits for the started Actor run to finish.
 
 ```python
-# Start the actor task with ID `Z3m6FPSj0GYZ25rQc`,
+# Start the Actor task with ID `Z3m6FPSj0GYZ25rQc`,
 # wait for it to finish, and get its dataset items
 task_run_details = await Actor.call_task('Z3m6FPSj0GYZ25rQc')
 run_client = Actor.apify_client.run(task_run_details['id'])
@@ -47,26 +47,26 @@ task_run_dataset_items = await run_client().dataset().list_items()
 
 ## Actor.metamorph()
 
-The [`Actor.metamorph()`](../../reference/class/Actor#metamorph) operation transforms an actor run into a run of another actor with a new input.
-This feature is useful if you want to use another actor to finish the work of your current actor,
-instead of internally starting a new actor run and waiting for its finish.
-With metamorph, you can easily create new actors on top of existing ones,
-and give your users nicer input structure and user interface for the final actor.
-For the users of your actors, the metamorph operation is completely transparent,
-they will just see your actor got the work done.
+The [`Actor.metamorph()`](../../reference/class/Actor#metamorph) operation transforms an Actor run into a run of another Actor with a new input.
+This feature is useful if you want to use another Actor to finish the work of your current Actor,
+instead of internally starting a new Actor run and waiting for its finish.
+With metamorph, you can easily create new Actors on top of existing ones,
+and give your users nicer input structure and user interface for the final Actor.
+For the users of your Actors, the metamorph operation is completely transparent,
+they will just see your Actor got the work done.
 
-Internally, the system stops the container corresponding to the original actor run
+Internally, the system stops the container corresponding to the original Actor run
 and starts a new container using a different container image.
 All the default storages are preserved,
-and the new actor input is stored under the `INPUT-METAMORPH-1` key in the same default key-value store.
+and the new Actor input is stored under the `INPUT-METAMORPH-1` key in the same default key-value store.
 
-To make you actor compatible with the metamorph operation,
+To make you Actor compatible with the metamorph operation,
 use [`Actor.get_input()`](../../reference/class/Actor#get_input)
-instead of [`Actor.get_value('INPUT')`](../../reference/class/Actor#get_value) to read your actor input.
+instead of [`Actor.get_value('INPUT')`](../../reference/class/Actor#get_value) to read your Actor input.
 This method will fetch the input using the right key in a case of metamorphed run.
 
-For example, imagine you have an actor that accepts a hotel URL on input,
-and then internally uses the [`apify/web-scraper`](https://apify.com/apify/web-scraper) public actor to scrape all the hotel reviews.
+For example, imagine you have an Actor that accepts a hotel URL on input,
+and then internally uses the [`apify/web-scraper`](https://apify.com/apify/web-scraper) public Actor to scrape all the hotel reviews.
 The metamorphing code would look as follows:
 
 ```python title="src/main.py"
@@ -74,7 +74,7 @@ from apify import Actor
 
 async def main():
     async with Actor:
-        # Get the original actor input
+        # Get the original Actor input
         actor_input = await Actor.get_input() or {}
         hotel_url = actor_input.get('hotel_url')
 
@@ -87,10 +87,10 @@ async def main():
             }""",
         }
 
-        # Metamorph the actor run to `apify/web-scraper` with the new input
+        # Metamorph the Actor run to `apify/web-scraper` with the new input
         await Actor.metamorph('apify/web-scraper', web_scraper_input)
 
         # This code will not be called,
-        # since the `metamorph` action terminates the current actor run container
+        # since the `metamorph` action terminates the current Actor run container
         print('You will not see this!')
 ```

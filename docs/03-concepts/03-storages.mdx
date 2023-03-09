@@ -3,35 +3,35 @@ title: Working with storages
 sidebar_label: Working with storages
 ---
 
-The `Actor` class provides methods to work either with the default storages of the actor, or with any other storage, named or unnamed.
+The `Actor` class provides methods to work either with the default storages of the Actor, or with any other storage, named or unnamed.
 
 ## Types of storages
 
-There are three types of storages available to actors.
+There are three types of storages available to Actors.
 
-First are [datasets](https://docs.apify.com/platform/storage/dataset), which are append-only tables for storing the results of your actors.
+First are [datasets](https://docs.apify.com/platform/storage/dataset), which are append-only tables for storing the results of your Actors.
 You can open a dataset through the [`Actor.open_dataset()`](../../reference/class/Actor#open_dataset) method,
 and work with it through the resulting [`Dataset`](../../reference/class/Dataset) class instance.
 
 Next there are [key-value stores](https://docs.apify.com/platform/storage/key-value-store),
-which function as a read/write storage for storing file-like objects, typically the actor state or binary results.
+which function as a read/write storage for storing file-like objects, typically the Actor state or binary results.
 You can open a key-value store through the [`Actor.open_key_value_store()`](../../reference/class/Actor#open_key_value_store) method,
 and work with it through the resulting [`KeyValueStore`](../../reference/class/KeyValueStore) class instance.
 
 Finally, there are [request queues](https://docs.apify.com/platform/storage/request-queue),
 which are queues into which you can put URLs that you want to scrape,
-and from which the actor can dequeue them and process them.
+and from which the Actor can dequeue them and process them.
 You can open a request queue through the [`Actor.open_request_queue()`](../../reference/class/Actor#open_request_queue) method,
 and work with it through the resulting [`RequestQueue`](../../reference/class/RequestQueue) class instance.
 
-Each actor run has its default dataset, default key-value store and default request queue.
+Each Actor run has its default dataset, default key-value store and default request queue.
 
 ## Local storage emulation
 
-To be able to develop actors locally,
+To be able to develop Actors locally,
 the storages that the Apify Platform provides are emulated on the local filesystem.
 
-The storage contents are loaded from and saved to the `storage` folder in the actor's main folder.
+The storage contents are loaded from and saved to the `storage` folder in the Actor's main folder.
 Each type of storages is stored in its own subfolder, so e.g. datasets are stored in the `storage/datasets` folder.
 
 Each storage is then stored in its own folder, named after the storage, or called `default` if it's the default storage.
@@ -39,12 +39,12 @@ For example, a request queue with name `my-queue` would be stored in `storage/re
 
 Each dataset item, key-value store record or request in a request queue is then stored in its own file in the storage folder.
 Dataset items and request queue requests are always JSON files, and key-value store records can be any file type, based on its content type.
-For example, the actor input is typically stored in `storage/key_value_stores/default/INPUT.json`.
+For example, the Actor input is typically stored in `storage/key_value_stores/default/INPUT.json`.
 
 ### Local storage persistence
 
-By default, the storage contents are persisted across multiple actor runs.
-To clean up the actor storages before the running the actor,
+By default, the storage contents are persisted across multiple Actor runs.
+To clean up the Actor storages before the running the Actor,
 use the `--purge` flag of the [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command of the Apify CLI.
 
 ```bash
@@ -53,15 +53,15 @@ apify run --purge
 
 ## Convenience methods for working with default storages
 
-There are several methods for directly working with the default key-value store or default dataset of the actor.
+There are several methods for directly working with the default key-value store or default dataset of the Actor.
 
-[`Actor.get_value('my-record')`](../../reference/class/Actor#get_value) reads a record from the default key-value store of the actor.
+[`Actor.get_value('my-record')`](../../reference/class/Actor#get_value) reads a record from the default key-value store of the Actor.
 
 [`Actor.set_value('my-record', 'my-value')`](../../reference/class/Actor#set_value) saves a new value to the record in the default key-value store.
 
-[`Actor.get_input()`](../../reference/class/Actor#get_input) reads the actor input from the default key-value store of the actor.
+[`Actor.get_input()`](../../reference/class/Actor#get_input) reads the Actor input from the default key-value store of the Actor.
 
-[`Actor.push_data([{'result': 'Hello, world!'}, ...])`](../../reference/class/Actor#push_data) saves results to the default dataset of the actor.
+[`Actor.push_data([{'result': 'Hello, world!'}, ...])`](../../reference/class/Actor#push_data) saves results to the default dataset of the Actor.
 
 ## Opening named and unnamed storages
 
@@ -77,7 +77,7 @@ from apify import Actor
 
 async def main():
     async with Actor:
-        # Work with the default dataset of the actor
+        # Work with the default dataset of the Actor
         dataset = await Actor.open_dataset()
         await dataset.push_data({'result': 'Hello, world!'})
 

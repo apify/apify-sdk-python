@@ -17,7 +17,7 @@ or you can rely on [Apify Proxy](https://apify.com/proxy) for your scraping need
 ## Quick start
 
 If you want to use Apify Proxy locally,
-make sure that you run your actors via the Apify CLI
+make sure that you run your Actors via the Apify CLI
 and that you are [logged in](https://docs.apify.com/cli/docs/installation#login-with-your-apify-account) with your Apify account in the CLI.
 
 ### Using Apify Proxy
@@ -139,11 +139,11 @@ proxy_url_with_session = await proxy_configuration.new_url('a')
 proxy_url_without_Session = await proxy_configuration.new_url()
 ```
 
-### Configuring proxy based on actor input
+### Configuring proxy based on Actor input
 
-To make selecting proxies the actor uses easier,
+To make selecting proxies the Actor uses easier,
 you can use an input field with editor [`proxy` in your input schema](https://docs.apify.com/platform/actors/development/input-schema#object).
-This input will then be filled with a dictionary containing the proxy settings you or the users of your actor selected for the actor run.
+This input will then be filled with a dictionary containing the proxy settings you or the users of your Actor selected for the Actor run.
 
 You can then use that input to create the proxy configuration:
 
