@@ -925,7 +925,7 @@ Set the status message for the current actor run.
 
 ***
 
-#### [](#actor-create_proxy_configuration) `async Actor.create_proxy_configuration(*, password=None, groups=None, country_code=None, proxy_urls=None, new_url_function=None, actor_proxy_input=None)`
+#### [](#actor-create_proxy_configuration) `async Actor.create_proxy_configuration(*, actor_proxy_input=None, password=None, groups=None, country_code=None, proxy_urls=None, new_url_function=None)`
 
 Create a ProxyConfiguration object with the passed proxy configuration.
 
@@ -936,6 +936,9 @@ For more details and code examples, see the ProxyConfiguration class.
 
 * **Parameters**
 
+  * **actor_proxy_input** (`dict`, *optional*) – Proxy configuration field from the actor input, if actor has such input field.
+  If you pass this argument, all the other arguments will be inferred from it.
+
   * **password** (`str`, *optional*) – Password for the Apify Proxy. If not provided, will use os.environ[‘APIFY_PROXY_PASSWORD’], if available.
 
   * **groups** (`list of str`, *optional*) – Proxy groups which the Apify Proxy should use, if provided.
@@ -945,8 +948,6 @@ For more details and code examples, see the ProxyConfiguration class.
   * **proxy_urls** (`list of str`, *optional*) – Custom proxy server URLs which should be rotated through.
 
   * **new_url_function** (`Callable`, *optional*) – Function which returns a custom proxy URL to be used.
-
-  * **actor_proxy_input** (`dict`, *optional*) – Proxy configuration field from the actor input, if actor has such input field.
 
 * **Returns**
 

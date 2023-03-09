@@ -1236,12 +1236,12 @@ class Actor(metaclass=_ActorContextManager):
     async def create_proxy_configuration(
         cls,
         *,
+        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
         password: Optional[str] = None,
         groups: Optional[List[str]] = None,
         country_code: Optional[str] = None,
         proxy_urls: Optional[List[str]] = None,
         new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None,
-        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
     ) -> Optional[ProxyConfiguration]:
         """Create a ProxyConfiguration object with the passed proxy configuration.
 
@@ -1251,12 +1251,13 @@ class Actor(metaclass=_ActorContextManager):
         For more details and code examples, see the `ProxyConfiguration` class.
 
         Args:
+            actor_proxy_input (dict, optional): Proxy configuration field from the actor input, if actor has such input field.
+                If you pass this argument, all the other arguments will be inferred from it.
             password (str, optional): Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
             groups (list of str, optional): Proxy groups which the Apify Proxy should use, if provided.
             country_code (str, optional): Country which the Apify Proxy should use, if provided.
             proxy_urls (list of str, optional): Custom proxy server URLs which should be rotated through.
             new_url_function (Callable, optional): Function which returns a custom proxy URL to be used.
-            actor_proxy_input (dict, optional): Proxy configuration field from the actor input, if actor has such input field.
 
         Returns:
             ProxyConfiguration, optional: ProxyConfiguration object with the passed configuration,
@@ -1274,12 +1275,12 @@ class Actor(metaclass=_ActorContextManager):
     async def _create_proxy_configuration_internal(
         self,
         *,
+        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
         password: Optional[str] = None,
         groups: Optional[List[str]] = None,
         country_code: Optional[str] = None,
         proxy_urls: Optional[List[str]] = None,
         new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None,
-        actor_proxy_input: Optional[Dict] = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
     ) -> Optional[ProxyConfiguration]:
         self._raise_if_not_initialized()
 
