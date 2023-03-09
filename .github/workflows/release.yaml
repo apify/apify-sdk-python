@@ -114,31 +114,18 @@ jobs:
 
     - # Upload the build artifacts to the release
       name: Upload the build artifacts to release
-      uses: svenstaro/upload-release-action@v2
       if: github.event_name == 'release'
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: dist/*
-        file_glob: true
-        tag: ${{ github.ref }}
+      run: gh release upload ${{ github.ref_name }} dist/*
+      env:
+        GH_TOKEN: ${{ github.token }}
 
-    - # Get the current package version for use in Docker images
-        name: Parse package version for Docker images
-        id: get-package-version
-        run: |
-          package_version=`python ./scripts/print_current_package_version.py`
-          echo "package_version=$package_version" >> $GITHUB_OUTPUT
-
-#    - # Trigger building the docker images in apify/apify-actor-docker repo
-#      name: Trigger Docker Image Build
-#      uses: peter-evans/repository-dispatch@v2
-#      if: steps.get-release-type.outputs.docker_image_tag != ''
-#      with:
-#        token: ${{ secrets.TRIGGER_DOCKER_IMAGE_BUILD_TOKEN }}
-#        repository: apify/apify-actor-docker
-#        event-type: build-python-images
-#        client-payload: >
-#          {
-#            "release_tag": "${{ steps.get-release-type.outputs.docker_image_tag }}",
-#            "apify_sdk_version": "${{ steps.get-package-version.outputs.package_version }}"
-#          }
+    - # Trigger building the Python Docker images in apify/apify-actor-docker repo
+      name: Trigger Docker image build
+      run: |
+        PACKAGE_VERSION=`python ./scripts/print_current_package_version.py`
+        gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
+          -F event_type=build-python-images \
+          -F client_payload[release_tag]=${{ steps.get-release-type.outputs.docker_image_tag }} \
+          -F client_payload[apify_version]=$PACKAGE_VERSION
+      env:
+        GH_TOKEN: ${{ secrets.BUILD_DOCKER_IMAGES_REPOSITORY_DISPATCH_GH_TOKEN }}
