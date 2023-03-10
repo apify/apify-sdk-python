@@ -437,6 +437,8 @@ class RequestQueueClient(BaseResourceClient):
 
                 with open(os.path.join(storage_directory, entry.name)) as f:
                     request = json.load(f)
+                    if request.get('orderNo'):
+                        request['orderNo'] = Decimal(request.get('orderNo'))
                 entries.append(request)
 
         new_client = cls(
