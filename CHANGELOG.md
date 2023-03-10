@@ -8,6 +8,10 @@ Changelog
 
 - started triggering base Docker image builds when releasing a new version
 
+### Fixed
+
+- fixed `RequestQueue` not loading requests from an existing queue properly
+
 [0.2.0](../../releases/tag/v0.2.0) - 2023-03-06
 -----------------------------------------------
 
