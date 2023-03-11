@@ -14,9 +14,7 @@ The Apify SDK requires Python version 3.8 or above to run Python actors locally.
 ## Creating your first Actor
 
 To create a new Apify Actor on your computer, you can use the [Apify CLI](https://docs.apify.com/cli),
-and select one of the Python Actor templates.
-
-<!-- TODO: link the correct Actor template -->
+and select one of the [Python Actor templates](https://apify.com/templates?category=python).
 
 For example, to create an Actor from the "[beta] Python SDK" template,
 you can use the [`apify create` command](https://docs.apify.com/cli/docs/reference#apify-create-actorname).
@@ -55,14 +53,14 @@ Then activate the virtual environment in `.venv`:
 
 <Tabs groupId="operating-systems">
     <TabItem value="unix" label="Linux / macOS" default>
-        <CodeBlock language="bash">
-            source .venv/bin/activate
-        </CodeBlock>
+        <CodeBlock language="bash">{
+`source .venv/bin/activate`
+        }</CodeBlock>
     </TabItem>
     <TabItem value="win" label="Windows">
-        <CodeBlock language="powershell">
-            .venv\Scripts\activate.bat
-        </CodeBlock>
+        <CodeBlock language="powershell">{
+`.venv\\Scripts\\activate`
+        }</CodeBlock>
     </TabItem>
 </Tabs>
 

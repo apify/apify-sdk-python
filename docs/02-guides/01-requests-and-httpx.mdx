@@ -1,15 +1,18 @@
 ---
-title: Using requests and httpx
+title: Using Requests and HTTPX
 sidebar_label: Using Requests and HTTPX
 ---
 
-<!-- TODO: link the correct template -->
+To use either of the libraries mentioned below in your Actors,
+you can start from the [Start with Python](https://apify.com/templates?category=python) Actor template.
 
 ## Requests
 
 The [`requests`](https://requests.readthedocs.io) library is one of the most popular Python libraries for making HTTP requests.
+
 To use it in your Actors, no special configuration is needed.
-Just put `requests` in your `requirements.txt` file, reinstall dependencies if you're running the Actor locally,
+Just put `requests` in your `requirements.txt` file,
+[reinstall dependencies](../overview/running-locally#adding-dependencies) if you're running the Actor locally,
 and you're good to go.
 
 ```python title="src/main.py"
@@ -52,8 +55,10 @@ To learn more about using proxies in your Actor with `requests`, check the [docu
 Another very popular Python library for performing HTTP requests is [`HTTPX`](https://www.python-httpx.org/).
 Its main advantage over `requests` is the ability to [perform asynchronous HTTP requests](https://www.python-httpx.org/async/),
 making it ideal for large-scale, parallel web scraping.
+
 To use it in your Actors, no special configuration is needed.
-Just put `httpx` in your `requirements.txt` file, reinstall dependencies if you're running the Actor locally,
+Just put `httpx` in your `requirements.txt` file,
+[reinstall dependencies](../overview/running-locally#adding-dependencies) if you're running the Actor locally,
 and you're good to go.
 
 ```python title="src/main.py"

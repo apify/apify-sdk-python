@@ -3,4 +3,103 @@ title: Using Scrapy
 sidebar_label: Using Scrapy
 ---
 
-<!-- TODO: link the correct Actor template -->
+Scrapy is an open-source web scraping framework written in Python.
+It provides a complete set of tools for web scraping, including the ability to define how to extract data from websites, handle pagination and navigation.
+
+Some of the key features of Scrapy for web scraping include:
+
+- **Request and response handling** - Scrapy provides an easy-to-use interface for making HTTP requests and handling responses,
+allowing you to navigate through web pages and extract data.
+- **Robust Spider framework** - Scrapy has a spider framework that allows you to define how to scrape data from websites,
+including how to follow links, how to handle pagination, and how to parse the data.
+- **Built-in data extraction** - Scrapy includes built-in support for data extraction using XPath and CSS selectors,
+allowing you to easily extract data from HTML and XML documents.
+- **Integration with other tool** - Scrapy can be integrated with other Python tools like BeautifulSoup and Selenium for more advanced scraping tasks.
+
+## Using Scrapy in Actors
+
+To create Actors which use Scrapy, start from the [Scrapy & Python](https://apify.com/templates?category=python) Actor template.
+
+This template already contains the structure and setup necessary to integrate Scrapy into your Actors,
+setting up the Scrapy settings, asyncio reactor, Actor logger and item pipeline
+as necessary to make Scrapy spiders run in Actors and save their outputs in Apify datasets.
+
+### Manual setup
+
+If you don't want to use the template, there are several things you need to set up.
+
+#### Event loop & reactor
+
+Since the `Actor` class uses `asyncio` under the hood,
+Scrapy has to use the [`AsyncioSelectorReactor`](https://docs.scrapy.org/en/latest/topics/asyncio.html) reactor.
+And to be able to run the Scrapy engine in an already running loop,
+you have to use the [`nest_asyncio`](https://pypi.org/project/nest-asyncio/) package.
+
+#### Item pipeline
+
+To push the results into the Actor's default dataset,
+the engine has to use a custom [`ItemPipeline`](https://docs.scrapy.org/en/latest/topics/item-pipeline.html)
+that calls `Actor.push_data()` on the scraped items.
+
+## Example Actor
+
+This is a simple Actor that recursively scrapes titles from all linked websites,
+up to a maximum depth, starting from URLs in the Actor input.
+
+It uses Scrapy download the pages, extract the results from each page, and continue recursively through the website pagination.
+
+```python title="src/main.py"
+from urllib.parse import urljoin
+import nest_asyncio
+import scrapy
+from itemadapter import ItemAdapter
+from scrapy.crawler import CrawlerProcess
+from scrapy.utils.project import get_project_settings
+from scrapy.utils.reactor import install_reactor
+
+from apify import Actor
+
+# This is necessary so that twisted and asyncio work well together
+install_reactor('twisted.internet.asyncioreactor.AsyncioSelectorReactor')
+nest_asyncio.apply()
+
+# Scrapes titles pages and enqueues all links it finds on the page
+class TitleSpider(scrapy.Spider):
+    name = 'title_spider'
+
+    def __init__(self, start_urls, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.start_urls = start_urls
+
+    def parse(self, response):
+        yield {
+            'url': response.url,
+            'title': response.css('title::text').extract_first(),
+        }
+        for link_href in response.css('a::attr("href")'):
+            link_url = urljoin(response.url, link_href.get())
+            if link_url.startswith(('http://', 'https://')):
+                yield scrapy.Request(link_url)
+
+# Pushes the scraped items into the actor's default dataset
+class ActorDatasetPushPipeline:
+    async def process_item(self, item, spider):
+        item_dict = ItemAdapter(item).asdict()
+        await Actor.push_data(item_dict)
+        return item
+
+async def main():
+    async with Actor:
+        actor_input = await Actor.get_input() or {}
+        start_urls = actor_input.get('start_urls', [{ 'url': 'https://apify.com' }])
+        start_urls = [start_url.get('url') for start_url in start_urls]
+
+        settings = get_project_settings()
+        settings['ITEM_PIPELINES'] = { ActorDatasetPushPipeline: 1 }
+        settings['TWISTED_REACTOR'] = 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'
+        settings['DEPTH_LIMIT'] = actor_input.get('max_depth', 1)
+
+        process = CrawlerProcess(settings)
+        process.crawl(TitleSpider, start_urls=start_urls)
+        process.start()
+```
