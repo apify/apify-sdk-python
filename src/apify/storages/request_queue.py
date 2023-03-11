@@ -166,7 +166,8 @@ class RequestQueue(BaseStorage):
         self._cache_request(cache_key, queue_operation_info)
 
         request_id, was_already_present = queue_operation_info['requestId'], queue_operation_info['wasAlreadyPresent']
-        if not was_already_present and request_id not in self._in_progress and self._recently_handled.get(request_id) is None:
+        is_handled = request.get('handledAt') is not None
+        if not is_handled and not was_already_present and request_id not in self._in_progress and self._recently_handled.get(request_id) is None:
             self._assumed_total_count += 1
 
             self._maybe_add_request_to_queue_head(request_id, forefront)
@@ -520,4 +521,6 @@ class RequestQueue(BaseStorage):
         Returns:
             RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
         """
-        return await super().open(id=id, name=name, force_cloud=force_cloud, config=config)
+        queue = await super().open(id=id, name=name, force_cloud=force_cloud, config=config)
+        await queue._ensure_head_is_non_empty()
+        return queue
