@@ -5,11 +5,13 @@ sidebar_label: Actor lifecycle
 
 ## Lifecycle methods
 
+### Initialization and cleanup
+
 At the start of its runtime, the Actor needs to initialize itself, its event manager and its storages,
 and at the end of the runtime it needs to close these cleanly.
 The Apify SDK provides several options on how to manage this.
 
-### `Actor.init()` and `Actor.exit()`
+#### `Actor.init()` and `Actor.exit()`
 
 The [`Actor.init()`](../../reference/class/Actor#init) method initializes the Actor,
 the event manager which processes the Actor events from the platform event websocket,
@@ -27,16 +29,16 @@ from apify.consts import ActorExitCodes
 async def main():
     await Actor.init()
     try:
-        print('Actor input:', await Actor.get_input())
+        Actor.log.info('Actor input:', await Actor.get_input())
         await Actor.set_value('OUTPUT', 'Hello, world!')
         raise RuntimeError('Ouch!')
         await Actor.exit()
     except Exception as e:
-        print('Error while running Actor', e)
+        Actor.log.exception('Error while running Actor')
         await Actor.fail(exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW, exception=e)
 ```
 
-### Context manager
+#### Context manager
 
 So that you don't have to call the lifecycle methods manually, the [`Actor`](../../reference/class/Actor) class provides a context manager,
 which calls the [`Actor.init()`](../../reference/class/Actor#init) method on enter,
@@ -50,12 +52,12 @@ from apify import Actor
 
 async def main():
     async with Actor:
-        print('Actor input:', await Actor.get_input())
+        Actor.log.info('Actor input:', await Actor.get_input())
         await Actor.set_value('OUTPUT', 'Hello, world!')
         raise RuntimeError('Ouch!')
 ```
 
-### Main function
+#### Main function
 
 Another option is to pass a function to the Actor via the [`Actor.main(main_func)`](../../reference/class/Actor#main) method,
 which causes the Actor to initialize, run the main function, and exit, catching any runtime errors in the passed function.
@@ -64,12 +66,30 @@ which causes the Actor to initialize, run the main function, and exit, catching 
 from apify import Actor
 
 async def actor_main_func():
-    print('Actor input:', await Actor.get_input())
+    Actor.log.info('Actor input:', await Actor.get_input())
     await Actor.set_value('OUTPUT', 'Hello, world!')
     raise RuntimeError('Ouch!')
 
 async def main():
     await Actor.main(actor_main_func)
+```
+
+### Rebooting an Actor
+
+Sometimes, you want to restart your Actor to make it run from the beginning again.
+To do that, you can use the [`Actor.reboot()`](../../reference/class/Actor#reboot) method.
+When you call it, the Apify platform stops the container of the run,
+and starts a new container of the same Actor with the same run ID and storages.
+
+Don't do it unconditionally, or you might get the Actor in a reboot loop.
+
+```python title="src/main.py"
+from apify import Actor
+
+async def main():
+    async with Actor:
+        # TODO: figure out a good reason why to reboot
+        await Actor.reboot()
 ```
 
 ## Actor status message
@@ -94,22 +114,4 @@ async def main():
         await Actor.set_status_message('Almost there...')
         ...
         await Actor.set_status_message('Phew! That was not that hard!')
-```
-
-## Rebooting an Actor
-
-Sometimes, you want to restart your Actor to make it run from the beginning again.
-To do that, you can use the [`Actor.reboot()`](../../reference/class/Actor#reboot) method.
-When you call it, the Apify platform stops the container of the run,
-and starts a new container of the same Actor with the same run ID and storages.
-
-Don't do it unconditionally, or you might get the Actor in a reboot loop.
-
-```python title="src/main.py"
-from apify import Actor
-
-async def main():
-    async with Actor:
-        # TODO: figure out a good reason why to reboot
-        await Actor.reboot()
 ```

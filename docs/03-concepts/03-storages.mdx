@@ -202,7 +202,7 @@ To get a publicly accessible URL of a key-value store record,
 you can use the [`KeyValueStore.get_public_url()`](../../reference/class/KeyValueStore#get_public_url) method.
 
 ```python
-print(f'"explicit_csv" record URL: {await store.get_public_url('explicit_csv')}')
+print(f'"my_record" record URL: {await store.get_public_url('my_record')}')
 ```
 
 ## Working with request queues
@@ -269,16 +269,16 @@ async def main():
                 await asyncio.sleep(1)
                 continue
 
-            print(f'Processing request {request["uniqueKey"]}...')
-            print(f'Scraping URL {request["url"]}...')
+            Actor.log.info(f'Processing request {request["uniqueKey"]}...')
+            Actor.log.info(f'Scraping URL {request["url"]}...')
 
             # Do some fake work, which fails 30% of the time
             await asyncio.sleep(1)
             if random.random() > 0.3:
                 # If processing the request was successful, mark it as handled
-                print('Success!')
+                Actor.log.info('Request successful.')
                 await queue.mark_request_as_handled(request)
             else:
                 # If processing the request was unsuccessful, reclaim it so it can be processed again
-                print('Failed!')
+                Actor.log.warning('Request failed, will retry!')
                 await queue.reclaim_request(request)

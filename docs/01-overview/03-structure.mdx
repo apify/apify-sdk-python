@@ -28,7 +28,7 @@ and executing the Actor's main function via [`asyncio.run()`](https://docs.pytho
 ${''}
 async def main():
     async with Actor:
-        print('Actor input:', await Actor.get_input())
+        Actor.log.info('Actor input:', await Actor.get_input())
         await Actor.set_value('OUTPUT', 'Hello, world!')`
         }</CodeBlock>
     </TabItem>

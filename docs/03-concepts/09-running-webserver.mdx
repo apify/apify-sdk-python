@@ -44,7 +44,7 @@ def run_server():
     # and save a reference to the server
     global http_server
     with ThreadingHTTPServer(('', Actor.config.container_port), RequestHandler) as server:
-        print(f'Server running on {Actor.config.container_url}')
+        Actor.log.info(f'Server running on {Actor.config.container_url}')
         http_server = server
         server.serve_forever()
 
@@ -58,7 +58,7 @@ async def main():
         for _ in range(100):
             await asyncio.sleep(1)
             processed_items += 1
-            print(f'Processed items: {processed_items}')
+            Actor.log.info(f'Processed items: {processed_items}')
 
         # Signal the HTTP server to shut down, and wait for it to finish
         http_server.shutdown()

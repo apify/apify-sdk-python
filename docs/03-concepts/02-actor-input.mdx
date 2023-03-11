@@ -23,5 +23,5 @@ async def main():
         actor_input = await Actor.get_input() or {}
         first_number = actor_input.get('firstNumber')
         second_number = actor_input.get('secondNumber')
-        print(f'Sum: {first_number + second_number}')
+        Actor.log.info(f'Sum: {first_number + second_number}')
 ```
