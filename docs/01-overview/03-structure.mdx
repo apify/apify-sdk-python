@@ -9,17 +9,17 @@ import CodeBlock from '@theme/CodeBlock';
 
 All Python Actor templates follow the same structure.
 
-The `.actor` folder contains the [actor configuration](https://docs.apify.com/platform/actors/development/actor-config),
+The `.actor` directory contains the [Actor configuration](https://docs.apify.com/platform/actors/development/actor-config),
 such as the Actor's input and schema, and the Dockerfile necessary to run the Actor on the Apify platform.
 
 The Actor's runtime dependencies are specified in the `requirements.txt` file,
-following the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
+which follows the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
 
-The Actor's source code is in the `src` folder. There are two important files in the folder:
+The Actor's source code is in the `src` folder. This folder contains two important files:
 `main.py`, which contains the main function of the Actor,
 and `__main__.py`, which is the entrypoint of the Actor package,
-which sets up the Actor [logger](../concepts/logging),
-and executes the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+setting up the Actor [logger](../concepts/logging)
+and executing the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
 
 <Tabs>
     <TabItem value="main.py" label="main.py" default>
@@ -54,6 +54,6 @@ asyncio.run(main())`
 </Tabs>
 
 If you want to modify the Actor structure,
-you need to make sure that your Actor will be executable as a module, via `python -m src`,
+you need to make sure that your Actor is executable as a module, via `python -m src`,
 as that is the command started by `apify run` in the Apify CLI.
 We recommend keeping the entrypoint for the Actor in the `src/__main__.py` file.
