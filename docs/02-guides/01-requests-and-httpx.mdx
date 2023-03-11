@@ -8,8 +8,8 @@ sidebar_label: Using Requests and HTTPX
 ## Requests
 
 [`requests`](https://requests.readthedocs.io) is one of the most popular Python libraries for doing HTTP requests.
-To use it in your actors, there is no special configuration needed.
-Just put `requests` in your `requirements.txt` file, reinstall dependencies if you're running the actor locally,
+To use it in your Actors, no special configuration is needed.
+Just put `requests` in your `requirements.txt` file, reinstall dependencies if you're running the Actor locally,
 and you're good to go.
 
 ```python title="src/main.py"
@@ -24,7 +24,7 @@ async def main():
 
 ### Using proxies with requests
 
-To use the Apify Proxy with `requests`,
+To use Apify Proxy with `requests`,
 you can just generate a proxy URL through [`Actor.create_proxy_configuration()`](../../reference/class/Actor#create_proxy_configuration),
 and pass it to `requests` using the [`proxies` argument](https://requests.readthedocs.io/en/latest/user/advanced/#proxies):
 
@@ -45,15 +45,15 @@ async def main():
         print(response.text)
 ```
 
-To learn more about using proxies in your actor with `requests`, check the [documentation for proxy management](../concepts/proxy-management).
+To learn more about using proxies in your Actor with `requests`, check the [documentation for proxy management](../concepts/proxy-management).
 
 ## HTTPX
 
 Another very popular Python library for performing HTTP requests is [`HTTPX`](https://www.python-httpx.org/).
 Its main advantage over `requests` is the ability to [perform asynchronous HTTP requests](https://www.python-httpx.org/async/),
-making it ideal for large scale, parallel web scraping.
-To use it in your actors, there is no special configuration needed.
-Just put `httpx` in your `requirements.txt` file, reinstall dependencies if you're running the actor locally,
+making it ideal for large-scale, parallel web scraping.
+To use it in your Actors, no special configuration is needed.
+Just put `httpx` in your `requirements.txt` file, reinstall dependencies if you're running the Actor locally,
 and you're good to go.
 
 ```python title="src/main.py"
@@ -69,13 +69,13 @@ async def main():
             for i in range(10):
                 http_requests.append(httpx_client.get(f'http://example.com/{i}'))
 
-            responses = await asyncio.gather(http_requests)
+            responses = await asyncio.gather(*http_requests)
             print(responses)
 ```
 
 ### Using proxies with HTTPX
 
-To use the Apify Proxy with `httpx`,
+To use Apify Proxy with `httpx`,
 you can just generate a proxy URL through [`Actor.create_proxy_configuration()`](../../reference/class/Actor#create_proxy_configuration),
 and pass it to `httpx` using the [`proxies` argument](https://requests.readthedocs.io/en/latest/user/advanced/#proxies):
 
@@ -88,8 +88,8 @@ async def main():
         proxy_configuration = await Actor.create_proxy_configuration()
         proxy_url = await proxy_configuration.new_url()
         async with httpx.AsyncClient(proxies=proxy_url) as httpx_client:
-            response = httpx_client.get(f'http://example.com/{i}'),
+            response = httpx_client.get(f'http://example.com'),
             print(response)
 ```
 
-To learn more about using proxies in your actor with `httpx`, check the [documentation for proxy management](../concepts/proxy-management).
+To learn more about using proxies in your Actor with `httpx`, check the [documentation for proxy management](../concepts/proxy-management).

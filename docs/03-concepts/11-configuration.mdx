@@ -6,19 +6,19 @@ sidebar_label: Configuration & env vars
 The [`Actor`](../../reference/class/Actor) class gets configured using the [`Configuration`](../../reference/class/Configuration) class,
 which initializes itself based on the provided environment variables.
 
-If you're using the Apify SDK in your actors on the Apify Platform, or actors running locally through the Apify CLI,
+If you're using the Apify SDK in your Actors on the Apify platform, or Actors running locally through the Apify CLI,
 you don't need to configure the `Actor` class manually,
 unless you have some specific requirements, everything will get configured automatically.
 
 If you need some special configuration, you can adjust it either through the `Configuration` class directly,
-or by setting environment variables when running the actor locally.
+or by setting environment variables when running the Actor locally.
 
 To see the full list of configuration options, check the `Configuration` class
-or the list of environment variables that the actor understands.
+or the list of environment variables that the Actor understands.
 
 ### Configuring from code
 
-This will cause the actor to persist its state every 10 seconds:
+This will cause the Actor to persist its state every 10 seconds:
 
 ```python title="src/main.py"
 from apify import Actor
@@ -38,7 +38,7 @@ async def main():
 
 ### Configuring via environment variables
 
-This actor run will not persist its local storages to the filesystem:
+This Actor run will not persist its local storages to the filesystem:
 
 ```bash
 APIFY_PERSIST_STORAGE=0 apify run

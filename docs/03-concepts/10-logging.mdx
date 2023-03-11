@@ -4,11 +4,11 @@ sidebar_label: Logging
 ---
 
 The Apify SDK is logging useful information through the [`logging`](https://docs.python.org/3/library/logging.html) module
-from Python's standard library, into the logger with name `apify`.
+from Python's standard library, into the logger with the name `apify`.
 
 ## Automatic configuration
 
-When you create an actor from an Apify-provided template, either in the Apify Console or through the Apify CLI,
+When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI,
 you do not have to configure the logger yourself.
 The template already contains initialization code for the logger,
 which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../reference/class/ActorLogFormatter).
@@ -61,7 +61,7 @@ it will automatiacally infer it from the current execution context and print the
 ```python
 Actor.log.debug('This is a debug message')
 Actor.log.info('This is an info message')
-Actor.log.warning('This is a warning message', extra={'reason': 'Bad actor!'})
+Actor.log.warning('This is a warning message', extra={'reason': 'Bad Actor!'})
 Actor.log.error('This is an error message')
 try:
     raise RuntimeError('Ouch!')
@@ -97,7 +97,7 @@ Result:
 <pre className="actor-log-block">
     <div><span class="ansi-blue-fg">DEBUG</span> This is a debug message</div>
     <div><span class="ansi-green-fg">INFO </span> This is an info message</div>
-    <div><span class="ansi-yellow-fg">WARN </span> This is a warning message <span class="ansi-bright-black-fg">{`({"reason": "Bad actor!"})`}</span></div>
+    <div><span class="ansi-yellow-fg">WARN </span> This is a warning message <span class="ansi-bright-black-fg">{`({"reason": "Bad Actor!"})`}</span></div>
     <div><span class="ansi-red-fg">ERROR</span> This is an error message</div>
     <div><span class="ansi-red-fg">ERROR</span> This is an exceptional message</div>
     <div>      Traceback (most recent call last):</div>

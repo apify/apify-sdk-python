@@ -3,15 +3,15 @@ title: Using Beautiful Soup
 sidebar_label: Using Beautiful Soup
 ---
 
-<!-- TODO: link the correct actor template -->
+<!-- TODO: link the correct Actor template -->
 
 [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) is a Python library for pulling data out of HTML and XML files.
 It provides simple methods and Pythonic idioms for navigating, searching, and modifying a website's element tree,
 allowing you to quickly extract the data you need.
 
-This is a simple actor that recursively scrapes titles from all linked websites,
+This is a simple Actor that recursively scrapes titles from all linked websites,
 up to a maximum depth.
-starting from URLs in the actor input.
+starting from URLs in the Actor input.
 
 It uses `requests` to fetch the pages,
 and BeautifulSoup to parse their content and read
@@ -24,7 +24,7 @@ from bs4 import BeautifulSoup
 
 async def main():
     async with Actor:
-        # Read the actor input
+        # Read the Actor input
         actor_input = await Actor.get_input() or {}
         start_urls = actor_input.get('start_urls', [])
         max_depth = actor_input.get('max_depth', 2)

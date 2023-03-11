@@ -1,25 +1,25 @@
 ---
-title: Running a webserver in your actor
+title: Running a webserver in your Actor
 sidebar_label: Running a webserver
 ---
 
-Each actor run on the Apify Platform is assigned a unique hard-to-guess URL (e.g. `https://8segt5i81sokzm.runs.apify.net`),
-which enables HTTP access to an optional web server running inside the actor run's container.
+Each Actor run on the Apify platform is assigned a unique hard-to-guess URL (for example `https://8segt5i81sokzm.runs.apify.net`),
+which enables HTTP access to an optional web server running inside the Actor run's container.
 
 The URL is available in the following places:
 
-- In the Apify Console, on the actor run details page as the **Container URL** field.
+- In Apify Console, on the Actor run details page as the **Container URL** field.
 - In the API as the `containerUrl` property of the [Run object](https://docs.apify.com/api/v2#/reference/actors/run-object/get-run).
-- In the actor as the `Actor.config.container_url` property.
+- In the Actor as the `Actor.config.container_url` property.
 
 The web server running inside the container must listen at the port defined by the `Actor.config.container_port` property.
-When running actors locally, the port defaults to `4321`,
+When running Actors locally, the port defaults to `4321`,
 so the web server will be accessible at `http://localhost:4321`.
 
 ## Example
 
-The following example demonstrates how to start a simple web server in your actor,
-which will respond to every GET request with the number of items that the actor has processed so far:
+The following example demonstrates how to start a simple web server in your Actor,
+which will respond to every GET request with the number of items that the Actor has processed so far:
 
 ```python title="src/main.py"
 import asyncio

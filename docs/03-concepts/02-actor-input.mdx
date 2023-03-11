@@ -3,15 +3,15 @@ title: Actor input
 sidebar_label: Actor input
 ---
 
-The actor gets its [input](https://docs.apify.com/platform/actors/running/input) from the input record in its default key-value store.
+The Actor gets its [input](https://docs.apify.com/platform/actors/running/input) from the input record in its default key-value store.
 
-To access it, instead of having to read the record manually,
+To access it, instead of reading the record manually,
 you can use the [`Actor.get_input()`](../../reference/class/Actor#get_input) convenience method.
-It will get the input record key from the actor configuration,
+It will get the input record key from the Actor configuration,
 read the record from the default key-value store,
 and decrypt any [secret input fields](https://docs.apify.com/platform/actors/development/secret-input).
 
-For example, if an actor received a JSON input with two fields,
+For example, if an Actor received a JSON input with two fields,
 `{ "firstNumber": 1, "secondNumber": 2 }`,
 this is how you might process it:
 

@@ -5,20 +5,20 @@ sidebar_label: Actor lifecycle
 
 ## Lifecycle methods
 
-At the start of its runtime, the actor needs to initialize itself, its event manager and its storages,
+At the start of its runtime, the Actor needs to initialize itself, its event manager and its storages,
 and at the end of the runtime it needs to close these cleanly.
 The Apify SDK provides several options on how to manage this.
 
 ### `Actor.init()` and `Actor.exit()`
 
-The [`Actor.init()`](../../reference/class/Actor#init) method initializes the actor,
-the event manager which processes the actor events from the platform event websocket,
+The [`Actor.init()`](../../reference/class/Actor#init) method initializes the Actor,
+the event manager which processes the Actor events from the platform event websocket,
 and the storage client used in the execution environment.
-It should be called before performing any other actor operations.
+It should be called before performing any other Actor operations.
 
-The [`Actor.exit()`](../../reference/class/Actor#exit) method then exits the actor cleanly,
+The [`Actor.exit()`](../../reference/class/Actor#exit) method then exits the Actor cleanly,
 tearing down the event manager and the storage client.
-There is also the [`Actor.fail()`](../../reference/class/Actor#fail) method, which exits the actor while marking it as failed.
+There is also the [`Actor.fail()`](../../reference/class/Actor#fail) method, which exits the Actor while marking it as failed.
 
 ```python title="src/main.py"
 from apify import Actor
@@ -32,7 +32,7 @@ async def main():
         raise RuntimeError('Ouch!')
         await Actor.exit()
     except Exception as e:
-        print('Error while running actor', e)
+        print('Error while running Actor', e)
         await Actor.fail(exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW, exception=e)
 ```
 
@@ -41,7 +41,7 @@ async def main():
 So that you don't have to call the lifecycle methods manually, the [`Actor`](../../reference/class/Actor) class provides a context manager,
 which calls the [`Actor.init()`](../../reference/class/Actor#init) method on enter,
 the [`Actor.exit()`](../../reference/class/Actor#exit) method on a clean exit,
-and the [`Actor.fail()`](../../reference/class/Actor#fail) method when there is an exception during the run of the actor.
+and the [`Actor.fail()`](../../reference/class/Actor#fail) method when there is an exception during the run of the Actor.
 
 This is the recommended way to work with the `Actor` class.
 
@@ -57,8 +57,8 @@ async def main():
 
 ### Main function
 
-Another option is to pass a function to the actor via the [`Actor.main(main_func)`](../../reference/class/Actor#main) method,
-which causes the actor to initialize, run the main function, and exit, catching any runtime errors in the passed function.
+Another option is to pass a function to the Actor via the [`Actor.main(main_func)`](../../reference/class/Actor#main) method,
+which causes the Actor to initialize, run the main function, and exit, catching any runtime errors in the passed function.
 
 ```python title="src/main.py"
 from apify import Actor
@@ -74,11 +74,11 @@ async def main():
 
 ## Actor status message
 
-To inform you or the users running your actors about the progress of their runs,
-you can set the status message for the run, which will then be visible in the run detail in the Apify Console,
+To inform you or the users running your Actors about the progress of their runs,
+you can set the status message for the run, which will then be visible in the run detail in Apify Console,
 or accessible through the Apify API.
 
-To set the status message for the actor run, you can use the [`Actor.set_status_message()`](../../reference/class/Actor#set_status_message) method.
+To set the status message for the Actor run, you can use the [`Actor.set_status_message()`](../../reference/class/Actor#set_status_message) method.
 
 ```python title="src/main.py"
 from apify import Actor
@@ -96,14 +96,14 @@ async def main():
         await Actor.set_status_message('Phew! That was not that hard!')
 ```
 
-## Rebooting an actor
+## Rebooting an Actor
 
-Sometimes, you want to restart your actor to make it run from the beginning again.
+Sometimes, you want to restart your Actor to make it run from the beginning again.
 To do that, you can use the [`Actor.reboot()`](../../reference/class/Actor#reboot) method.
-When you call it, the Apify Platform stops the container of the run,
-and starts a new container of the same actor,with the same run ID and storages.
+When you call it, the Apify platform stops the container of the run,
+and starts a new container of the same Actor with the same run ID and storages.
 
-Don't do it unconditionally, or you can get the actor in a reboot loop.
+Don't do it unconditionally, or you might get the Actor in a reboot loop.
 
 ```python title="src/main.py"
 from apify import Actor

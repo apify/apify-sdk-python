@@ -17,7 +17,7 @@ or you can rely on [Apify Proxy](https://apify.com/proxy) for your scraping need
 ## Quick start
 
 If you want to use Apify Proxy locally,
-make sure that you run your actors via the Apify CLI
+make sure that you run your Actors via the Apify CLI
 and that you are [logged in](https://docs.apify.com/cli/docs/installation#login-with-your-apify-account) with your Apify account in the CLI.
 
 ### Using Apify Proxy
@@ -48,8 +48,8 @@ Then you generate proxy URLs using the [`ProxyConfiguration.new_url()`](../../re
 ### Apify Proxy vs. your own proxies
 
 The `ProxyConfiguration` class covers both Apify Proxy and custom proxy URLs,
-so that you can easily switch between proxy providers,
-however, some features of the class are available only to Apify Proxy users,
+so that you can easily switch between proxy providers.
+However, some features of the class are available only to Apify Proxy users,
 mainly because Apify Proxy is what one would call a super-proxy.
 It's not a single proxy server, but an API endpoint that allows connection
 through millions of different IP addresses.
@@ -139,11 +139,11 @@ proxy_url_with_session = await proxy_configuration.new_url('a')
 proxy_url_without_Session = await proxy_configuration.new_url()
 ```
 
-### Configuring proxy based on actor input
+### Configuring proxy based on Actor input
 
-To make selecting proxies the actor uses easier,
-you can use an input field with editor [`proxy` in your input schema](https://docs.apify.com/platform/actors/development/input-schema#object).
-This input will then be filled with a dictionary containing the proxy settings you or the users of your actor selected for the actor run.
+To make selecting the proxies that the Actor uses easier,
+you can use an input field with the editor [`proxy` in your input schema](https://docs.apify.com/platform/actors/development/input-schema#object).
+This input will then be filled with a dictionary containing the proxy settings you or the users of your Actor selected for the Actor run.
 
 You can then use that input to create the proxy configuration:
 
