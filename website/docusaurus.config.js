@@ -25,7 +25,7 @@ module.exports = {
             '@apify/docs-theme',
             {
                 subNavbar: {
-                    title: 'Apify SDK for Python',
+                    title: 'SDK for Python',
                     items: [
                         {
                             to: 'docs/overview/introduction',
@@ -91,6 +91,7 @@ module.exports = {
             ...config.themeConfig.tableOfContents,
             maxHeadingLevel: 5,
         },
+        image: 'https://docs.apify.com/sdk/python/img/docs-og.png',
     },
     staticDirectories: ['node_modules/@apify/docs-theme/static', 'static'],
 };
