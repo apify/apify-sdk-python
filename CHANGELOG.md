@@ -1,11 +1,12 @@
 Changelog
 =========
 
-[1.0.0](../../releases/tag/v1.0.0) - Upcoming
----------------------------------------------
+[1.0.0](../../releases/tag/v1.0.0) - 2022-03-13
+-----------------------------------------------
 
 ### Internal changes
 
+- updated to `apify-client` 1.0.0
 - started triggering base Docker image builds when releasing a new version
 
 ### Fixed
