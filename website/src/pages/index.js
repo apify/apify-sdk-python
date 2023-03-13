@@ -81,7 +81,7 @@ async def main():
         input = await Actor.get_input()
         response = requests.get(input['url'])
         soup = BeautifulSoup(response.content, 'html.parser')
-        await Actor.push_data({ 'url': url, 'title': soup.title.string })`
+        await Actor.push_data({ 'url': input['url'], 'title': soup.title.string })`
                             }</CodeBlock>
                         </div>
                     </div>
