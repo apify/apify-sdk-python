@@ -37,7 +37,7 @@ setup(
     long_description_content_type='text/markdown',
 
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
@@ -56,7 +56,7 @@ setup(
     install_requires=[
         'aiofiles ~= 22.1.0',
         'aioshutil ~= 1.2',
-        'apify-client ~= 0.7.0b49',
+        'apify-client ~= 1.0.0',
         'colorama ~= 0.4.6',
         'cryptography ~= 39.0.1',
         'httpx ~= 0.23.0',
