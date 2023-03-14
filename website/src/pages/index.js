@@ -5,7 +5,41 @@ import Link from '@docusaurus/Link';
 import CodeBlock from '@theme/CodeBlock';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import ProductHuntCard from '../components/ProductHuntCard';
 import styles from './index.module.css';
+
+function TopBanner() {
+    const PHLogo = require('../../static/img/logo-ph.svg').default;
+    const GHLogo = require('../../static/img/logo-gh.svg').default;
+    return (
+        <section className={clsx('container', styles.topBanner)}>
+            <div className="row">
+                <div className="col col--8">
+                    <div className={clsx('container', styles.textRow)}>
+                        <div className="row">
+                            <h1>🎉 Apify SDK for Python is out!</h1>
+                        </div>
+                        <div className="row">
+                            Check out the Apify SDK for Python on{' '}
+                            <Link to="https://github.com/apify/apify-sdk-python">
+                                <GHLogo className={styles.ghLogoSmall} />
+                                GitHub
+                            </Link>
+                            &nbsp;and&nbsp;
+                            <Link to="https://www.producthunt.com/posts/apify-python-sdk">
+                                <PHLogo className={styles.phLogoSmall} />
+                                Product Hunt
+                            </Link>!
+                        </div>
+                    </div>
+                </div>
+                <div className={clsx('col col--4', styles.phcard)}>
+                    <ProductHuntCard />
+                </div>
+            </div>
+        </section>
+    );
+}
 
 function Hero() {
     return (
@@ -60,6 +94,7 @@ export default function Home() {
     return (
         <Layout
             description={siteConfig.description}>
+            <TopBanner />
             <Hero />
             <div>
                 <div className="container">
