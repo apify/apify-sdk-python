@@ -84,6 +84,7 @@ module.exports = {
                 routeBasePath: 'reference',
             },
         ],
+        ...config.plugins,
     ],
     themeConfig: {
         ...config.themeConfig,
