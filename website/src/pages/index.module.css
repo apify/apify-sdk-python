@@ -105,10 +105,10 @@ html[data-theme='dark'] .heroBanner h2 {
     margin-bottom: 50px;
 }
 
-@media only screen and (max-device-width: 996px) {
+@media only screen and (max-width: 996px) {
     .codeBlock {
         position: relative;
-        top: 50px;
+        top: 0px;
     }
 
     .logoBlur {
@@ -116,7 +116,7 @@ html[data-theme='dark'] .heroBanner h2 {
     }
 }
 
-@media only screen and (max-device-width: 736px) {
+@media only screen and (max-width: 736px) {
     .heroBanner {
         padding-top: 20px;
         padding-bottom: 2rem;
@@ -140,7 +140,7 @@ html[data-theme='dark'] .heroBanner h2 {
     }
 }
 
-@media only screen and (max-device-width: 450px) {
+@media only screen and (max-width: 450px) {
     .codeBlock code {
         font-size: 0.8em;
     }
@@ -155,7 +155,7 @@ html[data-theme='dark'] .heroBanner h2 {
     }
 }
 
-@media only screen and (max-device-width: 350px) {
+@media only screen and (max-width: 350px) {
     .codeBlock code {
         font-size: 0.7em;
     }

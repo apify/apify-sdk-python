@@ -80,7 +80,7 @@ function Hero() {
                     </div>
                     <div className={styles.codeBlock}>
                         <CodeBlock className="language-bash">
-                            pip install apify
+                            apify create my-python-actor
                         </CodeBlock>
                     </div>
                 </div>
