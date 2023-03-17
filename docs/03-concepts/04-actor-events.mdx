@@ -76,7 +76,7 @@ and to remove them, you use the [`Actor.on()`](../../reference/class/Actor#off) 
 ```python title="src/main.py"
 import asyncio
 from apify import Actor
-from apify.consts import ActorEventType
+from apify.consts import ActorEventTypes
 
 async def main():
     async with Actor:
@@ -89,8 +89,9 @@ async def main():
             processed_items = actor_state
 
         # Save the state when the `PERSIST_STATE` event happens
-        async def save_state():
+        async def save_state(event_data):
             nonlocal processed_items
+            Actor.log.info('Saving actor state', extra=event_data)
             await Actor.set_value('STATE', processed_items)
 
         Actor.on(ActorEventTypes.PERSIST_STATE, save_state)
