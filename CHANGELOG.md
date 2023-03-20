@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.1.0](../../releases/tag/v1.1.0) - Unreleased
+-----------------------------------------------
+
+### Added
+
+- option to add event handlers which accept no arguments
+
 [1.0.0](../../releases/tag/v1.0.0) - 2022-03-13
 -----------------------------------------------
 

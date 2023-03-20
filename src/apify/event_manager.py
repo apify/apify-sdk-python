@@ -2,7 +2,7 @@ import asyncio
 import inspect
 import json
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Union
 
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
@@ -11,6 +11,8 @@ from ._utils import _maybe_extract_enum_member_value, _parse_date_fields, ignore
 from .config import Configuration
 from .consts import ActorEventTypes
 from .log import logger
+
+ListenerType = Union[Callable[[], None], Callable[[Any], None], Callable[[], Coroutine[Any, Any, None]], Callable[[Any], Coroutine[Any, Any, None]]]
 
 
 @ignore_docs
@@ -87,26 +89,37 @@ class EventManager:
 
         self._initialized = False
 
-    def on(self, event_name: ActorEventTypes, listener: Callable) -> Callable:
+    def on(self, event_name: ActorEventTypes, listener: ListenerType) -> Callable:
         """Add an event listener to the event manager.
 
         Args:
             event_name (ActorEventTypes): The actor event for which to listen to.
             listener (Callable): The function which is to be called when the event is emitted (can be async).
+                Must accept either zero or one arguments (the first argument will be the event data).
         """
         if not self._initialized:
             raise RuntimeError('EventManager was not initialized!')
 
+        listener_argument_count = len(inspect.signature(listener).parameters)
+        if listener_argument_count > 1:
+            raise ValueError('The "listener" argument must be a callable which accepts 0 or 1 arguments!')
+
         event_name = _maybe_extract_enum_member_value(event_name)
 
-        async def inner_wrapper(*args: Any, **kwargs: Any) -> None:
+        async def inner_wrapper(event_data: Any) -> None:
             if inspect.iscoroutinefunction(listener):
-                await listener(*args, **kwargs)
+                if listener_argument_count == 0:
+                    await listener()
+                else:
+                    await listener(event_data)
             else:
-                listener(*args, **kwargs)
+                if listener_argument_count == 0:
+                    listener()  # type: ignore[call-arg]
+                else:
+                    listener(event_data)  # type: ignore[call-arg]
 
-        async def outer_wrapper(*args: Any, **kwargs: Any) -> None:
-            listener_task = asyncio.create_task(inner_wrapper(*args, **kwargs))
+        async def outer_wrapper(event_data: Any) -> None:
+            listener_task = asyncio.create_task(inner_wrapper(event_data))
             self._listener_tasks.add(listener_task)
             try:
                 await listener_task
