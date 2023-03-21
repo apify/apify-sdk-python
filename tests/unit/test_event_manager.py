@@ -105,6 +105,55 @@ class TestEventManagerLocal:
 
         await event_manager.close()
 
+    async def test_event_handler_argument_counts_local(self) -> None:
+        config = Configuration()
+        event_manager = EventManager(config)
+
+        await event_manager.init()
+
+        event_calls = []
+
+        def sync_no_arguments() -> None:
+            nonlocal event_calls
+            event_calls.append(('sync_no_arguments', None))
+
+        async def async_no_arguments() -> None:
+            nonlocal event_calls
+            event_calls.append(('async_no_arguments', None))
+
+        def sync_one_argument(event_data: Any) -> None:
+            nonlocal event_calls
+            event_calls.append(('sync_one_argument', event_data))
+
+        async def async_one_argument(event_data: Any) -> None:
+            nonlocal event_calls
+            event_calls.append(('async_one_argument', event_data))
+
+        def sync_two_arguments(_arg1: Any, _arg2: Any) -> None:
+            pass
+
+        async def async_two_arguments(_arg1: Any, _arg2: Any) -> None:
+            pass
+
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_no_arguments)
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, async_no_arguments)
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_one_argument)
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, async_one_argument)
+
+        with pytest.raises(ValueError, match='The "listener" argument must be a callable which accepts 0 or 1 arguments!'):
+            event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_two_arguments)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match='The "listener" argument must be a callable which accepts 0 or 1 arguments!'):
+            event_manager.on(ActorEventTypes.SYSTEM_INFO, async_two_arguments)  # type: ignore[arg-type]
+
+        event_manager.emit(ActorEventTypes.SYSTEM_INFO, 'DUMMY_SYSTEM_INFO')
+        await asyncio.sleep(0.1)
+
+        assert len(event_calls) == 4
+        assert ('sync_no_arguments', None) in event_calls
+        assert ('async_no_arguments', None) in event_calls
+        assert ('sync_one_argument', 'DUMMY_SYSTEM_INFO') in event_calls
+        assert ('async_one_argument', 'DUMMY_SYSTEM_INFO') in event_calls
+
     async def test_event_async_handling_local(self) -> None:
         config = Configuration()
         event_manager = EventManager(config)
