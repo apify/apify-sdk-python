@@ -100,9 +100,24 @@ class EventManager:
         if not self._initialized:
             raise RuntimeError('EventManager was not initialized!')
 
-        listener_argument_count = len(inspect.signature(listener).parameters)
-        if listener_argument_count > 1:
-            raise ValueError('The "listener" argument must be a callable which accepts 0 or 1 arguments!')
+        # Detect whether the listener will accept the event_data argument
+        try:
+            signature = inspect.signature(listener)
+        except (ValueError, TypeError):
+            # If we can't determine the listener argument count (e.g. for the built-in `print` function),
+            # let's assume the listener will accept the argument
+            listener_argument_count = 1
+        else:
+            try:
+                dummy_event_data: Dict = {}
+                signature.bind(dummy_event_data)
+                listener_argument_count = 1
+            except TypeError:
+                try:
+                    signature.bind()
+                    listener_argument_count = 0
+                except TypeError:
+                    raise ValueError('The "listener" argument must be a callable which accepts 0 or 1 arguments!')
 
         event_name = _maybe_extract_enum_member_value(event_name)
 

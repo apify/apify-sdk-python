@@ -135,10 +135,23 @@ class TestEventManagerLocal:
         async def async_two_arguments(_arg1: Any, _arg2: Any) -> None:
             pass
 
+        def sync_two_arguments_one_default(event_data: Any, _arg2: Any = 'default_value') -> None:
+            nonlocal event_calls
+            event_calls.append(('sync_two_arguments_one_default', event_data))
+
+        async def async_two_arguments_one_default(event_data: Any, _arg2: Any = 'default_value') -> None:
+            nonlocal event_calls
+            event_calls.append(('async_two_arguments_one_default', event_data))
+
         event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_no_arguments)
         event_manager.on(ActorEventTypes.SYSTEM_INFO, async_no_arguments)
         event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_one_argument)
         event_manager.on(ActorEventTypes.SYSTEM_INFO, async_one_argument)
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_two_arguments_one_default)
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, async_two_arguments_one_default)
+
+        # built-in functions should work too
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, print)
 
         with pytest.raises(ValueError, match='The "listener" argument must be a callable which accepts 0 or 1 arguments!'):
             event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_two_arguments)  # type: ignore[arg-type]
@@ -148,11 +161,13 @@ class TestEventManagerLocal:
         event_manager.emit(ActorEventTypes.SYSTEM_INFO, 'DUMMY_SYSTEM_INFO')
         await asyncio.sleep(0.1)
 
-        assert len(event_calls) == 4
+        assert len(event_calls) == 6
         assert ('sync_no_arguments', None) in event_calls
         assert ('async_no_arguments', None) in event_calls
         assert ('sync_one_argument', 'DUMMY_SYSTEM_INFO') in event_calls
         assert ('async_one_argument', 'DUMMY_SYSTEM_INFO') in event_calls
+        assert ('sync_two_arguments_one_default', 'DUMMY_SYSTEM_INFO') in event_calls
+        assert ('async_two_arguments_one_default', 'DUMMY_SYSTEM_INFO') in event_calls
 
     async def test_event_async_handling_local(self) -> None:
         config = Configuration()
