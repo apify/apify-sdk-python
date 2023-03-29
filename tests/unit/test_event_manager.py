@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from collections import defaultdict
+from pprint import pprint
 from typing import Any, Callable, Dict, Optional, Set
 
 import pytest
@@ -152,6 +153,9 @@ class TestEventManagerLocal:
 
         # built-in functions should work too
         event_manager.on(ActorEventTypes.SYSTEM_INFO, print)
+
+        # functions from the standard library should work too
+        event_manager.on(ActorEventTypes.SYSTEM_INFO, pprint)
 
         with pytest.raises(ValueError, match='The "listener" argument must be a callable which accepts 0 or 1 arguments!'):
             event_manager.on(ActorEventTypes.SYSTEM_INFO, sync_two_arguments)  # type: ignore[arg-type]
