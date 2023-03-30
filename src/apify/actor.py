@@ -681,7 +681,8 @@ class Actor(metaclass=_ActorContextManager):
             Emitted every minute, the event data contains info about the resource usage of the actor.
          - `ActorEventTypes.MIGRATING`:
             Emitted when the actor running on the Apify platform is going to be migrated to another worker server soon.
-            You can use it to persist the state of the actor and abort the run, to speed up the migration.
+            You can use it to persist the state of the actor and gracefully stop your in-progress tasks,
+            so that they are not interrupted by the migration..
          - `ActorEventTypes.PERSIST_STATE`:
             Emitted in regular intervals (by default 60 seconds) to notify the actor that it should persist its state,
             in order to avoid repeating all work when the actor restarts.
