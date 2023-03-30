@@ -18,17 +18,17 @@ class TestActorEvents:
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
             was_system_info_emitted = False
+            system_infos = []
 
             def on_event(event_type: ActorEventTypes) -> Callable:
                 async def log_event(data: Any) -> None:
                     nonlocal was_system_info_emitted
+                    nonlocal system_infos
                     print(f'Got actor event ({event_type=}, {data=})')
                     await Actor.push_data({'event_type': event_type, 'data': data})
                     if event_type == ActorEventTypes.SYSTEM_INFO:
                         was_system_info_emitted = True
-                        # Check that parsing datetimes works correctly
-                        # Check `createdAt` is a datetime (so it's the same locally and on platform)
-                        assert isinstance(data[0]['createdAt'], datetime)
+                        system_infos.append(data)
 
                 return log_event
 
@@ -42,6 +42,10 @@ class TestActorEvents:
                     if was_system_info_emitted:
                         break
                     await asyncio.sleep(1)
+
+                # Check that parsing datetimes works correctly
+                # Check `createdAt` is a datetime (so it's the same locally and on platform)
+                assert isinstance(system_infos[0]['createdAt'], datetime)
 
         actor = await make_actor('actor-interval-events', main_func=main)
 
