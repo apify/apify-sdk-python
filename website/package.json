@@ -23,7 +23,7 @@
         "lint:code:fix": "eslint . --fix"
     },
     "dependencies": {
-        "@apify/docs-theme": "^1.0.64",
+        "@apify/docs-theme": "^1.0.84",
         "@docusaurus/core": "^2.3.1",
         "@docusaurus/plugin-client-redirects": "^2.3.1",
         "@docusaurus/preset-classic": "^2.3.1",
