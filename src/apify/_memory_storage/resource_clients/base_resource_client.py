@@ -101,7 +101,7 @@ class BaseResourceClient(ABC):
                     metadata_path = os.path.join(entry.path, '__metadata__.json')
                     if not os.access(metadata_path, os.F_OK):
                         continue
-                    with open(metadata_path) as metadata_file:
+                    with open(metadata_path, encoding='utf-8') as metadata_file:
                         metadata = json.load(metadata_file)
                     if id and id == metadata.get('id'):
                         storage_path = entry.path

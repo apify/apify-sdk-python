@@ -76,6 +76,7 @@ setup(
             'flake8-comprehensions ~= 3.10.1',
             'flake8-datetimez ~= 20.10.0',
             'flake8-docstrings ~= 1.7.0',
+            'flake8-encodings ~= 0.5.0',
             'flake8-isort ~= 6.0.0',
             'flake8-noqa ~= 1.3.0',
             'flake8-pytest-style ~= 1.7.2',

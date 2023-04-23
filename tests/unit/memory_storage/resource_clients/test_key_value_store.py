@@ -161,7 +161,7 @@ async def test_get_and_set_record(tmp_path: Path, key_value_store_client: KeyVal
     assert bytes_record_info['value'].decode('utf-8') == bytes_value.decode('utf-8')
 
     # Test using file descriptor
-    with open(os.path.join(tmp_path, 'test.json'), 'w+') as f:
+    with open(os.path.join(tmp_path, 'test.json'), 'w+', encoding='utf-8') as f:
         f.write('Test')
         with pytest.raises(NotImplementedError, match='File-like values are not supported in local memory storage'):
             await key_value_store_client.set_record('file', f)

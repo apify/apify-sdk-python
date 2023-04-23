@@ -383,7 +383,7 @@ class KeyValueStoreClient(BaseResourceClient):
             if entry.is_file():
                 if entry.name == '__metadata__.json':
                     # We have found the store metadata file, build out information based on it
-                    with open(os.path.join(storage_directory, entry.name), encoding='utf8') as f:
+                    with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
                         metadata = json.load(f)
                     id = metadata['id']
                     name = metadata['name']
@@ -395,7 +395,7 @@ class KeyValueStoreClient(BaseResourceClient):
 
                 if '.__metadata__.' in entry.name:
                     # This is an entry's metadata file, we can use it to create/extend the record
-                    with open(os.path.join(storage_directory, entry.name), encoding='utf8') as f:
+                    with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
                         metadata = json.load(f)
 
                     new_record = {
@@ -429,7 +429,7 @@ class KeyValueStoreClient(BaseResourceClient):
                 elif 'application/json' in content_type:
                     try:
                         # Try parsing the JSON ahead of time (not ideal but solves invalid files being loaded into stores)
-                        json.loads(file_content)
+                        json.loads(file_content.decode('utf-8'))
                     except json.JSONDecodeError:
                         # We need to override and then restore the warnings filter so that the warning gets printed out,
                         # Otherwise it would be silently swallowed

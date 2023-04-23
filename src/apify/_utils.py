@@ -323,7 +323,7 @@ def _is_file_or_bytes(value: Any) -> bool:
 
 def _maybe_parse_body(body: bytes, content_type: str) -> Any:
     if _is_content_type_json(content_type):
-        return json.loads(body)  # Returns any
+        return json.loads(body.decode('utf-8'))  # Returns any
     elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
         return body.decode('utf-8')
     return body
