@@ -8,7 +8,7 @@ VERSION_FILE_PATH = REPO_ROOT / f'src/{PACKAGE_NAME}/_version.py'
 # Load the current version number from src/package_name/_version.py
 # It is on a line in the format __version__ = 1.2.3
 def get_current_package_version() -> str:
-    with open(VERSION_FILE_PATH, 'r') as version_file:
+    with open(VERSION_FILE_PATH, 'r', encoding='utf-8') as version_file:
         for line in version_file:
             if line.startswith('__version__'):
                 delim = '"' if '"' in line else "'"
@@ -21,7 +21,7 @@ def get_current_package_version() -> str:
 # Write the given version number from src/package_name/_version.py
 # It replaces the version number on the line with the format __version__ = 1.2.3
 def set_current_package_version(version: str) -> None:
-    with open(VERSION_FILE_PATH, 'r+') as version_file:
+    with open(VERSION_FILE_PATH, 'r+', encoding='utf-8') as version_file:
         updated_version_file_lines = []
         version_string_found = False
         for line in version_file:

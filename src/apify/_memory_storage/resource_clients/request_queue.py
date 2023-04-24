@@ -423,7 +423,7 @@ class RequestQueueClient(BaseResourceClient):
             if entry.is_file():
                 if entry.name == '__metadata__.json':
                     # We have found the queue's metadata file, build out information based on it
-                    with open(os.path.join(storage_directory, entry.name)) as f:
+                    with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
                         metadata = json.load(f)
                     id = metadata['id']
                     name = metadata['name']
@@ -435,7 +435,7 @@ class RequestQueueClient(BaseResourceClient):
 
                     continue
 
-                with open(os.path.join(storage_directory, entry.name)) as f:
+                with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
                     request = json.load(f)
                     if request.get('orderNo'):
                         request['orderNo'] = Decimal(request.get('orderNo'))

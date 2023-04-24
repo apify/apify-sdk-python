@@ -8,6 +8,10 @@ Changelog
 
 - option to add event handlers which accept no arguments
 
+### Fixed
+
+- started enforcing local storage to always use the UTF-8 encoding
+
 [1.0.0](../../releases/tag/v1.0.0) - 2022-03-13
 -----------------------------------------------
 
