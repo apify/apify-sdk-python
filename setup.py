@@ -56,7 +56,7 @@ setup(
     install_requires=[
         'aiofiles ~= 22.1.0',
         'aioshutil ~= 1.2',
-        'apify-client ~= 1.0.0',
+        'apify-client ~= 1.1',
         'colorama ~= 0.4.6',
         'cryptography ~= 39.0.1',
         'httpx ~= 0.23.0',
