@@ -912,7 +912,7 @@ For more information about Apify actor webhooks, please see the [documentation](
 
 ***
 
-#### [](#actor-set_status_message) `async Actor.set_status_message(status_message, is_terminal=None)`
+#### [](#actor-set_status_message) `async Actor.set_status_message(status_message, *, is_terminal=None)`
 
 Set the status message for the current actor run.
 

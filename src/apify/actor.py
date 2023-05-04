@@ -345,7 +345,7 @@ class Actor(metaclass=_ActorContextManager):
             self._was_final_persist_state_emitted = True
 
         if status_message is not None:
-            await self.set_status_message(status_message, True)
+            await self.set_status_message(status_message, is_terminal=True)
 
         # Sleep for a bit so that the listeners have a chance to trigger
         await asyncio.sleep(0.1)
@@ -1221,7 +1221,7 @@ class Actor(metaclass=_ActorContextManager):
         )
 
     @classmethod
-    async def set_status_message(cls, status_message: str, is_terminal: Optional[bool] = None) -> Optional[Dict]:
+    async def set_status_message(cls, status_message: str, *, is_terminal: Optional[bool] = None) -> Optional[Dict]:
         """Set the status message for the current actor run.
 
         Args:
@@ -1233,7 +1233,7 @@ class Actor(metaclass=_ActorContextManager):
         """
         return await cls._get_default_instance().set_status_message(status_message=status_message, is_terminal=is_terminal)
 
-    async def _set_status_message_internal(self, status_message: str, is_terminal: Optional[bool] = None) -> Optional[Dict]:
+    async def _set_status_message_internal(self, status_message: str, *, is_terminal: Optional[bool] = None) -> Optional[Dict]:
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
