@@ -1736,7 +1736,7 @@ If you need the URL string only, use ProxyConfiguration.new_url.
 
 ***
 
-### [](#proxyinfo) ProxyInfo()
+### [](#proxyinfo) ProxyInfo
 
 Provides information about a proxy connection that is used for requests.
 

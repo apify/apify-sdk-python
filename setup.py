@@ -59,7 +59,7 @@ setup(
         'apify-client ~= 1.1',
         'colorama ~= 0.4.6',
         'cryptography ~= 39.0.1',
-        'httpx ~= 0.23.0',
+        'httpx ~= 0.24.0',
         'psutil ~= 5.9.4',
         'pyee ~= 9.0.4',
         'sortedcollections ~= 2.1.0',
