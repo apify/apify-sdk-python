@@ -102,9 +102,20 @@ class TestActorMethodsWorksOnlyOnPlatform:
         assert caplog.records[0].levelname == 'ERROR'
         assert 'Actor.add_webhook() is only supported when running on the Apify platform.' in caplog.records[0].message
 
-    async def test_actor_set_status_message_not_work_locally(self, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_actor_set_status_message_mock_locally(self, caplog: pytest.LogCaptureFixture) -> None:
+        caplog.set_level('INFO')
         async with Actor() as my_actor:
-            await my_actor.set_status_message('test')
-        assert len(caplog.records) == 1
-        assert caplog.records[0].levelname == 'ERROR'
-        assert 'Actor.set_status_message() is only supported when running on the Apify platform.' in caplog.records[0].message
+            await my_actor.set_status_message('test-status-message')
+        matching_records = [record for record in caplog.records if 'test-status-message' in record.message]
+        assert len(matching_records) == 1
+        assert matching_records[0].levelname == 'INFO'
+        assert '[Status message]: test-status-message' in matching_records[0].message
+
+    async def test_actor_set_status_message_terminal_mock_locally(self, caplog: pytest.LogCaptureFixture) -> None:
+        caplog.set_level('INFO')
+        async with Actor() as my_actor:
+            await my_actor.fail(status_message='test-terminal-message')
+        matching_records = [record for record in caplog.records if 'test-terminal-message' in record.message]
+        assert len(matching_records) == 1
+        assert matching_records[0].levelname == 'INFO'
+        assert '[Terminal status message]: test-terminal-message' in matching_records[0].message

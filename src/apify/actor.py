@@ -1237,7 +1237,8 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            self.log.error('Actor.set_status_message() is only supported when running on the Apify platform.')
+            title = 'Terminal status message' if is_terminal else 'Status message'
+            self.log.info(f'[{title}]: {status_message}')
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
