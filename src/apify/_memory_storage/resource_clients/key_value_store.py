@@ -40,7 +40,7 @@ def _filename_from_record(record: KeyValueStoreRecord) -> str:
     if record.get('filename') is not None:
         return record['filename']
 
-    content_type = record['contentType']
+    content_type = record.get('contentType')
     if not content_type or content_type == 'application/octet-stream':
         return record['key']
     else:
