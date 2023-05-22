@@ -8,7 +8,7 @@ import urllib.request
 from utils import PACKAGE_NAME, get_current_package_version, set_current_package_version
 
 # Checks whether the current package version number was not already used in a published release,
-# and if not, modifies the package version number in src/package_name/_version.py
+# and if not, modifies the package version number in pyproject.toml
 # from a stable release version (X.Y.Z) to a prerelease version (X.Y.ZbN or X.Y.Z.aN or X.Y.Z.rcN)
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -55,6 +55,6 @@ if __name__ == '__main__':
             if prerelease_version > latest_prerelease:
                 latest_prerelease = prerelease_version
 
-    # Write the latest prerelease version number to src/package_name/_version.py
+    # Write the latest prerelease version number to pyproject.toml
     new_prerelease_version_number = f'{current_version}{prerelease_prefix}{latest_prerelease + 1}'
     set_current_package_version(new_prerelease_version_number)

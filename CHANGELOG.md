@@ -12,6 +12,10 @@ Changelog
 
 - started enforcing local storage to always use the UTF-8 encoding
 
+### Internal changes
+
+- switched from `setup.py` to `pyproject.toml` for specifying project setup
+
 [1.0.0](../../releases/tag/v1.0.0) - 2022-03-13
 -----------------------------------------------
 

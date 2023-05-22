@@ -8,9 +8,17 @@ clean:
 
 install-dev:
 	python -m pip install --upgrade pip
-	pip install --upgrade setuptools wheel
 	pip install --no-cache-dir -e ".[dev]"
 	pre-commit install
+
+build:
+	python -m build
+
+publish:
+	python -m twine upload dist/*
+
+twine-check:
+	python -m twine check dist/*
 
 lint:
 	python3 -m flake8

@@ -5,7 +5,7 @@ import pytest
 
 from apify import Actor, __version__
 from apify.log import logger
-from apify_client._version import __version__ as apify_client_version
+from apify_client import __version__ as apify_client_version
 
 
 class TestActorLog:
