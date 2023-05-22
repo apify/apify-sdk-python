@@ -69,10 +69,9 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
             was_wheel_built_this_test_run_file.touch()
 
         # Read the current package version, necessary for getting the right wheel filename
-        version_file = (SDK_ROOT_PATH / 'src/apify/_version.py').read_text(encoding='utf-8')
-        sdk_version = None
-        for line in version_file.splitlines():
-            if line.startswith('__version__'):
+        pyproject_toml_file = (SDK_ROOT_PATH / 'pyproject.toml').read_text(encoding='utf-8')
+        for line in pyproject_toml_file:
+            if line.startswith('version = '):
                 delim = '"' if '"' in line else "'"
                 sdk_version = line.split(delim)[1]
                 break
