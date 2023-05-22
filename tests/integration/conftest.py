@@ -65,7 +65,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
         # through an indicator file saying that the wheel was already built
         was_wheel_built_this_test_run_file = tmp_path_factory.getbasetemp() / f'wheel_was_built_in_run_{testrun_uid}'
         if not was_wheel_built_this_test_run_file.exists():
-            subprocess.run('python setup.py bdist_wheel', cwd=SDK_ROOT_PATH, shell=True, check=True, capture_output=True)
+            subprocess.run('python -m build', cwd=SDK_ROOT_PATH, shell=True, check=True, capture_output=True)
             was_wheel_built_this_test_run_file.touch()
 
         # Read the current package version, necessary for getting the right wheel filename
