@@ -70,7 +70,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
 
         # Read the current package version, necessary for getting the right wheel filename
         pyproject_toml_file = (SDK_ROOT_PATH / 'pyproject.toml').read_text(encoding='utf-8')
-        for line in pyproject_toml_file:
+        for line in pyproject_toml_file.splitlines():
             if line.startswith('version = '):
                 delim = '"' if '"' in line else "'"
                 sdk_version = line.split(delim)[1]
