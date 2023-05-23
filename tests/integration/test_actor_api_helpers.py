@@ -81,7 +81,8 @@ class TestActorSetStatusMessage:
     async def test_actor_set_status_message(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
-                await Actor.set_status_message('testing-status-message')
+                input = await Actor.get_input() or {}
+                await Actor.set_status_message('testing-status-message', **input)
 
         actor = await make_actor('set-status-message', main_func=main)
 
@@ -90,6 +91,14 @@ class TestActorSetStatusMessage:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
         assert run_result['statusMessage'] == 'testing-status-message'
+        assert run_result['isStatusMessageTerminal'] is None
+
+        run_result = await actor.call(run_input={'is_terminal': True})
+
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
+        assert run_result['statusMessage'] == 'testing-status-message'
+        assert run_result['isStatusMessageTerminal'] is True
 
 
 class TestActorStart:

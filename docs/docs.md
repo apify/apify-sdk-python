@@ -338,7 +338,7 @@ and it should be called only once.
 
 ***
 
-#### [](#actor-exit) `async Actor.exit(*, exit_code=0, event_listeners_timeout_secs=5)`
+#### [](#actor-exit) `async Actor.exit(*, exit_code=0, event_listeners_timeout_secs=5, status_message=None)`
 
 Exit the actor instance.
 
@@ -352,7 +352,9 @@ and stops the event manager.
 
   * **exit_code** (`int`, *optional*) – The exit code with which the actor should fail (defaults to 0).
 
-  * **event_listeners_timeout_secs** (`float`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting
+  * **event_listeners_timeout_secs** (`float`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting.
+
+  * **status_message** (`str`, *optional*) – The final status message that the actor should display.
 
 * **Return type**
 
@@ -360,7 +362,7 @@ and stops the event manager.
 
 ***
 
-#### [](#actor-fail) `async Actor.fail(*, exit_code=1, exception=None)`
+#### [](#actor-fail) `async Actor.fail(*, exit_code=1, exception=None, status_message=None)`
 
 Fail the actor instance.
 
@@ -372,6 +374,8 @@ but it additionally sets the exit code to 1 (by default).
   * **exit_code** (`int`, *optional*) – The exit code with which the actor should fail (defaults to 1).
 
   * **exception** (`BaseException`, *optional*) – The exception with which the actor failed.
+
+  * **status_message** (`str`, *optional*) – The final status message that the actor should display.
 
 * **Return type**
 
@@ -908,13 +912,15 @@ For more information about Apify actor webhooks, please see the [documentation](
 
 ***
 
-#### [](#actor-set_status_message) `async Actor.set_status_message(status_message)`
+#### [](#actor-set_status_message) `async Actor.set_status_message(status_message, *, is_terminal=None)`
 
 Set the status message for the current actor run.
 
 * **Parameters**
 
   * **status_message** (`str`) – The status message to set to the run.
+
+  * **is_terminal** (`bool`, *optional*) – Set this flag to True if this is the final status message of the Actor run.
 
 * **Returns**
 

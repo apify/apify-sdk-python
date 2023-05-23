@@ -85,6 +85,12 @@ class TestActorFail:
             assert run_result['exitCode'] == exit_code
             assert run_result['status'] == 'FAILED'
 
+        # fail with status message
+        run_result = await actor.call(run_input={'status_message': 'This is a test message'})
+        assert run_result is not None
+        assert run_result['status'] == 'FAILED'
+        assert run_result.get('statusMessage') == 'This is a test message'
+
     async def test_with_actor_fail_correctly(self, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:

@@ -7,6 +7,8 @@ Changelog
 ### Added
 
 - option to add event handlers which accept no arguments
+- added support for `is_terminal` flag in status message update
+- option to set status message along with `Actor.exit()`
 
 ### Fixed
 
