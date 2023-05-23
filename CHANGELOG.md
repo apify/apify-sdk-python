@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
+-----------------------------------------------
+
+### Fixed
+
+- relaxed dependency requirements to improve compatibility with other libraries
+
 [1.1.0](../../releases/tag/v1.1.0) - 2023-05-23
 -----------------------------------------------
 
