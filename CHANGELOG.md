@@ -11,6 +11,7 @@ Changelog
 ### Fixed
 
 - started enforcing local storage to always use the UTF-8 encoding
+- fixed saving key-value store values to local storage with the right extension for a given content type
 
 [1.0.0](../../releases/tag/v1.0.0) - 2022-03-13
 -----------------------------------------------

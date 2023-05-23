@@ -1,11 +1,22 @@
 import asyncio
+import base64
+import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Dict
 
 import pytest
 
+from apify._crypto import _crypto_random_object_id
 from apify._memory_storage import MemoryStorageClient
 from apify._memory_storage.resource_clients import KeyValueStoreClient
+from apify._utils import _json_dumps, _maybe_parse_body
+
+TINY_PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=')
+TINY_BYTES = b'\x12\x34\x56\x78\x90\xAB\xCD\xEF'
+TINY_DATA = {'a': 'b'}
+TINY_TEXT = 'abcd'
 
 
 @pytest.fixture
@@ -182,3 +193,146 @@ async def test_delete_record(key_value_store_client: KeyValueStoreClient) -> Non
     await key_value_store_client.delete_record(record_key)
     # Does not crash when called again
     await key_value_store_client.delete_record(record_key)
+
+
+@pytest.mark.parametrize('test_case', [
+    {'input': {'key': 'image', 'value': TINY_PNG, 'contentType': None},
+        'expectedOutput': {'filename': 'image', 'key': 'image', 'contentType': 'application/octet-stream'}},
+    {'input': {'key': 'image', 'value': TINY_PNG, 'contentType': 'image/png'},
+        'expectedOutput': {'filename': 'image.png', 'key': 'image', 'contentType': 'image/png'}},
+    {'input': {'key': 'image.png', 'value': TINY_PNG, 'contentType': None},
+        'expectedOutput': {'filename': 'image.png', 'key': 'image.png', 'contentType': 'application/octet-stream'}},
+    {'input': {'key': 'image.png', 'value': TINY_PNG, 'contentType': 'image/png'},
+        'expectedOutput': {'filename': 'image.png', 'key': 'image.png', 'contentType': 'image/png'}},
+
+    {'input': {'key': 'data', 'value': TINY_DATA, 'contentType': None},
+        'expectedOutput': {'filename': 'data.json', 'key': 'data', 'contentType': 'application/json'}},
+    {'input': {'key': 'data', 'value': TINY_DATA, 'contentType': 'application/json'},
+        'expectedOutput': {'filename': 'data.json', 'key': 'data', 'contentType': 'application/json'}},
+    {'input': {'key': 'data.json', 'value': TINY_DATA, 'contentType': None},
+        'expectedOutput': {'filename': 'data.json', 'key': 'data.json', 'contentType': 'application/json'}},
+    {'input': {'key': 'data.json', 'value': TINY_DATA, 'contentType': 'application/json'},
+        'expectedOutput': {'filename': 'data.json', 'key': 'data.json', 'contentType': 'application/json'}},
+
+    {'input': {'key': 'text', 'value': TINY_TEXT, 'contentType': None},
+        'expectedOutput': {'filename': 'text.txt', 'key': 'text', 'contentType': 'text/plain'}},
+    {'input': {'key': 'text', 'value': TINY_TEXT, 'contentType': 'text/plain'},
+        'expectedOutput': {'filename': 'text.txt', 'key': 'text', 'contentType': 'text/plain'}},
+    {'input': {'key': 'text.txt', 'value': TINY_TEXT, 'contentType': None},
+        'expectedOutput': {'filename': 'text.txt', 'key': 'text.txt', 'contentType': 'text/plain'}},
+    {'input': {'key': 'text.txt', 'value': TINY_TEXT, 'contentType': 'text/plain'},
+        'expectedOutput': {'filename': 'text.txt', 'key': 'text.txt', 'contentType': 'text/plain'}},
+])
+async def test_writes_correct_metadata(memory_storage_client: MemoryStorageClient, test_case: Dict) -> None:
+    test_input = test_case['input']
+    expected_output = test_case['expectedOutput']
+    key_value_store_name = _crypto_random_object_id()
+
+    # Write the input data to the key-value store
+    store_details = await memory_storage_client.key_value_stores().get_or_create(name=key_value_store_name)
+    key_value_store_client = memory_storage_client.key_value_store(store_details['id'])
+    await key_value_store_client.set_record(test_input['key'], test_input['value'], content_type=test_input['contentType'])
+
+    # Check that everything was written correctly, both the data and metadata
+    storage_path = os.path.join(memory_storage_client._key_value_stores_directory, key_value_store_name)
+    item_path = os.path.join(storage_path, expected_output['filename'])
+    metadata_path = os.path.join(storage_path, expected_output['filename'] + '.__metadata__.json')
+
+    assert os.path.exists(item_path)
+    assert os.path.exists(metadata_path)
+
+    with open(item_path, 'rb') as item_file:
+        actual_value = _maybe_parse_body(item_file.read(), expected_output['contentType'])
+        assert actual_value == test_input['value']
+
+    with open(metadata_path, 'r', encoding='utf-8') as metadata_file:
+        metadata = json.load(metadata_file)
+        assert metadata['key'] == expected_output['key']
+        assert expected_output['contentType'] in metadata['contentType']
+
+
+@pytest.mark.parametrize('test_case', [
+    {'input': {'filename': 'image', 'value': TINY_PNG, 'metadata': None},
+        'expectedOutput': {'key': 'image', 'filename': 'image', 'contentType': 'application/octet-stream'}},
+    {'input': {'filename': 'image.png', 'value': TINY_PNG, 'metadata': None},
+        'expectedOutput': {'key': 'image', 'filename': 'image.png', 'contentType': 'image/png'}},
+    {'input': {'filename': 'image', 'value': TINY_PNG, 'metadata': {'key': 'image', 'contentType': 'application/octet-stream'}},
+        'expectedOutput': {'key': 'image', 'contentType': 'application/octet-stream'}},
+    {'input': {'filename': 'image', 'value': TINY_PNG, 'metadata': {'key': 'image', 'contentType': 'image/png'}},
+        'expectedOutput': {'key': 'image', 'filename': 'image', 'contentType': 'image/png'}},
+    {'input': {'filename': 'image.png', 'value': TINY_PNG, 'metadata': {'key': 'image.png', 'contentType': 'application/octet-stream'}},
+        'expectedOutput': {'key': 'image.png', 'contentType': 'application/octet-stream'}},
+    {'input': {'filename': 'image.png', 'value': TINY_PNG, 'metadata': {'key': 'image.png', 'contentType': 'image/png'}},
+        'expectedOutput': {'key': 'image.png', 'contentType': 'image/png'}},
+    {'input': {'filename': 'image.png', 'value': TINY_PNG, 'metadata': {'key': 'image', 'contentType': 'image/png'}},
+        'expectedOutput': {'key': 'image', 'contentType': 'image/png'}},
+    {'input': {'filename': 'input', 'value': TINY_BYTES, 'metadata': None},
+        'expectedOutput': {'key': 'input', 'contentType': 'application/octet-stream'}},
+    {'input': {'filename': 'input.json', 'value': TINY_DATA, 'metadata': None},
+        'expectedOutput': {'key': 'input', 'contentType': 'application/json'}},
+    {'input': {'filename': 'input.txt', 'value': TINY_TEXT, 'metadata': None},
+        'expectedOutput': {'key': 'input', 'contentType': 'text/plain'}},
+    {'input': {'filename': 'input.bin', 'value': TINY_BYTES, 'metadata': None},
+        'expectedOutput': {'key': 'input', 'contentType': 'application/octet-stream'}},
+    {'input': {'filename': 'input', 'value': TINY_BYTES, 'metadata': {'key': 'input', 'contentType': 'application/octet-stream'}},
+        'expectedOutput': {'key': 'input', 'contentType': 'application/octet-stream'}},
+    {'input': {'filename': 'input.json', 'value': TINY_DATA, 'metadata': {'key': 'input', 'contentType': 'application/json'}},
+        'expectedOutput': {'key': 'input', 'contentType': 'application/json'}},
+    {'input': {'filename': 'input.txt', 'value': TINY_TEXT, 'metadata': {'key': 'input', 'contentType': 'text/plain'}},
+        'expectedOutput': {'key': 'input', 'contentType': 'text/plain'}},
+    {'input': {'filename': 'input.bin', 'value': TINY_BYTES, 'metadata': {'key': 'input', 'contentType': 'application/octet-stream'}},
+        'expectedOutput': {'key': 'input', 'contentType': 'application/octet-stream'}},
+])
+async def test_reads_correct_metadata(memory_storage_client: MemoryStorageClient, test_case: Dict) -> None:
+    test_input = test_case['input']
+    expected_output = test_case['expectedOutput']
+    key_value_store_name = _crypto_random_object_id()
+
+    # Ensure the directory for the store exists
+    storage_path = os.path.join(memory_storage_client._key_value_stores_directory, key_value_store_name)
+    os.makedirs(storage_path, exist_ok=True)
+
+    store_metadata = {
+        'id': _crypto_random_object_id(),
+        'name': None,
+        'accessedAt': datetime.now(timezone.utc),
+        'createdAt': datetime.now(timezone.utc),
+        'modifiedAt': datetime.now(timezone.utc),
+        'userId': '1',
+    }
+
+    # Write the store metadata to disk
+    store_metadata_path = os.path.join(storage_path, '__metadata__.json')
+    with open(store_metadata_path, mode='wb') as store_metadata_file:
+        store_metadata_file.write(_json_dumps(store_metadata).encode('utf-8'))
+
+    # Write the test input item to the disk
+    item_path = os.path.join(storage_path, test_input['filename'])
+    with open(item_path, 'wb') as item_file:
+        if isinstance(test_input['value'], bytes):
+            item_file.write(test_input['value'])
+        elif isinstance(test_input['value'], str):
+            item_file.write(test_input['value'].encode('utf-8'))
+        else:
+            item_file.write(_json_dumps(test_input['value']).encode('utf-8'))
+
+    # Optionally write the metadata to disk if there is some
+    if test_input['metadata'] is not None:
+        metadata_path = os.path.join(storage_path, test_input['filename'] + '.__metadata__.json')
+        with open(metadata_path, 'w', encoding='utf-8') as metadata_file:
+            metadata_file.write(_json_dumps({
+                'key': test_input['metadata']['key'],
+                'contentType': test_input['metadata']['contentType'],
+            }))
+
+    # Create the key-value store client to load the items from disk
+    store_details = await memory_storage_client.key_value_stores().get_or_create(name=key_value_store_name)
+    key_value_store_client = memory_storage_client.key_value_store(store_details['id'])
+
+    # Read the item from the store and check if it is as expected
+    actual_record = await key_value_store_client.get_record(expected_output['key'])
+    assert actual_record is not None
+
+    assert actual_record['key'] == expected_output['key']
+    assert actual_record['contentType'] == expected_output['contentType']
+    assert actual_record['value'] == test_input['value']
