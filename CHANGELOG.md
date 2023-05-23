@@ -1,7 +1,7 @@
 Changelog
 =========
 
-[1.1.0](../../releases/tag/v1.1.0) - Unreleased
+[1.1.0](../../releases/tag/v1.1.0) - 2023-05-23
 -----------------------------------------------
 
 ### Added
@@ -19,7 +19,7 @@ Changelog
 
 - switched from `setup.py` to `pyproject.toml` for specifying project setup
 
-[1.0.0](../../releases/tag/v1.0.0) - 2022-03-13
+[1.0.0](../../releases/tag/v1.0.0) - 2023-03-13
 -----------------------------------------------
 
 ### Internal changes
