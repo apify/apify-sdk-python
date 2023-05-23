@@ -412,7 +412,7 @@ class DatasetClient(BaseResourceClient):
                     has_seen_metadata_file = True
 
                     # We have found the dataset's metadata file, build out information based on it
-                    with open(os.path.join(storage_directory, entry.name)) as f:
+                    with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
                         metadata = json.load(f)
                     id = metadata['id']
                     name = metadata['name']
@@ -423,7 +423,7 @@ class DatasetClient(BaseResourceClient):
 
                     continue
 
-                with open(os.path.join(storage_directory, entry.name)) as f:
+                with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
                     entry_content = json.load(f)
                 entry_name = entry.name.split('.')[0]
 

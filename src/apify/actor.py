@@ -301,6 +301,7 @@ class Actor(metaclass=_ActorContextManager):
         *,
         exit_code: int = 0,
         event_listeners_timeout_secs: Optional[float] = EVENT_LISTENERS_TIMEOUT_SECS,
+        status_message: Optional[str] = None,
     ) -> None:
         """Exit the actor instance.
 
@@ -312,11 +313,13 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             exit_code (int, optional): The exit code with which the actor should fail (defaults to `0`).
-            event_listeners_timeout_secs (float, optional): How long should the actor wait for actor event listeners to finish before exiting
+            event_listeners_timeout_secs (float, optional): How long should the actor wait for actor event listeners to finish before exiting.
+            status_message (str, optional): The final status message that the actor should display.
         """
         return await cls._get_default_instance().exit(
             exit_code=exit_code,
             event_listeners_timeout_secs=event_listeners_timeout_secs,
+            status_message=status_message,
         )
 
     async def _exit_internal(
@@ -324,6 +327,7 @@ class Actor(metaclass=_ActorContextManager):
         *,
         exit_code: int = 0,
         event_listeners_timeout_secs: Optional[float] = EVENT_LISTENERS_TIMEOUT_SECS,
+        status_message: Optional[str] = None,
     ) -> None:
         self._raise_if_not_initialized()
 
@@ -339,6 +343,9 @@ class Actor(metaclass=_ActorContextManager):
         if not self._was_final_persist_state_emitted:
             self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
             self._was_final_persist_state_emitted = True
+
+        if status_message is not None:
+            await self.set_status_message(status_message, is_terminal=True)
 
         # Sleep for a bit so that the listeners have a chance to trigger
         await asyncio.sleep(0.1)
@@ -362,6 +369,7 @@ class Actor(metaclass=_ActorContextManager):
         *,
         exit_code: int = 1,
         exception: Optional[BaseException] = None,
+        status_message: Optional[str] = None,
     ) -> None:
         """Fail the actor instance.
 
@@ -371,10 +379,12 @@ class Actor(metaclass=_ActorContextManager):
         Args:
             exit_code (int, optional): The exit code with which the actor should fail (defaults to `1`).
             exception (BaseException, optional): The exception with which the actor failed.
+            status_message (str, optional): The final status message that the actor should display.
         """
         return await cls._get_default_instance().fail(
             exit_code=exit_code,
             exception=exception,
+            status_message=status_message,
         )
 
     async def _fail_internal(
@@ -382,6 +392,7 @@ class Actor(metaclass=_ActorContextManager):
         *,
         exit_code: int = 1,
         exception: Optional[BaseException] = None,
+        status_message: Optional[str] = None,
     ) -> None:
         self._raise_if_not_initialized()
 
@@ -390,7 +401,7 @@ class Actor(metaclass=_ActorContextManager):
         if exception and not _is_running_in_ipython():
             self.log.exception('Actor failed with an exception', exc_info=exception)
 
-        await self.exit(exit_code=exit_code)
+        await self.exit(exit_code=exit_code, status_message=status_message)
 
     @classmethod
     async def main(cls, main_actor_function: Callable[[], MainReturnType]) -> Optional[MainReturnType]:
@@ -1210,28 +1221,30 @@ class Actor(metaclass=_ActorContextManager):
         )
 
     @classmethod
-    async def set_status_message(cls, status_message: str) -> Optional[Dict]:
+    async def set_status_message(cls, status_message: str, *, is_terminal: Optional[bool] = None) -> Optional[Dict]:
         """Set the status message for the current actor run.
 
         Args:
             status_message (str): The status message to set to the run.
+            is_terminal (bool, optional): Set this flag to True if this is the final status message of the Actor run.
 
         Returns:
             dict: The updated actor run object
         """
-        return await cls._get_default_instance().set_status_message(status_message=status_message)
+        return await cls._get_default_instance().set_status_message(status_message=status_message, is_terminal=is_terminal)
 
-    async def _set_status_message_internal(self, status_message: str) -> Optional[Dict]:
+    async def _set_status_message_internal(self, status_message: str, *, is_terminal: Optional[bool] = None) -> Optional[Dict]:
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
-            self.log.error('Actor.set_status_message() is only supported when running on the Apify platform.')
+            title = 'Terminal status message' if is_terminal else 'Status message'
+            self.log.info(f'[{title}]: {status_message}')
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
         assert self._config.actor_run_id is not None
 
-        return await self._apify_client.run(self._config.actor_run_id).update(status_message=status_message)
+        return await self._apify_client.run(self._config.actor_run_id).update(status_message=status_message, is_status_message_terminal=is_terminal)
 
     @classmethod
     async def create_proxy_configuration(

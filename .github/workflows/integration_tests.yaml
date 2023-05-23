@@ -3,7 +3,7 @@ name: Integration tests
 on:
   workflow_call:
     secrets:
-      APIFY_TEST_USER_API_TOKEN:
+      APIFY_TEST_USER_PYTHON_SDK_API_TOKEN:
         description: API token of the Python SDK testing user on Apify
         required: true
 
@@ -34,4 +34,4 @@ jobs:
     - name: Run integration tests
       run: make INTEGRATION_TESTS_CONCURRENCY=8 integration-tests
       env:
-        APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_API_TOKEN }}
+        APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_PYTHON_SDK_API_TOKEN }}

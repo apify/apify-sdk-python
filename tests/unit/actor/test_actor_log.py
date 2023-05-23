@@ -5,12 +5,12 @@ import pytest
 
 from apify import Actor, __version__
 from apify.log import logger
-from apify_client._version import __version__ as apify_client_version
+from apify_client import __version__ as apify_client_version
 
 
 class TestActorLog:
     async def test_actor_log(self, caplog: pytest.LogCaptureFixture) -> None:
-        caplog.set_level(logging.DEBUG)
+        caplog.set_level(logging.DEBUG, logger='apify')
         try:
             async with Actor:
                 # Test Actor.log

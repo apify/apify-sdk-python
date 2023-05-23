@@ -37,10 +37,16 @@ jobs:
     uses: ./.github/workflows/integration_tests.yaml
     secrets: inherit
 
-  deploy:
+  publish_to_pypi:
     name: Publish to PyPI
     needs: [lint_and_type_checks, unit_tests, integration_tests]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/apify
 
     steps:
     - name: Checkout repository
@@ -52,9 +58,7 @@ jobs:
         python-version: 3.8
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade setuptools twine wheel
+      run: make install-dev
 
     - # Determine if this is a prerelease or latest release
       name: Determine release type
@@ -82,7 +86,7 @@ jobs:
     - # Check whether the released version is listed in CHANGELOG.md
       name: Check whether the released version is listed in the changelog
       if: steps.get-release-type.outputs.release_type != 'alpha'
-      run: python ./scripts/check_version_in_changelog.py
+      run: make check-changelog-entry
 
     - # Check version consistency and increment pre-release version number for prereleases (must be the last step before build)
       name: Bump pre-release version
@@ -91,18 +95,15 @@ jobs:
 
     - # Build a source distribution and a python3-only wheel
       name: Build distribution files
-      run: python setup.py sdist bdist_wheel
+      run: make build
 
     - # Check whether the package description will render correctly on PyPI
       name: Check package rendering on PyPI
-      run: python -m twine check dist/*
+      run: make twine-check
 
     - # Publish package to PyPI using their official GitHub action
       name: Publish package to PyPI
-      run: python -m twine upload --non-interactive --disable-progress-bar dist/*
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      uses: pypa/gh-action-pypi-publish@release/v1
 
     - # Tag the current commit with the version tag if this is not made from the release event (releases are tagged with the release process)
       name: Tag Version
@@ -128,4 +129,4 @@ jobs:
           -F client_payload[release_tag]=${{ steps.get-release-type.outputs.docker_image_tag }} \
           -F client_payload[apify_version]=$PACKAGE_VERSION
       env:
-        GH_TOKEN: ${{ secrets.BUILD_DOCKER_IMAGES_REPOSITORY_DISPATCH_GH_TOKEN }}
+        GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}

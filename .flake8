@@ -2,8 +2,7 @@
 filename =
     ./scripts/*.py,
     ./src/*.py,
-    ./tests/*.py,
-    ./setup.py
+    ./tests/*.py
 per-file-ignores =
     scripts/*: D
     tests/*: D

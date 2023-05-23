@@ -16,6 +16,7 @@ from collections import OrderedDict
 from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from enum import Enum
+from importlib import metadata
 from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, List, NoReturn, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Tuple, Type, TypeVar, Union, ValuesView, cast, overload
@@ -25,9 +26,6 @@ import psutil
 from aiofiles import ospath
 from aiofiles.os import remove, rename
 
-from apify_client import __version__ as client_version
-
-from ._version import __version__ as sdk_version
 from .consts import (
     _BOOL_ENV_VARS_TYPE,
     _DATETIME_ENV_VARS_TYPE,
@@ -55,8 +53,8 @@ def _get_system_info() -> Dict:
     python_version = '.'.join([str(x) for x in sys.version_info[:3]])
 
     system_info: Dict[str, Union[str, bool]] = {
-        'apify_sdk_version': sdk_version,
-        'apify_client_version': client_version,
+        'apify_sdk_version': metadata.version('apify'),
+        'apify_client_version': metadata.version('apify-client'),
         'python_version': python_version,
         'os': sys.platform,
     }
@@ -323,7 +321,7 @@ def _is_file_or_bytes(value: Any) -> bool:
 
 def _maybe_parse_body(body: bytes, content_type: str) -> Any:
     if _is_content_type_json(content_type):
-        return json.loads(body)  # Returns any
+        return json.loads(body.decode('utf-8'))  # Returns any
     elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
         return body.decode('utf-8')
     return body

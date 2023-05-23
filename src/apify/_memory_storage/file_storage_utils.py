@@ -41,45 +41,6 @@ async def _update_dataset_items(
             await f.write(_json_dumps(item).encode('utf-8'))
 
 
-async def _set_or_delete_key_value_store_record(
-    *,
-    entity_directory: str,
-    persist_storage: bool,
-    record: Dict,
-    should_set: bool,
-    write_metadata: bool,
-) -> None:
-    # Skip writing files to the disk if the client has the option set to false
-    if not persist_storage:
-        return
-
-    # Ensure the directory for the entity exists
-    await makedirs(entity_directory, exist_ok=True)
-
-    # Create files for the record
-    record_path = os.path.join(entity_directory, f"""{record['key']}.{record['extension']}""")
-    record_metadata_path = os.path.join(entity_directory, f"""{record['key']}.__metadata__.json""")
-
-    await _force_remove(record_path)
-    await _force_remove(record_metadata_path)
-
-    if should_set:
-        if write_metadata:
-            async with aiofiles.open(record_metadata_path, mode='wb') as f:
-                await f.write(_json_dumps({
-                    'key': record['key'],
-                    'contentType': record.get('content_type') or 'unknown/no content type',
-                    'extension': record['extension'],
-                }).encode('utf-8'))
-
-        # Convert to bytes if string
-        if isinstance(record['value'], str):
-            record['value'] = record['value'].encode('utf-8')
-
-        async with aiofiles.open(record_path, mode='wb') as f:
-            await f.write(record['value'])
-
-
 async def _update_request_queue_item(
     *,
     request_id: str,

@@ -1,14 +1,25 @@
 Changelog
 =========
 
-[1.1.0](../../releases/tag/v1.1.0) - Unreleased
+[1.1.0](../../releases/tag/v1.1.0) - 2023-05-23
 -----------------------------------------------
 
 ### Added
 
 - option to add event handlers which accept no arguments
+- added support for `is_terminal` flag in status message update
+- option to set status message along with `Actor.exit()`
 
-[1.0.0](../../releases/tag/v1.0.0) - 2022-03-13
+### Fixed
+
+- started enforcing local storage to always use the UTF-8 encoding
+- fixed saving key-value store values to local storage with the right extension for a given content type
+
+### Internal changes
+
+- switched from `setup.py` to `pyproject.toml` for specifying project setup
+
+[1.0.0](../../releases/tag/v1.0.0) - 2023-03-13
 -----------------------------------------------
 
 ### Internal changes
