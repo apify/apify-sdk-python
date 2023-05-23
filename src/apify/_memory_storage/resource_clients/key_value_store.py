@@ -4,15 +4,18 @@ import json
 import mimetypes
 import os
 import pathlib
-import warnings
 from datetime import datetime, timezone
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, TypedDict
 
+import aiofiles
 import aioshutil
+from aiofiles.os import makedirs
+from typing_extensions import NotRequired
 
 from ..._crypto import _crypto_random_object_id
 from ..._utils import (
+    _force_remove,
     _force_rename,
     _guess_file_extension,
     _is_file_or_bytes,
@@ -24,13 +27,28 @@ from ..._utils import (
 )
 from ...consts import DEFAULT_API_PARAM_LIMIT, _StorageTypes
 from ...log import logger
-from ..file_storage_utils import _set_or_delete_key_value_store_record, _update_metadata
+from ..file_storage_utils import _update_metadata
 from .base_resource_client import BaseResourceClient
 
 if TYPE_CHECKING:
     from ..memory_storage_client import MemoryStorageClient
 
-DEFAULT_LOCAL_FILE_EXTENSION = 'bin'
+KeyValueStoreRecord = TypedDict('KeyValueStoreRecord', {'key': str, 'value': Any, 'contentType': Optional[str], 'filename': NotRequired[str]})
+
+
+def _filename_from_record(record: KeyValueStoreRecord) -> str:
+    if record.get('filename') is not None:
+        return record['filename']
+
+    content_type = record.get('contentType')
+    if not content_type or content_type == 'application/octet-stream':
+        return record['key']
+    else:
+        extension = _guess_file_extension(content_type)
+        if record['key'].endswith(f'.{extension}'):
+            return record['key']
+        else:
+            return f'{record["key"]}.{extension}'
 
 
 @ignore_docs
@@ -41,7 +59,7 @@ class KeyValueStoreClient(BaseResourceClient):
     _resource_directory: str
     _memory_storage_client: 'MemoryStorageClient'
     _name: Optional[str]
-    _key_value_entries: Dict[str, Dict]
+    _records: Dict[str, KeyValueStoreRecord]
     _created_at: datetime
     _accessed_at: datetime
     _modified_at: datetime
@@ -60,7 +78,7 @@ class KeyValueStoreClient(BaseResourceClient):
         self._resource_directory = os.path.join(base_storage_directory, name or self._id)
         self._memory_storage_client = memory_storage_client
         self._name = name
-        self._key_value_entries = {}
+        self._records = {}
         self._created_at = datetime.now(timezone.utc)
         self._accessed_at = datetime.now(timezone.utc)
         self._modified_at = datetime.now(timezone.utc)
@@ -131,7 +149,7 @@ class KeyValueStoreClient(BaseResourceClient):
         if store is not None:
             async with store._file_operation_lock:
                 self._memory_storage_client._key_value_stores_handled.remove(store)
-                store._key_value_entries.clear()
+                store._records.clear()
 
                 if os.path.exists(store._resource_directory):
                     await aioshutil.rmtree(store._resource_directory)
@@ -155,7 +173,7 @@ class KeyValueStoreClient(BaseResourceClient):
 
         items = []
 
-        for record in existing_store_by_id._key_value_entries.values():
+        for record in existing_store_by_id._records.values():
             size = len(record['value'])
             items.append({
                 'key': record['key'],
@@ -208,16 +226,15 @@ class KeyValueStoreClient(BaseResourceClient):
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(_StorageTypes.KEY_VALUE_STORE, self._id)
 
-        entry = existing_store_by_id._key_value_entries.get(key)
+        stored_record = existing_store_by_id._records.get(key)
 
-        if entry is None:
+        if stored_record is None:
             return None
 
         record = {
-            'key': entry['key'],
-            'value': entry['value'],
-            # To guess the type, we need a real file name, not just the extension. e.g. 'file.json' instead of 'json'
-            'contentType': entry.get('content_type') or mimetypes.guess_type(f"file.{entry['extension']}")[0],
+            'key': stored_record['key'],
+            'value': stored_record['value'],
+            'contentType': stored_record.get('contentType'),
         }
 
         if not as_bytes:
@@ -282,29 +299,52 @@ class KeyValueStoreClient(BaseResourceClient):
             else:
                 content_type = 'application/json; charset=utf-8'
 
-        extension = _guess_file_extension(content_type or '') or DEFAULT_LOCAL_FILE_EXTENSION
-
         if 'application/json' in content_type and not _is_file_or_bytes(value) and not isinstance(value, str):
             value = _json_dumps(value).encode('utf-8')
 
         async with existing_store_by_id._file_operation_lock:
-            record = {
-                'extension': extension,
+            await existing_store_by_id._update_timestamps(True)
+            record: KeyValueStoreRecord = {
                 'key': key,
                 'value': value,
-                'content_type': content_type,
+                'contentType': content_type,
             }
 
-            existing_store_by_id._key_value_entries[key] = record
+            old_record = existing_store_by_id._records.get(key)
+            existing_store_by_id._records[key] = record
 
-            await existing_store_by_id._update_timestamps(True)
-            await _set_or_delete_key_value_store_record(
-                entity_directory=existing_store_by_id._resource_directory,
-                persist_storage=self._memory_storage_client._persist_storage,
-                record=record,
-                should_set=True,
-                write_metadata=self._memory_storage_client._write_metadata,
-            )
+            if self._memory_storage_client._persist_storage:
+                if old_record is not None:
+                    if _filename_from_record(old_record) != _filename_from_record(record):
+                        await existing_store_by_id._delete_persisted_record(old_record)
+
+                await existing_store_by_id._persist_record(record)
+
+    async def _persist_record(self, record: KeyValueStoreRecord) -> None:
+        store_directory = self._resource_directory
+        record_filename = _filename_from_record(record)
+        record['filename'] = record_filename
+
+        # Ensure the directory for the entity exists
+        await makedirs(store_directory, exist_ok=True)
+
+        # Create files for the record
+        record_path = os.path.join(store_directory, record_filename)
+        record_metadata_path = os.path.join(store_directory, record_filename + '.__metadata__.json')
+
+        # Convert to bytes if string
+        if isinstance(record['value'], str):
+            record['value'] = record['value'].encode('utf-8')
+
+        async with aiofiles.open(record_path, mode='wb') as f:
+            await f.write(record['value'])
+
+        if self._memory_storage_client._write_metadata:
+            async with aiofiles.open(record_metadata_path, mode='wb') as f:
+                await f.write(_json_dumps({
+                    'key': record['key'],
+                    'contentType': record['contentType'],
+                }).encode('utf-8'))
 
     async def delete_record(self, key: str) -> None:
         """Delete the specified record from the key-value store.
@@ -319,19 +359,28 @@ class KeyValueStoreClient(BaseResourceClient):
         if existing_store_by_id is None:
             _raise_on_non_existing_storage(_StorageTypes.KEY_VALUE_STORE, self._id)
 
-        entry = existing_store_by_id._key_value_entries.get(key)
+        record = existing_store_by_id._records.get(key)
 
-        if entry is not None:
+        if record is not None:
             async with existing_store_by_id._file_operation_lock:
-                del existing_store_by_id._key_value_entries[key]
+                del existing_store_by_id._records[key]
                 await existing_store_by_id._update_timestamps(True)
-                await _set_or_delete_key_value_store_record(
-                    entity_directory=existing_store_by_id._resource_directory,
-                    persist_storage=self._memory_storage_client._persist_storage,
-                    record=entry,
-                    should_set=False,
-                    write_metadata=self._memory_storage_client._write_metadata,
-                )
+                if self._memory_storage_client._persist_storage:
+                    await existing_store_by_id._delete_persisted_record(record)
+
+    async def _delete_persisted_record(self, record: KeyValueStoreRecord) -> None:
+        store_directory = self._resource_directory
+        record_filename = _filename_from_record(record)
+
+        # Ensure the directory for the entity exists
+        await makedirs(store_directory, exist_ok=True)
+
+        # Create files for the record
+        record_path = os.path.join(store_directory, record_filename)
+        record_metadata_path = os.path.join(store_directory, record_filename + '.__metadata__.json')
+
+        await _force_remove(record_path)
+        await _force_remove(record_metadata_path)
 
     def _to_resource_info(self) -> Dict:
         """Retrieve the key-value store info."""
@@ -376,89 +425,16 @@ class KeyValueStoreClient(BaseResourceClient):
         created_at = datetime.now(timezone.utc)
         accessed_at = datetime.now(timezone.utc)
         modified_at = datetime.now(timezone.utc)
-        internal_records: Dict[str, Dict] = {}
 
-        # Access the key value store folder
-        for entry in os.scandir(storage_directory):
-            if entry.is_file():
-                if entry.name == '__metadata__.json':
-                    # We have found the store metadata file, build out information based on it
-                    with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
-                        metadata = json.load(f)
-                    id = metadata['id']
-                    name = metadata['name']
-                    created_at = datetime.fromisoformat(metadata['createdAt'])
-                    accessed_at = datetime.fromisoformat(metadata['accessedAt'])
-                    modified_at = datetime.fromisoformat(metadata['modifiedAt'])
-
-                    continue
-
-                if '.__metadata__.' in entry.name:
-                    # This is an entry's metadata file, we can use it to create/extend the record
-                    with open(os.path.join(storage_directory, entry.name), encoding='utf-8') as f:
-                        metadata = json.load(f)
-
-                    new_record = {
-                        **internal_records.get(metadata['key'], {}),
-                        **metadata,
-                    }
-
-                    internal_records[metadata['key']] = new_record
-
-                    continue
-
-                with open(os.path.join(storage_directory, entry.name), 'rb') as f:
-                    file_content = f.read()
-                file_extension = pathlib.Path(entry.name).suffix
-                content_type, _ = mimetypes.guess_type(entry.name)
-                if content_type is None:
-                    content_type = 'text/plain'
-                extension = _guess_file_extension(content_type)
-
-                if file_extension == '':
-                    # We need to override and then restore the warnings filter so that the warning gets printed out,
-                    # Otherwise it would be silently swallowed
-                    with warnings.catch_warnings():
-                        warnings.simplefilter('always')
-                        warnings.warn(
-                            f"""Key-value entry "{entry.name}" for store {name or id} does not have a file extension, assuming it as text.
-                            If you want to have correct interpretation of the file, you should add a file extension to the entry.""",
-                            Warning,
-                            stacklevel=2,
-                        )
-                elif 'application/json' in content_type:
-                    try:
-                        # Try parsing the JSON ahead of time (not ideal but solves invalid files being loaded into stores)
-                        json.loads(file_content.decode('utf-8'))
-                    except json.JSONDecodeError:
-                        # We need to override and then restore the warnings filter so that the warning gets printed out,
-                        # Otherwise it would be silently swallowed
-                        with warnings.catch_warnings():
-                            warnings.simplefilter('always')
-                            warnings.warn(
-                                (f'Key-value entry "{entry.name}" for store {name or id} has invalid JSON content'
-                                    'and will be ignored from the store.'),
-                                Warning,
-                                stacklevel=2,
-                            )
-                        continue
-
-                name_split = entry.name.split('.')
-
-                if file_extension != '':
-                    name_split.pop()
-
-                key = '.'.join(name_split)
-
-                new_record = {
-                    'key': key,
-                    'extension': extension,
-                    'value': file_content,
-                    'content_type': content_type,
-                    **internal_records.get(key, {}),
-                }
-
-                internal_records[key] = new_record
+        store_metadata_path = os.path.join(storage_directory, '__metadata__.json')
+        if os.path.exists(store_metadata_path):
+            with open(store_metadata_path, encoding='utf-8') as f:
+                metadata = json.load(f)
+            id = metadata['id']
+            name = metadata['name']
+            created_at = datetime.fromisoformat(metadata['createdAt'])
+            accessed_at = datetime.fromisoformat(metadata['accessedAt'])
+            modified_at = datetime.fromisoformat(metadata['modifiedAt'])
 
         new_client = KeyValueStoreClient(
             base_storage_directory=memory_storage_client._key_value_stores_directory,
@@ -467,12 +443,63 @@ class KeyValueStoreClient(BaseResourceClient):
             name=name,
         )
 
-        # Overwrite properties
+        # Overwrite internal properties
         new_client._accessed_at = accessed_at
         new_client._created_at = created_at
         new_client._modified_at = modified_at
 
-        for key, record in internal_records.items():
-            new_client._key_value_entries[key] = record
+        # Scan the key value store folder, check each entry in there and parse it as a store record
+        for entry in os.scandir(storage_directory):
+            if not entry.is_file():
+                continue
+
+            # Ignore metadata files on their own
+            if entry.name.endswith('__metadata__.json'):
+                continue
+
+            with open(os.path.join(storage_directory, entry.name), 'rb') as f:
+                file_content = f.read()
+
+            # Try checking if this file has a metadata file associated with it
+            metadata = None
+            if (os.path.exists(os.path.join(storage_directory, entry.name + '.__metadata__.json'))):
+                with open(os.path.join(storage_directory, entry.name + '.__metadata__.json'), encoding='utf-8') as metadata_file:
+                    try:
+                        metadata = json.load(metadata_file)
+                        assert metadata.get('key') is not None
+                        assert metadata.get('contentType') is not None
+                    except Exception:
+                        logger.warning(
+                            f"""Metadata of key-value store entry "{entry.name}" for store {name or id} could not be parsed."""
+                            'The metadata file will be ignored.',
+                            exc_info=True,
+                        )
+
+            if not metadata:
+                content_type, _ = mimetypes.guess_type(entry.name)
+                if content_type is None:
+                    content_type = 'application/octet-stream'
+
+                metadata = {
+                    'key': pathlib.Path(entry.name).stem,
+                    'contentType': content_type,
+                }
+
+            try:
+                _maybe_parse_body(file_content, metadata['contentType'])
+            except Exception:
+                metadata['contentType'] = 'application/octet-stream'
+                logger.warning(
+                    f"""Key-value store entry "{metadata['key']}" for store {name or id} could not be parsed."""
+                    'The entry will be assumed as binary.',
+                    exc_info=True,
+                )
+
+            new_client._records[metadata['key']] = {
+                'key': metadata['key'],
+                'contentType': metadata['contentType'],
+                'filename': entry.name,
+                'value': file_content,
+            }
 
         return new_client

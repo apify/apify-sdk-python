@@ -7,10 +7,13 @@ Changelog
 ### Added
 
 - option to add event handlers which accept no arguments
+- added support for `is_terminal` flag in status message update
+- option to set status message along with `Actor.exit()`
 
 ### Fixed
 
 - started enforcing local storage to always use the UTF-8 encoding
+- fixed saving key-value store values to local storage with the right extension for a given content type
 
 ### Internal changes
 

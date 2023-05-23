@@ -17,7 +17,7 @@ from apify.event_manager import EventManager
 
 class TestEventManagerLocal:
     async def test_lifecycle_local(self, caplog: pytest.LogCaptureFixture) -> None:
-        caplog.set_level(logging.DEBUG)
+        caplog.set_level(logging.DEBUG, logger='apify')
 
         config = Configuration()
         event_manager = EventManager(config)
