@@ -72,7 +72,7 @@ jobs:
     - name: Deploy artifact to GitHub Pages
       uses: actions/deploy-pages@v1
 
-    - name: 'Invalidate CloudFront'
+    - name: Invalidate CloudFront cache
       run: gh workflow run invalidate.yaml --repo apify/apify-docs-private
       env:
         GITHUB_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
