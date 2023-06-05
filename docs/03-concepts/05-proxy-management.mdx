@@ -94,8 +94,8 @@ This allows you to get better proxy performance after some initial research.
 
 ```python
 proxy_configuration = await Actor.create_proxy_configuration(
-    groups: ['RESIDENTIAL'],
-    country_code: 'US',
+    groups=['RESIDENTIAL'],
+    country_code='US',
 )
 proxy_url = await proxy_configuration.new_url()
 ```
