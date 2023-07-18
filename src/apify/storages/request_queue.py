@@ -39,6 +39,13 @@ RECENTLY_HANDLED_CACHE_SIZE = 1000
 # to be available to subsequent reads.
 STORAGE_CONSISTENCY_DELAY_MILLIS = 3000
 
+# TODO: Comments
+MAX_REQUESTS_PER_BATCH_OPERATION = 25
+DEFAULT_PARALLEL_BATCH_ADD_REQUESTS = 5
+DEFAULT_UNPROCESSED_RETRIES_BATCH_ADD_REQUESTS = 3
+DEFAULT_MIN_DELAY_BETWEEN_UNPROCESSED_REQUESTS_RETRIES_MILLIS = 500
+DEFAULT_REQUEST_QUEUE_REQUEST_PAGE_LIMIT = 1000
+
 
 class RequestQueue(BaseStorage):
     """Represents a queue of URLs to crawl.
@@ -173,6 +180,99 @@ class RequestQueue(BaseStorage):
             self._maybe_add_request_to_queue_head(request_id, forefront)
 
         return queue_operation_info
+
+    @ignore_docs
+    async def _batch_add_requests_with_retries(
+        self,
+        requests: List[Dict[str, Any]],
+        *,
+        forefront: Optional[bool] = None,
+        max_unprocessed_requests_retries: int = DEFAULT_UNPROCESSED_RETRIES_BATCH_ADD_REQUESTS,
+        min_delay_between_unprocessed_requests_retries_millis: int = DEFAULT_MIN_DELAY_BETWEEN_UNPROCESSED_REQUESTS_RETRIES_MILLIS,
+    ) -> Dict:
+        remaining_requests = requests[:]
+        processed_requests = []
+        unprocessed_requests = []
+
+        for i in range(max_unprocessed_requests_retries + 1):
+            try:
+                response = await self._request_queue_client.batch_add_requests(remaining_requests, forefront=forefront)
+                processed_requests += response['processedRequests']
+                unprocessed_requests = response['unprocessedRequests']
+
+                processed_requests_unique_keys = [req['uniqueKey'] for req in processed_requests]
+                remaining_requests = [
+                    req for req in requests
+                    if req['uniqueKey'] not in processed_requests_unique_keys
+                ]
+
+                if len(remaining_requests) == 0:
+                    break
+
+            except Exception as err:
+                # When something fails and http client does not retry, the remaining requests are treated as unprocessed.
+                # This ensures that this method does not throw and keeps the signature.
+                logger.error('Batch add requests throws failed', exc_info=err)
+                processed_requests_unique_keys = [req['uniqueKey'] for req in processed_requests]
+                unprocessed_requests = [
+                    {'method': req.get('method'), 'uniqueKey': req.get('uniqueKey'), 'url': req.get('url')} for req in requests
+                    if req.get('uniqueKey') not in processed_requests_unique_keys
+                ]
+
+                break
+
+            # Exponential backoff
+            delay_millis = math.floor(
+                (1 + random.random()) * (2 ** i) * min_delay_between_unprocessed_requests_retries_millis,
+            )
+            await asyncio.sleep(delay_millis / 1000)
+
+        return {
+            'processedRequests': processed_requests,
+            'unprocessedRequests': unprocessed_requests,
+        }
+
+    async def add_requests(
+        self,
+        requests: List[Dict[str, Any]],
+        *,
+        forefront: Optional[bool] = None,
+        max_parallel: int = DEFAULT_PARALLEL_BATCH_ADD_REQUESTS,
+        max_unprocessed_requests_retries: int = DEFAULT_UNPROCESSED_RETRIES_BATCH_ADD_REQUESTS,
+        min_delay_between_unprocessed_requests_retries_millis: int = DEFAULT_MIN_DELAY_BETWEEN_UNPROCESSED_REQUESTS_RETRIES_MILLIS,
+    ) -> Dict:
+        """Add requests to the queue in batches of 25 requests.
+
+        Args:
+            requests (List[Dict[str, Any]]): List of the requests to add
+            forefront (bool, optional): Whether to add the requests to the head or the end of the queue
+            max_parallel (int, optional): How many requests to add in parallel
+            max_unprocessed_requests_retries (int, optional): How many times to retry adding unprocessed requests
+            min_delay_between_unprocessed_requests_retries_millis (int, optional): How long to wait between retries
+        """
+        processed_requests = []
+        unprocessed_requests = []
+
+        parallel_coroutines = []
+        for i in range(0, len(requests), MAX_REQUESTS_PER_BATCH_OPERATION):
+            requests_in_batch = requests[i:i + MAX_REQUESTS_PER_BATCH_OPERATION]
+            parallel_coroutines.append(self._batch_add_requests_with_retries(
+                requests_in_batch,
+                forefront=forefront,
+                max_unprocessed_requests_retries=max_unprocessed_requests_retries,
+                min_delay_between_unprocessed_requests_retries_millis=min_delay_between_unprocessed_requests_retries_millis,
+            ))
+            if len(parallel_coroutines) >= max_parallel or len(requests_in_batch) < MAX_REQUESTS_PER_BATCH_OPERATION:
+                individual_results = await asyncio.gather(*parallel_coroutines)
+                for result in individual_results:
+                    processed_requests += result.get('processedRequests', [])
+                    unprocessed_requests += result.get('unprocessedRequests', [])
+                parallel_coroutines = []
+
+        return {
+            'processedRequests': processed_requests,
+            'unprocessedRequests': unprocessed_requests,
+        }
 
     async def get_request(self, request_id: str) -> Optional[Dict]:
         """Retrieve a request from the queue.
