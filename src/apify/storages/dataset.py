@@ -4,13 +4,14 @@ import math
 from typing import AsyncIterator, Dict, Iterable, Iterator, List, Optional, Union
 
 from apify_client import ApifyClientAsync
-from apify_client._utils import ListPage
 from apify_client.clients import DatasetClientAsync, DatasetCollectionClientAsync
+from apify_shared.models import ListPage
+from apify_shared.types import JSONSerializable
+from apify_shared.utils import ignore_docs, json_dumps
 
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
-from .._types import JSONSerializable
-from .._utils import _json_dumps, _wrap_internal, ignore_docs
+from .._utils import _wrap_internal
 from ..config import Configuration
 from ..consts import MAX_PAYLOAD_SIZE_BYTES
 from .base_storage import BaseStorage
@@ -25,7 +26,7 @@ def _check_and_serialize(item: JSONSerializable, index: Optional[int] = None) ->
     s = ' ' if index is None else f' at index {index} '
 
     try:
-        payload = _json_dumps(item)
+        payload = json_dumps(item)
     except Exception as e:
         raise ValueError(f'Data item{s}is not serializable to JSON.') from e
 

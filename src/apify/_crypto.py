@@ -7,7 +7,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from ._utils import ignore_docs
+from apify_shared.utils import ignore_docs
+
 from .consts import ENCRYPTED_INPUT_VALUE_REGEXP
 
 ENCRYPTION_KEY_LENGTH = 32

@@ -11,7 +11,8 @@ import pytest
 from apify._crypto import _crypto_random_object_id
 from apify._memory_storage import MemoryStorageClient
 from apify._memory_storage.resource_clients import KeyValueStoreClient
-from apify._utils import _json_dumps, _maybe_parse_body
+from apify._utils import _maybe_parse_body
+from apify_shared.utils import json_dumps
 
 TINY_PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=')
 TINY_BYTES = b'\x12\x34\x56\x78\x90\xAB\xCD\xEF'
@@ -304,7 +305,7 @@ async def test_reads_correct_metadata(memory_storage_client: MemoryStorageClient
     # Write the store metadata to disk
     store_metadata_path = os.path.join(storage_path, '__metadata__.json')
     with open(store_metadata_path, mode='wb') as store_metadata_file:
-        store_metadata_file.write(_json_dumps(store_metadata).encode('utf-8'))
+        store_metadata_file.write(json_dumps(store_metadata).encode('utf-8'))
 
     # Write the test input item to the disk
     item_path = os.path.join(storage_path, test_input['filename'])
@@ -314,13 +315,13 @@ async def test_reads_correct_metadata(memory_storage_client: MemoryStorageClient
         elif isinstance(test_input['value'], str):
             item_file.write(test_input['value'].encode('utf-8'))
         else:
-            item_file.write(_json_dumps(test_input['value']).encode('utf-8'))
+            item_file.write(json_dumps(test_input['value']).encode('utf-8'))
 
     # Optionally write the metadata to disk if there is some
     if test_input['metadata'] is not None:
         metadata_path = os.path.join(storage_path, test_input['filename'] + '.__metadata__.json')
         with open(metadata_path, 'w', encoding='utf-8') as metadata_file:
-            metadata_file.write(_json_dumps({
+            metadata_file.write(json_dumps({
                 'key': test_input['metadata']['key'],
                 'contentType': test_input['metadata']['contentType'],
             }))

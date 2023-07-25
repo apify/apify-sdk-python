@@ -5,7 +5,7 @@ description = "Apify SDK for Python"
 readme = "README.md"
 license = {text = "Apache Software License"}
 authors = [
-    {name = "Apify Technologies s.r.o.", email = "support@apify.com" }
+    { name = "Apify Technologies s.r.o.", email = "support@apify.com" },
 ]
 keywords = ["apify", "sdk", "actor", "scraping", "automation"]
 
@@ -23,6 +23,7 @@ classifiers = [
 
 requires-python = ">=3.8"
 dependencies = [
+    "apify-shared ~= 1.0.0b3",
     "aiofiles >= 22.1.0",
     "aioshutil >= 1.0",
     "apify-client >= 1.2.0",

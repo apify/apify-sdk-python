@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from typing_extensions import Self
 
-from ..._utils import ignore_docs
+from apify_shared.utils import ignore_docs
 
 if TYPE_CHECKING:
     from ..memory_storage_client import MemoryStorageClient

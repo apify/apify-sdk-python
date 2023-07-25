@@ -6,9 +6,9 @@ import httpx
 import pytest
 from respx import MockRouter
 
-from apify.consts import ApifyEnvVars
 from apify.proxy_configuration import ProxyConfiguration, _is_url
 from apify_client import ApifyClientAsync
+from apify_shared.consts import ApifyEnvVars
 
 from .conftest import ApifyClientAsyncPatcher
 

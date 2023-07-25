@@ -3,7 +3,7 @@ import pytest
 
 from apify import Actor
 from apify._memory_storage import MemoryStorageClient
-from apify.consts import ApifyEnvVars
+from apify_shared.consts import ApifyEnvVars
 
 # NOTE: We only test the dataset methond available on Actor class/instance. Actual tests for the implementations are in storages/.
 

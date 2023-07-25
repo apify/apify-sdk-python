@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Type
 
-from apify_client._utils import ListPage
+from apify_shared.models import ListPage
+from apify_shared.utils import ignore_docs
 
-from ..._utils import ignore_docs
 from .base_resource_collection_client import BaseResourceCollectionClient
 from .key_value_store import KeyValueStoreClient
 

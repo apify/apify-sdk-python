@@ -8,16 +8,10 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 import aioshutil
 from sortedcollections import ValueSortedDict  # type: ignore
 
+from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, json_dumps
+
 from ..._crypto import _crypto_random_object_id
-from ..._utils import (
-    _filter_out_none_values_recursively,
-    _force_rename,
-    _json_dumps,
-    _raise_on_duplicate_storage,
-    _raise_on_non_existing_storage,
-    _unique_key_to_request_id,
-    ignore_docs,
-)
+from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, _unique_key_to_request_id
 from ...consts import _StorageTypes
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
 from .base_resource_client import BaseResourceClient
@@ -359,7 +353,7 @@ class RequestQueueClient(BaseResourceClient):
         if request_json is None:
             return None
         request = json.loads(request_json)
-        return _filter_out_none_values_recursively(request)
+        return filter_out_none_values_recursively(request)
 
     def _create_internal_request(self, request: Dict, forefront: Optional[bool]) -> Dict:
         order_no = self._calculate_order_no(request, forefront)
@@ -368,7 +362,7 @@ class RequestQueueClient(BaseResourceClient):
         if request.get('id') is not None and request['id'] != id:
             raise ValueError('Request ID does not match its unique_key.')
 
-        json_request = _json_dumps({**request, 'id': id})
+        json_request = json_dumps({**request, 'id': id})
         return {
             'id': id,
             'json': json_request,

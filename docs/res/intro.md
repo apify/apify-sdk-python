@@ -236,7 +236,7 @@ The Apify Platform sends several events to the actor. If you want to work with t
 import asyncio
 from pprint import pprint
 from apify import Actor
-from apify.consts import ActorEventTypes
+from apify_shared.consts import ActorEventTypes
 
 async def print_system_info(event_data):
     print('Actor system info from platform:')

@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 from operator import itemgetter
 from typing import TYPE_CHECKING, Dict, Generic, List, Optional, Type, TypeVar
 
-from apify_client._utils import ListPage
+from apify_shared.models import ListPage
+from apify_shared.utils import ignore_docs
 
-from ..._utils import ignore_docs
 from ..file_storage_utils import _update_metadata
 from .base_resource_client import BaseResourceClient
 

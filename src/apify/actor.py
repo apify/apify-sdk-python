@@ -8,7 +8,8 @@ from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
-from apify_client.consts import WebhookEventType
+from apify_shared.consts import ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
+from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 
 from ._crypto import _decrypt_input_secrets, _load_private_key
 from ._memory_storage import MemoryStorageClient
@@ -18,14 +19,12 @@ from ._utils import (
     _get_memory_usage_bytes,
     _get_system_info,
     _is_running_in_ipython,
-    _maybe_extract_enum_member_value,
     _run_func_at_interval_async,
     _wrap_internal,
     dualproperty,
-    ignore_docs,
 )
 from .config import Configuration
-from .consts import EVENT_LISTENERS_TIMEOUT_SECS, ActorEventTypes, ActorExitCodes, ApifyEnvVars
+from .consts import EVENT_LISTENERS_TIMEOUT_SECS
 from .event_manager import EventManager
 from .log import logger
 from .proxy_configuration import ProxyConfiguration
@@ -333,7 +332,7 @@ class Actor(metaclass=_ActorContextManager):
 
         self._is_exiting = True
 
-        exit_code = _maybe_extract_enum_member_value(exit_code)
+        exit_code = maybe_extract_enum_member_value(exit_code)
 
         self.log.info('Exiting actor', extra={'exit_code': exit_code})
 
@@ -1212,7 +1211,7 @@ class Actor(metaclass=_ActorContextManager):
 
         return await self._apify_client.webhooks().create(
             actor_run_id=self._config.actor_run_id,
-            event_types=event_types,
+            event_types=event_types,  # type: ignore # TODO: remove this once new apify-client is released
             request_url=request_url,
             payload_template=payload_template,
             ignore_ssl_errors=ignore_ssl_errors,

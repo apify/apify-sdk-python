@@ -8,10 +8,10 @@ import httpx
 from typing_extensions import NotRequired
 
 from apify_client import ApifyClientAsync
+from apify_shared.consts import ApifyEnvVars
+from apify_shared.utils import ignore_docs
 
-from ._utils import ignore_docs
 from .config import Configuration
-from .consts import ApifyEnvVars
 from .log import logger
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
