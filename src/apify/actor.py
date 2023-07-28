@@ -1211,7 +1211,7 @@ class Actor(metaclass=_ActorContextManager):
 
         return await self._apify_client.webhooks().create(
             actor_run_id=self._config.actor_run_id,
-            event_types=event_types,  # type: ignore # TODO: remove this once new apify-client is released
+            event_types=event_types,
             request_url=request_url,
             payload_template=payload_template,
             ignore_ssl_errors=ignore_ssl_errors,
