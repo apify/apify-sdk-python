@@ -2,10 +2,11 @@ from typing import Any, AsyncIterator, NamedTuple, Optional, TypedDict, TypeVar,
 
 from apify_client import ApifyClientAsync
 from apify_client.clients import KeyValueStoreClientAsync, KeyValueStoreCollectionClientAsync
+from apify_shared.utils import ignore_docs
 
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import KeyValueStoreClient, KeyValueStoreCollectionClient
-from .._utils import _wrap_internal, ignore_docs
+from .._utils import _wrap_internal
 from ..config import Configuration
 from .base_storage import BaseStorage
 

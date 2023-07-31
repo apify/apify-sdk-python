@@ -11,8 +11,8 @@ import websockets
 import websockets.server
 
 from apify.config import Configuration
-from apify.consts import ActorEventTypes, ApifyEnvVars
 from apify.event_manager import EventManager
+from apify_shared.consts import ActorEventTypes, ApifyEnvVars
 
 
 class TestEventManagerLocal:

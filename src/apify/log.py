@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from colorama import Fore, Style, just_fix_windows_console
 
-from ._utils import ignore_docs
+from apify_shared.utils import ignore_docs
 
 just_fix_windows_console()
 

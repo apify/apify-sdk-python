@@ -3,8 +3,8 @@ import pytest
 from respx import MockRouter
 
 from apify import Actor
-from apify.consts import ApifyEnvVars
 from apify_client import ApifyClientAsync
+from apify_shared.consts import ApifyEnvVars
 
 from ..conftest import ApifyClientAsyncPatcher
 
