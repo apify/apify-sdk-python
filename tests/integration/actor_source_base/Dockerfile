@@ -8,7 +8,7 @@ RUN echo "Python version:" \
  && echo "Pip version:" \
  && pip --version \
  && echo "Installing dependencies:" \
- && pip install -r requirements.txt \
+ && pip install --force-reinstall -r requirements.txt \
  && echo "All installed Python packages:" \
  && pip freeze
 
