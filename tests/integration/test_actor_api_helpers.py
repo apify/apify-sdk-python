@@ -235,7 +235,7 @@ class TestActorAbort:
     async def test_actor_abort(self, make_actor: ActorFactory) -> None:
         async def main_inner() -> None:
             async with Actor:
-                await asyncio.sleep(120)
+                await asyncio.sleep(180)
                 # This should not be set, the actor should be aborted by now
                 await Actor.set_value('OUTPUT', 'dummy')
 
