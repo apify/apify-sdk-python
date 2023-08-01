@@ -1,7 +1,8 @@
 from typing import Optional
 
+from apify_shared.consts import ApifyEnvVars
+
 from ._utils import _fetch_and_parse_env_var
-from .consts import ApifyEnvVars
 
 
 class Configuration:

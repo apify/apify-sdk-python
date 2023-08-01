@@ -1,9 +1,8 @@
 import pytest
 
 from apify import Actor
-from apify.consts import ApifyEnvVars
 from apify_client import ApifyClientAsync
-from apify_client.consts import WebhookEventType
+from apify_shared.consts import ApifyEnvVars, WebhookEventType
 
 from ..conftest import ApifyClientAsyncPatcher
 

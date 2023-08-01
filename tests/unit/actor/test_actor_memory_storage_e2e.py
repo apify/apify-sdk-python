@@ -4,8 +4,8 @@ from typing import Callable
 import pytest
 
 from apify import Actor
-from apify.consts import ApifyEnvVars
 from apify.storages import StorageClientManager
+from apify_shared.consts import ApifyEnvVars
 
 
 @pytest.mark.parametrize('purge_on_start', [True, False])

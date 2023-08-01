@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from apify.config import Configuration
-from apify.consts import ApifyEnvVars
+from apify_shared.consts import ApifyEnvVars
 
 
 class TestConfiguration:

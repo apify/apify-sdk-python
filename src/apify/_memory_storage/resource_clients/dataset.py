@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Tupl
 
 import aioshutil
 
-from apify_client._utils import ListPage
+from apify_shared.models import ListPage
+from apify_shared.types import JSONSerializable
+from apify_shared.utils import ignore_docs
 
 from ..._crypto import _crypto_random_object_id
-from ..._types import JSONSerializable
-from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, ignore_docs
+from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage
 from ...consts import _StorageTypes
 from ..file_storage_utils import _update_dataset_items, _update_metadata
 from .base_resource_client import BaseResourceClient

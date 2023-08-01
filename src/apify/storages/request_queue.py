@@ -7,11 +7,12 @@ from typing import Set, Union
 
 from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
+from apify_shared.utils import ignore_docs
 
 from .._crypto import _crypto_random_object_id
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
-from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id, ignore_docs
+from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
 from ..config import Configuration
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from ..log import logger

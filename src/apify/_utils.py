@@ -5,7 +5,6 @@ import contextlib
 import functools
 import hashlib
 import inspect
-import io
 import json
 import mimetypes
 import os
@@ -15,7 +14,6 @@ import time
 from collections import OrderedDict
 from collections.abc import MutableMapping
 from datetime import datetime, timezone
-from enum import Enum
 from importlib import metadata
 from typing import Any, Callable, Dict, Generic, ItemsView, Iterator, List, NoReturn, Optional
 from typing import OrderedDict as OrderedDictType
@@ -26,27 +24,23 @@ import psutil
 from aiofiles import ospath
 from aiofiles.os import remove, rename
 
-from .consts import (
-    _BOOL_ENV_VARS_TYPE,
-    _DATETIME_ENV_VARS_TYPE,
-    _FLOAT_ENV_VARS_TYPE,
-    _INTEGER_ENV_VARS_TYPE,
-    _STRING_ENV_VARS_TYPE,
+from apify_shared.consts import (
     BOOL_ENV_VARS,
+    BOOL_ENV_VARS_TYPE,
     DATETIME_ENV_VARS,
+    DATETIME_ENV_VARS_TYPE,
     FLOAT_ENV_VARS,
+    FLOAT_ENV_VARS_TYPE,
     INTEGER_ENV_VARS,
-    REQUEST_ID_LENGTH,
+    INTEGER_ENV_VARS_TYPE,
+    STRING_ENV_VARS_TYPE,
     ApifyEnvVars,
-    _StorageTypes,
 )
+from apify_shared.utils import ignore_docs, is_content_type_json, is_content_type_text, is_content_type_xml, maybe_extract_enum_member_value
+
+from .consts import REQUEST_ID_LENGTH, _StorageTypes
 
 T = TypeVar('T')
-
-
-def ignore_docs(method: T) -> T:
-    """Mark that a method's documentation should not be rendered. Functionally, this decorator is a noop."""
-    return method
 
 
 def _get_system_info() -> Dict:
@@ -99,59 +93,53 @@ class dualproperty(Generic[DualPropertyType]):  # noqa: N801
         return self.getter(obj or owner)
 
 
-def _maybe_extract_enum_member_value(maybe_enum_member: Any) -> Any:
-    if isinstance(maybe_enum_member, Enum):
-        return maybe_enum_member.value
-    return maybe_enum_member
-
-
 @overload
-def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE) -> Optional[bool]:
+def _fetch_and_parse_env_var(env_var: BOOL_ENV_VARS_TYPE) -> Optional[bool]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _BOOL_ENV_VARS_TYPE, default: bool) -> bool:
+def _fetch_and_parse_env_var(env_var: BOOL_ENV_VARS_TYPE, default: bool) -> bool:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE) -> Optional[Union[datetime, str]]:
+def _fetch_and_parse_env_var(env_var: DATETIME_ENV_VARS_TYPE) -> Optional[Union[datetime, str]]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _DATETIME_ENV_VARS_TYPE, default: datetime) -> Union[datetime, str]:
+def _fetch_and_parse_env_var(env_var: DATETIME_ENV_VARS_TYPE, default: datetime) -> Union[datetime, str]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE) -> Optional[float]:
+def _fetch_and_parse_env_var(env_var: FLOAT_ENV_VARS_TYPE) -> Optional[float]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _FLOAT_ENV_VARS_TYPE, default: float) -> float:
+def _fetch_and_parse_env_var(env_var: FLOAT_ENV_VARS_TYPE, default: float) -> float:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE) -> Optional[int]:
+def _fetch_and_parse_env_var(env_var: INTEGER_ENV_VARS_TYPE) -> Optional[int]:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _INTEGER_ENV_VARS_TYPE, default: int) -> int:
+def _fetch_and_parse_env_var(env_var: INTEGER_ENV_VARS_TYPE, default: int) -> int:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE, default: str) -> str:
+def _fetch_and_parse_env_var(env_var: STRING_ENV_VARS_TYPE, default: str) -> str:
     ...
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: _STRING_ENV_VARS_TYPE) -> Optional[str]:
+def _fetch_and_parse_env_var(env_var: STRING_ENV_VARS_TYPE) -> Optional[str]:
     ...
 
 
@@ -161,7 +149,7 @@ def _fetch_and_parse_env_var(env_var: ApifyEnvVars) -> Optional[Any]:
 
 
 def _fetch_and_parse_env_var(env_var: Any, default: Any = None) -> Any:
-    env_var_name = str(_maybe_extract_enum_member_value(env_var))
+    env_var_name = str(maybe_extract_enum_member_value(env_var))
 
     val = os.getenv(env_var_name)
     if not val:
@@ -249,36 +237,13 @@ async def _force_remove(filename: str) -> None:
         await remove(filename)
 
 
-def _filter_out_none_values_recursively(dictionary: Dict) -> Dict:
-    """Return copy of the dictionary, recursively omitting all keys for which values are None."""
-    return cast(dict, _filter_out_none_values_recursively_internal(dictionary))
-
-
-# Unfortunately, it's necessary to have an internal function for the correct result typing, without having to create complicated overloads
-def _filter_out_none_values_recursively_internal(dictionary: Dict, remove_empty_dicts: Optional[bool] = None) -> Optional[Dict]:
-    result = {}
-    for k, v in dictionary.items():
-        if isinstance(v, dict):
-            v = _filter_out_none_values_recursively_internal(v, remove_empty_dicts is True or remove_empty_dicts is None)
-        if v is not None:
-            result[k] = v
-    if not result and remove_empty_dicts:
-        return None
-    return result
-
-
-def _json_dumps(obj: Any) -> str:
-    """Dump JSON to a string with the correct settings and serializer."""
-    return json.dumps(obj, ensure_ascii=False, indent=2, default=str)
-
-
 def _raise_on_non_existing_storage(client_type: _StorageTypes, id: str) -> NoReturn:
-    client_type = _maybe_extract_enum_member_value(client_type)
+    client_type = maybe_extract_enum_member_value(client_type)
     raise ValueError(f'{client_type} with id "{id}" does not exist.')
 
 
 def _raise_on_duplicate_storage(client_type: _StorageTypes, key_name: str, value: str) -> NoReturn:
-    client_type = _maybe_extract_enum_member_value(client_type)
+    client_type = maybe_extract_enum_member_value(client_type)
     raise ValueError(f'{client_type} with {key_name} "{value}" already exists.')
 
 
@@ -300,29 +265,10 @@ def _guess_file_extension(content_type: str) -> Optional[str]:
     return ext[1:] if ext is not None else ext
 
 
-def _is_content_type_json(content_type: str) -> bool:
-    return bool(re.search(r'^application/json', content_type, flags=re.IGNORECASE))
-
-
-def _is_content_type_xml(content_type: str) -> bool:
-    return bool(re.search(r'^application/.*xml$', content_type, flags=re.IGNORECASE))
-
-
-def _is_content_type_text(content_type: str) -> bool:
-    return bool(re.search(r'^text/', content_type, flags=re.IGNORECASE))
-
-
-def _is_file_or_bytes(value: Any) -> bool:
-    # The check for IOBase is not ideal, it would be better to use duck typing,
-    # but then the check would be super complex, judging from how the 'requests' library does it.
-    # This way should be good enough for the vast majority of use cases, if it causes issues, we can improve it later.
-    return isinstance(value, (bytes, bytearray, io.IOBase))
-
-
 def _maybe_parse_body(body: bytes, content_type: str) -> Any:
-    if _is_content_type_json(content_type):
+    if is_content_type_json(content_type):
         return json.loads(body.decode('utf-8'))  # Returns any
-    elif _is_content_type_xml(content_type) or _is_content_type_text(content_type):
+    elif is_content_type_xml(content_type) or is_content_type_text(content_type):
         return body.decode('utf-8')
     return body
 
@@ -445,26 +391,3 @@ def _budget_ow(
 PARSE_DATE_FIELDS_MAX_DEPTH = 3
 PARSE_DATE_FIELDS_KEY_SUFFIX = 'At'
 ListOrDictOrAny = TypeVar('ListOrDictOrAny', List, Dict, Any)
-
-
-def _parse_date_fields(data: ListOrDictOrAny, max_depth: int = PARSE_DATE_FIELDS_MAX_DEPTH) -> ListOrDictOrAny:
-    if max_depth < 0:
-        return data
-
-    if isinstance(data, list):
-        return [_parse_date_fields(item, max_depth - 1) for item in data]
-
-    if isinstance(data, dict):
-        def parse(key: str, value: object) -> object:
-            parsed_value = value
-            if key.endswith(PARSE_DATE_FIELDS_KEY_SUFFIX) and isinstance(value, str):
-                parsed_value = _maybe_parse_datetime(value)
-            elif isinstance(value, dict):
-                parsed_value = _parse_date_fields(value, max_depth - 1)
-            elif isinstance(value, list):
-                parsed_value = _parse_date_fields(value, max_depth)
-            return parsed_value
-
-        return {key: parse(key, value) for (key, value) in data.items()}
-
-    return data

@@ -4,7 +4,9 @@ from typing import Dict, List, Tuple
 import aiofiles
 from aiofiles.os import makedirs
 
-from .._utils import _force_remove, _json_dumps
+from apify_shared.utils import json_dumps
+
+from .._utils import _force_remove
 
 
 async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata: bool) -> None:
@@ -18,7 +20,7 @@ async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata:
     # Write the metadata to the file
     file_path = os.path.join(entity_directory, '__metadata__.json')
     async with aiofiles.open(file_path, mode='wb') as f:
-        await f.write(_json_dumps(data).encode('utf-8'))
+        await f.write(json_dumps(data).encode('utf-8'))
 
 
 async def _update_dataset_items(
@@ -38,7 +40,7 @@ async def _update_dataset_items(
     for idx, item in data:
         file_path = os.path.join(entity_directory, f'{idx}.json')
         async with aiofiles.open(file_path, mode='wb') as f:
-            await f.write(_json_dumps(item).encode('utf-8'))
+            await f.write(json_dumps(item).encode('utf-8'))
 
 
 async def _update_request_queue_item(
@@ -58,7 +60,7 @@ async def _update_request_queue_item(
     # Write the request to the file
     file_path = os.path.join(entity_directory, f'{request_id}.json')
     async with aiofiles.open(file_path, mode='wb') as f:
-        await f.write(_json_dumps(request).encode('utf-8'))
+        await f.write(json_dumps(request).encode('utf-8'))
 
 
 async def _delete_request(*, request_id: str, entity_directory: str) -> None:

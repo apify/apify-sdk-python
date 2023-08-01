@@ -7,8 +7,10 @@ import aioshutil
 from aiofiles import ospath
 from aiofiles.os import rename, scandir
 
-from .._utils import _maybe_parse_bool, ignore_docs
-from ..consts import ApifyEnvVars
+from apify_shared.consts import ApifyEnvVars
+from apify_shared.utils import ignore_docs
+
+from .._utils import _maybe_parse_bool
 from .resource_clients.dataset import DatasetClient
 from .resource_clients.dataset_collection import DatasetCollectionClient
 from .resource_clients.key_value_store import KeyValueStoreClient

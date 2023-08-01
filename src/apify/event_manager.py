@@ -7,9 +7,10 @@ from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Union
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
 
-from ._utils import _maybe_extract_enum_member_value, _parse_date_fields, ignore_docs
+from apify_shared.consts import ActorEventTypes
+from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value, parse_date_fields
+
 from .config import Configuration
-from .consts import ActorEventTypes
 from .log import logger
 
 ListenerType = Union[Callable[[], None], Callable[[Any], None], Callable[[], Coroutine[Any, Any, None]], Callable[[Any], Coroutine[Any, Any, None]]]
@@ -119,7 +120,7 @@ class EventManager:
                 except TypeError:
                     raise ValueError('The "listener" argument must be a callable which accepts 0 or 1 arguments!')
 
-        event_name = _maybe_extract_enum_member_value(event_name)
+        event_name = maybe_extract_enum_member_value(event_name)
 
         async def inner_wrapper(event_data: Any) -> None:
             if inspect.iscoroutinefunction(listener):
@@ -160,7 +161,7 @@ class EventManager:
         if not self._initialized:
             raise RuntimeError('EventManager was not initialized!')
 
-        event_name = _maybe_extract_enum_member_value(event_name)
+        event_name = maybe_extract_enum_member_value(event_name)
 
         if listener:
             for listener_wrapper in self._listeners_to_wrappers[event_name][listener]:
@@ -177,7 +178,7 @@ class EventManager:
             event_name (ActorEventTypes): The actor event which should be emitted.
             data (Any): The data that should be emitted with the event.
         """
-        event_name = _maybe_extract_enum_member_value(event_name)
+        event_name = maybe_extract_enum_member_value(event_name)
 
         self._event_emitter.emit(event_name, data)
 
@@ -219,7 +220,7 @@ class EventManager:
                     try:
                         parsed_message = json.loads(message)
                         assert isinstance(parsed_message, dict)
-                        parsed_message = _parse_date_fields(parsed_message)
+                        parsed_message = parse_date_fields(parsed_message)
                         event_name = parsed_message['name']
                         event_data = parsed_message.get('data')  # 'data' can be missing
 

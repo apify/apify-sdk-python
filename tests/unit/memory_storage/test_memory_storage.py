@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from apify._memory_storage import MemoryStorageClient
-from apify.consts import ApifyEnvVars
+from apify_shared.consts import ApifyEnvVars
 
 
 async def test_write_metadata(tmp_path: Path) -> None:

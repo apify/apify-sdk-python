@@ -1,10 +1,8 @@
 import asyncio
-import io
 import os
 import time
 from collections import OrderedDict
 from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
 
 import pytest
@@ -13,30 +11,21 @@ from aiofiles.os import mkdir
 from apify._utils import (
     _budget_ow,
     _fetch_and_parse_env_var,
-    _filter_out_none_values_recursively,
-    _filter_out_none_values_recursively_internal,
     _force_remove,
     _force_rename,
     _get_cpu_usage_percent,
     _get_memory_usage_bytes,
     _guess_file_extension,
-    _is_content_type_json,
-    _is_content_type_text,
-    _is_content_type_xml,
-    _is_file_or_bytes,
-    _json_dumps,
-    _maybe_extract_enum_member_value,
     _maybe_parse_bool,
     _maybe_parse_datetime,
     _maybe_parse_int,
-    _parse_date_fields,
     _raise_on_duplicate_storage,
     _raise_on_non_existing_storage,
     _run_func_at_interval_async,
     _unique_key_to_request_id,
-    ignore_docs,
 )
-from apify.consts import ApifyEnvVars, _StorageTypes
+from apify.consts import _StorageTypes
+from apify_shared.consts import ApifyEnvVars
 
 
 def test__fetch_and_parse_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -71,18 +60,6 @@ def test__get_cpu_usage_percent() -> None:
 def test__get_memory_usage_bytes() -> None:
     assert _get_memory_usage_bytes() >= 0
     assert _get_memory_usage_bytes() <= 1024 * 1024 * 1024 * 1024
-
-
-def test__maybe_extract_enum_member_value() -> None:
-    class TestEnum(Enum):
-        A = 'A'
-        B = 'B'
-
-    assert _maybe_extract_enum_member_value(TestEnum.A) == 'A'
-    assert _maybe_extract_enum_member_value(TestEnum.B) == 'B'
-    assert _maybe_extract_enum_member_value('C') == 'C'
-    assert _maybe_extract_enum_member_value(1) == 1
-    assert _maybe_extract_enum_member_value(None) is None
 
 
 def test__maybe_parse_bool() -> None:
@@ -189,62 +166,6 @@ async def test__run_func_at_interval_async_async__function() -> None:
     assert test_var == increments
 
 
-def test__filter_out_none_values_recursively() -> None:  # Copypasted from client
-    assert _filter_out_none_values_recursively({'k1': 'v1'}) == {'k1': 'v1'}
-    assert _filter_out_none_values_recursively({'k1': None}) == {}
-    assert _filter_out_none_values_recursively({'k1': 'v1', 'k2': None, 'k3': {'k4': 'v4', 'k5': None}, 'k6': {'k7': None}}) \
-        == {'k1': 'v1', 'k3': {'k4': 'v4'}}
-
-
-def test__filter_out_none_values_recursively_internal() -> None:  # Copypasted from client
-    assert _filter_out_none_values_recursively_internal({}) == {}
-    assert _filter_out_none_values_recursively_internal({'k1': {}}) == {}
-    assert _filter_out_none_values_recursively_internal({}, False) == {}
-    assert _filter_out_none_values_recursively_internal({'k1': {}}, False) == {'k1': {}}
-    assert _filter_out_none_values_recursively_internal({}, True) is None
-    assert _filter_out_none_values_recursively_internal({'k1': {}}, True) is None
-
-
-def test__is_content_type_json() -> None:  # Copypasted from client
-    # returns True for the right content types
-    assert _is_content_type_json('application/json') is True
-    assert _is_content_type_json('application/jsonc') is True
-    # returns False for bad content types
-    assert _is_content_type_json('application/xml') is False
-    assert _is_content_type_json('application/ld+json') is False
-
-
-def test__is_content_type_xml() -> None:  # Copypasted from client
-    # returns True for the right content types
-    assert _is_content_type_xml('application/xml') is True
-    assert _is_content_type_xml('application/xhtml+xml') is True
-    # returns False for bad content types
-    assert _is_content_type_xml('application/json') is False
-    assert _is_content_type_xml('text/html') is False
-
-
-def test__is_content_type_text() -> None:  # Copypasted from client
-    # returns True for the right content types
-    assert _is_content_type_text('text/html') is True
-    assert _is_content_type_text('text/plain') is True
-    # returns False for bad content types
-    assert _is_content_type_text('application/json') is False
-    assert _is_content_type_text('application/text') is False
-
-
-def test__is_file_or_bytes() -> None:  # Copypasted from client
-    # returns True for the right value types
-    assert _is_file_or_bytes(b'abc') is True
-    assert _is_file_or_bytes(bytearray.fromhex('F0F1F2')) is True
-    assert _is_file_or_bytes(io.BytesIO(b'\x00\x01\x02')) is True
-
-    # returns False for bad value types
-    assert _is_file_or_bytes('abc') is False
-    assert _is_file_or_bytes(['a', 'b', 'c']) is False
-    assert _is_file_or_bytes({'a': 'b'}) is False
-    assert _is_file_or_bytes(None) is False
-
-
 async def test__force_remove(tmp_path: Path) -> None:
     test_file_path = os.path.join(tmp_path, 'test.txt')
     # Does not crash/raise when the file does not exist
@@ -283,26 +204,6 @@ def test__guess_file_extension() -> None:
     # Returns None for non-existent content types
     assert _guess_file_extension('clearly not a content type') is None
     assert _guess_file_extension('') is None
-
-
-def test__json_dumps() -> None:
-    expected = """{
-  "string": "123",
-  "number": 456,
-  "nested": {
-    "abc": "def"
-  },
-  "datetime": "2022-01-01 00:00:00+00:00"
-}"""
-    actual = _json_dumps({
-        'string': '123',
-        'number': 456,
-        'nested': {
-            'abc': 'def',
-        },
-        'datetime': datetime(2022, 1, 1, tzinfo=timezone.utc),
-    })
-    assert actual == expected
 
 
 def test__unique_key_to_request_id() -> None:
@@ -356,40 +257,3 @@ def test__budget_ow() -> None:
     }, {
         'ordered_dict': (dict, False),
     })
-
-
-def test__parse_date_fields() -> None:
-    # works correctly on empty dicts
-    assert _parse_date_fields({}) == {}
-
-    # correctly parses dates on fields ending with -At
-    expected_datetime = datetime(2016, 11, 14, 11, 10, 52, 425000, timezone.utc)
-    assert _parse_date_fields({'createdAt': '2016-11-14T11:10:52.425Z'}) == {'createdAt': expected_datetime}
-
-    # doesn't parse dates on fields not ending with -At
-    assert _parse_date_fields({'saveUntil': '2016-11-14T11:10:52.425Z'}) == {'saveUntil': '2016-11-14T11:10:52.425Z'}
-
-    # parses dates in dicts in lists
-    expected_datetime = datetime(2016, 11, 14, 11, 10, 52, 425000, timezone.utc)
-    assert _parse_date_fields([{'createdAt': '2016-11-14T11:10:52.425Z'}]) == [{'createdAt': expected_datetime}]
-
-    # parses nested dates
-    expected_datetime = datetime(2020, 2, 29, 10, 9, 8, 100000, timezone.utc)
-    assert _parse_date_fields({'a': {'b': {'c': {'createdAt': '2020-02-29T10:09:08.100Z'}}}}) \
-        == {'a': {'b': {'c': {'createdAt': expected_datetime}}}}
-
-    # doesn't parse dates nested too deep
-    expected_datetime = datetime(2020, 2, 29, 10, 9, 8, 100000, timezone.utc)
-    assert _parse_date_fields({'a': {'b': {'c': {'d': {'createdAt': '2020-02-29T10:09:08.100Z'}}}}}) \
-        == {'a': {'b': {'c': {'d': {'createdAt': '2020-02-29T10:09:08.100Z'}}}}}
-
-    # doesn't die when the date can't be parsed
-    assert _parse_date_fields({'createdAt': 'NOT_A_DATE'}) == {'createdAt': 'NOT_A_DATE'}
-
-
-def test_ignore_docs() -> None:
-    def testing_function(_a: str, _b: str) -> str:
-        """Dummy docstring"""
-        return 'dummy'
-
-    assert testing_function is ignore_docs(testing_function)

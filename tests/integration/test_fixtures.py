@@ -12,7 +12,7 @@ class TestMakeActorFixture:
         async def main() -> None:
             import os
 
-            from apify.consts import ApifyEnvVars
+            from apify_shared.consts import ApifyEnvVars
 
             async with Actor:
                 await Actor.set_value('OUTPUT', os.getenv(ApifyEnvVars.ACTOR_ID))

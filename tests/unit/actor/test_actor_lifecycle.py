@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from apify import Actor
-from apify.consts import ActorEventTypes, ApifyEnvVars
+from apify_shared.consts import ActorEventTypes, ApifyEnvVars
 
 
 class TestActorInit:

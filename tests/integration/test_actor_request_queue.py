@@ -1,8 +1,8 @@
 import pytest
 
 from apify import Actor
-from apify.consts import ApifyEnvVars
 from apify_client import ApifyClientAsync
+from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
 from .conftest import ActorFactory

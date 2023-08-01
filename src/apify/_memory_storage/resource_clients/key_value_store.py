@@ -13,17 +13,16 @@ import aioshutil
 from aiofiles.os import makedirs
 from typing_extensions import NotRequired
 
+from apify_shared.utils import ignore_docs, is_file_or_bytes, json_dumps
+
 from ..._crypto import _crypto_random_object_id
 from ..._utils import (
     _force_remove,
     _force_rename,
     _guess_file_extension,
-    _is_file_or_bytes,
-    _json_dumps,
     _maybe_parse_body,
     _raise_on_duplicate_storage,
     _raise_on_non_existing_storage,
-    ignore_docs,
 )
 from ...consts import DEFAULT_API_PARAM_LIMIT, _StorageTypes
 from ...log import logger
@@ -292,15 +291,15 @@ class KeyValueStoreClient(BaseResourceClient):
             raise NotImplementedError('File-like values are not supported in local memory storage')
 
         if content_type is None:
-            if _is_file_or_bytes(value):
+            if is_file_or_bytes(value):
                 content_type = 'application/octet-stream'
             elif isinstance(value, str):
                 content_type = 'text/plain; charset=utf-8'
             else:
                 content_type = 'application/json; charset=utf-8'
 
-        if 'application/json' in content_type and not _is_file_or_bytes(value) and not isinstance(value, str):
-            value = _json_dumps(value).encode('utf-8')
+        if 'application/json' in content_type and not is_file_or_bytes(value) and not isinstance(value, str):
+            value = json_dumps(value).encode('utf-8')
 
         async with existing_store_by_id._file_operation_lock:
             await existing_store_by_id._update_timestamps(True)
@@ -341,7 +340,7 @@ class KeyValueStoreClient(BaseResourceClient):
 
         if self._memory_storage_client._write_metadata:
             async with aiofiles.open(record_metadata_path, mode='wb') as f:
-                await f.write(_json_dumps({
+                await f.write(json_dumps({
                     'key': record['key'],
                     'contentType': record['contentType'],
                 }).encode('utf-8'))

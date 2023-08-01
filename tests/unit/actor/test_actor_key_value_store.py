@@ -3,8 +3,9 @@ import pytest
 from apify import Actor
 from apify._crypto import public_encrypt
 from apify._memory_storage import MemoryStorageClient
-from apify._utils import _json_dumps
-from apify.consts import ENCRYPTED_INPUT_VALUE_PREFIX, ApifyEnvVars
+from apify.consts import ENCRYPTED_INPUT_VALUE_PREFIX
+from apify_shared.consts import ApifyEnvVars
+from apify_shared.utils import json_dumps
 
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 
@@ -49,7 +50,7 @@ class TestKeyValueStoreOnActor:
         await memory_storage_client.key_value_stores().get_or_create(_id='default')
         await memory_storage_client.key_value_store('default').set_record(
             key=input_key,
-            value=_json_dumps(test_input),
+            value=json_dumps(test_input),
             content_type='application/json',
         )
 
@@ -72,7 +73,7 @@ class TestKeyValueStoreOnActor:
         await memory_storage_client.key_value_stores().get_or_create(_id='default')
         await memory_storage_client.key_value_store('default').set_record(
             key=input_key,
-            value=_json_dumps(input_with_secret),
+            value=json_dumps(input_with_secret),
             content_type='application/json',
         )
 

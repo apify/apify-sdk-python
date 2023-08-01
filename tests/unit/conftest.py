@@ -9,9 +9,9 @@ import pytest
 from apify import Actor
 from apify._memory_storage import MemoryStorageClient
 from apify.config import Configuration
-from apify.consts import ApifyEnvVars
 from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 from apify_client.client import ApifyClientAsync
+from apify_shared.consts import ApifyEnvVars
 
 
 @pytest.fixture

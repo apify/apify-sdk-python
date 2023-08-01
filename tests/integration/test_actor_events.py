@@ -1,7 +1,7 @@
 import asyncio
 
 from apify import Actor
-from apify.consts import ActorEventTypes
+from apify_shared.consts import ActorEventTypes
 
 from .conftest import ActorFactory
 
@@ -13,7 +13,7 @@ class TestActorEvents:
             from datetime import datetime
             from typing import Any, Callable
 
-            from apify.consts import ActorEventTypes, ApifyEnvVars
+            from apify_shared.consts import ActorEventTypes, ApifyEnvVars
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
@@ -63,7 +63,7 @@ class TestActorEvents:
         async def main() -> None:
             import os
 
-            from apify.consts import ActorEventTypes, ApifyEnvVars
+            from apify_shared.consts import ActorEventTypes, ApifyEnvVars
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '100'
 

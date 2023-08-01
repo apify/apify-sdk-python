@@ -6,7 +6,7 @@ from typing import Any, Dict
 import pytest
 
 from apify import Actor
-from apify.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ApifyEnvVars
+from apify_shared.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ApifyEnvVars
 
 
 class TestIsAtHome:

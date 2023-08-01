@@ -5,10 +5,10 @@ from typing import Dict, Generic, Optional, TypeVar, Union, cast
 from typing_extensions import Self
 
 from apify_client import ApifyClientAsync
+from apify_shared.utils import ignore_docs
 
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import BaseResourceClient, BaseResourceCollectionClient
-from .._utils import ignore_docs
 from ..config import Configuration
 from .storage_client_manager import StorageClientManager
 
