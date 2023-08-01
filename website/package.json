@@ -2,8 +2,6 @@
     "name": "apify-sdk-python",
     "private": "true",
     "scripts": {
-        "postci": "patch-package",
-        "postinstall": "patch-package",
         "clean": "rimraf .docusaurus build",
         "build": "npm run clean && docusaurus build",
         "start": "npm run clean && docusaurus start",
@@ -24,12 +22,12 @@
     },
     "dependencies": {
         "@apify/docs-theme": "^1.0.84",
+        "@apify/docusaurus-plugin-typedoc-api": "^3.0.1",
         "@docusaurus/core": "^2.3.1",
         "@docusaurus/plugin-client-redirects": "^2.3.1",
         "@docusaurus/preset-classic": "^2.3.1",
         "clsx": "^1.2.1",
         "docusaurus-gtm-plugin": "^0.0.2",
-        "docusaurus-plugin-typedoc-api": "2.5.1",
         "prop-types": "^15.8.1",
         "raw-loader": "^4.0.2",
         "react": "^17.0.2",
@@ -47,7 +45,6 @@
         "eslint-plugin-react-hooks": "^4.6.0",
         "markdownlint": "^0.27.0",
         "markdownlint-cli": "^0.33.0",
-        "patch-package": "^6.5.1",
         "path-browserify": "^1.0.1",
         "prettier": "^2.8.4",
         "rimraf": "^4.1.3"

@@ -42,6 +42,4 @@ check-changelog-entry:
 	python3 scripts/check_version_in_changelog.py
 
 build-api-reference:
-	cd website && \
-	pydoc-markdown --quiet --dump > docspec-dump.json && \
-	node transformDocs.js docspec-dump.json
+	cd website && ./build_api_reference.sh

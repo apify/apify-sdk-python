@@ -69,7 +69,7 @@ module.exports = {
     ]),
     plugins: [
         [
-            'docusaurus-plugin-typedoc-api',
+            '@apify/docusaurus-plugin-typedoc-api',
             {
                 projectRoot: '.',
                 changelogs: false,
@@ -78,7 +78,7 @@ module.exports = {
                 typedocOptions: {
                     excludeExternals: false,
                 },
-                pathToTypedocJSON: `${__dirname}/api-typedoc-generated.json`,
+                pathToCurrentVersionTypedocJSON: `${__dirname}/api-typedoc-generated.json`,
                 sortSidebar: groupSort,
                 routeBasePath: 'reference',
             },

@@ -8,7 +8,9 @@
 .docusaurus
 .cache-loader
 api-typedoc-generated.json
-docspec-dump.json
+docspec-dump.jsonl
+apify-shared-docspec-dump.jsonl
+module_shortcuts.json
 
 # Misc
 .env.local
