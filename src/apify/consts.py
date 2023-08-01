@@ -1,5 +1,44 @@
 import re
+import warnings
 from enum import Enum
+from typing import Any
+
+from apify_shared.consts import BOOL_ENV_VARS as _BOOL_ENV_VARS
+from apify_shared.consts import DATETIME_ENV_VARS as _DATETIME_ENV_VARS
+from apify_shared.consts import FLOAT_ENV_VARS as _FLOAT_ENV_VARS
+from apify_shared.consts import INTEGER_ENV_VARS as _INTEGER_ENV_VARS
+from apify_shared.consts import STRING_ENV_VARS as _STRING_ENV_VARS
+from apify_shared.consts import ActorEventTypes as _ActorEventTypes
+from apify_shared.consts import ActorExitCodes as _ActorExitCodes
+from apify_shared.consts import ApifyEnvVars as _ApifyEnvVars
+
+DEPRECATED_NAMES = [
+    'BOOL_ENV_VARS',
+    'DATETIME_ENV_VARS',
+    'FLOAT_ENV_VARS',
+    'INTEGER_ENV_VARS',
+    'STRING_ENV_VARS',
+    'ActorEventTypes',
+    'ActorExitCodes',
+    'ApifyEnvVars',
+]
+
+
+# The following piece of code is highly inspired by the example in https://peps.python.org/pep-0562.
+# The else branch is missing intentionally! Check the following discussion for details:
+# https://github.com/apify/apify-client-python/pull/132#discussion_r1277294315.
+def __getattr__(name: str) -> Any:
+    if name in DEPRECATED_NAMES:
+        warnings.warn(
+            (
+                f'Importing "{name}" from "apify_client.consts" is deprecated and will be removed in the future. '
+                'Please use "apify_shared" library instead.'
+            ),
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return globals()[f'_{name}']
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
 
 
 class _StorageTypes(str, Enum):

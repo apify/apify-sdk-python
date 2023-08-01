@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.1.2](../../releases/tag/v1.1.2) - 2023-08-01
+-----------------------------------------------
+
+### Internal changes
+
+- Import general constants and utilities from [apify-shared](https://github.com/apify/apify-shared-python/) library
+
 [1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
 -----------------------------------------------
 
