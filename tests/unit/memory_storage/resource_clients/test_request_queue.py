@@ -90,7 +90,7 @@ async def test_list_head(request_queue_client: RequestQueueClient) -> None:
     list_head = await request_queue_client.list_head()
     assert len(list_head['items']) == 2
     for item in list_head['items']:
-        assert 'id' in item.keys()
+        assert 'id' in item
 
 
 async def test_add_record(request_queue_client: RequestQueueClient) -> None:
@@ -124,7 +124,7 @@ async def test_get_record(request_queue_client: RequestQueueClient) -> None:
     })
     request = await request_queue_client.get_request(request_info['requestId'])
     assert request is not None
-    assert 'id' in request.keys()
+    assert 'id' in request
     assert request['url'] == request['uniqueKey'] == request_url
 
     # Non-existent id

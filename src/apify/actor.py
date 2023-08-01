@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import inspect
 import logging
 import os
@@ -271,10 +272,8 @@ class Actor(metaclass=_ActorContextManager):
         # Don't emit any more regular persist state events
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
             self._send_persist_state_interval_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._send_persist_state_interval_task
-            except asyncio.CancelledError:
-                pass
 
         self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
         self._was_final_persist_state_emitted = True
@@ -282,17 +281,13 @@ class Actor(metaclass=_ActorContextManager):
     async def _cancel_event_emitting_intervals(self) -> None:
         if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
             self._send_persist_state_interval_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._send_persist_state_interval_task
-            except asyncio.CancelledError:
-                pass
 
         if self._send_system_info_interval_task and not self._send_system_info_interval_task.cancelled():
             self._send_system_info_interval_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._send_system_info_interval_task
-            except asyncio.CancelledError:
-                pass
 
     @classmethod
     async def exit(
@@ -1299,8 +1294,8 @@ class Actor(metaclass=_ActorContextManager):
 
         if actor_proxy_input is not None:
             if actor_proxy_input.get('useApifyProxy', False):
-                country_code = country_code or actor_proxy_input.get('apifyProxyCountry', None)
-                groups = groups or actor_proxy_input.get('apifyProxyGroups', None)
+                country_code = country_code or actor_proxy_input.get('apifyProxyCountry')
+                groups = groups or actor_proxy_input.get('apifyProxyGroups')
             else:
                 proxy_urls = actor_proxy_input.get('proxyUrls', [])
                 if not proxy_urls:

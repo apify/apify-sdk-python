@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import os
 import time
 from collections import OrderedDict
@@ -118,10 +119,8 @@ async def test__run_func_at_interval_async__sync_function() -> None:
         assert test_var == increments
     finally:
         sync_increment_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await sync_increment_task
-        except asyncio.CancelledError:
-            pass
 
     await asyncio.sleep(1.5)
     assert test_var == increments
@@ -157,10 +156,8 @@ async def test__run_func_at_interval_async_async__function() -> None:
         assert test_var == increments
     finally:
         async_increment_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await async_increment_task
-        except asyncio.CancelledError:
-            pass
 
     await asyncio.sleep(1.5)
     assert test_var == increments
