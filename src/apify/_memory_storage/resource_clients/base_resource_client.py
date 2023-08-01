@@ -93,24 +93,23 @@ class BaseResourceClient(ABC):
                 storage_path = possible_storage_path
 
         # If it's not found, try going through the storages dir and finding it by metadata
-        if not storage_path:
-            if os.access(storages_dir, os.F_OK):
-                for entry in os.scandir(storages_dir):
-                    if not entry.is_dir():
-                        continue
-                    metadata_path = os.path.join(entry.path, '__metadata__.json')
-                    if not os.access(metadata_path, os.F_OK):
-                        continue
-                    with open(metadata_path, encoding='utf-8') as metadata_file:
-                        metadata = json.load(metadata_file)
-                    if id and id == metadata.get('id'):
-                        storage_path = entry.path
-                        name = metadata.get(name)
-                        break
-                    if name and name == metadata.get('name'):
-                        storage_path = entry.path
-                        id = metadata.get(id)
-                        break
+        if not storage_path and os.access(storages_dir, os.F_OK):
+            for entry in os.scandir(storages_dir):
+                if not entry.is_dir():
+                    continue
+                metadata_path = os.path.join(entry.path, '__metadata__.json')
+                if not os.access(metadata_path, os.F_OK):
+                    continue
+                with open(metadata_path, encoding='utf-8') as metadata_file:
+                    metadata = json.load(metadata_file)
+                if id and id == metadata.get('id'):
+                    storage_path = entry.path
+                    name = metadata.get(name)
+                    break
+                if name and name == metadata.get('name'):
+                    storage_path = entry.path
+                    id = metadata.get(id)
+                    break
 
         # As a last resort, try to check if the accessed storage is the default one,
         # and the folder has no metadata

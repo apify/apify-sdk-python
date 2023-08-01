@@ -180,10 +180,8 @@ def _get_memory_usage_bytes() -> int:
     current_process = psutil.Process(os.getpid())
     mem = int(current_process.memory_info().rss or 0)
     for child in current_process.children(recursive=True):
-        try:
+        with contextlib.suppress(psutil.NoSuchProcess):
             mem += int(child.memory_info().rss or 0)
-        except psutil.NoSuchProcess:
-            pass
     return mem
 
 

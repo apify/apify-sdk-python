@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import os
 from pathlib import Path
 from typing import List, Optional
@@ -167,11 +168,8 @@ class MemoryStorageClient:
             for entity in possible_input_keys:
                 original_file_path = os.path.join(folder, entity)
                 temp_file_path = os.path.join(temporary_path, entity)
-                try:
+                with contextlib.suppress(Exception):
                     await rename(original_file_path, temp_file_path)
-                except Exception:
-                    # Ignore
-                    pass
 
             # Remove the original folder and all its content
             counter = 0
