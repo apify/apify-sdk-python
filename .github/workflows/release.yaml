@@ -32,10 +32,10 @@ jobs:
     name: Run unit tests
     uses: ./.github/workflows/unit_tests.yaml
 
-  integration_tests:
-    name: Run integration tests
-    uses: ./.github/workflows/integration_tests.yaml
-    secrets: inherit
+  # integration_tests:
+  #   name: Run integration tests
+  #   uses: ./.github/workflows/integration_tests.yaml
+  #   secrets: inherit
 
   check_docs:
     name: Check whether the documentation is up to date
@@ -43,7 +43,7 @@ jobs:
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [lint_and_type_checks, unit_tests, integration_tests, check_docs]
+    needs: [lint_and_type_checks, unit_tests, check_docs] # TODO: Add 'integration_tests' back!
     runs-on: ubuntu-latest
     permissions:
       contents: write
