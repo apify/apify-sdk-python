@@ -1,12 +1,15 @@
 Changelog
 =========
 
-[1.1.2](../../releases/tag/v1.1.2) - 2023-08-01
+[1.1.2](../../releases/tag/v1.1.2) - 2023-08-02
 -----------------------------------------------
 
 ### Internal changes
 
-- Import general constants and utilities from [apify-shared](https://github.com/apify/apify-shared-python/) library
+- Library `apify-shared` is used for importing general consts and utils
+- Code quality improvements suggested by `flake8-simplify`
+- Actor env vars are used in favor of some Apify env vars
+- `apify-client` and `apify-shared` have pinned versions to prevent their implicit updates from breaking SDK
 
 [1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
 -----------------------------------------------
