@@ -26,23 +26,23 @@ from apify._utils import (
     _unique_key_to_request_id,
 )
 from apify.consts import _StorageTypes
-from apify_shared.consts import ApifyEnvVars
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 
 def test__fetch_and_parse_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'True')
-    monkeypatch.setenv(ApifyEnvVars.MEMORY_MBYTES, '1024')
+    monkeypatch.setenv(ActorEnvVars.MEMORY_MBYTES, '1024')
     monkeypatch.setenv(ApifyEnvVars.META_ORIGIN, 'API')
-    monkeypatch.setenv(ApifyEnvVars.STARTED_AT, '2022-12-02T15:19:34.907Z')
+    monkeypatch.setenv(ActorEnvVars.STARTED_AT, '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_BOOL', '1')
     monkeypatch.setenv('DUMMY_DATETIME', '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_INT', '1')
     monkeypatch.setenv('DUMMY_STRING', 'DUMMY')
 
     assert _fetch_and_parse_env_var(ApifyEnvVars.IS_AT_HOME) is True
-    assert _fetch_and_parse_env_var(ApifyEnvVars.MEMORY_MBYTES) == 1024
+    assert _fetch_and_parse_env_var(ActorEnvVars.MEMORY_MBYTES) == 1024
     assert _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN) == 'API'
-    assert _fetch_and_parse_env_var(ApifyEnvVars.STARTED_AT) == \
+    assert _fetch_and_parse_env_var(ActorEnvVars.STARTED_AT) == \
         datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=timezone.utc)
 
     assert _fetch_and_parse_env_var('DUMMY_BOOL') == '1'  # type: ignore

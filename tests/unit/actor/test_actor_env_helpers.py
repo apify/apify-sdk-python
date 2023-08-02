@@ -6,7 +6,7 @@ from typing import Any, Dict
 import pytest
 
 from apify import Actor
-from apify_shared.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ApifyEnvVars
+from apify_shared.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ActorEnvVars, ApifyEnvVars
 
 
 class TestIsAtHome:
@@ -52,8 +52,8 @@ class TestGetEnv:
             monkeypatch.setenv(string_env_var, expected_get_env[string_get_env_var])
 
         # We need this override so that the actor doesn't fail when connecting to the platform events websocket
-        monkeypatch.delenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL)
-        expected_get_env[ApifyEnvVars.ACTOR_EVENTS_WS_URL.name.lower()] = None
+        monkeypatch.delenv(ActorEnvVars.EVENTS_WEBSOCKET_URL)
+        expected_get_env[ActorEnvVars.EVENTS_WEBSOCKET_URL.name.lower()] = None
 
         await Actor.init()
         assert expected_get_env == Actor.get_env()
