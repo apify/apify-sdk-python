@@ -9,7 +9,7 @@ from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
+from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 
 from ._crypto import _decrypt_input_secrets, _load_private_key
@@ -748,7 +748,7 @@ class Actor(metaclass=_ActorContextManager):
         self._raise_if_not_initialized()
 
         return {
-            env_var.name.lower(): _fetch_and_parse_env_var(env_var) for env_var in ApifyEnvVars
+            env_var.name.lower(): _fetch_and_parse_env_var(env_var) for env_var in [*ActorEnvVars, *ApifyEnvVars]
         }
 
     @classmethod

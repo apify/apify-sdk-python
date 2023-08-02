@@ -54,13 +54,13 @@ class TestActorNewClient:
         async def main() -> None:
             import os
 
-            from apify_shared.consts import ApifyEnvVars
+            from apify_shared.consts import ActorEnvVars
 
             async with Actor:
                 new_client = Actor.new_client()
                 assert new_client is not Actor.apify_client
 
-                default_key_value_store_id = os.getenv(ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID)
+                default_key_value_store_id = os.getenv(ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID)
                 assert default_key_value_store_id is not None
                 kv_store_client = new_client.key_value_store(default_key_value_store_id)
                 await kv_store_client.set_record('OUTPUT', 'TESTING-OUTPUT')
@@ -272,11 +272,11 @@ class TestActorMetamorph:
         async def main_inner() -> None:
             import os
 
-            from apify_shared.consts import ApifyEnvVars
+            from apify_shared.consts import ActorEnvVars
 
             async with Actor:
-                assert os.getenv(ApifyEnvVars.INPUT_KEY) is not None
-                assert os.getenv(ApifyEnvVars.INPUT_KEY) != 'INPUT'
+                assert os.getenv(ActorEnvVars.INPUT_KEY) is not None
+                assert os.getenv(ActorEnvVars.INPUT_KEY) != 'INPUT'
                 input = await Actor.get_input() or {}
 
                 test_value = input.get('test_value', '')
@@ -329,7 +329,7 @@ class TestActorAddWebhook:
             import os
             from http.server import BaseHTTPRequestHandler, HTTPServer
 
-            from apify_shared.consts import ApifyEnvVars
+            from apify_shared.consts import ActorEnvVars
 
             webhook_body = ''
 
@@ -351,7 +351,7 @@ class TestActorAddWebhook:
                         self.end_headers()
                         self.wfile.write(bytes('Hello, world!', encoding='utf-8'))
 
-                container_port = int(os.getenv(ApifyEnvVars.CONTAINER_PORT, ''))
+                container_port = int(os.getenv(ActorEnvVars.WEB_SERVER_PORT, ''))
                 with HTTPServer(('', container_port), WebhookHandler) as server:
                     await Actor.set_value('INITIALIZED', True)
                     while not webhook_body:

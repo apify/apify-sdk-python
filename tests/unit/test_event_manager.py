@@ -12,7 +12,7 @@ import websockets.server
 
 from apify.config import Configuration
 from apify.event_manager import EventManager
-from apify_shared.consts import ActorEventTypes, ApifyEnvVars
+from apify_shared.consts import ActorEnvVars, ActorEventTypes
 
 
 class TestEventManagerLocal:
@@ -269,7 +269,7 @@ class TestEventManagerLocal:
 
 class TestEventManagerOnPlatform:
     async def test_lifecycle_on_platform_without_websocket(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL, 'ws://localhost:56565')
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
 
         config = Configuration()
         event_manager = EventManager(config)
@@ -293,7 +293,7 @@ class TestEventManagerOnPlatform:
             # When you don't specify a port explicitly, the websocket connection is opened on a random free port.
             # We need to find out which port is that.
             port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
-            monkeypatch.setenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL, f'ws://localhost:{port}')
+            monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
             config = Configuration()
             event_manager = EventManager(config)
@@ -328,7 +328,7 @@ class TestEventManagerOnPlatform:
             # When you don't specify a port explicitly, the websocket connection is opened on a random free port.
             # We need to find out which port is that.
             port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
-            monkeypatch.setenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL, f'ws://localhost:{port}')
+            monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
             config = Configuration()
             event_manager = EventManager(config)

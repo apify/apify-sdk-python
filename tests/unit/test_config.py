@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from apify.config import Configuration
-from apify_shared.consts import ApifyEnvVars
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 
 class TestConfiguration:
@@ -28,13 +28,13 @@ class TestConfiguration:
         monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD, 'DUMMY_PROXY_PASSWORD')
         monkeypatch.setenv(ApifyEnvVars.API_BASE_URL, 'DUMMY_API_BASE_URL')
         monkeypatch.setenv(ApifyEnvVars.PROXY_HOSTNAME, 'DUMMY_PROXY_HOSTNAME')
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID, 'DUMMY_DEFAULT_KEY_VALUE_STORE_ID')
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID, 'DUMMY_DEFAULT_REQUEST_QUEUE_ID')
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_DATASET_ID, 'DUMMY_DEFAULT_DATASET_ID')
+        monkeypatch.setenv(ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID, 'DUMMY_DEFAULT_KEY_VALUE_STORE_ID')
+        monkeypatch.setenv(ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID, 'DUMMY_DEFAULT_REQUEST_QUEUE_ID')
+        monkeypatch.setenv(ActorEnvVars.DEFAULT_DATASET_ID, 'DUMMY_DEFAULT_DATASET_ID')
         monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, '1')
         monkeypatch.setenv(ApifyEnvVars.PROXY_PORT, '1234')
-        monkeypatch.setenv(ApifyEnvVars.MEMORY_MBYTES, '1024')
-        monkeypatch.setenv(ApifyEnvVars.STARTED_AT, '2023-01-01T12:34:56.789Z')
+        monkeypatch.setenv(ActorEnvVars.MEMORY_MBYTES, '1024')
+        monkeypatch.setenv(ActorEnvVars.STARTED_AT, '2023-01-01T12:34:56.789Z')
 
         config = Configuration()
         assert config.token == 'DUMMY_TOKEN'
@@ -55,9 +55,9 @@ class TestConfiguration:
         monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD, 'DUMMY_PROXY_PASSWORD')
         monkeypatch.setenv(ApifyEnvVars.API_BASE_URL, 'DUMMY_API_BASE_URL')
         monkeypatch.setenv(ApifyEnvVars.PROXY_HOSTNAME, 'DUMMY_PROXY_HOSTNAME')
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_DATASET_ID, 'DUMMY_DEFAULT_DATASET_ID')
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID, 'DUMMY_DEFAULT_KEY_VALUE_STORE_ID')
-        monkeypatch.setenv(ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID, 'DUMMY_DEFAULT_REQUEST_QUEUE_ID')
+        monkeypatch.setenv(ActorEnvVars.DEFAULT_DATASET_ID, 'DUMMY_DEFAULT_DATASET_ID')
+        monkeypatch.setenv(ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID, 'DUMMY_DEFAULT_KEY_VALUE_STORE_ID')
+        monkeypatch.setenv(ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID, 'DUMMY_DEFAULT_REQUEST_QUEUE_ID')
         monkeypatch.setenv(ApifyEnvVars.PROXY_PORT, '1234')
 
         config = Configuration(
