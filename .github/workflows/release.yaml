@@ -6,7 +6,7 @@ on:
     branches:
       - master
     tags-ignore:
-      - '**'
+      - "**"
   # A release via GitHub releases will publish a stable version
   release:
     types: [published]
@@ -14,14 +14,14 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Release type'
+        description: Release type
         required: true
         type: choice
-        default: 'alpha'
+        default: alpha
         options:
-          - 'alpha'
-          - 'beta'
-          - 'final'
+          - alpha
+          - beta
+          - final
 
 jobs:
   lint_and_type_checks:
@@ -43,7 +43,7 @@ jobs:
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [lint_and_type_checks, unit_tests, check_docs] # TODO: Add 'integration_tests' back!
+    needs: [lint_and_type_checks, unit_tests, check_docs] # TODO: Add integration_tests back!
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -53,84 +53,84 @@ jobs:
       url: https://pypi.org/p/apify
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.8
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
 
-    - name: Install dependencies
-      run: make install-dev
+      - name: Install dependencies
+        run: make install-dev
 
-    - # Determine if this is a prerelease or latest release
-      name: Determine release type
-      id: get-release-type
-      run: |
-        if [ ${{ github.event_name }} = release ]; then
-          release_type="final"
-        elif [ ${{ github.event_name }} = push ]; then
-          release_type="beta"
-        elif [ ${{ github.event_name }} = workflow_dispatch ]; then
-          release_type=${{ github.event.inputs.release_type }}
-        fi
+      - # Determine if this is a prerelease or latest release
+        name: Determine release type
+        id: get-release-type
+        run: |
+          if [ ${{ github.event_name }} = release ]; then
+            release_type="final"
+          elif [ ${{ github.event_name }} = push ]; then
+            release_type="beta"
+          elif [ ${{ github.event_name }} = workflow_dispatch ]; then
+            release_type=${{ github.event.inputs.release_type }}
+          fi
 
-        if [ ${release_type} = final ]; then
-          docker_image_tag="latest"
-        elif [ ${release_type} = beta ]; then
-          docker_image_tag="beta"
-        else
-          docker_image_tag=""
-        fi
+          if [ ${release_type} = final ]; then
+            docker_image_tag="latest"
+          elif [ ${release_type} = beta ]; then
+            docker_image_tag="beta"
+          else
+            docker_image_tag=""
+          fi
 
-        echo "release_type=${release_type}" >> $GITHUB_OUTPUT
-        echo "docker_image_tag=${docker_image_tag}" >> $GITHUB_OUTPUT
+          echo "release_type=${release_type}" >> $GITHUB_OUTPUT
+          echo "docker_image_tag=${docker_image_tag}" >> $GITHUB_OUTPUT
 
-    - # Check whether the released version is listed in CHANGELOG.md
-      name: Check whether the released version is listed in the changelog
-      if: steps.get-release-type.outputs.release_type != 'alpha'
-      run: make check-changelog-entry
+      - # Check whether the released version is listed in CHANGELOG.md
+        name: Check whether the released version is listed in the changelog
+        if: steps.get-release-type.outputs.release_type != 'alpha'
+        run: make check-changelog-entry
 
-    - # Check version consistency and increment pre-release version number for prereleases (must be the last step before build)
-      name: Bump pre-release version
-      if: steps.get-release-type.outputs.release_type != 'final'
-      run: python ./scripts/update_version_for_prerelease.py ${{ steps.get-release-type.outputs.release_type }}
+      - # Check version consistency and increment pre-release version number for prereleases (must be the last step before build)
+        name: Bump pre-release version
+        if: steps.get-release-type.outputs.release_type != 'final'
+        run: python ./scripts/update_version_for_prerelease.py ${{ steps.get-release-type.outputs.release_type }}
 
-    - # Build a source distribution and a python3-only wheel
-      name: Build distribution files
-      run: make build
+      - # Build a source distribution and a python3-only wheel
+        name: Build distribution files
+        run: make build
 
-    - # Check whether the package description will render correctly on PyPI
-      name: Check package rendering on PyPI
-      run: make twine-check
+      - # Check whether the package description will render correctly on PyPI
+        name: Check package rendering on PyPI
+        run: make twine-check
 
-    - # Publish package to PyPI using their official GitHub action
-      name: Publish package to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - # Publish package to PyPI using their official GitHub action
+        name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
-    - # Tag the current commit with the version tag if this is not made from the release event (releases are tagged with the release process)
-      name: Tag Version
-      if: github.event_name != 'release'
-      run: |
-        git_tag=v`python ./scripts/print_current_package_version.py`
-        git tag $git_tag
-        git push origin $git_tag
+      - # Tag the current commit with the version tag if this is not made from the release event (releases are tagged with the release process)
+        name: Tag Version
+        if: github.event_name != 'release'
+        run: |
+          git_tag=v`python ./scripts/print_current_package_version.py`
+          git tag $git_tag
+          git push origin $git_tag
 
-    - # Upload the build artifacts to the release
-      name: Upload the build artifacts to release
-      if: github.event_name == 'release'
-      run: gh release upload ${{ github.ref_name }} dist/*
-      env:
-        GH_TOKEN: ${{ github.token }}
+      - # Upload the build artifacts to the release
+        name: Upload the build artifacts to release
+        if: github.event_name == 'release'
+        run: gh release upload ${{ github.ref_name }} dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}
 
-    - # Trigger building the Python Docker images in apify/apify-actor-docker repo
-      name: Trigger Docker image build
-      run: |
-        PACKAGE_VERSION=`python ./scripts/print_current_package_version.py`
-        gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
-          -F event_type=build-python-images \
-          -F client_payload[release_tag]=${{ steps.get-release-type.outputs.docker_image_tag }} \
-          -F client_payload[apify_version]=$PACKAGE_VERSION
-      env:
-        GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
+      - # Trigger building the Python Docker images in apify/apify-actor-docker repo
+        name: Trigger Docker image build
+        run: |
+          PACKAGE_VERSION=`python ./scripts/print_current_package_version.py`
+          gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
+            -F event_type=build-python-images \
+            -F client_payload[release_tag]=${{ steps.get-release-type.outputs.docker_image_tag }} \
+            -F client_payload[apify_version]=$PACKAGE_VERSION
+        env:
+          GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}

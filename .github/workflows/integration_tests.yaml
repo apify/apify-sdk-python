@@ -20,18 +20,18 @@ jobs:
       max-parallel: 1 # no concurrency on this level, to not overshoot the test user limits
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: make install-dev
+      - name: Install dependencies
+        run: make install-dev
 
-    - name: Run integration tests
-      run: make INTEGRATION_TESTS_CONCURRENCY=8 integration-tests
-      env:
-        APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_PYTHON_SDK_API_TOKEN }}
+      - name: Run integration tests
+        run: make INTEGRATION_TESTS_CONCURRENCY=8 integration-tests
+        env:
+          APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_PYTHON_SDK_API_TOKEN }}
