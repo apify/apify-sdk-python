@@ -1140,6 +1140,7 @@ class Actor(metaclass=_ActorContextManager):
 
         # If is_at_home() is True, config.actor_id is always set
         assert self._config.actor_id is not None
+
         actor_run_id = cast(str, self._config.actor_run_id)  # to satisfy mypy, for some reason assert is not good enough
         await self._apify_client.run(actor_run_id).reboot()
 
