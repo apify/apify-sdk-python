@@ -1110,6 +1110,7 @@ class Actor(metaclass=_ActorContextManager):
         cls,
         *,
         event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        custom_after_sleep_millis: Optional[int] = None,
     ) -> None:
         """Internally reboot this actor.
 
@@ -1117,19 +1118,27 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
+            custom_after_sleep_millis (int, optional): How long to sleep for after the metamorph, to wait for the container to be stopped.
         """
-        return await cls._get_default_instance().reboot(event_listeners_timeout_secs=event_listeners_timeout_secs)
+        return await cls._get_default_instance().reboot(
+            event_listeners_timeout_secs=event_listeners_timeout_secs,
+            custom_after_sleep_millis=custom_after_sleep_millis,
+        )
 
     async def _reboot_internal(
         self,
         *,
         event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        custom_after_sleep_millis: Optional[int] = None,
     ) -> None:
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
+
+        if not custom_after_sleep_millis:
+            custom_after_sleep_millis = self._config.metamorph_after_sleep_millis
 
         await self._cancel_event_emitting_intervals()
 
@@ -1141,8 +1150,10 @@ class Actor(metaclass=_ActorContextManager):
         # If is_at_home() is True, config.actor_id is always set
         assert self._config.actor_id is not None
 
-        actor_run_id = cast(str, self._config.actor_run_id)  # to satisfy mypy, for some reason assert is not good enough
-        await self._apify_client.run(actor_run_id).reboot()
+        await self._apify_client.run(self._config.actor_id).reboot()
+
+        if custom_after_sleep_millis:
+            await asyncio.sleep(custom_after_sleep_millis / 1000)
 
     @classmethod
     async def add_webhook(
