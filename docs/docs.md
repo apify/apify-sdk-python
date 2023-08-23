@@ -869,7 +869,7 @@ The system stops the current container and starts a new one, with the same run I
 
   * **event_listeners_timeout_secs** (`int`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting
 
-  * **custom_after_sleep_millis** (`int`, *optional*) – How long to sleep for after the metamorph, to wait for the container to be stopped.
+  * **custom_after_sleep_millis** (`int`, *optional*) – How long to sleep for after the reboot, to wait for the container to be stopped.
 
 * **Return type**
 

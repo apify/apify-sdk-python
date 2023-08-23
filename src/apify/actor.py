@@ -1118,7 +1118,7 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
-            custom_after_sleep_millis (int, optional): How long to sleep for after the metamorph, to wait for the container to be stopped.
+            custom_after_sleep_millis (int, optional): How long to sleep for after the reboot, to wait for the container to be stopped.
         """
         return await cls._get_default_instance().reboot(
             event_listeners_timeout_secs=event_listeners_timeout_secs,
