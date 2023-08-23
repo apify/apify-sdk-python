@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.2.0](../../releases/tag/v1.2.0) - 2023-08-23
+-----------------------------------------------
+
+### Added
+
+- Update the `Actor.reboot` method to use the new reboot endpoint
+
+### Internal changes
+
+- Unify indentation in configuration files
+
 [1.1.2](../../releases/tag/v1.1.2) - 2023-08-02
 -----------------------------------------------
 
