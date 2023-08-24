@@ -557,13 +557,15 @@ Get the actor input value from the default key-value store associated with the c
 
 ***
 
-#### [](#actor-get_value) `async Actor.get_value(key)`
+#### [](#actor-get_value) `async Actor.get_value(key, default_value=None)`
 
 Get a value from the default key-value store associated with the current actor run.
 
 * **Parameters**
 
   * **key** (`str`) – The key of the record which to retrieve.
+
+  * **default_value** (`Any`, *optional*) – Default value returned in case the record does not exist.
 
 * **Return type**
 

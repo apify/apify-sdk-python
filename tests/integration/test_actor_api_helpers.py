@@ -1,5 +1,6 @@
 import asyncio
 import json
+from typing import cast
 
 from apify import Actor
 from apify._crypto import _crypto_random_object_id
@@ -321,6 +322,31 @@ class TestActorMetamorph:
 
         # After metamorph, the run still belongs to the original actor, so the inner one should have no runs
         assert await inner_actor.last_run().get() is None
+
+
+class TestActorReboot:
+    async def test_actor_reboot(self, make_actor: ActorFactory) -> None:
+        async def main() -> None:
+            async with Actor:
+                print('Starting...')
+                input = await Actor.get_input() or {}
+                counter_key = cast(str, input.get('counter_key'))
+                cnt = await Actor.get_value(counter_key, 0)
+
+                if cnt < 2:
+                    print(f'Rebooting (cnt = {cnt})...')
+                    await Actor.set_value(counter_key, cnt + 1)
+                    await Actor.reboot()
+                    await Actor.set_value('THIS_KEY_SHOULD_NOT_BE_WRITTEN', 'XXX')
+
+                this_should_not_be_written = await Actor.get_value('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
+                assert this_should_not_be_written is None
+                print('Finishing...')
+
+        actor = await make_actor('actor_rebooter', main_func=main)
+        run_result = await actor.call(run_input={'counter_key': 'reboot_counter'})
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
 
 
 class TestActorAddWebhook:
