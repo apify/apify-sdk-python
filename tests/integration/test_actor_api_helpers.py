@@ -328,13 +328,11 @@ class TestActorReboot:
         async def main() -> None:
             async with Actor:
                 print('Starting...')
-                input = await Actor.get_input() or {}
-                counter_key = input.get('counter_key')
-                cnt = await Actor.get_value(counter_key, 0)  # type: ignore
+                cnt = await Actor.get_value('reboot_counter', 0)
 
                 if cnt < 2:
                     print(f'Rebooting (cnt = {cnt})...')
-                    await Actor.set_value(counter_key, cnt + 1)  # type: ignore
+                    await Actor.set_value('reboot_counter', cnt + 1)
                     await Actor.reboot()
                     await Actor.set_value('THIS_KEY_SHOULD_NOT_BE_WRITTEN', 'XXX')
 
@@ -343,14 +341,15 @@ class TestActorReboot:
         actor = await make_actor('actor_rebooter', main_func=main)
         run_result = await actor.call(run_input={'counter_key': 'reboot_counter'})
 
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
+
         not_written_value = await actor.last_run().key_value_store().get_record('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
         assert not_written_value is None
 
         reboot_counter = await actor.last_run().key_value_store().get_record('reboot_counter')
-        assert reboot_counter['value'] == 2  # type: ignore
-
-        assert run_result is not None
-        assert run_result['status'] == 'SUCCEEDED'
+        assert reboot_counter is not None
+        assert reboot_counter['value'] == 2
 
 
 class TestActorAddWebhook:
