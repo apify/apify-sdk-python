@@ -557,13 +557,15 @@ Get the actor input value from the default key-value store associated with the c
 
 ***
 
-#### [](#actor-get_value) `async Actor.get_value(key)`
+#### [](#actor-get_value) `async Actor.get_value(key, default_value=None)`
 
 Get a value from the default key-value store associated with the current actor run.
 
 * **Parameters**
 
   * **key** (`str`) – The key of the record which to retrieve.
+
+  * **default_value** (`Any`, *optional*) – Default value returned in case the record does not exist.
 
 * **Return type**
 
@@ -859,7 +861,7 @@ and the new input is stored under the INPUT-METAMORPH-1 key in the same default 
 
 ***
 
-#### [](#actor-reboot) `async Actor.reboot(*, event_listeners_timeout_secs=5)`
+#### [](#actor-reboot) `async Actor.reboot(*, event_listeners_timeout_secs=5, custom_after_sleep_millis=None)`
 
 Internally reboot this actor.
 
@@ -868,6 +870,8 @@ The system stops the current container and starts a new one, with the same run I
 * **Parameters**
 
   * **event_listeners_timeout_secs** (`int`, *optional*) – How long should the actor wait for actor event listeners to finish before exiting
+
+  * **custom_after_sleep_millis** (`int`, *optional*) – How long to sleep for after the reboot, to wait for the container to be stopped.
 
 * **Return type**
 

@@ -31,6 +31,7 @@ from .log import logger
 from .proxy_configuration import ProxyConfiguration
 from .storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
+T = TypeVar('T')
 MainReturnType = TypeVar('MainReturnType')
 
 # This metaclass is needed so you can do `async with Actor: ...` instead of `async with Actor() as a: ...`
@@ -629,19 +630,20 @@ class Actor(metaclass=_ActorContextManager):
         return input_value
 
     @classmethod
-    async def get_value(cls, key: str) -> Any:
+    async def get_value(cls, key: str, default_value: Optional[T] = None) -> Any:
         """Get a value from the default key-value store associated with the current actor run.
 
         Args:
             key (str): The key of the record which to retrieve.
+            default_value (Any, optional): Default value returned in case the record does not exist.
         """
-        return await cls._get_default_instance().get_value(key=key)
+        return await cls._get_default_instance().get_value(key=key, default_value=default_value)
 
-    async def _get_value_internal(self, key: str) -> Any:
+    async def _get_value_internal(self, key: str, default_value: Optional[T] = None) -> Any:
         self._raise_if_not_initialized()
 
         key_value_store = await self.open_key_value_store()
-        value = await key_value_store.get_value(key)
+        value = await key_value_store.get_value(key, default_value)
         return value
 
     @classmethod
@@ -1110,6 +1112,7 @@ class Actor(metaclass=_ActorContextManager):
         cls,
         *,
         event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        custom_after_sleep_millis: Optional[int] = None,
     ) -> None:
         """Internally reboot this actor.
 
@@ -1117,19 +1120,27 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
+            custom_after_sleep_millis (int, optional): How long to sleep for after the reboot, to wait for the container to be stopped.
         """
-        return await cls._get_default_instance().reboot(event_listeners_timeout_secs=event_listeners_timeout_secs)
+        return await cls._get_default_instance().reboot(
+            event_listeners_timeout_secs=event_listeners_timeout_secs,
+            custom_after_sleep_millis=custom_after_sleep_millis,
+        )
 
     async def _reboot_internal(
         self,
         *,
         event_listeners_timeout_secs: Optional[int] = EVENT_LISTENERS_TIMEOUT_SECS,
+        custom_after_sleep_millis: Optional[int] = None,
     ) -> None:
         self._raise_if_not_initialized()
 
         if not self.is_at_home():
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
+
+        if not custom_after_sleep_millis:
+            custom_after_sleep_millis = self._config.metamorph_after_sleep_millis
 
         await self._cancel_event_emitting_intervals()
 
@@ -1138,10 +1149,11 @@ class Actor(metaclass=_ActorContextManager):
 
         await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 
-        # If is_at_home() is True, config.actor_id is always set
-        assert self._config.actor_id is not None
+        assert self._config.actor_run_id is not None
+        await self._apify_client.run(self._config.actor_run_id).reboot()
 
-        await self.metamorph(self._config.actor_id)
+        if custom_after_sleep_millis:
+            await asyncio.sleep(custom_after_sleep_millis / 1000)
 
     @classmethod
     async def add_webhook(

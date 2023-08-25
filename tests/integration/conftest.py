@@ -15,7 +15,7 @@ from apify.config import Configuration
 from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 from apify_client import ApifyClientAsync
 from apify_client.clients.resource_clients import ActorClientAsync
-from apify_client.consts import ActorJobStatus, ActorSourceType
+from apify_shared.consts import ActorJobStatus, ActorSourceType
 
 from ._utils import generate_unique_resource_name
 
