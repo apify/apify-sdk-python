@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.1.4](../../releases/tag/v1.1.4) - Unreleased
+-----------------------------------------------
+
+### Internal changes
+
+- Fixed integration tests for Actor logger
+
+
 [1.1.3](../../releases/tag/v1.1.3) - 2023-08-25
 -----------------------------------------------
 
