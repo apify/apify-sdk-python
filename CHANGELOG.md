@@ -7,6 +7,7 @@ Changelog
 ### Internal changes
 
 - Fixed integration tests for Actor logger
+- Removed `pytest-randomly` Pytest plugin
 
 
 [1.1.3](../../releases/tag/v1.1.3) - 2023-08-25
