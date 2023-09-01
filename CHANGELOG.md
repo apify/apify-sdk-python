@@ -4,6 +4,10 @@ Changelog
 [1.1.4](../../releases/tag/v1.1.4) - Unreleased
 -----------------------------------------------
 
+### Fixes
+
+- resolved issue with querying request queue head multiple times in parallel
+
 ### Internal changes
 
 - Fixed integration tests for Actor logger
