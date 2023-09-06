@@ -3,14 +3,14 @@ import warnings
 from enum import Enum
 from typing import Any
 
-from apify_shared.consts import BOOL_ENV_VARS as _BOOL_ENV_VARS
-from apify_shared.consts import DATETIME_ENV_VARS as _DATETIME_ENV_VARS
-from apify_shared.consts import FLOAT_ENV_VARS as _FLOAT_ENV_VARS
-from apify_shared.consts import INTEGER_ENV_VARS as _INTEGER_ENV_VARS
-from apify_shared.consts import STRING_ENV_VARS as _STRING_ENV_VARS
-from apify_shared.consts import ActorEventTypes as _ActorEventTypes
-from apify_shared.consts import ActorExitCodes as _ActorExitCodes
-from apify_shared.consts import ApifyEnvVars as _ApifyEnvVars
+from apify_shared.consts import BOOL_ENV_VARS as _BOOL_ENV_VARS  # noqa: F401
+from apify_shared.consts import DATETIME_ENV_VARS as _DATETIME_ENV_VARS  # noqa: F401
+from apify_shared.consts import FLOAT_ENV_VARS as _FLOAT_ENV_VARS  # noqa: F401
+from apify_shared.consts import INTEGER_ENV_VARS as _INTEGER_ENV_VARS  # noqa: F401
+from apify_shared.consts import STRING_ENV_VARS as _STRING_ENV_VARS  # noqa: F401
+from apify_shared.consts import ActorEventTypes as _ActorEventTypes  # noqa: F401
+from apify_shared.consts import ActorExitCodes as _ActorExitCodes  # noqa: F401
+from apify_shared.consts import ApifyEnvVars as _ApifyEnvVars  # noqa: F401
 
 DEPRECATED_NAMES = [
     'BOOL_ENV_VARS',

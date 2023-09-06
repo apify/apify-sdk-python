@@ -3,7 +3,6 @@ from apify import Actor
 from .conftest import ActorFactory
 
 
-# TODO: this test is flaky, and the actor often times out, figure out why and fix it
 class TestRequestQueue:
     async def test_simple(self, make_actor: ActorFactory) -> None:
         async def main() -> None:

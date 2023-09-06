@@ -1,36 +1,36 @@
 Changelog
 =========
 
-[1.1.4](../../releases/tag/v1.1.4) - Unreleased
+[1.1.4](../../releases/tag/v1.1.4) - 2023-09-06
 -----------------------------------------------
 
-### Fixes
+### Fixed
 
 - resolved issue with querying request queue head multiple times in parallel
 
 ### Internal changes
 
-- Fixed integration tests for Actor logger
-- Removed `pytest-randomly` Pytest plugin
-
+- fixed integration tests for Actor logger
+- removed `pytest-randomly` Pytest plugin
+- unpinned `apify-client` and `apify-shared` to improve compatibility with their newer versions
 
 [1.1.3](../../releases/tag/v1.1.3) - 2023-08-25
 -----------------------------------------------
 
 ### Internal changes
 
-- Unify indentation in configuration files
-- Update the `Actor.reboot` method to use the new reboot endpoint
+- unified indentation in configuration files
+- update the `Actor.reboot` method to use the new reboot endpoint
 
 [1.1.2](../../releases/tag/v1.1.2) - 2023-08-02
 -----------------------------------------------
 
 ### Internal changes
 
-- Library `apify-shared` is used for importing general consts and utils
-- Code quality improvements suggested by `flake8-simplify`
-- Actor env vars are used in favor of some Apify env vars
-- `apify-client` and `apify-shared` have pinned versions to prevent their implicit updates from breaking SDK
+- started importing general constants and utilities from the `apify-shared` library
+- simplified code via `flake8-simplify`
+- started using environment variables with prefix `ACTOR_` instead of some with prefix `APIFY_`
+- pinned `apify-client` and `apify-shared` to prevent their implicit updates from breaking SDK
 
 [1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
 -----------------------------------------------
