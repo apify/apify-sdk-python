@@ -36,7 +36,6 @@ MainReturnType = TypeVar('MainReturnType')
 
 # This metaclass is needed so you can do `async with Actor: ...` instead of `async with Actor() as a: ...`
 # and have automatic `Actor.init()` and `Actor.exit()`
-# TODO: decide if this mumbo jumbo is worth it or not, or if it maybe breaks something
 
 
 class _ActorContextManager(type):

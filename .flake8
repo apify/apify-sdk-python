@@ -4,12 +4,10 @@ filename =
     ./scripts/*.py,
     ./src/*.py,
     ./tests/*.py
-# Todo: remove "src/apify/consts.py: F401" once consts from apify-shared are not being reexported
 per-file-ignores =
     docs/*: D
     scripts/*: D
     tests/*: D
-    src/apify/consts.py: F401
 
 # Google docstring convention + D204 & D401
 docstring-convention = all
