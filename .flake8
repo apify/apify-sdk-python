@@ -1,11 +1,9 @@
 [flake8]
 filename =
-    ./docs/*.py,
     ./scripts/*.py,
     ./src/*.py,
     ./tests/*.py
 per-file-ignores =
-    docs/*: D
     scripts/*: D
     tests/*: D
 

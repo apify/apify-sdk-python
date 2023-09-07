@@ -1,0 +1,69 @@
+---
+title: Introduction
+sidebar_label: Introduction
+---
+
+The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python.
+
+```python
+from apify import Actor
+from bs4 import BeautifulSoup
+import requests
+
+async def main():
+    async with Actor:
+        input = await Actor.get_input()
+        response = requests.get(input['url'])
+        soup = BeautifulSoup(response.content, 'html.parser')
+        await Actor.push_data({ 'url': input['url'], 'title': soup.title.string })
+```
+
+## What are Actors?
+
+Actors are serverless cloud programs that can do almost anything a human can do in a web browser.
+They can do anything from small tasks such as filling in forms or unsubscribing from online services,
+all the way up to scraping and processing vast numbers of web pages.
+
+Actors can be run either locally, or on the [Apify platform](https://docs.apify.com/platform/),
+where you can run them at scale, monitor them, schedule them, and even publish and monetize them.
+
+If you're new to Apify, learn [what is Apify](https://docs.apify.com/platform/about) in the Apify platform documentation.
+
+## Quick start
+
+### Creating Actors
+
+To create and run Actors through Apify Console,
+see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template).
+
+To create and run Python Actors locally, check the documentation for [how to create and run Python Actors locally](./running-locally).
+
+### Guides
+
+To see how you can integrate the Apify SDK with some of the most popular web scraping libraries,
+see our guides for working with [Requests or HTTPX](../guides/requests-and-httpx),
+[Beautiful Soup](../guides/beautiful-soup),
+[Playwright](../guides/playwright),
+[Selenium](../guides/selenium),
+or [Scrapy](../guides/scrapy).
+
+### Usage concepts
+
+To learn more about the features of the Apify SDK and how to use them,
+check out the Usage Concepts section in the sidebar,
+especially the guides for the [Actor lifecycle](../concepts/actor-lifecycle),
+[working with storages](../concepts/storages),
+[handling Actor events](../concepts/actor-events),
+and [how to use proxies](../concepts/proxy-management).
+
+## Installing the Apify SDK separately
+
+When you create an Actor using the Apify CLI, the Apify SDK for Python is installed for you automatically.
+If you want to install it separately, you can install it from its [PyPI listing](https://github.com/apify/apify-sdk-python):
+
+```bash
+pip install apify
+```
+
+If you are not developing Apify Actors and you just need to access the Apify API from Python,
+consider using the [Apify API client for Python](https://docs.apify.com/api/client/python) directly.

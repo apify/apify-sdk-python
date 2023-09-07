@@ -17,7 +17,8 @@ from ..consts import MAX_PAYLOAD_SIZE_BYTES
 from .base_storage import BaseStorage
 from .key_value_store import KeyValueStore
 
-SAFETY_BUFFER_PERCENT = 0.01 / 100  # 0.01%
+# 0.01%
+SAFETY_BUFFER_PERCENT = 0.01 / 100
 EFFECTIVE_LIMIT_BYTES = MAX_PAYLOAD_SIZE_BYTES - math.ceil(MAX_PAYLOAD_SIZE_BYTES * SAFETY_BUFFER_PERCENT)
 
 

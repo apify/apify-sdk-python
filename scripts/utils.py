@@ -27,12 +27,12 @@ def set_current_package_version(version: str) -> None:
         for line in pyproject_toml_file:
             if line.startswith('version = '):
                 version_string_found = True
-                line = f'version = "{version}"'
+                line = f'version = "{version}"\n'
             updated_pyproject_toml_file_lines.append(line)
 
         if not version_string_found:
             raise RuntimeError('Unable to find version string.')
 
         pyproject_toml_file.seek(0)
-        pyproject_toml_file.write('\n'.join(updated_pyproject_toml_file_lines))
+        pyproject_toml_file.write(''.join(updated_pyproject_toml_file_lines))
         pyproject_toml_file.truncate()

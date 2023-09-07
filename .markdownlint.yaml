@@ -1,0 +1,5 @@
+default: true
+line-length:
+  line_length: 150
+ul-style: dash
+no-inline-html: false

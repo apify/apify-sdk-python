@@ -11,9 +11,12 @@ __pycache__
 *.egg
 dist/
 build/
-# default folder for memory storage data
-storage/
 
 .vscode
 .idea
 .DS_Store
+
+docs/changelog.md
+
+# default folder for memory storage data
+storage/

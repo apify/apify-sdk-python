@@ -19,12 +19,6 @@ repos:
         language: system
         pass_filenames: false
 
-      - id: check-docs
-        name: Check whether docs are up-to-date
-        entry: make check-docs
-        language: system
-        pass_filenames: false
-
       - id: check-changelog
         name: Check whether current version is mentioned in changelog
         entry: make check-changelog-entry

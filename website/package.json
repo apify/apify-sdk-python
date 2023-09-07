@@ -1,0 +1,52 @@
+{
+    "name": "apify-sdk-python",
+    "private": "true",
+    "scripts": {
+        "clean": "rimraf .docusaurus build",
+        "build": "npm run clean && docusaurus build",
+        "start": "npm run clean && docusaurus start",
+        "deploy": "npm run clean && docusaurus deploy",
+        "docusaurus": "docusaurus",
+        "publish-gh-pages": "docusaurus-publish",
+        "rename-version": "docusaurus rename-version",
+        "swizzle": "docusaurus swizzle",
+        "version": "docusaurus version",
+        "write-translations": "docusaurus write-translations",
+        "prettify": "prettier --write --config ./tools/docs-prettier.config.js ../docs/*.md ../docs/*.mdx",
+        "lint": "npm run lint:md && npm run lint:code",
+        "lint:fix": "npm run lint:md:fix && npm run lint:code:fix",
+        "lint:md": "markdownlint --config ../.markdownlint.yaml '../docs/**/*.md' '../docs/**/*.mdx' --ignore '../docs/changelog.md'",
+        "lint:md:fix": "npm run lint:md -- --fix",
+        "lint:code": "eslint .",
+        "lint:code:fix": "eslint . --fix"
+    },
+    "dependencies": {
+        "@apify/docs-theme": "^1.0.84",
+        "@apify/docusaurus-plugin-typedoc-api": "^3.0.1",
+        "@docusaurus/core": "^2.3.1",
+        "@docusaurus/plugin-client-redirects": "^2.3.1",
+        "@docusaurus/preset-classic": "^2.3.1",
+        "clsx": "^1.2.1",
+        "docusaurus-gtm-plugin": "^0.0.2",
+        "prop-types": "^15.8.1",
+        "raw-loader": "^4.0.2",
+        "react": "^17.0.2",
+        "react-dom": "^17.0.2",
+        "unist-util-visit": "^4.1.2"
+    },
+    "devDependencies": {
+        "@apify/eslint-config-ts": "^0.2.3",
+        "@apify/tsconfig": "^0.1.0",
+        "@types/react": "^17.0.39",
+        "@typescript-eslint/eslint-plugin": "^5.54.0",
+        "@typescript-eslint/parser": "^5.54.0",
+        "eslint": "^8.35.0",
+        "eslint-plugin-react": "^7.32.2",
+        "eslint-plugin-react-hooks": "^4.6.0",
+        "markdownlint": "^0.27.0",
+        "markdownlint-cli": "^0.33.0",
+        "path-browserify": "^1.0.1",
+        "prettier": "^2.8.4",
+        "rimraf": "^4.1.3"
+    }
+}

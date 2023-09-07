@@ -1,4 +1,4 @@
-.PHONY: clean install-dev build publish twine-check lint unit-tests integration-tests type-check check-code format docs check-docs check-changelog-entry
+.PHONY: clean install-dev build publish twine-check lint unit-tests integration-tests type-check check-code format check-changelog-entry build-api-reference
 
 # This is default for local testing, but GitHub workflows override it to a higher value in CI
 INTEGRATION_TESTS_CONCURRENCY = 1
@@ -38,11 +38,8 @@ format:
 	python3 -m isort src tests
 	python3 -m autopep8 --in-place --recursive src tests
 
-docs:
-	./docs/res/build.sh
-
-check-docs:
-	./docs/res/check.sh
-
 check-changelog-entry:
 	python3 scripts/check_version_in_changelog.py
+
+build-api-reference:
+	cd website && ./build_api_reference.sh
