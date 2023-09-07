@@ -13,8 +13,8 @@ jobs:
     needs: [lint_and_type_checks]
     uses: ./.github/workflows/unit_tests.yaml
 
-#  integration_tests:
-#    name: Run integration tests
-#    needs: [lint_and_type_checks, unit_tests]
-#    uses: ./.github/workflows/integration_tests.yaml
-#    secrets: inherit
+  integration_tests:
+    name: Run integration tests
+    needs: [lint_and_type_checks, unit_tests]
+    uses: ./.github/workflows/integration_tests.yaml
+    secrets: inherit

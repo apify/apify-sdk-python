@@ -24,22 +24,33 @@ on:
           - final
 
 jobs:
+  should_release:
+    name: Check whether to release
+    if: (!startsWith(github.event.head_commit.message, 'docs:') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dummy step
+        run: true
+
   lint_and_type_checks:
     name: Run lint and type_checks
+    needs: [should_release]
     uses: ./.github/workflows/lint_and_type_checks.yaml
 
   unit_tests:
     name: Run unit tests
+    needs: [should_release]
     uses: ./.github/workflows/unit_tests.yaml
 
   integration_tests:
     name: Run integration tests
+    needs: [should_release]
     uses: ./.github/workflows/integration_tests.yaml
     secrets: inherit
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [lint_and_type_checks, unit_tests, integration_tests]
+    needs: [should_release, lint_and_type_checks, unit_tests, integration_tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -50,7 +61,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4

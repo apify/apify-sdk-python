@@ -5,7 +5,7 @@ description = "Apify SDK for Python"
 readme = "README.md"
 license = {text = "Apache Software License"}
 authors = [
-    { name = "Apify Technologies s.r.o.", email = "support@apify.com" },
+    {name = "Apify Technologies s.r.o.", email = "support@apify.com"},
 ]
 keywords = ["apify", "sdk", "actor", "scraping", "automation"]
 
