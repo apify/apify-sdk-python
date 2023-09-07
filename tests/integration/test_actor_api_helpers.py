@@ -54,13 +54,13 @@ class TestActorNewClient:
         async def main() -> None:
             import os
 
-            from apify_shared.consts import ApifyEnvVars
+            from apify_shared.consts import ActorEnvVars
 
             async with Actor:
                 new_client = Actor.new_client()
                 assert new_client is not Actor.apify_client
 
-                default_key_value_store_id = os.getenv(ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID)
+                default_key_value_store_id = os.getenv(ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID)
                 assert default_key_value_store_id is not None
                 kv_store_client = new_client.key_value_store(default_key_value_store_id)
                 await kv_store_client.set_record('OUTPUT', 'TESTING-OUTPUT')
@@ -235,7 +235,7 @@ class TestActorAbort:
     async def test_actor_abort(self, make_actor: ActorFactory) -> None:
         async def main_inner() -> None:
             async with Actor:
-                await asyncio.sleep(60)
+                await asyncio.sleep(180)
                 # This should not be set, the actor should be aborted by now
                 await Actor.set_value('OUTPUT', 'dummy')
 
@@ -272,11 +272,11 @@ class TestActorMetamorph:
         async def main_inner() -> None:
             import os
 
-            from apify_shared.consts import ApifyEnvVars
+            from apify_shared.consts import ActorEnvVars
 
             async with Actor:
-                assert os.getenv(ApifyEnvVars.INPUT_KEY) is not None
-                assert os.getenv(ApifyEnvVars.INPUT_KEY) != 'INPUT'
+                assert os.getenv(ActorEnvVars.INPUT_KEY) is not None
+                assert os.getenv(ActorEnvVars.INPUT_KEY) != 'INPUT'
                 input = await Actor.get_input() or {}
 
                 test_value = input.get('test_value', '')
@@ -323,13 +323,42 @@ class TestActorMetamorph:
         assert await inner_actor.last_run().get() is None
 
 
+class TestActorReboot:
+    async def test_actor_reboot(self, make_actor: ActorFactory) -> None:
+        async def main() -> None:
+            async with Actor:
+                print('Starting...')
+                cnt = await Actor.get_value('reboot_counter', 0)
+
+                if cnt < 2:
+                    print(f'Rebooting (cnt = {cnt})...')
+                    await Actor.set_value('reboot_counter', cnt + 1)
+                    await Actor.reboot()
+                    await Actor.set_value('THIS_KEY_SHOULD_NOT_BE_WRITTEN', 'XXX')
+
+                print('Finishing...')
+
+        actor = await make_actor('actor_rebooter', main_func=main)
+        run_result = await actor.call(run_input={'counter_key': 'reboot_counter'})
+
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
+
+        not_written_value = await actor.last_run().key_value_store().get_record('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
+        assert not_written_value is None
+
+        reboot_counter = await actor.last_run().key_value_store().get_record('reboot_counter')
+        assert reboot_counter is not None
+        assert reboot_counter['value'] == 2
+
+
 class TestActorAddWebhook:
     async def test_actor_add_webhook(self, make_actor: ActorFactory) -> None:
         async def main_server() -> None:
             import os
             from http.server import BaseHTTPRequestHandler, HTTPServer
 
-            from apify_shared.consts import ApifyEnvVars
+            from apify_shared.consts import ActorEnvVars
 
             webhook_body = ''
 
@@ -351,7 +380,7 @@ class TestActorAddWebhook:
                         self.end_headers()
                         self.wfile.write(bytes('Hello, world!', encoding='utf-8'))
 
-                container_port = int(os.getenv(ApifyEnvVars.CONTAINER_PORT, ''))
+                container_port = int(os.getenv(ActorEnvVars.WEB_SERVER_PORT, ''))
                 with HTTPServer(('', container_port), WebhookHandler) as server:
                     await Actor.set_value('INITIALIZED', True)
                     while not webhook_body:

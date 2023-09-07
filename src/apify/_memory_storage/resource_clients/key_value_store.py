@@ -313,9 +313,8 @@ class KeyValueStoreClient(BaseResourceClient):
             existing_store_by_id._records[key] = record
 
             if self._memory_storage_client._persist_storage:
-                if old_record is not None:
-                    if _filename_from_record(old_record) != _filename_from_record(record):
-                        await existing_store_by_id._delete_persisted_record(old_record)
+                if old_record is not None and _filename_from_record(old_record) != _filename_from_record(record):
+                    await existing_store_by_id._delete_persisted_record(old_record)
 
                 await existing_store_by_id._persist_record(record)
 

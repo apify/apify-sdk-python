@@ -127,7 +127,7 @@ async def test_iterate_items(dataset_client: DatasetClient) -> None:
     await dataset_client.push_items([{'id': i} for i in range(item_count)])
     actual_items = []
     async for item in dataset_client.iterate_items():
-        assert 'id' in item.keys()
+        assert 'id' in item
         actual_items.append(item)
     assert len(actual_items) == item_count
     assert actual_items[0]['id'] == 0

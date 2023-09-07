@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from datetime import datetime
 from typing import Any, Callable
 from unittest.mock import AsyncMock
@@ -86,12 +87,10 @@ class TestActorFail:
         assert my_actor._is_initialized is False
 
     async def test_with_actor_failed(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             async with Actor() as my_actor:
                 assert my_actor._is_initialized
                 raise Exception('Failed')
-        except Exception:
-            pass
         assert my_actor._is_initialized is False
 
     async def test_raise_on_fail_without_init(self) -> None:

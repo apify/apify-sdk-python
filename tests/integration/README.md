@@ -63,9 +63,9 @@ You can also pass extra imports directly to the main function:
 async def test_something(self, make_actor: ActorFactory) -> None:
     async def main():
         import os
-        from apify_shared.consts import ActorEventTypes, ApifyEnvVars
+        from apify_shared.consts import ActorEventTypes, ActorEnvVars
         async with Actor:
-            print('The actor is running with ' + os.getenv(ApifyEnvVars.MEMORY_MBYTES) + 'MB of memory')
+            print('The actor is running with ' + os.getenv(ActorEnvVars.MEMORY_MBYTES) + 'MB of memory')
             await Actor.on(ActorEventTypes.SYSTEM_INFO, lambda event_data: print(event_data))
 
     actor = await make_actor('something', main_func=main)

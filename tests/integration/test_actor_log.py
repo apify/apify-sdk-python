@@ -64,7 +64,7 @@ class TestActorLog:
         run_log_lines = [line[25:] for line in run_log_lines]
 
         # This might be way too specific and easy to break, but let's hope not
-        assert run_log_lines.pop(0) == 'ACTOR: Pulling Docker image from repository.'
+        assert run_log_lines.pop(0).startswith('ACTOR: Pulling Docker image')
         assert run_log_lines.pop(0) == 'ACTOR: Creating Docker container.'
         assert run_log_lines.pop(0) == 'ACTOR: Starting Docker container.'
         assert run_log_lines.pop(0) == 'INFO  Initializing actor...'

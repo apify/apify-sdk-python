@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import sys
 
@@ -11,7 +12,7 @@ from apify_client import __version__ as apify_client_version
 class TestActorLog:
     async def test_actor_log(self, caplog: pytest.LogCaptureFixture) -> None:
         caplog.set_level(logging.DEBUG, logger='apify')
-        try:
+        with contextlib.suppress(RuntimeError):
             async with Actor:
                 # Test Actor.log
                 Actor.log.debug('Debug message')
@@ -32,8 +33,6 @@ class TestActorLog:
 
                 # Test that exception in Actor.main is logged with the traceback
                 raise RuntimeError('Dummy RuntimeError')
-        except RuntimeError:
-            pass
 
         assert len(caplog.records) == 12
 

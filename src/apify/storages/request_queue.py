@@ -1,7 +1,7 @@
 import asyncio
 from collections import OrderedDict
 from datetime import datetime, timezone
-from typing import Coroutine, Dict, Optional
+from typing import Dict, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Union
 
@@ -75,7 +75,7 @@ class RequestQueue(BaseStorage):
     _request_queue_client: Union[RequestQueueClientAsync, RequestQueueClient]
     _client_key = _crypto_random_object_id()
     _queue_head_dict: OrderedDictType[str, str]
-    _query_queue_head_promise: Optional[Coroutine]
+    _query_queue_head_task: Optional[asyncio.Task]
     _in_progress: Set[str]
     _last_activity: datetime
     _internal_timeout_seconds = 5 * 60
@@ -100,7 +100,7 @@ class RequestQueue(BaseStorage):
 
         self._request_queue_client = client.request_queue(self._id, client_key=self._client_key)
         self._queue_head_dict = OrderedDict()
-        self._query_queue_head_promise = None
+        self._query_queue_head_task = None
         self._in_progress = set()
         self._last_activity = datetime.now(timezone.utc)
         self._recently_handled = LRUCache[bool](max_length=RECENTLY_HANDLED_CACHE_SIZE)
@@ -369,7 +369,7 @@ class RequestQueue(BaseStorage):
 
     def _reset(self) -> None:
         self._queue_head_dict.clear()
-        self._query_queue_head_promise = None
+        self._query_queue_head_task = None
         self._in_progress.clear()
         self._recently_handled.clear()
         self._assumed_total_count = 0
@@ -402,7 +402,7 @@ class RequestQueue(BaseStorage):
             })
 
         # This is needed so that the next call to _ensureHeadIsNonEmpty() will fetch the queue head again.
-        self._query_queue_head_promise = None
+        self._query_queue_head_task = None
 
         return {
             'wasLimitReached': len(list_head['items']) >= limit,
@@ -420,15 +420,15 @@ class RequestQueue(BaseStorage):
         if limit is None:
             limit = max(self._in_progress_count() * QUERY_HEAD_BUFFER, QUERY_HEAD_MIN_LENGTH)
 
-        if self._query_queue_head_promise is None:
-            self._query_queue_head_promise = self._queue_query_head(limit)
+        if self._query_queue_head_task is None:
+            self._query_queue_head_task = asyncio.Task(self._queue_query_head(limit))
 
-        queue_head = await self._query_queue_head_promise
+        queue_head = await self._query_queue_head_task
 
         # TODO: I feel this code below can be greatly simplified... (comes from TS implementation *wink*)
 
         """ If queue is still empty then one of the following holds:
-        - the other calls waiting for this promise already consumed all the returned requests
+        - the other calls waiting for this task already consumed all the returned requests
         - the limit was too low and contained only requests in progress
         - the writes from other clients were not propagated yet
         - the whole queue was processed and we are done

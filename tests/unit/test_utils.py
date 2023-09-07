@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import os
 import time
 from collections import OrderedDict
@@ -25,23 +26,23 @@ from apify._utils import (
     _unique_key_to_request_id,
 )
 from apify.consts import _StorageTypes
-from apify_shared.consts import ApifyEnvVars
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 
 def test__fetch_and_parse_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'True')
-    monkeypatch.setenv(ApifyEnvVars.MEMORY_MBYTES, '1024')
+    monkeypatch.setenv(ActorEnvVars.MEMORY_MBYTES, '1024')
     monkeypatch.setenv(ApifyEnvVars.META_ORIGIN, 'API')
-    monkeypatch.setenv(ApifyEnvVars.STARTED_AT, '2022-12-02T15:19:34.907Z')
+    monkeypatch.setenv(ActorEnvVars.STARTED_AT, '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_BOOL', '1')
     monkeypatch.setenv('DUMMY_DATETIME', '2022-12-02T15:19:34.907Z')
     monkeypatch.setenv('DUMMY_INT', '1')
     monkeypatch.setenv('DUMMY_STRING', 'DUMMY')
 
     assert _fetch_and_parse_env_var(ApifyEnvVars.IS_AT_HOME) is True
-    assert _fetch_and_parse_env_var(ApifyEnvVars.MEMORY_MBYTES) == 1024
+    assert _fetch_and_parse_env_var(ActorEnvVars.MEMORY_MBYTES) == 1024
     assert _fetch_and_parse_env_var(ApifyEnvVars.META_ORIGIN) == 'API'
-    assert _fetch_and_parse_env_var(ApifyEnvVars.STARTED_AT) == \
+    assert _fetch_and_parse_env_var(ActorEnvVars.STARTED_AT) == \
         datetime(2022, 12, 2, 15, 19, 34, 907000, tzinfo=timezone.utc)
 
     assert _fetch_and_parse_env_var('DUMMY_BOOL') == '1'  # type: ignore
@@ -118,10 +119,8 @@ async def test__run_func_at_interval_async__sync_function() -> None:
         assert test_var == increments
     finally:
         sync_increment_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await sync_increment_task
-        except asyncio.CancelledError:
-            pass
 
     await asyncio.sleep(1.5)
     assert test_var == increments
@@ -157,10 +156,8 @@ async def test__run_func_at_interval_async_async__function() -> None:
         assert test_var == increments
     finally:
         async_increment_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await async_increment_task
-        except asyncio.CancelledError:
-            pass
 
     await asyncio.sleep(1.5)
     assert test_var == increments
@@ -174,7 +171,8 @@ async def test__force_remove(tmp_path: Path) -> None:
     assert os.path.exists(test_file_path) is False
 
     # Removes the file if it exists
-    open(test_file_path, 'a', encoding='utf-8').close()
+    with open(test_file_path, 'a', encoding='utf-8'):
+        pass
     assert os.path.exists(test_file_path) is True
     await _force_remove(test_file_path)
     assert os.path.exists(test_file_path) is False
@@ -224,10 +222,12 @@ async def test__force_rename(tmp_path: Path) -> None:
     # Will remove dst_dir if it exists (also covers normal case)
     # Create the src_dir with a file in it
     await mkdir(src_dir)
-    open(src_file, 'a', encoding='utf-8').close()
+    with open(src_file, 'a', encoding='utf-8'):
+        pass
     # Create the dst_dir with a file in it
     await mkdir(dst_dir)
-    open(dst_file, 'a', encoding='utf-8').close()
+    with open(dst_file, 'a', encoding='utf-8'):
+        pass
     assert os.path.exists(src_file) is True
     assert os.path.exists(dst_file) is True
     await _force_rename(src_dir, dst_dir)

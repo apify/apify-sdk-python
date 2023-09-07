@@ -131,9 +131,8 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
             return cast(Self, cached_storage)
 
         # Purge default storages if configured
-        if used_config.purge_on_start:
-            if isinstance(used_client, MemoryStorageClient):
-                await used_client._purge_on_start()
+        if used_config.purge_on_start and isinstance(used_client, MemoryStorageClient):
+            await used_client._purge_on_start()
 
         assert cls._storage_creating_lock is not None
         async with cls._storage_creating_lock:

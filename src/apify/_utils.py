@@ -34,6 +34,7 @@ from apify_shared.consts import (
     INTEGER_ENV_VARS,
     INTEGER_ENV_VARS_TYPE,
     STRING_ENV_VARS_TYPE,
+    ActorEnvVars,
     ApifyEnvVars,
 )
 from apify_shared.utils import ignore_docs, is_content_type_json, is_content_type_text, is_content_type_xml, maybe_extract_enum_member_value
@@ -144,7 +145,7 @@ def _fetch_and_parse_env_var(env_var: STRING_ENV_VARS_TYPE) -> Optional[str]:
 
 
 @overload
-def _fetch_and_parse_env_var(env_var: ApifyEnvVars) -> Optional[Any]:
+def _fetch_and_parse_env_var(env_var: Union[ActorEnvVars, ApifyEnvVars]) -> Optional[Any]:
     ...
 
 
@@ -180,10 +181,8 @@ def _get_memory_usage_bytes() -> int:
     current_process = psutil.Process(os.getpid())
     mem = int(current_process.memory_info().rss or 0)
     for child in current_process.children(recursive=True):
-        try:
+        with contextlib.suppress(psutil.NoSuchProcess):
             mem += int(child.memory_info().rss or 0)
-        except psutil.NoSuchProcess:
-            pass
     return mem
 
 

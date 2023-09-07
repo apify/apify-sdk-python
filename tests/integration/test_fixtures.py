@@ -12,10 +12,10 @@ class TestMakeActorFixture:
         async def main() -> None:
             import os
 
-            from apify_shared.consts import ApifyEnvVars
+            from apify_shared.consts import ActorEnvVars
 
             async with Actor:
-                await Actor.set_value('OUTPUT', os.getenv(ApifyEnvVars.ACTOR_ID))
+                await Actor.set_value('OUTPUT', os.getenv(ActorEnvVars.ID))
 
         actor = await make_actor('make-actor-main-func', main_func=main)
 

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import inspect
 import json
 from collections import defaultdict
@@ -200,10 +201,8 @@ class EventManager:
                 logger.warning('Timed out waiting for event listeners to complete, unfinished event listeners will be canceled')
                 for pending_task in pending:
                     pending_task.cancel()
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError):
                         await pending_task
-                    except asyncio.CancelledError:
-                        pass
         else:
             await _wait_for_listeners()
 
