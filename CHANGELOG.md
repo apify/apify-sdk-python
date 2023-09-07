@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.1.5](../../releases/tag/v1.4.5) - Unreleased
+-----------------------------------------------
+
+### Internal changes
+
+- rewrote documentation publication to use Docusaurus
+- removed PR Toolkit workflow
+
 [1.1.4](../../releases/tag/v1.1.4) - 2023-09-06
 -----------------------------------------------
 
