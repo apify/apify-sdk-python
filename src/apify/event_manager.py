@@ -34,7 +34,7 @@ class EventManager:
     _connected_to_platform_websocket: Optional[asyncio.Future] = None
 
     def __init__(self, config: Configuration) -> None:
-        """Crate an instance of EventManager.
+        """Create an instance of the EventManager.
 
         Args:
             config (Configuration): The actor configuration to be used in this event manager.

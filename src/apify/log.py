@@ -17,6 +17,7 @@ logger_name = __name__.split('.')[0]
 # Logger used throughout the library
 logger = logging.getLogger(logger_name)
 
+_LOG_NAME_COLOR = Fore.LIGHTBLACK_EX
 
 _LOG_LEVEL_COLOR = {
     logging.DEBUG: Fore.BLUE,
@@ -54,6 +55,15 @@ class ActorLogFormatter(logging.Formatter):
     # and extract all the extra ones not present in the empty log record
     empty_record = logging.LogRecord('dummy', 0, 'dummy', 0, 'dummy', None, None)
 
+    def __init__(self, include_logger_name: bool = False, *args: tuple, **kwargs: dict) -> None:
+        """Create an instance of the ActorLogFormatter.
+
+        Args:
+            include_logger_name: Include logger name at the beginning of the log line. Defaults to False.
+        """
+        super().__init__(*args, **kwargs)  # type: ignore
+        self.include_logger_name = include_logger_name
+
     def _get_extra_fields(self, record: logging.LogRecord) -> Dict[str, Any]:
         extra_fields: Dict[str, Any] = {}
         for key, value in record.__dict__.items():
@@ -72,6 +82,8 @@ class ActorLogFormatter(logging.Formatter):
         - then has the stringified extra log fields
         - then, if an exception is a part of the log record, prints the formatted exception.
         """
+        logger_name_string = f'{_LOG_NAME_COLOR}[{record.name}]{Style.RESET_ALL} '
+
         # Colorize the log level, and shorten it to 6 chars tops
         level_color_code = _LOG_LEVEL_COLOR.get(record.levelno, '')
         level_short_alias = _LOG_LEVEL_SHORT_ALIAS.get(record.levelno, record.levelname)
@@ -97,4 +109,8 @@ class ActorLogFormatter(logging.Formatter):
         log_string = super().format(record)
         log_string = textwrap.indent(log_string, _LOG_MESSAGE_INDENT).lstrip()
 
-        return f'{level_string}{log_string}{extra_string}{exception_string}'
+        if self.include_logger_name:
+            # Include logger name at the beginning of the log line
+            return f'{logger_name_string}{level_string}{log_string}{extra_string}{exception_string}'
+        else:
+            return f'{level_string}{log_string}{extra_string}{exception_string}'
