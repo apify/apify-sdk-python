@@ -1,8 +1,17 @@
 Changelog
 =========
 
-[1.1.5](../../releases/tag/v1.4.5) - Unreleased
+[1.1.6](../../releases/tag/v1.4.5) - Unreleased
 -----------------------------------------------
+
+...
+
+[1.1.5](../../releases/tag/v1.4.5) - 2023-10-03
+-----------------------------------------------
+
+### Added
+
+- Update the Apify log formatter to contain an option for adding the logger name
 
 ### Internal changes
 
