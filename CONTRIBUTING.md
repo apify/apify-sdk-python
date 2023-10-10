@@ -61,3 +61,22 @@ If there is already a stable version with the same version number as in `pyproje
 so don't forget to update the version number before releasing a new version.
 The release process also fails when the released version is not described in `CHANGELOG.md`,
 so don't forget to describe the changes in the new version there.
+
+### Beta release checklist
+
+Beta release happens automatically after you merge a pull request or add a direct commit to the master branch. Before you do that check the following:
+
+- Make sure that in the [pyproject.toml](https://github.com/apify/apify-sdk-python/blob/master/pyproject.toml) a project version is set to the latest non-published version.
+- Describe your changes to the [CHANGELOG.md](https://github.com/apify/apify-sdk-python/blob/master/CHANGELOG.md) in the section with the latest non-published version.
+
+### Production release checklist
+
+Production release happens after the GitHub release is created. Before you do that check the following:
+
+- Make sure that the beta release with the latest commit is successfully deployed.
+- Make sure that all the changes that happened from the last production release are described in the [CHANGELOG.md](https://github.com/apify/apify-sdk-python/blob/master/CHANGELOG.md).
+- When drafting a new GitHub release:
+    - Create a new tag in the format of `v1.2.3` targeting the master branch.
+    - Fill in the release title in the format of `1.2.3`.
+    - Copy the changes from the [CHANGELOG.md](https://github.com/apify/apify-sdk-python/blob/master/CHANGELOG.md) and paste them into the release description.
+    - Check the "Set as the latest release" option.
