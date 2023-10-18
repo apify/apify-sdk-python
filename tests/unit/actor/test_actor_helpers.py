@@ -15,12 +15,12 @@ class TestActorNewClient:
         await my_actor.init()
 
         client = my_actor.new_client()
-        assert type(client) == ApifyClientAsync
+        assert isinstance(client, ApifyClientAsync)
         assert client.token == token
 
         passed_token = 'my-passed-token'
         client_with_token = my_actor.new_client(token=passed_token)
-        assert type(client_with_token) == ApifyClientAsync
+        assert isinstance(client_with_token, ApifyClientAsync)
         assert client_with_token.token == passed_token
 
         await my_actor.exit()

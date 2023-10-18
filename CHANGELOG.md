@@ -1,12 +1,14 @@
 Changelog
 =========
 
-[1.1.6](../../releases/tag/v1.4.5) - Unreleased
+[1.1.6](../../releases/tag/v1.1.6) - Unreleased
 -----------------------------------------------
 
-...
+### Internal changes
 
-[1.1.5](../../releases/tag/v1.4.5) - 2023-10-03
+- Fix lint error (E721) in unit tests (for instance checks use `isinstance()`)
+
+[1.1.5](../../releases/tag/v1.1.5) - 2023-10-03
 -----------------------------------------------
 
 ### Added
