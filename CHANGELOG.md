@@ -4,6 +4,10 @@ Changelog
 [1.1.6](../../releases/tag/v1.1.6) - Unreleased
 -----------------------------------------------
 
+### Added
+
+- Add support for custom client to `Actor.open_request_queue`.
+
 ### Internal changes
 
 - Fix lint error (E721) in unit tests (for instance checks use `isinstance()`)

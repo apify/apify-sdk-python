@@ -82,6 +82,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
         id: Optional[str] = None,
         name: Optional[str] = None,
         force_cloud: bool = False,
+        custom_client: Optional[ApifyClientAsync] = None,
         config: Optional[Configuration] = None,
     ) -> Self:
         """Open a storage, or return a cached storage object if it was opened before.
@@ -98,6 +99,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
                 If the storage with the given name does not exist, it is created.
             force_cloud (bool, optional): If set to True, it will open a storage on the Apify Platform even when running the actor locally.
                 Defaults to False.
+            custom_client (ApifyClientAsync, optional): A custom instance of the `ApifyClientAsync` class.
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:
@@ -110,7 +112,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
         assert not (id and name)
 
         used_config = config or Configuration.get_global_configuration()
-        used_client = StorageClientManager.get_storage_client(force_cloud=force_cloud)
+        used_client = custom_client if custom_client else StorageClientManager.get_storage_client(force_cloud=force_cloud)
 
         is_default_storage_on_local = False
         # Fetch default ID if no ID or name was passed

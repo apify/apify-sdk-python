@@ -196,6 +196,7 @@ class KeyValueStore(BaseStorage):
         id: Optional[str] = None,
         name: Optional[str] = None,
         force_cloud: bool = False,
+        custom_client: Optional[ApifyClientAsync] = None,
         config: Optional[Configuration] = None,
     ) -> 'KeyValueStore':
         """Open a key-value store.
@@ -213,9 +214,10 @@ class KeyValueStore(BaseStorage):
                 If the key-value store with the given name does not exist, it is created.
             force_cloud (bool, optional): If set to True, it will open a key-value store on the Apify Platform even when running the actor locally.
                 Defaults to False.
+            custom_client (ApifyClientAsync, optional): A custom instance of the `ApifyClientAsync` class.
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:
             KeyValueStore: An instance of the `KeyValueStore` class for the given ID or name.
         """
-        return await super().open(id=id, name=name, force_cloud=force_cloud, config=config)
+        return await super().open(id=id, name=name, force_cloud=force_cloud, custom_client=custom_client, config=config)

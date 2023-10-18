@@ -558,7 +558,14 @@ class Actor(metaclass=_ActorContextManager):
         return await KeyValueStore.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
 
     @classmethod
-    async def open_request_queue(cls, *, id: Optional[str] = None, name: Optional[str] = None, force_cloud: bool = False) -> RequestQueue:
+    async def open_request_queue(
+        cls,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        force_cloud: bool = False,
+        custom_client: Optional[ApifyClientAsync] = None,
+    ) -> RequestQueue:
         """Open a request queue.
 
         Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
@@ -573,11 +580,17 @@ class Actor(metaclass=_ActorContextManager):
                 If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
+            custom_client (ApifyClientAsync, optional): A custom instance of the `ApifyClientAsync` class.
 
         Returns:
             RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
         """
-        return await cls._get_default_instance().open_request_queue(id=id, name=name, force_cloud=force_cloud)
+        return await cls._get_default_instance().open_request_queue(
+            id=id,
+            name=name,
+            force_cloud=force_cloud,
+            custom_client=custom_client,
+        )
 
     async def _open_request_queue_internal(
         self,
@@ -585,10 +598,16 @@ class Actor(metaclass=_ActorContextManager):
         id: Optional[str] = None,
         name: Optional[str] = None,
         force_cloud: bool = False,
+        custom_client: Optional[ApifyClientAsync] = None,
     ) -> RequestQueue:
         self._raise_if_not_initialized()
-
-        return await RequestQueue.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
+        return await RequestQueue.open(
+            id=id,
+            name=name,
+            force_cloud=force_cloud,
+            custom_client=custom_client,
+            config=self._config,
+        )
 
     @classmethod
     async def push_data(cls, data: Any) -> None:

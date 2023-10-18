@@ -499,6 +499,7 @@ class RequestQueue(BaseStorage):
         id: Optional[str] = None,
         name: Optional[str] = None,
         force_cloud: bool = False,
+        custom_client: Optional[ApifyClientAsync] = None,
         config: Optional[Configuration] = None,
     ) -> 'RequestQueue':
         """Open a request queue.
@@ -517,11 +518,18 @@ class RequestQueue(BaseStorage):
                 If the request queue with the given name does not exist, it is created.
             force_cloud (bool, optional): If set to True, it will open a request queue on the Apify Platform even when running the actor locally.
                 Defaults to False.
+            custom_client (ApifyClientAsync, optional): A custom instance of the `ApifyClientAsync` class.
             config (Configuration, optional): A `Configuration` instance, uses global configuration if omitted.
 
         Returns:
             RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
         """
-        queue = await super().open(id=id, name=name, force_cloud=force_cloud, config=config)
+        queue = await super().open(
+            id=id,
+            name=name,
+            force_cloud=force_cloud,
+            custom_client=custom_client,
+            config=config,
+        )
         await queue._ensure_head_is_non_empty()
         return queue
