@@ -1,7 +1,8 @@
 # Apify SDK for Python
 
-The Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors) in Python.
-It provides useful features like actor lifecycle management, local storage emulation, and actor event handling.
+The Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors)
+in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor
+event handling.
 
 If you just need to access the [Apify API](https://docs.apify.com/api/v2) from your Python applications,
 check out the [Apify Client for Python](https://docs.apify.com/api/client/python) instead.
@@ -15,14 +16,22 @@ For usage instructions, check the documentation on [Apify Docs](https://docs.api
 ```python
 from apify import Actor
 from bs4 import BeautifulSoup
-import requests
+from httpx import AsyncClient
 
-async def main():
+async def main() -> None:
     async with Actor:
-        input = await Actor.get_input()
-        response = requests.get(input['url'])
+        # Read the input parameters from the Actor input
+        actor_input = await Actor.get_input()
+        # Fetch the HTTP response from the specified URL
+        async with AsyncClient() as client:
+            response = await client.get(actor_input['url'])
+        # Process the HTML content
         soup = BeautifulSoup(response.content, 'html.parser')
-        await Actor.push_data({ 'url': input['url'], 'title': soup.title.string })
+        # Push the extracted data
+        await Actor.push_data({
+            'url': actor_input['url'],
+            'title': soup.title.string,
+        })
 ```
 
 ## What are Actors?
@@ -34,14 +43,16 @@ all the way up to scraping and processing vast numbers of web pages.
 They can be run either locally, or on the [Apify platform](https://docs.apify.com/platform/),
 where you can run them at scale, monitor them, schedule them, or publish and monetize them.
 
-If you're new to Apify, learn [what is Apify](https://docs.apify.com/platform/about) in the Apify platform documentation.
+If you're new to Apify, learn [what is Apify](https://docs.apify.com/platform/about)
+in the Apify platform documentation.
 
 ## Creating Actors
 
 To create and run Actors through Apify Console,
 see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template).
 
-To create and run Python Actors locally, check the documentation for [how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/overview/running-locally).
+To create and run Python Actors locally, check the documentation for
+[how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/overview/running-locally).
 
 ## Guides
 
