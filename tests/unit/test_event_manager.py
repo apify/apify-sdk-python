@@ -322,7 +322,7 @@ class TestEventManagerOnPlatform:
             if data:
                 message['data'] = data
 
-            websockets.broadcast(connected_ws_clients, json.dumps(message))  # type: ignore[attr-defined]
+            websockets.broadcast(connected_ws_clients, json.dumps(message))
 
         async with websockets.server.serve(handler, host='localhost') as ws_server:
             # When you don't specify a port explicitly, the websocket connection is opened on a random free port.

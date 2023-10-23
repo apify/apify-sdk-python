@@ -1,8 +1,12 @@
 Changelog
 =========
 
-[1.1.6](../../releases/tag/v1.1.6) - Unreleased
+[1.2.0](../../releases/tag/v1.2.0) - Unreleased
 -----------------------------------------------
+
+### Added
+
+- Added support for Python 3.12
 
 ### Internal changes
 
