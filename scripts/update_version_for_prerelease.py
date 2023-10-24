@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-import json
 import re
 import sys
-import urllib.request
 
-from utils import PACKAGE_NAME, get_current_package_version, set_current_package_version
+from utils import get_current_package_version, get_published_package_versions, set_current_package_version
 
 # Checks whether the current package version number was not already used in a published release,
 # and if not, modifies the package version number in pyproject.toml
@@ -32,16 +30,7 @@ if __name__ == '__main__':
         raise RuntimeError(f'The current version {current_version} does not match the proper semver format for stable releases (X.Y.Z)')
 
     # Load the version numbers of the currently published versions from PyPI
-    # If the URL returns 404, it means the package has no releases yet (which is okay in our case)
-    package_info_url = f'https://pypi.org/pypi/{PACKAGE_NAME}/json'
-    try:
-        conn = urllib.request.urlopen(package_info_url)
-        package_data = json.load(urllib.request.urlopen(package_info_url))
-        published_versions = list(package_data['releases'].keys())
-    except urllib.error.HTTPError as e:
-        if e.code != 404:
-            raise e
-        published_versions = []
+    published_versions = get_published_package_versions()
 
     # We don't want to publish a prerelease version with the same version number as an already released stable version
     if current_version in published_versions:
