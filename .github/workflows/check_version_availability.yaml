@@ -1,0 +1,25 @@
+name: Check package version availability
+
+on:
+  workflow_call:
+
+jobs:
+  check_version_availability:
+    name: Check version availability
+    runs-on: ubuntu-latest
+    if: (!startsWith(github.event.pull_request.title, 'docs:'))
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: make install-dev
+
+      - name: Check version availability
+        run: make check-version-availability

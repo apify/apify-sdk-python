@@ -1,4 +1,6 @@
+import json
 import pathlib
+import urllib.request
 
 PACKAGE_NAME = 'apify'
 REPO_ROOT = pathlib.Path(__file__).parent.resolve() / '..'
@@ -36,3 +38,17 @@ def set_current_package_version(version: str) -> None:
         pyproject_toml_file.seek(0)
         pyproject_toml_file.write(''.join(updated_pyproject_toml_file_lines))
         pyproject_toml_file.truncate()
+
+
+# Load the version numbers of the currently published versions from PyPI
+def get_published_package_versions() -> list:
+    package_info_url = f'https://pypi.org/pypi/{PACKAGE_NAME}/json'
+    try:
+        package_data = json.load(urllib.request.urlopen(package_info_url))
+        published_versions = list(package_data['releases'].keys())
+    # If the URL returns 404, it means the package has no releases yet (which is okay in our case)
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise e
+        published_versions = []
+    return published_versions
