@@ -80,3 +80,39 @@ Production release happens after the GitHub release is created. Before you do th
     - Fill in the release title in the format of `1.2.3`.
     - Copy the changes from the [CHANGELOG.md](https://github.com/apify/apify-sdk-python/blob/master/CHANGELOG.md) and paste them into the release description.
     - Check the "Set as the latest release" option.
+
+## Maintanance
+
+### Removing Support for an outdated Python version
+
+- Todo: Fill in once Python 3.8 is deprecated.
+
+### Adding support for a new Python version
+
+1) Firstly, ensure that the package (
+    [apify-sdk-python](https://github.com/apify/apify-sdk-python),
+    [apify-client-python](https://github.com/apify/apify-client-python),
+    [apify-shared-python](https://github.com/apify/apify-shared-python)
+) is compatible with the new Python version. Both in our code base and
+the dependencies we use. Then, release a new version of the package.
+    - For inspiration, see the PR
+    [apify/apify-sdk-python#121](https://github.com/apify/apify-sdk-python/pull/121),
+    where support for Python 3.12 was added to the Apify Python SDK.
+
+2) Next, build and publish the new versions of Python base Docker images.
+    - For inspiration, see the PR
+    [apify/apify-actor-docker#112](https://github.com/apify/apify-actor-docker/pull/112),
+    where support for Python 3.12 was added.
+    - Apify base Docker images are built using GitHub Actions, accessible at
+    [apify/apify-actor-docker/actions](https://github.com/apify/apify-actor-docker/actions).
+
+3) Integrate the new Python version into the CI/CD workflows
+of existing Python projects (
+    [apify-sdk-python](https://github.com/apify/apify-sdk-python),
+    [apify-client-python](https://github.com/apify/apify-client-python),
+    [apify-shared-python](https://github.com/apify/apify-shared-python),
+    [actor-templates](https://github.com/apify/actor-templates)
+).
+    - For inspiration, see the PR
+    [apify/apify-sdk-python#124](https://github.com/apify/apify-sdk-python/pull/124),
+    where support for Python 3.12 was added to the CI/CD of the Apify Python SDK.
