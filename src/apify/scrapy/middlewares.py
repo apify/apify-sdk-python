@@ -18,7 +18,7 @@ from .utils import nested_event_loop, open_queue_with_custom_client, to_apify_re
 
 
 class ApifyRetryMiddleware(RetryMiddleware):
-    """Basically the default Scrapy retry middleware enriched with Apify's Request Queue interaction."""
+    """The default Scrapy retry middleware enriched with Apify's Request Queue interaction."""
 
     def __init__(self, *args: list, **kwargs: dict) -> None:
         """Create a new instance."""
