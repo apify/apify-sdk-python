@@ -8,7 +8,7 @@ from typing import Dict
 
 import pytest
 
-from apify._crypto import _crypto_random_object_id
+from apify._crypto import crypto_random_object_id
 from apify._memory_storage import MemoryStorageClient
 from apify._memory_storage.resource_clients import KeyValueStoreClient
 from apify._utils import _maybe_parse_body
@@ -227,7 +227,7 @@ async def test_delete_record(key_value_store_client: KeyValueStoreClient) -> Non
 async def test_writes_correct_metadata(memory_storage_client: MemoryStorageClient, test_case: Dict) -> None:
     test_input = test_case['input']
     expected_output = test_case['expectedOutput']
-    key_value_store_name = _crypto_random_object_id()
+    key_value_store_name = crypto_random_object_id()
 
     # Write the input data to the key-value store
     store_details = await memory_storage_client.key_value_stores().get_or_create(name=key_value_store_name)
@@ -287,14 +287,14 @@ async def test_writes_correct_metadata(memory_storage_client: MemoryStorageClien
 async def test_reads_correct_metadata(memory_storage_client: MemoryStorageClient, test_case: Dict) -> None:
     test_input = test_case['input']
     expected_output = test_case['expectedOutput']
-    key_value_store_name = _crypto_random_object_id()
+    key_value_store_name = crypto_random_object_id()
 
     # Ensure the directory for the store exists
     storage_path = os.path.join(memory_storage_client._key_value_stores_directory, key_value_store_name)
     os.makedirs(storage_path, exist_ok=True)
 
     store_metadata = {
-        'id': _crypto_random_object_id(),
+        'id': crypto_random_object_id(),
         'name': None,
         'accessedAt': datetime.now(timezone.utc),
         'createdAt': datetime.now(timezone.utc),

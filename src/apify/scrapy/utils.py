@@ -1,8 +1,6 @@
 import asyncio
 import codecs
 import pickle
-import random
-import string
 
 try:
     from scrapy import Request, Spider
@@ -12,26 +10,11 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
+from .._crypto import crypto_random_object_id
 from ..actor import Actor
 from ..storages import RequestQueue, StorageClientManager
 
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-
-
-def get_random_id(length: int = 6) -> str:
-    """Generate a random ID from alphanumeric characters.
-
-    It could be useful mainly for debugging purposes.
-
-    Args:
-        length: The lenght of the ID. Defaults to 6.
-
-    Returns:
-        generated random ID
-    """
-    characters = string.ascii_letters + string.digits
-    random_id = ''.join(random.choice(characters) for _ in range(length))
-    return random_id
 
 
 def get_running_event_loop_id() -> int:
@@ -56,7 +39,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
     """
     assert isinstance(scrapy_request, Request)
 
-    call_id = get_random_id()
+    call_id = crypto_random_object_id(8)
     Actor.log.debug(f'[{call_id}]: to_apify_request was called (scrapy_request={scrapy_request})...')
 
     apify_request = {
@@ -99,7 +82,7 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
     assert 'id' in apify_request
     assert 'uniqueKey' in apify_request
 
-    call_id = get_random_id()
+    call_id = crypto_random_object_id(8)
     Actor.log.debug(f'[{call_id}]: to_scrapy_request was called (apify_request={apify_request})...')
 
     # If the apify_request comes from the Scrapy

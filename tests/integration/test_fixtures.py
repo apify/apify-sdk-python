@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from apify import Actor
-from apify._crypto import _crypto_random_object_id
+from apify._crypto import crypto_random_object_id
 from apify_client import ApifyClientAsync
 
 from .conftest import ActorFactory
@@ -29,7 +29,7 @@ class TestMakeActorFixture:
         assert run_result['actId'] == output_record['value']
 
     async def test_main_py(self, make_actor: ActorFactory) -> None:
-        expected_output = f'ACTOR_OUTPUT_{_crypto_random_object_id(5)}'
+        expected_output = f'ACTOR_OUTPUT_{crypto_random_object_id(5)}'
         main_py_source = f"""
             import asyncio
             from apify import Actor

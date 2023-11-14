@@ -10,7 +10,7 @@ from sortedcollections import ValueSortedDict
 
 from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, json_dumps
 
-from ..._crypto import _crypto_random_object_id
+from ..._crypto import crypto_random_object_id
 from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage, _unique_key_to_request_id
 from ...consts import _StorageTypes
 from ..file_storage_utils import _delete_request, _update_metadata, _update_request_queue_item
@@ -46,7 +46,7 @@ class RequestQueueClient(BaseResourceClient):
         name: Optional[str] = None,
     ) -> None:
         """Initialize the RequestQueueClient."""
-        self._id = id or _crypto_random_object_id()
+        self._id = id or crypto_random_object_id()
         self._resource_directory = os.path.join(base_storage_directory, name or self._id)
         self._memory_storage_client = memory_storage_client
         self._name = name

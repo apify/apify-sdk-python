@@ -2,7 +2,7 @@ import asyncio
 import json
 
 from apify import Actor
-from apify._crypto import _crypto_random_object_id
+from apify._crypto import crypto_random_object_id
 from apify_client import ApifyClientAsync
 
 from ._utils import generate_unique_resource_name
@@ -128,7 +128,7 @@ class TestActorStart:
         outer_actor = await make_actor('start-outer', main_func=main_outer)
 
         inner_actor_id = (await inner_actor.get() or {})['id']
-        test_value = _crypto_random_object_id()
+        test_value = crypto_random_object_id()
 
         outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
 
@@ -169,7 +169,7 @@ class TestActorCall:
         outer_actor = await make_actor('call-outer', main_func=main_outer)
 
         inner_actor_id = (await inner_actor.get() or {})['id']
-        test_value = _crypto_random_object_id()
+        test_value = crypto_random_object_id()
 
         outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
 
@@ -209,7 +209,7 @@ class TestActorCallTask:
         outer_actor = await make_actor('call-task-outer', main_func=main_outer)
 
         inner_actor_id = (await inner_actor.get() or {})['id']
-        test_value = _crypto_random_object_id()
+        test_value = crypto_random_object_id()
 
         task = await apify_client_async.tasks().create(
             actor_id=inner_actor_id,
@@ -304,7 +304,7 @@ class TestActorMetamorph:
         outer_actor = await make_actor('metamorph-outer', main_func=main_outer)
 
         inner_actor_id = (await inner_actor.get() or {})['id']
-        test_value = _crypto_random_object_id()
+        test_value = crypto_random_object_id()
 
         outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
 

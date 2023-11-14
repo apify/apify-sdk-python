@@ -9,7 +9,7 @@ from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
 from apify_shared.utils import ignore_docs
 
-from .._crypto import _crypto_random_object_id
+from .._crypto import crypto_random_object_id
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
 from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
@@ -73,7 +73,7 @@ class RequestQueue(BaseStorage):
     """
 
     _request_queue_client: Union[RequestQueueClientAsync, RequestQueueClient]
-    _client_key = _crypto_random_object_id()
+    _client_key = crypto_random_object_id()
     _queue_head_dict: OrderedDictType[str, str]
     _query_queue_head_task: Optional[asyncio.Task]
     _in_progress: Set[str]

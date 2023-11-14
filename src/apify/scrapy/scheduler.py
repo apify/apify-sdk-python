@@ -11,9 +11,10 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
+from .._crypto import crypto_random_object_id
 from ..actor import Actor
 from ..storages import RequestQueue
-from .utils import get_random_id, nested_event_loop, open_queue_with_custom_client, to_apify_request, to_scrapy_request
+from .utils import nested_event_loop, open_queue_with_custom_client, to_apify_request, to_scrapy_request
 
 
 class ApifyScheduler(BaseScheduler):
@@ -79,7 +80,7 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             True if the request was successfully enqueued, False otherwise.
         """
-        call_id = get_random_id()
+        call_id = crypto_random_object_id(8)
         Actor.log.debug(f'[{call_id}]: ApifyScheduler.enqueue_request was called (scrapy_request={request})...')
 
         apify_request = to_apify_request(request, spider=self.spider)
@@ -100,7 +101,7 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             The next request, or None if there are no more requests.
         """
-        call_id = get_random_id()
+        call_id = crypto_random_object_id(8)
         Actor.log.debug(f'[{call_id}]: ApifyScheduler.next_request was called...')
         assert isinstance(self._rq, RequestQueue)
 
