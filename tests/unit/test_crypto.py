@@ -2,7 +2,7 @@ import base64
 
 import pytest
 
-from apify._crypto import _crypto_random_object_id, _load_private_key, _load_public_key, private_decrypt, public_encrypt
+from apify._crypto import _load_private_key, _load_public_key, crypto_random_object_id, private_decrypt, public_encrypt
 
 # NOTE: Uses the same keys as in:
 # https://github.com/apify/apify-shared-js/blob/master/test/crypto.test.ts
@@ -18,7 +18,7 @@ PUBLIC_KEY = _load_public_key(PUBLIC_KEY_PEM_BASE64)
 
 class TestCrypto():
     def test_encrypt_decrypt_varions_string(self) -> None:
-        for value in [_crypto_random_object_id(10), '👍', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', ']', '{', '}', '|', ';', ':', '"', "'", ',', '.', '<', '>', '?', '/', '~']:  # noqa: E501
+        for value in [crypto_random_object_id(10), '👍', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', ']', '{', '}', '|', ';', ':', '"', "'", ',', '.', '<', '>', '?', '/', '~']:  # noqa: E501
             encrypted = public_encrypt(value, public_key=PUBLIC_KEY)
             decrypted_value = private_decrypt(**encrypted, private_key=PRIVATE_KEY)
             assert decrypted_value == value
@@ -62,9 +62,9 @@ class TestCrypto():
 
         assert decrypted_value == value
 
-    def test__crypto_random_object_id(self) -> None:
-        assert len(_crypto_random_object_id()) == 17
-        assert len(_crypto_random_object_id(5)) == 5
-        long_random_object_id = _crypto_random_object_id(1000)
+    def test_crypto_random_object_id(self) -> None:
+        assert len(crypto_random_object_id()) == 17
+        assert len(crypto_random_object_id(5)) == 5
+        long_random_object_id = crypto_random_object_id(1000)
         for char in long_random_object_id:
             assert char in 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'

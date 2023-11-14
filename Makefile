@@ -8,7 +8,7 @@ clean:
 
 install-dev:
 	python -m pip install --upgrade pip
-	pip install --no-cache-dir -e ".[dev]"
+	pip install --no-cache-dir -e ".[dev,scrapy]"
 	pre-commit install
 
 build:

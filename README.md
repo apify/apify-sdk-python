@@ -7,6 +7,22 @@ event handling.
 If you just need to access the [Apify API](https://docs.apify.com/api/v2) from your Python applications,
 check out the [Apify Client for Python](https://docs.apify.com/api/client/python) instead.
 
+## Installation
+
+The Apify SDK for Python is available on PyPI as the `apify` package.
+For default installation, using Pip, run the following:
+
+```bash
+pip install apify
+```
+
+For users interested in integrating Apify with Scrapy, we provide a package extra called `scrapy`.
+To install Apify with the `scrapy` extra, use the following command:
+
+```bash
+pip install apify[scrapy]
+```
+
 ## Documentation
 
 For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/sdk/python/).

@@ -15,7 +15,7 @@ from typing_extensions import NotRequired
 
 from apify_shared.utils import ignore_docs, is_file_or_bytes, json_dumps
 
-from ..._crypto import _crypto_random_object_id
+from ..._crypto import crypto_random_object_id
 from ..._utils import (
     _force_remove,
     _force_rename,
@@ -73,7 +73,7 @@ class KeyValueStoreClient(BaseResourceClient):
         name: Optional[str] = None,
     ) -> None:
         """Initialize the KeyValueStoreClient."""
-        self._id = id or _crypto_random_object_id()
+        self._id = id or crypto_random_object_id()
         self._resource_directory = os.path.join(base_storage_directory, name or self._id)
         self._memory_storage_client = memory_storage_client
         self._name = name

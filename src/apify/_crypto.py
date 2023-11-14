@@ -30,8 +30,8 @@ def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     Returns:
         disc: Encrypted password and value.
     """
-    key_bytes = _crypto_random_object_id(ENCRYPTION_KEY_LENGTH).encode('utf-8')
-    initialized_vector_bytes = _crypto_random_object_id(ENCRYPTION_IV_LENGTH).encode('utf-8')
+    key_bytes = crypto_random_object_id(ENCRYPTION_KEY_LENGTH).encode('utf-8')
+    initialized_vector_bytes = crypto_random_object_id(ENCRYPTION_IV_LENGTH).encode('utf-8')
     value_bytes = value.encode('utf-8')
 
     password_bytes = key_bytes + initialized_vector_bytes
@@ -122,7 +122,7 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     return public_key
 
 
-def _crypto_random_object_id(length: int = 17) -> str:
+def crypto_random_object_id(length: int = 17) -> str:
     """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
     chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
     return ''.join(secrets.choice(chars) for _ in range(length))

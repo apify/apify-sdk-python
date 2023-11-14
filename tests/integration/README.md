@@ -85,7 +85,7 @@ To pass the source code of the `src/main.py` file directly, use the `main_py` ar
 
 ```python
 async def test_something(self, make_actor: ActorFactory) -> None:
-    expected_output = f'ACTOR_OUTPUT_{_crypto_random_object_id(5)}'
+    expected_output = f'ACTOR_OUTPUT_{crypto_random_object_id(5)}'
     main_py_source = f"""
         import asyncio
         from datetime import datetime

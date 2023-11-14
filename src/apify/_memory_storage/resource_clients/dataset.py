@@ -10,7 +10,7 @@ from apify_shared.models import ListPage
 from apify_shared.types import JSONSerializable
 from apify_shared.utils import ignore_docs
 
-from ..._crypto import _crypto_random_object_id
+from ..._crypto import crypto_random_object_id
 from ..._utils import _force_rename, _raise_on_duplicate_storage, _raise_on_non_existing_storage
 from ...consts import _StorageTypes
 from ..file_storage_utils import _update_dataset_items, _update_metadata
@@ -52,7 +52,7 @@ class DatasetClient(BaseResourceClient):
         name: Optional[str] = None,
     ) -> None:
         """Initialize the DatasetClient."""
-        self._id = id or _crypto_random_object_id()
+        self._id = id or crypto_random_object_id()
         self._resource_directory = os.path.join(base_storage_directory, name or self._id)
         self._memory_storage_client = memory_storage_client
         self._name = name
