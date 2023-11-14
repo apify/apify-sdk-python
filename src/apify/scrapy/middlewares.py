@@ -1,23 +1,27 @@
 import traceback
+from typing import Union
 
-from scrapy import Spider
-from scrapy.downloadermiddlewares.retry import RetryMiddleware
-from scrapy.exceptions import IgnoreRequest
-from scrapy.http import Request, Response
-from scrapy.utils.response import response_status_message
+try:
+    from scrapy import Spider
+    from scrapy.downloadermiddlewares.retry import RetryMiddleware
+    from scrapy.exceptions import IgnoreRequest
+    from scrapy.http import Request, Response
+    from scrapy.utils.response import response_status_message
+except ImportError as exc:
+    raise ImportError(
+        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
+    ) from exc
 
-from apify import Actor
-from apify.storages import RequestQueue
-
+from ..actor import Actor
+from ..storages import RequestQueue
 from .utils import nested_event_loop, open_queue_with_custom_client, to_apify_request
 
 
 class ApifyRetryMiddleware(RetryMiddleware):
-    """
-    Basically the default Scrapy retry middleware enriched with Apify's Request Queue interaction.
-    """
+    """Basically the default Scrapy retry middleware enriched with Apify's Request Queue interaction."""
 
     def __init__(self, *args: list, **kwargs: dict) -> None:
+        """Create a new instance."""
         super().__init__(*args, **kwargs)
         try:
             self._rq: RequestQueue = nested_event_loop.run_until_complete(open_queue_with_custom_client())
@@ -25,12 +29,12 @@ class ApifyRetryMiddleware(RetryMiddleware):
             traceback.print_exc()
 
     def __del__(self) -> None:
+        """Before deleting the instance, close the nested event loop."""
         nested_event_loop.stop()
         nested_event_loop.close()
 
-    def process_response(self, request: Request, response: Response, spider: Spider) -> Request | Response:
-        """
-        Process the response and decide whether the request should be retried.
+    def process_response(self, request: Request, response: Response, spider: Spider) -> Union[Request, Response]:
+        """Process the response and decide whether the request should be retried.
 
         Args:
             request: The request that was sent.
@@ -58,7 +62,8 @@ class ApifyRetryMiddleware(RetryMiddleware):
         request: Request,
         exception: BaseException,
         spider: Spider,
-    ) -> None | Response | Request:
+    ) -> Union[Request, Response, None]:
+        """Handle the exception and decide whether the request should be retried."""
         Actor.log.debug(f'ApifyRetryMiddleware.process_exception was called (scrapy_request={request})...')
         apify_request = to_apify_request(request, spider=spider)
 
@@ -77,7 +82,8 @@ class ApifyRetryMiddleware(RetryMiddleware):
         request: Request,
         response: Response,
         spider: Spider,
-    ) -> Request | Response:
+    ) -> Union[Request, Response]:
+        """Handle the retry logic of the request."""
         Actor.log.debug(f'ApifyRetryMiddleware.handle_retry_logic was called (scrapy_request={request})...')
         apify_request = to_apify_request(request, spider=spider)
 

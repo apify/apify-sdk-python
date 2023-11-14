@@ -4,18 +4,22 @@ import pickle
 import random
 import string
 
-from scrapy import Request, Spider
-from scrapy.utils.request import request_from_dict
+try:
+    from scrapy import Request, Spider
+    from scrapy.utils.request import request_from_dict
+except ImportError as exc:
+    raise ImportError(
+        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
+    ) from exc
 
-from apify import Actor
-from apify.storages import RequestQueue, StorageClientManager
+from ..actor import Actor
+from ..storages import RequestQueue, StorageClientManager
 
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 
 
 def get_random_id(length: int = 6) -> str:
-    """
-    Generate a random ID from alphanumeric characters.
+    """Generate a random ID from alphanumeric characters.
 
     It could be useful mainly for debugging purposes.
 
@@ -31,8 +35,7 @@ def get_random_id(length: int = 6) -> str:
 
 
 def get_running_event_loop_id() -> int:
-    """
-    Get the ID of the currently running event loop.
+    """Get the ID of the currently running event loop.
 
     It could be useful mainly for debugging purposes.
 
@@ -43,8 +46,7 @@ def get_running_event_loop_id() -> int:
 
 
 def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
-    """
-    Convert a Scrapy request to an Apify request.
+    """Convert a Scrapy request to an Apify request.
 
     Args:
         scrapy_request: The Scrapy request to be converted.
@@ -83,8 +85,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
 
 
 def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
-    """
-    Convert an Apify request to a Scrapy request.
+    """Convert an Apify request to a Scrapy request.
 
     Args:
         apify_request: The Apify request to be converted.
@@ -140,8 +141,7 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
 
 
 async def open_queue_with_custom_client() -> RequestQueue:
-    """
-    Open a Request Queue with custom Apify Client.
+    """Open a Request Queue with custom Apify Client.
 
     TODO: add support for custom client to Actor.open_request_queue(), so that
     we don't have to do this hacky workaround

@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import aioshutil
-from sortedcollections import ValueSortedDict  # type: ignore
+from sortedcollections import ValueSortedDict
 
 from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, json_dumps
 

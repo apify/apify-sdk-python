@@ -6,6 +6,7 @@ filename =
 per-file-ignores =
     scripts/*: D
     tests/*: D
+    **/__init__.py: F401
 
 # Google docstring convention + D204 & D401
 docstring-convention = all
