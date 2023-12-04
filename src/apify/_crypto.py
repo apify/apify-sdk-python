@@ -91,7 +91,7 @@ def private_decrypt(
 
     # Slice the encrypted into cypher and authentication tag
     authentication_tag_bytes = encrypted_value_bytes[-ENCRYPTION_AUTH_TAG_LENGTH:]
-    encrypted_data_bytes = encrypted_value_bytes[: len(encrypted_value_bytes) - ENCRYPTION_AUTH_TAG_LENGTH]
+    encrypted_data_bytes = encrypted_value_bytes[: (len(encrypted_value_bytes) - ENCRYPTION_AUTH_TAG_LENGTH)]
     encryption_key_bytes = password_bytes[:ENCRYPTION_KEY_LENGTH]
     initialization_vector_bytes = password_bytes[ENCRYPTION_KEY_LENGTH:]
 

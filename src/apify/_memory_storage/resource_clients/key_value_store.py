@@ -213,7 +213,7 @@ class KeyValueStoreClient(BaseResourceClient):
         if exclusive_start_key is not None:
             key_pos = next((idx for idx, i in enumerate(items) if i['key'] == exclusive_start_key), None)
             if key_pos is not None:
-                truncated_items = items[key_pos + 1 :]
+                truncated_items = items[(key_pos + 1) :]
 
         limited_items = truncated_items[:limit]
 

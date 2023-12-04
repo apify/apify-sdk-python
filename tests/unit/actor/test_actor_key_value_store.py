@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from apify._memory_storage import MemoryStorageClient
 
 
-# NOTE: We only test the key-value store methond available on Actor class/instance.
+# NOTE: We only test the key-value store methonds available on Actor class/instance.
 # Actual tests for the implementations are in storages/.
 class TestOpenKeyValueStore:
     async def test_same_references(self: TestOpenKeyValueStore) -> None:

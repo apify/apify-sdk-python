@@ -6,6 +6,7 @@ from apify import Actor
 
 # NOTE: We only test the references here. Actual tests for the implementations are in storages/
 
+
 class TestActorOpenRequestQueue:
     async def test_throws_without_init(self: TestActorOpenRequestQueue) -> None:
         with pytest.raises(RuntimeError):
