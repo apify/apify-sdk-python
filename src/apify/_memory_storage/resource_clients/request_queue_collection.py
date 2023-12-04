@@ -1,23 +1,27 @@
-from typing import Dict, List, Optional, Type
+from __future__ import annotations
 
-from apify_shared.models import ListPage
+from typing import TYPE_CHECKING
+
 from apify_shared.utils import ignore_docs
 
 from .base_resource_collection_client import BaseResourceCollectionClient
 from .request_queue import RequestQueueClient
+
+if TYPE_CHECKING:
+    from apify_shared.models import ListPage
 
 
 @ignore_docs
 class RequestQueueCollectionClient(BaseResourceCollectionClient):
     """Sub-client for manipulating request queues."""
 
-    def _get_storage_client_cache(self) -> List[RequestQueueClient]:
+    def _get_storage_client_cache(self: RequestQueueCollectionClient) -> list[RequestQueueClient]:
         return self._memory_storage_client._request_queues_handled
 
-    def _get_resource_client_class(self) -> Type[RequestQueueClient]:
+    def _get_resource_client_class(self: RequestQueueCollectionClient) -> type[RequestQueueClient]:
         return RequestQueueClient
 
-    async def list(self) -> ListPage:
+    async def list(self: RequestQueueCollectionClient) -> ListPage:  # noqa: A003
         """List the available request queues.
 
         Returns:
@@ -26,17 +30,17 @@ class RequestQueueCollectionClient(BaseResourceCollectionClient):
         return await super().list()
 
     async def get_or_create(
-        self,
+        self: RequestQueueCollectionClient,
         *,
-        name: Optional[str] = None,
-        schema: Optional[Dict] = None,
-        _id: Optional[str] = None,
-    ) -> Dict:
+        name: str | None = None,
+        schema: dict | None = None,
+        _id: str | None = None,
+    ) -> dict:
         """Retrieve a named request queue, or create a new one when it doesn't exist.
 
         Args:
             name (str, optional): The name of the request queue to retrieve or create.
-            schema (Dict, optional): The schema of the request queue
+            schema (dict, optional): The schema of the request queue
 
         Returns:
             dict: The retrieved or newly-created request queue.

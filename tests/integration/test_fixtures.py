@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from apify import Actor
 from apify._crypto import crypto_random_object_id
-from apify_client import ApifyClientAsync
 
-from .conftest import ActorFactory
+if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
+    from .conftest import ActorFactory
 
 
 class TestMakeActorFixture:
-    async def test_main_func(self, make_actor: ActorFactory) -> None:
+    async def test_main_func(self: TestMakeActorFixture, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import os
 
@@ -28,7 +33,7 @@ class TestMakeActorFixture:
         assert output_record is not None
         assert run_result['actId'] == output_record['value']
 
-    async def test_main_py(self, make_actor: ActorFactory) -> None:
+    async def test_main_py(self: TestMakeActorFixture, make_actor: ActorFactory) -> None:
         expected_output = f'ACTOR_OUTPUT_{crypto_random_object_id(5)}'
         main_py_source = f"""
             import asyncio
@@ -48,7 +53,7 @@ class TestMakeActorFixture:
         assert output_record is not None
         assert output_record['value'] == expected_output
 
-    async def test_source_files(self, make_actor: ActorFactory) -> None:
+    async def test_source_files(self: TestMakeActorFixture, make_actor: ActorFactory) -> None:
         test_started_at = datetime.now(timezone.utc)
         actor_source_files = {
             'src/utils.py': """
@@ -83,5 +88,8 @@ class TestMakeActorFixture:
 
 
 class TestApifyClientAsyncFixture:
-    async def test_apify_client_async_works(self, apify_client_async: ApifyClientAsync) -> None:
+    async def test_apify_client_async_works(
+        self: TestApifyClientAsyncFixture,
+        apify_client_async: ApifyClientAsync,
+    ) -> None:
         assert await apify_client_async.user('me').get() is not None

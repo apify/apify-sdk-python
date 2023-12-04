@@ -1,10 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from apify import Actor
 
-from .conftest import ActorFactory
+if TYPE_CHECKING:
+    from .conftest import ActorFactory
 
 
 class TestActorCreateProxyConfiguration:
-    async def test_create_proxy_configuration_basic(self, make_actor: ActorFactory) -> None:
+    async def test_create_proxy_configuration_basic(
+        self: TestActorCreateProxyConfiguration,
+        make_actor: ActorFactory,
+    ) -> None:
         async def main() -> None:
             groups = ['SHADER']
             country_code = 'US'
@@ -26,25 +34,32 @@ class TestActorCreateProxyConfiguration:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_create_proxy_configuration_complex(self, make_actor: ActorFactory) -> None:
+    async def test_create_proxy_configuration_complex(
+        self: TestActorCreateProxyConfiguration,
+        make_actor: ActorFactory,
+    ) -> None:
         async def main() -> None:
             await Actor.init()
 
             proxy_url_suffix = f'{Actor.config.proxy_password}@{Actor.config.proxy_hostname}:{Actor.config.proxy_port}'
 
-            proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={
-                'useApifyProxy': True,
-            })
+            proxy_configuration = await Actor.create_proxy_configuration(
+                actor_proxy_input={
+                    'useApifyProxy': True,
+                }
+            )
             assert proxy_configuration is not None
             assert await proxy_configuration.new_url() == f'http://auto:{proxy_url_suffix}'
 
             groups = ['SHADER', 'BUYPROXIES94952']
             country_code = 'US'
-            proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={
-                'useApifyProxy': True,
-                'apifyProxyGroups': groups,
-                'apifyProxyCountry': country_code,
-            })
+            proxy_configuration = await Actor.create_proxy_configuration(
+                actor_proxy_input={
+                    'useApifyProxy': True,
+                    'apifyProxyGroups': groups,
+                    'apifyProxyCountry': country_code,
+                }
+            )
             assert proxy_configuration is not None
             assert await proxy_configuration.new_url() == f'http://groups-{"+".join(groups)},country-{country_code}:{proxy_url_suffix}'
 

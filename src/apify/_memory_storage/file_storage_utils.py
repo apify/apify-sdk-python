@@ -1,15 +1,16 @@
+from __future__ import annotations
+
 import os
-from typing import Dict, List, Tuple
 
 import aiofiles
 from aiofiles.os import makedirs
 
 from apify_shared.utils import json_dumps
 
-from .._utils import _force_remove
+from .._utils import force_remove
 
 
-async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata: bool) -> None:
+async def update_metadata(*, data: dict, entity_directory: str, write_metadata: bool) -> None:
     # Skip writing the actual metadata file. This is done after ensuring the directory exists so we have the directory present
     if not write_metadata:
         return
@@ -25,7 +26,7 @@ async def _update_metadata(*, data: Dict, entity_directory: str, write_metadata:
 
 async def _update_dataset_items(
     *,
-    data: List[Tuple[str, Dict]],
+    data: list[tuple[str, dict]],
     entity_directory: str,
     persist_storage: bool,
 ) -> None:
@@ -43,10 +44,10 @@ async def _update_dataset_items(
             await f.write(json_dumps(item).encode('utf-8'))
 
 
-async def _update_request_queue_item(
+async def update_request_queue_item(
     *,
     request_id: str,
-    request: Dict,
+    request: dict,
     entity_directory: str,
     persist_storage: bool,
 ) -> None:
@@ -63,9 +64,9 @@ async def _update_request_queue_item(
         await f.write(json_dumps(request).encode('utf-8'))
 
 
-async def _delete_request(*, request_id: str, entity_directory: str) -> None:
+async def delete_request(*, request_id: str, entity_directory: str) -> None:
     # Ensure the directory for the entity exists
     await makedirs(entity_directory, exist_ok=True)
 
     file_path = os.path.join(entity_directory, f'{request_id}.json')
-    await _force_remove(file_path)
+    await force_remove(file_path)

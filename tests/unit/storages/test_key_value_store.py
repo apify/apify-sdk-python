@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import pytest
 
 from apify.storages import KeyValueStore
 
 
-@pytest.fixture
+@pytest.fixture()
 async def key_value_store() -> KeyValueStore:
     return await KeyValueStore.open()
 

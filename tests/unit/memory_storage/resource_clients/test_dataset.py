@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import os
+from typing import TYPE_CHECKING
 
 import pytest
 
-from apify._memory_storage import MemoryStorageClient
-from apify._memory_storage.resource_clients import DatasetClient
+if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
+    from apify._memory_storage.resource_clients import DatasetClient
 
 
-@pytest.fixture
+@pytest.fixture()
 async def dataset_client(memory_storage_client: MemoryStorageClient) -> DatasetClient:
     datasets_client = memory_storage_client.datasets()
     dataset_info = await datasets_client.get_or_create(name='test')

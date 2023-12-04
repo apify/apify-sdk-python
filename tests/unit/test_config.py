@@ -1,14 +1,18 @@
-from datetime import datetime, timezone
+from __future__ import annotations
 
-import pytest
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from apify.config import Configuration
 from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
+if TYPE_CHECKING:
+    import pytest
+
 
 class TestConfiguration:
     # Test that some config properties have some reasonable defaults
-    def test_configuration_defaults(self) -> None:
+    def test_configuration_defaults(self: TestConfiguration) -> None:
         config = Configuration()
         assert config.token is None
         assert config.proxy_password is None
@@ -23,7 +27,7 @@ class TestConfiguration:
         assert config.started_at is None
 
     # Test that defining properties via env vars works
-    def test_configuration_from_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_configuration_from_env_vars(self: TestConfiguration, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(ApifyEnvVars.TOKEN, 'DUMMY_TOKEN')
         monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD, 'DUMMY_PROXY_PASSWORD')
         monkeypatch.setenv(ApifyEnvVars.API_BASE_URL, 'DUMMY_API_BASE_URL')
@@ -50,7 +54,7 @@ class TestConfiguration:
         assert config.started_at == datetime(2023, 1, 1, 12, 34, 56, 789000, tzinfo=timezone.utc)
 
     # Test that constructor arguments take precedence over env vars
-    def test_configuration_from_constructor_arguments(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_configuration_from_constructor_arguments(self: TestConfiguration, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(ApifyEnvVars.TOKEN, 'DUMMY_TOKEN')
         monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD, 'DUMMY_PROXY_PASSWORD')
         monkeypatch.setenv(ApifyEnvVars.API_BASE_URL, 'DUMMY_API_BASE_URL')

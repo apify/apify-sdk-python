@@ -1,19 +1,25 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import pytest
 
 from apify import Actor
-from apify._memory_storage import MemoryStorageClient
 from apify_shared.consts import ActorEnvVars
 
-# NOTE: We only test the dataset methond available on Actor class/instance. Actual tests for the implementations are in storages/.
+if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
+
+# NOTE: We only test the dataset methond available on Actor class/instance.
+# Actual tests for the implementations are in storages/.
 
 
 class TestActorOpenDataset:
-    async def test_throws_without_init(self) -> None:
+    async def test_throws_without_init(self: TestActorOpenDataset) -> None:
         with pytest.raises(RuntimeError):
             await Actor.open_dataset()
 
-    async def test_same_references(self) -> None:
+    async def test_same_references(self: TestActorOpenDataset) -> None:
         async with Actor:
             dataset1 = await Actor.open_dataset()
             dataset2 = await Actor.open_dataset()
@@ -31,7 +37,7 @@ class TestActorOpenDataset:
             assert dataset_by_id_2 is dataset_by_id_1
 
     async def test_open_datatset_based_env_var(
-        self,
+        self: TestActorOpenDataset,
         monkeypatch: pytest.MonkeyPatch,
         memory_storage_client: MemoryStorageClient,
     ) -> None:
@@ -45,7 +51,7 @@ class TestActorOpenDataset:
 
 
 class TestActorPushData:
-    async def test_push_data(self) -> None:
+    async def test_push_data(self: TestActorPushData) -> None:
         async with Actor() as my_actor:
             dataset = await my_actor.open_dataset()
             desired_item_count = 100

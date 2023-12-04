@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import asyncio
+from typing import TYPE_CHECKING
 
 from apify import Actor
 from apify_shared.consts import ActorEventTypes
 
-from .conftest import ActorFactory
+if TYPE_CHECKING:
+    from .conftest import ActorFactory
 
 
 class TestActorEvents:
-    async def test_interval_events(self, make_actor: ActorFactory) -> None:
+    async def test_interval_events(self: TestActorEvents, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import os
             from datetime import datetime
@@ -59,7 +63,7 @@ class TestActorEvents:
         assert len(persist_state_events) > 2
         assert len(system_info_events) > 0
 
-    async def test_off_event(self, make_actor: ActorFactory) -> None:
+    async def test_off_event(self: TestActorEvents, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import os
 
@@ -69,7 +73,7 @@ class TestActorEvents:
 
             counter = 0
 
-            def count_event(data):  # type: ignore
+            def count_event(data):  # type: ignore # noqa: ANN202, ANN001
                 nonlocal counter
                 print(data)
                 counter += 1

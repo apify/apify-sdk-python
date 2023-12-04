@@ -1,21 +1,24 @@
+from __future__ import annotations
+
 import random
 import string
 from datetime import datetime, timezone
-from typing import Any, Dict
-
-import pytest
+from typing import TYPE_CHECKING, Any
 
 from apify import Actor
 from apify_shared.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ActorEnvVars, ApifyEnvVars
 
+if TYPE_CHECKING:
+    import pytest
+
 
 class TestIsAtHome:
-    async def test_is_at_home_local(self) -> None:
+    async def test_is_at_home_local(self: TestIsAtHome) -> None:
         async with Actor as actor:
             is_at_home = actor.is_at_home()
             assert is_at_home is False
 
-    async def test_is_at_home_on_apify(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_is_at_home_on_apify(self: TestIsAtHome, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'true')
         async with Actor as actor:
             is_at_home = actor.is_at_home()
@@ -23,9 +26,9 @@ class TestIsAtHome:
 
 
 class TestGetEnv:
-    async def test_get_env_use_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_get_env_use_env_vars(self: TestGetEnv, monkeypatch: pytest.MonkeyPatch) -> None:
         # Set up random env vars
-        expected_get_env: Dict[str, Any] = {}
+        expected_get_env: dict[str, Any] = {}
         for int_env_var in INTEGER_ENV_VARS:
             int_get_env_var = int_env_var.name.lower()
             expected_get_env[int_get_env_var] = random.randint(1, 99999)

@@ -1,10 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from apify import Actor
 
-from .conftest import ActorFactory
+if TYPE_CHECKING:
+    from .conftest import ActorFactory
 
 
 class TestActorInit:
-    async def test_actor_init(self, make_actor: ActorFactory) -> None:
+    async def test_actor_init(self: TestActorInit, make_actor: ActorFactory) -> None:
         async def main() -> None:
             my_actor = Actor()
             await my_actor.init()
@@ -14,16 +19,16 @@ class TestActorInit:
                 await my_actor.init()
                 double_init = True
             except RuntimeError as err:
-                assert str(err) == 'The actor was already initialized!'
-            except Exception as err:
-                raise err
+                assert str(err) == 'The actor was already initialized!'  # noqa: PT017
+            except Exception:
+                raise
             try:
                 await Actor.init()
                 double_init = True
             except RuntimeError as err:
-                assert str(err) == 'The actor was already initialized!'
-            except Exception as err:
-                raise err
+                assert str(err) == 'The actor was already initialized!'  # noqa: PT017
+            except Exception:
+                raise
             await my_actor.exit()
             assert double_init is False
             assert my_actor._is_initialized is False
@@ -35,7 +40,7 @@ class TestActorInit:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_async_with_actor_properly_initialize(self, make_actor: ActorFactory) -> None:
+    async def test_async_with_actor_properly_initialize(self: TestActorInit, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 assert Actor._get_default_instance()._is_initialized
@@ -50,10 +55,10 @@ class TestActorInit:
 
 
 class TestActorExit:
-    async def test_actor_exit_code(self, make_actor: ActorFactory) -> None:
+    async def test_actor_exit_code(self: TestActorExit, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
-                input = await Actor.get_input()
+                input = await Actor.get_input()  # noqa: A001
                 await Actor.exit(**input)
 
         actor = await make_actor('actor-exit', main_func=main)
@@ -66,10 +71,10 @@ class TestActorExit:
 
 
 class TestActorFail:
-    async def test_fail_exit_code(self, make_actor: ActorFactory) -> None:
+    async def test_fail_exit_code(self: TestActorFail, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
-                input = await Actor.get_input()
+                input = await Actor.get_input()  # noqa: A001
                 await Actor.fail(**input) if input else await Actor.fail()
 
         actor = await make_actor('actor-fail', main_func=main)
@@ -91,10 +96,10 @@ class TestActorFail:
         assert run_result['status'] == 'FAILED'
         assert run_result.get('statusMessage') == 'This is a test message'
 
-    async def test_with_actor_fail_correctly(self, make_actor: ActorFactory) -> None:
+    async def test_with_actor_fail_correctly(self: TestActorFail, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
-                raise Exception('This is a test exception')
+                raise Exception('This is a test exception')  # noqa: TRY002
 
         actor = await make_actor('with-actor-fail', main_func=main)
         run_result = await actor.call()
@@ -104,13 +109,13 @@ class TestActorFail:
 
 
 class TestActorMain:
-    async def test_actor_main(self, make_actor: ActorFactory) -> None:
+    async def test_actor_main(self: TestActorMain, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async def actor_function() -> None:
-                input = await Actor.get_input()
+                input = await Actor.get_input()  # noqa: A001
                 if input.get('raise_exception'):
-                    raise Exception(input.get('raise_exception'))
-                elif input.get('exit_code'):
+                    raise Exception(input.get('raise_exception'))  # noqa: TRY002
+                if input.get('exit_code'):
                     await Actor.exit(exit_code=input.get('exit_code'))
                 elif input.get('fail'):
                     await Actor.fail()

@@ -1,10 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from apify import Actor, __version__
 
-from .conftest import ActorFactory
+if TYPE_CHECKING:
+    from .conftest import ActorFactory
 
 
 class TestActorLog:
-    async def test_actor_log(self, make_actor: ActorFactory) -> None:
+    async def test_actor_log(self: TestActorLog, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import logging
 

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+from __future__ import annotations
+
 from utils import get_current_package_version, get_published_package_versions
 
 # Checks whether the current package version number was not already used in a published release.

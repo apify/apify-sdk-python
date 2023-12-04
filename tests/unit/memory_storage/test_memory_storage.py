@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import os
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from apify._memory_storage import MemoryStorageClient
 from apify_shared.consts import ApifyEnvVars
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 async def test_write_metadata(tmp_path: Path) -> None:

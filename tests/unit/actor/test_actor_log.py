@@ -1,16 +1,20 @@
+from __future__ import annotations
+
 import contextlib
 import logging
 import sys
-
-import pytest
+from typing import TYPE_CHECKING
 
 from apify import Actor, __version__
 from apify.log import logger
 from apify_client import __version__ as apify_client_version
 
+if TYPE_CHECKING:
+    import pytest
+
 
 class TestActorLog:
-    async def test_actor_log(self, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_actor_log(self: TestActorLog, caplog: pytest.LogCaptureFixture) -> None:
         caplog.set_level(logging.DEBUG, logger='apify')
         with contextlib.suppress(RuntimeError):
             async with Actor:

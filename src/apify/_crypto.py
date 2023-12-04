@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import secrets
 from typing import Any
@@ -89,7 +91,7 @@ def private_decrypt(
 
     # Slice the encrypted into cypher and authentication tag
     authentication_tag_bytes = encrypted_value_bytes[-ENCRYPTION_AUTH_TAG_LENGTH:]
-    encrypted_data_bytes = encrypted_value_bytes[:len(encrypted_value_bytes) - ENCRYPTION_AUTH_TAG_LENGTH]
+    encrypted_data_bytes = encrypted_value_bytes[: len(encrypted_value_bytes) - ENCRYPTION_AUTH_TAG_LENGTH]
     encryption_key_bytes = password_bytes[:ENCRYPTION_KEY_LENGTH]
     initialization_vector_bytes = password_bytes[ENCRYPTION_KEY_LENGTH:]
 
@@ -97,19 +99,21 @@ def private_decrypt(
         cipher = Cipher(algorithms.AES(encryption_key_bytes), modes.GCM(initialization_vector_bytes, authentication_tag_bytes))
         decryptor = cipher.decryptor()
         decipher_bytes = decryptor.update(encrypted_data_bytes) + decryptor.finalize()
-    except InvalidTagException:
-        raise ValueError('Decryption failed, malformed encrypted value or password.')
-    except Exception as err:
-        raise err
+    except InvalidTagException as exc:
+        raise ValueError('Decryption failed, malformed encrypted value or password.') from exc
+    except Exception:
+        raise
 
     return decipher_bytes.decode('utf-8')
 
 
-def _load_private_key(private_key_file_base64: str, private_key_password: str) -> rsa.RSAPrivateKey:
-    private_key = serialization.load_pem_private_key(base64.b64decode(
-        private_key_file_base64.encode('utf-8')), password=private_key_password.encode('utf-8'))
+def load_private_key(private_key_file_base64: str, private_key_password: str) -> rsa.RSAPrivateKey:
+    private_key = serialization.load_pem_private_key(
+        base64.b64decode(private_key_file_base64.encode('utf-8')),
+        password=private_key_password.encode('utf-8'),
+    )
     if not isinstance(private_key, rsa.RSAPrivateKey):
-        raise ValueError('Invalid private key.')
+        raise TypeError('Invalid private key.')
 
     return private_key
 
@@ -117,7 +121,7 @@ def _load_private_key(private_key_file_base64: str, private_key_password: str) -
 def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     public_key = serialization.load_pem_public_key(base64.b64decode(public_key_file_base64.encode('utf-8')))
     if not isinstance(public_key, rsa.RSAPublicKey):
-        raise ValueError('Invalid public key.')
+        raise TypeError('Invalid public key.')
 
     return public_key
 
@@ -128,7 +132,7 @@ def crypto_random_object_id(length: int = 17) -> str:
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 
-def _decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:
+def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:  # noqa: A002
     """Decrypt input secrets."""
     if not isinstance(input, dict):
         return input

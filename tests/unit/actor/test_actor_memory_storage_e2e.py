@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -11,7 +13,7 @@ from apify_shared.consts import ApifyEnvVars
 @pytest.mark.parametrize('purge_on_start', [True, False])
 async def test_actor_memory_storage_client_key_value_store_e2e(
     monkeypatch: pytest.MonkeyPatch,
-    purge_on_start: bool,
+    purge_on_start: bool,  # noqa: FBT001
     reset_default_instances: Callable[[], None],
 ) -> None:
     """This test simulates two clean runs using memory storage.
@@ -51,7 +53,7 @@ async def test_actor_memory_storage_client_key_value_store_e2e(
 @pytest.mark.parametrize('purge_on_start', [True, False])
 async def test_actor_memory_storage_client_request_queue_e2e(
     monkeypatch: pytest.MonkeyPatch,
-    purge_on_start: bool,
+    purge_on_start: bool,  # noqa: FBT001
     reset_default_instances: Callable[[], None],
 ) -> None:
     """This test simulates two clean runs using memory storage.
@@ -66,11 +68,14 @@ async def test_actor_memory_storage_client_request_queue_e2e(
             request_url = f'http://example.com/{i}'
             forefront = i % 3 == 1
             was_handled = i % 3 == 2
-            await default_queue.add_request({
-                'uniqueKey': str(i),
-                'url': request_url,
-                'handledAt': datetime.now(timezone.utc) if was_handled else None,
-            }, forefront=forefront)
+            await default_queue.add_request(
+                {
+                    'uniqueKey': str(i),
+                    'url': request_url,
+                    'handledAt': datetime.now(timezone.utc) if was_handled else None,
+                },
+                forefront=forefront,
+            )
 
     # We simulate another clean run, we expect the memory storage to read from the local data directory
     # Default storages are purged based on purge_on_start parameter.
@@ -83,11 +88,14 @@ async def test_actor_memory_storage_client_request_queue_e2e(
             request_url = f'http://example.com/{i}'
             forefront = i % 3 == 1
             was_handled = i % 3 == 2
-            await default_queue.add_request({
-                'uniqueKey': str(i),
-                'url': request_url,
-                'handledAt': datetime.now(timezone.utc) if was_handled else None,
-            }, forefront=forefront)
+            await default_queue.add_request(
+                {
+                    'uniqueKey': str(i),
+                    'url': request_url,
+                    'handledAt': datetime.now(timezone.utc) if was_handled else None,
+                },
+                forefront=forefront,
+            )
 
         queue_info = await default_queue.get_info()
         assert queue_info is not None

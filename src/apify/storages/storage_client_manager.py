@@ -1,10 +1,14 @@
-from typing import Optional, Union
+from __future__ import annotations
 
-from apify_client import ApifyClientAsync
+from typing import TYPE_CHECKING
+
 from apify_shared.utils import ignore_docs
 
 from .._memory_storage import MemoryStorageClient
 from ..config import Configuration
+
+if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
 
 
 @ignore_docs
@@ -13,17 +17,17 @@ class StorageClientManager:
 
     _config: Configuration
 
-    _local_client: Optional[MemoryStorageClient] = None
-    _cloud_client: Optional[ApifyClientAsync] = None
+    _local_client: MemoryStorageClient | None = None
+    _cloud_client: ApifyClientAsync | None = None
 
-    _default_instance: Optional['StorageClientManager'] = None
+    _default_instance: StorageClientManager | None = None
 
-    def __init__(self) -> None:
+    def __init__(self: StorageClientManager) -> None:
         """Create a `StorageClientManager` instance."""
         self._config = Configuration.get_global_configuration()
 
     @classmethod
-    def set_config(cls, config: Configuration) -> None:
+    def set_config(cls: type[StorageClientManager], config: Configuration) -> None:
         """Set the config for the StorageClientManager.
 
         Args:
@@ -32,7 +36,10 @@ class StorageClientManager:
         cls._get_default_instance()._config = config
 
     @classmethod
-    def get_storage_client(cls, force_cloud: bool = False) -> Union[ApifyClientAsync, MemoryStorageClient]:
+    def get_storage_client(
+        cls: type[StorageClientManager],
+        force_cloud: bool = False,  # noqa: FBT001, FBT002
+    ) -> ApifyClientAsync | MemoryStorageClient:
         """Get the current storage client instance.
 
         Returns:
@@ -43,13 +50,13 @@ class StorageClientManager:
             default_instance._local_client = MemoryStorageClient(persist_storage=default_instance._config.persist_storage, write_metadata=True)
 
         if default_instance._config.is_at_home or force_cloud:
-            assert default_instance._cloud_client is not None
+            assert default_instance._cloud_client is not None  # noqa: S101
             return default_instance._cloud_client
 
         return default_instance._local_client
 
     @classmethod
-    def set_cloud_client(cls, client: ApifyClientAsync) -> None:
+    def set_cloud_client(cls: type[StorageClientManager], client: ApifyClientAsync) -> None:
         """Set the storage client.
 
         Args:
@@ -58,7 +65,7 @@ class StorageClientManager:
         cls._get_default_instance()._cloud_client = client
 
     @classmethod
-    def _get_default_instance(cls) -> 'StorageClientManager':
+    def _get_default_instance(cls: type[StorageClientManager]) -> StorageClientManager:
         if cls._default_instance is None:
             cls._default_instance = cls()
 

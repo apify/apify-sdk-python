@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import asyncio
 import os
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import pytest
 
-from apify._memory_storage import MemoryStorageClient
-from apify._memory_storage.resource_clients import RequestQueueClient
+if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
+    from apify._memory_storage.resource_clients import RequestQueueClient
 
 
-@pytest.fixture
+@pytest.fixture()
 async def request_queue_client(memory_storage_client: MemoryStorageClient) -> RequestQueueClient:
     request_queues_client = memory_storage_client.request_queues()
     rq_info = await request_queues_client.get_or_create(name='test')
@@ -33,10 +37,12 @@ async def test_get(request_queue_client: RequestQueueClient) -> None:
 
 async def test_update(request_queue_client: RequestQueueClient) -> None:
     new_rq_name = 'test-update'
-    await request_queue_client.add_request({
-        'uniqueKey': 'https://apify.com',
-        'url': 'https://apify.com',
-    })
+    await request_queue_client.add_request(
+        {
+            'uniqueKey': 'https://apify.com',
+            'url': 'https://apify.com',
+        }
+    )
     old_rq_info = await request_queue_client.get()
     assert old_rq_info is not None
     old_rq_directory = os.path.join(request_queue_client._memory_storage_client._request_queues_directory, old_rq_info['name'])
@@ -59,10 +65,12 @@ async def test_update(request_queue_client: RequestQueueClient) -> None:
 
 
 async def test_delete(request_queue_client: RequestQueueClient) -> None:
-    await request_queue_client.add_request({
-        'uniqueKey': 'https://apify.com',
-        'url': 'https://apify.com',
-    })
+    await request_queue_client.add_request(
+        {
+            'uniqueKey': 'https://apify.com',
+            'url': 'https://apify.com',
+        }
+    )
     rq_info = await request_queue_client.get()
     assert rq_info is not None
 
@@ -79,14 +87,18 @@ async def test_delete(request_queue_client: RequestQueueClient) -> None:
 async def test_list_head(request_queue_client: RequestQueueClient) -> None:
     request_1_url = 'https://apify.com'
     request_2_url = 'https://example.com'
-    await request_queue_client.add_request({
-        'uniqueKey': request_1_url,
-        'url': request_1_url,
-    })
-    await request_queue_client.add_request({
-        'uniqueKey': request_2_url,
-        'url': request_2_url,
-    })
+    await request_queue_client.add_request(
+        {
+            'uniqueKey': request_1_url,
+            'url': request_1_url,
+        }
+    )
+    await request_queue_client.add_request(
+        {
+            'uniqueKey': request_2_url,
+            'url': request_2_url,
+        }
+    )
     list_head = await request_queue_client.list_head()
     assert len(list_head['items']) == 2
     for item in list_head['items']:
@@ -96,14 +108,20 @@ async def test_list_head(request_queue_client: RequestQueueClient) -> None:
 async def test_add_record(request_queue_client: RequestQueueClient) -> None:
     request_forefront_url = 'https://apify.com'
     request_not_forefront_url = 'https://example.com'
-    request_forefront_info = await request_queue_client.add_request({
-        'uniqueKey': request_forefront_url,
-        'url': request_forefront_url,
-    }, forefront=True)
-    request_not_forefront_info = await request_queue_client.add_request({
-        'uniqueKey': request_not_forefront_url,
-        'url': request_not_forefront_url,
-    }, forefront=False)
+    request_forefront_info = await request_queue_client.add_request(
+        {
+            'uniqueKey': request_forefront_url,
+            'url': request_forefront_url,
+        },
+        forefront=True,
+    )
+    request_not_forefront_info = await request_queue_client.add_request(
+        {
+            'uniqueKey': request_not_forefront_url,
+            'url': request_not_forefront_url,
+        },
+        forefront=False,
+    )
 
     assert request_forefront_info.get('requestId') is not None
     assert request_not_forefront_info.get('requestId') is not None
@@ -118,10 +136,12 @@ async def test_add_record(request_queue_client: RequestQueueClient) -> None:
 
 async def test_get_record(request_queue_client: RequestQueueClient) -> None:
     request_url = 'https://apify.com'
-    request_info = await request_queue_client.add_request({
-        'uniqueKey': request_url,
-        'url': request_url,
-    })
+    request_info = await request_queue_client.add_request(
+        {
+            'uniqueKey': request_url,
+            'url': request_url,
+        }
+    )
     request = await request_queue_client.get_request(request_info['requestId'])
     assert request is not None
     assert 'id' in request
@@ -133,10 +153,12 @@ async def test_get_record(request_queue_client: RequestQueueClient) -> None:
 
 async def test_update_record(request_queue_client: RequestQueueClient) -> None:
     request_url = 'https://apify.com'
-    request_info = await request_queue_client.add_request({
-        'uniqueKey': request_url,
-        'url': request_url,
-    })
+    request_info = await request_queue_client.add_request(
+        {
+            'uniqueKey': request_url,
+            'url': request_url,
+        }
+    )
     request = await request_queue_client.get_request(request_info['requestId'])
     assert request is not None
 
@@ -156,15 +178,19 @@ async def test_update_record(request_queue_client: RequestQueueClient) -> None:
 
 async def test_delete_record(request_queue_client: RequestQueueClient) -> None:
     request_url = 'https://apify.com'
-    pending_request_info = await request_queue_client.add_request({
-        'uniqueKey': 'pending',
-        'url': request_url,
-    })
-    handled_request_info = await request_queue_client.add_request({
-        'uniqueKey': 'handled',
-        'url': request_url,
-        'handledAt': datetime.now(tz=timezone.utc),
-    })
+    pending_request_info = await request_queue_client.add_request(
+        {
+            'uniqueKey': 'pending',
+            'url': request_url,
+        }
+    )
+    handled_request_info = await request_queue_client.add_request(
+        {
+            'uniqueKey': 'handled',
+            'url': request_url,
+            'handledAt': datetime.now(tz=timezone.utc),
+        }
+    )
 
     rq_info_before_delete = await request_queue_client.get()
     assert rq_info_before_delete is not None
@@ -197,11 +223,14 @@ async def test_forefront(request_queue_client: RequestQueueClient) -> None:
         request_url = f'http://example.com/{i}'
         forefront = i % 3 == 1
         was_handled = i % 3 == 2
-        await request_queue_client.add_request({
-            'uniqueKey': str(i),
-            'url': request_url,
-            'handledAt': datetime.now(timezone.utc) if was_handled else None,
-        }, forefront=forefront)
+        await request_queue_client.add_request(
+            {
+                'uniqueKey': str(i),
+                'url': request_url,
+                'handledAt': datetime.now(timezone.utc) if was_handled else None,
+            },
+            forefront=forefront,
+        )
 
     # Check that the queue head (unhandled items) is in the right order
     queue_head = await request_queue_client.list_head()
@@ -209,16 +238,21 @@ async def test_forefront(request_queue_client: RequestQueueClient) -> None:
     assert req_unique_keys == ['7', '4', '1', '0', '3', '6']
 
     # Mark request #1 as handled
-    await request_queue_client.update_request({
-        'uniqueKey': '1',
-        'url': 'http://example.com/1',
-        'handledAt': datetime.now(timezone.utc),
-    })
+    await request_queue_client.update_request(
+        {
+            'uniqueKey': '1',
+            'url': 'http://example.com/1',
+            'handledAt': datetime.now(timezone.utc),
+        }
+    )
     # Move request #3 to forefront
-    await request_queue_client.update_request({
-        'uniqueKey': '3',
-        'url': 'http://example.com/3',
-    }, forefront=True)
+    await request_queue_client.update_request(
+        {
+            'uniqueKey': '3',
+            'url': 'http://example.com/3',
+        },
+        forefront=True,
+    )
 
     # Check that the queue head (unhandled items) is in the right order after the updates
     queue_head = await request_queue_client.list_head()

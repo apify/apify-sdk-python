@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from apify._crypto import crypto_random_object_id
 
 

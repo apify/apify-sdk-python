@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import json
 import logging
 import textwrap
 import traceback
-from typing import Any, Dict
+from typing import Any
 
 from colorama import Fore, Style, just_fix_windows_console
 
@@ -55,17 +57,24 @@ class ActorLogFormatter(logging.Formatter):
     # and extract all the extra ones not present in the empty log record
     empty_record = logging.LogRecord('dummy', 0, 'dummy', 0, 'dummy', None, None)
 
-    def __init__(self, include_logger_name: bool = False, *args: tuple, **kwargs: dict) -> None:
+    def __init__(
+        self: ActorLogFormatter,
+        include_logger_name: bool = False,  # noqa: FBT001, FBT002
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         """Create an instance of the ActorLogFormatter.
 
         Args:
             include_logger_name: Include logger name at the beginning of the log line. Defaults to False.
+            args: Arguments passed to the parent class.
+            kwargs: Keyword arguments passed to the parent class.
         """
-        super().__init__(*args, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
         self.include_logger_name = include_logger_name
 
-    def _get_extra_fields(self, record: logging.LogRecord) -> Dict[str, Any]:
-        extra_fields: Dict[str, Any] = {}
+    def _get_extra_fields(self: ActorLogFormatter, record: logging.LogRecord) -> dict[str, Any]:
+        extra_fields: dict[str, Any] = {}
         for key, value in record.__dict__.items():
             if key not in self.empty_record.__dict__:
                 extra_fields[key] = value
@@ -73,7 +82,7 @@ class ActorLogFormatter(logging.Formatter):
         return extra_fields
 
     @ignore_docs
-    def format(self, record: logging.LogRecord) -> str:
+    def format(self: ActorLogFormatter, record: logging.LogRecord) -> str:  # noqa: A003
         """Format the log record nicely.
 
         This formats the log record so that it:
@@ -112,5 +121,5 @@ class ActorLogFormatter(logging.Formatter):
         if self.include_logger_name:
             # Include logger name at the beginning of the log line
             return f'{logger_name_string}{level_string}{log_string}{extra_string}{exception_string}'
-        else:
-            return f'{level_string}{log_string}{extra_string}{exception_string}'
+
+        return f'{level_string}{log_string}{extra_string}{exception_string}'

@@ -1,18 +1,23 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import inspect
 import json
 from collections import defaultdict
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Union
 
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
 
-from apify_shared.consts import ActorEventTypes
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value, parse_date_fields
 
-from .config import Configuration
 from .log import logger
+
+if TYPE_CHECKING:
+    from apify_shared.consts import ActorEventTypes
+
+    from .config import Configuration
 
 ListenerType = Union[Callable[[], None], Callable[[Any], None], Callable[[], Coroutine[Any, Any, None]], Callable[[Any], Coroutine[Any, Any, None]]]
 
@@ -25,15 +30,15 @@ class EventManager:
     but instead use it via the `Actor.on()` and `Actor.off()` methods.
     """
 
-    _platform_events_websocket: Optional[websockets.client.WebSocketClientProtocol] = None
-    _process_platform_messages_task: Optional[asyncio.Task] = None
-    _send_persist_state_interval_task: Optional[asyncio.Task] = None
-    _send_system_info_interval_task: Optional[asyncio.Task] = None
-    _listener_tasks: Set[asyncio.Task]
-    _listeners_to_wrappers: Dict[ActorEventTypes, Dict[Callable, List[Callable]]]
-    _connected_to_platform_websocket: Optional[asyncio.Future] = None
+    _platform_events_websocket: websockets.client.WebSocketClientProtocol | None = None
+    _process_platform_messages_task: asyncio.Task | None = None
+    _send_persist_state_interval_task: asyncio.Task | None = None
+    _send_system_info_interval_task: asyncio.Task | None = None
+    _listener_tasks: set[asyncio.Task]
+    _listeners_to_wrappers: dict[ActorEventTypes, dict[Callable, list[Callable]]]
+    _connected_to_platform_websocket: asyncio.Future | None = None
 
-    def __init__(self, config: Configuration) -> None:
+    def __init__(self: EventManager, config: Configuration) -> None:
         """Create an instance of the EventManager.
 
         Args:
@@ -45,7 +50,7 @@ class EventManager:
         self._listener_tasks = set()
         self._listeners_to_wrappers = defaultdict(lambda: defaultdict(list))
 
-    async def init(self) -> None:
+    async def init(self: EventManager) -> None:
         """Initialize the event manager.
 
         When running this on the Apify Platform, this will start processing events
@@ -67,7 +72,7 @@ class EventManager:
 
         self._initialized = True
 
-    async def close(self, event_listeners_timeout_secs: Optional[float] = None) -> None:
+    async def close(self: EventManager, event_listeners_timeout_secs: float | None = None) -> None:
         """Initialize the event manager.
 
         This will stop listening for the platform events,
@@ -91,7 +96,7 @@ class EventManager:
 
         self._initialized = False
 
-    def on(self, event_name: ActorEventTypes, listener: ListenerType) -> Callable:
+    def on(self: EventManager, event_name: ActorEventTypes, listener: ListenerType) -> Callable:
         """Add an event listener to the event manager.
 
         Args:
@@ -111,15 +116,15 @@ class EventManager:
             listener_argument_count = 1
         else:
             try:
-                dummy_event_data: Dict = {}
+                dummy_event_data: dict = {}
                 signature.bind(dummy_event_data)
                 listener_argument_count = 1
             except TypeError:
                 try:
                     signature.bind()
                     listener_argument_count = 0
-                except TypeError:
-                    raise ValueError('The "listener" argument must be a callable which accepts 0 or 1 arguments!')
+                except TypeError as err:
+                    raise ValueError('The "listener" argument must be a callable which accepts 0 or 1 arguments!') from err
 
         event_name = maybe_extract_enum_member_value(event_name)
 
@@ -129,11 +134,10 @@ class EventManager:
                     await listener()
                 else:
                     await listener(event_data)
+            elif listener_argument_count == 0:
+                listener()  # type: ignore[call-arg]
             else:
-                if listener_argument_count == 0:
-                    listener()  # type: ignore[call-arg]
-                else:
-                    listener(event_data)  # type: ignore[call-arg]
+                listener(event_data)  # type: ignore[call-arg]
 
         async def outer_wrapper(event_data: Any) -> None:
             listener_task = asyncio.create_task(inner_wrapper(event_data))
@@ -152,7 +156,7 @@ class EventManager:
 
         return self._event_emitter.add_listener(event_name, outer_wrapper)
 
-    def off(self, event_name: ActorEventTypes, listener: Optional[Callable] = None) -> None:
+    def off(self: EventManager, event_name: ActorEventTypes, listener: Callable | None = None) -> None:
         """Remove a listener, or all listeners, from an actor event.
 
         Args:
@@ -172,7 +176,7 @@ class EventManager:
             self._listeners_to_wrappers[event_name] = defaultdict(list)
             self._event_emitter.remove_all_listeners(event_name)
 
-    def emit(self, event_name: ActorEventTypes, data: Any) -> None:
+    def emit(self: EventManager, event_name: ActorEventTypes, data: Any) -> None:
         """Emit an actor event manually.
 
         Args:
@@ -183,12 +187,13 @@ class EventManager:
 
         self._event_emitter.emit(event_name, data)
 
-    async def wait_for_all_listeners_to_complete(self, *, timeout_secs: Optional[float] = None) -> None:
+    async def wait_for_all_listeners_to_complete(self: EventManager, *, timeout_secs: float | None = None) -> None:
         """Wait for all event listeners which are currently being executed to complete.
 
         Args:
             timeout_secs (float, optional): Timeout for the wait. If the event listeners don't finish until the timeout, they will be canceled.
         """
+
         async def _wait_for_listeners() -> None:
             results = await asyncio.gather(*self._listener_tasks, return_exceptions=True)
             for result in results:
@@ -206,19 +211,19 @@ class EventManager:
         else:
             await _wait_for_listeners()
 
-    async def _process_platform_messages(self) -> None:
+    async def _process_platform_messages(self: EventManager) -> None:
         # This should be called only on the platform, where we have the ACTOR_EVENTS_WS_URL configured
-        assert self._config.actor_events_ws_url is not None
-        assert self._connected_to_platform_websocket is not None
+        assert self._config.actor_events_ws_url is not None  # noqa: S101
+        assert self._connected_to_platform_websocket is not None  # noqa: S101
 
         try:
             async with websockets.client.connect(self._config.actor_events_ws_url) as websocket:
                 self._platform_events_websocket = websocket
-                self._connected_to_platform_websocket.set_result(True)
+                self._connected_to_platform_websocket.set_result(True)  # noqa: FBT003
                 async for message in websocket:
                     try:
                         parsed_message = json.loads(message)
-                        assert isinstance(parsed_message, dict)
+                        assert isinstance(parsed_message, dict)  # noqa: S101
                         parsed_message = parse_date_fields(parsed_message)
                         event_name = parsed_message['name']
                         event_data = parsed_message.get('data')  # 'data' can be missing
@@ -229,4 +234,4 @@ class EventManager:
                         logger.exception('Cannot parse actor event', extra={'message': message})
         except Exception:
             logger.exception('Error in websocket connection')
-            self._connected_to_platform_websocket.set_result(False)
+            self._connected_to_platform_websocket.set_result(False)  # noqa: FBT003
