@@ -109,7 +109,7 @@ class dualproperty(Generic[DualPropertyType]):  # noqa: N801
         Returns:
             The result of the getter.
         """
-        return self.getter(obj or owner)  # type: ignore
+        return self.getter(obj or owner)
 
 
 @overload
@@ -332,7 +332,7 @@ class LRUCache(MutableMapping, Generic[T]):
         self._cache = OrderedDict()
         self._max_length = max_length
 
-    def __getitem__(self: LRUCache, key: str) -> Any:
+    def __getitem__(self: LRUCache, key: str) -> T:
         """Get an item from the cache. Move it to the end if present."""
         val = self._cache[key]
         # No 'key in cache' condition since the previous line would raise KeyError

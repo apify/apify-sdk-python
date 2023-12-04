@@ -91,7 +91,7 @@ class BaseResourceCollectionClient(ABC, Generic[ResourceClientType]):
                 id=_id,
             )
             if found:
-                return found._to_resource_info()  # type: ignore
+                return found._to_resource_info()
 
         new_resource = resource_client_class(
             id=_id,
@@ -110,4 +110,4 @@ class BaseResourceCollectionClient(ABC, Generic[ResourceClientType]):
             write_metadata=self._memory_storage_client._write_metadata,
         )
 
-        return resource_info  # type: ignore
+        return resource_info
