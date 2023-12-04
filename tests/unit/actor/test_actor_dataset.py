@@ -10,7 +10,7 @@ from apify_shared.consts import ActorEnvVars
 if TYPE_CHECKING:
     from apify._memory_storage import MemoryStorageClient
 
-# NOTE: We only test the dataset methonds available on Actor class/instance.
+# NOTE: We only test the dataset methods available on Actor class/instance.
 # Actual tests for the implementations are in storages/.
 
 
