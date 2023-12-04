@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections import defaultdict
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 import pytest
@@ -82,9 +83,25 @@ class ApifyClientAsyncPatcher:
         if not client_method:
             raise ValueError(f'ApifyClientAsync does not contain method "{method}"!')
 
-        # TODO: This is the problematic line
-        # https://github.com/apify/apify-sdk-python/issues/151
-        client_method_return_type = get_type_hints(client_method)['return']
+        try:
+            # Try to get the return type of the client method using `typing.get_type_hints()`
+            client_method_return_type = get_type_hints(client_method)['return']
+        except TypeError:
+            # There is a known issue with `typing.get_type_hints()` on Python 3.8 and 3.9. It raises a `TypeError`
+            # when `|` (Union) is used in the type hint, even with `from __future__ import annotations`. Since we
+            # only need the return type, we attempt the following workaround.
+
+            # 1. Create a deep copy of the client method object
+            client_method_copied = deepcopy(client_method)
+
+            # 2. Restrict the annotations to only include the return type
+            client_method_copied.__annotations__ = {'return': client_method.__annotations__['return']}
+
+            # 3. Try to get the return type again using `typing.get_type_hints()`
+            client_method_return_type = get_type_hints(client_method_copied)['return']
+
+            # TODO: Remove this fallback once we drop support for Python 3.8 and 3.9
+            # https://github.com/apify/apify-sdk-python/issues/151
 
         original_submethod = getattr(client_method_return_type, submethod, None)
 

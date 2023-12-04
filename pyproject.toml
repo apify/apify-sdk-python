@@ -24,7 +24,7 @@ requires-python = ">=3.8"
 dependencies = [
     "aiofiles >= 22.1.0",
     "aioshutil >= 1.0",
-    "apify-client == 1.6.1a2",
+    "apify-client ~= 1.6.0",
     "apify-shared ~= 1.1.0",
     "colorama >= 0.4.6",
     "cryptography >= 39.0.0",
