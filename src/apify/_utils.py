@@ -109,7 +109,8 @@ class dualproperty(Generic[DualPropertyType]):  # noqa: N801
         Returns:
             The result of the getter.
         """
-        return self.getter(obj or owner)
+        val = self.getter(obj or owner)
+        return cast(DualPropertyType, val)
 
 
 @overload
@@ -337,7 +338,7 @@ class LRUCache(MutableMapping, Generic[T]):
         val = self._cache[key]
         # No 'key in cache' condition since the previous line would raise KeyError
         self._cache.move_to_end(key)
-        return val
+        return cast(T, val)
 
     # Sadly TS impl returns bool indicating whether the key was already present or not
     def __setitem__(self: LRUCache, key: str, value: T) -> None:

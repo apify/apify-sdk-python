@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from operator import itemgetter
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, cast
 
 from apify_shared.models import ListPage
 from apify_shared.utils import ignore_docs
@@ -91,7 +91,8 @@ class BaseResourceCollectionClient(ABC, Generic[ResourceClientType]):
                 id=_id,
             )
             if found:
-                return found._to_resource_info()
+                resource_info = found._to_resource_info()
+                return cast(dict, resource_info)
 
         new_resource = resource_client_class(
             id=_id,
@@ -110,4 +111,4 @@ class BaseResourceCollectionClient(ABC, Generic[ResourceClientType]):
             write_metadata=self._memory_storage_client._write_metadata,
         )
 
-        return resource_info
+        return cast(dict, resource_info)
