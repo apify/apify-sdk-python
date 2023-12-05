@@ -1,9 +1,9 @@
+from __future__ import annotations
+
 import json
 import os
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, List, Optional
-
-from typing_extensions import Self
+from typing import TYPE_CHECKING
 
 from apify_shared.utils import ignore_docs
 
@@ -16,23 +16,23 @@ class BaseResourceClient(ABC):
     """Base class for resource clients."""
 
     _id: str
-    _name: Optional[str]
+    _name: str | None
     _resource_directory: str
 
     @abstractmethod
     def __init__(
-        self,
+        self: BaseResourceClient,
         *,
         base_storage_directory: str,
-        memory_storage_client: 'MemoryStorageClient',
-        id: Optional[str] = None,
-        name: Optional[str] = None,
+        memory_storage_client: MemoryStorageClient,
+        id: str | None = None,  # noqa: A002
+        name: str | None = None,
     ) -> None:
         """Initialize the BaseResourceClient."""
         raise NotImplementedError('You must override this method in the subclass!')
 
     @abstractmethod
-    async def get(self) -> Optional[Dict]:
+    async def get(self: BaseResourceClient) -> dict | None:
         """Retrieve the storage.
 
         Returns:
@@ -42,44 +42,53 @@ class BaseResourceClient(ABC):
 
     @classmethod
     @abstractmethod
-    def _get_storages_dir(cls, memory_storage_client: 'MemoryStorageClient') -> str:
+    def _get_storages_dir(cls: type[BaseResourceClient], memory_storage_client: MemoryStorageClient) -> str:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     @abstractmethod
-    def _get_storage_client_cache(cls, memory_storage_client: 'MemoryStorageClient') -> List[Self]:
+    def _get_storage_client_cache(
+        cls: type[BaseResourceClient],
+        memory_storage_client: MemoryStorageClient,
+    ) -> list[BaseResourceClient]:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @abstractmethod
-    def _to_resource_info(self) -> Dict:
+    def _to_resource_info(self: BaseResourceClient) -> dict:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     @abstractmethod
     def _create_from_directory(
-        cls,
+        cls: type[BaseResourceClient],
         storage_directory: str,
-        memory_storage_client: 'MemoryStorageClient',
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-    ) -> Self:
+        memory_storage_client: MemoryStorageClient,
+        id: str | None = None,  # noqa: A002
+        name: str | None = None,
+    ) -> BaseResourceClient:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     def _find_or_create_client_by_id_or_name(
-        cls,
-        memory_storage_client: 'MemoryStorageClient',
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-    ) -> Optional[Self]:
-        assert id is not None or name is not None
+        cls: type[BaseResourceClient],
+        memory_storage_client: MemoryStorageClient,
+        id: str | None = None,  # noqa: A002
+        name: str | None = None,
+    ) -> BaseResourceClient | None:
+        assert id is not None or name is not None  # noqa: S101
 
         storage_client_cache = cls._get_storage_client_cache(memory_storage_client)
         storages_dir = cls._get_storages_dir(memory_storage_client)
 
         # First check memory cache
-        found = next((storage_client for storage_client in storage_client_cache
-                      if storage_client._id == id or (storage_client._name and name and storage_client._name.lower() == name.lower())), None)
+        found = next(
+            (
+                storage_client
+                for storage_client in storage_client_cache
+                if storage_client._id == id or (storage_client._name and name and storage_client._name.lower() == name.lower())
+            ),
+            None,
+        )
 
         if found is not None:
             return found
@@ -108,12 +117,13 @@ class BaseResourceClient(ABC):
                     break
                 if name and name == metadata.get('name'):
                     storage_path = entry.path
-                    id = metadata.get(id)
+                    id = metadata.get(id)  # noqa: A001
                     break
 
         # As a last resort, try to check if the accessed storage is the default one,
         # and the folder has no metadata
         # TODO: make this respect the APIFY_DEFAULT_XXX_ID env var
+        # https://github.com/apify/apify-sdk-python/issues/149
         if id == 'default':
             possible_storage_path = os.path.join(storages_dir, id)
             if os.access(possible_storage_path, os.F_OK):

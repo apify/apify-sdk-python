@@ -1,16 +1,18 @@
+from __future__ import annotations
+
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, Generic, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Generic, TypeVar, cast
 
-from typing_extensions import Self
-
-from apify_client import ApifyClientAsync
 from apify_shared.utils import ignore_docs
 
 from .._memory_storage import MemoryStorageClient
 from .._memory_storage.resource_clients import BaseResourceClient, BaseResourceCollectionClient
 from ..config import Configuration
 from .storage_client_manager import StorageClientManager
+
+if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
 
 BaseResourceClientType = TypeVar('BaseResourceClientType', bound=BaseResourceClient)
 BaseResourceCollectionClientType = TypeVar('BaseResourceCollectionClientType', bound=BaseResourceCollectionClient)
@@ -21,15 +23,21 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
     """A class for managing storages."""
 
     _id: str
-    _name: Optional[str]
-    _storage_client: Union[ApifyClientAsync, MemoryStorageClient]
+    _name: str | None
+    _storage_client: ApifyClientAsync | MemoryStorageClient
     _config: Configuration
 
-    _cache_by_id: Optional[Dict[str, Self]] = None
-    _cache_by_name: Optional[Dict[str, Self]] = None
-    _storage_creating_lock: Optional[asyncio.Lock] = None
+    _cache_by_id: dict | None = None
+    _cache_by_name: dict | None = None
+    _storage_creating_lock: asyncio.Lock | None = None
 
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration):
+    def __init__(
+        self: BaseStorage,
+        id: str,  # noqa: A002
+        name: str | None,
+        client: ApifyClientAsync | MemoryStorageClient,
+        config: Configuration,
+    ) -> None:
         """Initialize the storage.
 
         Do not use this method directly, but use `Actor.open_<STORAGE>()` instead.
@@ -47,26 +55,33 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
 
     @classmethod
     @abstractmethod
-    def _get_human_friendly_label(cls) -> str:
+    def _get_human_friendly_label(cls: type[BaseStorage]) -> str:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     @abstractmethod
-    def _get_default_id(cls, config: Configuration) -> str:
+    def _get_default_id(cls: type[BaseStorage], config: Configuration) -> str:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     @abstractmethod
-    def _get_single_storage_client(cls, id: str, client: Union[ApifyClientAsync, MemoryStorageClient]) -> BaseResourceClientType:
+    def _get_single_storage_client(
+        cls: type[BaseStorage],
+        id: str,  # noqa: A002
+        client: ApifyClientAsync | MemoryStorageClient,
+    ) -> BaseResourceClientType:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     @abstractmethod
-    def _get_storage_collection_client(cls, client: Union[ApifyClientAsync, MemoryStorageClient]) -> BaseResourceCollectionClientType:
+    def _get_storage_collection_client(
+        cls: type[BaseStorage],
+        client: ApifyClientAsync | MemoryStorageClient,
+    ) -> BaseResourceCollectionClientType:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
-    def _ensure_class_initialized(cls) -> None:
+    def _ensure_class_initialized(cls: type[BaseStorage]) -> None:
         if cls._cache_by_id is None:
             cls._cache_by_id = {}
         if cls._cache_by_name is None:
@@ -76,14 +91,14 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
 
     @classmethod
     @abstractmethod
-    async def open(
-        cls,
+    async def open(  # noqa: A003
+        cls: type[BaseStorage],
         *,
-        id: Optional[str] = None,
-        name: Optional[str] = None,
+        id: str | None = None,  # noqa: A002
+        name: str | None = None,
         force_cloud: bool = False,
-        config: Optional[Configuration] = None,
-    ) -> Self:
+        config: Configuration | None = None,
+    ) -> BaseStorage:
         """Open a storage, or return a cached storage object if it was opened before.
 
         Opens a storage with the given ID or name.
@@ -104,10 +119,9 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
             An instance of the storage.
         """
         cls._ensure_class_initialized()
-        assert cls._cache_by_id is not None
-        assert cls._cache_by_name is not None
-
-        assert not (id and name)
+        assert cls._cache_by_id is not None  # noqa: S101
+        assert cls._cache_by_name is not None  # noqa: S101
+        assert not (id and name)  # noqa: S101
 
         used_config = config or Configuration.get_global_configuration()
         used_client = StorageClientManager.get_storage_client(force_cloud=force_cloud)
@@ -117,7 +131,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
         if not id and not name:
             if isinstance(used_client, MemoryStorageClient):
                 is_default_storage_on_local = True
-            id = cls._get_default_id(used_config)
+            id = cls._get_default_id(used_config)  # noqa: A001
 
         # Try to get the storage instance from cache
         cached_storage = None
@@ -128,13 +142,13 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
 
         if cached_storage is not None:
             # This cast is needed since MyPy doesn't understand very well that Self and Storage are the same
-            return cast(Self, cached_storage)
+            return cast(BaseStorage, cached_storage)
 
         # Purge default storages if configured
         if used_config.purge_on_start and isinstance(used_client, MemoryStorageClient):
             await used_client._purge_on_start()
 
-        assert cls._storage_creating_lock is not None
+        assert cls._storage_creating_lock is not None  # noqa: S101
         async with cls._storage_creating_lock:
             # Create the storage
             if id and not is_default_storage_on_local:
@@ -159,7 +173,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
 
         return storage
 
-    def _remove_from_cache(self) -> None:
+    def _remove_from_cache(self: BaseStorage) -> None:
         if self.__class__._cache_by_id is not None:
             del self.__class__._cache_by_id[self._id]
 

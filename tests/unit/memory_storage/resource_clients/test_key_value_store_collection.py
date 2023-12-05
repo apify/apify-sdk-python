@@ -1,10 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
 
-from apify._memory_storage import MemoryStorageClient
-from apify._memory_storage.resource_clients import KeyValueStoreCollectionClient
+if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
+    from apify._memory_storage.resource_clients import KeyValueStoreCollectionClient
 
 
-@pytest.fixture
+@pytest.fixture()
 def key_value_stores_client(memory_storage_client: MemoryStorageClient) -> KeyValueStoreCollectionClient:
     return memory_storage_client.key_value_stores()
 

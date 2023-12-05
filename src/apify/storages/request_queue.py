@@ -1,22 +1,27 @@
+from __future__ import annotations
+
 import asyncio
 from collections import OrderedDict
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import TYPE_CHECKING
 from typing import OrderedDict as OrderedDictType
-from typing import Set, Union
 
-from apify_client import ApifyClientAsync
-from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
 from apify_shared.utils import ignore_docs
 
 from .._crypto import crypto_random_object_id
-from .._memory_storage import MemoryStorageClient
-from .._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
-from .._utils import LRUCache, _budget_ow, _unique_key_to_request_id
-from ..config import Configuration
+from .._utils import LRUCache, budget_ow, unique_key_to_request_id
 from ..consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from ..log import logger
 from .base_storage import BaseStorage
+
+if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+    from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
+
+    from .._memory_storage import MemoryStorageClient
+    from .._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
+    from ..config import Configuration
+
 
 MAX_CACHED_REQUESTS = 1_000_000
 
@@ -72,20 +77,26 @@ class RequestQueue(BaseStorage):
     cloud storage.
     """
 
-    _request_queue_client: Union[RequestQueueClientAsync, RequestQueueClient]
+    _request_queue_client: RequestQueueClientAsync | RequestQueueClient
     _client_key = crypto_random_object_id()
     _queue_head_dict: OrderedDictType[str, str]
-    _query_queue_head_task: Optional[asyncio.Task]
-    _in_progress: Set[str]
+    _query_queue_head_task: asyncio.Task | None
+    _in_progress: set[str]
     _last_activity: datetime
     _internal_timeout_seconds = 5 * 60
     _recently_handled: LRUCache[bool]
     _assumed_total_count = 0
     _assumed_handled_count = 0
-    _requests_cache: LRUCache[Dict]
+    _requests_cache: LRUCache[dict]
 
     @ignore_docs
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration) -> None:
+    def __init__(
+        self: RequestQueue,
+        id: str,  # noqa: A002
+        name: str | None,
+        client: ApifyClientAsync | MemoryStorageClient,
+        config: Configuration,
+    ) -> None:
         """Create a `RequestQueue` instance.
 
         Do not use the constructor directly, use the `Actor.open_request_queue()` function instead.
@@ -107,29 +118,29 @@ class RequestQueue(BaseStorage):
         self._requests_cache = LRUCache(max_length=MAX_CACHED_REQUESTS)
 
     @classmethod
-    def _get_human_friendly_label(cls) -> str:
+    def _get_human_friendly_label(cls: type[RequestQueue]) -> str:
         return 'Request queue'
 
     @classmethod
-    def _get_default_id(cls, config: Configuration) -> str:
+    def _get_default_id(cls: type[RequestQueue], config: Configuration) -> str:
         return config.default_request_queue_id
 
     @classmethod
     def _get_single_storage_client(
-        cls,
-        id: str,
-        client: Union[ApifyClientAsync, MemoryStorageClient],
-    ) -> Union[RequestQueueClientAsync, RequestQueueClient]:
+        cls: type[RequestQueue],
+        id: str,  # noqa: A002
+        client: ApifyClientAsync | MemoryStorageClient,
+    ) -> RequestQueueClientAsync | RequestQueueClient:
         return client.request_queue(id)
 
     @classmethod
     def _get_storage_collection_client(
-        cls,
-        client: Union[ApifyClientAsync, MemoryStorageClient],
-    ) -> Union[RequestQueueCollectionClientAsync, RequestQueueCollectionClient]:
+        cls: type[RequestQueue],
+        client: ApifyClientAsync | MemoryStorageClient,
+    ) -> RequestQueueCollectionClientAsync | RequestQueueCollectionClient:
         return client.request_queues()
 
-    async def add_request(self, request: Dict, *, forefront: bool = False) -> Dict:
+    async def add_request(self: RequestQueue, request: dict, *, forefront: bool = False) -> dict:
         """Add a request to the queue.
 
         Args:
@@ -139,15 +150,20 @@ class RequestQueue(BaseStorage):
         Returns:
             dict: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
         """
-        _budget_ow(request, {
-            'url': (str, True),
-        })
+        budget_ow(
+            request,
+            {
+                'url': (str, True),
+            },
+        )
         self._last_activity = datetime.now(timezone.utc)
 
         if request.get('uniqueKey') is None:
-            request['uniqueKey'] = request['url']  # TODO: Check Request class in crawlee and replicate uniqueKey generation logic...
+            # TODO: Check Request class in crawlee and replicate uniqueKey generation logic...
+            # https://github.com/apify/apify-sdk-python/issues/141
+            request['uniqueKey'] = request['url']
 
-        cache_key = _unique_key_to_request_id(request['uniqueKey'])
+        cache_key = unique_key_to_request_id(request['uniqueKey'])
         cached_info = self._requests_cache.get(cache_key)
 
         if cached_info:
@@ -175,7 +191,7 @@ class RequestQueue(BaseStorage):
 
         return queue_operation_info
 
-    async def get_request(self, request_id: str) -> Optional[Dict]:
+    async def get_request(self: RequestQueue, request_id: str) -> dict | None:
         """Retrieve a request from the queue.
 
         Args:
@@ -184,10 +200,10 @@ class RequestQueue(BaseStorage):
         Returns:
             dict, optional: The retrieved request, or `None`, if it does not exist.
         """
-        _budget_ow(request_id, (str, True), 'request_id')
+        budget_ow(request_id, (str, True), 'request_id')
         return await self._request_queue_client.get_request(request_id)
 
-    async def fetch_next_request(self) -> Optional[Dict]:
+    async def fetch_next_request(self: RequestQueue) -> dict | None:
         """Return the next request in the queue to be processed.
 
         Once you successfully finish processing of the request, you need to call
@@ -211,21 +227,24 @@ class RequestQueue(BaseStorage):
 
         # This should never happen, but...
         if next_request_id in self._in_progress or self._recently_handled.get(next_request_id):
-            logger.warning('Queue head returned a request that is already in progress?!', extra={
-                'nextRequestId': next_request_id,
-                'inProgress': next_request_id in self._in_progress,
-                'recentlyHandled': next_request_id in self._recently_handled,
-            })
+            logger.warning(
+                'Queue head returned a request that is already in progress?!',
+                extra={
+                    'nextRequestId': next_request_id,
+                    'inProgress': next_request_id in self._in_progress,
+                    'recentlyHandled': next_request_id in self._recently_handled,
+                },
+            )
             return None
         self._in_progress.add(next_request_id)
         self._last_activity = datetime.now(timezone.utc)
 
         try:
             request = await self.get_request(next_request_id)
-        except Exception as e:
+        except Exception:
             # On error, remove the request from in progress, otherwise it would be there forever
             self._in_progress.remove(next_request_id)
-            raise e
+            raise
 
         # NOTE: It can happen that the queue head index is inconsistent with the main queue table. This can occur in two situations:
 
@@ -252,7 +271,7 @@ class RequestQueue(BaseStorage):
 
         return request
 
-    async def mark_request_as_handled(self, request: Dict) -> Optional[Dict]:
+    async def mark_request_as_handled(self: RequestQueue, request: dict) -> dict | None:
         """Mark a request as handled after successful processing.
 
         Handled requests will never again be returned by the `RequestQueue.fetch_next_request` method.
@@ -264,11 +283,14 @@ class RequestQueue(BaseStorage):
             dict, optional: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
                 `None` if the given request was not in progress.
         """
-        _budget_ow(request, {
-            'id': (str, True),
-            'uniqueKey': (str, True),
-            'handledAt': (datetime, False),
-        })
+        budget_ow(
+            request,
+            {
+                'id': (str, True),
+                'uniqueKey': (str, True),
+                'handledAt': (datetime, False),
+            },
+        )
         self._last_activity = datetime.now(timezone.utc)
         if request['id'] not in self._in_progress:
             logger.debug('Cannot mark request as handled, because it is not in progress!', extra={'requestId': request['id']})
@@ -284,11 +306,15 @@ class RequestQueue(BaseStorage):
         if not queue_operation_info['wasAlreadyHandled']:
             self._assumed_handled_count += 1
 
-        self._cache_request(_unique_key_to_request_id(request['uniqueKey']), queue_operation_info)
+        self._cache_request(unique_key_to_request_id(request['uniqueKey']), queue_operation_info)
 
         return queue_operation_info
 
-    async def reclaim_request(self, request: Dict, forefront: bool = False) -> Optional[Dict]:
+    async def reclaim_request(
+        self: RequestQueue,
+        request: dict,
+        forefront: bool = False,  # noqa: FBT001, FBT002
+    ) -> dict | None:
         """Reclaim a failed request back to the queue.
 
         The request will be returned for processing later again
@@ -301,21 +327,25 @@ class RequestQueue(BaseStorage):
             dict, optional: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
                 `None` if the given request was not in progress.
         """
-        _budget_ow(request, {
-            'id': (str, True),
-            'uniqueKey': (str, True),
-        })
+        budget_ow(
+            request,
+            {
+                'id': (str, True),
+                'uniqueKey': (str, True),
+            },
+        )
         self._last_activity = datetime.now(timezone.utc)
 
         if request['id'] not in self._in_progress:
             logger.debug('Cannot reclaim request, because it is not in progress!', extra={'requestId': request['id']})
             return None
 
-        # TODO: If request hasn't been changed since the last getRequest(),
-        #       we don't need to call updateRequest() and thus improve performance.
+        # TODO: If request hasn't been changed since the last getRequest(), we don't need to call updateRequest()
+        # and thus improve performance.
+        # https://github.com/apify/apify-sdk-python/issues/143
         queue_operation_info = await self._request_queue_client.update_request(request, forefront=forefront)
         queue_operation_info['uniqueKey'] = request['uniqueKey']
-        self._cache_request(_unique_key_to_request_id(request['uniqueKey']), queue_operation_info)
+        self._cache_request(unique_key_to_request_id(request['uniqueKey']), queue_operation_info)
 
         # Wait a little to increase a chance that the next call to fetchNextRequest() will return the request with updated data.
         # This is to compensate for the limitation of DynamoDB, where writes might not be immediately visible to subsequent reads.
@@ -333,10 +363,10 @@ class RequestQueue(BaseStorage):
 
         return queue_operation_info
 
-    def _in_progress_count(self) -> int:
+    def _in_progress_count(self: RequestQueue) -> int:
         return len(self._in_progress)
 
-    async def is_empty(self) -> bool:
+    async def is_empty(self: RequestQueue) -> bool:
         """Check whether the queue is empty.
 
         Returns:
@@ -345,7 +375,7 @@ class RequestQueue(BaseStorage):
         await self._ensure_head_is_non_empty()
         return len(self._queue_head_dict) == 0
 
-    async def is_finished(self) -> bool:
+    async def is_finished(self: RequestQueue) -> bool:
         """Check whether the queue is finished.
 
         Due to the nature of distributed storage used by the queue,
@@ -361,13 +391,13 @@ class RequestQueue(BaseStorage):
             logger.warning(message)
             self._reset()
 
-        if (len(self._queue_head_dict) > 0 or self._in_progress_count() > 0):
+        if len(self._queue_head_dict) > 0 or self._in_progress_count() > 0:
             return False
 
-        is_head_consistent = await self._ensure_head_is_non_empty(True)
+        is_head_consistent = await self._ensure_head_is_non_empty(ensure_consistency=True)
         return is_head_consistent and len(self._queue_head_dict) == 0 and self._in_progress_count() == 0
 
-    def _reset(self) -> None:
+    def _reset(self: RequestQueue) -> None:
         self._queue_head_dict.clear()
         self._query_queue_head_task = None
         self._in_progress.clear()
@@ -377,7 +407,7 @@ class RequestQueue(BaseStorage):
         self._requests_cache.clear()
         self._last_activity = datetime.now(timezone.utc)
 
-    def _cache_request(self, cache_key: str, queue_operation_info: Dict) -> None:
+    def _cache_request(self: RequestQueue, cache_key: str, queue_operation_info: dict) -> None:
         self._requests_cache[cache_key] = {
             'id': queue_operation_info['requestId'],
             'isHandled': queue_operation_info['wasAlreadyHandled'],
@@ -385,7 +415,7 @@ class RequestQueue(BaseStorage):
             'wasAlreadyHandled': queue_operation_info['wasAlreadyHandled'],
         }
 
-    async def _queue_query_head(self, limit: int) -> Dict:
+    async def _queue_query_head(self: RequestQueue, limit: int) -> dict:
         query_started_at = datetime.now(timezone.utc)
 
         list_head = await self._request_queue_client.list_head(limit=limit)
@@ -394,12 +424,15 @@ class RequestQueue(BaseStorage):
             if not request['id'] or not request['uniqueKey'] or request['id'] in self._in_progress or self._recently_handled.get(request['id']):
                 continue
             self._queue_head_dict[request['id']] = request['id']
-            self._cache_request(_unique_key_to_request_id(request['uniqueKey']), {
-                'requestId': request['id'],
-                'wasAlreadyHandled': False,
-                'wasAlreadyPresent': True,
-                'uniqueKey': request['uniqueKey'],
-            })
+            self._cache_request(
+                unique_key_to_request_id(request['uniqueKey']),
+                {
+                    'requestId': request['id'],
+                    'wasAlreadyHandled': False,
+                    'wasAlreadyPresent': True,
+                    'uniqueKey': request['uniqueKey'],
+                },
+            )
 
         # This is needed so that the next call to _ensureHeadIsNonEmpty() will fetch the queue head again.
         self._query_queue_head_task = None
@@ -412,7 +445,12 @@ class RequestQueue(BaseStorage):
             'hadMultipleClients': list_head['hadMultipleClients'],
         }
 
-    async def _ensure_head_is_non_empty(self, ensure_consistency: bool = False, limit: Optional[int] = None, iteration: int = 0) -> bool:
+    async def _ensure_head_is_non_empty(
+        self: RequestQueue,
+        ensure_consistency: bool = False,  # noqa: FBT001, FBT002
+        limit: int | None = None,
+        iteration: int = 0,
+    ) -> bool:
         # If is nonempty resolve immediately.
         if len(self._queue_head_dict) > 0:
             return True
@@ -426,26 +464,28 @@ class RequestQueue(BaseStorage):
         queue_head = await self._query_queue_head_task
 
         # TODO: I feel this code below can be greatly simplified... (comes from TS implementation *wink*)
+        # https://github.com/apify/apify-sdk-python/issues/142
 
-        """ If queue is still empty then one of the following holds:
-        - the other calls waiting for this task already consumed all the returned requests
-        - the limit was too low and contained only requests in progress
-        - the writes from other clients were not propagated yet
-        - the whole queue was processed and we are done
-        """
+        # If queue is still empty then one of the following holds:
+        # - the other calls waiting for this task already consumed all the returned requests
+        # - the limit was too low and contained only requests in progress
+        # - the writes from other clients were not propagated yet
+        # - the whole queue was processed and we are done
 
         # If limit was not reached in the call then there are no more requests to be returned.
-        if (queue_head['prevLimit'] >= REQUEST_QUEUE_HEAD_MAX_LIMIT):
+        if queue_head['prevLimit'] >= REQUEST_QUEUE_HEAD_MAX_LIMIT:
             logger.warning('Reached the maximum number of requests in progress', extra={'limit': REQUEST_QUEUE_HEAD_MAX_LIMIT})
 
-        should_repeat_with_higher_limit = len(
-            self._queue_head_dict) == 0 and queue_head['wasLimitReached'] and queue_head['prevLimit'] < REQUEST_QUEUE_HEAD_MAX_LIMIT
+        should_repeat_with_higher_limit = (
+            len(self._queue_head_dict) == 0 and queue_head['wasLimitReached'] and queue_head['prevLimit'] < REQUEST_QUEUE_HEAD_MAX_LIMIT
+        )
 
         # If ensureConsistency=true then we must ensure that either:
         # - queueModifiedAt is older than queryStartedAt by at least API_PROCESSED_REQUESTS_DELAY_MILLIS
         # - hadMultipleClients=false and this.assumedTotalCount<=this.assumedHandledCount
-        is_database_consistent = (queue_head['queryStartedAt'] - queue_head['queueModifiedAt'].replace(tzinfo=timezone.utc)
-                                  ).seconds >= (API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000)
+        is_database_consistent = (queue_head['queryStartedAt'] - queue_head['queueModifiedAt'].replace(tzinfo=timezone.utc)).seconds >= (
+            API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000
+        )
         is_locally_consistent = not queue_head['hadMultipleClients'] and self._assumed_total_count <= self._assumed_handled_count
         # Consistent information from one source is enough to consider request queue finished.
         should_repeat_for_consistency = ensure_consistency and not is_database_consistent and not is_locally_consistent
@@ -463,14 +503,17 @@ class RequestQueue(BaseStorage):
 
         # If we are repeating for consistency then wait required time.
         if should_repeat_for_consistency:
-            delay_seconds = (API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000) - \
-                (datetime.now(timezone.utc) - queue_head['queueModifiedAt']).seconds
+            delay_seconds = (API_PROCESSED_REQUESTS_DELAY_MILLIS // 1000) - (datetime.now(timezone.utc) - queue_head['queueModifiedAt']).seconds
             logger.info(f'Waiting for {delay_seconds}s before considering the queue as finished to ensure that the data is consistent.')
             await asyncio.sleep(delay_seconds)
 
         return await self._ensure_head_is_non_empty(ensure_consistency, next_limit, iteration + 1)
 
-    def _maybe_add_request_to_queue_head(self, request_id: str, forefront: bool) -> None:
+    def _maybe_add_request_to_queue_head(
+        self: RequestQueue,
+        request_id: str,
+        forefront: bool,  # noqa: FBT001
+    ) -> None:
         if forefront:
             self._queue_head_dict[request_id] = request_id
             # Move to start, i.e. forefront of the queue
@@ -479,12 +522,12 @@ class RequestQueue(BaseStorage):
             # OrderedDict puts the item to the end of the queue by default
             self._queue_head_dict[request_id] = request_id
 
-    async def drop(self) -> None:
+    async def drop(self: RequestQueue) -> None:
         """Remove the request queue either from the Apify cloud storage or from the local directory."""
         await self._request_queue_client.delete()
         self._remove_from_cache()
 
-    async def get_info(self) -> Optional[Dict]:
+    async def get_info(self: RequestQueue) -> dict | None:
         """Get an object containing general information about the request queue.
 
         Returns:
@@ -493,14 +536,14 @@ class RequestQueue(BaseStorage):
         return await self._request_queue_client.get()
 
     @classmethod
-    async def open(
-        cls,
+    async def open(  # noqa: A003
+        cls: type[RequestQueue],
         *,
-        id: Optional[str] = None,
-        name: Optional[str] = None,
+        id: str | None = None,  # noqa: A002
+        name: str | None = None,
         force_cloud: bool = False,
-        config: Optional[Configuration] = None,
-    ) -> 'RequestQueue':
+        config: Configuration | None = None,
+    ) -> RequestQueue:
         """Open a request queue.
 
         Request queue represents a queue of URLs to crawl, which is stored either on local filesystem or in the Apify cloud.
@@ -523,5 +566,5 @@ class RequestQueue(BaseStorage):
             RequestQueue: An instance of the `RequestQueue` class for the given ID or name.
         """
         queue = await super().open(id=id, name=name, force_cloud=force_cloud, config=config)
-        await queue._ensure_head_is_non_empty()
-        return queue
+        await queue._ensure_head_is_non_empty()  # type: ignore
+        return queue  # type: ignore

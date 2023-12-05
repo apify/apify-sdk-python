@@ -7,6 +7,13 @@ from .key_value_store_collection import KeyValueStoreCollectionClient
 from .request_queue import RequestQueueClient
 from .request_queue_collection import RequestQueueCollectionClient
 
-__all__ = ['BaseResourceClient', 'BaseResourceCollectionClient',
-           'DatasetClient', 'DatasetCollectionClient', 'KeyValueStoreClient',
-           'KeyValueStoreCollectionClient', 'RequestQueueClient', 'RequestQueueCollectionClient']
+__all__ = [
+    'BaseResourceClient',
+    'BaseResourceCollectionClient',
+    'DatasetClient',
+    'DatasetCollectionClient',
+    'KeyValueStoreClient',
+    'KeyValueStoreCollectionClient',
+    'RequestQueueClient',
+    'RequestQueueCollectionClient',
+]

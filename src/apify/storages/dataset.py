@@ -1,35 +1,40 @@
+from __future__ import annotations
+
 import csv
 import io
 import math
-from typing import AsyncIterator, Dict, Iterable, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, AsyncIterator, Iterable, Iterator
 
-from apify_client import ApifyClientAsync
-from apify_client.clients import DatasetClientAsync, DatasetCollectionClientAsync
-from apify_shared.models import ListPage
-from apify_shared.types import JSONSerializable
 from apify_shared.utils import ignore_docs, json_dumps
 
-from .._memory_storage import MemoryStorageClient
-from .._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
-from .._utils import _wrap_internal
-from ..config import Configuration
+from .._utils import wrap_internal
 from ..consts import MAX_PAYLOAD_SIZE_BYTES
 from .base_storage import BaseStorage
 from .key_value_store import KeyValueStore
+
+if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+    from apify_client.clients import DatasetClientAsync, DatasetCollectionClientAsync
+    from apify_shared.models import ListPage
+    from apify_shared.types import JSONSerializable
+
+    from .._memory_storage import MemoryStorageClient
+    from .._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
+    from ..config import Configuration
 
 # 0.01%
 SAFETY_BUFFER_PERCENT = 0.01 / 100
 EFFECTIVE_LIMIT_BYTES = MAX_PAYLOAD_SIZE_BYTES - math.ceil(MAX_PAYLOAD_SIZE_BYTES * SAFETY_BUFFER_PERCENT)
 
 
-def _check_and_serialize(item: JSONSerializable, index: Optional[int] = None) -> str:
+def _check_and_serialize(item: JSONSerializable, index: int | None = None) -> str:
     """Accept a JSON serializable object as an input, validate its serializability and its serialized size against `EFFECTIVE_LIMIT_BYTES`."""
     s = ' ' if index is None else f' at index {index} '
 
     try:
         payload = json_dumps(item)
-    except Exception as e:
-        raise ValueError(f'Data item{s}is not serializable to JSON.') from e
+    except Exception as exc:
+        raise ValueError(f'Data item{s}is not serializable to JSON.') from exc
 
     length_bytes = len(payload.encode('utf-8'))
     if length_bytes > EFFECTIVE_LIMIT_BYTES:
@@ -91,11 +96,17 @@ class Dataset(BaseStorage):
     """
 
     _id: str
-    _name: Optional[str]
-    _dataset_client: Union[DatasetClientAsync, DatasetClient]
+    _name: str | None
+    _dataset_client: DatasetClientAsync | DatasetClient
 
     @ignore_docs
-    def __init__(self, id: str, name: Optional[str], client: Union[ApifyClientAsync, MemoryStorageClient], config: Configuration) -> None:
+    def __init__(
+        self: Dataset,
+        id: str,  # noqa: A002
+        name: str | None,
+        client: ApifyClientAsync | MemoryStorageClient,
+        config: Configuration,
+    ) -> None:
         """Create a `Dataset` instance.
 
         Do not use the constructor directly, use the `Actor.open_dataset()` function instead.
@@ -108,34 +119,38 @@ class Dataset(BaseStorage):
         """
         super().__init__(id=id, name=name, client=client, config=config)
 
-        self.get_data = _wrap_internal(self._get_data_internal, self.get_data)  # type: ignore
-        self.push_data = _wrap_internal(self._push_data_internal, self.push_data)  # type: ignore
-        self.export_to_json = _wrap_internal(self._export_to_json_internal, self.export_to_json)  # type: ignore
-        self.export_to_csv = _wrap_internal(self._export_to_csv_internal, self.export_to_csv)  # type: ignore
+        self.get_data = wrap_internal(self._get_data_internal, self.get_data)  # type: ignore
+        self.push_data = wrap_internal(self._push_data_internal, self.push_data)  # type: ignore
+        self.export_to_json = wrap_internal(self._export_to_json_internal, self.export_to_json)  # type: ignore
+        self.export_to_csv = wrap_internal(self._export_to_csv_internal, self.export_to_csv)  # type: ignore
 
         self._dataset_client = client.dataset(self._id)
 
     @classmethod
-    def _get_human_friendly_label(cls) -> str:
+    def _get_human_friendly_label(cls: type[Dataset]) -> str:
         return 'Dataset'
 
     @classmethod
-    def _get_default_id(cls, config: Configuration) -> str:
+    def _get_default_id(cls: type[Dataset], config: Configuration) -> str:
         return config.default_dataset_id
 
     @classmethod
-    def _get_single_storage_client(cls, id: str, client: Union[ApifyClientAsync, MemoryStorageClient]) -> Union[DatasetClientAsync, DatasetClient]:
+    def _get_single_storage_client(
+        cls: type[Dataset],
+        id: str,  # noqa: A002
+        client: ApifyClientAsync | MemoryStorageClient,
+    ) -> DatasetClientAsync | DatasetClient:
         return client.dataset(id)
 
     @classmethod
     def _get_storage_collection_client(
-        cls,
-        client: Union[ApifyClientAsync, MemoryStorageClient],
-    ) -> Union[DatasetCollectionClientAsync, DatasetCollectionClient]:
+        cls: type[Dataset],
+        client: ApifyClientAsync | MemoryStorageClient,
+    ) -> DatasetCollectionClientAsync | DatasetCollectionClient:
         return client.datasets()
 
     @classmethod
-    async def push_data(cls, data: JSONSerializable) -> None:
+    async def push_data(cls: type[Dataset], data: JSONSerializable) -> None:
         """Store an object or an array of objects to the dataset.
 
         The size of the data is limited by the receiving API and therefore `push_data()` will only
@@ -149,7 +164,7 @@ class Dataset(BaseStorage):
         dataset = await cls.open()
         return await dataset.push_data(data)
 
-    async def _push_data_internal(self, data: JSONSerializable) -> None:
+    async def _push_data_internal(self: Dataset, data: JSONSerializable) -> None:
         # Handle singular items
         if not isinstance(data, list):
             payload = _check_and_serialize(data)
@@ -161,22 +176,23 @@ class Dataset(BaseStorage):
         # Invoke client in series to preserve the order of data
         for chunk in _chunk_by_size(payloads_generator):
             await self._dataset_client.push_items(chunk)
+        return None
 
     @classmethod
     async def get_data(
-        cls,
+        cls: type[Dataset],
         *,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-        clean: Optional[bool] = None,
-        desc: Optional[bool] = None,
-        fields: Optional[List[str]] = None,
-        omit: Optional[List[str]] = None,
-        unwind: Optional[str] = None,
-        skip_empty: Optional[bool] = None,
-        skip_hidden: Optional[bool] = None,
-        flatten: Optional[List[str]] = None,
-        view: Optional[str] = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        clean: bool | None = None,
+        desc: bool | None = None,
+        fields: list[str] | None = None,
+        omit: list[str] | None = None,
+        unwind: str | None = None,
+        skip_empty: bool | None = None,
+        skip_hidden: bool | None = None,
+        flatten: list[str] | None = None,
+        view: str | None = None,
     ) -> ListPage:
         """Get items from the dataset.
 
@@ -223,30 +239,22 @@ class Dataset(BaseStorage):
         )
 
     async def _get_data_internal(
-        self,
+        self: Dataset,
         *,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-        clean: Optional[bool] = None,
-        desc: Optional[bool] = None,
-        fields: Optional[List[str]] = None,
-        omit: Optional[List[str]] = None,
-        unwind: Optional[str] = None,
-        skip_empty: Optional[bool] = None,
-        skip_hidden: Optional[bool] = None,
-        flatten: Optional[List[str]] = None,
-        view: Optional[str] = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        clean: bool | None = None,
+        desc: bool | None = None,
+        fields: list[str] | None = None,
+        omit: list[str] | None = None,
+        unwind: str | None = None,
+        skip_empty: bool | None = None,
+        skip_hidden: bool | None = None,
+        flatten: list[str] | None = None,
+        view: str | None = None,
     ) -> ListPage:
-        # try {
-        #     return await this.client.listItems(options);
-        # } catch (e) {
-        #     const error = e as Error;
-        #     if (error.message.includes('Cannot create a string longer than')) {
-        #         throw new Error('dataset.getData(): The response is too large for parsing. You can fix this by lowering the "limit" option.');
-        #     }
-        #     throw e;
-        # }
-        # TODO: Simulate the above error in Python and handle accordingly...
+        # TODO: Improve error handling here
+        # https://github.com/apify/apify-sdk-python/issues/140
         return await self._dataset_client.list_items(
             offset=offset,
             limit=limit,
@@ -262,12 +270,12 @@ class Dataset(BaseStorage):
         )
 
     async def export_to(
-        self,
+        self: Dataset,
         key: str,
         *,
-        to_key_value_store_id: Optional[str] = None,
-        to_key_value_store_name: Optional[str] = None,
-        content_type: Optional[str] = None,
+        to_key_value_store_id: str | None = None,
+        to_key_value_store_name: str | None = None,
+        content_type: str | None = None,
     ) -> None:
         """Save the entirety of the dataset's contents into one file within a key-value store.
 
@@ -280,7 +288,7 @@ class Dataset(BaseStorage):
             content_type (str, optional): Either 'text/csv' or 'application/json'. Defaults to JSON.
         """
         key_value_store = await KeyValueStore.open(id=to_key_value_store_id, name=to_key_value_store_name)
-        items: List[Dict] = []
+        items: list[dict] = []
         limit = 1000
         offset = 0
         while True:
@@ -307,13 +315,13 @@ class Dataset(BaseStorage):
 
     @classmethod
     async def export_to_json(
-        cls,
+        cls: type[Dataset],
         key: str,
         *,
-        from_dataset_id: Optional[str] = None,
-        from_dataset_name: Optional[str] = None,
-        to_key_value_store_id: Optional[str] = None,
-        to_key_value_store_name: Optional[str] = None,
+        from_dataset_id: str | None = None,
+        from_dataset_name: str | None = None,
+        to_key_value_store_id: str | None = None,
+        to_key_value_store_name: str | None = None,
     ) -> None:
         """Save the entirety of the dataset's contents into one JSON file within a key-value store.
 
@@ -332,13 +340,13 @@ class Dataset(BaseStorage):
         await dataset.export_to_json(key, to_key_value_store_id=to_key_value_store_id, to_key_value_store_name=to_key_value_store_name)
 
     async def _export_to_json_internal(
-        self,
+        self: Dataset,
         key: str,
         *,
-        from_dataset_id: Optional[str] = None,  # noqa: U100
-        from_dataset_name: Optional[str] = None,  # noqa: U100
-        to_key_value_store_id: Optional[str] = None,
-        to_key_value_store_name: Optional[str] = None,
+        from_dataset_id: str | None = None,  # noqa: ARG002
+        from_dataset_name: str | None = None,  # noqa: ARG002
+        to_key_value_store_id: str | None = None,
+        to_key_value_store_name: str | None = None,
     ) -> None:
         await self.export_to(
             key,
@@ -349,13 +357,13 @@ class Dataset(BaseStorage):
 
     @classmethod
     async def export_to_csv(
-        cls,
+        cls: type[Dataset],
         key: str,
         *,
-        from_dataset_id: Optional[str] = None,
-        from_dataset_name: Optional[str] = None,
-        to_key_value_store_id: Optional[str] = None,
-        to_key_value_store_name: Optional[str] = None,
+        from_dataset_id: str | None = None,
+        from_dataset_name: str | None = None,
+        to_key_value_store_id: str | None = None,
+        to_key_value_store_name: str | None = None,
     ) -> None:
         """Save the entirety of the dataset's contents into one CSV file within a key-value store.
 
@@ -374,13 +382,13 @@ class Dataset(BaseStorage):
         await dataset.export_to_csv(key, to_key_value_store_id=to_key_value_store_id, to_key_value_store_name=to_key_value_store_name)
 
     async def _export_to_csv_internal(
-        self,
+        self: Dataset,
         key: str,
         *,
-        from_dataset_id: Optional[str] = None,  # noqa: U100
-        from_dataset_name: Optional[str] = None,  # noqa: U100
-        to_key_value_store_id: Optional[str] = None,
-        to_key_value_store_name: Optional[str] = None,
+        from_dataset_id: str | None = None,  # noqa: ARG002
+        from_dataset_name: str | None = None,  # noqa: ARG002
+        to_key_value_store_id: str | None = None,
+        to_key_value_store_name: str | None = None,
     ) -> None:
         await self.export_to(
             key,
@@ -389,7 +397,7 @@ class Dataset(BaseStorage):
             content_type='text/csv',
         )
 
-    async def get_info(self) -> Optional[Dict]:
+    async def get_info(self: Dataset) -> dict | None:
         """Get an object containing general information about the dataset.
 
         Returns:
@@ -398,18 +406,18 @@ class Dataset(BaseStorage):
         return await self._dataset_client.get()
 
     def iterate_items(
-        self,
+        self: Dataset,
         *,
         offset: int = 0,
-        limit: Optional[int] = None,
-        clean: Optional[bool] = None,
-        desc: Optional[bool] = None,
-        fields: Optional[List[str]] = None,
-        omit: Optional[List[str]] = None,
-        unwind: Optional[str] = None,
-        skip_empty: Optional[bool] = None,
-        skip_hidden: Optional[bool] = None,
-    ) -> AsyncIterator[Dict]:
+        limit: int | None = None,
+        clean: bool | None = None,
+        desc: bool | None = None,
+        fields: list[str] | None = None,
+        omit: list[str] | None = None,
+        unwind: str | None = None,
+        skip_empty: bool | None = None,
+        skip_hidden: bool | None = None,
+    ) -> AsyncIterator[dict]:
         """Iterate over the items in the dataset.
 
         Args:
@@ -449,20 +457,20 @@ class Dataset(BaseStorage):
             skip_hidden=skip_hidden,
         )
 
-    async def drop(self) -> None:
+    async def drop(self: Dataset) -> None:
         """Remove the dataset either from the Apify cloud storage or from the local directory."""
         await self._dataset_client.delete()
         self._remove_from_cache()
 
     @classmethod
-    async def open(
-        cls,
+    async def open(  # noqa: A003
+        cls: type[Dataset],
         *,
-        id: Optional[str] = None,
-        name: Optional[str] = None,
+        id: str | None = None,  # noqa: A002
+        name: str | None = None,
         force_cloud: bool = False,
-        config: Optional[Configuration] = None,
-    ) -> 'Dataset':
+        config: Configuration | None = None,
+    ) -> Dataset:
         """Open a dataset.
 
         Datasets are used to store structured data where each object stored has the same attributes,
@@ -483,4 +491,4 @@ class Dataset(BaseStorage):
         Returns:
             Dataset: An instance of the `Dataset` class for the given ID or name.
         """
-        return await super().open(id=id, name=name, force_cloud=force_cloud, config=config)
+        return await super().open(id=id, name=name, force_cloud=force_cloud, config=config)  # type: ignore

@@ -1,15 +1,22 @@
-import pytest
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from apify import Actor
-from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
-from .conftest import ActorFactory
+
+if TYPE_CHECKING:
+    import pytest
+
+    from apify_client import ApifyClientAsync
+
+    from .conftest import ActorFactory
 
 
 class TestActorOpenKeyValueStore:
-    async def test_same_references_default(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_default(self: TestActorOpenKeyValueStore, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 kvs1 = await Actor.open_key_value_store()
@@ -22,7 +29,7 @@ class TestActorOpenKeyValueStore:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_same_references_named(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_named(self: TestActorOpenKeyValueStore, make_actor: ActorFactory) -> None:
         kvs_name = generate_unique_resource_name('key-value-store')
 
         async def main() -> None:
@@ -46,7 +53,11 @@ class TestActorOpenKeyValueStore:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_force_cloud(self, apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_force_cloud(
+        self: TestActorOpenKeyValueStore,
+        apify_client_async: ApifyClientAsync,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         assert apify_client_async.token is not None
         monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 
@@ -73,7 +84,7 @@ class TestActorOpenKeyValueStore:
 
 
 class TestActorGetSetValue:
-    async def test_actor_get_set_value_simple(self, make_actor: ActorFactory) -> None:
+    async def test_actor_get_set_value_simple(self: TestActorGetSetValue, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 await Actor.set_value('test', {'number': 123, 'string': 'a string', 'nested': {'test': 1}})
@@ -88,7 +99,7 @@ class TestActorGetSetValue:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_actor_get_set_value_complex(self, make_actor: ActorFactory) -> None:
+    async def test_actor_get_set_value_complex(self: TestActorGetSetValue, make_actor: ActorFactory) -> None:
         async def main_set() -> None:
             async with Actor:
                 await Actor.set_value('test', {'number': 123, 'string': 'a string', 'nested': {'test': 1}})
@@ -126,7 +137,7 @@ class TestActorGetSetValue:
 
 
 class TestActorGetInput:
-    async def test_actor_get_input(self, make_actor: ActorFactory) -> None:
+    async def test_actor_get_input(self: TestActorGetInput, make_actor: ActorFactory) -> None:
         actor_source_files = {
             'INPUT_SCHEMA.json': """
                 {
@@ -161,18 +172,20 @@ class TestActorGetInput:
         }
         actor = await make_actor('actor-get-input', source_files=actor_source_files)
 
-        run_result = await actor.call(run_input={
-            'number': 123,
-            'string': 'a string',
-            'nested': {'test': 1},
-            'password': 'very secret',
-        })
+        run_result = await actor.call(
+            run_input={
+                'number': 123,
+                'string': 'a string',
+                'nested': {'test': 1},
+                'password': 'very secret',
+            }
+        )
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
 
 class TestGetPublicUrl:
-    async def test_get_public_url(self, make_actor: ActorFactory) -> None:
+    async def test_get_public_url(self: TestGetPublicUrl, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 public_api_url = Actor.config.api_public_base_url

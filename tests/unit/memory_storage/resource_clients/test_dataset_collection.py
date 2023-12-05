@@ -1,11 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import pytest
 
-from apify._memory_storage import MemoryStorageClient
-from apify._memory_storage.resource_clients import DatasetCollectionClient
+if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
+    from apify._memory_storage.resource_clients import DatasetCollectionClient
 
 
-@pytest.fixture
+@pytest.fixture()
 def datasets_client(memory_storage_client: MemoryStorageClient) -> DatasetCollectionClient:
     return memory_storage_client.datasets()
 

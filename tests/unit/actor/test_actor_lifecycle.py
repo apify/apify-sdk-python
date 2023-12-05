@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 from datetime import datetime
@@ -11,12 +13,12 @@ from apify_shared.consts import ActorEventTypes, ApifyEnvVars
 
 
 class TestActorInit:
-    async def test_async_with_actor_properly_initialize(self) -> None:
+    async def test_async_with_actor_properly_initialize(self: TestActorInit) -> None:
         async with Actor:
             assert Actor._get_default_instance()._is_initialized
         assert Actor._get_default_instance()._is_initialized is False
 
-    async def test_actor_init(self) -> None:
+    async def test_actor_init(self: TestActorInit) -> None:
         my_actor = Actor()
 
         await my_actor.init()
@@ -25,7 +27,7 @@ class TestActorInit:
         await my_actor.exit()
         assert my_actor._is_initialized is False
 
-    async def test_double_init(self) -> None:
+    async def test_double_init(self: TestActorInit) -> None:
         my_actor = Actor()
 
         await my_actor.init()
@@ -40,7 +42,7 @@ class TestActorInit:
 
 
 class TestActorExit:
-    async def test_with_actor_exit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_with_actor_exit(self: TestActorExit, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(ApifyEnvVars.SYSTEM_INFO_INTERVAL_MILLIS, '100')
         monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '100')
         on_persist = []
@@ -51,7 +53,7 @@ class TestActorExit:
             nonlocal on_system_info
             if event_type == ActorEventTypes.PERSIST_STATE:
                 return lambda data: on_persist.append(data)
-            elif event_type == ActorEventTypes.SYSTEM_INFO:
+            if event_type == ActorEventTypes.SYSTEM_INFO:
                 return lambda data: on_system_info.append(data)
             return lambda data: print(data)
 
@@ -74,36 +76,36 @@ class TestActorExit:
         # Check `createdAt` is a datetime (so it's the same locally and on platform)
         assert isinstance(on_system_info[0]['createdAt'], datetime)
 
-    async def test_raise_on_exit_witout_init(self) -> None:
+    async def test_raise_on_exit_witout_init(self: TestActorExit) -> None:
         with pytest.raises(RuntimeError):
             await Actor.exit()
 
 
 class TestActorFail:
-    async def test_with_actor_fail(self) -> None:
+    async def test_with_actor_fail(self: TestActorFail) -> None:
         async with Actor() as my_actor:
             assert my_actor._is_initialized
             await my_actor.fail()
         assert my_actor._is_initialized is False
 
-    async def test_with_actor_failed(self) -> None:
+    async def test_with_actor_failed(self: TestActorFail) -> None:
         with contextlib.suppress(Exception):
             async with Actor() as my_actor:
                 assert my_actor._is_initialized
-                raise Exception('Failed')
+                raise Exception('Failed')  # noqa: TRY002
         assert my_actor._is_initialized is False
 
-    async def test_raise_on_fail_without_init(self) -> None:
+    async def test_raise_on_fail_without_init(self: TestActorFail) -> None:
         with pytest.raises(RuntimeError):
             await Actor.fail()
 
-    async def test_actor_reboot_not_work_locally(self) -> None:
+    async def test_actor_reboot_not_work_locally(self: TestActorFail) -> None:
         with pytest.raises(RuntimeError):
             await Actor.reboot()
 
 
 class TestActorMainMethod:
-    async def test_actor_main_method(self) -> None:
+    async def test_actor_main_method(self: TestActorMainMethod) -> None:
         my_actor = Actor()
         main_was_called = False
 
@@ -111,11 +113,12 @@ class TestActorMainMethod:
             nonlocal main_was_called
             main_was_called = True
             assert my_actor._is_initialized
+
         await my_actor.main(actor_function)
         assert my_actor._is_initialized is False
         assert main_was_called
 
-    async def test_actor_main_method_throw_exception(self) -> None:
+    async def test_actor_main_method_throw_exception(self: TestActorMainMethod) -> None:
         my_actor = Actor()
         err = Exception('Failed')
         my_actor.fail = AsyncMock()  # type: ignore
@@ -131,7 +134,7 @@ class TestActorMainMethod:
         # This is necessary to stop the event emitting intervals
         await my_actor.exit()
 
-    async def test_actor_main_method_raise_return_value(self) -> None:
+    async def test_actor_main_method_raise_return_value(self: TestActorMainMethod) -> None:
         my_actor = Actor()
         expected_string = 'Hello world'
 
@@ -144,7 +147,7 @@ class TestActorMainMethod:
 
 
 class TestMigratingEvent:
-    async def test_migrating_event(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_migrating_event(self: TestMigratingEvent, monkeypatch: pytest.MonkeyPatch) -> None:
         # This should test whether when you get a MIGRATING event,
         # the actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
         monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '500')

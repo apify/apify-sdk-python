@@ -1,30 +1,31 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import httpx
 import pytest
-from respx import MockRouter
 
 from apify import Actor
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 
-from ..conftest import ApifyClientAsyncPatcher
+if TYPE_CHECKING:
+    from respx import MockRouter
+
+    from ..conftest import ApifyClientAsyncPatcher
 
 DUMMY_PASSWORD = 'DUMMY_PASSWORD'
 
 
-@pytest.fixture
+@pytest.fixture()
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
-    apify_client_async_patcher.patch('user', 'get', return_value={
-        'proxy': {
-            'password': DUMMY_PASSWORD,
-        },
-    })
-
+    apify_client_async_patcher.patch('user', 'get', return_value={'proxy': {'password': DUMMY_PASSWORD}})
     return ApifyClientAsync()
 
 
 class TestActorCreateProxyConfiguration:
     async def test_create_proxy_configuration_basic(
-        self,
+        self: TestActorCreateProxyConfiguration,
         monkeypatch: pytest.MonkeyPatch,
         respx_mock: MockRouter,
         patched_apify_client: ApifyClientAsync,
@@ -34,21 +35,23 @@ class TestActorCreateProxyConfiguration:
         monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
         route = respx_mock.get(dummy_proxy_status_url)
-        route.mock(httpx.Response(200, json={
-            'connected': True,
-            'connectionError': None,
-            'isManInTheMiddle': True,
-        }))
+        route.mock(
+            httpx.Response(
+                200,
+                json={
+                    'connected': True,
+                    'connectionError': None,
+                    'isManInTheMiddle': True,
+                },
+            )
+        )
 
         groups = ['GROUP1', 'GROUP2']
         country_code = 'US'
 
         await Actor.init()
 
-        proxy_configuration = await Actor.create_proxy_configuration(
-            groups=groups,
-            country_code=country_code,
-        )
+        proxy_configuration = await Actor.create_proxy_configuration(groups=groups, country_code=country_code)
 
         assert proxy_configuration is not None
         assert proxy_configuration._groups == groups
@@ -61,7 +64,7 @@ class TestActorCreateProxyConfiguration:
         await Actor.exit()
 
     async def test_create_proxy_configuration_actor_proxy_input(
-        self,
+        self: TestActorCreateProxyConfiguration,
         monkeypatch: pytest.MonkeyPatch,
         respx_mock: MockRouter,
         patched_apify_client: ApifyClientAsync,
@@ -73,47 +76,62 @@ class TestActorCreateProxyConfiguration:
         monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
         route = respx_mock.get(dummy_proxy_status_url)
-        route.mock(httpx.Response(200, json={
-            'connected': True,
-            'connectionError': None,
-            'isManInTheMiddle': True,
-        }))
+        route.mock(
+            httpx.Response(
+                200,
+                json={
+                    'connected': True,
+                    'connectionError': None,
+                    'isManInTheMiddle': True,
+                },
+            )
+        )
 
         await Actor.init()
 
         proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={})
         assert proxy_configuration is None
 
-        proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={
-            'useApifyProxy': False,
-        })
+        proxy_configuration = await Actor.create_proxy_configuration(
+            actor_proxy_input={
+                'useApifyProxy': False,
+            }
+        )
         assert proxy_configuration is None
 
-        proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={
-            'proxyUrls': [],
-        })
+        proxy_configuration = await Actor.create_proxy_configuration(
+            actor_proxy_input={
+                'proxyUrls': [],
+            }
+        )
         assert proxy_configuration is None
 
-        proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={
-            'useApifyProxy': False,
-            'proxyUrls': [dummy_proxy_url],
-        })
+        proxy_configuration = await Actor.create_proxy_configuration(
+            actor_proxy_input={
+                'useApifyProxy': False,
+                'proxyUrls': [dummy_proxy_url],
+            }
+        )
         assert proxy_configuration is not None
         assert await proxy_configuration.new_url() == dummy_proxy_url
 
-        proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={
-            'useApifyProxy': True,
-        })
+        proxy_configuration = await Actor.create_proxy_configuration(
+            actor_proxy_input={
+                'useApifyProxy': True,
+            }
+        )
         assert proxy_configuration is not None
         assert await proxy_configuration.new_url() == f'http://auto:{DUMMY_PASSWORD}@proxy.apify.com:8000'
 
         groups = ['GROUP1', 'GROUP2']
         country_code = 'US'
-        proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={
-            'useApifyProxy': True,
-            'apifyProxyGroups': groups,
-            'apifyProxyCountry': country_code,
-        })
+        proxy_configuration = await Actor.create_proxy_configuration(
+            actor_proxy_input={
+                'useApifyProxy': True,
+                'apifyProxyGroups': groups,
+                'apifyProxyCountry': country_code,
+            }
+        )
         assert proxy_configuration is not None
         assert await proxy_configuration.new_url() == f'http://groups-{"+".join(groups)},country-{country_code}:{DUMMY_PASSWORD}@proxy.apify.com:8000'
 

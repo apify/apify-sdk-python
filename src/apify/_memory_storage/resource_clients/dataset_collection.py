@@ -1,23 +1,27 @@
-from typing import Dict, List, Optional, Type
+from __future__ import annotations
 
-from apify_shared.models import ListPage
+from typing import TYPE_CHECKING
+
 from apify_shared.utils import ignore_docs
 
 from .base_resource_collection_client import BaseResourceCollectionClient
 from .dataset import DatasetClient
+
+if TYPE_CHECKING:
+    from apify_shared.models import ListPage
 
 
 @ignore_docs
 class DatasetCollectionClient(BaseResourceCollectionClient):
     """Sub-client for manipulating datasets."""
 
-    def _get_storage_client_cache(self) -> List[DatasetClient]:
+    def _get_storage_client_cache(self: DatasetCollectionClient) -> list[DatasetClient]:
         return self._memory_storage_client._datasets_handled
 
-    def _get_resource_client_class(self) -> Type[DatasetClient]:
+    def _get_resource_client_class(self: DatasetCollectionClient) -> type[DatasetClient]:
         return DatasetClient
 
-    async def list(self) -> ListPage:
+    async def list(self: DatasetCollectionClient) -> ListPage:  # noqa: A003
         """List the available datasets.
 
         Returns:
@@ -26,17 +30,17 @@ class DatasetCollectionClient(BaseResourceCollectionClient):
         return await super().list()
 
     async def get_or_create(
-        self,
+        self: DatasetCollectionClient,
         *,
-        name: Optional[str] = None,
-        schema: Optional[Dict] = None,
-        _id: Optional[str] = None,
-    ) -> Dict:
+        name: str | None = None,
+        schema: dict | None = None,
+        _id: str | None = None,
+    ) -> dict:
         """Retrieve a named dataset, or create a new one when it doesn't exist.
 
         Args:
             name (str, optional): The name of the dataset to retrieve or create.
-            schema (Dict, optional): The schema of the dataset
+            schema (dict, optional): The schema of the dataset
 
         Returns:
             dict: The retrieved or newly-created dataset.

@@ -1,22 +1,27 @@
+from __future__ import annotations
+
 import asyncio
 import re
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
-from respx import MockRouter
 
-from apify.proxy_configuration import ProxyConfiguration, _is_url
+from apify.proxy_configuration import ProxyConfiguration, is_url
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 
-from .conftest import ApifyClientAsyncPatcher
+if TYPE_CHECKING:
+    from respx import MockRouter
+
+    from .conftest import ApifyClientAsyncPatcher
+
 
 DUMMY_PASSWORD = 'DUMMY_PASSWORD'
 
 
 class TestProxyConfiguration:
-    def test_constructor_basic(self) -> None:
+    def test_constructor_basic(self: TestProxyConfiguration) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
         country_code = 'US'
@@ -29,7 +34,7 @@ class TestProxyConfiguration:
         assert proxy_configuration._password == password
         assert proxy_configuration._country_code == country_code
 
-    def test_constructor_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_constructor_fallback(self: TestProxyConfiguration, monkeypatch: pytest.MonkeyPatch) -> None:
         hostname = 'example.com'
         password = 'abcd1234'
         port = 1234
@@ -44,8 +49,8 @@ class TestProxyConfiguration:
         assert proxy_configuration._password == password
         assert proxy_configuration._port == port
 
-    def test__fails_with_invalid_arguments(self) -> None:
-        for (invalid_groups, bad_group_index) in [
+    def test__fails_with_invalid_arguments(self: TestProxyConfiguration) -> None:
+        for invalid_groups, bad_group_index in [
             (['abc', 'de-f', 'geh'], 1),
             (['', 'def', 'geh'], 0),
             (['abc', 'DEF', 'geh$'], 2),
@@ -72,7 +77,7 @@ class TestProxyConfiguration:
 
 
 class TestProxyConfigurationNewUrl:
-    async def test_new_url_basic(self) -> None:
+    async def test_new_url_basic(self: TestProxyConfigurationNewUrl) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
         country_code = 'US'
@@ -89,7 +94,7 @@ class TestProxyConfigurationNewUrl:
 
         assert proxy_url == f'http://{expected_username}:{password}@{expected_hostname}:{expected_port}'
 
-    async def test_new_url_session_id(self) -> None:
+    async def test_new_url_session_id(self: TestProxyConfigurationNewUrl) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
         country_code = 'US'
@@ -99,9 +104,16 @@ class TestProxyConfigurationNewUrl:
             country_code=country_code,
         )
 
-        session_ids: List[Union[str, int]] = [
-            'a', 'a_b', 'a_2', 'a_1_b', 'aaa~BBB',
-            '1', '0.34252352', 123456, 'XXXXXXXXXXxxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXXXXXXXXXX',
+        session_ids: list[str | int] = [
+            'a',
+            'a_b',
+            'a_2',
+            'a_1_b',
+            'aaa~BBB',
+            '1',
+            '0.34252352',
+            123456,
+            'XXXXXXXXXXxxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXXXXXXXXXX',
         ]
         for session_id in session_ids:
             expected_username = f'groups-{"+".join(groups)},session-{session_id},country-{country_code}'
@@ -116,7 +128,7 @@ class TestProxyConfigurationNewUrl:
             with pytest.raises(ValueError, match=re.escape(str(invalid_session_id))):
                 await proxy_configuration.new_url(invalid_session_id)
 
-    async def test_rotating_custom_urls(self) -> None:
+    async def test_rotating_custom_urls(self: TestProxyConfigurationNewUrl) -> None:
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
         proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 
@@ -127,7 +139,7 @@ class TestProxyConfigurationNewUrl:
         assert await proxy_configuration.new_url() == proxy_urls[1]
         assert await proxy_configuration.new_url() == proxy_urls[2]
 
-    async def test_rotating_custom_urls_with_sessions(self) -> None:
+    async def test_rotating_custom_urls_with_sessions(self: TestProxyConfigurationNewUrl) -> None:
         sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
@@ -149,13 +161,17 @@ class TestProxyConfigurationNewUrl:
         assert await proxy_configuration.new_url(sessions[1]) == proxy_urls[1]
         assert await proxy_configuration.new_url(sessions[3]) == proxy_urls[0]
 
-    async def test_custom_new_url_function(self) -> None:
+    async def test_custom_new_url_function(self: TestProxyConfigurationNewUrl) -> None:
         custom_urls = [
-            'http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333',
-            'http://proxy.com:4444', 'http://proxy.com:5555', 'http://proxy.com:6666',
+            'http://proxy.com:1111',
+            'http://proxy.com:2222',
+            'http://proxy.com:3333',
+            'http://proxy.com:4444',
+            'http://proxy.com:5555',
+            'http://proxy.com:6666',
         ]
 
-        def custom_new_url_function(_session_id: Optional[str]) -> str:
+        def custom_new_url_function(_session_id: str | None) -> str:
             nonlocal custom_urls
             return custom_urls.pop()
 
@@ -164,13 +180,17 @@ class TestProxyConfigurationNewUrl:
         for custom_url in reversed(custom_urls):
             assert await proxy_configuration.new_url() == custom_url
 
-    async def test_custom_new_url_function_async(self) -> None:
+    async def test_custom_new_url_function_async(self: TestProxyConfigurationNewUrl) -> None:
         custom_urls = [
-            'http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333',
-            'http://proxy.com:4444', 'http://proxy.com:5555', 'http://proxy.com:6666',
+            'http://proxy.com:1111',
+            'http://proxy.com:2222',
+            'http://proxy.com:3333',
+            'http://proxy.com:4444',
+            'http://proxy.com:5555',
+            'http://proxy.com:6666',
         ]
 
-        async def custom_new_url_function(_session_id: Optional[str]) -> str:
+        async def custom_new_url_function(_session_id: str | None) -> str:
             nonlocal custom_urls
             await asyncio.sleep(0.1)
             return custom_urls.pop()
@@ -180,16 +200,16 @@ class TestProxyConfigurationNewUrl:
         for custom_url in reversed(custom_urls):
             assert await proxy_configuration.new_url() == custom_url
 
-    async def test_invalid_custom_new_url_function(self) -> None:
-        def custom_new_url_function(_session_id: Optional[str]) -> str:
-            raise ValueError()
+    async def test_invalid_custom_new_url_function(self: TestProxyConfigurationNewUrl) -> None:
+        def custom_new_url_function(_session_id: str | None) -> str:
+            raise ValueError
 
         proxy_configuration = ProxyConfiguration(new_url_function=custom_new_url_function)
 
         with pytest.raises(ValueError, match='The provided "new_url_function" did not return a valid URL'):
             await proxy_configuration.new_url()
 
-    async def test_proxy_configuration_not_sharing_references(self) -> None:
+    async def test_proxy_configuration_not_sharing_references(self: TestProxyConfigurationNewUrl) -> None:
         urls = [
             'http://proxy-example-1.com:8000',
             'http://proxy-example-2.com:8000',
@@ -216,7 +236,7 @@ class TestProxyConfigurationNewUrl:
 
 
 class TestProxyConfigurationNewProxyInfo:
-    async def test_new_proxy_info_basic(self) -> None:
+    async def test_new_proxy_info_basic(self: TestProxyConfigurationNewProxyInfo) -> None:
         groups = ['GROUP1', 'GROUP2']
         password = 'abcd1234'
         country_code = 'US'
@@ -241,7 +261,7 @@ class TestProxyConfigurationNewProxyInfo:
             'password': password,
         }
 
-    async def test_new_proxy_info_rotates_urls(self) -> None:
+    async def test_new_proxy_info_rotates_urls(self: TestProxyConfigurationNewProxyInfo) -> None:
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
         proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 
@@ -252,7 +272,7 @@ class TestProxyConfigurationNewProxyInfo:
         assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[1]
         assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[2]
 
-    async def test_new_proxy_info_rotates_urls_with_sessions(self) -> None:
+    async def test_new_proxy_info_rotates_urls_with_sessions(self: TestProxyConfigurationNewProxyInfo) -> None:
         sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
@@ -275,20 +295,24 @@ class TestProxyConfigurationNewProxyInfo:
         assert (await proxy_configuration.new_proxy_info(sessions[3]))['url'] == proxy_urls[0]
 
 
-@pytest.fixture
+@pytest.fixture()
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
-    apify_client_async_patcher.patch('user', 'get', return_value={
-        'proxy': {
-            'password': DUMMY_PASSWORD,
+    apify_client_async_patcher.patch(
+        'user',
+        'get',
+        return_value={
+            'proxy': {
+                'password': DUMMY_PASSWORD,
+            },
         },
-    })
+    )
 
     return ApifyClientAsync()
 
 
 class TestProxyConfigurationInitialize:
     async def test_initialize_basic(
-        self,
+        self: TestProxyConfigurationInitialize,
         monkeypatch: pytest.MonkeyPatch,
         respx_mock: MockRouter,
         patched_apify_client: ApifyClientAsync,
@@ -298,11 +322,16 @@ class TestProxyConfigurationInitialize:
         monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
         route = respx_mock.get(dummy_proxy_status_url)
-        route.mock(httpx.Response(200, json={
-            'connected': True,
-            'connectionError': None,
-            'isManInTheMiddle': True,
-        }))
+        route.mock(
+            httpx.Response(
+                200,
+                json={
+                    'connected': True,
+                    'connectionError': None,
+                    'isManInTheMiddle': True,
+                },
+            )
+        )
 
         proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
 
@@ -314,25 +343,30 @@ class TestProxyConfigurationInitialize:
         assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore
         assert len(route.calls) == 1
 
-    async def test_initialize_no_password_no_token(self) -> None:
+    async def test_initialize_no_password_no_token(self: TestProxyConfigurationInitialize) -> None:
         proxy_configuration = ProxyConfiguration()
 
         with pytest.raises(ValueError, match='Apify Proxy password must be provided'):
             await proxy_configuration.initialize()
 
     async def test_initialize_manual_password(
-        self,
+        self: TestProxyConfigurationInitialize,
         monkeypatch: pytest.MonkeyPatch,
         respx_mock: MockRouter,
     ) -> None:
         dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
         monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-        respx_mock.get(dummy_proxy_status_url).mock(httpx.Response(200, json={
-            'connected': True,
-            'connectionError': None,
-            'isManInTheMiddle': False,
-        }))
+        respx_mock.get(dummy_proxy_status_url).mock(
+            httpx.Response(
+                200,
+                json={
+                    'connected': True,
+                    'connectionError': None,
+                    'isManInTheMiddle': False,
+                },
+            )
+        )
 
         proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
 
@@ -342,7 +376,7 @@ class TestProxyConfigurationInitialize:
         assert proxy_configuration.is_man_in_the_middle is False
 
     async def test_initialize_manual_password_different_than_user_one(
-        self,
+        self: TestProxyConfigurationInitialize,
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
         respx_mock: MockRouter,
@@ -354,11 +388,16 @@ class TestProxyConfigurationInitialize:
         monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
         monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD.value, different_dummy_password)
 
-        respx_mock.get(dummy_proxy_status_url).mock(httpx.Response(200, json={
-            'connected': True,
-            'connectionError': None,
-            'isManInTheMiddle': True,
-        }))
+        respx_mock.get(dummy_proxy_status_url).mock(
+            httpx.Response(
+                200,
+                json={
+                    'connected': True,
+                    'connectionError': None,
+                    'isManInTheMiddle': True,
+                },
+            )
+        )
 
         proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
 
@@ -372,7 +411,7 @@ class TestProxyConfigurationInitialize:
         assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
 
     async def test_initialize_not_connected(
-        self,
+        self: TestProxyConfigurationInitialize,
         monkeypatch: pytest.MonkeyPatch,
         respx_mock: MockRouter,
     ) -> None:
@@ -380,10 +419,15 @@ class TestProxyConfigurationInitialize:
         dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
         monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-        respx_mock.get(dummy_proxy_status_url).mock(httpx.Response(200, json={
-            'connected': False,
-            'connectionError': dummy_connection_error,
-        }))
+        respx_mock.get(dummy_proxy_status_url).mock(
+            httpx.Response(
+                200,
+                json={
+                    'connected': False,
+                    'connectionError': dummy_connection_error,
+                },
+            )
+        )
 
         proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
 
@@ -391,7 +435,7 @@ class TestProxyConfigurationInitialize:
             await proxy_configuration.initialize()
 
     async def test_initialize_status_page_unavailable(
-        self,
+        self: TestProxyConfigurationInitialize,
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
         respx_mock: MockRouter,
@@ -410,7 +454,7 @@ class TestProxyConfigurationInitialize:
         assert 'Apify Proxy access check timed out' in caplog.records[0].message
 
     async def test_initialize_not_called_non_apify_proxy(
-        self,
+        self: TestProxyConfigurationInitialize,
         monkeypatch: pytest.MonkeyPatch,
         respx_mock: MockRouter,
         patched_apify_client: ApifyClientAsync,
@@ -430,20 +474,20 @@ class TestProxyConfigurationInitialize:
 
 
 class TestIsUrl:
-    def test__is_url(self) -> None:
-        assert _is_url('http://dummy-proxy.com:8000') is True
-        assert _is_url('https://example.com') is True
-        assert _is_url('http://localhost') is True
-        assert _is_url('https://12.34.56.78') is True
-        assert _is_url('http://12.34.56.78:9012') is True
-        assert _is_url('http://::1') is True
-        assert _is_url('https://2f45:4da6:8f56:af8c:5dce:c1de:14d2:8661') is True
+    def test__is_url(self: TestIsUrl) -> None:
+        assert is_url('http://dummy-proxy.com:8000') is True
+        assert is_url('https://example.com') is True
+        assert is_url('http://localhost') is True
+        assert is_url('https://12.34.56.78') is True
+        assert is_url('http://12.34.56.78:9012') is True
+        assert is_url('http://::1') is True
+        assert is_url('https://2f45:4da6:8f56:af8c:5dce:c1de:14d2:8661') is True
 
-        assert _is_url('dummy-proxy.com:8000') is False
-        assert _is_url('gyfwgfhkjhljkfhdsf') is False
-        assert _is_url('http://') is False
-        assert _is_url('http://example') is False
-        assert _is_url('http:/example.com') is False
-        assert _is_url('12.34.56.78') is False
-        assert _is_url('::1') is False
-        assert _is_url('https://4da6:8f56:af8c:5dce:c1de:14d2:8661') is False
+        assert is_url('dummy-proxy.com:8000') is False
+        assert is_url('gyfwgfhkjhljkfhdsf') is False
+        assert is_url('http://') is False
+        assert is_url('http://example') is False
+        assert is_url('http:/example.com') is False
+        assert is_url('12.34.56.78') is False
+        assert is_url('::1') is False
+        assert is_url('https://4da6:8f56:af8c:5dce:c1de:14d2:8661') is False

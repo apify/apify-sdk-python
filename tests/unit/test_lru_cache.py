@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import pytest
 
 from apify._utils import LRUCache
 
 
-@pytest.fixture
+@pytest.fixture()
 def lru_cache() -> LRUCache[int]:
     cache = LRUCache[int](3)
     cache['a'] = 1

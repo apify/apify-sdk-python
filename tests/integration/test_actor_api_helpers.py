@@ -1,16 +1,22 @@
+from __future__ import annotations
+
 import asyncio
 import json
+from typing import TYPE_CHECKING
 
 from apify import Actor
 from apify._crypto import crypto_random_object_id
-from apify_client import ApifyClientAsync
 
 from ._utils import generate_unique_resource_name
-from .conftest import ActorFactory
+
+if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
+    from .conftest import ActorFactory
 
 
 class TestActorIsAtHome:
-    async def test_actor_is_at_home(self, make_actor: ActorFactory) -> None:
+    async def test_actor_is_at_home(self: TestActorIsAtHome, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 assert Actor.is_at_home() is True
@@ -24,7 +30,7 @@ class TestActorIsAtHome:
 
 
 class TestActorGetEnv:
-    async def test_actor_get_env(self, make_actor: ActorFactory) -> None:
+    async def test_actor_get_env(self: TestActorGetEnv, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 env_dict = Actor.get_env()
@@ -50,7 +56,7 @@ class TestActorGetEnv:
 
 
 class TestActorNewClient:
-    async def test_actor_new_client(self, make_actor: ActorFactory) -> None:
+    async def test_actor_new_client(self: TestActorNewClient, make_actor: ActorFactory) -> None:
         async def main() -> None:
             import os
 
@@ -78,11 +84,11 @@ class TestActorNewClient:
 
 
 class TestActorSetStatusMessage:
-    async def test_actor_set_status_message(self, make_actor: ActorFactory) -> None:
+    async def test_actor_set_status_message(self: TestActorSetStatusMessage, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
-                input = await Actor.get_input() or {}
-                await Actor.set_status_message('testing-status-message', **input)
+                actor_input = await Actor.get_input() or {}
+                await Actor.set_status_message('testing-status-message', **actor_input)
 
         actor = await make_actor('set-status-message', main_func=main)
 
@@ -102,19 +108,19 @@ class TestActorSetStatusMessage:
 
 
 class TestActorStart:
-    async def test_actor_start(self, make_actor: ActorFactory) -> None:
+    async def test_actor_start(self: TestActorStart, make_actor: ActorFactory) -> None:
         async def main_inner() -> None:
             async with Actor:
                 await asyncio.sleep(5)
-                input = await Actor.get_input() or {}
-                test_value = input.get('test_value')
+                actor_input = await Actor.get_input() or {}
+                test_value = actor_input.get('test_value')
                 await Actor.set_value('OUTPUT', f'{test_value}_XXX_{test_value}')
 
         async def main_outer() -> None:
             async with Actor:
-                input = await Actor.get_input() or {}
-                inner_actor_id = input.get('inner_actor_id')
-                test_value = input.get('test_value')
+                actor_input = await Actor.get_input() or {}
+                inner_actor_id = actor_input.get('inner_actor_id')
+                test_value = actor_input.get('test_value')
 
                 assert inner_actor_id is not None
 
@@ -143,19 +149,19 @@ class TestActorStart:
 
 
 class TestActorCall:
-    async def test_actor_call(self, make_actor: ActorFactory) -> None:
+    async def test_actor_call(self: TestActorCall, make_actor: ActorFactory) -> None:
         async def main_inner() -> None:
             async with Actor:
                 await asyncio.sleep(5)
-                input = await Actor.get_input() or {}
-                test_value = input.get('test_value')
+                actor_input = await Actor.get_input() or {}
+                test_value = actor_input.get('test_value')
                 await Actor.set_value('OUTPUT', f'{test_value}_XXX_{test_value}')
 
         async def main_outer() -> None:
             async with Actor:
-                input = await Actor.get_input() or {}
-                inner_actor_id = input.get('inner_actor_id')
-                test_value = input.get('test_value')
+                actor_input = await Actor.get_input() or {}
+                inner_actor_id = actor_input.get('inner_actor_id')
+                test_value = actor_input.get('test_value')
 
                 assert inner_actor_id is not None
 
@@ -184,18 +190,22 @@ class TestActorCall:
 
 
 class TestActorCallTask:
-    async def test_actor_call_task(self, make_actor: ActorFactory, apify_client_async: ApifyClientAsync) -> None:
+    async def test_actor_call_task(
+        self: TestActorCallTask,
+        make_actor: ActorFactory,
+        apify_client_async: ApifyClientAsync,
+    ) -> None:
         async def main_inner() -> None:
             async with Actor:
                 await asyncio.sleep(5)
-                input = await Actor.get_input() or {}
-                test_value = input.get('test_value')
+                actor_input = await Actor.get_input() or {}
+                test_value = actor_input.get('test_value')
                 await Actor.set_value('OUTPUT', f'{test_value}_XXX_{test_value}')
 
         async def main_outer() -> None:
             async with Actor:
-                input = await Actor.get_input() or {}
-                inner_task_id = input.get('inner_task_id')
+                actor_input = await Actor.get_input() or {}
+                inner_task_id = actor_input.get('inner_task_id')
 
                 assert inner_task_id is not None
 
@@ -232,7 +242,7 @@ class TestActorCallTask:
 
 
 class TestActorAbort:
-    async def test_actor_abort(self, make_actor: ActorFactory) -> None:
+    async def test_actor_abort(self: TestActorAbort, make_actor: ActorFactory) -> None:
         async def main_inner() -> None:
             async with Actor:
                 await asyncio.sleep(180)
@@ -241,8 +251,8 @@ class TestActorAbort:
 
         async def main_outer() -> None:
             async with Actor:
-                input = await Actor.get_input() or {}
-                inner_run_id = input.get('inner_run_id')
+                actor_input = await Actor.get_input() or {}
+                inner_run_id = actor_input.get('inner_run_id')
 
                 assert inner_run_id is not None
 
@@ -268,7 +278,7 @@ class TestActorAbort:
 
 
 class TestActorMetamorph:
-    async def test_actor_metamorph(self, make_actor: ActorFactory) -> None:
+    async def test_actor_metamorph(self: TestActorMetamorph, make_actor: ActorFactory) -> None:
         async def main_inner() -> None:
             import os
 
@@ -277,9 +287,9 @@ class TestActorMetamorph:
             async with Actor:
                 assert os.getenv(ActorEnvVars.INPUT_KEY) is not None
                 assert os.getenv(ActorEnvVars.INPUT_KEY) != 'INPUT'
-                input = await Actor.get_input() or {}
+                actor_input = await Actor.get_input() or {}
 
-                test_value = input.get('test_value', '')
+                test_value = actor_input.get('test_value', '')
                 assert test_value.endswith('_BEFORE_METAMORPH')
 
                 output = test_value.replace('_BEFORE_METAMORPH', '_AFTER_METAMORPH')
@@ -287,9 +297,9 @@ class TestActorMetamorph:
 
         async def main_outer() -> None:
             async with Actor:
-                input = await Actor.get_input() or {}
-                inner_actor_id = input.get('inner_actor_id')
-                test_value = input.get('test_value')
+                actor_input = await Actor.get_input() or {}
+                inner_actor_id = actor_input.get('inner_actor_id')
+                test_value = actor_input.get('test_value')
                 new_test_value = f'{test_value}_BEFORE_METAMORPH'
 
                 assert inner_actor_id is not None
@@ -324,7 +334,7 @@ class TestActorMetamorph:
 
 
 class TestActorReboot:
-    async def test_actor_reboot(self, make_actor: ActorFactory) -> None:
+    async def test_actor_reboot(self: TestActorReboot, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 print('Starting...')
@@ -353,7 +363,7 @@ class TestActorReboot:
 
 
 class TestActorAddWebhook:
-    async def test_actor_add_webhook(self, make_actor: ActorFactory) -> None:
+    async def test_actor_add_webhook(self: TestActorAddWebhook, make_actor: ActorFactory) -> None:
         async def main_server() -> None:
             import os
             from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -363,13 +373,14 @@ class TestActorAddWebhook:
             webhook_body = ''
 
             async with Actor:
+
                 class WebhookHandler(BaseHTTPRequestHandler):
-                    def do_GET(self) -> None:  # noqa: N802
+                    def do_GET(self) -> None:  # noqa: N802, ANN101
                         self.send_response(200)
                         self.end_headers()
                         self.wfile.write(bytes('Hello, world!', encoding='utf-8'))
 
-                    def do_POST(self) -> None:  # noqa: N802
+                    def do_POST(self) -> None:  # noqa: N802, ANN101
                         nonlocal webhook_body
                         content_length = self.headers.get('content-length')
                         length = int(content_length) if content_length else 0
@@ -382,7 +393,7 @@ class TestActorAddWebhook:
 
                 container_port = int(os.getenv(ActorEnvVars.WEB_SERVER_PORT, ''))
                 with HTTPServer(('', container_port), WebhookHandler) as server:
-                    await Actor.set_value('INITIALIZED', True)
+                    await Actor.set_value('INITIALIZED', value=True)
                     while not webhook_body:
                         server.handle_request()
 
@@ -390,9 +401,10 @@ class TestActorAddWebhook:
 
         async def main_client() -> None:
             from apify_shared.consts import WebhookEventType
+
             async with Actor:
-                input = await Actor.get_input() or {}
-                server_actor_container_url = str(input.get('server_actor_container_url'))
+                actor_input = await Actor.get_input() or {}
+                server_actor_container_url = str(actor_input.get('server_actor_container_url'))
 
                 await Actor.add_webhook(
                     event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED],

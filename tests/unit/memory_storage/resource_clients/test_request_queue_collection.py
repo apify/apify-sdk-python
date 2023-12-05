@@ -1,10 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
 
-from apify._memory_storage import MemoryStorageClient
-from apify._memory_storage.resource_clients import RequestQueueCollectionClient
+if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
+    from apify._memory_storage.resource_clients import RequestQueueCollectionClient
 
 
-@pytest.fixture
+@pytest.fixture()
 def request_queues_client(memory_storage_client: MemoryStorageClient) -> RequestQueueCollectionClient:
     return memory_storage_client.request_queues()
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import inspect
 import os
@@ -5,7 +7,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import AsyncIterator, Awaitable, Callable, Dict, List, Mapping, Optional, Protocol, Union
+from typing import TYPE_CHECKING, AsyncIterator, Awaitable, Callable, Mapping, Protocol
 
 import pytest
 from filelock import FileLock
@@ -14,10 +16,12 @@ from apify import Actor
 from apify.config import Configuration
 from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 from apify_client import ApifyClientAsync
-from apify_client.clients.resource_clients import ActorClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
 
 from ._utils import generate_unique_resource_name
+
+if TYPE_CHECKING:
+    from apify_client.clients.resource_clients import ActorClientAsync
 
 TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
@@ -44,7 +48,7 @@ def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
 # because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
 # but `pytest-asyncio` closes the event loop after each test,
 # and uses a new one for the next test.
-@pytest.fixture
+@pytest.fixture()
 def apify_client_async() -> ApifyClientAsync:
     api_token = os.getenv(TOKEN_ENV_VAR)
     api_url = os.getenv(API_URL_ENV_VAR)
@@ -65,7 +69,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
         # through an indicator file saying that the wheel was already built
         was_wheel_built_this_test_run_file = tmp_path_factory.getbasetemp() / f'wheel_was_built_in_run_{testrun_uid}'
         if not was_wheel_built_this_test_run_file.exists():
-            subprocess.run('python -m build', cwd=SDK_ROOT_PATH, shell=True, check=True, capture_output=True)
+            subprocess.run('python -m build', cwd=SDK_ROOT_PATH, shell=True, check=True, capture_output=True)  # noqa: S602, S607
             was_wheel_built_this_test_run_file.touch()
 
         # Read the current package version, necessary for getting the right wheel filename
@@ -87,14 +91,14 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
 
 
 @pytest.fixture(scope='session')
-def actor_base_source_files(sdk_wheel_path: Path) -> Dict[str, Union[str, bytes]]:
+def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
     """Create a dictionary of the base source files for a testing actor.
 
     It takes the files from `tests/integration/actor_source_base`,
     builds the Apify SDK wheel from the current codebase,
     and adds them all together in a dictionary.
     """
-    source_files: Dict[str, Union[str, bytes]] = {}
+    source_files: dict[str, str | bytes] = {}
 
     # First read the actor_source_base files
     sdk_root_path = Path(__file__).parent.parent.parent.resolve()
@@ -124,27 +128,27 @@ def actor_base_source_files(sdk_wheel_path: Path) -> Dict[str, Union[str, bytes]
 # Just a type for the make_actor result, so that we can import it in tests
 class ActorFactory(Protocol):
     def __call__(
-        self,
+        self: ActorFactory,
         actor_label: str,
         *,
-        main_func: Optional[Callable] = None,
-        main_py: Optional[str] = None,
-        source_files: Optional[Mapping[str, Union[str, bytes]]] = None,
+        main_func: Callable | None = None,
+        main_py: str | None = None,
+        source_files: Mapping[str, str | bytes] | None = None,
     ) -> Awaitable[ActorClientAsync]:
         ...
 
 
-@pytest.fixture
-async def make_actor(actor_base_source_files: Dict[str, Union[str, bytes]], apify_client_async: ApifyClientAsync) -> AsyncIterator[ActorFactory]:
+@pytest.fixture()
+async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_client_async: ApifyClientAsync) -> AsyncIterator[ActorFactory]:
     """A fixture for returning a temporary actor factory."""
-    actor_clients_for_cleanup: List[ActorClientAsync] = []
+    actor_clients_for_cleanup: list[ActorClientAsync] = []
 
     async def _make_actor(
         actor_label: str,
         *,
-        main_func: Optional[Callable] = None,
-        main_py: Optional[str] = None,
-        source_files: Optional[Mapping[str, Union[str, bytes]]] = None,
+        main_func: Callable | None = None,
+        main_py: str | None = None,
+        source_files: Mapping[str, str | bytes] | None = None,
     ) -> ActorClientAsync:
         """Create a temporary actor from the given main function or source file(s).
 
@@ -190,16 +194,18 @@ async def make_actor(actor_base_source_files: Dict[str, Union[str, bytes]], apif
             if isinstance(file_contents, str):
                 file_format = 'TEXT'
                 if file_name.endswith('.py'):
-                    file_contents = textwrap.dedent(file_contents).lstrip()
+                    file_contents = textwrap.dedent(file_contents).lstrip()  # noqa: PLW2901
             else:
                 file_format = 'BASE64'
-                file_contents = base64.b64encode(file_contents).decode('utf-8')
+                file_contents = base64.b64encode(file_contents).decode('utf-8')  # noqa: PLW2901
 
-            source_files_for_api.append({
-                'name': file_name,
-                'format': file_format,
-                'content': file_contents,
-            })
+            source_files_for_api.append(
+                {
+                    'name': file_name,
+                    'format': file_format,
+                    'content': file_contents,
+                }
+            )
 
         print(f'Creating actor {actor_name}...')
         created_actor = await apify_client_async.actors().create(
@@ -207,12 +213,14 @@ async def make_actor(actor_base_source_files: Dict[str, Union[str, bytes]], apif
             default_run_build='latest',
             default_run_memory_mbytes=256,
             default_run_timeout_secs=300,
-            versions=[{
-                'versionNumber': '0.0',
-                'buildTag': 'latest',
-                'sourceType': ActorSourceType.SOURCE_FILES,
-                'sourceFiles': source_files_for_api,
-            }],
+            versions=[
+                {
+                    'versionNumber': '0.0',
+                    'buildTag': 'latest',
+                    'sourceType': ActorSourceType.SOURCE_FILES,
+                    'sourceFiles': source_files_for_api,
+                }
+            ],
         )
 
         actor_client = apify_client_async.actor(created_actor['id'])

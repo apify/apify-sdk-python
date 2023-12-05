@@ -1,15 +1,22 @@
-import pytest
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from apify import Actor
-from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
-from .conftest import ActorFactory
+
+if TYPE_CHECKING:
+    import pytest
+
+    from apify_client import ApifyClientAsync
+
+    from .conftest import ActorFactory
 
 
 class TestActorPushData:
-    async def test_push_data(self, make_actor: ActorFactory) -> None:
+    async def test_push_data(self: TestActorPushData, make_actor: ActorFactory) -> None:
         desired_item_count = 100  # Also change inside main() if you're changing this
 
         async def main() -> None:
@@ -28,7 +35,7 @@ class TestActorPushData:
         assert list_page.items[-1]['id'] == desired_item_count - 1
         assert len(list_page.items) == list_page.count == desired_item_count
 
-    async def test_push_data_over_9mb(self, make_actor: ActorFactory) -> None:
+    async def test_push_data_over_9mb(self: TestActorPushData, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 await Actor.push_data([{'str': 'x' * 10000} for _ in range(5000)])  # ~50MB
@@ -44,7 +51,7 @@ class TestActorPushData:
 
 
 class TestActorOpenDataset:
-    async def test_same_references_default(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_default(self: TestActorOpenDataset, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 dataset1 = await Actor.open_dataset()
@@ -57,7 +64,7 @@ class TestActorOpenDataset:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_same_references_named(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_named(self: TestActorOpenDataset, make_actor: ActorFactory) -> None:
         dataset_name = generate_unique_resource_name('dataset')
 
         async def main() -> None:
@@ -81,7 +88,11 @@ class TestActorOpenDataset:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_force_cloud(self, apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_force_cloud(
+        self: TestActorOpenDataset,
+        apify_client_async: ApifyClientAsync,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         assert apify_client_async.token is not None
         monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 

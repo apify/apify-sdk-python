@@ -24,11 +24,11 @@ To install this package and its development dependencies, run `make install-dev`
 
 ## Formatting
 
-We use `autopep8` and `isort` to automatically format the code to a common format. To run the formatting, just run `make format`.
+We use `ruff` to automatically format the code to a common format. To run the formatting, just run `make format`.
 
 ## Linting, type-checking and unit testing
 
-We use `flake8` for linting, `mypy` for type checking and `pytest` for unit testing. To run these tools, just run `make check-code`.
+We use `ruff` for linting, `mypy` for type checking and `pytest` for unit testing. To run these tools, just run `make check-code`.
 
 ## Integration tests
 

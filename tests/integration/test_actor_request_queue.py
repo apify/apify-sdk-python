@@ -1,15 +1,22 @@
-import pytest
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from apify import Actor
-from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
-from .conftest import ActorFactory
+
+if TYPE_CHECKING:
+    import pytest
+
+    from apify_client import ApifyClientAsync
+
+    from .conftest import ActorFactory
 
 
 class TestActorOpenRequestQueue:
-    async def test_same_references_default(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_default(self: TestActorOpenRequestQueue, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
                 rq1 = await Actor.open_request_queue()
@@ -22,7 +29,7 @@ class TestActorOpenRequestQueue:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_same_references_named(self, make_actor: ActorFactory) -> None:
+    async def test_same_references_named(self: TestActorOpenRequestQueue, make_actor: ActorFactory) -> None:
         rq_name = generate_unique_resource_name('request-queue')
 
         async def main() -> None:
@@ -46,7 +53,11 @@ class TestActorOpenRequestQueue:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-    async def test_force_cloud(self, apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_force_cloud(
+        self: TestActorOpenRequestQueue,
+        apify_client_async: ApifyClientAsync,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         assert apify_client_async.token is not None
         monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 

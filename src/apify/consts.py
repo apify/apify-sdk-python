@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import warnings
 from enum import Enum
@@ -41,7 +43,7 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
 
 
-class _StorageTypes(str, Enum):
+class StorageTypes(str, Enum):
     """Possible Apify storage types."""
 
     DATASET = 'Dataset'

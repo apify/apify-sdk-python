@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import time
 from collections import defaultdict
 from pprint import pprint
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable
 
 import pytest
 import websockets
@@ -16,7 +18,7 @@ from apify_shared.consts import ActorEnvVars, ActorEventTypes
 
 
 class TestEventManagerLocal:
-    async def test_lifecycle_local(self, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_lifecycle_local(self: TestEventManagerLocal, caplog: pytest.LogCaptureFixture) -> None:
         caplog.set_level(logging.DEBUG, logger='apify')
 
         config = Configuration()
@@ -39,7 +41,7 @@ class TestEventManagerLocal:
 
         assert event_manager._initialized is False
 
-    async def test_event_handling_local(self) -> None:
+    async def test_event_handling_local(self: TestEventManagerLocal) -> None:
         config = Configuration()
         event_manager = EventManager(config)
 
@@ -47,10 +49,11 @@ class TestEventManagerLocal:
 
         event_calls = defaultdict(list)
 
-        def on_event(event: ActorEventTypes, id: Optional[int] = None) -> Callable:
+        def on_event(event: ActorEventTypes, id: int | None = None) -> Callable:  # noqa: A002
             def event_handler(data: Any) -> None:
                 nonlocal event_calls
                 event_calls[event].append((id, data))
+
             return event_handler
 
         handler_system_info = on_event(ActorEventTypes.SYSTEM_INFO)
@@ -106,7 +109,7 @@ class TestEventManagerLocal:
 
         await event_manager.close()
 
-    async def test_event_handler_argument_counts_local(self) -> None:
+    async def test_event_handler_argument_counts_local(self: TestEventManagerLocal) -> None:
         config = Configuration()
         event_manager = EventManager(config)
 
@@ -173,7 +176,7 @@ class TestEventManagerLocal:
         assert ('sync_two_arguments_one_default', 'DUMMY_SYSTEM_INFO') in event_calls
         assert ('async_two_arguments_one_default', 'DUMMY_SYSTEM_INFO') in event_calls
 
-    async def test_event_async_handling_local(self) -> None:
+    async def test_event_async_handling_local(self: TestEventManagerLocal) -> None:
         config = Configuration()
         event_manager = EventManager(config)
 
@@ -196,7 +199,10 @@ class TestEventManagerLocal:
 
         await event_manager.close()
 
-    async def test_wait_for_all_listeners_to_complete(self, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_wait_for_all_listeners_to_complete(
+        self: TestEventManagerLocal,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         config = Configuration()
         event_manager = EventManager(config)
 
@@ -204,12 +210,13 @@ class TestEventManagerLocal:
 
         event_calls = []
 
-        def on_event(sleep_secs: Optional[int] = None) -> Callable:
+        def on_event(sleep_secs: int | None = None) -> Callable:
             async def event_handler(data: Any) -> None:
                 nonlocal event_calls
                 if sleep_secs:
                     await asyncio.sleep(sleep_secs)
                 event_calls.append(data)
+
             return event_handler
 
         # Create three handlers, all with a different sleep time, and add them
@@ -268,7 +275,10 @@ class TestEventManagerLocal:
 
 
 class TestEventManagerOnPlatform:
-    async def test_lifecycle_on_platform_without_websocket(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_lifecycle_on_platform_without_websocket(
+        self: TestEventManagerOnPlatform,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
 
         config = Configuration()
@@ -279,8 +289,8 @@ class TestEventManagerOnPlatform:
 
         assert event_manager._initialized is False
 
-    async def test_lifecycle_on_platform(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        connected_ws_clients: Set[websockets.server.WebSocketServerProtocol] = set()
+    async def test_lifecycle_on_platform(self: TestEventManagerOnPlatform, monkeypatch: pytest.MonkeyPatch) -> None:
+        connected_ws_clients: set[websockets.server.WebSocketServerProtocol] = set()
 
         async def handler(websocket: websockets.server.WebSocketServerProtocol) -> None:
             connected_ws_clients.add(websocket)
@@ -307,8 +317,11 @@ class TestEventManagerOnPlatform:
 
             assert event_manager._initialized is False
 
-    async def test_event_handling_on_platform(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        connected_ws_clients: Set[websockets.server.WebSocketServerProtocol] = set()
+    async def test_event_handling_on_platform(
+        self: TestEventManagerOnPlatform,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        connected_ws_clients: set[websockets.server.WebSocketServerProtocol] = set()
 
         async def handler(websocket: websockets.server.WebSocketServerProtocol) -> None:
             connected_ws_clients.add(websocket)
@@ -318,7 +331,7 @@ class TestEventManagerOnPlatform:
                 connected_ws_clients.remove(websocket)
 
         async def send_platform_event(event_name: ActorEventTypes, data: Any = None) -> None:
-            message: Dict[str, Any] = {'name': event_name}
+            message: dict[str, Any] = {'name': event_name}
             if data:
                 message['data'] = data
 

@@ -1,10 +1,12 @@
 Changelog
 =========
 
-[1.3.1](../../releases/tag/v1.3.1) - Unreleased
+[1.4.0](../../releases/tag/v1.4.0) - Unreleased
 -----------------------------------------------
 
-...
+### Internal changes
+
+- Migrate from Autopep8 and Flake8 to Ruff
 
 [1.3.0](../../releases/tag/v1.3.0) - 2023-11-15
 -----------------------------------------------

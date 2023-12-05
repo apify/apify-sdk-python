@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from datetime import datetime, timezone
 
@@ -6,7 +8,7 @@ import pytest
 from apify.storages import RequestQueue
 
 
-@pytest.fixture
+@pytest.fixture()
 async def request_queue() -> RequestQueue:
     return await RequestQueue.open()
 
@@ -50,10 +52,12 @@ async def test_drop() -> None:
 
 async def test_get_request(request_queue: RequestQueue) -> None:
     url = 'https://example.com'
-    add_request_info = await request_queue.add_request({
-        'uniqueKey': url,
-        'url': url,
-    })
+    add_request_info = await request_queue.add_request(
+        {
+            'uniqueKey': url,
+            'url': url,
+        }
+    )
     request = await request_queue.get_request(add_request_info['requestId'])
     assert request is not None
     assert request['url'] == url
@@ -64,21 +68,23 @@ async def test_add_fetch_handle_request(request_queue: RequestQueue) -> None:
     assert await request_queue.is_empty() is True
     with pytest.raises(ValueError, match='"url" is required'):
         await request_queue.add_request({})
-    add_request_info = await request_queue.add_request({
-        'uniqueKey': url,
-        'url': url,
-    })
+    add_request_info = await request_queue.add_request(
+        {
+            'uniqueKey': url,
+            'url': url,
+        }
+    )
     assert add_request_info['wasAlreadyPresent'] is False
     assert add_request_info['wasAlreadyHandled'] is False
     assert await request_queue.is_empty() is False
 
     # Fetch the request
-    next = await request_queue.fetch_next_request()
-    assert next is not None
+    next_request = await request_queue.fetch_next_request()
+    assert next_request is not None
 
     # Mark it as handled
-    next['handledAt'] = datetime.now(timezone.utc)
-    queue_operation_info = await request_queue.mark_request_as_handled(next)
+    next_request['handledAt'] = datetime.now(timezone.utc)
+    queue_operation_info = await request_queue.mark_request_as_handled(next_request)
     assert queue_operation_info is not None
     assert queue_operation_info['uniqueKey'] == url
     assert await request_queue.is_finished() is True
@@ -86,17 +92,19 @@ async def test_add_fetch_handle_request(request_queue: RequestQueue) -> None:
 
 async def test_reclaim_request(request_queue: RequestQueue) -> None:
     url = 'https://example.com'
-    await request_queue.add_request({
-        'uniqueKey': url,
-        'url': url,
-    })
+    await request_queue.add_request(
+        {
+            'uniqueKey': url,
+            'url': url,
+        }
+    )
     # Fetch the request
-    next = await request_queue.fetch_next_request()
-    assert next is not None
-    assert next['uniqueKey'] == url
+    next_request = await request_queue.fetch_next_request()
+    assert next_request is not None
+    assert next_request['uniqueKey'] == url
 
     # Reclaim
-    await request_queue.reclaim_request(next)
+    await request_queue.reclaim_request(next_request)
     # Try to fetch again after a few secs
     await asyncio.sleep(4)  # 3 seconds is the consistency delay in request queue
     next_again = await request_queue.fetch_next_request()

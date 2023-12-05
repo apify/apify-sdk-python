@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 import traceback
-from typing import Union
+from typing import TYPE_CHECKING, Any
 
 try:
-    from scrapy import Spider
+    from scrapy import Spider  # noqa: TCH002
     from scrapy.downloadermiddlewares.retry import RetryMiddleware
     from scrapy.exceptions import IgnoreRequest
-    from scrapy.http import Request, Response
+    from scrapy.http import Request, Response  # noqa: TCH002
     from scrapy.utils.response import response_status_message
 except ImportError as exc:
     raise ImportError(
@@ -13,27 +15,35 @@ except ImportError as exc:
     ) from exc
 
 from ..actor import Actor
-from ..storages import RequestQueue
 from .utils import nested_event_loop, open_queue_with_custom_client, to_apify_request
+
+if TYPE_CHECKING:
+    from ..storages import RequestQueue
 
 
 class ApifyRetryMiddleware(RetryMiddleware):
     """The default Scrapy retry middleware enriched with Apify's Request Queue interaction."""
 
-    def __init__(self, *args: list, **kwargs: dict) -> None:
+    def __init__(self: ApifyRetryMiddleware, *args: Any, **kwargs: Any) -> None:
         """Create a new instance."""
         super().__init__(*args, **kwargs)
         try:
             self._rq: RequestQueue = nested_event_loop.run_until_complete(open_queue_with_custom_client())
         except BaseException:
             traceback.print_exc()
+            raise
 
-    def __del__(self) -> None:
+    def __del__(self: ApifyRetryMiddleware) -> None:
         """Before deleting the instance, close the nested event loop."""
         nested_event_loop.stop()
         nested_event_loop.close()
 
-    def process_response(self, request: Request, response: Response, spider: Spider) -> Union[Request, Response]:
+    def process_response(
+        self: ApifyRetryMiddleware,
+        request: Request,
+        response: Response,
+        spider: Spider,
+    ) -> Request | Response | None:
         """Process the response and decide whether the request should be retried.
 
         Args:
@@ -46,23 +56,22 @@ class ApifyRetryMiddleware(RetryMiddleware):
         """
         # Robots requests are bypassed directly, they don't go through a Scrapy Scheduler, and also through our
         # Request Queue. Check the scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware for details.
-        assert isinstance(request.url, str)
+        assert isinstance(request.url, str)  # noqa: S101
         if request.url.endswith('robots.txt'):
             return response
 
         try:
-            returned = nested_event_loop.run_until_complete(self._handle_retry_logic(request, response, spider))
+            return nested_event_loop.run_until_complete(self._handle_retry_logic(request, response, spider))
         except BaseException:
             traceback.print_exc()
-
-        return returned
+            raise
 
     def process_exception(
-        self,
+        self: ApifyRetryMiddleware,
         request: Request,
         exception: BaseException,
         spider: Spider,
-    ) -> Union[Request, Response, None]:
+    ) -> Request | Response | None:
         """Handle the exception and decide whether the request should be retried."""
         Actor.log.debug(f'ApifyRetryMiddleware.process_exception was called (scrapy_request={request})...')
         apify_request = to_apify_request(request, spider=spider)
@@ -72,17 +81,18 @@ class ApifyRetryMiddleware(RetryMiddleware):
                 nested_event_loop.run_until_complete(self._rq.mark_request_as_handled(apify_request))
             except BaseException:
                 traceback.print_exc()
+                raise
         else:
             nested_event_loop.run_until_complete(self._rq.reclaim_request(apify_request))
 
         return super().process_exception(request, exception, spider)
 
     async def _handle_retry_logic(
-        self,
+        self: ApifyRetryMiddleware,
         request: Request,
         response: Response,
         spider: Spider,
-    ) -> Union[Request, Response]:
+    ) -> Request | Response | None:
         """Handle the retry logic of the request."""
         Actor.log.debug(f'ApifyRetryMiddleware.handle_retry_logic was called (scrapy_request={request})...')
         apify_request = to_apify_request(request, spider=spider)

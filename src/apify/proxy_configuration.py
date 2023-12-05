@@ -1,25 +1,31 @@
+from __future__ import annotations
+
 import inspect
 import ipaddress
 import re
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Pattern, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Pattern, TypedDict
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from typing_extensions import NotRequired
 
-from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 
 from .config import Configuration
 from .log import logger
 
+if TYPE_CHECKING:
+    from typing_extensions import NotRequired
+
+    from apify_client import ApifyClientAsync
+
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
 SESSION_ID_MAX_LENGTH = 50
 
 
-def _is_url(url: str) -> bool:
+def is_url(url: str) -> bool:
+    """Check if the given string is a valid URL."""
     try:
         parsed_url = urlparse(urljoin(url, '/'))
         has_all_parts = all([parsed_url.scheme, parsed_url.netloc, parsed_url.path])
@@ -39,10 +45,10 @@ def _is_url(url: str) -> bool:
 def _check(
     value: Any,
     *,
-    label: Optional[str],
-    pattern: Optional[Pattern] = None,
-    min_length: Optional[int] = None,
-    max_length: Optional[int] = None,
+    label: str | None,
+    pattern: Pattern | None = None,
+    min_length: int | None = None,
+    max_length: int | None = None,
 ) -> None:
     error_str = f'Value {value}'
     if label:
@@ -55,7 +61,7 @@ def _check(
         raise ValueError(f'{error_str} is longer than maximum allowed length {max_length}')
 
     if pattern and not re.fullmatch(pattern, value):
-        raise ValueError(f'{error_str} does not match pattern {repr(pattern.pattern)}')
+        raise ValueError(f'{error_str} does not match pattern {pattern.pattern!r}')
 
 
 class ProxyInfo(TypedDict):
@@ -76,7 +82,7 @@ class ProxyInfo(TypedDict):
     password: str
     """The password for the proxy."""
 
-    groups: NotRequired[List[str]]
+    groups: NotRequired[list[str]]
     """An array of proxy groups to be used by the [Apify Proxy](https://docs.apify.com/proxy).
     If not provided, the proxy will select the groups automatically.
     """
@@ -111,30 +117,30 @@ class ProxyConfiguration:
     is_man_in_the_middle = False
 
     _next_custom_url_index = 0
-    _proxy_urls: List[str]
-    _used_proxy_urls: Dict[str, str]
-    _new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None
-    _groups: List[str]
-    _country_code: Optional[str] = None
-    _password: Optional[str] = None
+    _proxy_urls: list[str]
+    _used_proxy_urls: dict[str, str]
+    _new_url_function: Callable[[str | None], str] | Callable[[str | None], Awaitable[str]] | None = None
+    _groups: list[str]
+    _country_code: str | None = None
+    _password: str | None = None
     _hostname: str
     _port: int
-    _uses_apify_proxy: Optional[bool] = None
+    _uses_apify_proxy: bool | None = None
     _actor_config: Configuration
-    _apify_client: Optional[ApifyClientAsync] = None
+    _apify_client: ApifyClientAsync | None = None
 
     @ignore_docs
     def __init__(
-        self,
+        self: ProxyConfiguration,
         *,
-        password: Optional[str] = None,
-        groups: Optional[List[str]] = None,
-        country_code: Optional[str] = None,
-        proxy_urls: Optional[List[str]] = None,
-        new_url_function: Optional[Union[Callable[[Optional[str]], str], Callable[[Optional[str]], Awaitable[str]]]] = None,
-        _actor_config: Optional[Configuration] = None,
-        _apify_client: Optional[ApifyClientAsync] = None,
-    ):
+        password: str | None = None,
+        groups: list[str] | None = None,
+        country_code: str | None = None,
+        proxy_urls: list[str] | None = None,
+        new_url_function: Callable[[str | None], str] | Callable[[str | None], Awaitable[str]] | None = None,
+        _actor_config: Configuration | None = None,
+        _apify_client: ApifyClientAsync | None = None,
+    ) -> None:
         """Create a ProxyConfiguration instance. It is highly recommended to use `Actor.create_proxy_configuration()` instead of this.
 
         Args:
@@ -152,8 +158,8 @@ class ProxyConfiguration:
             country_code = str(country_code)
             _check(country_code, label='country_code', pattern=COUNTRY_CODE_REGEX)
         if proxy_urls:
-            for (i, url) in enumerate(proxy_urls):
-                if not _is_url(url):
+            for i, url in enumerate(proxy_urls):
+                if not is_url(url):
                     raise ValueError(f'proxy_urls[{i}] ("{url}") is not a valid URL')
 
         # Validation
@@ -161,14 +167,18 @@ class ProxyConfiguration:
             raise ValueError('Cannot combine custom proxies in "proxy_urls" with custom generating function in "new_url_function".')
 
         if (proxy_urls or new_url_function) and (groups or country_code):
-            raise ValueError('Cannot combine custom proxies with Apify Proxy!'
-                             ' It is not allowed to set "proxy_urls" or "new_url_function" combined with'
-                             ' "groups" or "country_code".')
+            raise ValueError(
+                'Cannot combine custom proxies with Apify Proxy!'
+                ' It is not allowed to set "proxy_urls" or "new_url_function" combined with'
+                ' "groups" or "country_code".'
+            )
 
         # mypy has a bug with narrowing types for filter (https://github.com/python/mypy/issues/12682)
         if proxy_urls and next(filter(lambda url: 'apify.com' in url, proxy_urls), None):  # type: ignore
-            logger.warning('Some Apify proxy features may work incorrectly. Please consider setting up Apify properties instead of `proxy_urls`.\n'
-                           'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration')
+            logger.warning(
+                'Some Apify proxy features may work incorrectly. Please consider setting up Apify properties instead of `proxy_urls`.\n'
+                'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration'
+            )
 
         self._actor_config = _actor_config or Configuration._get_default_instance()
         self._apify_client = _apify_client
@@ -184,7 +194,7 @@ class ProxyConfiguration:
         self._country_code = country_code
         self._uses_apify_proxy = not (proxy_urls or new_url_function)
 
-    async def initialize(self) -> None:
+    async def initialize(self: ProxyConfiguration) -> None:
         """Load the Apify Proxy password if the API token is provided and check access to Apify Proxy and provided proxy groups.
 
         Only called if Apify Proxy configuration is used.
@@ -197,7 +207,7 @@ class ProxyConfiguration:
             await self._maybe_fetch_password()
             await self._check_access()
 
-    async def new_url(self, session_id: Optional[Union[int, str]] = None) -> str:
+    async def new_url(self: ProxyConfiguration, session_id: int | str | None = None) -> str:
         """Return a new proxy URL based on provided configuration options and the `sessionId` parameter.
 
         Args:
@@ -220,27 +230,27 @@ class ProxyConfiguration:
                 if inspect.isawaitable(res):
                     res = await res
                 return str(res)
-            except Exception as e:
-                raise ValueError('The provided "new_url_function" did not return a valid URL') from e
+            except Exception as exc:
+                raise ValueError('The provided "new_url_function" did not return a valid URL') from exc
 
         if self._proxy_urls:
             if not session_id:
                 index = self._next_custom_url_index
                 self._next_custom_url_index = (self._next_custom_url_index + 1) % len(self._proxy_urls)
                 return self._proxy_urls[index]
-            else:
-                if session_id not in self._used_proxy_urls:
-                    index = self._next_custom_url_index
-                    self._next_custom_url_index = (self._next_custom_url_index + 1) % len(self._proxy_urls)
-                    self._used_proxy_urls[session_id] = self._proxy_urls[index]
 
-                return self._used_proxy_urls[session_id]
+            if session_id not in self._used_proxy_urls:
+                index = self._next_custom_url_index
+                self._next_custom_url_index = (self._next_custom_url_index + 1) % len(self._proxy_urls)
+                self._used_proxy_urls[session_id] = self._proxy_urls[index]
+
+            return self._used_proxy_urls[session_id]
 
         username = self._get_username(session_id)
 
         return f'http://{username}:{self._password}@{self._hostname}:{self._port}'
 
-    async def new_proxy_info(self, session_id: Optional[Union[int, str]] = None) -> ProxyInfo:
+    async def new_proxy_info(self: ProxyConfiguration, session_id: int | str | None = None) -> ProxyInfo:
         """Create a new ProxyInfo object.
 
         Use it if you want to work with a rich representation of a proxy URL.
@@ -275,21 +285,21 @@ class ProxyConfiguration:
             if session_id is not None:
                 res['session_id'] = session_id
             return res
-        else:
-            parsed_url = urlparse(url)
-            assert parsed_url.hostname is not None
-            assert parsed_url.port is not None
-            res = {
-                'url': url,
-                'hostname': parsed_url.hostname,
-                'port': parsed_url.port,
-                'password': parsed_url.password or '',
-            }
-            if parsed_url.username:
-                res['username'] = parsed_url.username
+
+        parsed_url = urlparse(url)
+        assert parsed_url.hostname is not None  # noqa: S101
+        assert parsed_url.port is not None  # noqa: S101
+        res = {
+            'url': url,
+            'hostname': parsed_url.hostname,
+            'port': parsed_url.port,
+            'password': parsed_url.password or '',
+        }
+        if parsed_url.username:
+            res['username'] = parsed_url.username
         return res
 
-    async def _maybe_fetch_password(self) -> None:
+    async def _maybe_fetch_password(self: ProxyConfiguration) -> None:
         token = self._actor_config.token
 
         if token and self._apify_client:
@@ -299,17 +309,21 @@ class ProxyConfiguration:
 
                 if self._password:
                     if self._password != password:
-                        logger.warning('The Apify Proxy password you provided belongs to'
-                                       ' a different user than the Apify token you are using. Are you sure this is correct?')
+                        logger.warning(
+                            'The Apify Proxy password you provided belongs to'
+                            ' a different user than the Apify token you are using. Are you sure this is correct?'
+                        )
                 else:
                     self._password = password
 
         if not self._password:
-            raise ValueError('Apify Proxy password must be provided using the "password" constructor argument'
-                             f' or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable.'
-                             f' If you add the "{ApifyEnvVars.TOKEN}" environment variable, the password will be automatically inferred.')
+            raise ValueError(
+                'Apify Proxy password must be provided using the "password" constructor argument'
+                f' or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable.'
+                f' If you add the "{ApifyEnvVars.TOKEN}" environment variable, the password will be automatically inferred.'
+            )
 
-    async def _check_access(self) -> None:
+    async def _check_access(self: ProxyConfiguration) -> None:
         proxy_status_url = f'{self._actor_config.proxy_status_url}/?format=json'
 
         status = None
@@ -319,7 +333,7 @@ class ProxyConfiguration:
                     response = await client.get(proxy_status_url)
                     status = response.json()
                     break
-                except Exception:
+                except Exception:  # noqa: S110
                     # retry on connection errors
                     pass
 
@@ -329,20 +343,22 @@ class ProxyConfiguration:
 
             self.is_man_in_the_middle = status['isManInTheMiddle']
         else:
-            logger.warning('Apify Proxy access check timed out. Watch out for errors with status code 407. '
-                           "If you see some, it most likely means you don't have access to either all or some of the proxies you're trying to use.")
+            logger.warning(
+                'Apify Proxy access check timed out. Watch out for errors with status code 407. '
+                "If you see some, it most likely means you don't have access to either all or some of the proxies you're trying to use."
+            )
 
-    def _get_username(self, session_id: Optional[Union[int, str]] = None) -> str:
+    def _get_username(self: ProxyConfiguration, session_id: int | str | None = None) -> str:
         if session_id is not None:
             session_id = f'{session_id}'
 
-        parts: List[str] = []
+        parts: list[str] = []
 
         if self._groups:
             parts.append(f'groups-{"+".join(self._groups)}')
         if session_id is not None:
             parts.append(f'session-{session_id}')
-        if (self._country_code):
+        if self._country_code:
             parts.append(f'country-{self._country_code}')
 
         if not parts:

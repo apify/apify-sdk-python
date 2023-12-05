@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import inspect
 from collections import defaultdict
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, get_type_hints
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 import pytest
 
@@ -13,8 +15,11 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientMa
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-@pytest.fixture
+
+@pytest.fixture()
 def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
     def reset() -> None:
         monkeypatch.setattr(Actor, '_default_instance', None)
@@ -42,18 +47,18 @@ def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path
 
 # This class is used to patch the ApifyClientAsync methods to return a fixed value or be replaced with another method.
 class ApifyClientAsyncPatcher:
-    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def __init__(self: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch) -> None:
         self.monkeypatch = monkeypatch
-        self.calls: Dict[str, Dict[str, List[Tuple[Any, Any]]]] = defaultdict(lambda: defaultdict(list))
+        self.calls: dict[str, dict[str, list[tuple[Any, Any]]]] = defaultdict(lambda: defaultdict(list))
 
     def patch(
-        self,
+        self: ApifyClientAsyncPatcher,
         method: str,
         submethod: str,
         *,
-        return_value: Optional[Any] = None,
-        replacement_method: Optional[Callable] = None,
-        is_async: Optional[bool] = None,
+        return_value: Any = None,
+        replacement_method: Callable | None = None,
+        is_async: bool | None = None,
     ) -> None:
         """
         Patch a method in ApifyClientAsync.
@@ -78,7 +83,26 @@ class ApifyClientAsyncPatcher:
         if not client_method:
             raise ValueError(f'ApifyClientAsync does not contain method "{method}"!')
 
-        client_method_return_type = get_type_hints(client_method)['return']
+        try:
+            # Try to get the return type of the client method using `typing.get_type_hints()`
+            client_method_return_type = get_type_hints(client_method)['return']
+        except TypeError:
+            # There is a known issue with `typing.get_type_hints()` on Python 3.8 and 3.9. It raises a `TypeError`
+            # when `|` (Union) is used in the type hint, even with `from __future__ import annotations`. Since we
+            # only need the return type, we attempt the following workaround.
+
+            # 1. Create a deep copy of the client method object
+            client_method_copied = deepcopy(client_method)
+
+            # 2. Restrict the annotations to only include the return type
+            client_method_copied.__annotations__ = {'return': client_method.__annotations__['return']}
+
+            # 3. Try to get the return type again using `typing.get_type_hints()`
+            client_method_return_type = get_type_hints(client_method_copied)['return']
+
+            # TODO: Remove this fallback once we drop support for Python 3.8 and 3.9
+            # https://github.com/apify/apify-sdk-python/issues/151
+
         original_submethod = getattr(client_method_return_type, submethod, None)
 
         if not original_submethod:
@@ -100,7 +124,8 @@ class ApifyClientAsyncPatcher:
                 return_value.set_result(original_return_value)
 
         if not replacement_method:
-            def replacement_method(*_args: Any, **_kwargs: Any) -> Optional[Any]:
+
+            def replacement_method(*_args: Any, **_kwargs: Any) -> Any:
                 return return_value
 
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -125,11 +150,11 @@ class ApifyClientAsyncPatcher:
         self.monkeypatch.setattr(ApifyClientAsync, '__getattr__', getattr_override, raising=False)
 
 
-@pytest.fixture
+@pytest.fixture()
 def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAsyncPatcher:
     return ApifyClientAsyncPatcher(monkeypatch)
 
 
-@pytest.fixture
+@pytest.fixture()
 def memory_storage_client() -> MemoryStorageClient:
     return MemoryStorageClient(write_metadata=True, persist_storage=True)

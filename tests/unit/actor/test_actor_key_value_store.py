@@ -1,18 +1,25 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
 
 from apify import Actor
 from apify._crypto import public_encrypt
-from apify._memory_storage import MemoryStorageClient
 from apify.consts import ENCRYPTED_INPUT_VALUE_PREFIX
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import json_dumps
 
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 
+if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
 
-# NOTE: We only test the key-value store methond available on Actor class/instance. Actual tests for the implementations are in storages/.
+
+# NOTE: We only test the key-value store methods available on Actor class/instance.
+# Actual tests for the implementations are in storages/.
 class TestOpenKeyValueStore:
-    async def test_same_references(self) -> None:
+    async def test_same_references(self: TestOpenKeyValueStore) -> None:
         async with Actor:
             kvs1 = await Actor.open_key_value_store()
             kvs2 = await Actor.open_key_value_store()
@@ -30,11 +37,11 @@ class TestOpenKeyValueStore:
 
 
 class TestKeyValueStoreOnActor:
-    async def test_throws_without_init(self) -> None:
+    async def test_throws_without_init(self: TestKeyValueStoreOnActor) -> None:
         with pytest.raises(RuntimeError):
             await Actor.open_key_value_store()
 
-    async def test_get_set_value(self) -> None:
+    async def test_get_set_value(self: TestKeyValueStoreOnActor) -> None:
         test_key = 'test_key'
         test_value = 'test_value'
         test_content_type = 'text/plain'
@@ -43,7 +50,7 @@ class TestKeyValueStoreOnActor:
             value = await my_actor.get_value(key=test_key)
             assert value == test_value
 
-    async def test_get_input(self, memory_storage_client: MemoryStorageClient) -> None:
+    async def test_get_input(self: TestKeyValueStoreOnActor, memory_storage_client: MemoryStorageClient) -> None:
         input_key = 'INPUT'
         test_input = {'foo': 'bar'}
 
@@ -55,10 +62,14 @@ class TestKeyValueStoreOnActor:
         )
 
         async with Actor() as my_actor:
-            input = await my_actor.get_input()
+            input = await my_actor.get_input()  # noqa: A001
             assert input['foo'] == test_input['foo']
 
-    async def test_get_input_with_secrets(self, monkeypatch: pytest.MonkeyPatch, memory_storage_client: MemoryStorageClient) -> None:
+    async def test_get_input_with_secrets(
+        self: TestKeyValueStoreOnActor,
+        monkeypatch: pytest.MonkeyPatch,
+        memory_storage_client: MemoryStorageClient,
+    ) -> None:
         monkeypatch.setenv(ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_FILE, PRIVATE_KEY_PEM_BASE64)
         monkeypatch.setenv(ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_PASSPHRASE, PRIVATE_KEY_PASSWORD)
 
@@ -78,6 +89,6 @@ class TestKeyValueStoreOnActor:
         )
 
         async with Actor() as my_actor:
-            input = await my_actor.get_input()
+            input = await my_actor.get_input()  # noqa: A001
             assert input['foo'] == input_with_secret['foo']
             assert input['secret'] == secret_string
