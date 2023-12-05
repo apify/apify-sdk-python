@@ -1,22 +1,18 @@
-Changelog
-=========
+# Changelog
 
-[1.4.0](../../releases/tag/v1.4.0) - Unreleased
------------------------------------------------
+## [1.4.0](../../releases/tag/v1.4.0) - Unreleased
 
 ### Internal changes
 
 - Migrate from Autopep8 and Flake8 to Ruff
 
-[1.3.0](../../releases/tag/v1.3.0) - 2023-11-15
------------------------------------------------
+## [1.3.0](../../releases/tag/v1.3.0) - 2023-11-15
 
 ### Added
 
 - Added `scrapy` extra
 
-[1.2.0](../../releases/tag/v1.2.0) - 2023-10-23
------------------------------------------------
+## [1.2.0](../../releases/tag/v1.2.0) - 2023-10-23
 
 ### Added
 
@@ -26,8 +22,7 @@ Changelog
 
 - Fix lint error (E721) in unit tests (for instance checks use `isinstance()`)
 
-[1.1.5](../../releases/tag/v1.1.5) - 2023-10-03
------------------------------------------------
+## [1.1.5](../../releases/tag/v1.1.5) - 2023-10-03
 
 ### Added
 
@@ -38,8 +33,7 @@ Changelog
 - rewrote documentation publication to use Docusaurus
 - removed PR Toolkit workflow
 
-[1.1.4](../../releases/tag/v1.1.4) - 2023-09-06
------------------------------------------------
+## [1.1.4](../../releases/tag/v1.1.4) - 2023-09-06
 
 ### Fixed
 
@@ -51,16 +45,14 @@ Changelog
 - removed `pytest-randomly` Pytest plugin
 - unpinned `apify-client` and `apify-shared` to improve compatibility with their newer versions
 
-[1.1.3](../../releases/tag/v1.1.3) - 2023-08-25
------------------------------------------------
+## [1.1.3](../../releases/tag/v1.1.3) - 2023-08-25
 
 ### Internal changes
 
 - unified indentation in configuration files
 - update the `Actor.reboot` method to use the new reboot endpoint
 
-[1.1.2](../../releases/tag/v1.1.2) - 2023-08-02
------------------------------------------------
+## [1.1.2](../../releases/tag/v1.1.2) - 2023-08-02
 
 ### Internal changes
 
@@ -69,15 +61,13 @@ Changelog
 - started using environment variables with prefix `ACTOR_` instead of some with prefix `APIFY_`
 - pinned `apify-client` and `apify-shared` to prevent their implicit updates from breaking SDK
 
-[1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
------------------------------------------------
+## [1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
 
 ### Fixed
 
 - relaxed dependency requirements to improve compatibility with other libraries
 
-[1.1.0](../../releases/tag/v1.1.0) - 2023-05-23
------------------------------------------------
+## [1.1.0](../../releases/tag/v1.1.0) - 2023-05-23
 
 ### Added
 
@@ -94,8 +84,7 @@ Changelog
 
 - switched from `setup.py` to `pyproject.toml` for specifying project setup
 
-[1.0.0](../../releases/tag/v1.0.0) - 2023-03-13
------------------------------------------------
+## [1.0.0](../../releases/tag/v1.0.0) - 2023-03-13
 
 ### Internal changes
 
@@ -106,8 +95,7 @@ Changelog
 
 - fixed `RequestQueue` not loading requests from an existing queue properly
 
-[0.2.0](../../releases/tag/v0.2.0) - 2023-03-06
------------------------------------------------
+## [0.2.0](../../releases/tag/v0.2.0) - 2023-03-06
 
 ### Breaking changes
 
@@ -135,7 +123,6 @@ Changelog
 - added unit tests for the `EventManager` class
 - added more Flake8 plugins and fixed issues they reported
 
-[0.1.0](../../releases/tag/v0.1.0) - 2023-02-09
------------------------------------------------
+## [0.1.0](../../releases/tag/v0.1.0) - 2023-02-09
 
 Initial release of the package.
