@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.4.0](../../releases/tag/v1.4.0) - Unreleased
+## [1.4.1](../../releases/tag/v1.4.1) - Unreleased
+
+...
+
+## [1.4.0](../../releases/tag/v1.4.0) - 2023-12-05
 
 ### Internal changes
 
