@@ -21,11 +21,15 @@ classifiers = [
 ]
 
 requires-python = ">=3.8"
+
+# We use inclusive ordered comparison clause for non-Apify packages intentionally in order to enhance the Apify SDK's
+# compatibility with a wide range of external packages. This decision was discussed in detail in the following PR:
+# https://github.com/apify/apify-sdk-python/pull/154
 dependencies = [
-    "aiofiles >= 22.1.0",
-    "aioshutil >= 1.0",
     "apify-client ~= 1.6.0",
     "apify-shared ~= 1.1.0",
+    "aiofiles >= 22.1.0",
+    "aioshutil >= 1.0",
     "colorama >= 0.4.6",
     "cryptography >= 39.0.0",
     "httpx >= 0.24.1",
@@ -52,11 +56,11 @@ dev = [
     "ruff ~= 0.1.6",
     "twine ~= 4.0.2",
     "types-aiofiles ~= 23.2.0.0",
-    "types-colorama ~= 0.4.15.11",
-    "types-psutil ~= 5.9.5.12",
+    "types-colorama ~= 0.4.15.12",
+    "types-psutil ~= 5.9.5.17",
 ]
 scrapy = [
-    "scrapy ~= 2.11.0",
+    "scrapy >= 2.11.0",
 ]
 
 [project.urls]
