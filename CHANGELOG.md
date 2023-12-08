@@ -2,7 +2,9 @@
 
 ## [1.4.1](../../releases/tag/v1.4.1) - Unreleased
 
-...
+### Internal changes
+
+- Fix type hint problems for resource clients
 
 ## [1.4.0](../../releases/tag/v1.4.0) - 2023-12-05
 

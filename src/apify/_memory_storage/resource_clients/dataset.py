@@ -74,8 +74,8 @@ class DatasetClient(BaseResourceClient):
         found = self._find_or_create_client_by_id_or_name(memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if found:
-            async with found._file_operation_lock:  # type: ignore
-                await found._update_timestamps(has_been_modified=False)  # type: ignore
+            async with found._file_operation_lock:
+                await found._update_timestamps(has_been_modified=False)
                 return found._to_resource_info()
 
         return None
@@ -103,7 +103,7 @@ class DatasetClient(BaseResourceClient):
         if name is None:
             return existing_dataset_by_id._to_resource_info()
 
-        async with existing_dataset_by_id._file_operation_lock:  # type: ignore
+        async with existing_dataset_by_id._file_operation_lock:
             # Check that name is not in use already
             existing_dataset_by_name = next(
                 (dataset for dataset in self._memory_storage_client._datasets_handled if dataset._name and dataset._name.lower() == name.lower()),
@@ -122,7 +122,7 @@ class DatasetClient(BaseResourceClient):
             await force_rename(previous_dir, existing_dataset_by_id._resource_directory)
 
             # Update timestamps
-            await existing_dataset_by_id._update_timestamps(has_been_modified=True)  # type: ignore
+            await existing_dataset_by_id._update_timestamps(has_been_modified=True)
 
         return existing_dataset_by_id._to_resource_info()
 
@@ -193,9 +193,9 @@ class DatasetClient(BaseResourceClient):
         if existing_dataset_by_id is None:
             raise_on_non_existing_storage(StorageTypes.DATASET, self._id)
 
-        async with existing_dataset_by_id._file_operation_lock:  # type: ignore
-            start, end = existing_dataset_by_id._get_start_and_end_indexes(  # type: ignore
-                max(existing_dataset_by_id._item_count - (offset or 0) - (limit or LIST_ITEMS_LIMIT), 0) if desc else offset or 0,  # type: ignore
+        async with existing_dataset_by_id._file_operation_lock:
+            start, end = existing_dataset_by_id._get_start_and_end_indexes(
+                max(existing_dataset_by_id._item_count - (offset or 0) - (limit or LIST_ITEMS_LIMIT), 0) if desc else offset or 0,
                 limit,
             )
 
@@ -203,9 +203,9 @@ class DatasetClient(BaseResourceClient):
 
             for idx in range(start, end):
                 entry_number = self._generate_local_entry_name(idx)
-                items.append(existing_dataset_by_id._dataset_entries[entry_number])  # type: ignore
+                items.append(existing_dataset_by_id._dataset_entries[entry_number])
 
-            await existing_dataset_by_id._update_timestamps(has_been_modified=False)  # type: ignore
+            await existing_dataset_by_id._update_timestamps(has_been_modified=False)
 
             if desc:
                 items.reverse()
@@ -217,7 +217,7 @@ class DatasetClient(BaseResourceClient):
                     'items': items,
                     'limit': limit or LIST_ITEMS_LIMIT,
                     'offset': offset or 0,
-                    'total': existing_dataset_by_id._item_count,  # type: ignore
+                    'total': existing_dataset_by_id._item_count,
                 }
             )
 
@@ -308,16 +308,16 @@ class DatasetClient(BaseResourceClient):
 
         added_ids: list[str] = []
         for entry in normalized:
-            existing_dataset_by_id._item_count += 1  # type: ignore
-            idx = self._generate_local_entry_name(existing_dataset_by_id._item_count)  # type: ignore
+            existing_dataset_by_id._item_count += 1
+            idx = self._generate_local_entry_name(existing_dataset_by_id._item_count)
 
-            existing_dataset_by_id._dataset_entries[idx] = entry  # type: ignore
+            existing_dataset_by_id._dataset_entries[idx] = entry
             added_ids.append(idx)
 
-        data_entries = [(id, existing_dataset_by_id._dataset_entries[id]) for id in added_ids]  # type: ignore # noqa: A001
+        data_entries = [(id, existing_dataset_by_id._dataset_entries[id]) for id in added_ids] # noqa: A001
 
-        async with existing_dataset_by_id._file_operation_lock:  # type: ignore
-            await existing_dataset_by_id._update_timestamps(has_been_modified=True)  # type: ignore
+        async with existing_dataset_by_id._file_operation_lock:
+            await existing_dataset_by_id._update_timestamps(has_been_modified=True)
 
             await _update_dataset_items(
                 data=data_entries,
@@ -385,7 +385,7 @@ class DatasetClient(BaseResourceClient):
         return memory_storage_client._datasets_directory
 
     @classmethod
-    def _get_storage_client_cache(  # type: ignore
+    def _get_storage_client_cache(
         cls: type[DatasetClient],
         memory_storage_client: MemoryStorageClient,
     ) -> list[DatasetClient]:

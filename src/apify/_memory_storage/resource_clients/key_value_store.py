@@ -100,8 +100,8 @@ class KeyValueStoreClient(BaseResourceClient):
         found = self._find_or_create_client_by_id_or_name(memory_storage_client=self._memory_storage_client, id=self._id, name=self._name)
 
         if found:
-            async with found._file_operation_lock:  # type: ignore
-                await found._update_timestamps(has_been_modified=False)  # type: ignore
+            async with found._file_operation_lock:
+                await found._update_timestamps(has_been_modified=False)
                 return found._to_resource_info()
 
         return None
@@ -127,7 +127,7 @@ class KeyValueStoreClient(BaseResourceClient):
         if name is None:
             return existing_store_by_id._to_resource_info()
 
-        async with existing_store_by_id._file_operation_lock:  # type: ignore
+        async with existing_store_by_id._file_operation_lock:
             # Check that name is not in use already
             existing_store_by_name = next(
                 (store for store in self._memory_storage_client._key_value_stores_handled if store._name and store._name.lower() == name.lower()),
@@ -146,7 +146,7 @@ class KeyValueStoreClient(BaseResourceClient):
             await force_rename(previous_dir, existing_store_by_id._resource_directory)
 
             # Update timestamps
-            await existing_store_by_id._update_timestamps(has_been_modified=True)  # type: ignore
+            await existing_store_by_id._update_timestamps(has_been_modified=True)
 
         return existing_store_by_id._to_resource_info()
 
@@ -187,7 +187,7 @@ class KeyValueStoreClient(BaseResourceClient):
 
         items = []
 
-        for record in existing_store_by_id._records.values():  # type: ignore
+        for record in existing_store_by_id._records.values():
             size = len(record['value'])
             items.append(
                 {
@@ -222,8 +222,8 @@ class KeyValueStoreClient(BaseResourceClient):
         is_last_selected_item_absolutely_last = last_item_in_store == last_selected_item
         next_exclusive_start_key = None if is_last_selected_item_absolutely_last else last_selected_item['key']
 
-        async with existing_store_by_id._file_operation_lock:  # type: ignore
-            await existing_store_by_id._update_timestamps(has_been_modified=False)  # type: ignore
+        async with existing_store_by_id._file_operation_lock:
+            await existing_store_by_id._update_timestamps(has_been_modified=False)
 
         return {
             'count': len(items),
@@ -247,7 +247,7 @@ class KeyValueStoreClient(BaseResourceClient):
         if existing_store_by_id is None:
             raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
 
-        stored_record = existing_store_by_id._records.get(key)  # type: ignore
+        stored_record = existing_store_by_id._records.get(key)
 
         if stored_record is None:
             return None
@@ -264,8 +264,8 @@ class KeyValueStoreClient(BaseResourceClient):
             except ValueError:
                 logger.exception('Error parsing key-value store record')
 
-        async with existing_store_by_id._file_operation_lock:  # type: ignore
-            await existing_store_by_id._update_timestamps(has_been_modified=False)  # type: ignore
+        async with existing_store_by_id._file_operation_lock:
+            await existing_store_by_id._update_timestamps(has_been_modified=False)
 
         return record
 
@@ -324,22 +324,22 @@ class KeyValueStoreClient(BaseResourceClient):
         if 'application/json' in content_type and not is_file_or_bytes(value) and not isinstance(value, str):
             value = json_dumps(value).encode('utf-8')
 
-        async with existing_store_by_id._file_operation_lock:  # type: ignore
-            await existing_store_by_id._update_timestamps(has_been_modified=True)  # type: ignore
+        async with existing_store_by_id._file_operation_lock:
+            await existing_store_by_id._update_timestamps(has_been_modified=True)
             record: KeyValueStoreRecord = {
                 'key': key,
                 'value': value,
                 'contentType': content_type,
             }
 
-            old_record = existing_store_by_id._records.get(key)  # type: ignore
-            existing_store_by_id._records[key] = record  # type: ignore
+            old_record = existing_store_by_id._records.get(key)
+            existing_store_by_id._records[key] = record
 
             if self._memory_storage_client._persist_storage:
                 if old_record is not None and _filename_from_record(old_record) != _filename_from_record(record):
-                    await existing_store_by_id._delete_persisted_record(old_record)  # type: ignore
+                    await existing_store_by_id._delete_persisted_record(old_record)
 
-                await existing_store_by_id._persist_record(record)  # type: ignore
+                await existing_store_by_id._persist_record(record)
 
     async def _persist_record(self: KeyValueStoreClient, record: KeyValueStoreRecord) -> None:
         store_directory = self._resource_directory
@@ -385,14 +385,14 @@ class KeyValueStoreClient(BaseResourceClient):
         if existing_store_by_id is None:
             raise_on_non_existing_storage(StorageTypes.KEY_VALUE_STORE, self._id)
 
-        record = existing_store_by_id._records.get(key)  # type: ignore
+        record = existing_store_by_id._records.get(key)
 
         if record is not None:
-            async with existing_store_by_id._file_operation_lock:  # type: ignore
-                del existing_store_by_id._records[key]  # type: ignore
-                await existing_store_by_id._update_timestamps(has_been_modified=True)  # type: ignore
+            async with existing_store_by_id._file_operation_lock:
+                del existing_store_by_id._records[key]
+                await existing_store_by_id._update_timestamps(has_been_modified=True)
                 if self._memory_storage_client._persist_storage:
-                    await existing_store_by_id._delete_persisted_record(record)  # type: ignore
+                    await existing_store_by_id._delete_persisted_record(record)
 
     async def _delete_persisted_record(self: KeyValueStoreClient, record: KeyValueStoreRecord) -> None:
         store_directory = self._resource_directory
@@ -437,7 +437,7 @@ class KeyValueStoreClient(BaseResourceClient):
         return memory_storage_client._key_value_stores_directory
 
     @classmethod
-    def _get_storage_client_cache(  # type: ignore
+    def _get_storage_client_cache(
         cls: type[KeyValueStoreClient],
         memory_storage_client: MemoryStorageClient,
     ) -> list[KeyValueStoreClient]:

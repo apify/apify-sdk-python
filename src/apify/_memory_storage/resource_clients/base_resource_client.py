@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 from apify_shared.utils import ignore_docs
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from ..memory_storage_client import MemoryStorageClient
 
 
@@ -48,9 +50,9 @@ class BaseResourceClient(ABC):
     @classmethod
     @abstractmethod
     def _get_storage_client_cache(
-        cls: type[BaseResourceClient],
+        cls,  # noqa: ANN102 # type annotated cls does not work with Self as a return type
         memory_storage_client: MemoryStorageClient,
-    ) -> list[BaseResourceClient]:
+    ) -> list[Self]:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @abstractmethod
@@ -60,21 +62,21 @@ class BaseResourceClient(ABC):
     @classmethod
     @abstractmethod
     def _create_from_directory(
-        cls: type[BaseResourceClient],
+        cls,  # noqa: ANN102 # type annotated cls does not work with Self as a return type
         storage_directory: str,
         memory_storage_client: MemoryStorageClient,
         id: str | None = None,  # noqa: A002
         name: str | None = None,
-    ) -> BaseResourceClient:
+    ) -> Self:
         raise NotImplementedError('You must override this method in the subclass!')
 
     @classmethod
     def _find_or_create_client_by_id_or_name(
-        cls: type[BaseResourceClient],
+        cls,  # noqa: ANN102 # type annotated cls does not work with Self as a return type
         memory_storage_client: MemoryStorageClient,
         id: str | None = None,  # noqa: A002
         name: str | None = None,
-    ) -> BaseResourceClient | None:
+    ) -> Self | None:
         assert id is not None or name is not None  # noqa: S101
 
         storage_client_cache = cls._get_storage_client_cache(memory_storage_client)
