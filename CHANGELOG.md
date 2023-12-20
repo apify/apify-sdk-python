@@ -2,6 +2,10 @@
 
 ## [1.4.1](../../releases/tag/v1.4.1) - Unreleased
 
+### Fixed
+
+- Resolved issue in `ApifyRetryMiddleware.process_exception()` where requests were getting stuck in the request queue.
+
 ### Internal changes
 
 - Fix type hint problems for resource clients
