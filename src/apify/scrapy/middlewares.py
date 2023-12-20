@@ -4,10 +4,7 @@ import traceback
 from typing import TYPE_CHECKING, Any
 
 try:
-    from scrapy import Spider  # noqa: TCH002
     from scrapy.downloadermiddlewares.retry import RetryMiddleware
-    from scrapy.exceptions import IgnoreRequest
-    from scrapy.http import Request, Response  # noqa: TCH002
     from scrapy.utils.response import response_status_message
 except ImportError as exc:
     raise ImportError(
@@ -18,6 +15,9 @@ from ..actor import Actor
 from .utils import nested_event_loop, open_queue_with_custom_client, to_apify_request
 
 if TYPE_CHECKING:
+    from scrapy import Spider
+    from scrapy.http import Request, Response
+
     from ..storages import RequestQueue
 
 
@@ -32,11 +32,6 @@ class ApifyRetryMiddleware(RetryMiddleware):
         except BaseException:
             traceback.print_exc()
             raise
-
-    def __del__(self: ApifyRetryMiddleware) -> None:
-        """Before deleting the instance, close the nested event loop."""
-        nested_event_loop.stop()
-        nested_event_loop.close()
 
     def process_response(
         self: ApifyRetryMiddleware,
@@ -54,9 +49,11 @@ class ApifyRetryMiddleware(RetryMiddleware):
         Returns:
             The response, or a new request if the request should be retried.
         """
+        if not isinstance(request.url, str):
+            raise TypeError(f'Expected request.url to be a string, got {type(request.url)} instead.')
+
         # Robots requests are bypassed directly, they don't go through a Scrapy Scheduler, and also through our
         # Request Queue. Check the scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware for details.
-        assert isinstance(request.url, str)  # noqa: S101
         if request.url.endswith('robots.txt'):
             return response
 
@@ -72,20 +69,30 @@ class ApifyRetryMiddleware(RetryMiddleware):
         exception: BaseException,
         spider: Spider,
     ) -> Request | Response | None:
-        """Handle the exception and decide whether the request should be retried."""
-        Actor.log.debug(f'ApifyRetryMiddleware.process_exception was called (scrapy_request={request})...')
+        """Handle the exception and decide whether the request should be retried.
+
+        Args:
+            request: The request that encountered an exception.
+            exception: The exception that occurred.
+            spider: The Spider that sent the request.
+
+        Returns:
+            None: The request will not be retried.
+        """
+        Actor.log.debug(f'ApifyRetryMiddleware.process_exception was called (request={request}, exception={exception})...')
         apify_request = to_apify_request(request, spider=spider)
 
-        if isinstance(exception, IgnoreRequest):
-            try:
-                nested_event_loop.run_until_complete(self._rq.mark_request_as_handled(apify_request))
-            except BaseException:
-                traceback.print_exc()
-                raise
-        else:
-            nested_event_loop.run_until_complete(self._rq.reclaim_request(apify_request))
+        # Unlike the default Scrapy RetryMiddleware, we do not attempt to retry requests on exception.
+        # It was causing issues with the Apify request queue, because the request was not marked as handled and was
+        # stucked in the request queue forever - Scrapy crawling never finished. The solution would be to completely
+        # rewrite the retry logic from default RetryMiddleware.
+        try:
+            nested_event_loop.run_until_complete(self._rq.mark_request_as_handled(apify_request))
+        except BaseException:
+            traceback.print_exc()
+            raise
 
-        return super().process_exception(request, exception, spider)
+        return None
 
     async def _handle_retry_logic(
         self: ApifyRetryMiddleware,
