@@ -53,6 +53,7 @@ class ApifyHttpProxyMiddleware:
             ApifyHttpProxyMiddleware: Instance of the class.
         """
         proxy_settings: dict | None = crawler.settings.get('APIFY_PROXY_SETTINGS')
+
         if proxy_settings is None:
             Actor.log.warning(
                 'ApifyHttpProxyMiddleware is not going to be used. ' 'Object "proxyConfiguration" is probably missing in the Actor input.'
@@ -60,7 +61,8 @@ class ApifyHttpProxyMiddleware:
             raise NotConfigured
 
         use_apify_proxy = proxy_settings.get('useApifyProxy', False)
-        if use_apify_proxy is False:
+
+        if use_apify_proxy is not True:
             Actor.log.warning(
                 'ApifyHttpProxyMiddleware is not going to be used. ' 'Actor input field "proxyConfiguration.useApifyProxy" is probably set to False.'
             )
