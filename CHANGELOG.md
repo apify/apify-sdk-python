@@ -1,14 +1,18 @@
 # Changelog
 
-## [1.4.1](../../releases/tag/v1.4.1) - Unreleased
+## [1.4.2](../../releases/tag/v1.4.2) - Unreleased
+
+...
+
+## [1.4.1](../../releases/tag/v1.4.1) - 2023-11-21
 
 ### Fixed
 
-- Resolved issue in `ApifyRetryMiddleware.process_exception()` where requests were getting stuck in the request queue.
+- Resolved issue in `ApifyRetryMiddleware.process_exception()`, where requests were getting stuck in the request queue
 
 ### Internal changes
 
-- Fix type hint problems for resource clients
+- Fixed type hint problems for resource clients
 
 ## [1.4.0](../../releases/tag/v1.4.0) - 2023-12-05
 
