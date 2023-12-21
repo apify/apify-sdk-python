@@ -11,14 +11,14 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from ..actor import Actor
-from .utils import nested_event_loop, open_queue_with_custom_client, to_apify_request
+from ...actor import Actor
+from ..utils import nested_event_loop, open_queue_with_custom_client, to_apify_request
 
 if TYPE_CHECKING:
     from scrapy import Spider
     from scrapy.http import Request, Response
 
-    from ..storages import RequestQueue
+    from ...storages import RequestQueue
 
 
 class ApifyRetryMiddleware(RetryMiddleware):
