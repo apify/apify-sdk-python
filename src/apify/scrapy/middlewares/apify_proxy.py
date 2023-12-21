@@ -52,10 +52,18 @@ class ApifyHttpProxyMiddleware:
         Returns:
             ApifyHttpProxyMiddleware: Instance of the class.
         """
-        proxy_settings = crawler.settings.get('APIFY_PROXY_SETTINGS')
-
+        proxy_settings: dict | None = crawler.settings.get('APIFY_PROXY_SETTINGS')
         if proxy_settings is None:
-            Actor.log.warning('Field "APIFY_PROXY_SETTINGS" is missing in the settings. ApifyHttpProxyMiddleware is not configured.')
+            Actor.log.warning(
+                'ApifyHttpProxyMiddleware is not going to be used. ' 'Object "proxyConfiguration" is probably missing in the Actor input.'
+            )
+            raise NotConfigured
+
+        use_apify_proxy = proxy_settings.get('useApifyProxy', False)
+        if use_apify_proxy is False:
+            Actor.log.warning(
+                'ApifyHttpProxyMiddleware is not going to be used. ' 'Actor input field "proxyConfiguration.useApifyProxy" is probably set to False.'
+            )
             raise NotConfigured
 
         return cls(proxy_settings)
@@ -75,8 +83,10 @@ class ApifyHttpProxyMiddleware:
 
         proxy_cfg = await Actor.create_proxy_configuration(actor_proxy_input=self._proxy_settings)
 
+        # This should not happen, the creation of the proxy configuration should be successfull due to the checks
+        # in the `from_crawler` method
         if proxy_cfg is None:
-            Actor.log.error('Creation of proxy configuration failed')
+            Actor.log.error('Creation of proxy configuration failed. Check the field "proxyConfiguration" in the Actor input.')
             raise NotConfigured
 
         self.__proxy_cfg = proxy_cfg
