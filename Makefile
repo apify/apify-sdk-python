@@ -26,7 +26,10 @@ lint:
 	python3 -m ruff check $(DIRS_WITH_CODE)
 
 unit-tests:
-	python3 -m pytest -n auto -ra tests/unit
+	python3 -m pytest -n auto -ra tests/unit --cov=src/apify
+
+unit-tests-cov:
+	python3 -m pytest -n auto -ra tests/unit --cov=src/apify --cov-report=html
 
 integration-tests:
 	python3 -m pytest -n $(INTEGRATION_TESTS_CONCURRENCY) -ra tests/integration
