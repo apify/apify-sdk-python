@@ -1,21 +1,24 @@
 from __future__ import annotations
 
-from unittest.mock import Mock
-
 import pytest
+from scrapy import Spider
 from scrapy.crawler import Crawler
 from scrapy.exceptions import NotConfigured
 
 from apify.scrapy.middlewares import ApifyHttpProxyMiddleware
 
 
+class DummySpider(Spider):
+    name = 'dummy_spider'
+
+
 @pytest.fixture()
-def crawler() -> Crawler:
+def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     """
     Fixture to create a mock Scrapy Crawler object.
     """
-    crawler = Mock(spec=Crawler)
-    crawler.settings = Mock()
+    crawler = Crawler(DummySpider)
+    monkeypatch.setattr(crawler, 'settings', {})
     return crawler
 
 
