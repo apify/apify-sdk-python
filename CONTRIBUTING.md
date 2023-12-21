@@ -2,7 +2,7 @@
 
 ## Environment
 
-For local development, it is required to have Python 3.8 installed.
+For local development, it is required to have Python 3.8 (or a later version) installed.
 
 It is recommended to set up a virtual environment while developing this package to isolate your development environment,
 however, due to the many varied ways Python can be installed and virtual environments can be set up,
@@ -20,24 +20,42 @@ and [direnv](https://github.com/direnv/direnv) to automatically activate/deactiv
 
 ## Dependencies
 
-To install this package and its development dependencies, run `make install-dev`
+To install this package and its development dependencies, run `make install-dev`.
 
-## Formatting
+## Code checking
 
-We use `ruff` to automatically format the code to a common format. To run the formatting, just run `make format`.
+To run all our code checking tools together, just run `make check-code`.
 
-## Linting, type-checking and unit testing
+### Linting
 
-We use `ruff` for linting, `mypy` for type checking and `pytest` for unit testing. To run these tools, just run `make check-code`.
+We use [ruff](https://docs.astral.sh/ruff/) for linting to to analyze the code for potential issues and enforce
+uniformed code style. See the `pyproject.toml` for its configuration. To run the linting, just run `make lint`.
+
+### Formatting
+
+We use [ruff](https://docs.astral.sh/ruff/) for automated code formatting. It formats the code to follow uniformed
+code style and addresses auto-fixable linting issues. See the `pyproject.toml` for its configuration. To run
+the formatting, just run `make format`.
+
+### Type checking
+
+We use [mypy](https://mypy.readthedocs.io/en/stable/) for type checking. See the `mypy.ini` for its configuration.
+To run the type checking, just run `make type-check`.
+
+### Unit tests
+
+We use [pytest](https://docs.pytest.org/) as a testing framework with many plugins. See the `pyproject.toml` for
+both its configuration and the list of installed plugins. To run unit tests execute `make unit-tests`. To run unit
+tests with HTML coverage report execute `make unit-tests-cov`.
 
 ## Integration tests
 
-We have integration tests which build and run actors using the Python SDK on the Apify Platform.
-To run these tests, you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to use for the tests,
-and then start them with `make integration-tests`.
+We have integration tests which build and run actors using the Python SDK on the Apify Platform. To run these tests,
+you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to
+use for the tests, and then start them with `make integration-tests`.
 
-If you want to run the integration tests on a different environment than the main Apify Platform,
-you need to set the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to the right URL to the Apify API you want to use.
+If you want to run the integration tests on a different environment than the main Apify Platform, you need to set
+the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to the right URL to the Apify API you want to use.
 
 ## Documentation
 
