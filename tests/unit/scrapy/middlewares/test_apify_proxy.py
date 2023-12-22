@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import ParseResult, urlparse
+
 import pytest
 from scrapy import Request, Spider
 from scrapy.core.downloader.handlers.http11 import TunnelError
@@ -95,8 +97,35 @@ async def test__get_new_proxy_url() -> None:
     ...
 
 
-async def test__process_request() -> None:
-    ...
+@pytest.mark.parametrize(
+    ('proxy_url', 'expected_exception', 'expected_request_header'),
+    [
+        ('http://username:password@proxy.example.com:8080', None, b'Basic dXNlcm5hbWU6cGFzc3dvcmQ='),
+        ('http://user123:pass456@proxy.example.com:5748', None, b'Basic dXNlcjEyMzpwYXNzNDU2'),
+        ('http://@proxy.example.com:2943', ValueError, b''),
+    ],
+)
+async def test__process_request(
+    monkeypatch: pytest.MonkeyPatch,
+    middleware: ApifyHttpProxyMiddleware,
+    spider: DummySpider,
+    dummy_request: Request,
+    proxy_url: str,
+    expected_exception: type[Exception] | None,
+    expected_request_header: bytes,
+) -> None:
+    async def mock_get_new_proxy_url() -> ParseResult:
+        return urlparse(proxy_url)
+
+    monkeypatch.setattr(middleware, '_get_new_proxy_url', mock_get_new_proxy_url)
+
+    if expected_exception is None:
+        await middleware.process_request(dummy_request, spider)
+        assert dummy_request.meta['proxy'] == proxy_url
+        assert dummy_request.headers[b'Proxy-Authorization'] == expected_request_header
+    else:
+        with pytest.raises(expected_exception):
+            await middleware.process_request(dummy_request, spider)
 
 
 @pytest.mark.parametrize(
