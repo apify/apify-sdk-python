@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from scrapy import Spider
+from scrapy import Request, Spider
 from scrapy.crawler import Crawler
 from scrapy.exceptions import NotConfigured
 
@@ -22,6 +22,15 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     return crawler
 
 
+@pytest.fixture()
+def middleware() -> ApifyHttpProxyMiddleware:
+    """
+    Fixture to create a Apify HTTP proxy middleware.
+    """
+    proxy_settings = {'useApifyProxy': True}
+    return ApifyHttpProxyMiddleware(proxy_settings)
+
+
 @pytest.mark.parametrize(
     'valid_settings',
     [
@@ -29,7 +38,7 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
         {'APIFY_PROXY_SETTINGS': {'useApifyProxy': True, 'apifyProxyGroups': []}},
     ],
 )
-def test_from_crawler_with_valid_settings(
+def test__from_crawler__valid_settings(
     crawler: Crawler,
     monkeypatch: pytest.MonkeyPatch,
     valid_settings: dict,
@@ -56,7 +65,7 @@ def test_from_crawler_with_valid_settings(
         {'APIFY_PROXY_SETTINGS': {'useApifyProxy': False}},
     ],
 )
-def test_from_crawler_with_invalid_settings(
+def test__from_crawler__invalid_settings(
     crawler: Crawler,
     monkeypatch: pytest.MonkeyPatch,
     invalid_settings: dict,
@@ -69,3 +78,20 @@ def test_from_crawler_with_invalid_settings(
     # Ensure that NotConfigured is raised when settings are invalid
     with pytest.raises(NotConfigured):
         ApifyHttpProxyMiddleware.from_crawler(crawler)
+
+
+@pytest.mark.parametrize(
+    ('username', 'password', 'expected_auth_header'),
+    [
+        ('username', 'password', b'Basic dXNlcm5hbWU6cGFzc3dvcmQ='),
+        ('john_smith', 'secret_password_123', b'Basic am9obl9zbWl0aDpzZWNyZXRfcGFzc3dvcmRfMTIz'),
+    ],
+)
+def test__get_basic_auth_header(
+    middleware: ApifyHttpProxyMiddleware,
+    username: str,
+    password: str,
+    expected_auth_header: bytes,
+) -> None:
+    auth_header = middleware._get_basic_auth_header(username, password)
+    assert auth_header == expected_auth_header
