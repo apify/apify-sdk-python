@@ -37,12 +37,9 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
-dummy_request = Request('https://example.com')
-
-
-# @pytest.fixture()
-# def dummy_request() -> Request:
-#     return Request('https://example.com')
+@pytest.fixture()
+def dummy_request() -> Request:
+    return Request('https://example.com')
 
 
 @pytest.mark.parametrize(
@@ -103,21 +100,27 @@ async def test__process_request() -> None:
 
 
 @pytest.mark.parametrize(
-    ('request_', 'exception', 'expected_returned_value'),
+    ('exception', 'none_returned_values_is_expected'),
     [
-        (dummy_request, TunnelError(), dummy_request),
-        (dummy_request, ValueError(), None),
+        (TunnelError(), False),
+        (ValueError(), True),
     ],
 )
 def test__process_exception(
     middleware: ApifyHttpProxyMiddleware,
     spider: DummySpider,
-    request_: Request,
+    dummy_request: Request,
     exception: Exception,
-    expected_returned_value: None | Request,
+    *,
+    none_returned_values_is_expected: bool,
 ) -> None:
-    returned_value = middleware.process_exception(request_, exception, spider)
-    assert returned_value == expected_returned_value
+    returned_value = middleware.process_exception(dummy_request, exception, spider)
+
+    if none_returned_values_is_expected:
+        assert returned_value is None
+
+    else:
+        assert returned_value == dummy_request
 
 
 @pytest.mark.parametrize(
