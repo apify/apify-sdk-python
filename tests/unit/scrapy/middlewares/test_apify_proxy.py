@@ -13,7 +13,13 @@ class DummySpider(Spider):
     name = 'dummy_spider'
 
 
-dummy_request = Request('https://example.com')
+@pytest.fixture()
+def middleware() -> ApifyHttpProxyMiddleware:
+    """
+    Fixture to create a Apify HTTP proxy middleware.
+    """
+    proxy_settings = {'useApifyProxy': True}
+    return ApifyHttpProxyMiddleware(proxy_settings)
 
 
 @pytest.fixture()
@@ -27,22 +33,16 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
 
 
 @pytest.fixture()
-def dummy_spider() -> DummySpider:
+def spider() -> DummySpider:
     return DummySpider()
+
+
+dummy_request = Request('https://example.com')
 
 
 # @pytest.fixture()
 # def dummy_request() -> Request:
 #     return Request('https://example.com')
-
-
-@pytest.fixture()
-def middleware() -> ApifyHttpProxyMiddleware:
-    """
-    Fixture to create a Apify HTTP proxy middleware.
-    """
-    proxy_settings = {'useApifyProxy': True}
-    return ApifyHttpProxyMiddleware(proxy_settings)
 
 
 @pytest.mark.parametrize(
@@ -94,11 +94,14 @@ def test__from_crawler__invalid_settings(
         ApifyHttpProxyMiddleware.from_crawler(crawler)
 
 
-def test_process_request() -> None:
+def test__proxy_cfg() -> None:
     ...
 
 
-@pytest.mark.only()
+def test__process_request() -> None:
+    ...
+
+
 @pytest.mark.parametrize(
     ('dummy_request', 'exception', 'expected_returned_value'),
     [
@@ -108,12 +111,12 @@ def test_process_request() -> None:
 )
 def test__process_exception(
     middleware: ApifyHttpProxyMiddleware,
-    dummy_spider: DummySpider,
+    spider: DummySpider,
     dummy_request: Request,
     exception: Exception,
     expected_returned_value: None | Request,
 ) -> None:
-    returned_value = middleware.process_exception(dummy_request, exception, dummy_spider)
+    returned_value = middleware.process_exception(dummy_request, exception, spider)
     assert returned_value == expected_returned_value
 
 
