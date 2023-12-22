@@ -39,7 +39,7 @@ class ApifyHttpProxyMiddleware:
         """
         self._proxy_settings = proxy_settings
         self._auth_encoding = auth_encoding
-        self.__proxy_cfg: ProxyConfiguration | None = None
+        self._proxy_cfg_internal: ProxyConfiguration | None = None
 
     @classmethod
     def from_crawler(cls: type[ApifyHttpProxyMiddleware], crawler: Crawler) -> ApifyHttpProxyMiddleware:
@@ -55,18 +55,14 @@ class ApifyHttpProxyMiddleware:
         proxy_settings: dict | None = crawler.settings.get('APIFY_PROXY_SETTINGS')
 
         if proxy_settings is None:
-            Actor.log.warning(
-                'ApifyHttpProxyMiddleware is not going to be used. '
-                'Object "proxyConfiguration" is probably missing in the Actor input.'
-            )
+            Actor.log.warning('ApifyHttpProxyMiddleware is not going to be used. Object "proxyConfiguration" is probably missing in the Actor input.')
             raise NotConfigured
 
         use_apify_proxy = proxy_settings.get('useApifyProxy', False)
 
         if use_apify_proxy is not True:
             Actor.log.warning(
-                'ApifyHttpProxyMiddleware is not going to be used. '
-                'Actor input field "proxyConfiguration.useApifyProxy" is probably set to False.'
+                'ApifyHttpProxyMiddleware is not going to be used. Actor input field "proxyConfiguration.useApifyProxy" is probably set to False.'
             )
             raise NotConfigured
 
@@ -119,10 +115,7 @@ class ApifyHttpProxyMiddleware:
         )
 
         if isinstance(exception, TunnelError):
-            Actor.log.warning(
-                f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", reason="{exception}", '
-                'skipping...'
-            )
+            Actor.log.warning(f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", reason="{exception}", skipping...')
             return request
 
         return None
@@ -138,22 +131,19 @@ class ApifyHttpProxyMiddleware:
         """
         # Get proxy configuration, creating it if necessary
         proxy_cfg = (
-            self.__proxy_cfg
-            if isinstance(self.__proxy_cfg, ProxyConfiguration)
+            self._proxy_cfg_internal
+            if isinstance(self._proxy_cfg_internal, ProxyConfiguration)
             else await Actor.create_proxy_configuration(actor_proxy_input=self._proxy_settings)
         )
 
         # If the proxy configuration is still not available, raise an error. However, this should not happen due
         # to the checks in the `from_crawler` method.
         if proxy_cfg is None:
-            Actor.log.error(
-                'Creation of proxy configuration failed. '
-                'Check the field "proxyConfiguration" in the Actor input.'
-            )
+            Actor.log.error('Creation of proxy configuration failed. Check the field "proxyConfiguration" in the Actor input.')
             raise NotConfigured
 
         # Store the proxy configuration for future use
-        self.__proxy_cfg = proxy_cfg
+        self._proxy_cfg_internal = proxy_cfg
 
         # Get a new proxy URL and return it
         new_url = await proxy_cfg.new_url()

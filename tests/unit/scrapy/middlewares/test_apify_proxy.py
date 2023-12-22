@@ -8,6 +8,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 from scrapy.crawler import Crawler
 from scrapy.exceptions import NotConfigured
 
+from apify import ProxyConfiguration
 from apify.scrapy.middlewares import ApifyHttpProxyMiddleware
 
 
@@ -50,6 +51,14 @@ def dummy_request() -> Request:
     return Request('https://example.com')
 
 
+@pytest.fixture()
+def proxy_configuration() -> ProxyConfiguration:
+    """
+    Fixture to create an Apify ProxyConfiguration object.
+    """
+    return ProxyConfiguration()
+
+
 @pytest.mark.parametrize(
     ('settings', 'expected_exception'),
     [
@@ -79,15 +88,30 @@ def test__from_crawler(
             ApifyHttpProxyMiddleware.from_crawler(crawler)
 
 
-async def test__get_new_proxy_url() -> None:
-    ...
+@pytest.mark.parametrize(
+    'expected_proxy_url',
+    ['http://username:password@proxy.example.com:8080', 'http://hsdfgds:52354325@proxy.apify.com:5748'],
+)
+async def test__get_new_proxy_url(
+    monkeypatch: pytest.MonkeyPatch,
+    middleware: ApifyHttpProxyMiddleware,
+    proxy_configuration: ProxyConfiguration,
+    expected_proxy_url: str,
+) -> None:
+    async def mock_new_url() -> str:
+        return expected_proxy_url
+
+    monkeypatch.setattr(proxy_configuration, 'new_url', mock_new_url)
+    middleware._proxy_cfg_internal = proxy_configuration
+    proxy_url = await middleware._get_new_proxy_url()
+    assert proxy_url == urlparse(expected_proxy_url)
 
 
 @pytest.mark.parametrize(
     ('proxy_url', 'expected_exception', 'expected_request_header'),
     [
         ('http://username:password@proxy.example.com:8080', None, b'Basic dXNlcm5hbWU6cGFzc3dvcmQ='),
-        ('http://user123:pass456@proxy.example.com:5748', None, b'Basic dXNlcjEyMzpwYXNzNDU2'),
+        ('http://user123:pass456@proxy.apify.com:5748', None, b'Basic dXNlcjEyMzpwYXNzNDU2'),
         ('http://@proxy.example.com:2943', ValueError, b''),
     ],
 )
