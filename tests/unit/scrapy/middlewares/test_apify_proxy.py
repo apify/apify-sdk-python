@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from scrapy import Request, Spider
+from scrapy.core.downloader.handlers.http11 import TunnelError
 from scrapy.crawler import Crawler
 from scrapy.exceptions import NotConfigured
 
@@ -12,6 +13,9 @@ class DummySpider(Spider):
     name = 'dummy_spider'
 
 
+dummy_request = Request('https://example.com')
+
+
 @pytest.fixture()
 def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     """
@@ -20,6 +24,16 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     crawler = Crawler(DummySpider)
     monkeypatch.setattr(crawler, 'settings', {})
     return crawler
+
+
+@pytest.fixture()
+def dummy_spider() -> DummySpider:
+    return DummySpider()
+
+
+# @pytest.fixture()
+# def dummy_request() -> Request:
+#     return Request('https://example.com')
 
 
 @pytest.fixture()
@@ -78,6 +92,29 @@ def test__from_crawler__invalid_settings(
     # Ensure that NotConfigured is raised when settings are invalid
     with pytest.raises(NotConfigured):
         ApifyHttpProxyMiddleware.from_crawler(crawler)
+
+
+def test_process_request() -> None:
+    ...
+
+
+@pytest.mark.only()
+@pytest.mark.parametrize(
+    ('dummy_request', 'exception', 'expected_returned_value'),
+    [
+        (dummy_request, TunnelError(), dummy_request),
+        (dummy_request, ValueError(), None),
+    ],
+)
+def test__process_exception(
+    middleware: ApifyHttpProxyMiddleware,
+    dummy_spider: DummySpider,
+    dummy_request: Request,
+    exception: Exception,
+    expected_returned_value: None | Request,
+) -> None:
+    returned_value = middleware.process_exception(dummy_request, exception, dummy_spider)
+    assert returned_value == expected_returned_value
 
 
 @pytest.mark.parametrize(
