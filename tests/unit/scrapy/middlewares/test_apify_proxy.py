@@ -94,16 +94,16 @@ def test__from_crawler__invalid_settings(
         ApifyHttpProxyMiddleware.from_crawler(crawler)
 
 
-def test__proxy_cfg() -> None:
+async def test__get_new_proxy_url() -> None:
     ...
 
 
-def test__process_request() -> None:
+async def test__process_request() -> None:
     ...
 
 
 @pytest.mark.parametrize(
-    ('dummy_request', 'exception', 'expected_returned_value'),
+    ('request_', 'exception', 'expected_returned_value'),
     [
         (dummy_request, TunnelError(), dummy_request),
         (dummy_request, ValueError(), None),
@@ -112,11 +112,11 @@ def test__process_request() -> None:
 def test__process_exception(
     middleware: ApifyHttpProxyMiddleware,
     spider: DummySpider,
-    dummy_request: Request,
+    request_: Request,
     exception: Exception,
     expected_returned_value: None | Request,
 ) -> None:
-    returned_value = middleware.process_exception(dummy_request, exception, spider)
+    returned_value = middleware.process_exception(request_, exception, spider)
     assert returned_value == expected_returned_value
 
 
