@@ -18,7 +18,7 @@ class DummySpider(Spider):
 @pytest.fixture()
 def middleware() -> ApifyHttpProxyMiddleware:
     """
-    Fixture to create a Apify HTTP proxy middleware.
+    Fixture to create an Apify HTTP proxy middleware.
     """
     proxy_settings = {'useApifyProxy': True}
     return ApifyHttpProxyMiddleware(proxy_settings)
@@ -27,7 +27,7 @@ def middleware() -> ApifyHttpProxyMiddleware:
 @pytest.fixture()
 def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     """
-    Fixture to create a mock Scrapy Crawler object.
+    Fixture to create a Scrapy crawler.
     """
     crawler = Crawler(DummySpider)
     monkeypatch.setattr(crawler, 'settings', {})
@@ -36,61 +36,47 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
 
 @pytest.fixture()
 def spider() -> DummySpider:
+    """
+    Fixture to create a "dummy" Scrapy spider.
+    """
     return DummySpider()
 
 
 @pytest.fixture()
 def dummy_request() -> Request:
+    """
+    Fixture to create a "dummy" Scrapy spider.
+    """
     return Request('https://example.com')
 
 
 @pytest.mark.parametrize(
-    'valid_settings',
+    ('settings', 'expected_exception'),
     [
-        {'APIFY_PROXY_SETTINGS': {'useApifyProxy': True}},
-        {'APIFY_PROXY_SETTINGS': {'useApifyProxy': True, 'apifyProxyGroups': []}},
+        ({'APIFY_PROXY_SETTINGS': {'useApifyProxy': True}}, None),
+        ({'APIFY_PROXY_SETTINGS': {'useApifyProxy': True, 'apifyProxyGroups': []}}, None),
+        ({}, NotConfigured),
+        ({'a': 1}, NotConfigured),
+        ({'APIFY_PROXY_SETTINGS': {}}, NotConfigured),
+        ({'APIFY_PROXY_SETTINGS': {'useApifyProxy': None}}, NotConfigured),
+        ({'APIFY_PROXY_SETTINGS': {'useApifyProxy': False}}, NotConfigured),
     ],
 )
-def test__from_crawler__valid_settings(
+def test__from_crawler(
     crawler: Crawler,
     monkeypatch: pytest.MonkeyPatch,
-    valid_settings: dict,
+    settings: dict,
+    expected_exception: type[Exception] | None,
 ) -> None:
-    """
-    Test the ApifyHttpProxyMiddleware.from_crawler method with valid proxy settings.
-    """
-    monkeypatch.setattr(crawler, 'settings', valid_settings)
+    monkeypatch.setattr(crawler, 'settings', settings)
 
-    # Ensure no exceptions are raised
-    middleware = ApifyHttpProxyMiddleware.from_crawler(crawler)
+    if expected_exception is None:
+        middleware = ApifyHttpProxyMiddleware.from_crawler(crawler)
+        assert middleware._proxy_settings == settings['APIFY_PROXY_SETTINGS']
 
-    # Validate that the middleware instance is created with the correct settings
-    assert middleware._proxy_settings == valid_settings['APIFY_PROXY_SETTINGS']
-
-
-@pytest.mark.parametrize(
-    'invalid_settings',
-    [
-        {},
-        {'a': 1},
-        {'APIFY_PROXY_SETTINGS': {}},
-        {'APIFY_PROXY_SETTINGS': {'useApifyProxy': None}},
-        {'APIFY_PROXY_SETTINGS': {'useApifyProxy': False}},
-    ],
-)
-def test__from_crawler__invalid_settings(
-    crawler: Crawler,
-    monkeypatch: pytest.MonkeyPatch,
-    invalid_settings: dict,
-) -> None:
-    """
-    Test the ApifyHttpProxyMiddleware.from_crawler method with invalid or turned off proxy settings.
-    """
-    monkeypatch.setattr(crawler, 'settings', invalid_settings)
-
-    # Ensure that NotConfigured is raised when settings are invalid
-    with pytest.raises(NotConfigured):
-        ApifyHttpProxyMiddleware.from_crawler(crawler)
+    else:
+        with pytest.raises(expected_exception):
+            ApifyHttpProxyMiddleware.from_crawler(crawler)
 
 
 async def test__get_new_proxy_url() -> None:
