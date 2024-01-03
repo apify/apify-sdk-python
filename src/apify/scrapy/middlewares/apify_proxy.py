@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 class ApifyHttpProxyMiddleware:
     """Apify HTTP proxy middleware for Scrapy.
 
-    This middleware enhances request processing by adding a 'proxy' field to the request's meta and an
-    authentication header. It draws inspiration from the Scrapy default `HttpProxyMiddleware`. The proxy URL is
-    sourced from the settings under the `APIFY_PROXY_SETTINGS` key. The value of this key, a dictionary, should be
+    This middleware enhances request processing by adding a 'proxy' field to the request's meta and an authentication
+    header. It draws inspiration from the `HttpProxyMiddleware` included by default in Scrapy projects. The proxy URL
+    is sourced from the settings under the `APIFY_PROXY_SETTINGS` key. The value of this key, a dictionary, should be
     provided by the Actor input. An example of the proxy settings:
 
     proxy_settings = {'useApifyProxy': true, 'apifyProxyGroups': []}
