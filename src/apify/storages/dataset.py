@@ -5,22 +5,20 @@ import io
 import math
 from typing import TYPE_CHECKING, AsyncIterator, Iterable, Iterator
 
-from apify_shared.utils import ignore_docs, json_dumps
-
 from apify._utils import wrap_internal
 from apify.consts import MAX_PAYLOAD_SIZE_BYTES
 from apify.storages.base_storage import BaseStorage
 from apify.storages.key_value_store import KeyValueStore
+from apify_shared.utils import ignore_docs, json_dumps
 
 if TYPE_CHECKING:
+    from apify._memory_storage import MemoryStorageClient
+    from apify._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
+    from apify.config import Configuration
     from apify_client import ApifyClientAsync
     from apify_client.clients import DatasetClientAsync, DatasetCollectionClientAsync
     from apify_shared.models import ListPage
     from apify_shared.types import JSONSerializable
-
-    from apify._memory_storage import MemoryStorageClient
-    from apify._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
-    from apify.config import Configuration
 
 # 0.01%
 SAFETY_BUFFER_PERCENT = 0.01 / 100

@@ -6,21 +6,19 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from typing import OrderedDict as OrderedDictType
 
-from apify_shared.utils import ignore_docs
-
 from apify._crypto import crypto_random_object_id
 from apify._utils import LRUCache, budget_ow, unique_key_to_request_id
 from apify.consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from apify.log import logger
 from apify.storages.base_storage import BaseStorage
+from apify_shared.utils import ignore_docs
 
 if TYPE_CHECKING:
-    from apify_client import ApifyClientAsync
-    from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
-
     from apify._memory_storage import MemoryStorageClient
     from apify._memory_storage.resource_clients import RequestQueueClient, RequestQueueCollectionClient
     from apify.config import Configuration
+    from apify_client import ApifyClientAsync
+    from apify_client.clients import RequestQueueClientAsync, RequestQueueCollectionClientAsync
 
 
 MAX_CACHED_REQUESTS = 1_000_000

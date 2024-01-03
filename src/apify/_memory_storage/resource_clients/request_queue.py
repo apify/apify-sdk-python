@@ -10,13 +10,12 @@ from typing import TYPE_CHECKING
 import aioshutil
 from sortedcollections import ValueSortedDict
 
-from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, json_dumps
-
 from apify._crypto import crypto_random_object_id
-from apify._utils import force_rename, raise_on_duplicate_storage, raise_on_non_existing_storage, unique_key_to_request_id
-from apify.consts import StorageTypes
 from apify._memory_storage.file_storage_utils import delete_request, update_metadata, update_request_queue_item
 from apify._memory_storage.resource_clients.base_resource_client import BaseResourceClient
+from apify._utils import force_rename, raise_on_duplicate_storage, raise_on_non_existing_storage, unique_key_to_request_id
+from apify.consts import StorageTypes
+from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, json_dumps
 
 if TYPE_CHECKING:
     from apify._memory_storage.memory_storage_client import MemoryStorageClient

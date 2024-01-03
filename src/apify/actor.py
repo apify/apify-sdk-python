@@ -8,10 +8,6 @@ import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar, cast
 
-from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
-from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
-
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._utils import (
     dualproperty,
@@ -29,6 +25,9 @@ from apify.event_manager import EventManager
 from apify.log import logger
 from apify.proxy_configuration import ProxyConfiguration
 from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
+from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
+from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 
 if TYPE_CHECKING:
     import logging

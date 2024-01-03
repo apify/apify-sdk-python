@@ -5,9 +5,8 @@ import os
 import aiofiles
 from aiofiles.os import makedirs
 
-from apify_shared.utils import json_dumps
-
 from apify._utils import force_remove
+from apify_shared.utils import json_dumps
 
 
 async def update_metadata(*, data: dict, entity_directory: str, write_metadata: bool) -> None:

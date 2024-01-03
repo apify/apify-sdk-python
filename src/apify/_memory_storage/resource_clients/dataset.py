@@ -8,19 +8,17 @@ from typing import TYPE_CHECKING, Any, AsyncIterator
 
 import aioshutil
 
+from apify._crypto import crypto_random_object_id
+from apify._memory_storage.file_storage_utils import _update_dataset_items, update_metadata
+from apify._memory_storage.resource_clients.base_resource_client import BaseResourceClient
+from apify._utils import force_rename, raise_on_duplicate_storage, raise_on_non_existing_storage
+from apify.consts import StorageTypes
 from apify_shared.models import ListPage
 from apify_shared.utils import ignore_docs
 
-from apify._crypto import crypto_random_object_id
-from apify._utils import force_rename, raise_on_duplicate_storage, raise_on_non_existing_storage
-from apify.consts import StorageTypes
-from apify._memory_storage.file_storage_utils import _update_dataset_items, update_metadata
-from apify._memory_storage.resource_clients.base_resource_client import BaseResourceClient
-
 if TYPE_CHECKING:
-    from apify_shared.types import JSONSerializable
-
     from apify._memory_storage.memory_storage_client import MemoryStorageClient
+    from apify_shared.types import JSONSerializable
 
 # This is what API returns in the x-apify-pagination-limit
 # header when no limit query parameter is used.
