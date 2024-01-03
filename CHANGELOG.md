@@ -1,8 +1,10 @@
 # Changelog
 
-## [1.4.2](../../releases/tag/v1.4.2) - Unreleased
+## [1.5.0](../../releases/tag/v1.5.0) - 2024-01-03
 
-...
+### Added
+
+- Added `ApifyHttpProxyMiddleware`
 
 ## [1.4.1](../../releases/tag/v1.4.1) - 2023-12-21
 
