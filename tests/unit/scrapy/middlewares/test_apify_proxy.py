@@ -150,20 +150,3 @@ def test__process_exception(
 
     else:
         assert returned_value == dummy_request
-
-
-@pytest.mark.parametrize(
-    ('username', 'password', 'expected_auth_header'),
-    [
-        ('username', 'password', b'Basic dXNlcm5hbWU6cGFzc3dvcmQ='),
-        ('john_smith', 'secret_password_123', b'Basic am9obl9zbWl0aDpzZWNyZXRfcGFzc3dvcmRfMTIz'),
-    ],
-)
-def test__get_basic_auth_header(
-    middleware: ApifyHttpProxyMiddleware,
-    username: str,
-    password: str,
-    expected_auth_header: bytes,
-) -> None:
-    auth_header = middleware._get_basic_auth_header(username, password)
-    assert auth_header == expected_auth_header

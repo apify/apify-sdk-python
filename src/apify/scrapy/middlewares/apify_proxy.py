@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from base64 import b64encode
 from typing import TYPE_CHECKING
-from urllib.parse import ParseResult, unquote, urlparse
+from urllib.parse import ParseResult, urlparse
 
 from scrapy.core.downloader.handlers.http11 import TunnelError
 from scrapy.exceptions import NotConfigured
-from scrapy.utils.python import to_bytes
 
-from apify import Actor, ProxyConfiguration
+from ...actor import Actor
+from ...proxy_configuration import ProxyConfiguration
+from ..utils import get_basic_auth_header
 
 if TYPE_CHECKING:
     from scrapy import Request, Spider
@@ -26,11 +26,7 @@ class ApifyHttpProxyMiddleware:
     proxy_settings = {'useApifyProxy': true, 'apifyProxyGroups': []}
     """
 
-    def __init__(
-        self: ApifyHttpProxyMiddleware,
-        proxy_settings: dict,
-        auth_encoding: str = 'latin-1',
-    ) -> None:
+    def __init__(self: ApifyHttpProxyMiddleware, proxy_settings: dict) -> None:
         """Create a new instance.
 
         Args:
@@ -38,7 +34,6 @@ class ApifyHttpProxyMiddleware:
             auth_encoding: Encoding for basic authentication (default is 'latin-1').
         """
         self._proxy_settings = proxy_settings
-        self._auth_encoding = auth_encoding
         self._proxy_cfg_internal: ProxyConfiguration | None = None
 
     @classmethod
@@ -88,7 +83,7 @@ class ApifyHttpProxyMiddleware:
             raise ValueError('Username and password must be provided in the proxy URL.')
 
         request.meta['proxy'] = url.geturl()
-        basic_auth_header = self._get_basic_auth_header(url.username, url.password)
+        basic_auth_header = get_basic_auth_header(url.username, url.password)
         request.headers[b'Proxy-Authorization'] = basic_auth_header
 
         Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: updated request.meta={request.meta}')
@@ -148,9 +143,3 @@ class ApifyHttpProxyMiddleware:
         # Get a new proxy URL and return it
         new_url = await proxy_cfg.new_url()
         return urlparse(new_url)
-
-    def _get_basic_auth_header(self: ApifyHttpProxyMiddleware, username: str, password: str) -> bytes:
-        """Generate a basic authentication header for the given username and password."""
-        string = f'{unquote(username)}:{unquote(password)}'
-        user_pass = to_bytes(string, encoding=self._auth_encoding)
-        return b'Basic ' + b64encode(user_pass)
