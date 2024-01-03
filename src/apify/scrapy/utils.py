@@ -3,6 +3,10 @@ from __future__ import annotations
 import asyncio
 import codecs
 import pickle
+from base64 import b64encode
+from urllib.parse import unquote
+
+from scrapy.utils.python import to_bytes
 
 try:
     from scrapy import Request, Spider
@@ -17,6 +21,13 @@ from ..actor import Actor
 from ..storages import RequestQueue, StorageClientManager
 
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+
+
+def get_basic_auth_header(username: str, password: str, auth_encoding: str = 'latin-1') -> bytes:
+    """Generate a basic authentication header for the given username and password."""
+    string = f'{unquote(username)}:{unquote(password)}'
+    user_pass = to_bytes(string, encoding=auth_encoding)
+    return b'Basic ' + b64encode(user_pass)
 
 
 def get_running_event_loop_id() -> int:
