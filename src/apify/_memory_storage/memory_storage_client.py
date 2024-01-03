@@ -12,13 +12,13 @@ from aiofiles.os import rename, scandir
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 
-from .._utils import maybe_parse_bool
-from .resource_clients.dataset import DatasetClient
-from .resource_clients.dataset_collection import DatasetCollectionClient
-from .resource_clients.key_value_store import KeyValueStoreClient
-from .resource_clients.key_value_store_collection import KeyValueStoreCollectionClient
-from .resource_clients.request_queue import RequestQueueClient
-from .resource_clients.request_queue_collection import RequestQueueCollectionClient
+from apify._utils import maybe_parse_bool
+from apify._memory_storage.resource_clients.dataset import DatasetClient
+from apify._memory_storage.resource_clients.dataset_collection import DatasetCollectionClient
+from apify._memory_storage.resource_clients.key_value_store import KeyValueStoreClient
+from apify._memory_storage.resource_clients.key_value_store_collection import KeyValueStoreCollectionClient
+from apify._memory_storage.resource_clients.request_queue import RequestQueueClient
+from apify._memory_storage.resource_clients.request_queue_collection import RequestQueueCollectionClient
 
 """
 Memory storage emulates data storages that are available on the Apify platform.

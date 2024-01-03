@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 from apify_shared.utils import ignore_docs
 
-from .base_resource_collection_client import BaseResourceCollectionClient
-from .request_queue import RequestQueueClient
+from apify._memory_storage.resource_clients.base_resource_collection_client import BaseResourceCollectionClient
+from apify._memory_storage.resource_clients.request_queue import RequestQueueClient
 
 if TYPE_CHECKING:
     from apify_shared.models import ListPage

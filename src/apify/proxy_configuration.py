@@ -11,8 +11,8 @@ import httpx
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 
-from .config import Configuration
-from .log import logger
+from apify.config import Configuration
+from apify.log import logger
 
 if TYPE_CHECKING:
     from typing_extensions import NotRequired

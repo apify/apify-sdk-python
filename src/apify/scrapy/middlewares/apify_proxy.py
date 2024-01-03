@@ -6,9 +6,9 @@ from urllib.parse import ParseResult, urlparse
 from scrapy.core.downloader.handlers.http11 import TunnelError
 from scrapy.exceptions import NotConfigured
 
-from ...actor import Actor
-from ...proxy_configuration import ProxyConfiguration
-from ..utils import get_basic_auth_header
+from apify.actor import Actor
+from apify.proxy_configuration import ProxyConfiguration
+from apify.scrapy.utils import get_basic_auth_header
 
 if TYPE_CHECKING:
     from scrapy import Request, Spider

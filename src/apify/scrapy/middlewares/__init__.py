@@ -1,2 +1,2 @@
-from .apify_proxy import ApifyHttpProxyMiddleware
-from .apify_retry import ApifyRetryMiddleware
+from apify.scrapy.middlewares.apify_proxy import ApifyHttpProxyMiddleware
+from apify.scrapy.middlewares.apify_retry import ApifyRetryMiddleware

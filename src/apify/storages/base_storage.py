@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Generic, TypeVar, cast
 
 from apify_shared.utils import ignore_docs
 
-from .._memory_storage import MemoryStorageClient
-from .._memory_storage.resource_clients import BaseResourceClient, BaseResourceCollectionClient
-from ..config import Configuration
-from .storage_client_manager import StorageClientManager
+from apify._memory_storage import MemoryStorageClient
+from apify._memory_storage.resource_clients import BaseResourceClient, BaseResourceCollectionClient
+from apify.config import Configuration
+from apify.storages.storage_client_manager import StorageClientManager
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync

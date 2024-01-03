@@ -57,7 +57,7 @@ from apify_shared.utils import (
     maybe_extract_enum_member_value,
 )
 
-from .consts import REQUEST_ID_LENGTH, StorageTypes
+from apify.consts import REQUEST_ID_LENGTH, StorageTypes
 
 T = TypeVar('T')
 

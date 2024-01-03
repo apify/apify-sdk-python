@@ -10,7 +10,7 @@ from apify_shared.utils import ignore_docs
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-    from ..memory_storage_client import MemoryStorageClient
+    from apify._memory_storage.memory_storage_client import MemoryStorageClient
 
 
 @ignore_docs
