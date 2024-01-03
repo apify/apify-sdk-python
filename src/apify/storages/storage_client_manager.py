@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 from apify_shared.utils import ignore_docs
 
-from .._memory_storage import MemoryStorageClient
-from ..config import Configuration
+from apify._memory_storage import MemoryStorageClient
+from apify.config import Configuration
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync

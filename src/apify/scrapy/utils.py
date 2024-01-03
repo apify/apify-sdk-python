@@ -15,9 +15,9 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from .._crypto import crypto_random_object_id
-from ..actor import Actor
-from ..storages import RequestQueue, StorageClientManager
+from apify._crypto import crypto_random_object_id
+from apify.actor import Actor
+from apify.storages import RequestQueue, StorageClientManager
 
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 

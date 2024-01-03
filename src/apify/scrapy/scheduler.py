@@ -12,10 +12,10 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from .._crypto import crypto_random_object_id
-from ..actor import Actor
-from ..storages import RequestQueue
-from .utils import nested_event_loop, open_queue_with_custom_client, to_apify_request, to_scrapy_request
+from apify._crypto import crypto_random_object_id
+from apify.actor import Actor
+from apify.scrapy.utils import nested_event_loop, open_queue_with_custom_client, to_apify_request, to_scrapy_request
+from apify.storages import RequestQueue
 
 
 class ApifyScheduler(BaseScheduler):

@@ -1,8 +1,8 @@
 from importlib import metadata
 
-from .actor import Actor
-from .config import Configuration
-from .proxy_configuration import ProxyConfiguration, ProxyInfo
+from apify.actor import Actor
+from apify.config import Configuration
+from apify.proxy_configuration import ProxyConfiguration, ProxyInfo
 
 __version__ = metadata.version('apify')
 

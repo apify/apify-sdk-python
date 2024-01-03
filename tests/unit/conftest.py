@@ -8,12 +8,13 @@ from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 import pytest
 
+from apify_client.client import ApifyClientAsync
+from apify_shared.consts import ApifyEnvVars
+
 from apify import Actor
 from apify._memory_storage import MemoryStorageClient
 from apify.config import Configuration
 from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
-from apify_client.client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 
 if TYPE_CHECKING:
     from pathlib import Path

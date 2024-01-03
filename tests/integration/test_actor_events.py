@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from apify import Actor
 from apify_shared.consts import ActorEventTypes
+
+from apify import Actor
 
 if TYPE_CHECKING:
     from .conftest import ActorFactory
