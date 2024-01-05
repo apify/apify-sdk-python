@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from apify.config import Configuration
 from apify_shared.consts import ActorEnvVars, ApifyEnvVars
+
+from apify.config import Configuration
 
 if TYPE_CHECKING:
     import pytest

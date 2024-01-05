@@ -8,8 +8,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify import Actor
 from apify_shared.consts import ActorEventTypes, ApifyEnvVars
+
+from apify import Actor
 
 
 class TestActorInit:

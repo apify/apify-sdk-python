@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from apify_shared.utils import ignore_docs
+
 from apify._memory_storage.resource_clients.base_resource_collection_client import BaseResourceCollectionClient
 from apify._memory_storage.resource_clients.request_queue import RequestQueueClient
-from apify_shared.utils import ignore_docs
 
 if TYPE_CHECKING:
     from apify_shared.models import ListPage

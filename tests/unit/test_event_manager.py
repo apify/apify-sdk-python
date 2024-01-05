@@ -12,9 +12,10 @@ import pytest
 import websockets
 import websockets.server
 
+from apify_shared.consts import ActorEnvVars, ActorEventTypes
+
 from apify.config import Configuration
 from apify.event_manager import EventManager
-from apify_shared.consts import ActorEnvVars, ActorEventTypes
 
 
 class TestEventManagerLocal:

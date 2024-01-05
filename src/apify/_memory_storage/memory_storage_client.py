@@ -9,6 +9,9 @@ import aioshutil
 from aiofiles import ospath
 from aiofiles.os import rename, scandir
 
+from apify_shared.consts import ApifyEnvVars
+from apify_shared.utils import ignore_docs
+
 from apify._memory_storage.resource_clients.dataset import DatasetClient
 from apify._memory_storage.resource_clients.dataset_collection import DatasetCollectionClient
 from apify._memory_storage.resource_clients.key_value_store import KeyValueStoreClient
@@ -16,8 +19,6 @@ from apify._memory_storage.resource_clients.key_value_store_collection import Ke
 from apify._memory_storage.resource_clients.request_queue import RequestQueueClient
 from apify._memory_storage.resource_clients.request_queue_collection import RequestQueueCollectionClient
 from apify._utils import maybe_parse_bool
-from apify_shared.consts import ApifyEnvVars
-from apify_shared.utils import ignore_docs
 
 """
 Memory storage emulates data storages that are available on the Apify platform.

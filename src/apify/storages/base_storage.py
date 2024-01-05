@@ -4,11 +4,12 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar, cast
 
+from apify_shared.utils import ignore_docs
+
 from apify._memory_storage import MemoryStorageClient
 from apify._memory_storage.resource_clients import BaseResourceClient, BaseResourceCollectionClient
 from apify.config import Configuration
 from apify.storages.storage_client_manager import StorageClientManager
-from apify_shared.utils import ignore_docs
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync

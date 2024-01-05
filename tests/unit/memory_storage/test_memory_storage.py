@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from apify._memory_storage import MemoryStorageClient
 from apify_shared.consts import ApifyEnvVars
+
+from apify._memory_storage import MemoryStorageClient
 
 if TYPE_CHECKING:
     from pathlib import Path

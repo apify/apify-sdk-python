@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from apify._utils import fetch_and_parse_env_var
 from apify_shared.consts import ActorEnvVars, ApifyEnvVars
+
+from apify._utils import fetch_and_parse_env_var
 
 
 class Configuration:

@@ -10,12 +10,14 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Union
 import websockets.client
 from pyee.asyncio import AsyncIOEventEmitter
 
-from apify.log import logger
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value, parse_date_fields
 
+from apify.log import logger
+
 if TYPE_CHECKING:
-    from apify.config import Configuration
     from apify_shared.consts import ActorEventTypes
+
+    from apify.config import Configuration
 
 ListenerType = Union[Callable[[], None], Callable[[Any], None], Callable[[], Coroutine[Any, Any, None]], Callable[[Any], Coroutine[Any, Any, None]]]
 

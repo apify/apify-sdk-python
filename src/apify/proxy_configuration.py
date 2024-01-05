@@ -8,10 +8,11 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from apify.config import Configuration
-from apify.log import logger
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
+
+from apify.config import Configuration
+from apify.log import logger
 
 if TYPE_CHECKING:
     from typing_extensions import NotRequired

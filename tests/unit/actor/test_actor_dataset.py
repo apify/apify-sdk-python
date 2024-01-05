@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from apify import Actor
 from apify_shared.consts import ActorEnvVars
+
+from apify import Actor
 
 if TYPE_CHECKING:
     from apify._memory_storage import MemoryStorageClient

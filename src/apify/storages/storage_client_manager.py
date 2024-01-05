@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from apify_shared.utils import ignore_docs
+
 from apify._memory_storage import MemoryStorageClient
 from apify.config import Configuration
-from apify_shared.utils import ignore_docs
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync

@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, AsyncIterator, NamedTuple, TypedDict, TypeVar, overload
 
-from apify._utils import wrap_internal
-from apify.storages.base_storage import BaseStorage
 from apify_client.clients import KeyValueStoreClientAsync, KeyValueStoreCollectionClientAsync
 from apify_shared.utils import ignore_docs
 
+from apify._utils import wrap_internal
+from apify.storages.base_storage import BaseStorage
+
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
     from apify._memory_storage import MemoryStorageClient
     from apify._memory_storage.resource_clients import KeyValueStoreClient, KeyValueStoreCollectionClient
     from apify.config import Configuration
-    from apify_client import ApifyClientAsync
 
 
 T = TypeVar('T')
