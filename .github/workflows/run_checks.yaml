@@ -1,7 +1,7 @@
 name: Code quality checks
 
 on:
-  pull_request:
+  pull_request_target:
 
 jobs:
   check_version_availability:
@@ -18,7 +18,24 @@ jobs:
     uses: ./.github/workflows/unit_tests.yaml
 
   integration_tests:
+    if: github.event.pull_request.base.repo.owner == 'apify'
     name: Run integration tests
     needs: [lint_and_type_checks, unit_tests]
+    uses: ./.github/workflows/integration_tests.yaml
+    secrets: inherit
+
+  integration_tests_fork_approve:
+    if: github.event.pull_request.base.repo.owner != 'apify'
+    name: Approve integration tests from fork
+    needs: [lint_and_type_checks, unit_tests]
+    environment: fork-workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dummy step
+        run: true
+
+  integration_tests_fork:
+    name: Run integration tests from fork
+    needs: [integration_tests_fork_approve]
     uses: ./.github/workflows/integration_tests.yaml
     secrets: inherit

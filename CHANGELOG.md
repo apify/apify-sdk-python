@@ -2,7 +2,9 @@
 
 ## [1.5.1](../../releases/tag/v1.5.1) - Unreleased
 
-...
+### Internal changes
+
+- Allowed running integration tests from PRs from forks, after maintainer approval
 
 ## [1.5.0](../../releases/tag/v1.5.0) - 2024-01-03
 
