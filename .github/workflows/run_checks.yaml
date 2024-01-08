@@ -35,7 +35,7 @@ jobs:
     if: github.event.pull_request.base.repo.owner != 'apify'
     name: Approve integration tests from fork
     needs: [lint_and_type_checks, unit_tests]
-    environment: fork-workflows
+    environment: fork-pr-integration-tests
     runs-on: ubuntu-latest
     steps:
       - name: Dummy step
