@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: "${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.repo.owner != 'apify' && github.event.pull_request.head.sha || '' }}"
+          ref: "${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
