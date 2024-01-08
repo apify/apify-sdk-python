@@ -7,3 +7,5 @@ from .proxy_configuration import ProxyConfiguration, ProxyInfo
 __version__ = metadata.version('apify')
 
 __all__ = ['Actor', 'Configuration', 'ProxyConfiguration', 'ProxyInfo', '__version__']
+
+# Dummy change
