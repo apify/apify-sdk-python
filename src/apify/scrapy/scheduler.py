@@ -49,16 +49,6 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-    def close(self: ApifyScheduler, reason: str) -> None:
-        """Close the scheduler.
-
-        Args:
-            reason: The reason for closing the scheduler.
-        """
-        Actor.log.debug(f'ApifyScheduler.close was called (reason={reason})...')
-        nested_event_loop.stop()
-        nested_event_loop.close()
-
     def has_pending_requests(self: ApifyScheduler) -> bool:
         """Check if the scheduler has any pending requests.
 

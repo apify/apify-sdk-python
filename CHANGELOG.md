@@ -5,6 +5,7 @@
 ### Internal changes
 
 - Allowed running integration tests from PRs from forks, after maintainer approval
+- Do not close `nested_event_loop` in the `Scheduler.__del__`.
 
 ## [1.5.0](../../releases/tag/v1.5.0) - 2024-01-03
 
