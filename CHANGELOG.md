@@ -2,6 +2,10 @@
 
 ## [1.5.1](../../releases/tag/v1.5.1) - Unreleased
 
+### Fixed
+
+- Scrapy: Bugfix to support execution of more Spiders within a single Actor. Do not close `nested_event_loop` in the `Scheduler.__del__`.
+
 ### Internal changes
 
 - Allowed running integration tests from PRs from forks, after maintainer approval
