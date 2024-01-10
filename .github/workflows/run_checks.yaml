@@ -19,7 +19,7 @@ jobs:
 
   # If the PR comes from the main repo, run integration tests directly
   integration_tests:
-    if: github.event.pull_request.base.repo.owner == 'apify'
+    if: github.event.pull_request.base.repo.owner.login == 'apify'
     name: Run integration tests
     needs: [lint_and_type_checks, unit_tests]
     uses: ./.github/workflows/integration_tests.yaml
@@ -32,7 +32,7 @@ jobs:
   # because jobs calling reusable workflows can't use an environment.
   # The first job is a dummy job that just asks for approval to use the `fork-worklows` environment.
   integration_tests_fork_approve:
-    if: github.event.pull_request.base.repo.owner != 'apify'
+    if: github.event.pull_request.base.repo.owner.login != 'apify'
     name: Approve integration tests from fork
     needs: [lint_and_type_checks, unit_tests]
     environment: fork-pr-integration-tests
