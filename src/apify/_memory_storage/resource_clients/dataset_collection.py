@@ -21,7 +21,7 @@ class DatasetCollectionClient(BaseResourceCollectionClient):
     def _get_resource_client_class(self: DatasetCollectionClient) -> type[DatasetClient]:
         return DatasetClient
 
-    async def list(self: DatasetCollectionClient) -> ListPage:  # noqa: A003
+    async def list(self: DatasetCollectionClient) -> ListPage:
         """List the available datasets.
 
         Returns:

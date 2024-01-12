@@ -21,7 +21,7 @@ class RequestQueueCollectionClient(BaseResourceCollectionClient):
     def _get_resource_client_class(self: RequestQueueCollectionClient) -> type[RequestQueueClient]:
         return RequestQueueClient
 
-    async def list(self: RequestQueueCollectionClient) -> ListPage:  # noqa: A003
+    async def list(self: RequestQueueCollectionClient) -> ListPage:
         """List the available request queues.
 
         Returns:

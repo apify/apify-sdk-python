@@ -536,7 +536,7 @@ class RequestQueue(BaseStorage):
         return await self._request_queue_client.get()
 
     @classmethod
-    async def open(  # noqa: A003
+    async def open(
         cls: type[RequestQueue],
         *,
         id: str | None = None,  # noqa: A002

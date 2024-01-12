@@ -21,7 +21,7 @@ class KeyValueStoreCollectionClient(BaseResourceCollectionClient):
     def _get_resource_client_class(self: KeyValueStoreCollectionClient) -> type[KeyValueStoreClient]:
         return KeyValueStoreClient
 
-    async def list(self: KeyValueStoreCollectionClient) -> ListPage:  # noqa: A003
+    async def list(self: KeyValueStoreCollectionClient) -> ListPage:
         """List the available key-value stores.
 
         Returns:

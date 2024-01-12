@@ -295,7 +295,7 @@ class Actor(metaclass=_ActorContextManager):
                 await self._send_system_info_interval_task
 
     @classmethod
-    async def exit(  # noqa: A003
+    async def exit(
         cls: type[Actor],
         *,
         exit_code: int = 0,
