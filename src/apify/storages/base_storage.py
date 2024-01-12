@@ -91,7 +91,7 @@ class BaseStorage(ABC, Generic[BaseResourceClientType, BaseResourceCollectionCli
 
     @classmethod
     @abstractmethod
-    async def open(  # noqa: A003
+    async def open(
         cls: type[BaseStorage],
         *,
         id: str | None = None,  # noqa: A002

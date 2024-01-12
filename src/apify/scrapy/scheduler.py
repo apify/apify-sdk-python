@@ -35,7 +35,7 @@ class ApifyScheduler(BaseScheduler):
         self._rq: RequestQueue | None = None
         self.spider: Spider | None = None
 
-    def open(self: ApifyScheduler, spider: Spider) -> None:  # noqa: A003 # this has to be named "open"
+    def open(self: ApifyScheduler, spider: Spider) -> None:  # this has to be named "open"
         """Open the scheduler.
 
         Args:

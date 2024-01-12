@@ -82,7 +82,7 @@ class ActorLogFormatter(logging.Formatter):
         return extra_fields
 
     @ignore_docs
-    def format(self: ActorLogFormatter, record: logging.LogRecord) -> str:  # noqa: A003
+    def format(self: ActorLogFormatter, record: logging.LogRecord) -> str:
         """Format the log record nicely.
 
         This formats the log record so that it:

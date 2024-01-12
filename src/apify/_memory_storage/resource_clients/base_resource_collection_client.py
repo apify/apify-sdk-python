@@ -43,7 +43,7 @@ class BaseResourceCollectionClient(ABC, Generic[ResourceClientType]):
         raise NotImplementedError('You must override this method in the subclass!')
 
     @abstractmethod
-    async def list(self: BaseResourceCollectionClient) -> ListPage:  # noqa: A003
+    async def list(self: BaseResourceCollectionClient) -> ListPage:
         """List the available storages.
 
         Returns:

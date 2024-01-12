@@ -463,7 +463,7 @@ class Dataset(BaseStorage):
         self._remove_from_cache()
 
     @classmethod
-    async def open(  # noqa: A003
+    async def open(
         cls: type[Dataset],
         *,
         id: str | None = None,  # noqa: A002

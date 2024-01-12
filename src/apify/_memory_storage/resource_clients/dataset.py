@@ -314,7 +314,7 @@ class DatasetClient(BaseResourceClient):
             existing_dataset_by_id._dataset_entries[idx] = entry
             added_ids.append(idx)
 
-        data_entries = [(id, existing_dataset_by_id._dataset_entries[id]) for id in added_ids] # noqa: A001
+        data_entries = [(id, existing_dataset_by_id._dataset_entries[id]) for id in added_ids]  # noqa: A001
 
         async with existing_dataset_by_id._file_operation_lock:
             await existing_dataset_by_id._update_timestamps(has_been_modified=True)

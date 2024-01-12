@@ -226,7 +226,7 @@ class KeyValueStore(BaseStorage):
         self._remove_from_cache()
 
     @classmethod
-    async def open(  # noqa: A003
+    async def open(
         cls: type[KeyValueStore],
         *,
         id: str | None = None,  # noqa: A002

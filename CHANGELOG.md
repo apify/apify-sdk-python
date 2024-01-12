@@ -2,6 +2,10 @@
 
 ## [1.5.2](../../releases/tag/v1.5.2) - Unreleased
 
+### Internal changes
+
+- Remove some noqas thanks to the new Ruff release
+
 ### Fixed
 
 - Add missing import check to `ApifyHttpProxyMiddleware`
@@ -11,7 +15,7 @@
 ### Internal changes
 
 - Allowed running integration tests from PRs from forks, after maintainer approval
-- Do not close `nested_event_loop` in the `Scheduler.__del__`.
+- Do not close `nested_event_loop` in the `Scheduler.__del__`
 
 ## [1.5.0](../../releases/tag/v1.5.0) - 2024-01-03
 

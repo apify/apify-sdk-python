@@ -219,7 +219,7 @@ class EventManager:
         try:
             async with websockets.client.connect(self._config.actor_events_ws_url) as websocket:
                 self._platform_events_websocket = websocket
-                self._connected_to_platform_websocket.set_result(True)  # noqa: FBT003
+                self._connected_to_platform_websocket.set_result(True)
                 async for message in websocket:
                     try:
                         parsed_message = json.loads(message)
@@ -234,4 +234,4 @@ class EventManager:
                         logger.exception('Cannot parse actor event', extra={'message': message})
         except Exception:
             logger.exception('Error in websocket connection')
-            self._connected_to_platform_websocket.set_result(False)  # noqa: FBT003
+            self._connected_to_platform_websocket.set_result(False)
