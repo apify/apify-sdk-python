@@ -4,7 +4,9 @@ import traceback
 from typing import TYPE_CHECKING, Any
 
 try:
+    from scrapy import Spider  # noqa: TCH002
     from scrapy.downloadermiddlewares.retry import RetryMiddleware
+    from scrapy.http import Request, Response  # noqa: TCH002
     from scrapy.utils.response import response_status_message
 except ImportError as exc:
     raise ImportError(
@@ -15,9 +17,6 @@ from ...actor import Actor
 from ..utils import nested_event_loop, open_queue_with_custom_client, to_apify_request
 
 if TYPE_CHECKING:
-    from scrapy import Spider
-    from scrapy.http import Request, Response
-
     from ...storages import RequestQueue
 
 
