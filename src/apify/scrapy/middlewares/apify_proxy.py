@@ -3,8 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, urlparse
 
-from scrapy.core.downloader.handlers.http11 import TunnelError
-from scrapy.exceptions import NotConfigured
+try:
+    from scrapy.core.downloader.handlers.http11 import TunnelError
+    from scrapy.exceptions import NotConfigured
+except ImportError as exc:
+    raise ImportError(
+        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
+    ) from exc
 
 from ...actor import Actor
 from ...proxy_configuration import ProxyConfiguration
