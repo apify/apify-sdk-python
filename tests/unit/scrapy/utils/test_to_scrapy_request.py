@@ -21,7 +21,7 @@ def spider() -> DummySpider:
 @dataclass(frozen=True)
 class TestCase:
     apify_request: dict
-    expected_scrapy_request: Request
+    expected_scrapy_request: Request | None
     expected_exception: type[Exception] | None
 
 
@@ -91,6 +91,7 @@ def test__to_scrapy_request(spider: Spider, tc: TestCase) -> None:
         scrapy_request = to_scrapy_request(tc.apify_request, spider)
 
         assert isinstance(scrapy_request, Request)
+        assert tc.expected_scrapy_request is not None
         assert scrapy_request.url == tc.expected_scrapy_request.url
         assert scrapy_request.method == tc.expected_scrapy_request.method
 
