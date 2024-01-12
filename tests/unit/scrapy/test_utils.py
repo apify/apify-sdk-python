@@ -19,3 +19,11 @@ def test__get_basic_auth_header(
 ) -> None:
     auth_header = get_basic_auth_header(username, password)
     assert auth_header == expected_auth_header
+
+
+def test__to_apify_request() -> None:
+    ...
+
+
+def test__to_scrapy_request() -> None:
+    ...
