@@ -81,7 +81,6 @@ test_cases = [
 ]
 
 
-@pytest.mark.only()
 @pytest.mark.parametrize('tc', test_cases)
 def test__to_scrapy_request(spider: Spider, tc: TestCase) -> None:
     if tc.expected_exception:
