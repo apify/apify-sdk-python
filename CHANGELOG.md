@@ -1,6 +1,12 @@
 # Changelog
 
-## [1.5.1](../../releases/tag/v1.5.1) - Unreleased
+## [1.5.2](../../releases/tag/v1.5.2) - Unreleased
+
+### Fixed
+
+- Add missing import check to `ApifyHttpProxyMiddleware`
+
+## [1.5.1](../../releases/tag/v1.5.1) - 2024-01-10
 
 ### Internal changes
 
