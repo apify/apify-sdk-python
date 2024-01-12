@@ -4,7 +4,9 @@
 
 ### Internal changes
 
+- Create a new subpackage for Scrapy pipelines
 - Remove some noqas thanks to the new Ruff release
+- Replace asserts with custom checks in Scrapy subpackage
 
 ### Fixed
 

@@ -55,7 +55,9 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             True if the scheduler has any pending requests, False otherwise.
         """
-        assert isinstance(self._rq, RequestQueue)  # noqa: S101
+        if not isinstance(self._rq, RequestQueue):
+            raise TypeError('self._rq must be an instance of the RequestQueue class')
+
         try:
             is_finished = nested_event_loop.run_until_complete(self._rq.is_finished())
         except BaseException:
@@ -76,10 +78,14 @@ class ApifyScheduler(BaseScheduler):
         call_id = crypto_random_object_id(8)
         Actor.log.debug(f'[{call_id}]: ApifyScheduler.enqueue_request was called (scrapy_request={request})...')
 
-        assert isinstance(self.spider, Spider)  # noqa: S101
+        if not isinstance(self.spider, Spider):
+            raise TypeError('self.spider must be an instance of the Spider class')
+
         apify_request = to_apify_request(request, spider=self.spider)
         Actor.log.debug(f'[{call_id}]: scrapy_request was transformed to apify_request (apify_request={apify_request})')
-        assert isinstance(self._rq, RequestQueue)  # noqa: S101
+
+        if not isinstance(self._rq, RequestQueue):
+            raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
             result = nested_event_loop.run_until_complete(self._rq.add_request(apify_request))
@@ -98,7 +104,9 @@ class ApifyScheduler(BaseScheduler):
         """
         call_id = crypto_random_object_id(8)
         Actor.log.debug(f'[{call_id}]: ApifyScheduler.next_request was called...')
-        assert isinstance(self._rq, RequestQueue)  # noqa: S101
+
+        if not isinstance(self._rq, RequestQueue):
+            raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
             apify_request = nested_event_loop.run_until_complete(self._rq.fetch_next_request())
@@ -111,7 +119,9 @@ class ApifyScheduler(BaseScheduler):
         if apify_request is None:
             return None
 
-        assert isinstance(self.spider, Spider)  # noqa: S101
+        if not isinstance(self.spider, Spider):
+            raise TypeError('self.spider must be an instance of the Spider class')
+
         scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
         Actor.log.debug(
             f'[{call_id}]: apify_request was transformed to the scrapy_request which is gonna be returned (scrapy_request={scrapy_request})',
