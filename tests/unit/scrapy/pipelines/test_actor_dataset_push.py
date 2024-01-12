@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pytest
 from scrapy import Field, Item, Spider
 
@@ -34,21 +36,38 @@ def pipeline() -> ActorDatasetPushPipeline:
     return ActorDatasetPushPipeline()
 
 
-@pytest.mark.parametrize(
-    ('item', 'item_dict', 'expected_exception'),
-    [
-        (DummyItem(a='string', b=123, c=False), {'a': 'string', 'b': 123, 'c': False}, None),
-        (TitleItem(url='https://example.com', title='Example'), {'url': 'https://example.com', 'title': 'Example'}, None),
-        (None, {}, TypeError),
-    ],
-)
+@dataclass(frozen=True)
+class TestCase:
+    item: Item
+    item_dict: dict
+    expected_exception: type[Exception] | None
+
+
+test_cases = [
+    TestCase(
+        item=DummyItem(a='string', b=123, c=False),
+        item_dict={'a': 'string', 'b': 123, 'c': False},
+        expected_exception=None,
+    ),
+    TestCase(
+        item=TitleItem(url='https://example.com', title='Example'),
+        item_dict={'url': 'https://example.com', 'title': 'Example'},
+        expected_exception=None,
+    ),
+    TestCase(
+        item=None,
+        item_dict={},
+        expected_exception=TypeError,
+    ),
+]
+
+
+@pytest.mark.parametrize('tc', test_cases)
 async def test__process_item(
     monkeypatch: pytest.MonkeyPatch,
     pipeline: ActorDatasetPushPipeline,
     spider: Spider,
-    item: Item,
-    item_dict: dict,
-    expected_exception: type[Exception] | None,
+    tc: TestCase,
 ) -> None:
     dataset = []
 
@@ -57,11 +76,11 @@ async def test__process_item(
 
     monkeypatch.setattr(Actor, 'push_data', mock_push_data)
 
-    if expected_exception:
-        with pytest.raises(expected_exception):
-            await pipeline.process_item(item, spider)
+    if tc.expected_exception:
+        with pytest.raises(tc.expected_exception):
+            await pipeline.process_item(tc.item, spider)
 
     else:
-        output = await pipeline.process_item(item, spider)
-        assert output == item
-        assert dataset == [item_dict]
+        output = await pipeline.process_item(tc.item, spider)
+        assert output == tc.item
+        assert dataset == [tc.item_dict]
