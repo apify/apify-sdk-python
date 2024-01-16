@@ -47,6 +47,9 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
         scrapy_request: The Scrapy request to be converted.
         spider: The Scrapy spider that the request is associated with.
 
+    Raises:
+        TypeError: If the scrapy_request is not an instance of the scrapy.Request class.
+
     Returns:
         The converted Apify request.
     """
@@ -88,6 +91,10 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
         apify_request: The Apify request to be converted.
         spider: The Scrapy spider that the request is associated with.
 
+    Raises:
+        TypeError: If the apify_request is not a dictionary.
+        ValueError: If the apify_request does not contain the required keys.
+
     Returns:
         The converted Scrapy request.
     """
@@ -98,7 +105,7 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
     missing_keys = [key for key in required_keys if key not in apify_request]
 
     if missing_keys:
-        raise ValueError(f"apify_request must contain {', '.join(map(repr, missing_keys))} key(s)")
+        raise ValueError(f'apify_request must contain {", ".join(map(repr, missing_keys))} key(s)')
 
     call_id = crypto_random_object_id(8)
     Actor.log.debug(f'[{call_id}]: to_scrapy_request was called (apify_request={apify_request})...')
