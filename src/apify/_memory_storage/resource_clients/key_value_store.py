@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, TypedDict
 import aiofiles
 import aioshutil
 from aiofiles.os import makedirs
-
 from apify_shared.utils import ignore_docs, is_file_or_bytes, json_dumps
 
 from apify._crypto import crypto_random_object_id

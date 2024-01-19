@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 from aiofiles.os import mkdir
-
 from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 from apify._utils import (

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-
 from apify_shared.consts import ActorEnvVars
 
 from apify import Actor

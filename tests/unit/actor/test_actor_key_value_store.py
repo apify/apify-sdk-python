@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import json_dumps
 

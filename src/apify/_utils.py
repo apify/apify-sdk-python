@@ -35,7 +35,6 @@ import aioshutil
 import psutil
 from aiofiles import ospath
 from aiofiles.os import remove, rename
-
 from apify_shared.consts import (
     BOOL_ENV_VARS,
     BOOL_ENV_VARS_TYPE,

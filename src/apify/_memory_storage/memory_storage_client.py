@@ -8,7 +8,6 @@ from pathlib import Path
 import aioshutil
 from aiofiles import ospath
 from aiofiles.os import rename, scandir
-
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 

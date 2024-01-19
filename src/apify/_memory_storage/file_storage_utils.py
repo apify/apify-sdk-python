@@ -4,7 +4,6 @@ import os
 
 import aiofiles
 from aiofiles.os import makedirs
-
 from apify_shared.utils import json_dumps
 
 from apify._utils import force_remove

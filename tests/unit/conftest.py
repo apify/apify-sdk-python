@@ -7,7 +7,6 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 import pytest
-
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 

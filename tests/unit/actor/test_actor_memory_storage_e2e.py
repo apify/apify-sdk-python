@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from typing import Callable
 
 import pytest
-
 from apify_shared.consts import ApifyEnvVars
 
 from apify import Actor

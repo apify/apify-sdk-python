@@ -8,9 +8,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import aioshutil
-from sortedcollections import ValueSortedDict
-
 from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, json_dumps
+from sortedcollections import ValueSortedDict
 
 from apify._crypto import crypto_random_object_id
 from apify._memory_storage.file_storage_utils import delete_request, update_metadata, update_request_queue_item

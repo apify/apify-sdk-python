@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Pattern, TypedDict
 from urllib.parse import urljoin, urlparse
 
 import httpx
-
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 
@@ -15,9 +14,8 @@ from apify.config import Configuration
 from apify.log import logger
 
 if TYPE_CHECKING:
-    from typing_extensions import NotRequired
-
     from apify_client import ApifyClientAsync
+    from typing_extensions import NotRequired
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')

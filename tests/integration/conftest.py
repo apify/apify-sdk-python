@@ -10,10 +10,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator, Awaitable, Callable, Mapping, Protocol
 
 import pytest
-from filelock import FileLock
-
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
+from filelock import FileLock
 
 from ._utils import generate_unique_resource_name
 from apify import Actor

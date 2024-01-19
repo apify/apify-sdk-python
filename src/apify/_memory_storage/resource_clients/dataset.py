@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, AsyncIterator
 
 import aioshutil
-
 from apify_shared.models import ListPage
 from apify_shared.utils import ignore_docs
 

@@ -8,9 +8,8 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Union
 
 import websockets.client
-from pyee.asyncio import AsyncIOEventEmitter
-
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value, parse_date_fields
+from pyee.asyncio import AsyncIOEventEmitter
 
 from apify.log import logger
 
