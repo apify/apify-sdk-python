@@ -111,7 +111,6 @@ ignore = [
     "S303",    # Use of insecure MD2, MD4, MD5, or SHA1 hash function
     "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
     "TD002",   # Missing author in TODO; try: `# TODO(<author_name>): ...` or `# TODO @<author_name>: ...
-    "TID252",  # Relative imports from parent modules are bannedRuff
     "TRY003",  # Avoid specifying long messages outside the exception class
 
     # TODO: Remove this once the following issue is fixed
@@ -139,6 +138,7 @@ indent-style = "space"
     "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
     "S101",    # Use of assert detected
     "T20",     # flake8-print
+    "TID252",  # Relative imports from parent modules are banned
     "TRY301",  # Abstract `raise` to an inner function
 ]
 
