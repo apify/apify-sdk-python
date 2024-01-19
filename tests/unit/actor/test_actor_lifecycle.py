@@ -7,9 +7,9 @@ from typing import Any, Callable
 from unittest.mock import AsyncMock
 
 import pytest
+from apify_shared.consts import ActorEventTypes, ApifyEnvVars
 
 from apify import Actor
-from apify_shared.consts import ActorEventTypes, ApifyEnvVars
 
 
 class TestActorInit:

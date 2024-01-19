@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from apify_shared.consts import ActorEnvVars
 
 from apify import Actor
-from apify_shared.consts import ActorEnvVars
 
 if TYPE_CHECKING:
     from apify._memory_storage import MemoryStorageClient

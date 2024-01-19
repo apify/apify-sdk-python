@@ -8,10 +8,10 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import pytest
+from apify_shared.utils import json_dumps
 
 from apify._crypto import crypto_random_object_id
 from apify._utils import maybe_parse_body
-from apify_shared.utils import json_dumps
 
 if TYPE_CHECKING:
     from pathlib import Path

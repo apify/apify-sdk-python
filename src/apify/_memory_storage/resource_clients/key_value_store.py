@@ -13,11 +13,12 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, TypedDict
 import aiofiles
 import aioshutil
 from aiofiles.os import makedirs
-
 from apify_shared.utils import ignore_docs, is_file_or_bytes, json_dumps
 
-from ..._crypto import crypto_random_object_id
-from ..._utils import (
+from apify._crypto import crypto_random_object_id
+from apify._memory_storage.file_storage_utils import update_metadata
+from apify._memory_storage.resource_clients.base_resource_client import BaseResourceClient
+from apify._utils import (
     force_remove,
     force_rename,
     guess_file_extension,
@@ -25,15 +26,13 @@ from ..._utils import (
     raise_on_duplicate_storage,
     raise_on_non_existing_storage,
 )
-from ...consts import DEFAULT_API_PARAM_LIMIT, StorageTypes
-from ...log import logger
-from ..file_storage_utils import update_metadata
-from .base_resource_client import BaseResourceClient
+from apify.consts import DEFAULT_API_PARAM_LIMIT, StorageTypes
+from apify.log import logger
 
 if TYPE_CHECKING:
     from typing_extensions import NotRequired
 
-    from ..memory_storage_client import MemoryStorageClient
+    from apify._memory_storage.memory_storage_client import MemoryStorageClient
 
 
 class KeyValueStoreRecord(TypedDict):

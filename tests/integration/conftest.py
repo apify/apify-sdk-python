@@ -10,15 +10,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator, Awaitable, Callable, Mapping, Protocol
 
 import pytest
+from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorJobStatus, ActorSourceType
 from filelock import FileLock
 
+from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify.config import Configuration
 from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
-from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorSourceType
-
-from ._utils import generate_unique_resource_name
 
 if TYPE_CHECKING:
     from apify_client.clients.resource_clients import ActorClientAsync

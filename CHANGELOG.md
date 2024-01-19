@@ -6,6 +6,7 @@
 
 - Create a new subpackage for Scrapy pipelines
 - Remove some noqas thanks to the new Ruff release
+- Replace relative imports with absolute imports
 - Replace asserts with custom checks in Scrapy subpackage
 
 ### Fixed

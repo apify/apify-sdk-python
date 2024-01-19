@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, AsyncIterator, Iterable, Iterator
 
 from apify_shared.utils import ignore_docs, json_dumps
 
-from .._utils import wrap_internal
-from ..consts import MAX_PAYLOAD_SIZE_BYTES
-from .base_storage import BaseStorage
-from .key_value_store import KeyValueStore
+from apify._utils import wrap_internal
+from apify.consts import MAX_PAYLOAD_SIZE_BYTES
+from apify.storages.base_storage import BaseStorage
+from apify.storages.key_value_store import KeyValueStore
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -18,9 +18,9 @@ if TYPE_CHECKING:
     from apify_shared.models import ListPage
     from apify_shared.types import JSONSerializable
 
-    from .._memory_storage import MemoryStorageClient
-    from .._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
-    from ..config import Configuration
+    from apify._memory_storage import MemoryStorageClient
+    from apify._memory_storage.resource_clients import DatasetClient, DatasetCollectionClient
+    from apify.config import Configuration
 
 # 0.01%
 SAFETY_BUFFER_PERCENT = 0.01 / 100

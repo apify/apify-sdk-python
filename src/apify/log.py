@@ -6,9 +6,8 @@ import textwrap
 import traceback
 from typing import Any
 
-from colorama import Fore, Style, just_fix_windows_console
-
 from apify_shared.utils import ignore_docs
+from colorama import Fore, Style, just_fix_windows_console
 
 just_fix_windows_console()
 

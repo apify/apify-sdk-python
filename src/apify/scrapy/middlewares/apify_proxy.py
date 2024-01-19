@@ -12,9 +12,9 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from ...actor import Actor
-from ...proxy_configuration import ProxyConfiguration
-from ..utils import get_basic_auth_header
+from apify.actor import Actor
+from apify.proxy_configuration import ProxyConfiguration
+from apify.scrapy.utils import get_basic_auth_header
 
 
 class ApifyHttpProxyMiddleware:

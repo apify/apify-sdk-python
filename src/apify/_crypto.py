@@ -4,14 +4,13 @@ import base64
 import secrets
 from typing import Any
 
+from apify_shared.utils import ignore_docs
 from cryptography.exceptions import InvalidTag as InvalidTagException
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from apify_shared.utils import ignore_docs
-
-from .consts import ENCRYPTED_INPUT_VALUE_REGEXP
+from apify.consts import ENCRYPTED_INPUT_VALUE_REGEXP
 
 ENCRYPTION_KEY_LENGTH = 32
 ENCRYPTION_IV_LENGTH = 16

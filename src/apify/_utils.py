@@ -35,7 +35,6 @@ import aioshutil
 import psutil
 from aiofiles import ospath
 from aiofiles.os import remove, rename
-
 from apify_shared.consts import (
     BOOL_ENV_VARS,
     BOOL_ENV_VARS_TYPE,
@@ -57,7 +56,7 @@ from apify_shared.utils import (
     maybe_extract_enum_member_value,
 )
 
-from .consts import REQUEST_ID_LENGTH, StorageTypes
+from apify.consts import REQUEST_ID_LENGTH, StorageTypes
 
 T = TypeVar('T')
 

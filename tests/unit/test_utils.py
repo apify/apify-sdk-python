@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from aiofiles.os import mkdir
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 from apify._utils import (
     budget_ow,
@@ -28,7 +29,6 @@ from apify._utils import (
     unique_key_to_request_id,
 )
 from apify.consts import StorageTypes
-from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -12,8 +12,8 @@ from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 
-from ._crypto import decrypt_input_secrets, load_private_key
-from ._utils import (
+from apify._crypto import decrypt_input_secrets, load_private_key
+from apify._utils import (
     dualproperty,
     fetch_and_parse_env_var,
     get_cpu_usage_percent,
@@ -23,18 +23,18 @@ from ._utils import (
     run_func_at_interval_async,
     wrap_internal,
 )
-from .config import Configuration
-from .consts import EVENT_LISTENERS_TIMEOUT_SECS
-from .event_manager import EventManager
-from .log import logger
-from .proxy_configuration import ProxyConfiguration
-from .storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
+from apify.config import Configuration
+from apify.consts import EVENT_LISTENERS_TIMEOUT_SECS
+from apify.event_manager import EventManager
+from apify.log import logger
+from apify.proxy_configuration import ProxyConfiguration
+from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
 if TYPE_CHECKING:
     import logging
     from types import TracebackType
 
-    from ._memory_storage import MemoryStorageClient
+    from apify._memory_storage import MemoryStorageClient
 
 T = TypeVar('T')
 MainReturnType = TypeVar('MainReturnType')
