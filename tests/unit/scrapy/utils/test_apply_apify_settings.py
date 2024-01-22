@@ -98,10 +98,8 @@ test_cases = [
 
 
 @pytest.mark.parametrize('tc', test_cases)
-@pytest.mark.only()
 def test_apply_apify_settings(tc: TestCase) -> None:
     output_settings = apply_apify_settings(settings=tc.settings, proxy_config=tc.proxy_config)
-    print(dict(output_settings))
 
     assert output_settings['SCHEDULER'] == tc.expected_output['SCHEDULER']
     assert output_settings['ITEM_PIPELINES'] == tc.expected_output['ITEM_PIPELINES']
