@@ -16,7 +16,6 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
-@pytest.mark.only()
 def test__to_apify_request__simple(spider: Spider) -> None:
     scrapy_request = Request(url='https://example.com')
 
@@ -29,9 +28,7 @@ def test__to_apify_request__simple(spider: Spider) -> None:
     assert isinstance(user_data.get('scrapy_request'), str)
 
 
-@pytest.mark.only()
 def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
-    # Valid Scrapy request without 'apify_request_id' and 'apify_request_unique_key'
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -51,9 +48,7 @@ def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
     assert isinstance(user_data.get('scrapy_request'), str)
 
 
-@pytest.mark.only()
 def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
-    # Valid Scrapy request with 'apify_request_id' and 'apify_request_unique_key'
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -79,7 +74,6 @@ def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
     assert isinstance(user_data.get('scrapy_request'), str)
 
 
-@pytest.mark.only()
 def test__to_apify_request__invalid_scrapy_request(spider: Spider) -> None:
     scrapy_request = 'invalid_request'
 

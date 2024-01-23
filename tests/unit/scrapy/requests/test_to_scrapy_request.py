@@ -18,8 +18,8 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__without_reconstruction(spider: Spider) -> None:
+    # Without reconstruction of encoded Scrapy request
     apify_request = {
         'url': 'https://example.com',
         'method': 'GET',
@@ -36,8 +36,8 @@ def test__to_scrapy_request__without_reconstruction(spider: Spider) -> None:
     assert apify_request['uniqueKey'] == scrapy_request.meta.get('apify_request_unique_key')
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__without_reconstruction_with_optional_fields(spider: Spider) -> None:
+    # Without reconstruction of encoded Scrapy request
     apify_request = {
         'url': 'https://crawlee.dev',
         'method': 'GET',
@@ -58,7 +58,6 @@ def test__to_scrapy_request__without_reconstruction_with_optional_fields(spider:
     assert apify_request['userData'] == scrapy_request.meta.get('userData')
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__with_reconstruction(spider: Spider) -> None:
     # With reconstruction of encoded Scrapy request
     apify_request = {
@@ -81,7 +80,6 @@ def test__to_scrapy_request__with_reconstruction(spider: Spider) -> None:
     assert apify_request['userData'] == scrapy_request.meta.get('userData')
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__with_reconstruction_with_optional_fields(spider: Spider) -> None:
     # With reconstruction of encoded Scrapy request
     apify_request = {
@@ -107,7 +105,6 @@ def test__to_scrapy_request__with_reconstruction_with_optional_fields(spider: Sp
     assert apify_request['userData'] == scrapy_request.meta.get('userData')
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__invalid_missing_url(spider: Spider) -> None:
     apify_request = {
         'method': 'GET',
@@ -119,7 +116,6 @@ def test__to_scrapy_request__invalid_missing_url(spider: Spider) -> None:
         to_scrapy_request(apify_request, spider)
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__invalid_missing_id(spider: Spider) -> None:
     apify_request = {
         'url': 'https://example.com',
@@ -131,7 +127,6 @@ def test__to_scrapy_request__invalid_missing_id(spider: Spider) -> None:
         to_scrapy_request(apify_request, spider)
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__invalid_missing_unique_key(spider: Spider) -> None:
     apify_request = {
         'url': 'https://example.com',
@@ -143,7 +138,6 @@ def test__to_scrapy_request__invalid_missing_unique_key(spider: Spider) -> None:
         to_scrapy_request(apify_request, spider)
 
 
-@pytest.mark.only()
 def test__to_scrapy_request__invalid_request_for_reconstruction(spider: Spider) -> None:
     apify_request = {
         'url': 'https://example.com',
