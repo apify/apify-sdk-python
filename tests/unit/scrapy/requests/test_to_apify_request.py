@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pytest
 from scrapy import Request, Spider
 
-from apify.scrapy.utils import to_apify_request
+from apify.scrapy.requests import to_apify_request
 
 
 class DummySpider(Spider):
