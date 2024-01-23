@@ -37,6 +37,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
     apify_request = {
         'url': scrapy_request.url,
         'method': scrapy_request.method,
+        'userData': scrapy_request.meta.get('userData', {}),
     }
 
     # Add 'id' to the apify_request
@@ -124,6 +125,10 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
                 'apify_request_unique_key': apify_request['uniqueKey'],
             },
         )
+
+    # Add 'userData' field to the Scrapy Request
+    if 'userData' in apify_request:
+        scrapy_request.meta['userData'] = apify_request['userData']
 
     Actor.log.debug(f'[{call_id}]: an apify_request was converted to the scrapy_request={scrapy_request}')
     return scrapy_request
