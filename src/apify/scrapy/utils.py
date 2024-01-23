@@ -8,6 +8,8 @@ from urllib.parse import unquote
 
 try:
     from scrapy import Request, Spider
+    from scrapy.settings import Settings  # noqa: TCH002
+    from scrapy.utils.project import get_project_settings
     from scrapy.utils.python import to_bytes
     from scrapy.utils.request import request_from_dict
 except ImportError as exc:
@@ -151,6 +153,45 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
 
     Actor.log.debug(f'[{call_id}]: an apify_request was converted to the scrapy_request={scrapy_request}')
     return scrapy_request
+
+
+def apply_apify_settings(*, settings: Settings | None = None, proxy_config: dict | None = None) -> Settings:
+    """Integrates Apify configuration into a Scrapy project settings.
+
+    Note: The function directly modifies the passed `settings` object and also returns it.
+
+    Args:
+        settings: Scrapy project settings to be modified.
+        proxy_config: Proxy configuration to be stored in the settings.
+
+    Returns:
+        Scrapy project settings with custom configurations.
+    """
+    if settings is None:
+        settings = get_project_settings()
+
+    # Use ApifyScheduler as the scheduler
+    settings['SCHEDULER'] = 'apify.scrapy.scheduler.ApifyScheduler'
+
+    # Add the ActorDatasetPushPipeline into the item pipelines, assigning it the highest integer (1000),
+    # ensuring it is executed as the final step in the pipeline sequence
+    settings['ITEM_PIPELINES']['apify.scrapy.pipelines.ActorDatasetPushPipeline'] = 1000
+
+    # Disable the default RobotsTxtMiddleware, Apify's custom scheduler already handles robots.txt
+    settings['DOWNLOADER_MIDDLEWARES']['scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware'] = None
+
+    # Disable the default HttpProxyMiddleware and add ApifyHttpProxyMiddleware
+    settings['DOWNLOADER_MIDDLEWARES']['scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware'] = None
+    settings['DOWNLOADER_MIDDLEWARES']['apify.scrapy.middlewares.ApifyHttpProxyMiddleware'] = 950
+
+    # Disable the default RetryMiddleware and add ApifyRetryMiddleware with the highest integer (1000)
+    settings['DOWNLOADER_MIDDLEWARES']['scrapy.downloadermiddlewares.retry.RetryMiddleware'] = None
+    settings['DOWNLOADER_MIDDLEWARES']['apify.scrapy.middlewares.ApifyRetryMiddleware'] = 1000
+
+    # Store the proxy configuration
+    settings['APIFY_PROXY_SETTINGS'] = proxy_config
+
+    return settings
 
 
 async def open_queue_with_custom_client() -> RequestQueue:

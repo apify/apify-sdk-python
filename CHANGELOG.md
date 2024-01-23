@@ -2,7 +2,9 @@
 
 ## [1.5.3](../../releases/tag/v1.5.3) - Unreleased
 
-...
+### Added
+
+- Add `apply_apify_settings` function to Scrapy subpackage
 
 ## [1.5.2](../../releases/tag/v1.5.2) - 2024-01-19
 
