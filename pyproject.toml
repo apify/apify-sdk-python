@@ -135,6 +135,7 @@ indent-style = "space"
 "**/{tests}/*" = [
     "D",       # Everything from the pydocstyle
     "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
+    "PT011",   # `pytest.raises({ExceptionType})` is too broad, set the `match` parameter or use a more specific exception
     "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
     "S101",    # Use of assert detected
     "T20",     # flake8-print
