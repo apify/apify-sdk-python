@@ -14,7 +14,8 @@ except ImportError as exc:
     ) from exc
 
 from apify.actor import Actor
-from apify.scrapy.utils import nested_event_loop, open_queue_with_custom_client, to_apify_request
+from apify.scrapy.requests import to_apify_request
+from apify.scrapy.utils import nested_event_loop, open_queue_with_custom_client
 
 if TYPE_CHECKING:
     from apify.storages import RequestQueue
