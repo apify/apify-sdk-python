@@ -37,6 +37,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
     apify_request = {
         'url': scrapy_request.url,
         'method': scrapy_request.method,
+        'headers': scrapy_request.headers,
         'userData': scrapy_request.meta.get('userData', {}),
     }
 
@@ -126,7 +127,11 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
             },
         )
 
-    # Add 'userData' field to the Scrapy Request
+    # Add optional 'headers' field
+    if 'headers' in apify_request:
+        scrapy_request.headers = apify_request['headers']
+
+    # Add optional 'userData' field
     if 'userData' in apify_request:
         scrapy_request.meta['userData'] = apify_request['userData']
 
