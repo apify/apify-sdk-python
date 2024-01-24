@@ -1,6 +1,6 @@
 [project]
 name = "apify"
-version = "1.5.4"
+version = "1.5.5"
 description = "Apify SDK for Python"
 readme = "README.md"
 license = { text = "Apache Software License" }

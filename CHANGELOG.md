@@ -1,14 +1,14 @@
 # Changelog
 
-## [1.5.4](../../releases/tag/v1.5.4) - Unreleased
+## [1.5.5](../../releases/tag/v1.5.5) - Unreleased
 
-### Added
+...
 
-- Add support for `headers` field in Apify <-> Scrapy request translation
+## [1.5.4](../../releases/tag/v1.5.4) - 2024-01-24
 
 ### Fixed
 
-- Fix conversion of `userData` field in Apify <-> Scrapy request translation
+- Fix conversion of `userData` and `headers` fields in Apify <--> Scrapy request translation
 
 ## [1.5.3](../../releases/tag/v1.5.3) - 2024-01-23
 
