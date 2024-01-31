@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from scrapy import Request, Spider
+from scrapy.http.headers import Headers
 
 from apify.scrapy.requests import to_apify_request
 
@@ -26,6 +27,15 @@ def test__to_apify_request__simple(spider: Spider) -> None:
     assert isinstance(user_data, dict)
     assert 'scrapy_request' in user_data
     assert isinstance(user_data.get('scrapy_request'), str)
+
+
+def test__to_apify_request__headers(spider: Spider) -> None:
+    scrapy_request_headers = Headers({'Authorization': 'Bearer access_token'})
+    scrapy_request = Request(url='https://example.com', headers=scrapy_request_headers)
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request['headers'] == dict(scrapy_request_headers.to_unicode_dict())
 
 
 def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:

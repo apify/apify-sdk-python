@@ -2,7 +2,9 @@
 
 ## [1.5.5](../../releases/tag/v1.5.5) - Unreleased
 
-...
+### Fixed
+
+- Fix conversion of `headers` fields in Apify <--> Scrapy request translation
 
 ## [1.5.4](../../releases/tag/v1.5.4) - 2024-01-24
 
