@@ -5,6 +5,7 @@ import pickle
 
 try:
     from scrapy import Request, Spider
+    from scrapy.http.headers import Headers
     from scrapy.utils.request import request_from_dict
 except ImportError as exc:
     raise ImportError(
@@ -37,9 +38,15 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
     apify_request = {
         'url': scrapy_request.url,
         'method': scrapy_request.method,
-        'headers': scrapy_request.headers,
         'userData': scrapy_request.meta.get('userData', {}),
     }
+
+    if isinstance(scrapy_request.headers, Headers):
+        apify_request['headers'] = dict(scrapy_request.headers.to_unicode_dict())
+    else:
+        Actor.log.warning(
+            f'scrapy_request.headers is not an instance of the scrapy.http.headers.Headers class, scrapy_request.headers = {scrapy_request.headers}',
+        )
 
     # Add 'id' to the apify_request
     if scrapy_request.meta.get('apify_request_id'):
@@ -129,7 +136,12 @@ def to_scrapy_request(apify_request: dict, spider: Spider) -> Request:
 
     # Add optional 'headers' field
     if 'headers' in apify_request:
-        scrapy_request.headers = apify_request['headers']
+        if isinstance(apify_request['headers'], dict):
+            scrapy_request.headers = Headers(apify_request['headers'])
+        else:
+            Actor.log.warning(
+                f'apify_request[headers] is not an instance of the dict class, apify_request[headers] = {apify_request["headers"]}',
+            )
 
     # Add optional 'userData' field
     if 'userData' in apify_request:

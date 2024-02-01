@@ -4,6 +4,7 @@ import binascii
 
 import pytest
 from scrapy import Request, Spider
+from scrapy.http.headers import Headers
 
 from apify.scrapy.requests import to_scrapy_request
 
@@ -54,7 +55,7 @@ def test__to_scrapy_request__without_reconstruction_with_optional_fields(spider:
     assert apify_request['method'] == scrapy_request.method
     assert apify_request['id'] == scrapy_request.meta.get('apify_request_id')
     assert apify_request['uniqueKey'] == scrapy_request.meta.get('apify_request_unique_key')
-    assert apify_request['headers'] == scrapy_request.headers
+    assert Headers(apify_request['headers']) == scrapy_request.headers
     assert apify_request['userData'] == scrapy_request.meta.get('userData')
 
 
@@ -101,7 +102,7 @@ def test__to_scrapy_request__with_reconstruction_with_optional_fields(spider: Sp
     assert apify_request['method'] == scrapy_request.method
     assert apify_request['id'] == scrapy_request.meta.get('apify_request_id')
     assert apify_request['uniqueKey'] == scrapy_request.meta.get('apify_request_unique_key')
-    assert apify_request['headers'] == scrapy_request.headers
+    assert Headers(apify_request['headers']) == scrapy_request.headers
     assert apify_request['userData'] == scrapy_request.meta.get('userData')
 
 
