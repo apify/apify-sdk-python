@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.5.5](../../releases/tag/v1.5.5) - Unreleased
+## [1.5.6](../../releases/tag/v1.5.6) - Unreleased
+
+...
+
+## [1.5.5](../../releases/tag/v1.5.5) - 2024-02-01
 
 ### Fixed
 
