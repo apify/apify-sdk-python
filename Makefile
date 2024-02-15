@@ -9,6 +9,7 @@ clean:
 	rm -rf build dist .mypy_cache .pytest_cache src/*.egg-info __pycache__
 
 install-dev:
+	pip install poetry
 	poetry install
 	poetry run pre-commit install
 
