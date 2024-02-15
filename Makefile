@@ -9,9 +9,8 @@ clean:
 	rm -rf build dist .mypy_cache .pytest_cache src/*.egg-info __pycache__
 
 install-dev:
-	python3 -m pip install --upgrade pip
-	pip install --no-cache-dir -e ".[dev,scrapy]"
-	pre-commit install
+	poetry install
+	poetry run pre-commit install
 
 build:
 	python3 -m build
