@@ -1,12 +1,11 @@
-[project]
+[tool.poetry]
 name = "apify"
 version = "1.5.6"
 description = "Apify SDK for Python"
 readme = "README.md"
-license = { text = "Apache Software License" }
-authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
+license = "Apache Software License"
+authors = ["Apify Technologies s.r.o. <support@apify.com>"]
 keywords = ["apify", "sdk", "actor", "scraping", "automation"]
-
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -19,52 +18,79 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries",
 ]
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+#required = [
+#    "apify-client ~= 1.6.2",
+#    "apify-shared ~= 1.1.1",
+#    "aiofiles >= 22.1.0",
+#    "aioshutil >= 1.0",
+#    "colorama >= 0.4.6",
+#    "cryptography >= 39.0.0",
+#    "httpx >= 0.24.1",
+#    "psutil >= 5.9.5",
+#    "pyee >= 11.0.1",
+#    "sortedcollections >= 2.0.1",
+#    "typing-extensions >= 4.1.0",
+#    "websockets >= 10.1",
+#]
+apify-client = "*"
+apify-shared = "*"
+aiofiles = "^22.1.0"
+aioshutil = "^1.0"
+colorama = "^0.4.6"
+cryptography = "^39.0.0"
+httpx = "^0.24.1"
+psutil = "^5.9.5"
+pyee = "^11.0.1"
+sortedcollections = "^2.0.1"
+typing-extensions = "^4.1.0"
+websockets = "^10.1"
 
-requires-python = ">=3.8"
 
-# We use inclusive ordered comparison clause for non-Apify packages intentionally in order to enhance the Apify SDK's
-# compatibility with a wide range of external packages. This decision was discussed in detail in the following PR:
-# https://github.com/apify/apify-sdk-python/pull/154
-dependencies = [
-    "apify-client ~= 1.6.2",
-    "apify-shared ~= 1.1.1",
-    "aiofiles >= 22.1.0",
-    "aioshutil >= 1.0",
-    "colorama >= 0.4.6",
-    "cryptography >= 39.0.0",
-    "httpx >= 0.24.1",
-    "psutil >= 5.9.5",
-    "pyee >= 11.0.1",
-    "sortedcollections >= 2.0.1",
-    "typing-extensions >= 4.1.0",
-    "websockets >= 10.1",
-]
+[tool.poetry.dev-dependencies]
+# Include all optional and scrapy dependencies from the provided file
+build = "^1.0.3"
+filelock = "^3.12.4"
+mypy = "^1.7.1"
+pre-commit = "^3.4.0"
+pydoc-markdown = "^4.8.2"
+pytest = "^7.4.2"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+pytest-only = "^2.0.0"
+pytest-timeout = "^2.2.0"
+pytest-xdist = "^3.3.1"
+respx = "^0.20.1"
+ruff = "^0.1.13"
+twine = "^4.0.2"
+types-aiofiles = "^23.2.0.0"
+types-colorama = "^0.4.15.12"
+types-psutil = "^5.9.5.17"
+scrapy = ">=2.11.0"
 
-[project.optional-dependencies]
-dev = [
-    "build ~= 1.0.3",
-    "filelock ~= 3.12.4",
-    "mypy ~= 1.7.1",
-    "pre-commit ~= 3.4.0",
-    "pydoc-markdown ~= 4.8.2",
-    "pytest ~= 7.4.2",
-    "pytest-asyncio ~= 0.21.0",
-    "pytest-cov ~= 4.1.0",
-    "pytest-only ~= 2.0.0",
-    "pytest-timeout ~= 2.2.0",
-    "pytest-xdist ~= 3.3.1",
-    "respx ~= 0.20.1",
-    "ruff ~= 0.1.13",
-    "twine ~= 4.0.2",
-    "types-aiofiles ~= 23.2.0.0",
-    "types-colorama ~= 0.4.15.12",
-    "types-psutil ~= 5.9.5.17",
-]
-scrapy = [
-    "scrapy >= 2.11.0",
-]
+#dev = [
+#    "build ~= 1.0.3",
+#    "filelock ~= 3.12.4",
+#    "mypy ~= 1.7.1",
+#    "pre-commit ~= 3.4.0",
+#    "pydoc-markdown ~= 4.8.2",
+#    "pytest ~= 7.4.2",
+#    "pytest-asyncio ~= 0.21.0",
+#    "pytest-cov ~= 4.1.0",
+#    "pytest-only ~= 2.0.0",
+#    "pytest-timeout ~= 2.2.0",
+#    "pytest-xdist ~= 3.3.1",
+#    "respx ~= 0.20.1",
+#    "ruff ~= 0.1.13",
+#    "twine ~= 4.0.2",
+#    "types-aiofiles ~= 23.2.0.0",
+#    "types-colorama ~= 0.4.15.12",
+#    "types-psutil ~= 5.9.5.17",
+#    "scrapy >= 2.11.0"
+#]
 
-[project.urls]
+[tool.poetry.urls]
 "Homepage" = "https://docs.apify.com/sdk/python/"
 "Documentation" = "https://docs.apify.com/sdk/python/"
 "Source" = "https://github.com/apify/apify-sdk-python"
@@ -73,15 +99,10 @@ scrapy = [
 "Apify Homepage" = "https://apify.com"
 
 [build-system]
-requires = ["setuptools>=64.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["apify*"]
 
-[tool.setuptools.package-data]
-apify = ["py.typed"]
 
 [tool.ruff]
 line-length = 150
