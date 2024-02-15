@@ -14,34 +14,34 @@ install-dev:
 	poetry run pre-commit install
 
 build:
-	python3 -m build
+	poetry run build
 
 publish:
-	python3 -m twine upload dist/*
+	poetry run twine upload dist/*
 
 twine-check:
-	python3 -m twine check dist/*
+	poetry run twine check dist/*
 
 lint:
-	python3 -m ruff check $(DIRS_WITH_CODE)
+	poetry run ruff check $(DIRS_WITH_CODE)
 
 unit-tests:
-	python3 -m pytest -n auto -ra tests/unit --cov=src/apify
+	poetry run pytest -n auto -ra tests/unit --cov=src/apify
 
 unit-tests-cov:
-	python3 -m pytest -n auto -ra tests/unit --cov=src/apify --cov-report=html
+	poetry run pytest -n auto -ra tests/unit --cov=src/apify --cov-report=html
 
 integration-tests:
-	python3 -m pytest -n $(INTEGRATION_TESTS_CONCURRENCY) -ra tests/integration
+	poetry run pytest -n $(INTEGRATION_TESTS_CONCURRENCY) -ra tests/integration
 
 type-check:
-	python3 -m mypy $(DIRS_WITH_CODE)
+	poetry run mypy $(DIRS_WITH_CODE)
 
 check-code: lint type-check unit-tests
 
 format:
-	python3 -m ruff check --fix $(DIRS_WITH_CODE)
-	python3 -m ruff format $(DIRS_WITH_CODE)
+	poetry run ruff check --fix $(DIRS_WITH_CODE)
+	poetry run ruff format $(DIRS_WITH_CODE)
 
 check-version-availability:
 	python3 scripts/check_version_availability.py
