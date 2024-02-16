@@ -17,11 +17,16 @@ jobs:
     needs: [lint_and_type_checks]
     uses: ./.github/workflows/unit_tests.yaml
 
+  unit_tests_poetry:
+    name: Run unit tests
+    needs: [ lint_and_type_checks ]
+    uses: ./.github/workflows/unit_tests_poetry.yml
+
   # If the PR comes from the main repo, run integration tests directly
   integration_tests:
     if: github.event.pull_request.head.repo.owner.login == 'apify'
     name: Run integration tests
-    needs: [lint_and_type_checks, unit_tests]
+    needs: [lint_and_type_checks, unit_tests, unit_tests_poetry]
     uses: ./.github/workflows/integration_tests.yaml
     secrets: inherit
 
