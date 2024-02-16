@@ -53,11 +53,8 @@ twine = "^4.0.2"
 types-aiofiles = "^23.2.0.0"
 types-colorama = "^0.4.15.12"
 types-psutil = "^5.9.5.17"
-scrapy = { version = "^2.11.0", optional = true }
+scrapy = { version = "^2.11.0", optional = true, extras = ["scrapy"] }
 
-
-[tool.poetry.extras]
-scrapy = ["scrapy"]
 
 [tool.poetry.urls]
 "Homepage" = "https://docs.apify.com/sdk/python/"
