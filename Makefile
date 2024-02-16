@@ -13,7 +13,7 @@ install-dev:
 	pip install poetry
 	poetry config virtualenvs.create true --local
 	poetry config virtualenvs.in-project true --local
-	poetry install
+	poetry install --all-extras
 	poetry run pre-commit install
 
 build:
