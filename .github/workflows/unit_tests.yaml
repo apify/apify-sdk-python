@@ -40,4 +40,4 @@ jobs:
         run: poetry install
       - name: Run the automated tests (for example)
         run: poetry run pytest tests/unit
-  continue-on-error: true
+    continue-on-error: true
