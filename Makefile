@@ -9,7 +9,6 @@ clean:
 	rm -rf build dist .mypy_cache .pytest_cache src/*.egg-info __pycache__
 
 install-dev:
-
 	pip install poetry
 	poetry config virtualenvs.create true --local
 	poetry config virtualenvs.in-project true --local
@@ -17,7 +16,7 @@ install-dev:
 	poetry run pre-commit install
 
 build:
-	poetry run build
+	poetry run python -m build
 
 publish:
 	poetry run twine upload dist/*
