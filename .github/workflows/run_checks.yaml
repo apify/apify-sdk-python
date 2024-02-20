@@ -21,7 +21,7 @@ jobs:
   integration_tests:
     if: github.event.pull_request.head.repo.owner.login == 'apify'
     name: Run integration tests
-    needs: [lint_and_type_checks, unit_tests]
+    needs: [lint_and_type_checks, unit_tests, unit_tests_poetry]
     uses: ./.github/workflows/integration_tests.yaml
     secrets: inherit
 
