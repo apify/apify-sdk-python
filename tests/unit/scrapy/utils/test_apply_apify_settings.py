@@ -34,7 +34,6 @@ def test__apply_apify_settings__update_downloader_middlewares() -> None:
             'DOWNLOADER_MIDDLEWARES': {
                 'scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware': 123,
                 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 234,
-                'scrapy.downloadermiddlewares.retry.RetryMiddleware': 345,
                 'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware': 543,
             },
         }
@@ -42,12 +41,11 @@ def test__apply_apify_settings__update_downloader_middlewares() -> None:
     new_settings = apply_apify_settings(settings=settings)
 
     assert new_settings.get('DOWNLOADER_MIDDLEWARES') == {
-        'scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware': None,
-        'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': None,
-        'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
-        'apify.scrapy.middlewares.ApifyHttpProxyMiddleware': 950,
-        'apify.scrapy.middlewares.ApifyRetryMiddleware': 1000,
+        'apify.scrapy.middlewares.ApifyHttpProxyMiddleware': 750,
+        'scrapy.downloadermiddlewares.ajaxcrawl.AjaxCrawlMiddleware': None,
         'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware': 543,
+        'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': None,
+        'scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware': 123,
     }
 
 
