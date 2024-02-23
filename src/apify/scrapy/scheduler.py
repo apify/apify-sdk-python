@@ -70,6 +70,8 @@ class ApifyScheduler(BaseScheduler):
     def enqueue_request(self: ApifyScheduler, request: Request) -> bool:
         """Add a request to the scheduler.
 
+        This could be called from either from a spider or a downloader middleware (e.g. redirect, retry, ...).
+
         Args:
             request: The request to add to the scheduler.
 
@@ -94,7 +96,7 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-        Actor.log.debug(f'[{call_id}]: apify_request was added to the RQ (apify_request={apify_request})')
+        Actor.log.debug(f'[{call_id}]: rq.add_request.result={result}...')
         return bool(result['wasAlreadyPresent'])
 
     def next_request(self: ApifyScheduler) -> Request | None:
@@ -109,6 +111,7 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Fetch the next request from the Request Queue
         try:
             apify_request = nested_event_loop.run_until_complete(self._rq.fetch_next_request())
         except BaseException:
@@ -122,6 +125,14 @@ class ApifyScheduler(BaseScheduler):
 
         if not isinstance(self.spider, Spider):
             raise TypeError('self.spider must be an instance of the Spider class')
+
+        # Let the Request Queue know that the request is being handled. Every request should be marked as handled,
+        # retrying is handled by the Scrapy's RetryMiddleware.
+        try:
+            nested_event_loop.run_until_complete(self._rq.mark_request_as_handled(apify_request))
+        except BaseException:
+            traceback.print_exc()
+            raise
 
         scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
         Actor.log.debug(

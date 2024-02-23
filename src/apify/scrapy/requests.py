@@ -16,6 +16,14 @@ from apify._crypto import crypto_random_object_id
 from apify.actor import Actor
 
 
+def _is_request_produced_by_middleware(scrapy_request: Request) -> bool:
+    """Returns True if the Scrapy request was produced by a downloader middleware, otherwise False.
+
+    Works for RetryMiddleware and RedirectMiddleware.
+    """
+    return bool(scrapy_request.meta.get('redirect_times')) or bool(scrapy_request.meta.get('retry_times'))
+
+
 def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
     """Convert a Scrapy request to an Apify request.
 
@@ -48,13 +56,16 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
             f'scrapy_request.headers is not an instance of the scrapy.http.headers.Headers class, scrapy_request.headers = {scrapy_request.headers}',
         )
 
-    # Add 'id' to the apify_request
-    if scrapy_request.meta.get('apify_request_id'):
-        apify_request['id'] = scrapy_request.meta['apify_request_id']
+    if _is_request_produced_by_middleware(scrapy_request):
+        apify_request['uniqueKey'] = scrapy_request.url
+    else:
+        # Add 'id' to the apify_request
+        if scrapy_request.meta.get('apify_request_id'):
+            apify_request['id'] = scrapy_request.meta['apify_request_id']
 
-    # Add 'uniqueKey' to the apify_request
-    if scrapy_request.meta.get('apify_request_unique_key'):
-        apify_request['uniqueKey'] = scrapy_request.meta['apify_request_unique_key']
+        # Add 'uniqueKey' to the apify_request
+        if scrapy_request.meta.get('apify_request_unique_key'):
+            apify_request['uniqueKey'] = scrapy_request.meta['apify_request_unique_key']
 
     # Serialize the Scrapy Request and store it in the apify_request.
     #   - This process involves converting the Scrapy Request object into a dictionary, encoding it to base64,

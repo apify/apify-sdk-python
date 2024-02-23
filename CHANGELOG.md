@@ -1,8 +1,14 @@
 # Changelog
 
-## [1.5.6](../../releases/tag/v1.5.6) - Unreleased
+## [1.6.0](../../releases/tag/v1.6.0) - Unreleased
 
-...
+### Fixed
+
+- Update of Scrapy integration, fixes in `ApifyScheduler`, `to_apify_request` and `apply_apify_settings`.
+
+### Removed
+
+- Removed `ApifyRetryMiddleware` and stay with the Scrapy's default one
 
 ## [1.5.5](../../releases/tag/v1.5.5) - 2024-02-01
 
