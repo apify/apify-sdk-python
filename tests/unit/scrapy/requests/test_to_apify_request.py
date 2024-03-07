@@ -21,6 +21,7 @@ def test__to_apify_request__simple(spider: Spider) -> None:
     scrapy_request = Request(url='https://example.com')
 
     apify_request = to_apify_request(scrapy_request, spider)
+    assert apify_request is not None
     assert apify_request.get('url') == 'https://example.com'
 
     user_data = apify_request.get('userData', {})
@@ -35,6 +36,7 @@ def test__to_apify_request__headers(spider: Spider) -> None:
 
     apify_request = to_apify_request(scrapy_request, spider)
 
+    assert apify_request is not None
     assert apify_request['headers'] == dict(scrapy_request_headers.to_unicode_dict())
 
 
@@ -47,6 +49,7 @@ def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
 
     apify_request = to_apify_request(scrapy_request, spider)
 
+    assert apify_request is not None
     assert apify_request.get('url') == 'https://example.com'
     assert apify_request.get('method') == 'GET'
 
@@ -70,6 +73,7 @@ def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
     )
 
     apify_request = to_apify_request(scrapy_request, spider)
+    assert apify_request is not None
 
     assert apify_request.get('url') == 'https://example.com'
     assert apify_request.get('method') == 'GET'
@@ -87,5 +91,5 @@ def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
 def test__to_apify_request__invalid_scrapy_request(spider: Spider) -> None:
     scrapy_request = 'invalid_request'
 
-    with pytest.raises(TypeError):
-        to_apify_request(scrapy_request, spider)
+    apify_request = to_apify_request(scrapy_request, spider)
+    assert apify_request is None

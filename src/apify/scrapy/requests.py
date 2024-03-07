@@ -24,57 +24,57 @@ def _is_request_produced_by_middleware(scrapy_request: Request) -> bool:
     return bool(scrapy_request.meta.get('redirect_times')) or bool(scrapy_request.meta.get('retry_times'))
 
 
-def to_apify_request(scrapy_request: Request, spider: Spider) -> dict:
+def to_apify_request(scrapy_request: Request, spider: Spider) -> dict | None:
     """Convert a Scrapy request to an Apify request.
 
     Args:
         scrapy_request: The Scrapy request to be converted.
         spider: The Scrapy spider that the request is associated with.
 
-    Raises:
-        TypeError: If the scrapy_request is not an instance of the scrapy.Request class.
-
     Returns:
-        The converted Apify request.
+        The converted Apify request if the conversion was successful, otherwise None.
     """
     if not isinstance(scrapy_request, Request):
-        raise TypeError('scrapy_request must be an instance of the scrapy.Request class')
+        Actor.log.warn('Failed to convert to Apify request: Scrapy request must be a Request instance.')
+        return None
 
     call_id = crypto_random_object_id(8)
     Actor.log.debug(f'[{call_id}]: to_apify_request was called (scrapy_request={scrapy_request})...')
 
-    apify_request = {
-        'url': scrapy_request.url,
-        'method': scrapy_request.method,
-        'userData': scrapy_request.meta.get('userData', {}),
-    }
+    try:
+        apify_request = {
+            'url': scrapy_request.url,
+            'method': scrapy_request.method,
+            'userData': scrapy_request.meta.get('userData', {}),
+        }
 
-    if isinstance(scrapy_request.headers, Headers):
-        apify_request['headers'] = dict(scrapy_request.headers.to_unicode_dict())
-    else:
-        Actor.log.warning(
-            f'scrapy_request.headers is not an instance of the scrapy.http.headers.Headers class, scrapy_request.headers = {scrapy_request.headers}',
-        )
+        if isinstance(scrapy_request.headers, Headers):
+            apify_request['headers'] = dict(scrapy_request.headers.to_unicode_dict())
+        else:
+            Actor.log.warning(f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}')
 
-    if _is_request_produced_by_middleware(scrapy_request):
-        apify_request['uniqueKey'] = scrapy_request.url
-    else:
-        # Add 'id' to the apify_request
-        if scrapy_request.meta.get('apify_request_id'):
-            apify_request['id'] = scrapy_request.meta['apify_request_id']
+        if _is_request_produced_by_middleware(scrapy_request):
+            apify_request['uniqueKey'] = scrapy_request.url
+        else:
+            # Add 'id' to the apify_request
+            if scrapy_request.meta.get('apify_request_id'):
+                apify_request['id'] = scrapy_request.meta['apify_request_id']
 
-        # Add 'uniqueKey' to the apify_request
-        if scrapy_request.meta.get('apify_request_unique_key'):
-            apify_request['uniqueKey'] = scrapy_request.meta['apify_request_unique_key']
+            # Add 'uniqueKey' to the apify_request
+            if scrapy_request.meta.get('apify_request_unique_key'):
+                apify_request['uniqueKey'] = scrapy_request.meta['apify_request_unique_key']
 
-    # Serialize the Scrapy Request and store it in the apify_request.
-    #   - This process involves converting the Scrapy Request object into a dictionary, encoding it to base64,
-    #     and storing it as 'scrapy_request' within the 'userData' dictionary of the apify_request.
-    #   - The serialization process can be referenced at: https://stackoverflow.com/questions/30469575/.
-    scrapy_request_dict = scrapy_request.to_dict(spider=spider)
-    scrapy_request_dict_encoded = codecs.encode(pickle.dumps(scrapy_request_dict), 'base64').decode()
+        # Serialize the Scrapy Request and store it in the apify_request.
+        #   - This process involves converting the Scrapy Request object into a dictionary, encoding it to base64,
+        #     and storing it as 'scrapy_request' within the 'userData' dictionary of the apify_request.
+        #   - The serialization process can be referenced at: https://stackoverflow.com/questions/30469575/.
+        scrapy_request_dict = scrapy_request.to_dict(spider=spider)
+        scrapy_request_dict_encoded = codecs.encode(pickle.dumps(scrapy_request_dict), 'base64').decode()
+        apify_request['userData']['scrapy_request'] = scrapy_request_dict_encoded
 
-    apify_request['userData']['scrapy_request'] = scrapy_request_dict_encoded
+    except Exception as exc:
+        Actor.log.warn(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
+        return None
 
     Actor.log.debug(f'[{call_id}]: scrapy_request was converted to the apify_request={apify_request}')
     return apify_request
