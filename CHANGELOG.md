@@ -2,7 +2,9 @@
 
 ## [1.6.1](../../releases/tag/v1.6.1) - Unreleased
 
-...
+### Fixed
+
+- Improve error handling for `to_apify_request` serialization failures
 
 ## [1.6.0](../../releases/tag/v1.6.0) - 2024-02-23
 
