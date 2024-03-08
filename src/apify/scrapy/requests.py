@@ -35,7 +35,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict | None:
         The converted Apify request if the conversion was successful, otherwise None.
     """
     if not isinstance(scrapy_request, Request):
-        Actor.log.warn('Failed to convert to Apify request: Scrapy request must be a Request instance.')
+        Actor.log.warning('Failed to convert to Apify request: Scrapy request must be a Request instance.')
         return None
 
     call_id = crypto_random_object_id(8)
@@ -73,7 +73,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict | None:
         apify_request['userData']['scrapy_request'] = scrapy_request_dict_encoded
 
     except Exception as exc:
-        Actor.log.warn(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
+        Actor.log.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
         return None
 
     Actor.log.debug(f'[{call_id}]: scrapy_request was converted to the apify_request={apify_request}')

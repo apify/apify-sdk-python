@@ -86,7 +86,7 @@ class ApifyScheduler(BaseScheduler):
 
         apify_request = to_apify_request(request, spider=self.spider)
         if apify_request is None:
-            Actor.log.warn(f'Request {request} was not enqueued because it could not be converted to Apify request.')
+            Actor.log.error(f'Request {request} was not enqueued because it could not be converted to Apify request.')
             return False
 
         Actor.log.debug(f'[{call_id}]: scrapy_request was transformed to apify_request (apify_request={apify_request})')
