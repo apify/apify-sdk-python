@@ -1,10 +1,15 @@
 # Changelog
 
-## [1.6.1](../../releases/tag/v1.6.1) - Unreleased
+## [1.7.0](../../releases/tag/v1.7.0) - Unreleased
+
+### Added
+
+- Add a new way of generating the `uniqueKey` field of the request, aligning it with the Crawlee.
 
 ### Fixed
 
 - Improve error handling for `to_apify_request` serialization failures
+- Scrapy's `Request.dont_filter` works.
 
 ## [1.6.0](../../releases/tag/v1.6.0) - 2024-02-23
 
