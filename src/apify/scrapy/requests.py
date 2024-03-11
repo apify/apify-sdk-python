@@ -46,6 +46,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict | None:
         apify_request = {
             'url': scrapy_request.url,
             'method': scrapy_request.method,
+            'payload': scrapy_request.body,
             'userData': scrapy_request.meta.get('userData', {}),
         }
 
@@ -55,9 +56,14 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict | None:
         else:
             Actor.log.warning(f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}')
 
-        # If the request was produced by the middleware (e.g. retry or redirect), we need to compute the unique key here
+        # If the request was produced by the middleware (e.g. retry or redirect), we must compute the unique key here
         if _is_request_produced_by_middleware(scrapy_request):
-            apify_request['uniqueKey'] = compute_unique_key(scrapy_request.url, scrapy_request.method)
+            apify_request['uniqueKey'] = compute_unique_key(
+                url=scrapy_request.url,
+                method=scrapy_request.method,
+                payload=scrapy_request.body,
+                use_extended_unique_key=True,
+            )
         # Othwerwise, we can use the unique key (also the id) from the meta
         else:
             if scrapy_request.meta.get('apify_request_id'):
