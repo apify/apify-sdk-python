@@ -14,15 +14,18 @@ from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 from apify._utils import (
     budget_ow,
+    compute_unique_key,
     fetch_and_parse_env_var,
     force_remove,
     force_rename,
     get_cpu_usage_percent,
     get_memory_usage_bytes,
+    get_short_base64_hash,
     guess_file_extension,
     maybe_parse_bool,
     maybe_parse_datetime,
     maybe_parse_int,
+    normalize_url,
     raise_on_duplicate_storage,
     raise_on_non_existing_storage,
     run_func_at_interval_async,
@@ -266,3 +269,100 @@ def test__budget_ow() -> None:
             'ordered_dict': (dict, False),
         },
     )
+
+
+def test_get_short_base64_hash_with_known_input() -> None:
+    data = b'Hello world!'
+    expected_hash = 'wFNeSK3n'
+    assert get_short_base64_hash(data) == expected_hash, 'The hash does not match the expected output'
+
+
+def test_get_short_base64_hash_with_empty_input() -> None:
+    data = b''
+    expected_hash = '47DEQpj8'
+    assert get_short_base64_hash(data) == expected_hash, 'The hash for an empty input should follow the expected pattern'
+
+
+def test_get_short_base64_hash_output_length() -> None:
+    data = b'some random data'
+    assert len(get_short_base64_hash(data)) == 8, 'The output hash should be 8 characters long'
+
+
+def test_get_short_base64_hash_differentiates_input() -> None:
+    data1 = b'input 1'
+    data2 = b'input 2'
+    assert get_short_base64_hash(data1) != get_short_base64_hash(data2), 'Different inputs should produce different hashes'
+
+
+@pytest.mark.parametrize(
+    ('url', 'expected_output', 'keep_url_fragment'),
+    [
+        ('https://example.com/?utm_source=test&utm_medium=test&key=value', 'https://example.com?key=value', False),
+        ('http://example.com/?key=value&another_key=another_value', 'http://example.com?another_key=another_value&key=value', False),
+        ('HTTPS://EXAMPLE.COM/?KEY=VALUE', 'https://example.com?key=value', False),
+        ('', '', False),
+        ('http://example.com/#fragment', 'http://example.com#fragment', True),
+        ('http://example.com/#fragment', 'http://example.com', False),
+        ('  https://example.com/  ', 'https://example.com', False),
+        ('http://example.com/?b=2&a=1', 'http://example.com?a=1&b=2', False),
+    ],
+    ids=[
+        'remove_utm_params',
+        'retain_sort_non_utm_params',
+        'convert_scheme_netloc_to_lowercase',
+        'handle_empty_url',
+        'retain_fragment',
+        'remove_fragment',
+        'trim_whitespace',
+        'sort_query_params',
+    ],
+)
+def test_normalize_url(url: str, expected_output: str, *, keep_url_fragment: bool) -> None:
+    output = normalize_url(url, keep_url_fragment=keep_url_fragment)
+    assert output == expected_output
+
+
+@pytest.mark.parametrize(
+    ('url', 'method', 'payload', 'keep_url_fragment', 'use_extended_unique_key', 'expected_output'),
+    [
+        ('http://example.com', 'GET', None, False, False, 'http://example.com'),
+        ('http://example.com', 'POST', None, False, False, 'http://example.com'),
+        ('http://example.com', 'GET', b'data', False, False, 'http://example.com'),
+        ('http://example.com', 'GET', b'data', False, True, 'GET(Om6weQ85):http://example.com'),
+        ('http://example.com', 'POST', b'data', False, True, 'POST(Om6weQ85):http://example.com'),
+        ('http://example.com#fragment', 'GET', None, True, False, 'http://example.com#fragment'),
+        ('http://example.com#fragment', 'GET', None, False, False, 'http://example.com'),
+        ('http://example.com', 'DELETE', b'test', False, True, 'DELETE(n4bQgYhM):http://example.com'),
+        ('https://example.com?utm_content=test', 'GET', None, False, False, 'https://example.com'),
+        ('https://example.com?utm_content=test', 'GET', None, True, False, 'https://example.com'),
+    ],
+    ids=[
+        'simple_get',
+        'simple_post',
+        'get_with_payload',
+        'get_with_payload_extended',
+        'post_with_payload_extended',
+        'get_with_fragment',
+        'get_remove_fragment',
+        'delete_with_payload_extended',
+        'get_remove_utm',
+        'get_keep_utm_fragment',
+    ],
+)
+def test_compute_unique_key(
+    url: str,
+    method: str,
+    payload: bytes | None,
+    *,
+    keep_url_fragment: bool,
+    use_extended_unique_key: bool,
+    expected_output: str,
+) -> None:
+    output = compute_unique_key(
+        url,
+        method,
+        payload,
+        keep_url_fragment=keep_url_fragment,
+        use_extended_unique_key=use_extended_unique_key,
+    )
+    assert output == expected_output
