@@ -445,43 +445,36 @@ def normalize_url(url: str, *, keep_url_fragment: bool = False) -> str:
         keep_url_fragment: Flag to determine whether the fragment part of the URL should be retained.
 
     Returns:
-        A string containing the normalized URL. If normalization fails, the original URL is returned. It logs
-            a warning message in this case.
+        A string containing the normalized URL.
     """
-    try:
-        # Parse the URL
-        parsed_url = urlparse(url.strip())
-        search_params = dict(parse_qsl(parsed_url.query))  # Convert query to a dict
+    # Parse the URL
+    parsed_url = urlparse(url.strip())
+    search_params = dict(parse_qsl(parsed_url.query))  # Convert query to a dict
 
-        # Remove any 'utm_' parameters
-        search_params = {k: v for k, v in search_params.items() if not k.startswith('utm_')}
+    # Remove any 'utm_' parameters
+    search_params = {k: v for k, v in search_params.items() if not k.startswith('utm_')}
 
-        # Construct the new query string
-        sorted_keys = sorted(search_params.keys())
-        sorted_query = urlencode([(k, search_params[k]) for k in sorted_keys])
+    # Construct the new query string
+    sorted_keys = sorted(search_params.keys())
+    sorted_query = urlencode([(k, search_params[k]) for k in sorted_keys])
 
-        # Construct the final URL
-        new_url = (
-            parsed_url._replace(
-                query=sorted_query,
-                scheme=parsed_url.scheme,
-                netloc=parsed_url.netloc,
-                path=parsed_url.path.rstrip('/'),
-            )
-            .geturl()
-            .lower()
+    # Construct the final URL
+    new_url = (
+        parsed_url._replace(
+            query=sorted_query,
+            scheme=parsed_url.scheme,
+            netloc=parsed_url.netloc,
+            path=parsed_url.path.rstrip('/'),
         )
+        .geturl()
+        .lower()
+    )
 
-        # Retain the URL fragment if required
-        if not keep_url_fragment:
-            new_url = new_url.split('#')[0]
+    # Retain the URL fragment if required
+    if not keep_url_fragment:
+        new_url = new_url.split('#')[0]
 
-    except Exception as exc:
-        logger.warning(f'Failed to normalize URL: {exc}')
-        return url
-
-    else:
-        return new_url
+    return new_url
 
 
 def compute_unique_key(
@@ -509,7 +502,12 @@ def compute_unique_key(
         A string representing the unique key for the request.
     """
     # Normalize the URL and method.
-    normalized_url = normalize_url(url, keep_url_fragment=keep_url_fragment)
+    try:
+        normalized_url = normalize_url(url, keep_url_fragment=keep_url_fragment)
+    except Exception as exc:
+        logger.warning(f'Failed to normalize URL: {exc}')
+        normalized_url = url
+
     normalized_method = method.upper()
 
     # Compute and return the extended unique key if required.
