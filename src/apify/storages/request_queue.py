@@ -9,7 +9,7 @@ from typing import OrderedDict as OrderedDictType
 from apify_shared.utils import ignore_docs
 
 from apify._crypto import crypto_random_object_id
-from apify._utils import LRUCache, budget_ow, unique_key_to_request_id
+from apify._utils import LRUCache, budget_ow, compute_unique_key, unique_key_to_request_id
 from apify.consts import REQUEST_QUEUE_HEAD_MAX_LIMIT
 from apify.log import logger
 from apify.storages.base_storage import BaseStorage
@@ -140,15 +140,43 @@ class RequestQueue(BaseStorage):
     ) -> RequestQueueCollectionClientAsync | RequestQueueCollectionClient:
         return client.request_queues()
 
-    async def add_request(self: RequestQueue, request: dict, *, forefront: bool = False) -> dict:
-        """Add a request to the queue.
+    async def add_request(
+        self: RequestQueue,
+        request: dict,
+        *,
+        forefront: bool = False,
+        keep_url_fragment: bool = False,
+        use_extended_unique_key: bool = False,
+    ) -> dict:
+        """Adds a request to the `RequestQueue` while managing deduplication and positioning within the queue.
+
+        The deduplication of requests relies on the `uniqueKey` field within the request dictionary. If `uniqueKey`
+        exists, it remains unchanged; if it does not, it is generated based on the request's `url`, `method`,
+        and `payload` fields. The generation of `uniqueKey` can be influenced by the `keep_url_fragment` and
+        `use_extended_unique_key` flags, which dictate whether to include the URL fragment and the request's method
+        and payload, respectively, in its computation.
+
+        The request can be added to the forefront (beginning) or the back of the queue based on the `forefront`
+        parameter. Information about the request's addition to the queue, including whether it was already present or
+        handled, is returned in an output dictionary.
 
         Args:
-            request (dict): The request to add to the queue
-            forefront (bool, optional): Whether to add the request to the head or the end of the queue
+            request: The request object to be added to the queue. Must include at least the `url` key.
+                Optionaly it can include the `method`, `payload` and `uniqueKey` keys.
 
-        Returns:
-            dict: Information about the queue operation with keys `requestId`, `uniqueKey`, `wasAlreadyPresent`, `wasAlreadyHandled`.
+            forefront: If True, adds the request to the forefront of the queue; otherwise, adds it to the end.
+
+            keep_url_fragment: Determines whether the URL fragment (the part of the URL after '#') should be retained
+                in the unique key computation.
+
+            use_extended_unique_key: Determines whether to use an extended unique key, incorporating the request's
+                method and payload into the unique key computation.
+
+        Returns: A dictionary containing information about the operation, including:
+            - `requestId` (str): The ID of the request.
+            - `uniqueKey` (str): The unique key associated with the request.
+            - `wasAlreadyPresent` (bool): Indicates whether the request was already in the queue.
+            - `wasAlreadyHandled` (bool): Indicates whether the request was already processed.
         """
         budget_ow(
             request,
@@ -159,9 +187,13 @@ class RequestQueue(BaseStorage):
         self._last_activity = datetime.now(timezone.utc)
 
         if request.get('uniqueKey') is None:
-            # TODO: Check Request class in crawlee and replicate uniqueKey generation logic...
-            # https://github.com/apify/apify-sdk-python/issues/141
-            request['uniqueKey'] = request['url']
+            request['uniqueKey'] = compute_unique_key(
+                url=request['url'],
+                method=request.get('method', 'GET'),
+                payload=request.get('payload'),
+                keep_url_fragment=keep_url_fragment,
+                use_extended_unique_key=use_extended_unique_key,
+            )
 
         cache_key = unique_key_to_request_id(request['uniqueKey'])
         cached_info = self._requests_cache.get(cache_key)

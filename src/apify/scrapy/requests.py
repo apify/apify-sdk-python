@@ -13,6 +13,7 @@ except ImportError as exc:
     ) from exc
 
 from apify._crypto import crypto_random_object_id
+from apify._utils import compute_unique_key
 from apify.actor import Actor
 
 
@@ -45,24 +46,36 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> dict | None:
         apify_request = {
             'url': scrapy_request.url,
             'method': scrapy_request.method,
+            'payload': scrapy_request.body,
             'userData': scrapy_request.meta.get('userData', {}),
         }
 
+        # Convert Scrapy's headers to a dictionary and store them in the apify_request
         if isinstance(scrapy_request.headers, Headers):
             apify_request['headers'] = dict(scrapy_request.headers.to_unicode_dict())
         else:
             Actor.log.warning(f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}')
 
+        # If the request was produced by the middleware (e.g. retry or redirect), we must compute the unique key here
         if _is_request_produced_by_middleware(scrapy_request):
-            apify_request['uniqueKey'] = scrapy_request.url
+            apify_request['uniqueKey'] = compute_unique_key(
+                url=scrapy_request.url,
+                method=scrapy_request.method,
+                payload=scrapy_request.body,
+                use_extended_unique_key=True,
+            )
+        # Othwerwise, we can use the unique key (also the id) from the meta
         else:
-            # Add 'id' to the apify_request
             if scrapy_request.meta.get('apify_request_id'):
                 apify_request['id'] = scrapy_request.meta['apify_request_id']
 
-            # Add 'uniqueKey' to the apify_request
             if scrapy_request.meta.get('apify_request_unique_key'):
                 apify_request['uniqueKey'] = scrapy_request.meta['apify_request_unique_key']
+
+        # If the request's dont_filter field is set, we must generate a random `uniqueKey` to avoid deduplication
+        # of the request in the Request Queue.
+        if scrapy_request.dont_filter:
+            apify_request['uniqueKey'] = crypto_random_object_id(8)
 
         # Serialize the Scrapy Request and store it in the apify_request.
         #   - This process involves converting the Scrapy Request object into a dictionary, encoding it to base64,

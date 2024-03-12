@@ -95,7 +95,12 @@ class ApifyScheduler(BaseScheduler):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
-            result = nested_event_loop.run_until_complete(self._rq.add_request(apify_request))
+            result = nested_event_loop.run_until_complete(
+                self._rq.add_request(
+                    apify_request,
+                    use_extended_unique_key=True,
+                )
+            )
         except BaseException:
             traceback.print_exc()
             raise

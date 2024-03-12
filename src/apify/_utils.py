@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import builtins
 import contextlib
 import functools
-import hashlib
 import inspect
 import json
 import mimetypes
@@ -13,10 +11,13 @@ import os
 import re
 import sys
 import time
+from base64 import b64encode
 from collections import OrderedDict
 from collections.abc import MutableMapping
 from datetime import datetime, timezone
+from hashlib import sha256
 from importlib import metadata
+from logging import getLogger
 from typing import (
     Any,
     Callable,
@@ -30,6 +31,7 @@ from typing import (
     overload,
 )
 from typing import OrderedDict as OrderedDictType
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 import aioshutil
 import psutil
@@ -59,6 +61,7 @@ from apify_shared.utils import (
 from apify.consts import REQUEST_ID_LENGTH, StorageTypes
 
 T = TypeVar('T')
+logger = getLogger(__name__)
 
 
 def get_system_info() -> dict:
@@ -292,9 +295,8 @@ def maybe_parse_body(body: bytes, content_type: str) -> Any:
 
 def unique_key_to_request_id(unique_key: str) -> str:
     """Generate request ID based on unique key in a deterministic way."""
-    id = re.sub(r'(\+|\/|=)', '', base64.b64encode(hashlib.sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))  # noqa: A001
-
-    return id[:REQUEST_ID_LENGTH] if len(id) > REQUEST_ID_LENGTH else id
+    request_id = re.sub(r'(\+|\/|=)', '', b64encode(sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
+    return request_id[:REQUEST_ID_LENGTH] if len(request_id) > REQUEST_ID_LENGTH else request_id
 
 
 async def force_rename(src_dir: str, dst_dir: str) -> None:
@@ -410,3 +412,113 @@ def budget_ow(
 PARSE_DATE_FIELDS_MAX_DEPTH = 3
 PARSE_DATE_FIELDS_KEY_SUFFIX = 'At'
 ListOrDictOrAny = TypeVar('ListOrDictOrAny', list, dict, Any)
+
+
+def compute_short_hash(data: bytes, *, length: int = 8) -> str:
+    """Computes a hexadecimal SHA-256 hash of the provided data and returns a substring (prefix) of it.
+
+    Args:
+        data: The binary data to be hashed.
+        length: The length of the hash to be returned.
+
+    Returns:
+        A substring (prefix) of the hexadecimal hash of the data.
+    """
+    hash_object = sha256(data)
+    return hash_object.hexdigest()[:length]
+
+
+def normalize_url(url: str, *, keep_url_fragment: bool = False) -> str:
+    """Normalizes a URL.
+
+    This function cleans and standardizes a URL by removing leading and trailing whitespaces,
+    converting the scheme and netloc to lower case, stripping unwanted tracking parameters
+    (specifically those beginning with 'utm_'), sorting the remaining query parameters alphabetically,
+    and optionally retaining the URL fragment. The goal is to ensure that URLs that are functionally
+    identical but differ in trivial ways (such as parameter order or casing) are treated as the same.
+
+    Args:
+        url: The URL to be normalized.
+        keep_url_fragment: Flag to determine whether the fragment part of the URL should be retained.
+
+    Returns:
+        A string containing the normalized URL.
+    """
+    # Parse the URL
+    parsed_url = urlparse(url.strip())
+    search_params = dict(parse_qsl(parsed_url.query))  # Convert query to a dict
+
+    # Remove any 'utm_' parameters
+    search_params = {k: v for k, v in search_params.items() if not k.startswith('utm_')}
+
+    # Construct the new query string
+    sorted_keys = sorted(search_params.keys())
+    sorted_query = urlencode([(k, search_params[k]) for k in sorted_keys])
+
+    # Construct the final URL
+    new_url = (
+        parsed_url._replace(
+            query=sorted_query,
+            scheme=parsed_url.scheme,
+            netloc=parsed_url.netloc,
+            path=parsed_url.path.rstrip('/'),
+        )
+        .geturl()
+        .lower()
+    )
+
+    # Retain the URL fragment if required
+    if not keep_url_fragment:
+        new_url = new_url.split('#')[0]
+
+    return new_url
+
+
+def compute_unique_key(
+    url: str,
+    method: str = 'GET',
+    payload: bytes | None = None,
+    *,
+    keep_url_fragment: bool = False,
+    use_extended_unique_key: bool = False,
+) -> str:
+    """Computes a unique key for caching & deduplication of requests.
+
+    This function computes a unique key by normalizing the provided URL and method.
+    If 'use_extended_unique_key' is True and a payload is provided, the payload is hashed and
+    included in the key. Otherwise, the unique key is just the normalized URL.
+
+    Args:
+        url: The request URL.
+        method: The HTTP method, defaults to 'GET'.
+        payload: The request payload, defaults to None.
+        keep_url_fragment: A flag indicating whether to keep the URL fragment, defaults to False.
+        use_extended_unique_key: A flag indicating whether to include a hashed payload in the key, defaults to False.
+
+    Returns:
+        A string representing the unique key for the request.
+    """
+    # Normalize the URL and method.
+    try:
+        normalized_url = normalize_url(url, keep_url_fragment=keep_url_fragment)
+    except Exception as exc:
+        logger.warning(f'Failed to normalize URL: {exc}')
+        normalized_url = url
+
+    normalized_method = method.upper()
+
+    # Compute and return the extended unique key if required.
+    if use_extended_unique_key:
+        payload_hash = compute_short_hash(payload) if payload else ''
+        return f'{normalized_method}({payload_hash}):{normalized_url}'
+
+    # Log information if there is a non-GET request with a payload.
+    if normalized_method != 'GET' and payload:
+        logger.info(
+            f'We have encountered a {normalized_method} Request with a payload. This is fine. Just letting you know '
+            'that if your requests point to the same URL and differ only in method and payload, you should consider '
+            'using the "use_extended_unique_key" option.'
+        )
+
+    # Return the normalized URL as the unique key.
+    return normalized_url
