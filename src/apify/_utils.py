@@ -414,21 +414,18 @@ PARSE_DATE_FIELDS_KEY_SUFFIX = 'At'
 ListOrDictOrAny = TypeVar('ListOrDictOrAny', list, dict, Any)
 
 
-def get_short_base64_hash(data: bytes) -> str:
-    """Generates an 8-character, base64-encoded SHA-256 hash of the provided data.
+def compute_short_hash(data: bytes, *, length: int = 8) -> str:
+    """Computes a hexadecimal SHA-256 hash of the provided data and returns a substring of it.
 
     Args:
         data: The binary data to be hashed.
+        length: The length of the hash to be returned.
 
     Returns:
-        An 8-character, base64-encoded hash.
+        An 8-character hexadecimal hash.
     """
-    # Create a SHA-256 hash of the payload.
     hash_object = sha256(data)
-    # Convert the hash to a base64-encoded string.
-    base64_encoded_hash = b64encode(hash_object.digest()).decode()
-    # Remove any '+' or '/' or '=' characters and return the first 8 characters.
-    return base64_encoded_hash.replace('+', '').replace('/', '').replace('=', '')[:8]
+    return hash_object.hexdigest()[:length]
 
 
 def normalize_url(url: str, *, keep_url_fragment: bool = False) -> str:
@@ -512,7 +509,7 @@ def compute_unique_key(
 
     # Compute and return the extended unique key if required.
     if use_extended_unique_key:
-        payload_hash = get_short_base64_hash(payload) if payload else ''
+        payload_hash = compute_short_hash(payload) if payload else ''
         return f'{normalized_method}({payload_hash}):{normalized_url}'
 
     # Log information if there is a non-GET request with a payload.

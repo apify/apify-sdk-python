@@ -14,13 +14,13 @@ from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 
 from apify._utils import (
     budget_ow,
+    compute_short_hash,
     compute_unique_key,
     fetch_and_parse_env_var,
     force_remove,
     force_rename,
     get_cpu_usage_percent,
     get_memory_usage_bytes,
-    get_short_base64_hash,
     guess_file_extension,
     maybe_parse_bool,
     maybe_parse_datetime,
@@ -273,25 +273,25 @@ def test__budget_ow() -> None:
 
 def test_get_short_base64_hash_with_known_input() -> None:
     data = b'Hello world!'
-    expected_hash = 'wFNeSK3n'
-    assert get_short_base64_hash(data) == expected_hash, 'The hash does not match the expected output'
+    expected_hash = 'c0535e4b'
+    assert compute_short_hash(data) == expected_hash, 'The hash does not match the expected output'
 
 
 def test_get_short_base64_hash_with_empty_input() -> None:
     data = b''
-    expected_hash = '47DEQpj8'
-    assert get_short_base64_hash(data) == expected_hash, 'The hash for an empty input should follow the expected pattern'
+    expected_hash = 'e3b0c442'
+    assert compute_short_hash(data) == expected_hash, 'The hash for an empty input should follow the expected pattern'
 
 
 def test_get_short_base64_hash_output_length() -> None:
     data = b'some random data'
-    assert len(get_short_base64_hash(data)) == 8, 'The output hash should be 8 characters long'
+    assert len(compute_short_hash(data)) == 8, 'The output hash should be 8 characters long'
 
 
 def test_get_short_base64_hash_differentiates_input() -> None:
     data1 = b'input 1'
     data2 = b'input 2'
-    assert get_short_base64_hash(data1) != get_short_base64_hash(data2), 'Different inputs should produce different hashes'
+    assert compute_short_hash(data1) != compute_short_hash(data2), 'Different inputs should produce different hashes'
 
 
 @pytest.mark.parametrize(
@@ -328,11 +328,11 @@ def test_normalize_url(url: str, expected_output: str, *, keep_url_fragment: boo
         ('http://example.com', 'GET', None, False, False, 'http://example.com'),
         ('http://example.com', 'POST', None, False, False, 'http://example.com'),
         ('http://example.com', 'GET', b'data', False, False, 'http://example.com'),
-        ('http://example.com', 'GET', b'data', False, True, 'GET(Om6weQ85):http://example.com'),
-        ('http://example.com', 'POST', b'data', False, True, 'POST(Om6weQ85):http://example.com'),
+        ('http://example.com', 'GET', b'data', False, True, 'GET(3a6eb079):http://example.com'),
+        ('http://example.com', 'POST', b'data', False, True, 'POST(3a6eb079):http://example.com'),
         ('http://example.com#fragment', 'GET', None, True, False, 'http://example.com#fragment'),
         ('http://example.com#fragment', 'GET', None, False, False, 'http://example.com'),
-        ('http://example.com', 'DELETE', b'test', False, True, 'DELETE(n4bQgYhM):http://example.com'),
+        ('http://example.com', 'DELETE', b'test', False, True, 'DELETE(9f86d081):http://example.com'),
         ('https://example.com?utm_content=test', 'GET', None, False, False, 'https://example.com'),
         ('https://example.com?utm_content=test', 'GET', None, True, False, 'https://example.com'),
     ],
