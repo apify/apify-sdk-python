@@ -295,8 +295,8 @@ def maybe_parse_body(body: bytes, content_type: str) -> Any:
 
 def unique_key_to_request_id(unique_key: str) -> str:
     """Generate request ID based on unique key in a deterministic way."""
-    id_ = re.sub(r'(\+|\/|=)', '', b64encode(sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
-    return id_[:REQUEST_ID_LENGTH] if len(id_) > REQUEST_ID_LENGTH else id_
+    request_id = re.sub(r'(\+|\/|=)', '', b64encode(sha256(unique_key.encode('utf-8')).digest()).decode('utf-8'))
+    return request_id[:REQUEST_ID_LENGTH] if len(request_id) > REQUEST_ID_LENGTH else request_id
 
 
 async def force_rename(src_dir: str, dst_dir: str) -> None:
