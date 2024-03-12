@@ -22,7 +22,7 @@ This will cause the Actor to persist its state every 10 seconds:
 
 ```python title="src/main.py"
 from apify import Actor
-from apify.consts import ActorEventTypes
+from apify_shared.consts import ActorEventTypes
 
 async def main():
     global_config = Configuration.get_global_configuration()

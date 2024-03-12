@@ -71,12 +71,12 @@ During its runtime, the Actor receives Actor events sent by the Apify platform o
 ## Adding handlers to events
 
 To add handlers to these events, you use the [`Actor.on()`](../../reference/class/Actor#on) method,
-and to remove them, you use the [`Actor.on()`](../../reference/class/Actor#off) method.
+and to remove them, you use the [`Actor.off()`](../../reference/class/Actor#off) method.
 
 ```python title="src/main.py"
 import asyncio
 from apify import Actor
-from apify.consts import ActorEventTypes
+from apify_shared.consts import ActorEventTypes
 
 async def main():
     async with Actor:
