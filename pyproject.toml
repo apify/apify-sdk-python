@@ -47,7 +47,6 @@ dev = [
     "mypy ~= 1.7.1",
     "pre-commit ~= 3.4.0",
     "pydoc-markdown ~= 4.8.2",
-    "databind == 4.4.2", # HACK the docs build broke with databind 4.5, hopefully this will be fixed in a future pydoc-markdown release
     "pytest ~= 7.4.2",
     "pytest-asyncio ~= 0.21.0",
     "pytest-cov ~= 4.1.0",
