@@ -6,7 +6,7 @@ DIRS_WITH_CODE = src tests scripts
 INTEGRATION_TESTS_CONCURRENCY = 1
 
 clean:
-	rm -rf build dist .mypy_cache .pytest_cache src/*.egg-info __pycache__
+	rm -rf build dist .mypy_cache .pytest_cache .ruff_cache src/*.egg-info __pycache__
 
 install-dev:
 	python3 -m pip install --upgrade pip
