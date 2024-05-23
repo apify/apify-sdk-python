@@ -109,7 +109,7 @@ class TestActorGetSetValue:
         assert run_result_set is not None
         assert run_result_set['status'] == 'SUCCEEDED'
         # Externally check if the value is present in key-value store
-        test_record = await actor_set.last_run().key_value_store().get_record('test')
+        test_record = await (await actor_set.last_run()).key_value_store().get_record('test')
         assert test_record is not None
         test_value = test_record['value']
         assert test_value['number'] == 123
@@ -127,7 +127,7 @@ class TestActorGetSetValue:
                 assert value['nested']['test'] == 1
 
         actor_get = await make_actor('actor-get-value', main_func=main_get)
-        default_kvs_info = await actor_set.last_run().key_value_store().get()
+        default_kvs_info = await (await actor_set.last_run()).key_value_store().get()
         assert default_kvs_info is not None
 
         run_result_get = await actor_get.call(run_input={'kvs-id': default_kvs_info['id']})

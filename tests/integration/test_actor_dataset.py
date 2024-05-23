@@ -29,7 +29,7 @@ class TestActorPushData:
 
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
-        list_page = await actor.last_run().dataset().list_items()
+        list_page = await (await actor.last_run()).dataset().list_items()
         assert list_page.items[0]['id'] == 0
         assert list_page.items[-1]['id'] == desired_item_count - 1
         assert len(list_page.items) == list_page.count == desired_item_count
@@ -45,7 +45,7 @@ class TestActorPushData:
 
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
-        async for item in actor.last_run().dataset().iterate_items():
+        async for item in (await actor.last_run()).dataset().iterate_items():
             assert item['str'] == 'x' * 10000
 
 

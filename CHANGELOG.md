@@ -2,7 +2,9 @@
 
 ## [1.7.1](../../releases/tag/v1.7.1) - Unreleased
 
-...
+### Added
+
+- Upgrade to `apify-client` 1.7.0
 
 ## [1.7.0](../../releases/tag/v1.7.0) - 2024-03-12
 
