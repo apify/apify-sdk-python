@@ -77,7 +77,7 @@ class TestActorNewClient:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-        output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
+        output_record = await (await actor.last_run()).key_value_store().get_record('OUTPUT')
         assert output_record is not None
         assert output_record['value'] == 'TESTING-OUTPUT'
 
@@ -125,7 +125,7 @@ class TestActorStart:
 
                 await Actor.start(inner_actor_id, run_input={'test_value': test_value})
 
-                inner_run_status = await Actor.apify_client.actor(inner_actor_id).last_run().get()
+                inner_run_status = await (await Actor.apify_client.actor(inner_actor_id).last_run()).get()
                 assert inner_run_status is not None
                 assert inner_run_status.get('status') in ['READY', 'RUNNING']
 
@@ -140,9 +140,9 @@ class TestActorStart:
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
 
-        await inner_actor.last_run().wait_for_finish()
+        await (await inner_actor.last_run()).wait_for_finish()
 
-        inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
+        inner_output_record = await (await inner_actor.last_run()).key_value_store().get_record('OUTPUT')
         assert inner_output_record is not None
         assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
@@ -181,9 +181,9 @@ class TestActorCall:
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
 
-        await inner_actor.last_run().wait_for_finish()
+        await (await inner_actor.last_run()).wait_for_finish()
 
-        inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
+        inner_output_record = await (await inner_actor.last_run()).key_value_store().get_record('OUTPUT')
         assert inner_output_record is not None
         assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
@@ -231,9 +231,9 @@ class TestActorCallTask:
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
 
-        await inner_actor.last_run().wait_for_finish()
+        await (await inner_actor.last_run()).wait_for_finish()
 
-        inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
+        inner_output_record = await (await inner_actor.last_run()).key_value_store().get_record('OUTPUT')
         assert inner_output_record is not None
         assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
@@ -267,12 +267,12 @@ class TestActorAbort:
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
 
-        await inner_actor.last_run().wait_for_finish()
-        inner_actor_last_run = await inner_actor.last_run().get()
+        await (await inner_actor.last_run()).wait_for_finish()
+        inner_actor_last_run = await (await inner_actor.last_run()).get()
         assert inner_actor_last_run is not None
         assert inner_actor_last_run['status'] == 'ABORTED'
 
-        inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
+        inner_output_record = (await inner_actor.last_run()).key_value_store().get_record('OUTPUT')
         assert inner_output_record is None
 
 
@@ -320,7 +320,7 @@ class TestActorMetamorph:
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
 
-        outer_run_key_value_store = outer_actor.last_run().key_value_store()
+        outer_run_key_value_store = (await outer_actor.last_run()).key_value_store()
 
         outer_output_record = await outer_run_key_value_store.get_record('OUTPUT')
         assert outer_output_record is not None
@@ -329,7 +329,7 @@ class TestActorMetamorph:
         assert await outer_run_key_value_store.get_record('RECORD_AFTER_METAMORPH_CALL') is None
 
         # After metamorph, the run still belongs to the original actor, so the inner one should have no runs
-        assert await inner_actor.last_run().get() is None
+        assert (await inner_actor.last_run()).get() is None
 
 
 class TestActorReboot:
@@ -353,10 +353,10 @@ class TestActorReboot:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-        not_written_value = await actor.last_run().key_value_store().get_record('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
+        not_written_value = await (await actor.last_run()).key_value_store().get_record('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
         assert not_written_value is None
 
-        reboot_counter = await actor.last_run().key_value_store().get_record('reboot_counter')
+        reboot_counter = await (await actor.last_run()).key_value_store().get_record('reboot_counter')
         assert reboot_counter is not None
         assert reboot_counter['value'] == 2
 
@@ -419,20 +419,20 @@ class TestActorAddWebhook:
         server_actor_container_url = server_actor_run['containerUrl']
 
         # Give the server actor some time to start running
-        server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
+        server_actor_initialized = await (await server_actor.last_run()).key_value_store().get_record('INITIALIZED')
         while not server_actor_initialized:
-            server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
+            server_actor_initialized = await (await server_actor.last_run()).key_value_store().get_record('INITIALIZED')
             await asyncio.sleep(1)
 
         client_actor_run_result = await client_actor.call(run_input={'server_actor_container_url': server_actor_container_url})
         assert client_actor_run_result is not None
         assert client_actor_run_result['status'] == 'SUCCEEDED'
 
-        server_actor_run_result = await server_actor.last_run().wait_for_finish()
+        server_actor_run_result = await (await server_actor.last_run()).wait_for_finish()
         assert server_actor_run_result is not None
         assert server_actor_run_result['status'] == 'SUCCEEDED'
 
-        webhook_body_record = await server_actor.last_run().key_value_store().get_record('WEBHOOK_BODY')
+        webhook_body_record = await (await server_actor.last_run()).key_value_store().get_record('WEBHOOK_BODY')
         assert webhook_body_record is not None
         assert webhook_body_record['value'] != ''
         parsed_webhook_body = json.loads(webhook_body_record['value'])

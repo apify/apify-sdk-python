@@ -29,7 +29,7 @@ class TestMakeActorFixture:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-        output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
+        output_record = await (await actor.last_run()).key_value_store().get_record('OUTPUT')
         assert output_record is not None
         assert run_result['actId'] == output_record['value']
 
@@ -49,7 +49,7 @@ class TestMakeActorFixture:
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
 
-        output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
+        output_record = await (await actor.last_run()).key_value_store().get_record('OUTPUT')
         assert output_record is not None
         assert output_record['value'] == expected_output
 
@@ -79,7 +79,7 @@ class TestMakeActorFixture:
         assert actor_run is not None
         assert actor_run['status'] == 'SUCCEEDED'
 
-        output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
+        output_record = await (await actor.last_run()).key_value_store().get_record('OUTPUT')
         assert output_record is not None
 
         output_datetime = datetime.fromisoformat(output_record['value'])

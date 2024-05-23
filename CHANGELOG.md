@@ -1,8 +1,10 @@
 # Changelog
 
-## [1.7.1](../../releases/tag/v1.7.1) - Unreleased
+## [1.7.2](../../releases/tag/v1.7.2) - Unreleased
 
-...
+### Added
+
+- Upgrade to `apify-client` 1.7.0
 
 ## [1.7.0](../../releases/tag/v1.7.0) - 2024-03-12
 

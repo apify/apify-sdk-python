@@ -55,7 +55,7 @@ class TestActorLog:
         assert run_result is not None
         assert run_result['status'] == 'FAILED'
 
-        run_log = await actor.last_run().log().get()
+        run_log = await (await actor.last_run()).log().get()
         assert run_log is not None
 
         run_log_lines = run_log.splitlines()

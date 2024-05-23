@@ -147,6 +147,6 @@ class TestActorMain:
         run_with_output = await actor.call(run_input={'set_output': test_output})
         assert run_with_output is not None
         assert run_with_output['status'] == 'SUCCEEDED'
-        output = await actor.last_run().key_value_store().get_record('OUTPUT')
+        output = await (await actor.last_run()).key_value_store().get_record('OUTPUT')
         assert output is not None
         assert output['value'] == test_output

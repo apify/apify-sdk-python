@@ -58,7 +58,7 @@ class TestActorEvents:
 
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
-        dataset_items_page = await actor.last_run().dataset().list_items()
+        dataset_items_page = await (await actor.last_run()).dataset().list_items()
         persist_state_events = [item for item in dataset_items_page.items if item['event_type'] == ActorEventTypes.PERSIST_STATE]
         system_info_events = [item for item in dataset_items_page.items if item['event_type'] == ActorEventTypes.SYSTEM_INFO]
         assert len(persist_state_events) > 2
