@@ -2,7 +2,9 @@
 
 ## [1.7.1](../../releases/tag/v1.7.1) - Unreleased
 
-...
+### Fixed
+
+- Set a timeout for Actor cleanup
 
 ## [1.7.0](../../releases/tag/v1.7.0) - 2024-03-12
 
