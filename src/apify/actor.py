@@ -336,21 +336,23 @@ class Actor(metaclass=_ActorContextManager):
 
         self.log.info('Exiting actor', extra={'exit_code': exit_code})
 
-        await self._cancel_event_emitting_intervals()
+        async def finalize() -> None:
+            await self._cancel_event_emitting_intervals()
 
-        # Send final persist state event
-        if not self._was_final_persist_state_emitted:
-            self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
-            self._was_final_persist_state_emitted = True
+            # Send final persist state event
+            if not self._was_final_persist_state_emitted:
+                self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
+                self._was_final_persist_state_emitted = True
 
-        if status_message is not None:
-            await self.set_status_message(status_message, is_terminal=True)
+            if status_message is not None:
+                await self.set_status_message(status_message, is_terminal=True)
 
-        # Sleep for a bit so that the listeners have a chance to trigger
-        await asyncio.sleep(0.1)
+            # Sleep for a bit so that the listeners have a chance to trigger
+            await asyncio.sleep(0.1)
 
-        await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
+            await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 
+        await asyncio.wait_for(finalize(), 30)
         self._is_initialized = False
 
         if is_running_in_ipython():
