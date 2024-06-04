@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from crawlee.base_storage_client.base_request_queue_collection_client import BaseRequestQueueCollectionClient
+from crawlee.models import RequestQueueListPage, RequestQueueMetadata
+from typing_extensions import override
+
+if TYPE_CHECKING:
+    from apify_client.clients import RequestQueueCollectionClientAsync
+
+
+class RequestQueueCollectionClient(BaseRequestQueueCollectionClient):
+    """Request queue collection resource client implementation based on the Apify platform storage."""
+
+    def __init__(self, apify_request_queue_collection_client: RequestQueueCollectionClientAsync) -> None:
+        self._client = apify_request_queue_collection_client
+
+    @override
+    async def get_or_create(
+        self,
+        *,
+        id: str | None = None,  # TODO unused
+        name: str | None = None,
+        schema: dict | None = None,  # TODO unused
+    ) -> RequestQueueMetadata:
+        return RequestQueueMetadata.model_validate(
+            await self._client.get_or_create(
+                name=name,
+            )
+        )
+
+    @override
+    async def list(
+        self,
+        *,
+        unnamed: bool = False,
+        limit: int | None = None,
+        offset: int | None = None,
+        desc: bool = False,
+    ) -> RequestQueueListPage:
+        return RequestQueueListPage.model_validate(
+            await self._client.list(
+                unnamed=unnamed,
+                limit=limit,
+                offset=offset,
+                desc=desc,
+            )
+        )

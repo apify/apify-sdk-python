@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar, cast
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from crawlee.storage_client_manager import StorageClientManager
 
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._utils import (
@@ -23,18 +24,17 @@ from apify._utils import (
     run_func_at_interval_async,
     wrap_internal,
 )
+from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
 from apify.config import Configuration
 from apify.consts import EVENT_LISTENERS_TIMEOUT_SECS
 from apify.event_manager import EventManager
 from apify.log import logger
 from apify.proxy_configuration import ProxyConfiguration
-from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
+from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
     from types import TracebackType
-
-    from apify._memory_storage import MemoryStorageClient
 
 T = TypeVar('T')
 MainReturnType = TypeVar('MainReturnType')
@@ -70,8 +70,7 @@ class Actor(metaclass=_ActorContextManager):
 
     _default_instance: Actor | None = None
     _apify_client: ApifyClientAsync
-    _memory_storage_client: MemoryStorageClient
-    _config: Configuration
+    _configuration: Configuration
     _event_manager: EventManager
     _send_system_info_interval_task: asyncio.Task | None = None
     _send_persist_state_interval_task: asyncio.Task | None = None
@@ -122,9 +121,9 @@ class Actor(metaclass=_ActorContextManager):
         self.set_status_message = wrap_internal(self._set_status_message_internal, self.set_status_message)  # type: ignore
         self.create_proxy_configuration = wrap_internal(self._create_proxy_configuration_internal, self.create_proxy_configuration)  # type: ignore
 
-        self._config: Configuration = config or Configuration()
+        self._configuration = config or Configuration()
         self._apify_client = self.new_client()
-        self._event_manager = EventManager(config=self._config)
+        self._event_manager = EventManager(config=self._configuration)
 
         self._is_initialized = False
 
@@ -181,8 +180,8 @@ class Actor(metaclass=_ActorContextManager):
     def config(self_or_cls: type[Actor] | Actor) -> Configuration:  # noqa: N805
         """The Configuration instance the Actor instance uses."""
         if isinstance(self_or_cls, type):
-            return self_or_cls._get_default_instance()._config
-        return self_or_cls._config
+            return self_or_cls._get_default_instance()._configuration
+        return self_or_cls._configuration
 
     @dualproperty
     def event_manager(self_or_cls: type[Actor] | Actor) -> EventManager:  # noqa: N805
@@ -229,16 +228,15 @@ class Actor(metaclass=_ActorContextManager):
         # TODO: Print outdated SDK version warning (we need a new env var for this)
         # https://github.com/apify/apify-sdk-python/issues/146
 
-        StorageClientManager.set_config(self._config)
-        if self._config.token:
-            StorageClientManager.set_cloud_client(self._apify_client)
+        if self._configuration.token:
+            StorageClientManager.set_cloud_client(ApifyStorageClient(configuration=self._configuration))
 
         await self._event_manager.init()
 
         self._send_persist_state_interval_task = asyncio.create_task(
             run_func_at_interval_async(
                 lambda: self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False}),
-                self._config.persist_state_interval_millis / 1000,
+                self._configuration.persist_state_interval_millis / 1000,
             ),
         )
 
@@ -246,7 +244,7 @@ class Actor(metaclass=_ActorContextManager):
             self._send_system_info_interval_task = asyncio.create_task(
                 run_func_at_interval_async(
                     lambda: self._event_manager.emit(ActorEventTypes.SYSTEM_INFO, self.get_system_info()),
-                    self._config.system_info_interval_millis / 1000,
+                    self._configuration.system_info_interval_millis / 1000,
                 ),
             )
 
@@ -268,8 +266,8 @@ class Actor(metaclass=_ActorContextManager):
             'cpuCurrentUsage': cpu_usage_percent,
             'memCurrentBytes': memory_usage_bytes,
         }
-        if self._config.max_used_cpu_ratio:
-            result['isCpuOverloaded'] = cpu_usage_percent > 100 * self._config.max_used_cpu_ratio
+        if self._configuration.max_used_cpu_ratio:
+            result['isCpuOverloaded'] = cpu_usage_percent > 100 * self._configuration.max_used_cpu_ratio
 
         return result
 
@@ -496,8 +494,8 @@ class Actor(metaclass=_ActorContextManager):
         min_delay_between_retries_millis: int | None = None,
         timeout_secs: int | None = None,
     ) -> ApifyClientAsync:
-        token = token or self._config.token
-        api_url = api_url or self._config.api_base_url
+        token = token or self._configuration.token
+        api_url = api_url or self._configuration.api_base_url
         return ApifyClientAsync(
             token=token,
             api_url=api_url,
@@ -546,7 +544,7 @@ class Actor(metaclass=_ActorContextManager):
     ) -> Dataset:
         self._raise_if_not_initialized()
 
-        return await Dataset.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
+        return await Dataset.open(id=id, name=name, configuration=self._configuration)
 
     @classmethod
     async def open_key_value_store(
@@ -584,7 +582,7 @@ class Actor(metaclass=_ActorContextManager):
     ) -> KeyValueStore:
         self._raise_if_not_initialized()
 
-        return await KeyValueStore.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
+        return await KeyValueStore.open(id=id, name=name, configuration=self._configuration)
 
     @classmethod
     async def open_request_queue(
@@ -623,7 +621,7 @@ class Actor(metaclass=_ActorContextManager):
     ) -> RequestQueue:
         self._raise_if_not_initialized()
 
-        return await RequestQueue.open(id=id, name=name, force_cloud=force_cloud, config=self._config)
+        return await RequestQueue.open(id=id, name=name, configuration=self._configuration)
 
     @classmethod
     async def push_data(cls: type[Actor], data: Any) -> None:
@@ -651,9 +649,9 @@ class Actor(metaclass=_ActorContextManager):
     async def _get_input_internal(self: Actor) -> Any:
         self._raise_if_not_initialized()
 
-        input_value = await self.get_value(self._config.input_key)
-        input_secrets_private_key = self._config.input_secrets_private_key_file
-        input_secrets_key_passphrase = self._config.input_secrets_private_key_passphrase
+        input_value = await self.get_value(self._configuration.input_key)
+        input_secrets_private_key = self._configuration.input_secrets_private_key_file
+        input_secrets_key_passphrase = self._configuration.input_secrets_private_key_passphrase
         if input_secrets_private_key and input_secrets_key_passphrase:
             private_key = load_private_key(
                 input_secrets_private_key,
@@ -767,7 +765,7 @@ class Actor(metaclass=_ActorContextManager):
         return cls._get_default_instance().is_at_home()
 
     def _is_at_home_internal(self: Actor) -> bool:
-        return self._config.is_at_home
+        return self._configuration.is_at_home
 
     @classmethod
     def get_env(cls: type[Actor]) -> dict:
@@ -1111,12 +1109,12 @@ class Actor(metaclass=_ActorContextManager):
             return
 
         if not custom_after_sleep_millis:
-            custom_after_sleep_millis = self._config.metamorph_after_sleep_millis
+            custom_after_sleep_millis = self._configuration.metamorph_after_sleep_millis
 
         # If is_at_home() is True, config.actor_run_id is always set
-        assert self._config.actor_run_id is not None  # noqa: S101
+        assert self._configuration.actor_run_id is not None  # noqa: S101
 
-        await self._apify_client.run(self._config.actor_run_id).metamorph(
+        await self._apify_client.run(self._configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
             target_actor_build=target_actor_build,
@@ -1159,7 +1157,7 @@ class Actor(metaclass=_ActorContextManager):
             return
 
         if not custom_after_sleep_millis:
-            custom_after_sleep_millis = self._config.metamorph_after_sleep_millis
+            custom_after_sleep_millis = self._configuration.metamorph_after_sleep_millis
 
         await self._cancel_event_emitting_intervals()
 
@@ -1168,8 +1166,8 @@ class Actor(metaclass=_ActorContextManager):
 
         await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
 
-        assert self._config.actor_run_id is not None  # noqa: S101
-        await self._apify_client.run(self._config.actor_run_id).reboot()
+        assert self._configuration.actor_run_id is not None  # noqa: S101
+        await self._apify_client.run(self._configuration.actor_run_id).reboot()
 
         if custom_after_sleep_millis:
             await asyncio.sleep(custom_after_sleep_millis / 1000)
@@ -1233,10 +1231,10 @@ class Actor(metaclass=_ActorContextManager):
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        assert self._config.actor_run_id is not None  # noqa: S101
+        assert self._configuration.actor_run_id is not None  # noqa: S101
 
         return await self._apify_client.webhooks().create(
-            actor_run_id=self._config.actor_run_id,
+            actor_run_id=self._configuration.actor_run_id,
             event_types=event_types,
             request_url=request_url,
             payload_template=payload_template,
@@ -1277,9 +1275,11 @@ class Actor(metaclass=_ActorContextManager):
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        assert self._config.actor_run_id is not None  # noqa: S101
+        assert self._configuration.actor_run_id is not None  # noqa: S101
 
-        return await self._apify_client.run(self._config.actor_run_id).update(status_message=status_message, is_status_message_terminal=is_terminal)
+        return await self._apify_client.run(self._configuration.actor_run_id).update(
+            status_message=status_message, is_status_message_terminal=is_terminal
+        )
 
     @classmethod
     async def create_proxy_configuration(
@@ -1348,7 +1348,7 @@ class Actor(metaclass=_ActorContextManager):
             country_code=country_code,
             proxy_urls=proxy_urls,
             new_url_function=new_url_function,
-            _actor_config=self._config,
+            _actor_config=self._configuration,
             _apify_client=self._apify_client,
         )
 

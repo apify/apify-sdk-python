@@ -133,8 +133,7 @@ class ActorFactory(Protocol):
         main_func: Callable | None = None,
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
-    ) -> Awaitable[ActorClientAsync]:
-        ...
+    ) -> Awaitable[ActorClientAsync]: ...
 
 
 @pytest.fixture()

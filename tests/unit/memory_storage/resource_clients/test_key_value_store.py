@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from apify._memory_storage.resource_clients import KeyValueStoreClient
 
 TINY_PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=')
-TINY_BYTES = b'\x12\x34\x56\x78\x90\xAB\xCD\xEF'
+TINY_BYTES = b'\x12\x34\x56\x78\x90\xab\xcd\xef'
 TINY_DATA = {'a': 'b'}
 TINY_TEXT = 'abcd'
 

@@ -116,8 +116,7 @@ class dualproperty(Generic[DualPropertyType]):  # noqa: N801
 
 
 @overload
-def fetch_and_parse_env_var(env_var: BOOL_ENV_VARS_TYPE) -> bool | None:
-    ...
+def fetch_and_parse_env_var(env_var: BOOL_ENV_VARS_TYPE) -> bool | None: ...
 
 
 @overload
@@ -126,48 +125,39 @@ def fetch_and_parse_env_var(env_var: BOOL_ENV_VARS_TYPE, default: bool) -> bool:
 
 
 @overload
-def fetch_and_parse_env_var(env_var: DATETIME_ENV_VARS_TYPE) -> datetime | str | None:
-    ...
+def fetch_and_parse_env_var(env_var: DATETIME_ENV_VARS_TYPE) -> datetime | str | None: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: DATETIME_ENV_VARS_TYPE, default: datetime) -> datetime | str:
-    ...
+def fetch_and_parse_env_var(env_var: DATETIME_ENV_VARS_TYPE, default: datetime) -> datetime | str: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: FLOAT_ENV_VARS_TYPE) -> float | None:
-    ...
+def fetch_and_parse_env_var(env_var: FLOAT_ENV_VARS_TYPE) -> float | None: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: FLOAT_ENV_VARS_TYPE, default: float) -> float:
-    ...
+def fetch_and_parse_env_var(env_var: FLOAT_ENV_VARS_TYPE, default: float) -> float: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: INTEGER_ENV_VARS_TYPE) -> int | None:
-    ...
+def fetch_and_parse_env_var(env_var: INTEGER_ENV_VARS_TYPE) -> int | None: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: INTEGER_ENV_VARS_TYPE, default: int) -> int:
-    ...
+def fetch_and_parse_env_var(env_var: INTEGER_ENV_VARS_TYPE, default: int) -> int: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: STRING_ENV_VARS_TYPE, default: str) -> str:
-    ...
+def fetch_and_parse_env_var(env_var: STRING_ENV_VARS_TYPE, default: str) -> str: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: STRING_ENV_VARS_TYPE) -> str | None:
-    ...
+def fetch_and_parse_env_var(env_var: STRING_ENV_VARS_TYPE) -> str | None: ...
 
 
 @overload
-def fetch_and_parse_env_var(env_var: ActorEnvVars | ApifyEnvVars) -> Any:
-    ...
+def fetch_and_parse_env_var(env_var: ActorEnvVars | ApifyEnvVars) -> Any: ...
 
 
 def fetch_and_parse_env_var(env_var: Any, default: Any = None) -> Any:
@@ -374,13 +364,11 @@ def is_running_in_ipython() -> bool:
 
 
 @overload
-def budget_ow(value: str | float | bool, predicate: tuple[type, bool], value_name: str) -> None:
-    ...
+def budget_ow(value: str | float | bool, predicate: tuple[type, bool], value_name: str) -> None: ...
 
 
 @overload
-def budget_ow(value: dict, predicate: dict[str, tuple[type, bool]]) -> None:
-    ...
+def budget_ow(value: dict, predicate: dict[str, tuple[type, bool]]) -> None: ...
 
 
 def budget_ow(
