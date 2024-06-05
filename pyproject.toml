@@ -31,7 +31,7 @@ dependencies = [
     "aiofiles >= 22.1.0",
     "aioshutil >= 1.0",
     "colorama >= 0.4.6",
-    "crawlee >= 0.0.5",
+    "crawlee >= 0.0.5b3",
     "cryptography >= 39.0.0",
     "httpx >= 0.24.0",
     "psutil >= 5.9.0",
@@ -159,3 +159,28 @@ convention = "google"
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+timeout = 1200
+
+[tool.mypy]
+python_version = "3.9"
+plugins = ["pydantic.mypy"]
+files = ["scripts", "src", "tests"]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_ignores = true
+
+[tool.mypy-scrapy]
+ignore_missing_imports = true
+
+[tool.mypy-sortedcollections]
+ignore_missing_imports = true
