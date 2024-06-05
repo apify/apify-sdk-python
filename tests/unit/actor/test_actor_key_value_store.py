@@ -12,7 +12,7 @@ from apify._crypto import public_encrypt
 from apify.consts import ENCRYPTED_INPUT_VALUE_PREFIX
 
 if TYPE_CHECKING:
-    from apify._memory_storage import MemoryStorageClient
+    from crawlee.memory_storage_client.memory_storage_client import MemoryStorageClient
 
 
 # NOTE: We only test the key-value store methods available on Actor class/instance.
@@ -53,7 +53,7 @@ class TestKeyValueStoreOnActor:
         input_key = 'INPUT'
         test_input = {'foo': 'bar'}
 
-        await memory_storage_client.key_value_stores().get_or_create(_id='default')
+        await memory_storage_client.key_value_stores().get_or_create(id='default')
         await memory_storage_client.key_value_store('default').set_record(
             key=input_key,
             value=json_dumps(test_input),
@@ -80,7 +80,7 @@ class TestKeyValueStoreOnActor:
             'secret': f'{ENCRYPTED_INPUT_VALUE_PREFIX}:{encrypted_secret["encrypted_password"]}:{encrypted_secret["encrypted_value"]}',
         }
 
-        await memory_storage_client.key_value_stores().get_or_create(_id='default')
+        await memory_storage_client.key_value_stores().get_or_create(id='default')
         await memory_storage_client.key_value_store('default').set_record(
             key=input_key,
             value=json_dumps(input_with_secret),

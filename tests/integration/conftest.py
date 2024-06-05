@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, AsyncIterator, Awaitable, Callable, Mapping, P
 import pytest
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
+from crawlee.storage_client_manager import StorageClientManager
 from filelock import FileLock
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify.config import Configuration
-from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
 if TYPE_CHECKING:
     from apify_client.clients.resource_clients import ActorClientAsync
@@ -33,13 +33,8 @@ SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Actor, '_default_instance', None)
     monkeypatch.setattr(Configuration, '_default_instance', None)
-    monkeypatch.setattr(Dataset, '_cache_by_id', None)
-    monkeypatch.setattr(Dataset, '_cache_by_name', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
-    monkeypatch.setattr(StorageClientManager, '_default_instance', None)
+    monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
+    # TODO StorageClientManager local client purge
 
 
 # This fixture can't be session-scoped,

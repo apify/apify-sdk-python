@@ -5,9 +5,9 @@ from typing import Callable
 
 import pytest
 from apify_shared.consts import ApifyEnvVars
+from crawlee.storage_client_manager import StorageClientManager
 
 from apify import Actor
-from apify.storages import StorageClientManager
 
 
 @pytest.mark.parametrize('purge_on_start', [True, False])

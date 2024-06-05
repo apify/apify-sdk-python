@@ -10,11 +10,17 @@ try:
     from scrapy.utils.python import to_bytes
 except ImportError as exc:
     raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
+        'To use this module, you need to install the "scrapy" extra. For example, if you use pip, run "pip install apify[scrapy]".',
     ) from exc
 
+from typing import TYPE_CHECKING
+
+from crawlee.storage_client_manager import StorageClientManager
+
 from apify.actor import Actor
-from apify.storages import RequestQueue, StorageClientManager
+
+if TYPE_CHECKING:
+    from apify.storages import RequestQueue
 
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 

@@ -9,11 +9,12 @@ from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 import pytest
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
+from crawlee.memory_storage_client.memory_storage_client import MemoryStorageClient
+from crawlee.storage_client_manager import StorageClientManager
+from crawlee.configuration import Configuration as CrawleeConfiguration
 
 from apify import Actor
-from apify._memory_storage import MemoryStorageClient
 from apify.config import Configuration
-from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,13 +25,8 @@ def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Non
     def reset() -> None:
         monkeypatch.setattr(Actor, '_default_instance', None)
         monkeypatch.setattr(Configuration, '_default_instance', None)
-        monkeypatch.setattr(Dataset, '_cache_by_id', None)
-        monkeypatch.setattr(Dataset, '_cache_by_name', None)
-        monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
-        monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
-        monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
-        monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
-        monkeypatch.setattr(StorageClientManager, '_default_instance', None)
+        monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
+        # TODO StorageClientManager local client purge
 
     return reset
 
@@ -157,4 +153,8 @@ def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAs
 
 @pytest.fixture()
 def memory_storage_client() -> MemoryStorageClient:
-    return MemoryStorageClient(write_metadata=True, persist_storage=True)
+    configuration = CrawleeConfiguration()
+    configuration.persist_storage = True
+    configuration.write_metadata = True
+
+    return MemoryStorageClient(configuration)
