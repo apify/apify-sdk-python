@@ -20,13 +20,13 @@ class DatasetCollectionClient(BaseDatasetCollectionClient):
     async def get_or_create(
         self,
         *,
-        id: str | None = None,  # TODO unused
+        id: str | None = None,  # noqa: A002
         name: str | None = None,
         schema: dict | None = None,
     ) -> DatasetMetadata:
         return DatasetMetadata.model_validate(
             await self._client.get_or_create(
-                name=name,
+                name=id if id is not None else name,
                 schema=schema,
             )
         )
