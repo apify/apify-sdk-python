@@ -178,7 +178,7 @@ class ProxyConfiguration:
                 'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration'
             )
 
-        self._actor_config = _actor_config or Configuration._get_default_instance()
+        self._actor_config = _actor_config or Configuration.get_global_configuration()
         self._apify_client = _apify_client
 
         self._hostname = self._actor_config.proxy_hostname
