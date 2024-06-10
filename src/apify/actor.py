@@ -6,7 +6,7 @@ import inspect
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
@@ -34,6 +34,7 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
+    from collections.abc import Awaitable
     from types import TracebackType
 
 T = TypeVar('T')
@@ -544,7 +545,11 @@ class Actor(metaclass=_ActorContextManager):
     ) -> Dataset:
         self._raise_if_not_initialized()
 
-        return await Dataset.open(id=id, name=name, configuration=self._configuration)
+        configuration_updates = {}
+        if force_cloud:
+            configuration_updates['is_at_home'] = True
+
+        return await Dataset.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
 
     @classmethod
     async def open_key_value_store(
@@ -582,7 +587,11 @@ class Actor(metaclass=_ActorContextManager):
     ) -> KeyValueStore:
         self._raise_if_not_initialized()
 
-        return await KeyValueStore.open(id=id, name=name, configuration=self._configuration)
+        configuration_updates = {}
+        if force_cloud:
+            configuration_updates['is_at_home'] = True
+
+        return await KeyValueStore.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
 
     @classmethod
     async def open_request_queue(
@@ -621,7 +630,11 @@ class Actor(metaclass=_ActorContextManager):
     ) -> RequestQueue:
         self._raise_if_not_initialized()
 
-        return await RequestQueue.open(id=id, name=name, configuration=self._configuration)
+        configuration_updates = {}
+        if force_cloud:
+            configuration_updates['is_at_home'] = True
+
+        return await RequestQueue.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
 
     @classmethod
     async def push_data(cls: type[Actor], data: Any) -> None:
