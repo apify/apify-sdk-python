@@ -11,18 +11,11 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from crawlee._utils.recurring_task import RecurringTask
 from crawlee.storage_client_manager import StorageClientManager
 
 from apify._crypto import decrypt_input_secrets, load_private_key
-from apify._utils import (
-    dualproperty,
-    get_cpu_usage_percent,
-    get_memory_usage_bytes,
-    get_system_info,
-    is_running_in_ipython,
-    run_func_at_interval_async,
-    wrap_internal,
-)
+from apify._utils import dualproperty, get_cpu_usage_percent, get_memory_usage_bytes, get_system_info, is_running_in_ipython, wrap_internal
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
 from apify.config import Configuration
 from apify.consts import EVENT_LISTENERS_TIMEOUT_SECS
@@ -126,6 +119,16 @@ class Actor(metaclass=_ActorContextManager):
         self._event_manager = EventManager(config=self._configuration)
 
         self._is_initialized = False
+
+        self._system_info_task = RecurringTask(self._send_system_info, self._configuration.system_info_interval)
+        self._persist_state_task = RecurringTask(self._send_persist_state, self._configuration.persist_state_interval)
+
+    def _send_system_info(self) -> None:
+        if not self._configuration.is_at_home:
+            self._event_manager.emit(ActorEventTypes.SYSTEM_INFO, self.get_system_info())
+
+    def _send_persist_state(self) -> None:
+        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
 
     @ignore_docs
     async def __aenter__(self: Actor) -> Actor:
@@ -233,20 +236,8 @@ class Actor(metaclass=_ActorContextManager):
 
         await self._event_manager.init()
 
-        self._send_persist_state_interval_task = asyncio.create_task(
-            run_func_at_interval_async(
-                lambda: self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False}),
-                self._configuration.persist_state_interval_millis / 1000,
-            ),
-        )
-
-        if not self.is_at_home():
-            self._send_system_info_interval_task = asyncio.create_task(
-                run_func_at_interval_async(
-                    lambda: self._event_manager.emit(ActorEventTypes.SYSTEM_INFO, self.get_system_info()),
-                    self._configuration.system_info_interval_millis / 1000,
-                ),
-            )
+        self._system_info_task.start()
+        self._persist_state_task.start()
 
         self._event_manager.on(ActorEventTypes.MIGRATING, self._respond_to_migrating_event)
 
