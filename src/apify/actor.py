@@ -16,7 +16,6 @@ from crawlee.storage_client_manager import StorageClientManager
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._utils import (
     dualproperty,
-    fetch_and_parse_env_var,
     get_cpu_usage_percent,
     get_memory_usage_bytes,
     get_system_info,
@@ -793,7 +792,9 @@ class Actor(metaclass=_ActorContextManager):
     def _get_env_internal(self: Actor) -> dict:
         self._raise_if_not_initialized()
 
-        return {env_var.name.lower(): fetch_and_parse_env_var(env_var) for env_var in [*ActorEnvVars, *ApifyEnvVars]}
+        config = self._configuration.model_dump(by_alias=True)
+        env_vars = {env_var.value.lower(): env_var.name.lower() for env_var in [*ActorEnvVars, *ApifyEnvVars]}
+        return {option_name: config[env_var] for env_var, option_name in env_vars}
 
     @classmethod
     async def start(
