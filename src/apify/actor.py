@@ -18,7 +18,7 @@ from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._utils import dualproperty, get_cpu_usage_percent, get_memory_usage_bytes, get_system_info, is_running_in_ipython, wrap_internal
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
 from apify.config import Configuration
-from apify.consts import EVENT_LISTENERS_TIMEOUT_SECS
+from apify.consts import EVENT_LISTENERS_TIMEOUT
 from apify.event_manager import EventManager
 from apify.log import logger
 from apify.proxy_configuration import ProxyConfiguration
@@ -288,7 +288,7 @@ class Actor(metaclass=_ActorContextManager):
         cls: type[Actor],
         *,
         exit_code: int = 0,
-        event_listeners_timeout_secs: float | None = EVENT_LISTENERS_TIMEOUT_SECS,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
@@ -302,13 +302,13 @@ class Actor(metaclass=_ActorContextManager):
 
         Args:
             exit_code (int, optional): The exit code with which the actor should fail (defaults to `0`).
-            event_listeners_timeout_secs (float, optional): How long should the actor wait for actor event listeners to finish before exiting.
+            event_listeners_timeout (timedelta, optional): How long should the actor wait for actor event listeners to finish before exiting.
             status_message (str, optional): The final status message that the actor should display.
             cleanup_timeout (timedelta, optional): How long we should wait for event listeners.
         """
         return await cls._get_default_instance().exit(
             exit_code=exit_code,
-            event_listeners_timeout_secs=event_listeners_timeout_secs,
+            event_listeners_timeout=event_listeners_timeout,
             status_message=status_message,
             cleanup_timeout=cleanup_timeout,
         )
@@ -317,7 +317,7 @@ class Actor(metaclass=_ActorContextManager):
         self: Actor,
         *,
         exit_code: int = 0,
-        event_listeners_timeout_secs: float | None = EVENT_LISTENERS_TIMEOUT_SECS,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
@@ -343,7 +343,7 @@ class Actor(metaclass=_ActorContextManager):
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
 
-            await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
+            await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout.total_seconds() if event_listeners_timeout else None)
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -449,8 +449,8 @@ class Actor(metaclass=_ActorContextManager):
         token: str | None = None,
         api_url: str | None = None,
         max_retries: int | None = None,
-        min_delay_between_retries_millis: int | None = None,
-        timeout_secs: int | None = None,
+        min_delay_between_retries: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> ApifyClientAsync:
         """Return a new instance of the Apify API client.
 
@@ -464,16 +464,16 @@ class Actor(metaclass=_ActorContextManager):
             token (str, optional): The Apify API token
             api_url (str, optional): The URL of the Apify API server to which to connect to. Defaults to https://api.apify.com
             max_retries (int, optional): How many times to retry a failed request at most
-            min_delay_between_retries_millis (int, optional): How long will the client wait between retrying requests
+            min_delay_between_retries (timedelta, optional): How long will the client wait between retrying requests
                 (increases exponentially from this value)
-            timeout_secs (int, optional): The socket timeout of the HTTP requests sent to the Apify API
+            timeout (timedelta, optional): The socket timeout of the HTTP requests sent to the Apify API
         """
         return cls._get_default_instance().new_client(
             token=token,
             api_url=api_url,
             max_retries=max_retries,
-            min_delay_between_retries_millis=min_delay_between_retries_millis,
-            timeout_secs=timeout_secs,
+            min_delay_between_retries=min_delay_between_retries,
+            timeout=timeout,
         )
 
     def _new_client_internal(
@@ -482,8 +482,8 @@ class Actor(metaclass=_ActorContextManager):
         token: str | None = None,
         api_url: str | None = None,
         max_retries: int | None = None,
-        min_delay_between_retries_millis: int | None = None,
-        timeout_secs: int | None = None,
+        min_delay_between_retries: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> ApifyClientAsync:
         token = token or self._configuration.token
         api_url = api_url or self._configuration.api_base_url
@@ -491,8 +491,8 @@ class Actor(metaclass=_ActorContextManager):
             token=token,
             api_url=api_url,
             max_retries=max_retries,
-            min_delay_between_retries_millis=min_delay_between_retries_millis,
-            timeout_secs=timeout_secs,
+            min_delay_between_retries_millis=int(min_delay_between_retries.total_seconds() * 1000) if min_delay_between_retries is not None else None,
+            timeout_secs=int(timeout.total_seconds()) if timeout else None,
         )
 
     def _get_storage_client(self: Actor, force_cloud: bool) -> ApifyClientAsync | None:  # noqa: FBT001
@@ -797,7 +797,7 @@ class Actor(metaclass=_ActorContextManager):
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout_secs: int | None = None,
+        timeout: int | None = None,
         wait_for_finish: int | None = None,
         webhooks: list[dict] | None = None,
     ) -> dict:
@@ -814,7 +814,7 @@ class Actor(metaclass=_ActorContextManager):
                                    By default, the run uses the build specified in the default run configuration for the actor (typically latest).
             memory_mbytes (int, optional): Memory limit for the run, in megabytes.
                                            By default, the run uses a memory limit specified in the default run configuration for the actor.
-            timeout_secs (int, optional): Optional timeout for the run, in seconds.
+            timeout (timedelta, optional): Optional timeout for the run, in seconds.
                                           By default, the run uses timeout specified in the default run configuration for the actor.
             wait_for_finish (int, optional): The maximum number of seconds the server waits for the run to finish.
                                                By default, it is 0, the maximum value is 300.
@@ -837,7 +837,7 @@ class Actor(metaclass=_ActorContextManager):
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=timeout_secs,
+            timeout=timeout,
             wait_for_finish=wait_for_finish,
             webhooks=webhooks,
         )
@@ -851,7 +851,7 @@ class Actor(metaclass=_ActorContextManager):
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout_secs: int | None = None,
+        timeout: timedelta | None = None,
         wait_for_finish: int | None = None,
         webhooks: list[dict] | None = None,
     ) -> dict:
@@ -864,7 +864,7 @@ class Actor(metaclass=_ActorContextManager):
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=timeout_secs,
+            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
             wait_for_finish=wait_for_finish,
             webhooks=webhooks,
         )
@@ -922,13 +922,13 @@ class Actor(metaclass=_ActorContextManager):
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout_secs: int | None = None,
+        timeout: timedelta | None = None,
         webhooks: list[dict] | None = None,
-        wait_secs: int | None = None,
+        wait: timedelta | None = None,
     ) -> dict | None:
         """Start an actor on the Apify Platform and wait for it to finish before returning.
 
-        It waits indefinitely, unless the wait_secs argument is provided.
+        It waits indefinitely, unless the wait argument is provided.
 
         Args:
             actor_id (str): The ID of the actor to be run.
@@ -939,12 +939,12 @@ class Actor(metaclass=_ActorContextManager):
                                    By default, the run uses the build specified in the default run configuration for the actor (typically latest).
             memory_mbytes (int, optional): Memory limit for the run, in megabytes.
                                            By default, the run uses a memory limit specified in the default run configuration for the actor.
-            timeout_secs (int, optional): Optional timeout for the run, in seconds.
+            timeout (timedelta, optional): Optional timeout for the run, in seconds.
                                           By default, the run uses timeout specified in the default run configuration for the actor.
             webhooks (list, optional): Optional webhooks (https://docs.apify.com/webhooks) associated with the actor run,
                                        which can be used to receive a notification, e.g. when the actor finished or failed.
                                        If you already have a webhook set up for the actor, you do not have to add it again here.
-            wait_secs (int, optional): The maximum number of seconds the server waits for the run to finish. If not provided, waits indefinitely.
+            wait(timedelta, optional): The maximum number of seconds the server waits for the run to finish. If not provided, waits indefinitely.
 
         Returns:
             dict: Info about the started actor run
@@ -956,9 +956,9 @@ class Actor(metaclass=_ActorContextManager):
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=timeout_secs,
+            timeout=timeout,
             webhooks=webhooks,
-            wait_secs=wait_secs,
+            wait=wait,
         )
 
     async def _call_internal(
@@ -970,9 +970,9 @@ class Actor(metaclass=_ActorContextManager):
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout_secs: int | None = None,
+        timeout: timedelta | None = None,
         webhooks: list[dict] | None = None,
-        wait_secs: int | None = None,
+        wait: timedelta | None = None,
     ) -> dict | None:
         self._raise_if_not_initialized()
 
@@ -983,9 +983,9 @@ class Actor(metaclass=_ActorContextManager):
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=timeout_secs,
+            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
             webhooks=webhooks,
-            wait_secs=wait_secs,
+            wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
 
     @classmethod
@@ -996,14 +996,14 @@ class Actor(metaclass=_ActorContextManager):
         *,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout_secs: int | None = None,
+        timeout: timedelta | None = None,
         webhooks: list[dict] | None = None,
-        wait_secs: int | None = None,
+        wait: timedelta | None = None,
         token: str | None = None,
     ) -> dict | None:
         """Start an actor task on the Apify Platform and wait for it to finish before returning.
 
-        It waits indefinitely, unless the wait_secs argument is provided.
+        It waits indefinitely, unless the wait argument is provided.
 
         Note that an actor task is a saved input configuration and options for an actor.
         If you want to run an actor directly rather than an actor task, please use the `Actor.call`
@@ -1017,12 +1017,12 @@ class Actor(metaclass=_ActorContextManager):
                                    By default, the run uses the build specified in the default run configuration for the actor (typically latest).
             memory_mbytes (int, optional): Memory limit for the run, in megabytes.
                                            By default, the run uses a memory limit specified in the default run configuration for the actor.
-            timeout_secs (int, optional): Optional timeout for the run, in seconds.
+            timeout (timedelta, optional): Optional timeout for the run, in seconds.
                                           By default, the run uses timeout specified in the default run configuration for the actor.
             webhooks (list, optional): Optional webhooks (https://docs.apify.com/webhooks) associated with the actor run,
                                        which can be used to receive a notification, e.g. when the actor finished or failed.
                                        If you already have a webhook set up for the actor, you do not have to add it again here.
-            wait_secs (int, optional): The maximum number of seconds the server waits for the run to finish. If not provided, waits indefinitely.
+            wait (timedelta, optional): The maximum number of seconds the server waits for the run to finish. If not provided, waits indefinitely.
 
         Returns:
             dict: Info about the started actor run
@@ -1033,9 +1033,9 @@ class Actor(metaclass=_ActorContextManager):
             token=token,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=timeout_secs,
+            timeout=timeout,
             webhooks=webhooks,
-            wait_secs=wait_secs,
+            wait=wait,
         )
 
     async def _call_task_internal(
@@ -1045,9 +1045,9 @@ class Actor(metaclass=_ActorContextManager):
         *,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout_secs: int | None = None,
+        timeout: timedelta | None = None,
         webhooks: list[dict] | None = None,
-        wait_secs: int | None = None,
+        wait: timedelta | None = None,
         token: str | None = None,
     ) -> dict | None:
         self._raise_if_not_initialized()
@@ -1058,9 +1058,9 @@ class Actor(metaclass=_ActorContextManager):
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=timeout_secs,
+            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
             webhooks=webhooks,
-            wait_secs=wait_secs,
+            wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
 
     @classmethod
@@ -1071,7 +1071,7 @@ class Actor(metaclass=_ActorContextManager):
         *,
         target_actor_build: str | None = None,
         content_type: str | None = None,
-        custom_after_sleep_millis: int | None = None,
+        custom_after_sleep: timedelta | None = None,
     ) -> None:
         """Transform this actor run to an actor run of a different actor.
 
@@ -1085,7 +1085,7 @@ class Actor(metaclass=_ActorContextManager):
             target_actor_build (str, optional): The build of the target actor. It can be either a build tag or build number.
                 By default, the run uses the build specified in the default run configuration for the target actor (typically the latest build).
             content_type (str, optional): The content type of the input.
-            custom_after_sleep_millis (int, optional): How long to sleep for after the metamorph, to wait for the container to be stopped.
+            custom_after_sleep (timedelta, optional): How long to sleep for after the metamorph, to wait for the container to be stopped.
 
         Returns:
             dict: The actor run data.
@@ -1095,7 +1095,7 @@ class Actor(metaclass=_ActorContextManager):
             target_actor_build=target_actor_build,
             run_input=run_input,
             content_type=content_type,
-            custom_after_sleep_millis=custom_after_sleep_millis,
+            custom_after_sleep=custom_after_sleep,
         )
 
     async def _metamorph_internal(
@@ -1105,7 +1105,7 @@ class Actor(metaclass=_ActorContextManager):
         *,
         target_actor_build: str | None = None,
         content_type: str | None = None,
-        custom_after_sleep_millis: int | None = None,
+        custom_after_sleep: timedelta | None = None,
     ) -> None:
         self._raise_if_not_initialized()
 
@@ -1113,8 +1113,8 @@ class Actor(metaclass=_ActorContextManager):
             self.log.error('Actor.metamorph() is only supported when running on the Apify platform.')
             return
 
-        if not custom_after_sleep_millis:
-            custom_after_sleep_millis = self._configuration.metamorph_after_sleep_millis
+        if not custom_after_sleep:
+            custom_after_sleep = self._configuration.metamorph_after_sleep
 
         # If is_at_home() is True, config.actor_run_id is always set
         assert self._configuration.actor_run_id is not None  # noqa: S101
@@ -1126,34 +1126,34 @@ class Actor(metaclass=_ActorContextManager):
             content_type=content_type,
         )
 
-        if custom_after_sleep_millis:
-            await asyncio.sleep(custom_after_sleep_millis / 1000)
+        if custom_after_sleep:
+            await asyncio.sleep(custom_after_sleep.total_seconds())
 
     @classmethod
     async def reboot(
         cls: type[Actor],
         *,
-        event_listeners_timeout_secs: int | None = EVENT_LISTENERS_TIMEOUT_SECS,
-        custom_after_sleep_millis: int | None = None,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
+        custom_after_sleep: timedelta | None = None,
     ) -> None:
         """Internally reboot this actor.
 
         The system stops the current container and starts a new one, with the same run ID and default storages.
 
         Args:
-            event_listeners_timeout_secs (int, optional): How long should the actor wait for actor event listeners to finish before exiting
-            custom_after_sleep_millis (int, optional): How long to sleep for after the reboot, to wait for the container to be stopped.
+            event_listeners_timeout (timedelta, optional): How long should the actor wait for actor event listeners to finish before exiting
+            custom_after_sleep (timedelta, optional): How long to sleep for after the reboot, to wait for the container to be stopped.
         """
         return await cls._get_default_instance().reboot(
-            event_listeners_timeout_secs=event_listeners_timeout_secs,
-            custom_after_sleep_millis=custom_after_sleep_millis,
+            event_listeners_timeout=event_listeners_timeout,
+            custom_after_sleep=custom_after_sleep,
         )
 
     async def _reboot_internal(
         self: Actor,
         *,
-        event_listeners_timeout_secs: int | None = EVENT_LISTENERS_TIMEOUT_SECS,
-        custom_after_sleep_millis: int | None = None,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
+        custom_after_sleep: timedelta | None = None,
     ) -> None:
         self._raise_if_not_initialized()
 
@@ -1161,21 +1161,23 @@ class Actor(metaclass=_ActorContextManager):
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
-        if not custom_after_sleep_millis:
-            custom_after_sleep_millis = self._configuration.metamorph_after_sleep_millis
+        if not custom_after_sleep:
+            custom_after_sleep = self._configuration.metamorph_after_sleep
 
         await self._cancel_event_emitting_intervals()
 
         self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
         self._was_final_persist_state_emitted = True
 
-        await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout_secs)
+        await self._event_manager.close(
+            event_listeners_timeout_secs=int(event_listeners_timeout.total_seconds()) if event_listeners_timeout is not None else None,
+        )
 
         assert self._configuration.actor_run_id is not None  # noqa: S101
         await self._apify_client.run(self._configuration.actor_run_id).reboot()
 
-        if custom_after_sleep_millis:
-            await asyncio.sleep(custom_after_sleep_millis / 1000)
+        if custom_after_sleep:
+            await asyncio.sleep(custom_after_sleep.total_seconds())
 
     @classmethod
     async def add_webhook(

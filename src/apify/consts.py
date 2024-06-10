@@ -2,17 +2,9 @@ from __future__ import annotations
 
 import re
 import warnings
+from datetime import timedelta
 from enum import Enum
 from typing import Any
-
-from apify_shared.consts import BOOL_ENV_VARS as _BOOL_ENV_VARS  # noqa: F401
-from apify_shared.consts import DATETIME_ENV_VARS as _DATETIME_ENV_VARS  # noqa: F401
-from apify_shared.consts import FLOAT_ENV_VARS as _FLOAT_ENV_VARS  # noqa: F401
-from apify_shared.consts import INTEGER_ENV_VARS as _INTEGER_ENV_VARS  # noqa: F401
-from apify_shared.consts import STRING_ENV_VARS as _STRING_ENV_VARS  # noqa: F401
-from apify_shared.consts import ActorEventTypes as _ActorEventTypes  # noqa: F401
-from apify_shared.consts import ActorExitCodes as _ActorExitCodes  # noqa: F401
-from apify_shared.consts import ApifyEnvVars as _ApifyEnvVars  # noqa: F401
 
 DEPRECATED_NAMES = [
     'BOOL_ENV_VARS',
@@ -57,7 +49,7 @@ REQUEST_ID_LENGTH = 15
 
 REQUEST_QUEUE_HEAD_MAX_LIMIT = 1000
 
-EVENT_LISTENERS_TIMEOUT_SECS = 5
+EVENT_LISTENERS_TIMEOUT = timedelta(seconds=5)
 
 BASE64_REGEXP = '[-A-Za-z0-9+/]*={0,3}'
 ENCRYPTED_INPUT_VALUE_PREFIX = 'ENCRYPTED_VALUE'
