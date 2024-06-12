@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import builtins
-import contextlib
 import functools
-import inspect
-import os
 import sys
-import time
 from collections import OrderedDict
 from collections.abc import MutableMapping
 from hashlib import sha256
@@ -17,7 +12,6 @@ from typing import Any, Callable, Generic, ItemsView, Iterator, TypeVar, ValuesV
 from typing import OrderedDict as OrderedDictType
 from urllib.parse import parse_qsl, urlencode, urlparse
 
-import psutil
 from apify_shared.utils import ignore_docs
 
 T = TypeVar('T')
@@ -73,36 +67,6 @@ class dualproperty(Generic[DualPropertyType]):  # noqa: N801
         """
         val = self.getter(obj or owner)
         return cast(DualPropertyType, val)
-
-
-def get_cpu_usage_percent() -> float:
-    return psutil.cpu_percent()
-
-
-def get_memory_usage_bytes() -> int:
-    current_process = psutil.Process(os.getpid())
-    mem = int(current_process.memory_info().rss or 0)
-    for child in current_process.children(recursive=True):
-        with contextlib.suppress(psutil.NoSuchProcess):
-            mem += int(child.memory_info().rss or 0)
-    return mem
-
-
-async def run_func_at_interval_async(func: Callable, interval_secs: float) -> None:
-    started_at = time.perf_counter()
-    sleep_until = started_at
-    while True:
-        now = time.perf_counter()
-        sleep_until += interval_secs
-        while sleep_until < now:
-            sleep_until += interval_secs
-
-        sleep_for_secs = sleep_until - now
-        await asyncio.sleep(sleep_for_secs)
-
-        res = func()
-        if inspect.isawaitable(res):
-            await res
 
 
 ImplementationType = TypeVar('ImplementationType', bound=Callable)

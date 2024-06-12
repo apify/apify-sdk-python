@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import inspect
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
-from crawlee._utils.recurring_task import RecurringTask
 from crawlee.storage_client_manager import StorageClientManager
 
 from apify._crypto import decrypt_input_secrets, load_private_key
-from apify._utils import dualproperty, get_cpu_usage_percent, get_memory_usage_bytes, get_system_info, is_running_in_ipython, wrap_internal
+from apify._utils import dualproperty, get_system_info, is_running_in_ipython, wrap_internal
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
 from apify.config import Configuration
 from apify.consts import EVENT_LISTENERS_TIMEOUT
@@ -65,10 +63,7 @@ class Actor(metaclass=_ActorContextManager):
     _apify_client: ApifyClientAsync
     _configuration: Configuration
     _event_manager: EventManager
-    _send_system_info_interval_task: asyncio.Task | None = None
-    _send_persist_state_interval_task: asyncio.Task | None = None
     _is_exiting = False
-    _was_final_persist_state_emitted = False
 
     def __init__(self: Actor, config: Configuration | None = None) -> None:
         """Create an Actor instance.
@@ -119,16 +114,6 @@ class Actor(metaclass=_ActorContextManager):
         self._event_manager = EventManager(config=self._configuration)
 
         self._is_initialized = False
-
-        self._system_info_task = RecurringTask(self._send_system_info, self._configuration.system_info_interval)
-        self._persist_state_task = RecurringTask(self._send_persist_state, self._configuration.persist_state_interval)
-
-    def _send_system_info(self) -> None:
-        if not self._configuration.is_at_home:
-            self._event_manager.emit(ActorEventTypes.SYSTEM_INFO, self.get_system_info())
-
-    def _send_persist_state(self) -> None:
-        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
 
     @ignore_docs
     async def __aenter__(self: Actor) -> Actor:
@@ -236,52 +221,7 @@ class Actor(metaclass=_ActorContextManager):
 
         await self._event_manager.init()
 
-        self._system_info_task.start()
-        self._persist_state_task.start()
-
-        self._event_manager.on(ActorEventTypes.MIGRATING, self._respond_to_migrating_event)
-
-        # The CPU usage is calculated as an average between two last calls to psutil
-        # We need to make a first, dummy call, so the next calls have something to compare itself agains
-        get_cpu_usage_percent()
-
         self._is_initialized = True
-
-    def get_system_info(self: Actor) -> dict:
-        """Get the current system info."""
-        cpu_usage_percent = get_cpu_usage_percent()
-        memory_usage_bytes = get_memory_usage_bytes()
-        # This is in camel case to be compatible with the events from the platform
-        result = {
-            'createdAt': datetime.now(timezone.utc),
-            'cpuCurrentUsage': cpu_usage_percent,
-            'memCurrentBytes': memory_usage_bytes,
-        }
-        if self._configuration.max_used_cpu_ratio:
-            result['isCpuOverloaded'] = cpu_usage_percent > 100 * self._configuration.max_used_cpu_ratio
-
-        return result
-
-    async def _respond_to_migrating_event(self: Actor, _event_data: Any) -> None:
-        # Don't emit any more regular persist state events
-        if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
-            self._send_persist_state_interval_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._send_persist_state_interval_task
-
-        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
-        self._was_final_persist_state_emitted = True
-
-    async def _cancel_event_emitting_intervals(self: Actor) -> None:
-        if self._send_persist_state_interval_task and not self._send_persist_state_interval_task.cancelled():
-            self._send_persist_state_interval_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._send_persist_state_interval_task
-
-        if self._send_system_info_interval_task and not self._send_system_info_interval_task.cancelled():
-            self._send_system_info_interval_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._send_system_info_interval_task
 
     @classmethod
     async def exit(
@@ -330,13 +270,6 @@ class Actor(metaclass=_ActorContextManager):
         self.log.info('Exiting actor', extra={'exit_code': exit_code})
 
         async def finalize() -> None:
-            await self._cancel_event_emitting_intervals()
-
-            # Send final persist state event
-            if not self._was_final_persist_state_emitted:
-                self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': False})
-                self._was_final_persist_state_emitted = True
-
             if status_message is not None:
                 await self.set_status_message(status_message, is_terminal=True)
 
@@ -1164,10 +1097,7 @@ class Actor(metaclass=_ActorContextManager):
         if not custom_after_sleep:
             custom_after_sleep = self._configuration.metamorph_after_sleep
 
-        await self._cancel_event_emitting_intervals()
-
         self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
-        self._was_final_persist_state_emitted = True
 
         await self._event_manager.close(
             event_listeners_timeout_secs=int(event_listeners_timeout.total_seconds()) if event_listeners_timeout is not None else None,
