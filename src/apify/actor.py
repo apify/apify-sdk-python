@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorEventTypes, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from crawlee.events.types import Event, EventPersistStateData
 from crawlee.storage_client_manager import StorageClientManager
 
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -17,7 +18,7 @@ from apify._utils import dualproperty, get_system_info, is_running_in_ipython, w
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
 from apify.config import Configuration
 from apify.consts import EVENT_LISTENERS_TIMEOUT
-from apify.event_manager import EventManager
+from apify.event_manager import EventManager, PlatformEventManager
 from apify.log import logger
 from apify.proxy_configuration import ProxyConfiguration
 from apify.storages import Dataset, KeyValueStore, RequestQueue
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     import logging
     from collections.abc import Awaitable
     from types import TracebackType
+
 
 T = TypeVar('T')
 MainReturnType = TypeVar('MainReturnType')
@@ -62,7 +64,6 @@ class Actor(metaclass=_ActorContextManager):
     _default_instance: Actor | None = None
     _apify_client: ApifyClientAsync
     _configuration: Configuration
-    _event_manager: EventManager
     _is_exiting = False
 
     def __init__(self: Actor, config: Configuration | None = None) -> None:
@@ -111,7 +112,11 @@ class Actor(metaclass=_ActorContextManager):
 
         self._configuration = config or Configuration()
         self._apify_client = self.new_client()
-        self._event_manager = EventManager(config=self._configuration)
+
+        if self._configuration.is_at_home:
+            self._event_manager = PlatformEventManager(config=self._configuration)
+        else:
+            self._event_manager = EventManager()
 
         self._is_initialized = False
 
@@ -219,7 +224,7 @@ class Actor(metaclass=_ActorContextManager):
         if self._configuration.token:
             StorageClientManager.set_cloud_client(ApifyStorageClient(configuration=self._configuration))
 
-        await self._event_manager.init()
+        await self._event_manager.__aenter__()
 
         self._is_initialized = True
 
@@ -276,7 +281,7 @@ class Actor(metaclass=_ActorContextManager):
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
 
-            await self._event_manager.close(event_listeners_timeout_secs=event_listeners_timeout.total_seconds() if event_listeners_timeout else None)
+            await self._event_manager.__aexit__(None, None, None)
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -675,10 +680,11 @@ class Actor(metaclass=_ActorContextManager):
         """
         return cls._get_default_instance().on(event_name, listener)
 
-    def _on_internal(self: Actor, event_name: ActorEventTypes, listener: Callable) -> Callable:
+    def _on_internal(self: Actor, event_name: Event, listener: Callable) -> Callable:
         self._raise_if_not_initialized()
 
-        return self._event_manager.on(event_name, listener)
+        self._event_manager.on(event=event_name, listener=listener)
+        return listener
 
     @classmethod
     def off(cls: type[Actor], event_name: ActorEventTypes, listener: Callable | None = None) -> None:
@@ -690,10 +696,10 @@ class Actor(metaclass=_ActorContextManager):
         """
         return cls._get_default_instance().off(event_name, listener)
 
-    def _off_internal(self: Actor, event_name: ActorEventTypes, listener: Callable | None = None) -> None:
+    def _off_internal(self: Actor, event_name: Event, listener: Callable | None = None) -> None:
         self._raise_if_not_initialized()
 
-        return self._event_manager.off(event_name, listener)
+        self._event_manager.off(event=event_name, listener=listener)
 
     @classmethod
     def is_at_home(cls: type[Actor]) -> bool:
@@ -1097,11 +1103,9 @@ class Actor(metaclass=_ActorContextManager):
         if not custom_after_sleep:
             custom_after_sleep = self._configuration.metamorph_after_sleep
 
-        self._event_manager.emit(ActorEventTypes.PERSIST_STATE, {'isMigrating': True})
+        self._event_manager.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
 
-        await self._event_manager.close(
-            event_listeners_timeout_secs=int(event_listeners_timeout.total_seconds()) if event_listeners_timeout is not None else None,
-        )
+        await self._event_manager.__aexit__(None, None, None)
 
         assert self._configuration.actor_run_id is not None  # noqa: S101
         await self._apify_client.run(self._configuration.actor_run_id).reboot()
