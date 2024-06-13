@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 import websockets.client
 from apify_shared.utils import ignore_docs
 from crawlee.events.event_manager import EventManager, EventManagerOptions
+from crawlee.events.local_event_manager import LocalEventManager
 from crawlee.events.types import Event, EventAbortingData, EventExitData, EventMigratingData, EventPersistStateData, EventSystemInfoData
 from pydantic import BaseModel, Discriminator, Field, TypeAdapter
 from typing_extensions import Self, Unpack, override
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from apify.config import Configuration
 
 
-__all__ = ['EventManager', 'PlatformEventManager']
+__all__ = ['EventManager', 'LocalEventManager', 'PlatformEventManager']
 
 
 class PersistStateEvent(BaseModel):

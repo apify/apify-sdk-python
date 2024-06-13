@@ -18,7 +18,7 @@ from apify._utils import dualproperty, get_system_info, is_running_in_ipython, w
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
 from apify.config import Configuration
 from apify.consts import EVENT_LISTENERS_TIMEOUT
-from apify.event_manager import EventManager, PlatformEventManager
+from apify.event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify.log import logger
 from apify.proxy_configuration import ProxyConfiguration
 from apify.storages import Dataset, KeyValueStore, RequestQueue
@@ -113,10 +113,11 @@ class Actor(metaclass=_ActorContextManager):
         self._configuration = config or Configuration()
         self._apify_client = self.new_client()
 
+        self._event_manager: EventManager
         if self._configuration.is_at_home:
             self._event_manager = PlatformEventManager(config=self._configuration)
         else:
-            self._event_manager = EventManager()
+            self._event_manager = LocalEventManager()
 
         self._is_initialized = False
 
