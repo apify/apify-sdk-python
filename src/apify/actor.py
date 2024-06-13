@@ -26,8 +26,9 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Awaitable
     from types import TracebackType
+
+    from crawlee.proxy_configuration import NewUrlFunction
 
 
 MainReturnType = TypeVar('MainReturnType')
@@ -875,7 +876,7 @@ class _ActorType:
         groups: list[str] | None = None,
         country_code: str | None = None,
         proxy_urls: list[str] | None = None,
-        new_url_function: Callable[[str | None], str] | Callable[[str | None], Awaitable[str]] | None = None,
+        new_url_function: NewUrlFunction | None = None,
     ) -> ProxyConfiguration | None:
         """Create a ProxyConfiguration object with the passed proxy configuration.
 
