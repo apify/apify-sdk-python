@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import builtins
-import functools
 import sys
-from collections import OrderedDict
-from collections.abc import MutableMapping
 from hashlib import sha256
 from importlib import metadata
 from logging import getLogger
-from typing import Any, Callable, Generic, ItemsView, Iterator, TypeVar, ValuesView, cast
-from typing import OrderedDict as OrderedDictType
+from typing import TypeVar
 from urllib.parse import parse_qsl, urlencode, urlparse
-
-from apify_shared.utils import ignore_docs
 
 T = TypeVar('T')
 logger = getLogger(__name__)
@@ -32,101 +26,6 @@ def get_system_info() -> dict:
         system_info['is_running_in_ipython'] = True
 
     return system_info
-
-
-DualPropertyType = TypeVar('DualPropertyType')
-DualPropertyOwner = TypeVar('DualPropertyOwner')
-
-
-@ignore_docs
-class dualproperty(Generic[DualPropertyType]):  # noqa: N801
-    """Descriptor combining `property` and `classproperty`.
-
-    When accessing the decorated attribute on an instance, it calls the getter with the instance as the first argument,
-    and when accessing it on a class, it calls the getter with the class as the first argument.
-    """
-
-    def __init__(self: dualproperty, getter: Callable[..., DualPropertyType]) -> None:
-        """Initialize the dualproperty.
-
-        Args:
-            getter (Callable): The getter of the property.
-            It should accept either an instance or a class as its first argument.
-        """
-        self.getter = getter
-
-    def __get__(self: dualproperty, obj: DualPropertyOwner | None, owner: type[DualPropertyOwner]) -> DualPropertyType:
-        """Call the getter with the right object.
-
-        Args:
-            obj (T | None): The instance of class T on which the getter will be called
-            owner (type[T]): The class object of class T on which the getter will be called, if obj is None
-
-        Returns:
-            The result of the getter.
-        """
-        val = self.getter(obj or owner)
-        return cast(DualPropertyType, val)
-
-
-ImplementationType = TypeVar('ImplementationType', bound=Callable)
-MetadataType = TypeVar('MetadataType', bound=Callable)
-
-
-def wrap_internal(implementation: ImplementationType, metadata_source: MetadataType) -> MetadataType:
-    @functools.wraps(metadata_source)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        return implementation(*args, **kwargs)
-
-    return cast(MetadataType, wrapper)
-
-
-@ignore_docs
-class LRUCache(MutableMapping, Generic[T]):
-    """Attempt to reimplement LRUCache from `@apify/datastructures` using `OrderedDict`."""
-
-    _cache: OrderedDictType[str, T]
-
-    _max_length: int
-
-    def __init__(self: LRUCache, max_length: int) -> None:
-        """Create a LRUCache with a specific max_length."""
-        self._cache = OrderedDict()
-        self._max_length = max_length
-
-    def __getitem__(self: LRUCache, key: str) -> T:
-        """Get an item from the cache. Move it to the end if present."""
-        val = self._cache[key]
-        # No 'key in cache' condition since the previous line would raise KeyError
-        self._cache.move_to_end(key)
-        return cast(T, val)
-
-    # Sadly TS impl returns bool indicating whether the key was already present or not
-    def __setitem__(self: LRUCache, key: str, value: T) -> None:
-        """Add an item to the cache. Remove least used item if max_length exceeded."""
-        self._cache[key] = value
-        if len(self._cache) > self._max_length:
-            self._cache.popitem(last=False)
-
-    def __delitem__(self: LRUCache, key: str) -> None:
-        """Remove an item from the cache."""
-        del self._cache[key]
-
-    def __iter__(self: LRUCache) -> Iterator[str]:
-        """Iterate over the keys of the cache in order of insertion."""
-        return self._cache.__iter__()
-
-    def __len__(self: LRUCache) -> int:
-        """Get the number of items in the cache."""
-        return len(self._cache)
-
-    def values(self: LRUCache) -> ValuesView[T]:  # Needed so we don't mutate the cache by __getitem__
-        """Iterate over the values in the cache in order of insertion."""
-        return self._cache.values()
-
-    def items(self: LRUCache) -> ItemsView[str, T]:  # Needed so we don't mutate the cache by __getitem__
-        """Iterate over the pairs of (key, value) in the cache in order of insertion."""
-        return self._cache.items()
 
 
 def is_running_in_ipython() -> bool:
