@@ -12,8 +12,9 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from apify._crypto import crypto_random_object_id
-from apify._utils import compute_unique_key
+from crawlee._utils.crypto import crypto_random_object_id
+from crawlee._utils.requests import compute_unique_key
+
 from apify.actor import Actor
 
 
