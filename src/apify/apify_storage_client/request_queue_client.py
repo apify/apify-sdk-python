@@ -3,10 +3,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from crawlee.base_storage_client.base_request_queue_client import BaseRequestQueueClient
-from crawlee.models import Request, RequestQueueHead, RequestQueueMetadata, RequestQueueOperationInfo
+from crawlee.models import (
+    BatchRequestsOperationResponse,
+    ProcessedRequest,
+    ProlongRequestLockResponse,
+    Request,
+    RequestListResponse,
+    RequestQueueHead,
+    RequestQueueHeadWithLocks,
+    RequestQueueMetadata,
+)
 from typing_extensions import override
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from apify_client.clients import RequestQueueClientAsync
 
 
@@ -46,10 +57,12 @@ class RequestQueueClient(BaseRequestQueueClient):
         )
 
     @override
-    async def list_and_lock_head(self, *, lock_secs: int, limit: int | None = None) -> dict:
-        return await self._client.list_and_lock_head(
-            lock_secs=lock_secs,
-            limit=limit,
+    async def list_and_lock_head(self, *, lock_secs: int, limit: int | None = None) -> RequestQueueHeadWithLocks:
+        return RequestQueueHeadWithLocks.model_validate(
+            await self._client.list_and_lock_head(
+                lock_secs=lock_secs,
+                limit=limit,
+            )
         )
 
     @override
@@ -58,8 +71,8 @@ class RequestQueueClient(BaseRequestQueueClient):
         request: Request,
         *,
         forefront: bool = False,
-    ) -> RequestQueueOperationInfo:
-        return RequestQueueOperationInfo.model_validate(
+    ) -> ProcessedRequest:
+        return ProcessedRequest.model_validate(
             await self._client.add_request(
                 request=request.model_dump(by_alias=True),
                 forefront=forefront,
@@ -77,8 +90,8 @@ class RequestQueueClient(BaseRequestQueueClient):
         request: Request,
         *,
         forefront: bool = False,
-    ) -> RequestQueueOperationInfo:
-        return RequestQueueOperationInfo.model_validate(
+    ) -> ProcessedRequest:
+        return ProcessedRequest.model_validate(
             await self._client.update_request(
                 request=request.model_dump(by_alias=True),
                 forefront=forefront,
@@ -96,11 +109,13 @@ class RequestQueueClient(BaseRequestQueueClient):
         *,
         forefront: bool = False,
         lock_secs: int,
-    ) -> dict:
-        return await self._client.prolong_request_lock(
-            request_id=request_id,
-            forefront=forefront,
-            lock_secs=lock_secs,
+    ) -> ProlongRequestLockResponse:
+        return ProlongRequestLockResponse.model_validate(
+            await self._client.prolong_request_lock(
+                request_id=request_id,
+                forefront=forefront,
+                lock_secs=lock_secs,
+            )
         )
 
     @override
@@ -118,19 +133,23 @@ class RequestQueueClient(BaseRequestQueueClient):
     @override
     async def batch_add_requests(
         self,
-        requests: list[Request],
+        requests: Sequence[Request],
         *,
         forefront: bool = False,
-    ) -> dict:
-        return await self._client.batch_add_requests(
-            requests=[r.model_dump(by_alias=True) for r in requests],
-            forefront=forefront,
+    ) -> BatchRequestsOperationResponse:
+        return BatchRequestsOperationResponse.model_validate(
+            await self._client.batch_add_requests(
+                requests=[r.model_dump(by_alias=True) for r in requests],
+                forefront=forefront,
+            )
         )
 
     @override
-    async def batch_delete_requests(self, requests: list[Request]) -> dict:
-        return await self._client.batch_delete_requests(
-            requests=[r.model_dump(by_alias=True) for r in requests],
+    async def batch_delete_requests(self, requests: list[Request]) -> BatchRequestsOperationResponse:
+        return BatchRequestsOperationResponse.model_validate(
+            await self._client.batch_delete_requests(
+                requests=[r.model_dump(by_alias=True) for r in requests],
+            )
         )
 
     @override
@@ -139,8 +158,10 @@ class RequestQueueClient(BaseRequestQueueClient):
         *,
         limit: int | None = None,
         exclusive_start_id: str | None = None,
-    ) -> dict:  # TODO type
-        return await self._client.list_requests(
-            limit=limit,
-            exclusive_start_id=exclusive_start_id,
+    ) -> RequestListResponse:
+        return RequestListResponse.model_validate(
+            await self._client.list_requests(
+                limit=limit,
+                exclusive_start_id=exclusive_start_id,
+            )
         )
