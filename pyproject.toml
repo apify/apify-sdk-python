@@ -59,7 +59,7 @@ dev = [
     "twine ~= 5.1.0",
     "types-aiofiles ~= 23.2.0.20240403",
     "types-colorama ~= 0.4.15.20240311",
-    "types-psutil ~= 5.9.5.20240516",
+    "types-psutil ~=6.0.0.20240621",
 ]
 scrapy = [
     "scrapy >= 2.11.0",
