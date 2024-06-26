@@ -57,7 +57,7 @@ dev = [
     "ruff ~= 0.4.0",
     "setuptools ~= 70.1.0",  # setuptools are used by pytest, but not explicitly required
     "twine ~= 5.1.0",
-    "types-aiofiles ~= 23.2.0.20240403",
+    "types-aiofiles ~=24.1.0.20240626",
     "types-colorama ~= 0.4.15.20240311",
     "types-psutil ~= 5.9.5.20240516",
 ]
