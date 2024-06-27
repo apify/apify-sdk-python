@@ -4,9 +4,10 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
+from crawlee._utils.crypto import crypto_random_object_id
+
 from ._utils import generate_unique_resource_name
 from apify import Actor
-from apify._crypto import crypto_random_object_id
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -374,12 +375,12 @@ class TestActorAddWebhook:
             async with Actor:
 
                 class WebhookHandler(BaseHTTPRequestHandler):
-                    def do_GET(self) -> None:  # noqa: N802, ANN101
+                    def do_GET(self) -> None:  # noqa: N802
                         self.send_response(200)
                         self.end_headers()
                         self.wfile.write(bytes('Hello, world!', encoding='utf-8'))
 
-                    def do_POST(self) -> None:  # noqa: N802, ANN101
+                    def do_POST(self) -> None:  # noqa: N802
                         nonlocal webhook_body
                         content_length = self.headers.get('content-length')
                         length = int(content_length) if content_length else 0

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import base64
-import secrets
 from typing import Any
 
 from apify_shared.utils import ignore_docs
+from crawlee._utils.crypto import crypto_random_object_id
 from cryptography.exceptions import InvalidTag as InvalidTagException
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -123,12 +123,6 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
         raise TypeError('Invalid public key.')
 
     return public_key
-
-
-def crypto_random_object_id(length: int = 17) -> str:
-    """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
-    chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:  # noqa: A002

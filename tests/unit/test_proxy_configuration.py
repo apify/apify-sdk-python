@@ -1,8 +1,10 @@
+# ruff: noqa: ARG001 ARG005
 from __future__ import annotations
 
 import asyncio
 import re
-from typing import TYPE_CHECKING
+from dataclasses import asdict
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
@@ -63,17 +65,17 @@ class TestProxyConfiguration:
             with pytest.raises(ValueError, match=re.escape(str(invalid_country_code))):
                 ProxyConfiguration(country_code=invalid_country_code)  # type: ignore
 
-        with pytest.raises(ValueError, match='Cannot combine custom proxies in "proxy_urls" with custom generating function in "new_url_function".'):
-            ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], new_url_function=lambda _: 'http://proxy.com:2222')
+        with pytest.raises(ValueError, match='Exactly one of .* must be specified'):
+            ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222')
 
         with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
             ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], groups=['GROUP1'])
 
-        with pytest.raises(ValueError, match=re.escape('proxy_urls[0] ("http://bad-url") is not a valid URL')):
-            ProxyConfiguration(proxy_urls=['http://bad-url'])
+        with pytest.raises(ValueError, match=re.escape('bad-url')):
+            ProxyConfiguration(proxy_urls=['bad-url'])
 
         with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
-            ProxyConfiguration(new_url_function=lambda _: 'http://proxy.com:2222', groups=['GROUP1'])
+            ProxyConfiguration(new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222', groups=['GROUP1'])
 
 
 class TestProxyConfigurationNewUrl:
@@ -104,7 +106,7 @@ class TestProxyConfigurationNewUrl:
             country_code=country_code,
         )
 
-        session_ids: list[str | int] = [
+        session_ids: list[str] = [
             'a',
             'a_b',
             'a_2',
@@ -112,7 +114,7 @@ class TestProxyConfigurationNewUrl:
             'aaa~BBB',
             '1',
             '0.34252352',
-            123456,
+            '123456',
             'XXXXXXXXXXxxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXXXXXXXXXX',
         ]
         for session_id in session_ids:
@@ -171,7 +173,7 @@ class TestProxyConfigurationNewUrl:
             'http://proxy.com:6666',
         ]
 
-        def custom_new_url_function(_session_id: str | None) -> str:
+        def custom_new_url_function(session_id: str | None = None, request: Any = None) -> str:
             nonlocal custom_urls
             return custom_urls.pop()
 
@@ -190,7 +192,7 @@ class TestProxyConfigurationNewUrl:
             'http://proxy.com:6666',
         ]
 
-        async def custom_new_url_function(_session_id: str | None) -> str:
+        async def custom_new_url_function(session_id: str | None = None, request: Any = None) -> str:
             nonlocal custom_urls
             await asyncio.sleep(0.1)
             return custom_urls.pop()
@@ -201,7 +203,7 @@ class TestProxyConfigurationNewUrl:
             assert await proxy_configuration.new_url() == custom_url
 
     async def test_invalid_custom_new_url_function(self: TestProxyConfigurationNewUrl) -> None:
-        def custom_new_url_function(_session_id: str | None) -> str:
+        def custom_new_url_function(session_id: str | None = None, request: Any = None) -> str:
             raise ValueError
 
         proxy_configuration = ProxyConfiguration(new_url_function=custom_new_url_function)
@@ -245,13 +247,15 @@ class TestProxyConfigurationNewProxyInfo:
             password=password,
             country_code=country_code,
         )
+
         proxy_info = await proxy_configuration.new_proxy_info()
+        assert proxy_info is not None
 
         expected_hostname = 'proxy.apify.com'
         expected_port = 8000
         expected_username = f'groups-{"+".join(groups)},country-{country_code}'
 
-        assert proxy_info == {
+        assert asdict(proxy_info) == {
             'url': f'http://{expected_username}:{password}@{expected_hostname}:{expected_port}',
             'hostname': expected_hostname,
             'port': expected_port,
@@ -259,18 +263,37 @@ class TestProxyConfigurationNewProxyInfo:
             'country_code': country_code,
             'username': expected_username,
             'password': password,
+            'proxy_tier': None,
+            'session_id': None,
         }
 
     async def test_new_proxy_info_rotates_urls(self: TestProxyConfigurationNewProxyInfo) -> None:
         proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
         proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 
-        assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[0]
-        assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[1]
-        assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[2]
-        assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[0]
-        assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[1]
-        assert (await proxy_configuration.new_proxy_info())['url'] == proxy_urls[2]
+        proxy_info = await proxy_configuration.new_proxy_info()
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[0]
+
+        proxy_info = await proxy_configuration.new_proxy_info()
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[1]
+
+        proxy_info = await proxy_configuration.new_proxy_info()
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[2]
+
+        proxy_info = await proxy_configuration.new_proxy_info()
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[0]
+
+        proxy_info = await proxy_configuration.new_proxy_info()
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[1]
+
+        proxy_info = await proxy_configuration.new_proxy_info()
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[2]
 
     async def test_new_proxy_info_rotates_urls_with_sessions(self: TestProxyConfigurationNewProxyInfo) -> None:
         sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
@@ -279,20 +302,47 @@ class TestProxyConfigurationNewProxyInfo:
         proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 
         # same session should use same proxy URL
-        assert (await proxy_configuration.new_proxy_info(sessions[0]))['url'] == proxy_urls[0]
-        assert (await proxy_configuration.new_proxy_info(sessions[0]))['url'] == proxy_urls[0]
-        assert (await proxy_configuration.new_proxy_info(sessions[0]))['url'] == proxy_urls[0]
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[0])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[0]
+
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[0])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[0]
+
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[0])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[0]
 
         # different sessions should rotate different proxies
-        assert (await proxy_configuration.new_proxy_info(sessions[1]))['url'] == proxy_urls[1]
-        assert (await proxy_configuration.new_proxy_info(sessions[2]))['url'] == proxy_urls[2]
-        assert (await proxy_configuration.new_proxy_info(sessions[3]))['url'] == proxy_urls[0]
-        assert (await proxy_configuration.new_proxy_info(sessions[4]))['url'] == proxy_urls[1]
-        assert (await proxy_configuration.new_proxy_info(sessions[5]))['url'] == proxy_urls[2]
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[1])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[1]
+
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[2])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[2]
+
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[3])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[0]
+
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[4])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[1]
+
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[5])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[2]
 
         # already used sessions should be remembered
-        assert (await proxy_configuration.new_proxy_info(sessions[1]))['url'] == proxy_urls[1]
-        assert (await proxy_configuration.new_proxy_info(sessions[3]))['url'] == proxy_urls[0]
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[1])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[1]
+
+        proxy_info = await proxy_configuration.new_proxy_info(sessions[3])
+        assert proxy_info is not None
+        assert proxy_info.url == proxy_urls[0]
 
 
 @pytest.fixture()
