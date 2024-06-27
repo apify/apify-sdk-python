@@ -126,9 +126,6 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         """
         _actor_config = _actor_config or Configuration.get_global_configuration()
 
-        super().__init__(proxy_urls=proxy_urls, new_url_function=new_url_function, tiered_proxy_urls=tiered_proxy_urls, configuration=_actor_config)
-        self._configuration = _actor_config
-
         if groups:
             groups = [str(group) for group in groups]
             for group in groups:
@@ -151,6 +148,16 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                 'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration'
             )
 
+        self._uses_apify_proxy = not (proxy_urls or new_url_function or tiered_proxy_urls)
+
+        super().__init__(
+            proxy_urls=[f'http://{_actor_config.proxy_hostname}:{_actor_config.proxy_port}'] if self._uses_apify_proxy else proxy_urls,
+            new_url_function=new_url_function,
+            tiered_proxy_urls=tiered_proxy_urls,
+            configuration=_actor_config,
+        )
+        self._configuration = _actor_config
+
         self.is_man_in_the_middle = False
 
         self._apify_client = _apify_client
@@ -161,7 +168,6 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
         self._groups = list(groups) if groups else []
         self._country_code = country_code
-        self._uses_apify_proxy = not (proxy_urls or new_url_function)
 
     async def initialize(self) -> None:
         """Load the Apify Proxy password if the API token is provided and check access to Apify Proxy and provided proxy groups.
@@ -207,11 +213,14 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             return None
 
         if self._uses_apify_proxy:
+            parsed_url = httpx.URL(proxy_info.url)
+            username = self._get_username(session_id)
+
             return ProxyInfo(
-                url=proxy_info.url,
+                url=f'http://{username}:{self._password or ""}@{parsed_url.host}:{parsed_url.port}',
                 hostname=proxy_info.hostname,
                 port=proxy_info.port,
-                username=self._get_username(session_id),
+                username=username,
                 password=self._password or '',
                 session_id=proxy_info.session_id,
                 proxy_tier=proxy_info.proxy_tier,
