@@ -6,8 +6,9 @@ import os
 import subprocess
 import sys
 import textwrap
+from collections.abc import AsyncIterator, Awaitable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Awaitable, Callable, Mapping, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol
 
 import pytest
 from apify_client import ApifyClientAsync
@@ -15,8 +16,8 @@ from apify_shared.consts import ActorJobStatus, ActorSourceType
 from crawlee.storage_client_manager import StorageClientManager
 from filelock import FileLock
 
+import apify.actor
 from ._utils import generate_unique_resource_name
-from apify import Actor
 from apify.config import Configuration
 
 if TYPE_CHECKING:
@@ -31,9 +32,9 @@ SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 # We also patch the default storage client with a tmp_path
 @pytest.fixture(autouse=True)
 def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Actor, '_default_instance', None)
     monkeypatch.setattr(Configuration, '_default_instance', None)
     monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
+    apify.actor._default_instance = None
     # TODO StorageClientManager local client purge
 
 

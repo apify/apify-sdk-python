@@ -19,14 +19,14 @@ class TestRequestQueue:
                 # Add some requests
                 for i in range(desired_request_count):
                     print(f'Adding request {i}...')
-                    await rq.add_request({'url': f'https://example.com/{i}'})
+                    await rq.add_request(f'https://example.com/{i}')
 
                 handled_request_count = 0
                 while next_request := await rq.fetch_next_request():
                     print('Fetching next request...')
                     queue_operation_info = await rq.mark_request_as_handled(next_request)
                     assert queue_operation_info is not None
-                    assert queue_operation_info['wasAlreadyHandled'] is False
+                    assert queue_operation_info.was_already_handled is False
                     handled_request_count += 1
 
                 assert handled_request_count == desired_request_count

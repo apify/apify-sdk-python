@@ -44,7 +44,7 @@ class TestKeyValueStoreOnActor:
         test_key = 'test_key'
         test_value = 'test_value'
         test_content_type = 'text/plain'
-        async with Actor() as my_actor:
+        async with Actor as my_actor:
             await my_actor.set_value(key=test_key, value=test_value, content_type=test_content_type)
             value = await my_actor.get_value(key=test_key)
             assert value == test_value
@@ -60,7 +60,7 @@ class TestKeyValueStoreOnActor:
             content_type='application/json',
         )
 
-        async with Actor() as my_actor:
+        async with Actor as my_actor:
             input = await my_actor.get_input()  # noqa: A001
             assert input['foo'] == test_input['foo']
 
@@ -87,7 +87,7 @@ class TestKeyValueStoreOnActor:
             content_type='application/json',
         )
 
-        async with Actor() as my_actor:
+        async with Actor as my_actor:
             input = await my_actor.get_input()  # noqa: A001
             assert input['foo'] == input_with_secret['foo']
             assert input['secret'] == secret_string

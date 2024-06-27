@@ -9,12 +9,11 @@ from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 import pytest
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
+from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.memory_storage_client.memory_storage_client import MemoryStorageClient
 from crawlee.storage_client_manager import StorageClientManager
-from crawlee.configuration import Configuration as CrawleeConfiguration
 
-from apify import Actor
-from apify.config import Configuration
+import apify.actor
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,9 +22,27 @@ if TYPE_CHECKING:
 @pytest.fixture()
 def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
     def reset() -> None:
-        monkeypatch.setattr(Actor, '_default_instance', None)
-        monkeypatch.setattr(Configuration, '_default_instance', None)
+        from crawlee.storages._creation_management import (
+            _cache_dataset_by_id,
+            _cache_dataset_by_name,
+            _cache_kvs_by_id,
+            _cache_kvs_by_name,
+            _cache_rq_by_id,
+            _cache_rq_by_name,
+        )
+
+        _cache_dataset_by_id.clear()
+        _cache_dataset_by_name.clear()
+        _cache_kvs_by_id.clear()
+        _cache_kvs_by_name.clear()
+        _cache_rq_by_id.clear()
+        _cache_rq_by_name.clear()
+
+        monkeypatch.setattr(CrawleeConfiguration, '_default_instance', None)
         monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
+        monkeypatch.setattr(StorageClientManager, '_local_client', MemoryStorageClient())
+
+        apify.actor._default_instance = None
         # TODO StorageClientManager local client purge
 
     return reset
@@ -35,10 +52,10 @@ def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Non
 # We also set the MemoryStorageClient to use a temp path
 @pytest.fixture(autouse=True)
 def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_default_instances: Callable[[], None]) -> None:
-    reset_default_instances()
-
     # This forces the MemoryStorageClient to use tmp_path for its storage dir
     monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
+
+    reset_default_instances()
 
 
 # This class is used to patch the ApifyClientAsync methods to return a fixed value or be replaced with another method.
