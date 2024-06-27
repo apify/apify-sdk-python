@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, cast
 
 from crawlee._utils.models import timedelta_ms
 from crawlee.configuration import Configuration as CrawleeConfiguration
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from typing_extensions import Self
 
 
@@ -17,45 +17,158 @@ class Configuration(CrawleeConfiguration):
     or it can be specific to each `Actor` instance on the `actor.config` property.
     """
 
-    actor_id: Annotated[str | None, Field(alias='actor_id')] = None
-    actor_run_id: Annotated[str | None, Field(alias='actor_run_id')] = None
-    actor_build_id: Annotated[str | None, Field()] = None
-    actor_build_number: Annotated[str | None, Field()] = None
-    actor_task_id: Annotated[str | None, Field(alias='actor_task_id')] = None
-    actor_events_ws_url: Annotated[str | None, Field(alias='actor_events_websocket_url')] = None
-    api_base_url: Annotated[str, Field(alias='apify_api_base_url')] = 'https://api.apify.com'
-    api_public_base_url: Annotated[str, Field(alias='apify_api_public_base_url')] = 'https://api.apify.com'
-    default_dataset_id: Annotated[str, Field(alias='actor_default_dataset_id')] = 'default'
-    default_key_value_store_id: Annotated[str, Field(alias='actor_default_key_value_store_id')] = 'default'
-    default_request_queue_id: Annotated[str, Field(alias='actor_default_request_queue_id')] = 'default'
-    disable_browser_sandbox: Annotated[bool, Field(alias='apify_disable_browser_sandbox')] = False
-    headless: Annotated[bool, Field(alias='apify_headless')] = True
-    input_key: Annotated[str, Field(alias='actor_input_key')] = 'INPUT'
-    input_secrets_private_key_file: Annotated[str | None, Field(alias='apify_input_secrets_private_key_file')] = None
-    input_secrets_private_key_passphrase: Annotated[str | None, Field(alias='apify_input_secrets_private_key_passphrase')] = None
-    is_at_home: Annotated[bool, Field(alias='apify_is_at_home')] = False
-    max_paid_dataset_items: Annotated[int | None, Field(alias='actor_max_paid_dataset_items')] = None
-    memory_mbytes: Annotated[int | None, Field(alias='actor_memory_mbytes')] = None
-    meta_origin: Annotated[str | None, Field(alias='apify_meta_origin')] = None
-    metamorph_after_sleep: Annotated[timedelta_ms, Field('apify_metamorph_after_sleep_millis')] = timedelta(minutes=5)
-    persist_state_interval: Annotated[timedelta_ms, Field('apify_persist_state_interval_millis')] = timedelta(minutes=1)
-    persist_storage: Annotated[bool, Field(alias='apify_persist_storage')] = True
-    proxy_hostname: Annotated[str, Field(alias='apify_proxy_hostname')] = 'proxy.apify.com'
-    proxy_password: Annotated[str | None, Field(alias='apify_proxy_password')] = None
-    proxy_port: Annotated[int, Field(alias='apify_proxy_port')] = 8000
-    proxy_status_url: Annotated[str, Field(alias='apify_proxy_status_url')] = 'http://proxy.apify.com'
-    purge_on_start: Annotated[bool, Field(alias='apify_purge_on_start')] = False
-    started_at: Annotated[datetime | None, Field(alias='actor_started_at')] = None
-    timeout_at: Annotated[datetime | None, Field(alias='actor_timeout_at')] = None
-    token: Annotated[str | None, Field(alias='apify_token')] = None
-    user_id: Annotated[str | None, Field(alias='apify_user_id')] = None
-    web_server_port: Annotated[int, Field(alias='actor_web_server_port')] = 4321
-    web_server_url: Annotated[str, Field(alias='actor_web_server_url')] = 'http://localhost:4321'
-    xvfb: Annotated[bool, Field(alias='apify_xvfb')] = False
-    system_info_interval: Annotated[timedelta_ms, Field(alias='apify_system_info_interval_millis')] = timedelta(minutes=1)
+    actor_id: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_id',
+                'apify_actor_id',
+                'apify_act_id',
+            )
+        ),
+    ] = None
 
-    # TODO chrome_executable_path, container_port, container_url, dedicated_cpus, default_browser_path,
-    # disable_browser_sandbox, input_secrets_private_key_file, input_secrets_private_key_passphrase, max_used_cpu_ratio
+    actor_run_id: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_run_id',
+                'apify_actor_run_id',
+                'apify_act_run_id',
+            )
+        ),
+    ] = None
+
+    actor_build_id: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_build_id',
+                'apify_actor_build_id',
+            )
+        ),
+    ] = None
+
+    actor_build_number: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_build_number',
+                'apify_actor_build_number',
+            )
+        ),
+    ] = None
+
+    actor_task_id: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_task_id',
+                'apify_actor_task_id',
+            )
+        ),
+    ] = None
+
+    actor_events_ws_url: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_events_websocket_url',
+                'apify_actor_events_ws_url',
+            )
+        ),
+    ] = None
+
+    api_base_url: Annotated[str, Field(alias='apify_api_base_url')] = 'https://api.apify.com'
+
+    api_public_base_url: Annotated[str, Field(alias='apify_api_public_base_url')] = 'https://api.apify.com'
+
+    dedicated_cpus: Annotated[float | None, Field(alias='apify_dedicated_cpus')] = None
+
+    disable_outdated_warning: Annotated[bool, Field(alias='apify_disable_outdated_warning')] = False
+
+    fact: Annotated[str | None, Field(alias='apify_fact')] = None
+
+    input_key: Annotated[
+        str,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_input_key',
+                'apify_input_key',
+                'crawlee_input_key',
+            )
+        ),
+    ] = 'INPUT'
+
+    input_secrets_private_key_file: Annotated[str | None, Field(alias='apify_input_secrets_private_key_file')] = None
+
+    input_secrets_private_key_passphrase: Annotated[str | None, Field(alias='apify_input_secrets_private_key_passphrase')] = None
+
+    is_at_home: Annotated[bool, Field(alias='apify_is_at_home')] = False
+
+    latest_sdk_version: Annotated[str | None, Field(alias='apify_sdk_latest_version', deprecated=True)] = None
+
+    log_format: Annotated[str | None, Field(alias='apify_log_format', deprecated=True)] = None
+
+    max_paid_dataset_items: Annotated[int | None, Field(alias='actor_max_paid_dataset_items')] = None
+
+    meta_origin: Annotated[str | None, Field(alias='apify_meta_origin')] = None
+
+    metamorph_after_sleep: Annotated[timedelta_ms, Field(alias='apify_metamorph_after_sleep_millis')] = timedelta(minutes=5)
+
+    proxy_hostname: Annotated[str, Field(alias='apify_proxy_hostname')] = 'proxy.apify.com'
+
+    proxy_password: Annotated[str | None, Field(alias='apify_proxy_password')] = None
+
+    proxy_port: Annotated[int, Field(alias='apify_proxy_port')] = 8000
+
+    proxy_status_url: Annotated[str, Field(alias='apify_proxy_status_url')] = 'http://proxy.apify.com'
+
+    started_at: Annotated[
+        datetime | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_started_at',
+                'apify_started_at',
+            )
+        ),
+    ] = None
+
+    timeout_at: Annotated[
+        datetime | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_timeout_at',
+                'apify_timeout_at',
+            )
+        ),
+    ] = None
+
+    token: Annotated[str | None, Field(alias='apify_token')] = None
+
+    user_id: Annotated[str | None, Field(alias='apify_user_id')] = None
+
+    web_server_port: Annotated[
+        int,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_web_server_port',
+                'apify_container_port',
+            )
+        ),
+    ] = 4321
+
+    web_server_url: Annotated[
+        str,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_web_server_url',
+                'apify_container_url',
+            )
+        ),
+    ] = 'http://localhost:4321'
+
+    workflow_key: Annotated[str | None, Field(alias='apify_workflow_key')] = None
 
     @classmethod
     def get_global_configuration(cls) -> Self:
@@ -64,7 +177,13 @@ class Configuration(CrawleeConfiguration):
         The global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.
         Also accessible via `Actor.config`.
         """
-        if cls._default_instance is None:
-            cls._default_instance = cls()
+        if CrawleeConfiguration._default_instance is None:
+            import os
+            print(os.environ.get('APIFY_IS_AT_HOME'))
+            CrawleeConfiguration._default_instance = cls()
 
-        return cls._default_instance
+        return cast(Self, CrawleeConfiguration._default_instance)
+
+
+# Monkey-patch the base class so that it works with the extended configuration
+CrawleeConfiguration.get_global_configuration = Configuration.get_global_configuration
