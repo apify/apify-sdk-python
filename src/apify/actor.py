@@ -12,7 +12,9 @@ from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, Webh
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee.events.types import Event, EventPersistStateData
 from crawlee.storage_client_manager import StorageClientManager
+from pydantic import AliasChoices
 from typing_extensions import Self
+from werkzeug.local import LocalProxy
 
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._utils import get_system_info, is_running_in_ipython
@@ -50,14 +52,20 @@ class _ActorType:
         Args:
             config (Configuration, optional): The actor configuration to be used. If not passed, a new Configuration instance will be created.
         """
-        self._configuration = config or Configuration()
+        self._configuration = config or Configuration.get_global_configuration()
         self._apify_client = self.new_client()
 
         self._event_manager: EventManager
         if self._configuration.is_at_home:
-            self._event_manager = PlatformEventManager(config=self._configuration)
+            self._event_manager = PlatformEventManager(
+                config=self._configuration,
+                persist_state_interval=self._configuration.persist_state_interval,
+            )
         else:
-            self._event_manager = LocalEventManager()
+            self._event_manager = LocalEventManager(
+                system_info_interval=self._configuration.system_info_interval,
+                persist_state_interval=self._configuration.persist_state_interval,
+            )
 
         self._is_initialized = False
 
@@ -95,6 +103,12 @@ class _ActorType:
                 )
             else:
                 await self.exit()
+
+    def __repr__(self) -> str:
+        if self is _default_instance:
+            return '<apify.Actor>'
+
+        return super().__repr__()
 
     @property
     def apify_client(self) -> ApifyClientAsync:
@@ -516,9 +530,25 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        config = self._configuration.model_dump(by_alias=True)
+        config = dict[str, Any]()
+        for field_name, field in Configuration.model_fields.items():
+            if field.deprecated:
+                continue
+
+            if field.alias:
+                aliases = [field.alias]
+            elif isinstance(field.validation_alias, str):
+                aliases = [field.validation_alias]
+            elif isinstance(field.validation_alias, AliasChoices):
+                aliases = cast(list[str], field.validation_alias.choices)
+            else:
+                aliases = [field_name]
+
+            for alias in aliases:
+                config[alias] = getattr(self._configuration, field_name)
+
         env_vars = {env_var.value.lower(): env_var.name.lower() for env_var in [*ActorEnvVars, *ApifyEnvVars]}
-        return {option_name: config[env_var] for env_var, option_name in env_vars}
+        return {option_name: config[env_var] for env_var, option_name in env_vars.items() if env_var in config}
 
     async def start(
         self,
@@ -886,7 +916,7 @@ class _ActorType:
         For more details and code examples, see the `ProxyConfiguration` class.
 
         Args:
-            actor_proxy_input (dict, optional): Proxy configuration field from the actor input, if actor has such input field.
+            actor_proxy_input (dict, optional): Proxy configuration field from the actor input, if input has such input field.
                 If you pass this argument, all the other arguments will be inferred from it.
             password (str, optional): Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
             groups (list of str, optional): Proxy groups which the Apify Proxy should use, if provided.
@@ -924,5 +954,17 @@ class _ActorType:
         return proxy_configuration
 
 
-Actor = _ActorType()
+_default_instance: _ActorType | None = None
+
+
+def _get_default_instance() -> _ActorType:
+    global _default_instance  # noqa: PLW0603
+
+    if not _default_instance:
+        _default_instance = _ActorType()
+
+    return _default_instance
+
+
+Actor = cast(_ActorType, LocalProxy(_get_default_instance))
 """The entry point of the SDK, through which all the actor operations should be done."""
