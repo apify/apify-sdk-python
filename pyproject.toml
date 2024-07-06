@@ -27,7 +27,7 @@ requires-python = ">=3.8"
 # https://github.com/apify/apify-sdk-python/pull/154
 dependencies = [
     "apify-client ~= 1.6.0",
-    "apify-shared ~= 1.1.0",
+    "apify-shared ~= 1.1.2",
     "aiofiles >= 22.1.0",
     "aioshutil >= 1.0",
     "colorama >= 0.4.6",
