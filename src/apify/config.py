@@ -35,6 +35,7 @@ class Configuration:
         proxy_status_url: str | None = None,
         purge_on_start: bool | None = None,
         token: str | None = None,
+        standby_port: int | None = None,
         system_info_interval_millis: int | None = None,
     ) -> None:
         """Create a `Configuration` instance.
@@ -65,6 +66,7 @@ class Configuration:
             purge_on_start (str, optional): Whether the actor should purge its default storages on startup, when running locally.
             token (str, optional): The API token for the Apify API this actor should use.
             system_info_interval_millis (str, optional): How often should the actor emit the SYSTEM_INFO event when running locally.
+            standby_port (int, optional): The port on which the container can listen for Actor Standby HTTP requests.
         """
         # TODO: Document all these members
         # https://github.com/apify/apify-sdk-python/issues/147
@@ -103,6 +105,7 @@ class Configuration:
         self.proxy_port = proxy_port or fetch_and_parse_env_var(ApifyEnvVars.PROXY_PORT, 8000)
         self.proxy_status_url = proxy_status_url or fetch_and_parse_env_var(ApifyEnvVars.PROXY_STATUS_URL, 'http://proxy.apify.com')
         self.purge_on_start = purge_on_start or fetch_and_parse_env_var(ApifyEnvVars.PURGE_ON_START, default=False)
+        self.standby_port = standby_port or fetch_and_parse_env_var(ActorEnvVars.STANDBY_PORT, 4322)
         self.started_at = fetch_and_parse_env_var(ActorEnvVars.STARTED_AT)
         self.timeout_at = fetch_and_parse_env_var(ActorEnvVars.TIMEOUT_AT)
         self.token = token or fetch_and_parse_env_var(ApifyEnvVars.TOKEN)
