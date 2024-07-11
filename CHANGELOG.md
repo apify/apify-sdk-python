@@ -2,9 +2,13 @@
 
 ## [1.7.3](../../releases/tag/v1.7.3) - Unreleased
 
-...
+### Added
+
+- Upgrade Apify Client to 1.7.1
 
 ## [1.7.2](../../releases/tag/v1.7.2) - 2024-07-08
+
+### Added
 
 - Add Actor Standby port
 
