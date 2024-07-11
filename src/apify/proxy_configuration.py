@@ -325,7 +325,7 @@ class ProxyConfiguration:
         proxy_status_url = f'{self._actor_config.proxy_status_url}/?format=json'
 
         status = None
-        async with httpx.AsyncClient(proxies=await self.new_url()) as client:
+        async with httpx.AsyncClient(proxies=await self.new_url(), timeout=10) as client:
             for _ in range(2):
                 try:
                     response = await client.get(proxy_status_url)

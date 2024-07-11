@@ -208,9 +208,7 @@ def get_memory_usage_bytes() -> int:
 
 
 def maybe_parse_bool(val: str | None) -> bool:
-    if val in {'true', 'True', '1'}:
-        return True
-    return False
+    return val in {'true', 'True', '1'}
 
 
 def maybe_parse_datetime(val: str) -> datetime | str:

@@ -76,7 +76,7 @@ class ActorLogFormatter(logging.Formatter):
         extra_fields: dict[str, Any] = {}
         for key, value in record.__dict__.items():
             if key not in self.empty_record.__dict__:
-                extra_fields[key] = value
+                extra_fields[key] = value  # noqa: PERF403
 
         return extra_fields
 

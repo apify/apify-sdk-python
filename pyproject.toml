@@ -86,6 +86,8 @@ apify = ["py.typed"]
 
 [tool.ruff]
 line-length = 150
+
+[tool.ruff.lint]
 select = ["ALL"]
 ignore = [
     "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in {filename}

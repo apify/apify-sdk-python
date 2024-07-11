@@ -69,7 +69,7 @@ class TestActorLog:
         assert caplog.records[7].levelno == logging.ERROR
         assert caplog.records[7].message == 'Exception message'
         assert caplog.records[7].exc_info is not None
-        assert caplog.records[7].exc_info[0] == ValueError
+        assert caplog.records[7].exc_info[0] is ValueError
         assert isinstance(caplog.records[7].exc_info[1], ValueError)
         assert str(caplog.records[7].exc_info[1]) == 'Dummy ValueError'
 
@@ -79,7 +79,7 @@ class TestActorLog:
         assert caplog.records[9].levelno == logging.ERROR
         assert caplog.records[9].message == 'Actor failed with an exception'
         assert caplog.records[9].exc_info is not None
-        assert caplog.records[9].exc_info[0] == RuntimeError
+        assert caplog.records[9].exc_info[0] is RuntimeError
         assert isinstance(caplog.records[9].exc_info[1], RuntimeError)
         assert str(caplog.records[9].exc_info[1]) == 'Dummy RuntimeError'
 

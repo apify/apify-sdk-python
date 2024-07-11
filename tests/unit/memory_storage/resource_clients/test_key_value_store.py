@@ -178,7 +178,7 @@ async def test_get_and_set_record(tmp_path: Path, key_value_store_client: KeyVal
     assert bytes_record_info['value'].decode('utf-8') == bytes_value.decode('utf-8')
 
     # Test using file descriptor
-    with open(os.path.join(tmp_path, 'test.json'), 'w+', encoding='utf-8') as f:  # noqa: ASYNC101
+    with open(os.path.join(tmp_path, 'test.json'), 'w+', encoding='utf-8') as f:  # noqa: ASYNC230
         f.write('Test')
         with pytest.raises(NotImplementedError, match='File-like values are not supported in local memory storage'):
             await key_value_store_client.set_record('file', f)
@@ -272,11 +272,11 @@ async def test_writes_correct_metadata(memory_storage_client: MemoryStorageClien
     assert os.path.exists(item_path)
     assert os.path.exists(metadata_path)
 
-    with open(item_path, 'rb') as item_file:  # noqa: ASYNC101
+    with open(item_path, 'rb') as item_file:  # noqa: ASYNC230
         actual_value = maybe_parse_body(item_file.read(), expected_output['contentType'])
         assert actual_value == test_input['value']
 
-    with open(metadata_path, encoding='utf-8') as metadata_file:  # noqa: ASYNC101
+    with open(metadata_path, encoding='utf-8') as metadata_file:  # noqa: ASYNC230
         metadata = json.load(metadata_file)
         assert metadata['key'] == expected_output['key']
         assert expected_output['contentType'] in metadata['contentType']
@@ -364,12 +364,12 @@ async def test_reads_correct_metadata(memory_storage_client: MemoryStorageClient
 
     # Write the store metadata to disk
     store_metadata_path = os.path.join(storage_path, '__metadata__.json')
-    with open(store_metadata_path, mode='wb') as store_metadata_file:  # noqa: ASYNC101
+    with open(store_metadata_path, mode='wb') as store_metadata_file:  # noqa: ASYNC230
         store_metadata_file.write(json_dumps(store_metadata).encode('utf-8'))
 
     # Write the test input item to the disk
     item_path = os.path.join(storage_path, test_input['filename'])
-    with open(item_path, 'wb') as item_file:  # noqa: ASYNC101
+    with open(item_path, 'wb') as item_file:  # noqa: ASYNC230
         if isinstance(test_input['value'], bytes):
             item_file.write(test_input['value'])
         elif isinstance(test_input['value'], str):
@@ -380,7 +380,7 @@ async def test_reads_correct_metadata(memory_storage_client: MemoryStorageClient
     # Optionally write the metadata to disk if there is some
     if test_input['metadata'] is not None:
         metadata_path = os.path.join(storage_path, test_input['filename'] + '.__metadata__.json')
-        with open(metadata_path, 'w', encoding='utf-8') as metadata_file:  # noqa: ASYNC101
+        with open(metadata_path, 'w', encoding='utf-8') as metadata_file:  # noqa: ASYNC230
             metadata_file.write(
                 json_dumps(
                     {
