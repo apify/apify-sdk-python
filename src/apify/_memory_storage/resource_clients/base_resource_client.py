@@ -50,7 +50,7 @@ class BaseResourceClient(ABC):
     @classmethod
     @abstractmethod
     def _get_storage_client_cache(
-        cls,  # noqa: ANN102 # type annotated cls does not work with Self as a return type
+        cls,
         memory_storage_client: MemoryStorageClient,
     ) -> list[Self]:
         raise NotImplementedError('You must override this method in the subclass!')
@@ -62,7 +62,7 @@ class BaseResourceClient(ABC):
     @classmethod
     @abstractmethod
     def _create_from_directory(
-        cls,  # noqa: ANN102 # type annotated cls does not work with Self as a return type
+        cls,
         storage_directory: str,
         memory_storage_client: MemoryStorageClient,
         id: str | None = None,  # noqa: A002
@@ -72,7 +72,7 @@ class BaseResourceClient(ABC):
 
     @classmethod
     def _find_or_create_client_by_id_or_name(
-        cls,  # noqa: ANN102 # type annotated cls does not work with Self as a return type
+        cls,
         memory_storage_client: MemoryStorageClient,
         id: str | None = None,  # noqa: A002
         name: str | None = None,
