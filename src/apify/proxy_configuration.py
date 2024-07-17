@@ -270,7 +270,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             return
 
         status = None
-        async with httpx.AsyncClient(proxies=proxy_info.url) as client:
+        async with httpx.AsyncClient(proxies=proxy_info.url, timeout=10) as client:
             for _ in range(2):
                 try:
                     response = await client.get(proxy_status_url)

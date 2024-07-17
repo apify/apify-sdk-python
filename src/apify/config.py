@@ -144,6 +144,8 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = None
 
+    standby_port: Annotated[int, Field(alias='actor_standby_port')] = 4322
+
     token: Annotated[str | None, Field(alias='apify_token')] = None
 
     user_id: Annotated[str | None, Field(alias='apify_user_id')] = None
@@ -178,8 +180,6 @@ class Configuration(CrawleeConfiguration):
         Also accessible via `Actor.config`.
         """
         if CrawleeConfiguration._default_instance is None:
-            import os
-            print(os.environ.get('APIFY_IS_AT_HOME'))
             CrawleeConfiguration._default_instance = cls()
 
         return cast(Self, CrawleeConfiguration._default_instance)
