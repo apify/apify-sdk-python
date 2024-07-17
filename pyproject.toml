@@ -92,6 +92,7 @@ line-length = 150
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
+    "A002",    # Argument is shadowing a Python builtin
     "ANN101",  # Missing type annotation for `self` in method
     "ANN102",  # Missing type annotation for `cls` in method
     "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in {filename}

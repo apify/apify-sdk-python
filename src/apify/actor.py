@@ -169,7 +169,7 @@ class _ActorType:
         self,
         *,
         exit_code: int = 0,
-        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,  # noqa: ARG002
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
@@ -319,7 +319,7 @@ class _ActorType:
     async def open_dataset(
         self,
         *,
-        id: str | None = None,  # noqa: A002
+        id: str | None = None,
         name: str | None = None,
         force_cloud: bool = False,
     ) -> Dataset:
@@ -352,7 +352,7 @@ class _ActorType:
     async def open_key_value_store(
         self,
         *,
-        id: str | None = None,  # noqa: A002
+        id: str | None = None,
         name: str | None = None,
         force_cloud: bool = False,
     ) -> KeyValueStore:
@@ -384,7 +384,7 @@ class _ActorType:
     async def open_request_queue(
         self,
         *,
-        id: str | None = None,  # noqa: A002
+        id: str | None = None,
         name: str | None = None,
         force_cloud: bool = False,
     ) -> RequestQueue:
@@ -788,7 +788,7 @@ class _ActorType:
     async def reboot(
         self,
         *,
-        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,  # noqa: ARG002
         custom_after_sleep: timedelta | None = None,
     ) -> None:
         """Internally reboot this actor.

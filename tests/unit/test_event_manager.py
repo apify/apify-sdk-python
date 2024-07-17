@@ -32,7 +32,7 @@ class TestEventManagerLocal:
         async with EventManager() as event_manager:
             event_calls = defaultdict(list)
 
-            def on_event(event: Event, id: int | None = None) -> Callable:  # noqa: A002
+            def on_event(event: Event, id: int | None = None) -> Callable:
                 def event_handler(data: Any) -> None:
                     nonlocal event_calls
                     event_calls[event].append((id, data))

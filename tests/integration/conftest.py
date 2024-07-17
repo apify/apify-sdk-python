@@ -6,7 +6,6 @@ import os
 import subprocess
 import sys
 import textwrap
-from collections.abc import AsyncIterator, Awaitable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Protocol
 
@@ -21,6 +20,8 @@ from ._utils import generate_unique_resource_name
 from apify.config import Configuration
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Mapping
+
     from apify_client.clients.resource_clients import ActorClientAsync
 
 TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
@@ -35,7 +36,7 @@ def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Configuration, '_default_instance', None)
     monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
     apify.actor._default_instance = None
-    # TODO StorageClientManager local client purge
+    # TODO: StorageClientManager local client purge  # noqa: TD003
 
 
 # This fixture can't be session-scoped,

@@ -43,7 +43,7 @@ def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Non
         monkeypatch.setattr(StorageClientManager, '_local_client', MemoryStorageClient())
 
         apify.actor._default_instance = None
-        # TODO StorageClientManager local client purge
+        # TODO: StorageClientManager local client purge  # noqa: TD003
 
     return reset
 

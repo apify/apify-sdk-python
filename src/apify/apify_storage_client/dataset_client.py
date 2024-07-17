@@ -8,9 +8,11 @@ from typing_extensions import override
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from contextlib import AbstractAsyncContextManager
 
     from apify_client.clients import DatasetClientAsync
     from crawlee.types import JSONSerializable
+    from httpx import Response
 
 
 class DatasetClient(BaseDatasetClient):
@@ -157,7 +159,7 @@ class DatasetClient(BaseDatasetClient):
         skip_hidden: bool = False,
         xml_root: str | None = None,
         xml_row: str | None = None,
-    ) -> AsyncIterator[dict]:  # TODO incorrect type
+    ) -> AbstractAsyncContextManager[Response | None]:
         return self._client.stream_items(
             item_format=item_format,
             offset=offset,

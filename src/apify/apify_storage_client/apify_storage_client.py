@@ -18,13 +18,13 @@ class ApifyStorageClient(BaseStorageClient):
         self._apify_client = ApifyClientAsync(
             token=configuration.token,
             api_url=configuration.api_base_url,
-            max_retries=8,  # TODO
+            max_retries=8,
             min_delay_between_retries_millis=500,
             timeout_secs=360,
         )
 
     @override
-    def dataset(self, id: str) -> DatasetClient:  # noqa: A002
+    def dataset(self, id: str) -> DatasetClient:
         return DatasetClient(self._apify_client.dataset(id))
 
     @override

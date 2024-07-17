@@ -20,9 +20,9 @@ class RequestQueueCollectionClient(BaseRequestQueueCollectionClient):
     async def get_or_create(
         self,
         *,
-        id: str | None = None,  # noqa: A002
+        id: str | None = None,
         name: str | None = None,
-        schema: dict | None = None,  # TODO unused
+        schema: dict | None = None,
     ) -> RequestQueueMetadata:
         return RequestQueueMetadata.model_validate(
             await self._client.get_or_create(

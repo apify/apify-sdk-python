@@ -125,7 +125,7 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     return public_key
 
 
-def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:  # noqa: A002
+def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:
     """Decrypt input secrets."""
     if not isinstance(input, dict):
         return input

@@ -20,7 +20,7 @@ class KeyValueStoreCollectionClient(BaseKeyValueStoreCollectionClient):
     async def get_or_create(
         self,
         *,
-        id: str | None = None,  # noqa: A002
+        id: str | None = None,
         name: str | None = None,
         schema: dict | None = None,
     ) -> KeyValueStoreMetadata:

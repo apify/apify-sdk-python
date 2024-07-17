@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 from crawlee.base_storage_client.base_key_value_store_client import BaseKeyValueStoreClient
@@ -8,8 +9,10 @@ from typing_extensions import override
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from contextlib import AbstractAsyncContextManager
 
     from apify_client.clients import KeyValueStoreClientAsync
+    from httpx import Response
 
 
 class KeyValueStoreClient(BaseKeyValueStoreClient):
@@ -55,9 +58,13 @@ class KeyValueStoreClient(BaseKeyValueStoreClient):
         return KeyValueStoreRecord.model_validate(result) if result else None
 
     @override
-    async def stream_record(self, key: str) -> AsyncIterator[KeyValueStoreRecord | None]:  # TODO incorrect type
+    async def stream_record(self, key: str) -> AbstractAsyncContextManager[KeyValueStoreRecord[Response] | None]:
+        return self._stream_record_internal(key)
+
+    @asynccontextmanager
+    async def _stream_record_internal(self, key: str) -> AsyncIterator[KeyValueStoreRecord[Response] | None]:
         async with self._client.stream_record(key) as response:
-            return KeyValueStoreRecord.model_validate(response)
+            yield KeyValueStoreRecord.model_validate(response)
 
     @override
     async def set_record(self, key: str, value: Any, content_type: str | None = None) -> None:
