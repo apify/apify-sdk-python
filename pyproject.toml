@@ -184,8 +184,6 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_ignores = true
 
-[tool.mypy-scrapy]
-ignore_missing_imports = true
-
-[tool.mypy-sortedcollections]
+[[tool.mypy.overrides]]
+module = ['scrapy', 'scrapy.*', 'sortedcollections']
 ignore_missing_imports = true
