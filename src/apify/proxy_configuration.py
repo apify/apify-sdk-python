@@ -154,7 +154,6 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             proxy_urls=[f'http://{_actor_config.proxy_hostname}:{_actor_config.proxy_port}'] if self._uses_apify_proxy else proxy_urls,
             new_url_function=new_url_function,
             tiered_proxy_urls=tiered_proxy_urls,
-            configuration=_actor_config,
         )
         self._configuration = _actor_config
 
@@ -218,6 +217,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
             return ProxyInfo(
                 url=f'http://{username}:{self._password or ""}@{parsed_url.host}:{parsed_url.port}',
+                scheme='http',
                 hostname=proxy_info.hostname,
                 port=proxy_info.port,
                 username=username,
@@ -230,6 +230,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
         return ProxyInfo(
             url=proxy_info.url,
+            scheme=proxy_info.scheme,
             hostname=proxy_info.hostname,
             port=proxy_info.port,
             username=proxy_info.username,
