@@ -18,8 +18,9 @@ if TYPE_CHECKING:
 class KeyValueStoreClient(BaseKeyValueStoreClient):
     """Key-value store resource client implementation based on the Apify platform storage."""
 
-    def __init__(self, apify_key_value_store_client: KeyValueStoreClientAsync) -> None:
+    def __init__(self, apify_key_value_store_client: KeyValueStoreClientAsync, api_public_base_url: str) -> None:
         self._client = apify_key_value_store_client
+        self._api_public_base_url = api_public_base_url
 
     @override
     async def get(self) -> KeyValueStoreMetadata | None:
@@ -79,3 +80,13 @@ class KeyValueStoreClient(BaseKeyValueStoreClient):
         await self._client.delete_record(
             key=key,
         )
+
+    async def get_public_url(self, key: str) -> str:
+        """Get a URL for the given key that may be used to publicly access the value in the remote key-value store.
+
+        Args:
+            key (str): The key for which the URL should be generated.
+        """
+        public_api_url = self._api_public_base_url
+
+        return f'{public_api_url}/v2/key-value-stores/{self._client.resource_id}/records/{key}'

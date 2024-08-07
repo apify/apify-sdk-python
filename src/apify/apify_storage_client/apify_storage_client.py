@@ -22,6 +22,7 @@ class ApifyStorageClient(BaseStorageClient):
             min_delay_between_retries_millis=500,
             timeout_secs=360,
         )
+        self._configuration = configuration
 
     @override
     def dataset(self, id: str) -> DatasetClient:
@@ -33,7 +34,7 @@ class ApifyStorageClient(BaseStorageClient):
 
     @override
     def key_value_store(self, id: str) -> KeyValueStoreClient:
-        return KeyValueStoreClient(self._apify_client.key_value_store(id))
+        return KeyValueStoreClient(self._apify_client.key_value_store(id), self._configuration.api_public_base_url)
 
     @override
     def key_value_stores(self) -> KeyValueStoreCollectionClient:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from apify_shared.consts import ApifyEnvVars
+from crawlee.models import Request
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
@@ -66,7 +67,7 @@ class TestActorOpenRequestQueue:
             request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
             request_queue_id = request_queue._id
 
-            request_info = await request_queue.add_request({'url': 'http://example.com'})
+            request_info = await request_queue.add_request(Request.from_url('http://example.com'))
 
         request_queue_client = apify_client_async.request_queue(request_queue_id)
 
@@ -75,7 +76,7 @@ class TestActorOpenRequestQueue:
             assert request_queue_details is not None
             assert request_queue_details.get('name') == request_queue_name
 
-            request_queue_request = await request_queue_client.get_request(request_info['requestId'])
+            request_queue_request = await request_queue_client.get_request(request_info.id)
             assert request_queue_request is not None
             assert request_queue_request['url'] == 'http://example.com'
         finally:

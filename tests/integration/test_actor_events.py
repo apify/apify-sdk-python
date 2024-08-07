@@ -4,6 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from apify_shared.consts import ActorEventTypes
+from crawlee.events.types import Event
 
 from apify import Actor
 
@@ -38,8 +39,8 @@ class TestActorEvents:
                 return log_event
 
             async with Actor:
-                Actor.on(ActorEventTypes.SYSTEM_INFO, on_event(ActorEventTypes.SYSTEM_INFO))
-                Actor.on(ActorEventTypes.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
+                Actor.on(Event.SYSTEM_INFO, on_event(ActorEventTypes.SYSTEM_INFO))
+                Actor.on(Event.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
                 await asyncio.sleep(3)
 
                 # The SYSTEM_INFO event sometimes takes a while to appear, let's wait for it for a while longer
@@ -68,7 +69,7 @@ class TestActorEvents:
         async def main() -> None:
             import os
 
-            from apify_shared.consts import ActorEventTypes, ApifyEnvVars
+            from apify_shared.consts import ApifyEnvVars
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '100'
 
@@ -80,11 +81,11 @@ class TestActorEvents:
                 counter += 1
 
             async with Actor:
-                Actor.on(ActorEventTypes.PERSIST_STATE, count_event)
+                Actor.on(Event.PERSIST_STATE, count_event)
                 await asyncio.sleep(0.5)
                 assert counter > 1
                 last_count = counter
-                Actor.off(ActorEventTypes.PERSIST_STATE, count_event)
+                Actor.off(Event.PERSIST_STATE, count_event)
                 await asyncio.sleep(0.5)
                 assert counter == last_count
 

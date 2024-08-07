@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
+from apify.apify_storage_client.key_value_store_client import KeyValueStoreClient
 
 if TYPE_CHECKING:
     import pytest
@@ -191,7 +192,7 @@ class TestGetPublicUrl:
                 default_store_id = Actor.config.default_key_value_store_id
 
                 store = await Actor.open_key_value_store()
-                record_url = await store.get_public_url('dummy')
+                record_url = await cast(KeyValueStoreClient, store._resource_client).get_public_url('dummy')
                 print(record_url)
 
                 assert record_url == f'{public_api_url}/v2/key-value-stores/{default_store_id}/records/dummy'
