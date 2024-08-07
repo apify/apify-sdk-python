@@ -265,6 +265,7 @@ class TestProxyConfigurationNewProxyInfo:
             'password': password,
             'proxy_tier': None,
             'session_id': None,
+            'scheme': 'http',
         }
 
     async def test_new_proxy_info_rotates_urls(self: TestProxyConfigurationNewProxyInfo) -> None:
