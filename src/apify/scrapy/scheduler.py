@@ -96,18 +96,13 @@ class ApifyScheduler(BaseScheduler):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
-            result = nested_event_loop.run_until_complete(
-                self._rq.add_request(
-                    apify_request,
-                    use_extended_unique_key=True,
-                )
-            )
+            result = nested_event_loop.run_until_complete(self._rq.add_request(apify_request))
         except BaseException:
             traceback.print_exc()
             raise
 
         Actor.log.debug(f'[{call_id}]: rq.add_request.result={result}...')
-        return bool(result['wasAlreadyPresent'])
+        return bool(result.was_already_present)
 
     def next_request(self: ApifyScheduler) -> Request | None:
         """Fetch the next request from the scheduler.

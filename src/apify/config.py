@@ -186,4 +186,4 @@ class Configuration(CrawleeConfiguration):
 
 
 # Monkey-patch the base class so that it works with the extended configuration
-CrawleeConfiguration.get_global_configuration = Configuration.get_global_configuration  # mypy: ignore
+CrawleeConfiguration.get_global_configuration = Configuration.get_global_configuration  # type: ignore
