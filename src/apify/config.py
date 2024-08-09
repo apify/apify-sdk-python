@@ -6,7 +6,7 @@ from typing import Annotated, cast
 
 from crawlee._utils.models import timedelta_ms
 from crawlee.configuration import Configuration as CrawleeConfiguration
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, BeforeValidator, Field
 from typing_extensions import Self
 
 
@@ -85,7 +85,11 @@ class Configuration(CrawleeConfiguration):
 
     dedicated_cpus: Annotated[float | None, Field(alias='apify_dedicated_cpus')] = None
 
-    disable_outdated_warning: Annotated[bool, Field(alias='apify_disable_outdated_warning')] = False
+    disable_outdated_warning: Annotated[
+        bool,
+        Field(alias='apify_disable_outdated_warning'),
+        BeforeValidator(lambda val: val or False),
+    ] = False
 
     fact: Annotated[str | None, Field(alias='apify_fact')] = None
 
@@ -110,7 +114,11 @@ class Configuration(CrawleeConfiguration):
 
     log_format: Annotated[str | None, Field(alias='apify_log_format', deprecated=True)] = None
 
-    max_paid_dataset_items: Annotated[int | None, Field(alias='actor_max_paid_dataset_items')] = None
+    max_paid_dataset_items: Annotated[
+        int | None,
+        Field(alias='actor_max_paid_dataset_items'),
+        BeforeValidator(lambda val: val or None),
+    ] = None
 
     meta_origin: Annotated[str | None, Field(alias='apify_meta_origin')] = None
 
