@@ -19,7 +19,7 @@ def get_module_shortcuts(module, parent_classes=None):
             shortcuts[f'{module.__name__}.{classname}'] = f'{parent_module_name}.{classname}'
 
     for _, submodule in inspect.getmembers(module, inspect.ismodule):
-        if (submodule.__name__.startswith('apify')):
+        if submodule.__name__.startswith('apify'):
             shortcuts.update(get_module_shortcuts(submodule, module_classes))
 
     return shortcuts

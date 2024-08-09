@@ -15,8 +15,10 @@ if TYPE_CHECKING:
 
 
 class TestActorLog:
-    async def test_actor_log(self: TestActorLog, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_actor_log(self: TestActorLog, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
         caplog.set_level(logging.DEBUG, logger='apify')
+        monkeypatch.setenv('APIFY_IS_AT_HOME', '1')
+
         with contextlib.suppress(RuntimeError):
             async with Actor:
                 # Test Actor.log

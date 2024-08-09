@@ -10,11 +10,18 @@ try:
     from scrapy.utils.python import to_bytes
 except ImportError as exc:
     raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
+        'To use this module, you need to install the "scrapy" extra. For example, if you use pip, run "pip install apify[scrapy]".',
     ) from exc
 
-from apify.actor import Actor
-from apify.storages import RequestQueue, StorageClientManager
+from typing import TYPE_CHECKING
+
+from crawlee.storage_client_manager import StorageClientManager
+
+from apify import Actor, Configuration
+from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
+
+if TYPE_CHECKING:
+    from crawlee.storages import RequestQueue
 
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 
@@ -80,10 +87,10 @@ async def open_queue_with_custom_client() -> RequestQueue:
     we don't have to do this hacky workaround
     """
     # Create a new Apify Client with its httpx client in the custom event loop
-    custom_loop_apify_client = Actor.new_client()
+    custom_loop_apify_client = ApifyStorageClient(configuration=Configuration.get_global_configuration())
 
     # Set the new Apify Client as the default client, back up the old client
-    old_client = Actor.apify_client
+    old_client = StorageClientManager._cloud_client
     StorageClientManager.set_cloud_client(custom_loop_apify_client)
 
     # Create a new Request Queue in the custom event loop,
@@ -91,11 +98,9 @@ async def open_queue_with_custom_client() -> RequestQueue:
     rq = await Actor.open_request_queue()
 
     if Actor.config.is_at_home:
-        rq._request_queue_client = custom_loop_apify_client.request_queue(
-            rq._id,
-            client_key=rq._client_key,
-        )
+        rq._resource_client = custom_loop_apify_client.request_queue(rq._id)
 
     # Restore the old Apify Client as the default client
-    StorageClientManager.set_cloud_client(old_client)
+    if old_client:
+        StorageClientManager.set_cloud_client(old_client)
     return rq

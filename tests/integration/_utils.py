@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apify._crypto import crypto_random_object_id
+from crawlee._utils.crypto import crypto_random_object_id
 
 
 def generate_unique_resource_name(label: str) -> str:

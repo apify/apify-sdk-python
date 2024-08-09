@@ -144,4 +144,4 @@ class ApifyHttpProxyMiddleware:
 
         # Get a new proxy URL and return it
         new_url = await proxy_cfg.new_url()
-        return urlparse(new_url)
+        return urlparse(str(new_url))

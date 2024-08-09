@@ -7,19 +7,21 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Awaitable, Callable, Mapping, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol
 
 import pytest
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
+from crawlee.configuration import Configuration
+from crawlee.storage_client_manager import StorageClientManager
 from filelock import FileLock
 
+import apify.actor
 from ._utils import generate_unique_resource_name
-from apify import Actor
-from apify.config import Configuration
-from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Mapping
+
     from apify_client.clients.resource_clients import ActorClientAsync
 
 TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
@@ -31,15 +33,10 @@ SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 # We also patch the default storage client with a tmp_path
 @pytest.fixture(autouse=True)
 def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Actor, '_default_instance', None)
     monkeypatch.setattr(Configuration, '_default_instance', None)
-    monkeypatch.setattr(Dataset, '_cache_by_id', None)
-    monkeypatch.setattr(Dataset, '_cache_by_name', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
-    monkeypatch.setattr(StorageClientManager, '_default_instance', None)
+    monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
+    apify.actor._default_instance = None
+    # TODO: StorageClientManager local client purge  # noqa: TD003
 
 
 # This fixture can't be session-scoped,
@@ -133,8 +130,7 @@ class ActorFactory(Protocol):
         main_func: Callable | None = None,
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
-    ) -> Awaitable[ActorClientAsync]:
-        ...
+    ) -> Awaitable[ActorClientAsync]: ...
 
 
 @pytest.fixture()
@@ -176,7 +172,18 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
         if main_func:
             func_source = textwrap.dedent(inspect.getsource(main_func))
             func_source = func_source.replace(f'def {main_func.__name__}(', 'def main(')
-            main_py = f'import asyncio\n\nfrom apify import Actor\n\n\n{func_source}'
+            main_py = '\n'.join(  # noqa: FLY002
+                [
+                    'import asyncio',
+                    '',
+                    'from apify import Actor',
+                    'from crawlee.events.types import Event',
+                    '',
+                    '',
+                    '',
+                    func_source,
+                ]
+            )
 
         if main_py:
             source_files = {'src/main.py': main_py}

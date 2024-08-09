@@ -12,7 +12,8 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from apify._crypto import crypto_random_object_id
+from crawlee._utils.crypto import crypto_random_object_id
+
 from apify.actor import Actor
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
 from apify.scrapy.utils import nested_event_loop, open_queue_with_custom_client
@@ -95,18 +96,13 @@ class ApifyScheduler(BaseScheduler):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
-            result = nested_event_loop.run_until_complete(
-                self._rq.add_request(
-                    apify_request,
-                    use_extended_unique_key=True,
-                )
-            )
+            result = nested_event_loop.run_until_complete(self._rq.add_request(apify_request))
         except BaseException:
             traceback.print_exc()
             raise
 
         Actor.log.debug(f'[{call_id}]: rq.add_request.result={result}...')
-        return bool(result['wasAlreadyPresent'])
+        return bool(result.was_already_present)
 
     def next_request(self: ApifyScheduler) -> Request | None:
         """Fetch the next request from the scheduler.

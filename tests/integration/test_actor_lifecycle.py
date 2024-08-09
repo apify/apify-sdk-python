@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import apify.actor
 from apify import Actor
 
 if TYPE_CHECKING:
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
 class TestActorInit:
     async def test_actor_init(self: TestActorInit, make_actor: ActorFactory) -> None:
         async def main() -> None:
-            my_actor = Actor()
+            my_actor = Actor
             await my_actor.init()
             assert my_actor._is_initialized is True
             double_init = False
@@ -43,8 +44,8 @@ class TestActorInit:
     async def test_async_with_actor_properly_initialize(self: TestActorInit, make_actor: ActorFactory) -> None:
         async def main() -> None:
             async with Actor:
-                assert Actor._get_default_instance()._is_initialized
-            assert Actor._get_default_instance()._is_initialized is False
+                assert apify.actor._get_default_instance()._is_initialized
+            assert apify.actor._get_default_instance()._is_initialized is False
 
         actor = await make_actor('with-actor-init', main_func=main)
 
