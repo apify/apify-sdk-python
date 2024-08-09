@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
-from apify.apify_storage_client.key_value_store_client import KeyValueStoreClient
 
 if TYPE_CHECKING:
     import pytest
@@ -187,6 +186,10 @@ class TestActorGetInput:
 class TestGetPublicUrl:
     async def test_get_public_url(self: TestGetPublicUrl, make_actor: ActorFactory) -> None:
         async def main() -> None:
+            from typing import cast
+
+            from apify.apify_storage_client.key_value_store_client import KeyValueStoreClient
+
             async with Actor:
                 public_api_url = Actor.config.api_public_base_url
                 default_store_id = Actor.config.default_key_value_store_id
