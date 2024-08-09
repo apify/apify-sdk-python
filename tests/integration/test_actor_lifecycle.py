@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import apify.actor
 from apify import Actor
 
 if TYPE_CHECKING:
@@ -43,6 +42,8 @@ class TestActorInit:
 
     async def test_async_with_actor_properly_initialize(self: TestActorInit, make_actor: ActorFactory) -> None:
         async def main() -> None:
+            import apify.actor
+
             async with Actor:
                 assert apify.actor._get_default_instance()._is_initialized
             assert apify.actor._get_default_instance()._is_initialized is False
