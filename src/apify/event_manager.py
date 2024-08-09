@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime  # noqa: TCH003
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
 import websockets.client
@@ -27,9 +28,35 @@ class PersistStateEvent(BaseModel):
     data: Annotated[EventPersistStateData, Field(default_factory=lambda: EventPersistStateData(is_migrating=False))]
 
 
+class SystemInfoEventData(BaseModel):
+    mem_avg_bytes: Annotated[float, Field(alias='memAvgBytes')]
+    mem_current_bytes: Annotated[float, Field(alias='memCurrentBytes')]
+    mem_max_bytes: Annotated[float, Field(alias='memMaxBytes')]
+    cpu_avg_usage: Annotated[float, Field(alias='cpuAvgUsage')]
+    cpu_max_usage: Annotated[float, Field(alias='cpuMaxUsage')]
+    cpu_current_usage: Annotated[float, Field(alias='cpuCurrentUsage')]
+    is_cpu_overloaded: Annotated[bool, Field(alias='isCpuOverloaded')]
+    created_at: Annotated[datetime, Field(alias='createdAt')]
+
+    def to_crawlee_format(self) -> EventSystemInfoData:
+        return EventSystemInfoData.model_validate(
+            {
+                'cpu_info': {
+                    'used_ratio': self.cpu_current_usage,
+                    'created_at': self.created_at,
+                },
+                'memory_info': {
+                    'total_size': self.mem_max_bytes,
+                    'current_size': self.mem_current_bytes,
+                    'created_at': self.created_at,
+                },
+            }
+        )
+
+
 class SystemInfoEvent(BaseModel):
     name: Literal[Event.SYSTEM_INFO]
-    data: EventSystemInfoData
+    data: SystemInfoEventData
 
 
 class MigratingEvent(BaseModel):
@@ -156,7 +183,12 @@ class PlatformEventManager(EventManager):
                             logger.info(f'Unknown message received: event_name={parsed_message.name}, event_data={parsed_message.data}')
                             continue
 
-                        self.emit(event=parsed_message.name, event_data=parsed_message.data)
+                        self.emit(
+                            event=parsed_message.name,
+                            event_data=parsed_message.data
+                            if not isinstance(parsed_message.data, SystemInfoEventData)
+                            else parsed_message.data.to_crawlee_format(),
+                        )
 
                         if parsed_message.name == Event.MIGRATING:
                             await self._emit_persist_state_event_rec_task.stop()

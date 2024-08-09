@@ -172,7 +172,18 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
         if main_func:
             func_source = textwrap.dedent(inspect.getsource(main_func))
             func_source = func_source.replace(f'def {main_func.__name__}(', 'def main(')
-            main_py = f'import asyncio\n\nfrom apify import Actor\n\n\n{func_source}'
+            main_py = '\n'.join(  # noqa: FLY002
+                [
+                    'import asyncio',
+                    '',
+                    'from apify import Actor',
+                    'from crawlee.events.types import Event',
+                    '',
+                    '',
+                    '',
+                    func_source,
+                ]
+            )
 
         if main_py:
             source_files = {'src/main.py': main_py}

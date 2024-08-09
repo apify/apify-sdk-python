@@ -20,11 +20,12 @@ class TestActorEvents:
             from typing import Any, Callable
 
             from apify_shared.consts import ActorEventTypes, ApifyEnvVars
+            from crawlee.events.types import EventSystemInfoData
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
             was_system_info_emitted = False
-            system_infos = []
+            system_infos = list[EventSystemInfoData]()
 
             def on_event(event_type: ActorEventTypes) -> Callable:
                 async def log_event(data: Any) -> None:
@@ -51,7 +52,7 @@ class TestActorEvents:
 
                 # Check that parsing datetimes works correctly
                 # Check `createdAt` is a datetime (so it's the same locally and on platform)
-                assert isinstance(system_infos[0]['createdAt'], datetime)
+                assert isinstance(system_infos[0].cpu_info.created_at, datetime)
 
         actor = await make_actor('actor-interval-events', main_func=main)
 
