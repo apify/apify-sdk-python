@@ -73,8 +73,16 @@ class RequestQueueClient(BaseRequestQueueClient):
         forefront: bool = False,
     ) -> ProcessedRequest:
         return ProcessedRequest.model_validate(
-            await self._client.add_request(
-                request=request.model_dump(by_alias=True),
+            {'id': request.id, 'uniqueKey': request.unique_key}
+            | await self._client.add_request(
+                request=request.model_dump(
+                    by_alias=True,
+                    exclude={
+                        'id',
+                        'json_',
+                        'order_no',
+                    },
+                ),
                 forefront=forefront,
             )
         )

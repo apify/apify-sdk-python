@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, Callable, Protocol
 import pytest
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
+from crawlee.configuration import Configuration
 from crawlee.storage_client_manager import StorageClientManager
 from filelock import FileLock
 
 import apify.actor
 from ._utils import generate_unique_resource_name
-from apify.config import Configuration
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Mapping
