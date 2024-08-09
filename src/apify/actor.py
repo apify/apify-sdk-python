@@ -344,8 +344,8 @@ class _ActorType:
         self._raise_if_not_initialized()
 
         configuration_updates = {}
-        if force_cloud:
-            configuration_updates['is_at_home'] = True
+        if force_cloud or self._configuration.is_at_home:
+            configuration_updates['in_cloud'] = True
 
         return await Dataset.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
 
@@ -376,8 +376,8 @@ class _ActorType:
         self._raise_if_not_initialized()
 
         configuration_updates = {}
-        if force_cloud:
-            configuration_updates['is_at_home'] = True
+        if force_cloud or self._configuration.is_at_home:
+            configuration_updates['in_cloud'] = True
 
         return await KeyValueStore.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
 
@@ -409,8 +409,8 @@ class _ActorType:
         self._raise_if_not_initialized()
 
         configuration_updates = {}
-        if force_cloud:
-            configuration_updates['is_at_home'] = True
+        if force_cloud or self._configuration.is_at_home:
+            configuration_updates['in_cloud'] = True
 
         return await RequestQueue.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
 
