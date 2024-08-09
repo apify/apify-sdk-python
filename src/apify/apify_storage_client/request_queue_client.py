@@ -30,7 +30,7 @@ class RequestQueueClient(BaseRequestQueueClient):
     @override
     async def get(self) -> RequestQueueMetadata | None:
         result = await self._client.get()
-        return RequestQueueMetadata.model_validate(result) if result else None
+        return RequestQueueMetadata.model_validate({'resourceDirectory': ''} | result) if result else None
 
     @override
     async def update(
@@ -39,7 +39,8 @@ class RequestQueueClient(BaseRequestQueueClient):
         name: str | None = None,
     ) -> RequestQueueMetadata:
         return RequestQueueMetadata.model_validate(
-            await self._client.update(
+            {'resourceDirectory': ''}
+            | await self._client.update(
                 name=name,
             )
         )
@@ -51,7 +52,7 @@ class RequestQueueClient(BaseRequestQueueClient):
     @override
     async def list_head(self, *, limit: int | None = None) -> RequestQueueHead:
         return RequestQueueHead.model_validate(
-            self._client.list_head(
+            await self._client.list_head(
                 limit=limit,
             ),
         )
@@ -100,8 +101,15 @@ class RequestQueueClient(BaseRequestQueueClient):
         forefront: bool = False,
     ) -> ProcessedRequest:
         return ProcessedRequest.model_validate(
-            await self._client.update_request(
-                request=request.model_dump(by_alias=True),
+            {'id': request.id, 'uniqueKey': request.unique_key}
+            | await self._client.update_request(
+                request=request.model_dump(
+                    by_alias=True,
+                    exclude={
+                        'json_',
+                        'order_no',
+                    },
+                ),
                 forefront=forefront,
             )
         )
@@ -147,7 +155,17 @@ class RequestQueueClient(BaseRequestQueueClient):
     ) -> BatchRequestsOperationResponse:
         return BatchRequestsOperationResponse.model_validate(
             await self._client.batch_add_requests(
-                requests=[r.model_dump(by_alias=True) for r in requests],
+                requests=[
+                    r.model_dump(
+                        by_alias=True,
+                        exclude={
+                            'id',
+                            'json_',
+                            'order_no',
+                        },
+                    )
+                    for r in requests
+                ],
                 forefront=forefront,
             )
         )
@@ -156,7 +174,16 @@ class RequestQueueClient(BaseRequestQueueClient):
     async def batch_delete_requests(self, requests: list[Request]) -> BatchRequestsOperationResponse:
         return BatchRequestsOperationResponse.model_validate(
             await self._client.batch_delete_requests(
-                requests=[r.model_dump(by_alias=True) for r in requests],
+                requests=[
+                    r.model_dump(
+                        by_alias=True,
+                        exclude={
+                            'json_',
+                            'order_no',
+                        },
+                    )
+                    for r in requests
+                ],
             )
         )
 
