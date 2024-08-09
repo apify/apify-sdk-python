@@ -14,7 +14,7 @@ from apify_shared.consts import ActorEnvVars
 from crawlee.events.types import Event, EventSystemInfoData
 
 from apify.config import Configuration
-from apify.event_manager import EventManager, PlatformEventManager
+from apify.event_manager import EventManager, PlatformEventManager, SystemInfoEventData
 
 
 class TestEventManagerLocal:
@@ -172,14 +172,16 @@ class TestEventManagerOnPlatform:
             monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
             dummy_system_info = {
-                'cpuInfo': {'usedRatio': 0.66, 'createdAt': '2024-04-04T12:44:00Z'},
-                'memoryInfo': {
-                    'currentSize': 11,
-                    'totalSize': 42,
-                    'createdAt': '2024-04-04T12:44:00Z',
-                },
+                'memAvgBytes': 19328860.328293584,
+                'memCurrentBytes': 65171456,
+                'memMaxBytes': 65171456,
+                'cpuAvgUsage': 2.0761105633130397,
+                'cpuMaxUsage': 53.941134593993326,
+                'cpuCurrentUsage': 8.45549815498155,
+                'isCpuOverloaded': False,
+                'createdAt': '2024-08-09T16:04:16.161Z',
             }
-            EventSystemInfoData.model_validate(dummy_system_info)
+            SystemInfoEventData.model_validate(dummy_system_info)
 
             async with PlatformEventManager(Configuration.get_global_configuration()) as event_manager:
                 event_calls = []
@@ -192,5 +194,6 @@ class TestEventManagerOnPlatform:
                 # Test sending event with data
                 await send_platform_event(Event.SYSTEM_INFO, dummy_system_info)
                 await asyncio.sleep(0.1)
-                assert event_calls == [dummy_system_info]
+                assert len(event_calls) == 1
+                assert event_calls[0]['cpuInfo']['usedRatio'] == 8.45549815498155
                 event_calls.clear()
