@@ -88,7 +88,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
 
 @pytest.fixture(scope='session')
 def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
-    """Create a dictionary of the base source files for a testing actor.
+    """Create a dictionary of the base source files for a testing Actor.
 
     It takes the files from `tests/integration/actor_source_base`,
     builds the Apify SDK wheel from the current codebase,
@@ -135,7 +135,7 @@ class ActorFactory(Protocol):
 
 @pytest.fixture()
 async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_client_async: ApifyClientAsync) -> AsyncIterator[ActorFactory]:
-    """A fixture for returning a temporary actor factory."""
+    """A fixture for returning a temporary Actor factory."""
     actor_clients_for_cleanup: list[ActorClientAsync] = []
 
     async def _make_actor(
@@ -145,20 +145,20 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
     ) -> ActorClientAsync:
-        """Create a temporary actor from the given main function or source file(s).
+        """Create a temporary Actor from the given main function or source file(s).
 
-        The actor will be uploaded to the Apify Platform, built there, and after the test finishes, it will be automatically deleted.
+        The Actor will be uploaded to the Apify Platform, built there, and after the test finishes, it will be automatically deleted.
 
         You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
         Args:
-            actor_label (str): The label which will be a part of the generated actor name
-            main_func (Callable, optional): The main function of the actor.
-            main_py (str, optional): The `src/main.py` file of the actor.
-            source_files (dict, optional): A dictionary of the source files of the actor.
+            actor_label (str): The label which will be a part of the generated Actor name
+            main_func (Callable, optional): The main function of the Actor.
+            main_py (str, optional): The `src/main.py` file of the Actor.
+            source_files (dict, optional): A dictionary of the source files of the Actor.
 
         Returns:
-            ActorClientAsync: A resource client for the created actor.
+            ActorClientAsync: A resource client for the created Actor.
         """
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')
@@ -213,7 +213,7 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
                 }
             )
 
-        print(f'Creating actor {actor_name}...')
+        print(f'Creating Actor {actor_name}...')
         created_actor = await apify_client_async.actors().create(
             name=actor_name,
             default_run_build='latest',
@@ -231,7 +231,7 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
 
         actor_client = apify_client_async.actor(created_actor['id'])
 
-        print(f'Building actor {actor_name}...')
+        print(f'Building Actor {actor_name}...')
         build = await actor_client.build(version_number='0.0', wait_for_finish=300)
 
         assert build['status'] == ActorJobStatus.SUCCEEDED

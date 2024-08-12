@@ -72,7 +72,7 @@ class TestActorLog:
         assert run_log_lines.pop(0).startswith('ACTOR: Pulling Docker image')
         assert run_log_lines.pop(0) == 'ACTOR: Creating Docker container.'
         assert run_log_lines.pop(0) == 'ACTOR: Starting Docker container.'
-        assert run_log_lines.pop(0) == '[apify] INFO  Initializing actor...'
+        assert run_log_lines.pop(0) == '[apify] INFO  Initializing Actor...'
         assert run_log_lines.pop(0).startswith(f'[apify] INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "')
         assert run_log_lines.pop(0) == '[apify] DEBUG Debug message'
         assert run_log_lines.pop(0) == '[apify] INFO  Info message'
@@ -92,4 +92,4 @@ class TestActorLog:
         assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 44, in main'
         assert run_log_lines.pop(0) == "          raise RuntimeError('Dummy RuntimeError')"
         assert run_log_lines.pop(0) == '      RuntimeError: Dummy RuntimeError'
-        assert run_log_lines.pop(0) == '[apify] INFO  Exiting actor ({"exit_code": 91})'
+        assert run_log_lines.pop(0) == '[apify] INFO  Exiting Actor ({"exit_code": 91})'

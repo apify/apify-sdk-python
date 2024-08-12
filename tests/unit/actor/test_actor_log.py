@@ -44,7 +44,7 @@ class TestActorLog:
         assert len(caplog.records) == 12
 
         assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].message == 'Initializing actor...'
+        assert caplog.records[0].message == 'Initializing Actor...'
 
         assert caplog.records[1].levelno == logging.INFO
         assert caplog.records[1].message == 'System info'
@@ -86,7 +86,7 @@ class TestActorLog:
         assert str(caplog.records[9].exc_info[1]) == 'Dummy RuntimeError'
 
         assert caplog.records[10].levelno == logging.INFO
-        assert caplog.records[10].message == 'Exiting actor'
+        assert caplog.records[10].message == 'Exiting Actor'
 
         assert caplog.records[11].levelno == logging.DEBUG
-        assert caplog.records[11].message == 'Not calling sys.exit(91) because actor is running in an unit test'
+        assert caplog.records[11].message == 'Not calling sys.exit(91) because Actor is running in an unit test'

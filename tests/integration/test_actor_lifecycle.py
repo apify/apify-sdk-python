@@ -19,14 +19,14 @@ class TestActorInit:
                 await my_actor.init()
                 double_init = True
             except RuntimeError as err:
-                assert str(err) == 'The actor was already initialized!'  # noqa: PT017
+                assert str(err) == 'The Actor was already initialized!'  # noqa: PT017
             except Exception:
                 raise
             try:
                 await Actor.init()
                 double_init = True
             except RuntimeError as err:
-                assert str(err) == 'The actor was already initialized!'  # noqa: PT017
+                assert str(err) == 'The Actor was already initialized!'  # noqa: PT017
             except Exception:
                 raise
             await my_actor.exit()

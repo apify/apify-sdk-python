@@ -11,7 +11,7 @@ from typing_extensions import Self
 
 
 class Configuration(CrawleeConfiguration):
-    """A class for specifying the configuration of an actor.
+    """A class for specifying the configuration of an Actor.
 
     Can be used either globally via `Configuration.get_global_configuration()`,
     or it can be specific to each `Actor` instance on the `actor.config` property.
@@ -184,7 +184,7 @@ class Configuration(CrawleeConfiguration):
     def get_global_configuration(cls) -> Self:
         """Retrive the global configuration.
 
-        The global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.
+        The global configuration applies when you call Actor methods via their static versions, e.g. `Actor.init()`.
         Also accessible via `Actor.config`.
         """
         if CrawleeConfiguration._default_instance is None:

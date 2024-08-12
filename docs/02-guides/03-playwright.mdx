@@ -29,7 +29,7 @@ To create Actors which use Playwright, start from the [Playwright & Python](http
 On the Apify platform, the Actor will already have Playwright and the necessary browsers preinstalled in its Docker image,
 including the tools and setup necessary to run browsers in headful mode.
 
-When running the Actor locally, you'll need to finish the Playwright setup yourself before you can run the actor.
+When running the Actor locally, you'll need to finish the Playwright setup yourself before you can run the Actor.
 
 <Tabs groupId="operating-systems">
     <TabItem value="unix" label="Linux / macOS" default>
@@ -69,7 +69,7 @@ async def main():
         max_depth = actor_input.get('max_depth', 1)
 
         if not start_urls:
-            Actor.log.info('No start URLs specified in actor input, exiting...')
+            Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
         # Enqueue the starting URLs in the default request queue

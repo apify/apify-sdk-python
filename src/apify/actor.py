@@ -50,7 +50,7 @@ class _ActorType:
         and that is their preferred usage.
 
         Args:
-            config (Configuration, optional): The actor configuration to be used. If not passed, a new Configuration instance will be created.
+            config (Configuration, optional): The Actor configuration to be used. If not passed, a new Configuration instance will be created.
         """
         self._configuration = config or Configuration.get_global_configuration()
         self._apify_client = self.new_client()
@@ -132,27 +132,27 @@ class _ActorType:
 
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
-            raise RuntimeError('The actor was not initialized!')
+            raise RuntimeError('The Actor was not initialized!')
 
     async def init(self) -> None:
-        """Initialize the actor instance.
+        """Initialize the Actor instance.
 
         This initializes the Actor instance.
-        It configures the right storage client based on whether the actor is running locally or on the Apify platform,
-        it initializes the event manager for processing actor events,
+        It configures the right storage client based on whether the Actor is running locally or on the Apify platform,
+        it initializes the event manager for processing Actor events,
         and starts an interval for regularly sending `PERSIST_STATE` events,
-        so that the actor can regularly persist its state in response to these events.
+        so that the Actor can regularly persist its state in response to these events.
 
-        This method should be called immediately before performing any additional actor actions,
+        This method should be called immediately before performing any additional Actor actions,
         and it should be called only once.
         """
         if self._is_initialized:
-            raise RuntimeError('The actor was already initialized!')
+            raise RuntimeError('The Actor was already initialized!')
 
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 
-        self.log.info('Initializing actor...')
+        self.log.info('Initializing Actor...')
         self.log.info('System info', extra=get_system_info())
 
         # TODO: Print outdated SDK version warning (we need a new env var for this)
@@ -173,7 +173,7 @@ class _ActorType:
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
-        """Exit the actor instance.
+        """Exit the Actor instance.
 
         This stops the Actor instance.
         It cancels all the intervals for regularly sending `PERSIST_STATE` events,
@@ -182,9 +182,9 @@ class _ActorType:
         and stops the event manager.
 
         Args:
-            exit_code (int, optional): The exit code with which the actor should fail (defaults to `0`).
-            event_listeners_timeout (timedelta, optional): How long should the actor wait for actor event listeners to finish before exiting.
-            status_message (str, optional): The final status message that the actor should display.
+            exit_code (int, optional): The exit code with which the Actor should fail (defaults to `0`).
+            event_listeners_timeout (timedelta, optional): How long should the Actor wait for Actor event listeners to finish before exiting.
+            status_message (str, optional): The final status message that the Actor should display.
             cleanup_timeout (timedelta, optional): How long we should wait for event listeners.
         """
         self._raise_if_not_initialized()
@@ -193,7 +193,7 @@ class _ActorType:
 
         exit_code = maybe_extract_enum_member_value(exit_code)
 
-        self.log.info('Exiting actor', extra={'exit_code': exit_code})
+        self.log.info('Exiting Actor', extra={'exit_code': exit_code})
 
         async def finalize() -> None:
             if status_message is not None:
@@ -211,11 +211,11 @@ class _ActorType:
         self._is_initialized = False
 
         if is_running_in_ipython():
-            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in IPython')
+            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
         elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
-            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in an unit test')
+            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
         elif hasattr(asyncio, '_nest_patched'):
-            self.log.debug(f'Not calling sys.exit({exit_code}) because actor is running in a nested event loop')
+            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in a nested event loop')
         else:
             sys.exit(exit_code)
 
@@ -226,19 +226,19 @@ class _ActorType:
         exception: BaseException | None = None,
         status_message: str | None = None,
     ) -> None:
-        """Fail the actor instance.
+        """Fail the Actor instance.
 
         This performs all the same steps as Actor.exit(),
         but it additionally sets the exit code to `1` (by default).
 
         Args:
-            exit_code (int, optional): The exit code with which the actor should fail (defaults to `1`).
-            exception (BaseException, optional): The exception with which the actor failed.
-            status_message (str, optional): The final status message that the actor should display.
+            exit_code (int, optional): The exit code with which the Actor should fail (defaults to `1`).
+            exception (BaseException, optional): The exception with which the Actor failed.
+            status_message (str, optional): The final status message that the Actor should display.
         """
         self._raise_if_not_initialized()
 
-        # In IPython, we don't run `sys.exit()` during actor exits,
+        # In IPython, we don't run `sys.exit()` during Actor exits,
         # so the exception traceback will be printed on its own
         if exception and not is_running_in_ipython():
             self.log.exception('Actor failed with an exception', exc_info=exception)
@@ -246,10 +246,10 @@ class _ActorType:
         await self.exit(exit_code=exit_code, status_message=status_message)
 
     async def main(self, main_actor_function: Callable[[], MainReturnType]) -> MainReturnType | None:
-        """Initialize the actor, run the passed function and finish the actor cleanly.
+        """Initialize the Actor, run the passed function and finish the Actor cleanly.
 
         **The `Actor.main()` function is optional** and is provided merely for your convenience.
-        It is mainly useful when you're running your code as an actor on the [Apify platform](https://apify.com/actors).
+        It is mainly useful when you're running your code as an Actor on the [Apify platform](https://apify.com/actors).
 
         The `Actor.main()` function performs the following actions:
 
@@ -260,11 +260,11 @@ class _ActorType:
         - If the user function was an async function, it awaits it.
         - If the user function throws an exception or some other error is encountered,
           it prints error details to console so that they are stored to the log,
-          and finishes the actor cleanly.
+          and finishes the Actor cleanly.
         - Finally, it exits the Python process, with zero exit code on success and non-zero on errors.
 
         Args:
-            main_actor_function (Callable): The user function which should be run in the actor
+            main_actor_function (Callable): The user function which should be run in the Actor
         """
         if not inspect.isfunction(main_actor_function):
             raise TypeError(f'First argument passed to Actor.main() must be a function, but instead it was {type(main_actor_function)}')
@@ -334,9 +334,9 @@ class _ActorType:
 
         Args:
             id (str, optional): ID of the dataset to be opened.
-                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the Actor run.
             name (str, optional): Name of the dataset to be opened.
-                If neither `id` nor `name` are provided, the method returns the default dataset associated with the actor run.
+                If neither `id` nor `name` are provided, the method returns the default dataset associated with the Actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
@@ -367,9 +367,9 @@ class _ActorType:
 
         Args:
             id (str, optional): ID of the key-value store to be opened.
-                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the Actor run.
             name (str, optional): Name of the key-value store to be opened.
-                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the actor run.
+                If neither `id` nor `name` are provided, the method returns the default key-value store associated with the Actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
@@ -400,9 +400,9 @@ class _ActorType:
 
         Args:
             id (str, optional): ID of the request queue to be opened.
-                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the Actor run.
             name (str, optional): Name of the request queue to be opened.
-                If neither `id` nor `name` are provided, the method returns the default request queue associated with the actor run.
+                If neither `id` nor `name` are provided, the method returns the default request queue associated with the Actor run.
             force_cloud (bool, optional): If set to `True` then the Apify cloud storage is always used.
                 This way it is possible to combine local and cloud storage.
 
@@ -418,7 +418,7 @@ class _ActorType:
         return await RequestQueue.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
 
     async def push_data(self, data: Any) -> None:
-        """Store an object or a list of objects to the default dataset of the current actor run.
+        """Store an object or a list of objects to the default dataset of the current Actor run.
 
         Args:
             data (object or list of objects, optional): The data to push to the default dataset.
@@ -432,7 +432,7 @@ class _ActorType:
         await dataset.push_data(data)
 
     async def get_input(self) -> Any:
-        """Get the actor input value from the default key-value store associated with the current actor run."""
+        """Get the Actor input value from the default key-value store associated with the current Actor run."""
         self._raise_if_not_initialized()
 
         input_value = await self.get_value(self._configuration.input_key)
@@ -448,7 +448,7 @@ class _ActorType:
         return input_value
 
     async def get_value(self, key: str, default_value: Any = None) -> Any:
-        """Get a value from the default key-value store associated with the current actor run.
+        """Get a value from the default key-value store associated with the current Actor run.
 
         Args:
             key (str): The key of the record which to retrieve.
@@ -466,7 +466,7 @@ class _ActorType:
         *,
         content_type: str | None = None,
     ) -> None:
-        """Set or delete a value in the default key-value store associated with the current actor run.
+        """Set or delete a value in the default key-value store associated with the current Actor run.
 
         Args:
             key (str): The key of the record which to set.
@@ -479,29 +479,29 @@ class _ActorType:
         return await key_value_store.set_value(key, value, content_type=content_type)
 
     def on(self, event_name: Event, listener: Callable) -> Callable:
-        """Add an event listener to the actor's event manager.
+        """Add an event listener to the Actor's event manager.
 
         The following events can be emitted:
          - `ActorEventTypes.SYSTEM_INFO`:
-            Emitted every minute, the event data contains info about the resource usage of the actor.
+            Emitted every minute, the event data contains info about the resource usage of the Actor.
          - `ActorEventTypes.MIGRATING`:
-            Emitted when the actor running on the Apify platform is going to be migrated to another worker server soon.
-            You can use it to persist the state of the actor and gracefully stop your in-progress tasks,
+            Emitted when the Actor running on the Apify platform is going to be migrated to another worker server soon.
+            You can use it to persist the state of the Actor and gracefully stop your in-progress tasks,
             so that they are not interrupted by the migration..
          - `ActorEventTypes.PERSIST_STATE`:
-            Emitted in regular intervals (by default 60 seconds) to notify the actor that it should persist its state,
-            in order to avoid repeating all work when the actor restarts.
+            Emitted in regular intervals (by default 60 seconds) to notify the Actor that it should persist its state,
+            in order to avoid repeating all work when the Actor restarts.
             This event is automatically emitted together with the migrating event,
             in which case the `isMigrating` flag in the event data is set to True, otherwise the flag is False.
             Note that this event is provided merely for your convenience,
             you can achieve the same effect using an interval and listening for the migrating event.
          - `ActorEventTypes.ABORTING`:
-            When a user aborts an actor run on the Apify platform,
-            they can choose to abort it gracefully, to allow the actor some time before getting terminated.
-            This graceful abort emits the aborting event, which you can use to clean up the actor state.
+            When a user aborts an Actor run on the Apify platform,
+            they can choose to abort it gracefully, to allow the Actor some time before getting terminated.
+            This graceful abort emits the aborting event, which you can use to clean up the Actor state.
 
         Args:
-            event_name (ActorEventTypes): The actor event for which to listen to.
+            event_name (ActorEventTypes): The Actor event for which to listen to.
             listener (Callable): The function which is to be called when the event is emitted (can be async).
         """
         self._raise_if_not_initialized()
@@ -510,10 +510,10 @@ class _ActorType:
         return listener
 
     def off(self, event_name: Event, listener: Callable | None = None) -> None:
-        """Remove a listener, or all listeners, from an actor event.
+        """Remove a listener, or all listeners, from an Actor event.
 
         Args:
-            event_name (ActorEventTypes): The actor event for which to remove listeners.
+            event_name (ActorEventTypes): The Actor event for which to remove listeners.
             listener (Callable, optional): The listener which is supposed to be removed. If not passed, all listeners of this event are removed.
         """
         self._raise_if_not_initialized()
@@ -521,7 +521,7 @@ class _ActorType:
         self._event_manager.off(event=event_name, listener=listener)
 
     def is_at_home(self) -> bool:
-        """Return `True` when the actor is running on the Apify platform, and `False` otherwise (for example when running locally)."""
+        """Return `True` when the Actor is running on the Apify platform, and `False` otherwise (for example when running locally)."""
         return self._configuration.is_at_home
 
     def get_env(self) -> dict:
@@ -566,34 +566,34 @@ class _ActorType:
         wait_for_finish: int | None = None,
         webhooks: list[dict] | None = None,
     ) -> dict:
-        """Run an actor on the Apify platform.
+        """Run an Actor on the Apify platform.
 
         Unlike `Actor.call`, this method just starts the run without waiting for finish.
 
         Args:
-            actor_id (str): The ID of the actor to be run.
-            run_input (Any, optional): The input to pass to the actor run.
+            actor_id (str): The ID of the Actor to be run.
+            run_input (Any, optional): The input to pass to the Actor run.
             token (str, optional): The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             content_type (str, optional): The content type of the input.
-            build (str, optional): Specifies the actor build to run. It can be either a build tag or build number.
-                                   By default, the run uses the build specified in the default run configuration for the actor (typically latest).
+            build (str, optional): Specifies the Actor build to run. It can be either a build tag or build number.
+                                   By default, the run uses the build specified in the default run configuration for the Actor (typically latest).
             memory_mbytes (int, optional): Memory limit for the run, in megabytes.
-                                           By default, the run uses a memory limit specified in the default run configuration for the actor.
+                                           By default, the run uses a memory limit specified in the default run configuration for the Actor.
             timeout (timedelta, optional): Optional timeout for the run, in seconds.
-                                          By default, the run uses timeout specified in the default run configuration for the actor.
+                                          By default, the run uses timeout specified in the default run configuration for the Actor.
             wait_for_finish (int, optional): The maximum number of seconds the server waits for the run to finish.
                                                By default, it is 0, the maximum value is 300.
             webhooks (list of dict, optional): Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks)
-                                               associated with the actor run which can be used to receive a notification,
-                                               e.g. when the actor finished or failed.
-                                               If you already have a webhook set up for the actor or task, you do not have to add it again here.
+                                               associated with the Actor run which can be used to receive a notification,
+                                               e.g. when the Actor finished or failed.
+                                               If you already have a webhook set up for the Actor or task, you do not have to add it again here.
                                                Each webhook is represented by a dictionary containing these items:
                                                * ``event_types``: list of ``WebhookEventType`` values which trigger the webhook
                                                * ``request_url``: URL to which to send the webhook HTTP request
                                                * ``payload_template`` (optional): Optional template for the request payload
 
         Returns:
-            dict: Info about the started actor run
+            dict: Info about the started Actor run
         """
         self._raise_if_not_initialized()
 
@@ -617,18 +617,18 @@ class _ActorType:
         status_message: str | None = None,
         gracefully: bool | None = None,
     ) -> dict:
-        """Abort given actor run on the Apify platform using the current user account (determined by the `APIFY_TOKEN` environment variable).
+        """Abort given Actor run on the Apify platform using the current user account (determined by the `APIFY_TOKEN` environment variable).
 
         Args:
-            run_id (str): The ID of the actor run to be aborted.
+            run_id (str): The ID of the Actor run to be aborted.
             token (str, optional): The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
-            status_message (str, optional): Status message of the actor to be set on the platform.
-            gracefully (bool, optional): If True, the actor run will abort gracefully.
+            status_message (str, optional): Status message of the Actor to be set on the platform.
+            gracefully (bool, optional): If True, the Actor run will abort gracefully.
                 It will send ``aborting`` and ``persistStates`` events into the run and force-stop the run after 30 seconds.
                 It is helpful in cases where you plan to resurrect the run later.
 
         Returns:
-            dict: Info about the aborted actor run
+            dict: Info about the aborted Actor run
         """
         self._raise_if_not_initialized()
 
@@ -652,28 +652,28 @@ class _ActorType:
         webhooks: list[dict] | None = None,
         wait: timedelta | None = None,
     ) -> dict | None:
-        """Start an actor on the Apify Platform and wait for it to finish before returning.
+        """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
 
         Args:
-            actor_id (str): The ID of the actor to be run.
-            run_input (Any, optional): The input to pass to the actor run.
+            actor_id (str): The ID of the Actor to be run.
+            run_input (Any, optional): The input to pass to the Actor run.
             token (str, optional): The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             content_type (str, optional): The content type of the input.
-            build (str, optional): Specifies the actor build to run. It can be either a build tag or build number.
-                                   By default, the run uses the build specified in the default run configuration for the actor (typically latest).
+            build (str, optional): Specifies the Actor build to run. It can be either a build tag or build number.
+                                   By default, the run uses the build specified in the default run configuration for the Actor (typically latest).
             memory_mbytes (int, optional): Memory limit for the run, in megabytes.
-                                           By default, the run uses a memory limit specified in the default run configuration for the actor.
+                                           By default, the run uses a memory limit specified in the default run configuration for the Actor.
             timeout (timedelta, optional): Optional timeout for the run, in seconds.
-                                          By default, the run uses timeout specified in the default run configuration for the actor.
-            webhooks (list, optional): Optional webhooks (https://docs.apify.com/webhooks) associated with the actor run,
-                                       which can be used to receive a notification, e.g. when the actor finished or failed.
-                                       If you already have a webhook set up for the actor, you do not have to add it again here.
+                                          By default, the run uses timeout specified in the default run configuration for the Actor.
+            webhooks (list, optional): Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run,
+                                       which can be used to receive a notification, e.g. when the Actor finished or failed.
+                                       If you already have a webhook set up for the Actor, you do not have to add it again here.
             wait(timedelta, optional): The maximum number of seconds the server waits for the run to finish. If not provided, waits indefinitely.
 
         Returns:
-            dict: Info about the started actor run
+            dict: Info about the started Actor run
         """
         self._raise_if_not_initialized()
 
@@ -701,31 +701,31 @@ class _ActorType:
         wait: timedelta | None = None,
         token: str | None = None,
     ) -> dict | None:
-        """Start an actor task on the Apify Platform and wait for it to finish before returning.
+        """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
 
-        Note that an actor task is a saved input configuration and options for an actor.
-        If you want to run an actor directly rather than an actor task, please use the `Actor.call`
+        Note that an Actor task is a saved input configuration and options for an Actor.
+        If you want to run an Actor directly rather than an Actor task, please use the `Actor.call`
 
         Args:
-            task_id (str): The ID of the actor to be run.
-            task_input (Any, optional): Overrides the input to pass to the actor run.
+            task_id (str): The ID of the Actor to be run.
+            task_input (Any, optional): Overrides the input to pass to the Actor run.
             token (str, optional): The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             content_type (str, optional): The content type of the input.
-            build (str, optional): Specifies the actor build to run. It can be either a build tag or build number.
-                                   By default, the run uses the build specified in the default run configuration for the actor (typically latest).
+            build (str, optional): Specifies the Actor build to run. It can be either a build tag or build number.
+                                   By default, the run uses the build specified in the default run configuration for the Actor (typically latest).
             memory_mbytes (int, optional): Memory limit for the run, in megabytes.
-                                           By default, the run uses a memory limit specified in the default run configuration for the actor.
+                                           By default, the run uses a memory limit specified in the default run configuration for the Actor.
             timeout (timedelta, optional): Optional timeout for the run, in seconds.
-                                          By default, the run uses timeout specified in the default run configuration for the actor.
-            webhooks (list, optional): Optional webhooks (https://docs.apify.com/webhooks) associated with the actor run,
-                                       which can be used to receive a notification, e.g. when the actor finished or failed.
-                                       If you already have a webhook set up for the actor, you do not have to add it again here.
+                                          By default, the run uses timeout specified in the default run configuration for the Actor.
+            webhooks (list, optional): Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run,
+                                       which can be used to receive a notification, e.g. when the Actor finished or failed.
+                                       If you already have a webhook set up for the Actor, you do not have to add it again here.
             wait (timedelta, optional): The maximum number of seconds the server waits for the run to finish. If not provided, waits indefinitely.
 
         Returns:
-            dict: Info about the started actor run
+            dict: Info about the started Actor run
         """
         self._raise_if_not_initialized()
 
@@ -749,22 +749,19 @@ class _ActorType:
         content_type: str | None = None,
         custom_after_sleep: timedelta | None = None,
     ) -> None:
-        """Transform this actor run to an actor run of a different actor.
+        """Transform this Actor run to an Actor run of a different Actor.
 
-        The platform stops the current actor container and starts a new container with the new actor instead.
+        The platform stops the current Actor container and starts a new container with the new Actor instead.
         All the default storages are preserved,
         and the new input is stored under the `INPUT-METAMORPH-1` key in the same default key-value store.
 
         Args:
-            target_actor_id (str): ID of the target actor that the run should be transformed into
+            target_actor_id (str): ID of the target Actor that the run should be transformed into
             run_input (Any, optional): The input to pass to the new run.
-            target_actor_build (str, optional): The build of the target actor. It can be either a build tag or build number.
-                By default, the run uses the build specified in the default run configuration for the target actor (typically the latest build).
+            target_actor_build (str, optional): The build of the target Actor. It can be either a build tag or build number.
+                By default, the run uses the build specified in the default run configuration for the target Actor (typically the latest build).
             content_type (str, optional): The content type of the input.
             custom_after_sleep (timedelta, optional): How long to sleep for after the metamorph, to wait for the container to be stopped.
-
-        Returns:
-            dict: The actor run data.
         """
         self._raise_if_not_initialized()
 
@@ -795,12 +792,12 @@ class _ActorType:
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,  # noqa: ARG002
         custom_after_sleep: timedelta | None = None,
     ) -> None:
-        """Internally reboot this actor.
+        """Internally reboot this Actor.
 
         The system stops the current container and starts a new one, with the same run ID and default storages.
 
         Args:
-            event_listeners_timeout (timedelta, optional): How long should the actor wait for actor event listeners to finish before exiting
+            event_listeners_timeout (timedelta, optional): How long should the Actor wait for Actor event listeners to finish before exiting
             custom_after_sleep (timedelta, optional): How long to sleep for after the reboot, to wait for the container to be stopped.
         """
         self._raise_if_not_initialized()
@@ -834,14 +831,14 @@ class _ActorType:
         do_not_retry: bool | None = None,
         idempotency_key: str | None = None,
     ) -> dict | None:
-        """Create an ad-hoc webhook for the current actor run.
+        """Create an ad-hoc webhook for the current Actor run.
 
-        This webhook lets you receive a notification when the actor run finished or failed.
+        This webhook lets you receive a notification when the Actor run finished or failed.
 
-        Note that webhooks are only supported for actors running on the Apify platform.
-        When running the actor locally, the function will print a warning and have no effect.
+        Note that webhooks are only supported for Actors running on the Apify platform.
+        When running the Actor locally, the function will print a warning and have no effect.
 
-        For more information about Apify actor webhooks, please see the [documentation](https://docs.apify.com/webhooks).
+        For more information about Apify Actor webhooks, please see the [documentation](https://docs.apify.com/webhooks).
 
         Args:
             event_types (list of WebhookEventType): List of event types that should trigger the webhook. At least one is required.
@@ -882,14 +879,14 @@ class _ActorType:
         *,
         is_terminal: bool | None = None,
     ) -> dict | None:
-        """Set the status message for the current actor run.
+        """Set the status message for the current Actor run.
 
         Args:
             status_message (str): The status message to set to the run.
             is_terminal (bool, optional): Set this flag to True if this is the final status message of the Actor run.
 
         Returns:
-            dict: The updated actor run object
+            dict: The updated Actor run object
         """
         self._raise_if_not_initialized()
 
@@ -924,7 +921,7 @@ class _ActorType:
         For more details and code examples, see the `ProxyConfiguration` class.
 
         Args:
-            actor_proxy_input (dict, optional): Proxy configuration field from the actor input, if input has such input field.
+            actor_proxy_input (dict, optional): Proxy configuration field from the Actor input, if input has such input field.
                 If you pass this argument, all the other arguments will be inferred from it.
             password (str, optional): Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
             groups (list of str, optional): Proxy groups which the Apify Proxy should use, if provided.
@@ -975,4 +972,4 @@ def _get_default_instance() -> _ActorType:
 
 
 Actor = cast(_ActorType, LocalProxy(_get_default_instance))
-"""The entry point of the SDK, through which all the actor operations should be done."""
+"""The entry point of the SDK, through which all the Actor operations should be done."""

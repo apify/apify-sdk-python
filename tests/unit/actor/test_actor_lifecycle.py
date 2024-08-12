@@ -155,7 +155,7 @@ class TestActorMainMethod:
 class TestMigratingEvent:
     async def test_migrating_event(self: TestMigratingEvent, monkeypatch: pytest.MonkeyPatch) -> None:
         # This should test whether when you get a MIGRATING event,
-        # the actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
+        # the Actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
         monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '500')
         monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, '1')
 

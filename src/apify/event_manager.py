@@ -114,7 +114,7 @@ event_data_adapter: TypeAdapter[EventMessage | UnknownEvent] = TypeAdapter(
 
 @ignore_docs
 class PlatformEventManager(EventManager):
-    """A class for managing actor events.
+    """A class for managing Actor events.
 
     You shouldn't use this class directly,
     but instead use it via the `Actor.on()` and `Actor.off()` methods.
@@ -129,7 +129,7 @@ class PlatformEventManager(EventManager):
         """Create an instance of the EventManager.
 
         Args:
-            config (Configuration): The actor configuration to be used in this event manager.
+            config (Configuration): The Actor configuration to be used in this event manager.
             kwargs (EventManagerOptions): Event manager options - forwarded to the base class
         """
         super().__init__(**kwargs)
@@ -194,7 +194,7 @@ class PlatformEventManager(EventManager):
                             await self._emit_persist_state_event_rec_task.stop()
                             self.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
                     except Exception:
-                        logger.exception('Cannot parse actor event', extra={'message': message})
+                        logger.exception('Cannot parse Actor event', extra={'message': message})
         except Exception:
             logger.exception('Error in websocket connection')
             self._connected_to_platform_websocket.set_result(False)
