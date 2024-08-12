@@ -776,7 +776,8 @@ class _ActorType:
             custom_after_sleep = self._configuration.metamorph_after_sleep
 
         # If is_at_home() is True, config.actor_run_id is always set
-        assert self._configuration.actor_run_id is not None  # noqa: S101
+        if not self._configuration.actor_run_id:
+            raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
         await self._apify_client.run(self._configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
@@ -815,7 +816,9 @@ class _ActorType:
 
         await self._event_manager.__aexit__(None, None, None)
 
-        assert self._configuration.actor_run_id is not None  # noqa: S101
+        if not self._configuration.actor_run_id:
+            raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
+
         await self._apify_client.run(self._configuration.actor_run_id).reboot()
 
         if custom_after_sleep:
@@ -860,7 +863,8 @@ class _ActorType:
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        assert self._configuration.actor_run_id is not None  # noqa: S101
+        if not self._configuration.actor_run_id:
+            raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
         return await self._apify_client.webhooks().create(
             actor_run_id=self._configuration.actor_run_id,
@@ -895,7 +899,8 @@ class _ActorType:
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        assert self._configuration.actor_run_id is not None  # noqa: S101
+        if not self._configuration.actor_run_id:
+            raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
         return await self._apify_client.run(self._configuration.actor_run_id).update(
             status_message=status_message, is_status_message_terminal=is_terminal
