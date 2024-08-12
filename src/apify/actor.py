@@ -169,7 +169,7 @@ class _ActorType:
         self,
         *,
         exit_code: int = 0,
-        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,  # noqa: ARG002
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
@@ -201,6 +201,9 @@ class _ActorType:
 
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
+
+            if event_listeners_timeout:
+                await self._event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self._event_manager.__aexit__(None, None, None)
 
