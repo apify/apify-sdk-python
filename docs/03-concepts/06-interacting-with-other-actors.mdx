@@ -28,7 +28,7 @@ actor_run_details = await Actor.call(
     {'url': 'http://example.com', 'delay': 10000 },
 )
 run_client = Actor.apify_client.run(actor_run_details['id'])
-screenshot = await run_client().key_value_store().get_value('OUTPUT')
+screenshot = await run_client.key_value_store().get_value('OUTPUT')
 ```
 
 ## Actor.call_task()
@@ -42,7 +42,7 @@ and waits for the started Actor run to finish.
 # wait for it to finish, and get its dataset items
 task_run_details = await Actor.call_task('Z3m6FPSj0GYZ25rQc')
 run_client = Actor.apify_client.run(task_run_details['id'])
-task_run_dataset_items = await run_client().dataset().list_items()
+task_run_dataset_items = await run_client.dataset().list_items()
 ```
 
 ## Actor.metamorph()
