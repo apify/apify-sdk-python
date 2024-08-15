@@ -4,14 +4,13 @@ import asyncio
 import inspect
 from collections import defaultdict
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Callable, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, cast, get_type_hints
 
 import pytest
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.memory_storage_client.memory_storage_client import MemoryStorageClient
-from crawlee.storage_client_manager import StorageClientManager
 
 import apify.actor
 
@@ -20,7 +19,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture()
-def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
+def reset_default_instances() -> Callable[[], None]:
     def reset() -> None:
         from crawlee.storages._creation_management import (
             _cache_dataset_by_id,
@@ -38,12 +37,12 @@ def reset_default_instances(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Non
         _cache_rq_by_id.clear()
         _cache_rq_by_name.clear()
 
-        monkeypatch.setattr(CrawleeConfiguration, '_default_instance', None)
-        monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
-        monkeypatch.setattr(StorageClientManager, '_local_client', MemoryStorageClient())
+        from crawlee import service_container
+
+        cast(dict, service_container._services).clear()
 
         apify.actor._default_instance = None
-        # TODO: StorageClientManager local client purge  # noqa: TD003
+        # TODO: local storage client purge  # noqa: TD003
 
     return reset
 

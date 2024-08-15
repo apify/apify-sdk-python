@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from crawlee import service_container
 from crawlee.events.types import Event, EventPersistStateData
-from crawlee.storage_client_manager import StorageClientManager
 from pydantic import AliasChoices
 from typing_extensions import Self
 from werkzeug.local import LocalProxy
@@ -55,17 +55,24 @@ class _ActorType:
         self._configuration = config or Configuration.get_global_configuration()
         self._apify_client = self.new_client()
 
+        if self._configuration.token:
+            service_container.set_cloud_storage_client(ApifyStorageClient(configuration=self._configuration))
+
         self._event_manager: EventManager
         if self._configuration.is_at_home:
+            service_container.set_default_storage_client_type('cloud')
             self._event_manager = PlatformEventManager(
                 config=self._configuration,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
         else:
+            service_container.set_default_storage_client_type('local')
             self._event_manager = LocalEventManager(
                 system_info_interval=self._configuration.system_info_interval,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
+
+        service_container.set_event_manager(self._event_manager)
 
         self._is_initialized = False
 
@@ -157,9 +164,6 @@ class _ActorType:
 
         # TODO: Print outdated SDK version warning (we need a new env var for this)
         # https://github.com/apify/apify-sdk-python/issues/146
-
-        if self._configuration.token:
-            StorageClientManager.set_cloud_client(ApifyStorageClient(configuration=self._configuration))
 
         await self._event_manager.__aenter__()
 
@@ -346,11 +350,12 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        configuration_updates = {}
-        if force_cloud or self._configuration.is_at_home:
-            configuration_updates['in_cloud'] = True
-
-        return await Dataset.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
+        return await Dataset.open(
+            id=id,
+            name=name,
+            configuration=self._configuration,
+            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+        )
 
     async def open_key_value_store(
         self,
@@ -378,11 +383,12 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        configuration_updates = {}
-        if force_cloud or self._configuration.is_at_home:
-            configuration_updates['in_cloud'] = True
-
-        return await KeyValueStore.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
+        return await KeyValueStore.open(
+            id=id,
+            name=name,
+            configuration=self._configuration,
+            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+        )
 
     async def open_request_queue(
         self,
@@ -411,11 +417,12 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        configuration_updates = {}
-        if force_cloud or self._configuration.is_at_home:
-            configuration_updates['in_cloud'] = True
-
-        return await RequestQueue.open(id=id, name=name, configuration=self._configuration.model_copy(update=configuration_updates))
+        return await RequestQueue.open(
+            id=id,
+            name=name,
+            configuration=self._configuration,
+            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+        )
 
     async def push_data(self, data: Any) -> None:
         """Store an object or a list of objects to the default dataset of the current Actor run.

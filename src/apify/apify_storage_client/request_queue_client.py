@@ -8,7 +8,6 @@ from crawlee.models import (
     ProcessedRequest,
     ProlongRequestLockResponse,
     Request,
-    RequestListResponse,
     RequestQueueHead,
     RequestQueueHeadWithLocks,
     RequestQueueMetadata,
@@ -184,19 +183,5 @@ class RequestQueueClient(BaseRequestQueueClient):
                     )
                     for r in requests
                 ],
-            )
-        )
-
-    @override
-    async def list_requests(
-        self,
-        *,
-        limit: int | None = None,
-        exclusive_start_id: str | None = None,
-    ) -> RequestListResponse:
-        return RequestListResponse.model_validate(
-            await self._client.list_requests(
-                limit=limit,
-                exclusive_start_id=exclusive_start_id,
             )
         )

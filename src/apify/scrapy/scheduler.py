@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import traceback
 
+from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
+from apify.config import Configuration
+
 try:
     from scrapy import Spider
     from scrapy.core.scheduler import BaseScheduler
@@ -16,7 +19,7 @@ from crawlee._utils.crypto import crypto_random_object_id
 
 from apify.actor import Actor
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
-from apify.scrapy.utils import nested_event_loop, open_queue_with_custom_client
+from apify.scrapy.utils import nested_event_loop
 from apify.storages import RequestQueue
 
 
@@ -45,8 +48,12 @@ class ApifyScheduler(BaseScheduler):
         """
         self.spider = spider
 
+        async def open_queue() -> RequestQueue:
+            custom_loop_apify_client = ApifyStorageClient(configuration=Configuration.get_global_configuration())
+            return await RequestQueue.open(storage_client=custom_loop_apify_client)
+
         try:
-            self._rq = nested_event_loop.run_until_complete(open_queue_with_custom_client())
+            self._rq = nested_event_loop.run_until_complete(open_queue())
         except BaseException:
             traceback.print_exc()
             raise

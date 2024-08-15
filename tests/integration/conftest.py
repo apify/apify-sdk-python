@@ -7,13 +7,11 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol, cast
 
 import pytest
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
-from crawlee.configuration import Configuration
-from crawlee.storage_client_manager import StorageClientManager
 from filelock import FileLock
 
 import apify.actor
@@ -32,11 +30,13 @@ SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 # To isolate the tests, we need to reset the used singletons before each test case
 # We also patch the default storage client with a tmp_path
 @pytest.fixture(autouse=True)
-def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Configuration, '_default_instance', None)
-    monkeypatch.setattr(StorageClientManager, '_cloud_client', None)
+def _reset_and_patch_default_instances() -> None:
+    from crawlee import service_container
+
+    cast(dict, service_container._services).clear()
     apify.actor._default_instance = None
-    # TODO: StorageClientManager local client purge  # noqa: TD003
+
+    # TODO: StorageClientManager local storage client purge  # noqa: TD003
 
 
 # This fixture can't be session-scoped,

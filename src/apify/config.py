@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated, cast
+from typing import Annotated
 
 from crawlee._utils.models import timedelta_ms
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from pydantic import AliasChoices, BeforeValidator, Field
-from typing_extensions import Self
 
 
 class Configuration(CrawleeConfiguration):
@@ -179,18 +178,6 @@ class Configuration(CrawleeConfiguration):
     ] = 'http://localhost:4321'
 
     workflow_key: Annotated[str | None, Field(alias='apify_workflow_key')] = None
-
-    @classmethod
-    def get_global_configuration(cls) -> Self:
-        """Retrive the global configuration.
-
-        The global configuration applies when you call Actor methods via their static versions, e.g. `Actor.init()`.
-        Also accessible via `Actor.config`.
-        """
-        if CrawleeConfiguration._default_instance is None:
-            CrawleeConfiguration._default_instance = cls()
-
-        return cast(Self, CrawleeConfiguration._default_instance)
 
 
 # Monkey-patch the base class so that it works with the extended configuration
