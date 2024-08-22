@@ -250,45 +250,6 @@ class _ActorType:
 
         await self.exit(exit_code=exit_code, status_message=status_message)
 
-    async def main(self, main_actor_function: Callable[[], MainReturnType]) -> MainReturnType | None:
-        """Initialize the Actor, run the passed function and finish the Actor cleanly.
-
-        **The `Actor.main()` function is optional** and is provided merely for your convenience.
-        It is mainly useful when you're running your code as an Actor on the [Apify platform](https://apify.com/actors).
-
-        The `Actor.main()` function performs the following actions:
-
-        - When running on the Apify platform (i.e. `APIFY_IS_AT_HOME` environment variable is set),
-          it sets up a connection to listen for platform events.
-          For example, to get a notification about an imminent migration to another server.
-        - It invokes the user function passed as the `main_actor_function` parameter.
-        - If the user function was an async function, it awaits it.
-        - If the user function throws an exception or some other error is encountered,
-          it prints error details to console so that they are stored to the log,
-          and finishes the Actor cleanly.
-        - Finally, it exits the Python process, with zero exit code on success and non-zero on errors.
-
-        Args:
-            main_actor_function (Callable): The user function which should be run in the Actor
-        """
-        if not inspect.isfunction(main_actor_function):
-            raise TypeError(f'First argument passed to Actor.main() must be a function, but instead it was {type(main_actor_function)}')
-
-        await self.init()
-        try:
-            if inspect.iscoroutinefunction(main_actor_function):
-                res = await main_actor_function()
-            else:
-                res = main_actor_function()
-            await self.exit()
-            return cast(MainReturnType, res)
-        except Exception as exc:
-            await self.fail(
-                exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW.value,
-                exception=exc,
-            )
-        return None
-
     def new_client(
         self,
         *,
