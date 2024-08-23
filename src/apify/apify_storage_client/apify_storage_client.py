@@ -1,4 +1,5 @@
 from apify_client import ApifyClientAsync
+from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.base_storage_client.base_storage_client import BaseStorageClient
 from typing_extensions import override
 
@@ -15,6 +16,7 @@ class ApifyStorageClient(BaseStorageClient):
     """A storage client implementation based on the Apify platform storage."""
 
     def __init__(self, *, configuration: Configuration) -> None:
+        self._client_key = crypto_random_object_id()
         self._apify_client = ApifyClientAsync(
             token=configuration.token,
             api_url=configuration.api_base_url,
@@ -42,7 +44,7 @@ class ApifyStorageClient(BaseStorageClient):
 
     @override
     def request_queue(self, id: str) -> RequestQueueClient:
-        return RequestQueueClient(self._apify_client.request_queue(id))
+        return RequestQueueClient(self._apify_client.request_queue(id, client_key=self._client_key))
 
     @override
     def request_queues(self) -> RequestQueueCollectionClient:
