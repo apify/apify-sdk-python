@@ -81,6 +81,8 @@ class RequestQueueClient(BaseRequestQueueClient):
                         'id',
                         'json_',
                         'order_no',
+                        'query_params',
+                        'data',
                     },
                 ),
                 forefront=forefront,
@@ -107,6 +109,8 @@ class RequestQueueClient(BaseRequestQueueClient):
                     exclude={
                         'json_',
                         'order_no',
+                        'query_params',
+                        'data',
                     },
                 ),
                 forefront=forefront,
@@ -161,6 +165,8 @@ class RequestQueueClient(BaseRequestQueueClient):
                             'id',
                             'json_',
                             'order_no',
+                            'query_params',
+                            'data',
                         },
                     )
                     for r in requests
@@ -179,6 +185,8 @@ class RequestQueueClient(BaseRequestQueueClient):
                         exclude={
                             'json_',
                             'order_no',
+                            'query_params',
+                            'data',
                         },
                     )
                     for r in requests
