@@ -84,9 +84,9 @@ class TestActorLog:
         assert run_log_lines.pop(0) == "          raise ValueError('Dummy ValueError')"
         assert run_log_lines.pop(0) == '      ValueError: Dummy ValueError'
         assert run_log_lines.pop(0) == '[apify] INFO  Multi'
-        assert run_log_lines.pop(0) == '      line'
-        assert run_log_lines.pop(0) == '      log'
-        assert run_log_lines.pop(0) == '      message'
+        assert run_log_lines.pop(0) == 'line'
+        assert run_log_lines.pop(0) == 'log'
+        assert run_log_lines.pop(0) == 'message'
         assert run_log_lines.pop(0) == '[apify] ERROR Actor failed with an exception'
         assert run_log_lines.pop(0) == '      Traceback (most recent call last):'
         assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 44, in main'
