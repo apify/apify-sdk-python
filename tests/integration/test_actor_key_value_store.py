@@ -189,7 +189,7 @@ class TestGetPublicUrl:
         async def main() -> None:
             from typing import cast
 
-            from apify.apify_storage_client.key_value_store_client import KeyValueStoreClient
+            from apify.apify_storage_client._key_value_store_client import KeyValueStoreClient
 
             async with Actor:
                 public_api_url = Actor.config.api_public_base_url

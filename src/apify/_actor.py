@@ -17,7 +17,7 @@ from apify._log import logger
 from apify._platform_event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import get_system_info, is_running_in_ipython
-from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
+from apify.apify_storage_client import ApifyStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType

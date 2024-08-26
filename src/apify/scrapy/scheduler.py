@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 
 from apify._configuration import Configuration
-from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
+from apify.apify_storage_client import ApifyStorageClient
 
 try:
     from scrapy import Spider
