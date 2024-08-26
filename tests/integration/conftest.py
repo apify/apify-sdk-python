@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Callable, Protocol, cast
 import pytest
 from filelock import FileLock
 
-import apify.actor
+import apify._actor
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
 
@@ -35,7 +35,7 @@ def _reset_and_patch_default_instances() -> None:
     from crawlee import service_container
 
     cast(dict, service_container._services).clear()
-    delattr(apify.actor.Actor, '__wrapped__')
+    delattr(apify._actor.Actor, '__wrapped__')
 
     # TODO: StorageClientManager local storage client purge  # noqa: TD003
 

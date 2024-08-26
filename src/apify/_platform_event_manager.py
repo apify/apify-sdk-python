@@ -8,7 +8,7 @@ import websockets.client
 from pydantic import BaseModel, Discriminator, Field, TypeAdapter
 from typing_extensions import Self, Unpack, override
 
-from apify.log import logger
+from apify._log import logger
 from apify_shared.utils import ignore_docs
 from crawlee.events._event_manager import EventManager, EventManagerOptions
 from crawlee.events._local_event_manager import LocalEventManager
@@ -17,7 +17,7 @@ from crawlee.events._types import Event, EventAbortingData, EventExitData, Event
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from apify.config import Configuration
+    from apify._configuration import Configuration
 
 
 __all__ = ['EventManager', 'LocalEventManager', 'PlatformEventManager']

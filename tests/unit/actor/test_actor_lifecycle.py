@@ -9,8 +9,9 @@ import pytest
 import websockets.server
 from lazy_object_proxy import Proxy
 
-import apify.actor
-from apify.actor import Actor, _ActorType
+import apify._actor
+from apify import Actor
+from apify._actor import _ActorType
 from apify_shared.consts import ApifyEnvVars
 from crawlee.events._types import Event, EventPersistStateData
 
@@ -18,9 +19,9 @@ from crawlee.events._types import Event, EventPersistStateData
 class TestActorInit:
     async def test_async_with_actor_properly_initialize(self: TestActorInit) -> None:
         async with Actor:
-            assert cast(Proxy, apify.actor.Actor).__wrapped__ is not None
-            assert cast(Proxy, apify.actor.Actor).__wrapped__._is_initialized
-        assert not cast(Proxy, apify.actor.Actor).__wrapped__._is_initialized
+            assert cast(Proxy, apify._actor.Actor).__wrapped__ is not None
+            assert cast(Proxy, apify._actor.Actor).__wrapped__._is_initialized
+        assert not cast(Proxy, apify._actor.Actor).__wrapped__._is_initialized
 
     async def test_actor_init(self: TestActorInit) -> None:
         my_actor = _ActorType()

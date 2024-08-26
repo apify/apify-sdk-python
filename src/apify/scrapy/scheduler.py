@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import traceback
 
+from apify._configuration import Configuration
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
-from apify.config import Configuration
 
 try:
     from scrapy import Spider
@@ -15,7 +15,7 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from apify.actor import Actor
+from apify import Actor
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
 from apify.scrapy.utils import nested_event_loop
 from apify.storages import RequestQueue

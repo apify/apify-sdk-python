@@ -9,8 +9,8 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from apify.config import Configuration
-from apify.log import logger
+from apify._configuration import Configuration
+from apify._log import logger
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration

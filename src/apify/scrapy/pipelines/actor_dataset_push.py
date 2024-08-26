@@ -9,7 +9,7 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from apify.actor import Actor
+from apify import Actor
 
 
 class ActorDatasetPushPipeline:

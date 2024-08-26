@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from apify.log import ActorLogFormatter
+from apify._log import ActorLogFormatter
 
 from .main import main
 

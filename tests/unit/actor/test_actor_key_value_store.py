@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from apify import Actor
+from apify._consts import ENCRYPTED_INPUT_VALUE_PREFIX
 from apify._crypto import public_encrypt
-from apify.consts import ENCRYPTED_INPUT_VALUE_PREFIX
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import json_dumps
 

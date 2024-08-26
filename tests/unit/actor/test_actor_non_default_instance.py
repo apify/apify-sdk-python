@@ -1,7 +1,6 @@
 from datetime import timedelta
 
-from apify import Actor
-from apify.config import Configuration
+from apify import Actor, Configuration
 
 
 async def test_actor_non_default_instance() -> None:

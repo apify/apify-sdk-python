@@ -42,11 +42,11 @@ class TestActorInit:
 
     async def test_async_with_actor_properly_initialize(self: TestActorInit, make_actor: ActorFactory) -> None:
         async def main() -> None:
-            import apify.actor
+            import apify._actor
 
             async with Actor:
-                assert apify.actor.Actor._is_initialized
-            assert apify.actor.Actor._is_initialized is False
+                assert apify._actor.Actor._is_initialized
+            assert apify._actor.Actor._is_initialized is False
 
         actor = await make_actor('with-actor-init', main_func=main)
 

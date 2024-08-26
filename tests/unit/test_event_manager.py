@@ -11,8 +11,8 @@ import pytest
 import websockets
 import websockets.server
 
+from apify import Configuration
 from apify._platform_event_manager import EventManager, PlatformEventManager, SystemInfoEventData
-from apify.config import Configuration
 from apify_shared.consts import ActorEnvVars
 from crawlee.events._types import Event
 

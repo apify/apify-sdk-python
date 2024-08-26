@@ -10,14 +10,14 @@ from lazy_object_proxy import Proxy
 from pydantic import AliasChoices
 from typing_extensions import Self
 
+from apify._configuration import Configuration
+from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
+from apify._log import logger
 from apify._platform_event_manager import EventManager, LocalEventManager, PlatformEventManager
+from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import get_system_info, is_running_in_ipython
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
-from apify.config import Configuration
-from apify.consts import EVENT_LISTENERS_TIMEOUT
-from apify.log import logger
-from apify.proxy_configuration import ProxyConfiguration
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType

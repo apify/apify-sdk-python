@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, cast, get_type_hints
 
 import pytest
 
-import apify.actor
+import apify._actor
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee.configuration import Configuration as CrawleeConfiguration
@@ -41,7 +41,7 @@ def reset_default_instances() -> Callable[[], None]:
 
         cast(dict, service_container._services).clear()
 
-        delattr(apify.actor.Actor, '__wrapped__')
+        delattr(apify._actor.Actor, '__wrapped__')
         # TODO: local storage client purge  # noqa: TD003
 
     return reset

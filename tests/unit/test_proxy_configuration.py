@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import pytest
 
-from apify.proxy_configuration import ProxyConfiguration, is_url
+from apify._proxy_configuration import ProxyConfiguration, is_url
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 

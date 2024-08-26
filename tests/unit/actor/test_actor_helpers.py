@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apify.actor import Actor, _ActorType
+from apify import Actor
+from apify._actor import _ActorType
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars, WebhookEventType
 
