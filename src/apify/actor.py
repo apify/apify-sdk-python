@@ -6,9 +6,9 @@ import sys
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
+from lazy_object_proxy import Proxy
 from pydantic import AliasChoices
 from typing_extensions import Self
-from werkzeug.local import LocalProxy
 
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._utils import get_system_info, is_running_in_ipython
@@ -103,7 +103,7 @@ class _ActorType:
                 await self.exit()
 
     def __repr__(self) -> str:
-        if self is _default_instance:
+        if self is cast(Proxy, Actor).__wrapped__:
             return '<apify.Actor>'
 
         return super().__repr__()
@@ -933,17 +933,5 @@ class _ActorType:
         return proxy_configuration
 
 
-_default_instance: _ActorType | None = None
-
-
-def _get_default_instance() -> _ActorType:
-    global _default_instance  # noqa: PLW0603
-
-    if not _default_instance:
-        _default_instance = _ActorType()
-
-    return _default_instance
-
-
-Actor = cast(_ActorType, LocalProxy(_get_default_instance))
+Actor = cast(_ActorType, Proxy(_ActorType))
 """The entry point of the SDK, through which all the Actor operations should be done."""

@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import pytest
 import websockets.server
+from lazy_object_proxy import Proxy
 
 import apify.actor
 from apify.actor import Actor, _ActorType
@@ -17,9 +18,9 @@ from crawlee.events._types import Event, EventPersistStateData
 class TestActorInit:
     async def test_async_with_actor_properly_initialize(self: TestActorInit) -> None:
         async with Actor:
-            assert apify.actor._default_instance is not None
-            assert apify.actor._default_instance._is_initialized
-        assert not apify.actor._default_instance._is_initialized
+            assert cast(Proxy, apify.actor.Actor).__wrapped__ is not None
+            assert cast(Proxy, apify.actor.Actor).__wrapped__._is_initialized
+        assert not cast(Proxy, apify.actor.Actor).__wrapped__._is_initialized
 
     async def test_actor_init(self: TestActorInit) -> None:
         my_actor = _ActorType()

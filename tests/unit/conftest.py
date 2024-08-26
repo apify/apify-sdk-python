@@ -41,7 +41,7 @@ def reset_default_instances() -> Callable[[], None]:
 
         cast(dict, service_container._services).clear()
 
-        apify.actor._default_instance = None
+        delattr(apify.actor.Actor, '__wrapped__')
         # TODO: local storage client purge  # noqa: TD003
 
     return reset

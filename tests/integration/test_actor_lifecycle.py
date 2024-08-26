@@ -45,8 +45,8 @@ class TestActorInit:
             import apify.actor
 
             async with Actor:
-                assert apify.actor._get_default_instance()._is_initialized
-            assert apify.actor._get_default_instance()._is_initialized is False
+                assert apify.actor.Actor._is_initialized
+            assert apify.actor.Actor._is_initialized is False
 
         actor = await make_actor('with-actor-init', main_func=main)
 

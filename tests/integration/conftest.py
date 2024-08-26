@@ -35,7 +35,7 @@ def _reset_and_patch_default_instances() -> None:
     from crawlee import service_container
 
     cast(dict, service_container._services).clear()
-    apify.actor._default_instance = None
+    delattr(apify.actor.Actor, '__wrapped__')
 
     # TODO: StorageClientManager local storage client purge  # noqa: TD003
 

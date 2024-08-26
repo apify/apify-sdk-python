@@ -34,12 +34,12 @@ dependencies = [
     "crawlee >= 0.3.0",
     "cryptography >= 39.0.0",
     "httpx >= 0.24.0",
+    "lazy-object-proxy >= 1.10.0",
     "psutil >= 5.9.0",
     "pyee >= 11.0.0",
     "sortedcollections >= 2.0.0",
     "typing-extensions >= 4.1.0",
     "websockets >= 10.1",
-    "werkzeug >= 3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -185,5 +185,5 @@ warn_unreachable = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ['scrapy', 'scrapy.*', 'sortedcollections']
+module = ['scrapy', 'scrapy.*', 'sortedcollections', 'lazy_object_proxy']
 ignore_missing_imports = true
