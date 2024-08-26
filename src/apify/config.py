@@ -1,12 +1,13 @@
-# ruff: noqa: TCH002 TCH003
+# ruff: noqa: TCH001 TCH002 TCH003
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Annotated
 
+from pydantic import AliasChoices, BeforeValidator, Field
+
 from crawlee._utils.models import timedelta_ms
 from crawlee.configuration import Configuration as CrawleeConfiguration
-from pydantic import AliasChoices, BeforeValidator, Field
 
 
 class Configuration(CrawleeConfiguration):

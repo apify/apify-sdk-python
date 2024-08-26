@@ -5,10 +5,9 @@ import logging
 import sys
 from typing import TYPE_CHECKING
 
-from apify_client import __version__ as apify_client_version
-
 from apify import Actor, __version__
 from apify.log import logger
+from apify_client import __version__ as apify_client_version
 
 if TYPE_CHECKING:
     import pytest

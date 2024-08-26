@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crawlee.base_storage_client import BaseDatasetClient, DatasetItemsListPage, DatasetMetadata
 from typing_extensions import override
+
+from crawlee.base_storage_client import BaseDatasetClient, DatasetItemsListPage, DatasetMetadata
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
+    from httpx import Response
+
     from apify_client.clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
-    from httpx import Response
 
 
 class DatasetClient(BaseDatasetClient):

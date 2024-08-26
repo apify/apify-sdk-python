@@ -1,7 +1,9 @@
+from typing_extensions import override
+
+from apify.config import Configuration
 from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.base_storage_client import BaseStorageClient
-from typing_extensions import override
 
 from .dataset_client import DatasetClient
 from .dataset_collection_client import DatasetCollectionClient
@@ -9,7 +11,6 @@ from .key_value_store_client import KeyValueStoreClient
 from .key_value_store_collection_client import KeyValueStoreCollectionClient
 from .request_queue_client import RequestQueueClient
 from .request_queue_collection_client import RequestQueueCollectionClient
-from apify.config import Configuration
 
 
 class ApifyStorageClient(BaseStorageClient):

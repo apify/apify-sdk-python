@@ -10,11 +10,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Protocol, cast
 
 import pytest
-from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorSourceType
 from filelock import FileLock
 
 import apify.actor
+from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorJobStatus, ActorSourceType
+
 from ._utils import generate_unique_resource_name
 
 if TYPE_CHECKING:

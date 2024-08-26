@@ -13,11 +13,10 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
+from apify.actor import Actor
 from crawlee import Request as CrawleeRequest
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee._utils.requests import compute_unique_key, unique_key_to_request_id
-
-from apify.actor import Actor
 
 
 def _is_request_produced_by_middleware(scrapy_request: Request) -> bool:

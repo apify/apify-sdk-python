@@ -3,11 +3,11 @@ from __future__ import annotations
 import binascii
 
 import pytest
-from crawlee import Request as CrawleeRequest
 from scrapy import Request, Spider
 from scrapy.http.headers import Headers
 
 from apify.scrapy.requests import to_scrapy_request
+from crawlee import Request as CrawleeRequest
 
 
 class DummySpider(Spider):

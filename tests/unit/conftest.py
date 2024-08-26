@@ -7,12 +7,12 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, cast, get_type_hints
 
 import pytest
+
+import apify.actor
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.memory_storage_client import MemoryStorageClient
-
-import apify.actor
 
 if TYPE_CHECKING:
     from pathlib import Path

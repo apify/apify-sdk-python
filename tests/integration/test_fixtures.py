@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from crawlee._utils.crypto import crypto_random_object_id
-
 from apify import Actor
+from crawlee._utils.crypto import crypto_random_object_id
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync

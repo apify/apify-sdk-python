@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
+
+from apify.config import Configuration
+from apify.log import logger
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
 from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
 from crawlee.proxy_configuration import _NewUrlFunction
-
-from apify.config import Configuration
-from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync

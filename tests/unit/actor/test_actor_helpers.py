@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from apify.actor import Actor, _ActorType
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars, WebhookEventType
-
-from apify.actor import Actor, _ActorType
 
 if TYPE_CHECKING:
     import pytest

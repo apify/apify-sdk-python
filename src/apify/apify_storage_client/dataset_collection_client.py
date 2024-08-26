@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crawlee.base_storage_client import BaseDatasetCollectionClient, DatasetListPage, DatasetMetadata
 from typing_extensions import override
+
+from crawlee.base_storage_client import BaseDatasetCollectionClient, DatasetListPage, DatasetMetadata
 
 if TYPE_CHECKING:
     from apify_client.clients import DatasetCollectionClientAsync

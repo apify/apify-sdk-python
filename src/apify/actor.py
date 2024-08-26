@@ -6,11 +6,6 @@ import sys
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
-from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
-from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
-from crawlee import service_container
-from crawlee.events._types import Event, EventPersistStateData
 from pydantic import AliasChoices
 from typing_extensions import Self
 from werkzeug.local import LocalProxy
@@ -24,6 +19,11 @@ from apify.event_manager import EventManager, LocalEventManager, PlatformEventMa
 from apify.log import logger
 from apify.proxy_configuration import ProxyConfiguration
 from apify.storages import Dataset, KeyValueStore, RequestQueue
+from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
+from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from crawlee import service_container
+from crawlee.events._types import Event, EventPersistStateData
 
 if TYPE_CHECKING:
     import logging

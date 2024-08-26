@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from typing_extensions import override
+
 from crawlee import Request
 from crawlee.base_storage_client import (
     BaseRequestQueueClient,
@@ -12,7 +14,6 @@ from crawlee.base_storage_client import (
     RequestQueueHeadWithLocks,
     RequestQueueMetadata,
 )
-from typing_extensions import override
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

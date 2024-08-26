@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crawlee.base_storage_client import BaseRequestQueueCollectionClient, RequestQueueListPage, RequestQueueMetadata
 from typing_extensions import override
+
+from crawlee.base_storage_client import BaseRequestQueueCollectionClient, RequestQueueListPage, RequestQueueMetadata
 
 if TYPE_CHECKING:
     from apify_client.clients import RequestQueueCollectionClientAsync

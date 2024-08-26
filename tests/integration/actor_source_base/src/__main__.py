@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from .main import main
 from apify.log import ActorLogFormatter
+
+from .main import main
 
 handler = logging.StreamHandler()
 handler.setFormatter(ActorLogFormatter())

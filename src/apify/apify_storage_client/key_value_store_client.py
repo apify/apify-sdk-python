@@ -3,15 +3,17 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
-from crawlee.base_storage_client import BaseKeyValueStoreClient, KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
 from typing_extensions import override
+
+from crawlee.base_storage_client import BaseKeyValueStoreClient, KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
-    from apify_client.clients import KeyValueStoreClientAsync
     from httpx import Response
+
+    from apify_client.clients import KeyValueStoreClientAsync
 
 
 class KeyValueStoreClient(BaseKeyValueStoreClient):
