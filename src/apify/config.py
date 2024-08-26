@@ -1,4 +1,4 @@
-# ruff: noqa: TCH001 TCH002 TCH003
+# ruff: noqa: TCH001 TCH002 TCH003 (so that pydantic annotations work)
 from __future__ import annotations
 
 from datetime import datetime, timedelta
