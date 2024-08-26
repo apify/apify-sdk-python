@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crawlee.base_storage_client.base_request_queue_client import BaseRequestQueueClient
-from crawlee.models import (
+from crawlee import Request
+from crawlee.base_storage_client import (
+    BaseRequestQueueClient,
     BatchRequestsOperationResponse,
     ProcessedRequest,
     ProlongRequestLockResponse,
-    Request,
     RequestQueueHead,
     RequestQueueHeadWithLocks,
     RequestQueueMetadata,

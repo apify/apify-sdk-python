@@ -10,7 +10,7 @@ import pytest
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee.configuration import Configuration as CrawleeConfiguration
-from crawlee.memory_storage_client.memory_storage_client import MemoryStorageClient
+from crawlee.memory_storage_client import MemoryStorageClient
 
 import apify.actor
 

@@ -3,8 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
-from crawlee.base_storage_client.base_key_value_store_client import BaseKeyValueStoreClient
-from crawlee.models import KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
+from crawlee.base_storage_client import BaseKeyValueStoreClient, KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
 from typing_extensions import override
 
 if TYPE_CHECKING:

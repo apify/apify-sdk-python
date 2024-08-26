@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crawlee.base_storage_client.base_dataset_client import BaseDatasetClient
-from crawlee.models import DatasetItemsListPage, DatasetMetadata
+from crawlee.base_storage_client import BaseDatasetClient, DatasetItemsListPage, DatasetMetadata
 from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -11,7 +10,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
     from apify_client.clients import DatasetClientAsync
-    from crawlee.types import JSONSerializable
+    from crawlee._types import JsonSerializable
     from httpx import Response
 
 
@@ -179,7 +178,7 @@ class DatasetClient(BaseDatasetClient):
         )
 
     @override
-    async def push_items(self, items: JSONSerializable) -> None:
+    async def push_items(self, items: JsonSerializable) -> None:
         await self._client.push_items(
             items=items,
         )

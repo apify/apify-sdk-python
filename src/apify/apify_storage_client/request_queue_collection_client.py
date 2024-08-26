@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crawlee.base_storage_client.base_request_queue_collection_client import BaseRequestQueueCollectionClient
-from crawlee.models import RequestQueueListPage, RequestQueueMetadata
+from crawlee.base_storage_client import BaseRequestQueueCollectionClient, RequestQueueListPage, RequestQueueMetadata
 from typing_extensions import override
 
 if TYPE_CHECKING:

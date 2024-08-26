@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crawlee.base_storage_client.base_key_value_store_collection_client import BaseKeyValueStoreCollectionClient
-from crawlee.models import KeyValueStoreListPage, KeyValueStoreMetadata
+from crawlee.base_storage_client import BaseKeyValueStoreCollectionClient, KeyValueStoreListPage, KeyValueStoreMetadata
 from typing_extensions import override
 
 if TYPE_CHECKING:

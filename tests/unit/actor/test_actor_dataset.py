@@ -8,7 +8,7 @@ from apify_shared.consts import ActorEnvVars
 from apify import Actor
 
 if TYPE_CHECKING:
-    from crawlee.memory_storage_client.memory_storage_client import MemoryStorageClient
+    from crawlee.memory_storage_client import MemoryStorageClient
 
 # NOTE: We only test the dataset methods available on Actor class/instance.
 # Actual tests for the implementations are in storages/.

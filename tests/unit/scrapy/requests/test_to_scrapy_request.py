@@ -3,7 +3,7 @@ from __future__ import annotations
 import binascii
 
 import pytest
-from crawlee.models import Request as CrawleeRequest
+from crawlee import Request as CrawleeRequest
 from scrapy import Request, Spider
 from scrapy.http.headers import Headers
 

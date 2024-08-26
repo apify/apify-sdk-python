@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import os
 import sys
 from datetime import timedelta
@@ -11,7 +10,7 @@ from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee import service_container
-from crawlee.events.types import Event, EventPersistStateData
+from crawlee.events._types import Event, EventPersistStateData
 from pydantic import AliasChoices
 from typing_extensions import Self
 from werkzeug.local import LocalProxy
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
     import logging
     from types import TracebackType
 
-    from crawlee.proxy_configuration import NewUrlFunction
+    from crawlee.proxy_configuration import _NewUrlFunction
 
 
 MainReturnType = TypeVar('MainReturnType')
@@ -880,7 +879,7 @@ class _ActorType:
         groups: list[str] | None = None,
         country_code: str | None = None,
         proxy_urls: list[str] | None = None,
-        new_url_function: NewUrlFunction | None = None,
+        new_url_function: _NewUrlFunction | None = None,
     ) -> ProxyConfiguration | None:
         """Create a ProxyConfiguration object with the passed proxy configuration.
 

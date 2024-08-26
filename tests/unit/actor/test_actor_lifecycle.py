@@ -4,12 +4,11 @@ import asyncio
 import contextlib
 import json
 from typing import Any, Callable
-from unittest.mock import AsyncMock
 
 import pytest
 import websockets.server
 from apify_shared.consts import ApifyEnvVars
-from crawlee.events.types import Event, EventPersistStateData
+from crawlee.events._types import Event, EventPersistStateData
 
 import apify.actor
 from apify.actor import Actor, _ActorType
@@ -108,48 +107,6 @@ class TestActorFail:
     async def test_actor_reboot_not_work_locally(self: TestActorFail) -> None:
         with pytest.raises(RuntimeError):
             await Actor.reboot()
-
-
-class TestActorMainMethod:
-    async def test_actor_main_method(self: TestActorMainMethod) -> None:
-        my_actor = _ActorType()
-        main_was_called = False
-
-        async def actor_function() -> None:
-            nonlocal main_was_called
-            main_was_called = True
-            assert my_actor._is_initialized
-
-        await my_actor.main(actor_function)
-        assert my_actor._is_initialized is False
-        assert main_was_called
-
-    async def test_actor_main_method_throw_exception(self: TestActorMainMethod) -> None:
-        my_actor = _ActorType()
-        err = Exception('Failed')
-        my_actor.fail = AsyncMock()  # type: ignore
-
-        async def actor_function() -> None:
-            nonlocal err
-            raise err
-
-        await my_actor.main(actor_function)
-        # NOTE: Actor didn't call sys.exit() during testing, check if fail was called.
-        my_actor.fail.assert_called_with(exit_code=91, exception=err)
-
-        # This is necessary to stop the event emitting intervals
-        await my_actor.exit()
-
-    async def test_actor_main_method_raise_return_value(self: TestActorMainMethod) -> None:
-        my_actor = _ActorType()
-        expected_string = 'Hello world'
-
-        async def actor_function() -> str:
-            nonlocal expected_string
-            return expected_string
-
-        returned_value = await my_actor.main(actor_function)
-        assert returned_value == expected_string
 
 
 class TestMigratingEvent:

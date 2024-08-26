@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
 import websockets.client
 from apify_shared.utils import ignore_docs
-from crawlee.events.event_manager import EventManager, EventManagerOptions
-from crawlee.events.local_event_manager import LocalEventManager
-from crawlee.events.types import Event, EventAbortingData, EventExitData, EventMigratingData, EventPersistStateData, EventSystemInfoData
+from crawlee.events._event_manager import EventManager, EventManagerOptions
+from crawlee.events._local_event_manager import LocalEventManager
+from crawlee.events._types import Event, EventAbortingData, EventExitData, EventMigratingData, EventPersistStateData, EventSystemInfoData
 from pydantic import BaseModel, Discriminator, Field, TypeAdapter
 from typing_extensions import Self, Unpack, override
 

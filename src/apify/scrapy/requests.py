@@ -13,9 +13,9 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
+from crawlee import Request as CrawleeRequest
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee._utils.requests import compute_unique_key, unique_key_to_request_id
-from crawlee.models import Request as CrawleeRequest
 
 from apify.actor import Actor
 
@@ -111,7 +111,7 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
         The converted Scrapy request.
     """
     if not isinstance(cast(Any, apify_request), CrawleeRequest):
-        raise TypeError('apify_request must be a crawlee.models.Request instance')
+        raise TypeError('apify_request must be a crawlee.Request instance')
 
     call_id = crypto_random_object_id(8)
     Actor.log.debug(f'[{call_id}]: to_scrapy_request was called (apify_request={apify_request})...')

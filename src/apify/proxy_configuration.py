@@ -10,16 +10,16 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
-from crawlee.proxy_configuration import NewUrlFunction
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
 from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
+from crawlee.proxy_configuration import _NewUrlFunction
 
 from apify.config import Configuration
 from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
-    from crawlee.models import Request
+    from crawlee import Request
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
@@ -109,7 +109,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         groups: list[str] | None = None,
         country_code: str | None = None,
         proxy_urls: list[str] | None = None,
-        new_url_function: NewUrlFunction | None = None,
+        new_url_function: _NewUrlFunction | None = None,
         tiered_proxy_urls: list[list[str]] | None = None,
         _actor_config: Configuration | None = None,
         _apify_client: ApifyClientAsync | None = None,

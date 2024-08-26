@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from crawlee.log_config import CrawleeLogFormatter
+from crawlee._log_config import CrawleeLogFormatter
 
 # Name of the logger used throughout the library (resolves to 'apify')
 logger_name = __name__.split('.')[0]
