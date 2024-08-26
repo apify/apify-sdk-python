@@ -45,8 +45,7 @@ class _ActorType:
     def __init__(self, config: Configuration | None = None) -> None:
         """Create an Actor instance.
 
-        Note that you don't have to do this, all the methods on this class function as classmethods too,
-        and that is their preferred usage.
+        Note that you don't have to do this, all the functionality is accessible using the default instance (e.g. `Actor.open_dataset()`).
 
         Args:
             config (Configuration, optional): The Actor configuration to be used. If not passed, a new Configuration instance will be created.
@@ -54,24 +53,17 @@ class _ActorType:
         self._configuration = config or Configuration.get_global_configuration()
         self._apify_client = self.new_client()
 
-        if self._configuration.token:
-            service_container.set_cloud_storage_client(ApifyStorageClient(configuration=self._configuration))
-
         self._event_manager: EventManager
         if self._configuration.is_at_home:
-            service_container.set_default_storage_client_type('cloud')
             self._event_manager = PlatformEventManager(
                 config=self._configuration,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
         else:
-            service_container.set_default_storage_client_type('local')
             self._event_manager = LocalEventManager(
                 system_info_interval=self._configuration.system_info_interval,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
-
-        service_container.set_event_manager(self._event_manager)
 
         self._is_initialized = False
 
@@ -116,6 +108,10 @@ class _ActorType:
 
         return super().__repr__()
 
+    def __call__(self, config: Configuration) -> Self:
+        """Make a new Actor instance with a non-default configuration."""
+        return self.__class__(config=config)
+
     @property
     def apify_client(self) -> ApifyClientAsync:
         """The ApifyClientAsync instance the Actor instance uses."""
@@ -154,6 +150,16 @@ class _ActorType:
         """
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
+
+        if self._configuration.token:
+            service_container.set_cloud_storage_client(ApifyStorageClient(configuration=self._configuration))
+
+        if self._configuration.is_at_home:
+            service_container.set_default_storage_client_type('cloud')
+        else:
+            service_container.set_default_storage_client_type('local')
+
+        service_container.set_event_manager(self._event_manager)
 
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
