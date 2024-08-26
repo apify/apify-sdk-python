@@ -11,11 +11,11 @@ from pydantic import AliasChoices
 from typing_extensions import Self
 
 from apify._crypto import decrypt_input_secrets, load_private_key
+from apify._platform_event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify._utils import get_system_info, is_running_in_ipython
 from apify.apify_storage_client.apify_storage_client import ApifyStorageClient
 from apify.config import Configuration
 from apify.consts import EVENT_LISTENERS_TIMEOUT
-from apify.event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify.log import logger
 from apify.proxy_configuration import ProxyConfiguration
 from apify.storages import Dataset, KeyValueStore, RequestQueue
