@@ -82,13 +82,13 @@ class ApifyClientAsyncPatcher:
         One of `return_value` and `replacement_method` arguments must be specified.
 
         Args:
-            method (str): Which root method to patch in the ApifyClientAsync.
-            submethod (str): Which submethod to patch in the root method's result.
-            return_value (optional, Any): What should the patched method return.
-            replacement_method (optional, Callable): What method should the original method be replaced by.
-            is_async (optional, bool): Whether the return value or replacement method should be wrapped by an async wrapper,
-                                       in order to not break any `await` statements.
-                                       If not passed, it is automatically detected from the type of the method which is being replaced.
+            method: Which root method to patch in the ApifyClientAsync.
+            submethod: Which submethod to patch in the root method's result.
+            return_value: What should the patched method return.
+            replacement_method: What method should the original method be replaced by.
+            is_async: Whether the return value or replacement method should be wrapped by an async wrapper,
+                in order to not break any `await` statements.
+                If not passed, it is automatically detected from the type of the method which is being replaced.
         """
 
         client_method = getattr(ApifyClientAsync, method, None)

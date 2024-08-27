@@ -153,13 +153,12 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
         You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
         Args:
-            actor_label (str): The label which will be a part of the generated Actor name
-            main_func (Callable, optional): The main function of the Actor.
-            main_py (str, optional): The `src/main.py` file of the Actor.
-            source_files (dict, optional): A dictionary of the source files of the Actor.
+            actor_label: The label which will be a part of the generated Actor name
+            main_func: The main function of the Actor.
+            main_py: The `src/main.py` file of the Actor.
+            source_files: A dictionary of the source files of the Actor.
 
-        Returns:
-            ActorClientAsync: A resource client for the created Actor.
+        Returns: A resource client for the created Actor.
         """
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')

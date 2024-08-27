@@ -117,12 +117,12 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         """Create a ProxyConfiguration instance. It is highly recommended to use `Actor.create_proxy_configuration()` instead of this.
 
         Args:
-            password (str, optional): Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
-            groups (list of str, optional): Proxy groups which the Apify Proxy should use, if provided.
-            country_code (str, optional): Country which the Apify Proxy should use, if provided.
-            proxy_urls (list of str, optional): Custom proxy server URLs which should be rotated through.
-            new_url_function (Callable, optional): Function which returns a custom proxy URL to be used.
-            tiered_proxy_urls (list of list of str, optional): Proxy URLs arranged into tiers
+            password: Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
+            groups: Proxy groups which the Apify Proxy should use, if provided.
+            country_code: Country which the Apify Proxy should use, if provided.
+            proxy_urls: Custom proxy server URLs which should be rotated through.
+            new_url_function: Function which returns a custom proxy URL to be used.
+            tiered_proxy_urls: Proxy URLs arranged into tiers
         """
         _actor_config = _actor_config or Configuration.get_global_configuration()
 
@@ -193,15 +193,14 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         If you need the URL string only, use `ProxyConfiguration.new_url`.
 
         Args:
-            session_id (int or str, optional): Represents the identifier of a proxy session (https://docs.apify.com/proxy#sessions).
+            session_id: Represents the identifier of a proxy session (https://docs.apify.com/proxy#sessions).
                 All the HTTP requests going through the proxy with the same session identifier
                 will use the same target proxy server (i.e. the same IP address).
                 The identifier must not be longer than 50 characters and include only the following: `0-9`, `a-z`, `A-Z`, `"."`, `"_"` and `"~"`.
-            request (Request, optional): request for which the proxy info is being issued, used in proxy tier handling
-            proxy_tier (int, optional): allows forcing the proxy tier to be used
+            request: request for which the proxy info is being issued, used in proxy tier handling
+            proxy_tier: allows forcing the proxy tier to be used
 
-        Returns:
-            ProxyInfo: Dictionary that represents information about the proxy and its configuration.
+        Returns: Dictionary that represents information about the proxy and its configuration.
         """
         if session_id is not None:
             _check(session_id, label='session_id', max_length=SESSION_ID_MAX_LENGTH, pattern=APIFY_PROXY_VALUE_REGEX)

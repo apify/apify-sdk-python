@@ -86,7 +86,7 @@ class KeyValueStoreClient(BaseKeyValueStoreClient):
         """Get a URL for the given key that may be used to publicly access the value in the remote key-value store.
 
         Args:
-            key (str): The key for which the URL should be generated.
+            key: The key for which the URL should be generated.
         """
         public_api_url = self._api_public_base_url
 

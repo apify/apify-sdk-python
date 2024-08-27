@@ -129,8 +129,8 @@ class PlatformEventManager(EventManager):
         """Create an instance of the EventManager.
 
         Args:
-            config (Configuration): The Actor configuration to be used in this event manager.
-            kwargs (EventManagerOptions): Event manager options - forwarded to the base class
+            config: The Actor configuration to be used in this event manager.
+            kwargs: Event manager options - forwarded to the base class
         """
         super().__init__(**kwargs)
 
