@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING, Callable, Protocol, cast
 import pytest
 from filelock import FileLock
 
-import apify._actor
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType
 
+import apify._actor
 from ._utils import generate_unique_resource_name
 
 if TYPE_CHECKING:

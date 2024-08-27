@@ -9,13 +9,14 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from apify._configuration import Configuration
-from apify._log import logger
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import ignore_docs
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
 from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
 from crawlee.proxy_configuration import _NewUrlFunction
+
+from apify._configuration import Configuration
+from apify._log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync

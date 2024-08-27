@@ -11,10 +11,11 @@ import pytest
 import websockets
 import websockets.server
 
-from apify import Configuration
-from apify._platform_event_manager import EventManager, PlatformEventManager, SystemInfoEventData
 from apify_shared.consts import ActorEnvVars
 from crawlee.events._types import Event
+
+from apify import Configuration
+from apify._platform_event_manager import EventManager, PlatformEventManager, SystemInfoEventData
 
 
 class TestEventManagerLocal:

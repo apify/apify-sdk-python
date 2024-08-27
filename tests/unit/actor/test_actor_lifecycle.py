@@ -9,11 +9,12 @@ import pytest
 import websockets.server
 from lazy_object_proxy import Proxy
 
+from apify_shared.consts import ApifyEnvVars
+from crawlee.events._types import Event, EventPersistStateData
+
 import apify._actor
 from apify import Actor
 from apify._actor import _ActorType
-from apify_shared.consts import ApifyEnvVars
-from crawlee.events._types import Event, EventPersistStateData
 
 
 class TestActorInit:

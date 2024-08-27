@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import pytest
 
-from apify._proxy_configuration import ProxyConfiguration, is_url
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
+
+from apify._proxy_configuration import ProxyConfiguration, is_url
 
 if TYPE_CHECKING:
     from respx import MockRouter

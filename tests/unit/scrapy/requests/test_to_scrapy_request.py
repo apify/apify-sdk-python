@@ -6,8 +6,9 @@ import pytest
 from scrapy import Request, Spider
 from scrapy.http.headers import Headers
 
-from apify.scrapy.requests import to_scrapy_request
 from crawlee import Request as CrawleeRequest
+
+from apify.scrapy.requests import to_scrapy_request
 
 
 class DummySpider(Spider):

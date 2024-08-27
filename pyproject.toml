@@ -157,7 +157,8 @@ docstring-quotes = "double"
 inline-quotes = "single"
 
 [tool.ruff.lint.isort]
-known-first-party = ["apify", "apify_client", "apify_shared", "crawlee"]
+known-local-folder = ["apify"]
+known-first-party = ["apify_client", "apify_shared", "crawlee"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

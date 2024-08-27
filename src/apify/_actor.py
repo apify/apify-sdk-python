@@ -10,6 +10,12 @@ from lazy_object_proxy import Proxy
 from pydantic import AliasChoices
 from typing_extensions import Self
 
+from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
+from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from crawlee import service_container
+from crawlee.events._types import Event, EventPersistStateData
+
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -19,11 +25,6 @@ from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import get_system_info, is_running_in_ipython
 from apify.apify_storage_client import ApifyStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
-from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
-from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
-from crawlee import service_container
-from crawlee.events._types import Event, EventPersistStateData
 
 if TYPE_CHECKING:
     import logging

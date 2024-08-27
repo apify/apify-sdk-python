@@ -8,9 +8,10 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP
 from apify_shared.utils import ignore_docs
 from crawlee._utils.crypto import crypto_random_object_id
+
+from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP
 
 ENCRYPTION_KEY_LENGTH = 32
 ENCRYPTION_IV_LENGTH = 16

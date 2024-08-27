@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic_core import TzInfo
 
-from apify import Actor
 from apify_shared.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ActorEnvVars, ApifyEnvVars
+
+from apify import Actor
 
 if TYPE_CHECKING:
     import pytest

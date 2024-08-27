@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Any, Callable, cast, get_type_hints
 
 import pytest
 
-import apify._actor
 from apify_client.client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.memory_storage_client import MemoryStorageClient
+
+import apify._actor
 
 if TYPE_CHECKING:
     from pathlib import Path
