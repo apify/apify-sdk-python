@@ -3,11 +3,6 @@ from __future__ import annotations
 import builtins
 import sys
 from importlib import metadata
-from logging import getLogger
-from typing import TypeVar
-
-T = TypeVar('T')
-logger = getLogger(__name__)
 
 
 def get_system_info() -> dict:
