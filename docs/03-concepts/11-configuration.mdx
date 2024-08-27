@@ -21,19 +21,19 @@ or the list of environment variables that the Actor understands.
 This will cause the Actor to persist its state every 10 seconds:
 
 ```python title="src/main.py"
-from apify import Actor
-from apify_shared.consts import ActorEventTypes
+from datetime import timedelta
+from apify import Actor, Event, Configuration
 
 async def main():
     global_config = Configuration.get_global_configuration()
-    global_config.persist_state_interval_millis = 10000
+    global_config.persist_state_interval = timedelta(seconds=10)
 
     async with Actor:
         async def save_state():
             await Actor.set_value('STATE', 'Hello, world!')
 
         # The `save_state` handler will be called every 10 seconds now
-        Actor.on(ActorEventTypes.PERSIST_STATE, save_state)
+        Actor.on(Event.PERSIST_STATE, save_state)
 ```
 
 ### Configuring via environment variables
