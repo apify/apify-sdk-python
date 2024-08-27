@@ -4,7 +4,6 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from apify_shared.consts import ActorEventTypes
-from crawlee.events._types import Event
 
 from apify import Actor
 
@@ -20,7 +19,7 @@ class TestActorEvents:
             from typing import Any, Callable
 
             from apify_shared.consts import ActorEventTypes, ApifyEnvVars
-            from crawlee.events._types import EventSystemInfoData
+            from crawlee.events._types import Event, EventSystemInfoData
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
@@ -71,6 +70,7 @@ class TestActorEvents:
             import os
 
             from apify_shared.consts import ApifyEnvVars
+            from crawlee.events._types import Event
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '100'
 

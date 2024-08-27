@@ -177,7 +177,6 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
                     'import asyncio',
                     '',
                     'from apify import Actor',
-                    'from crawlee.events.types import Event',
                     '',
                     '',
                     '',

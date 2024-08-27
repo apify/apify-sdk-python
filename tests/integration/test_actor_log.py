@@ -80,7 +80,7 @@ class TestActorLog:
         assert run_log_lines.pop(0) == '[apify] ERROR Error message'
         assert run_log_lines.pop(0) == '[apify] ERROR Exception message'
         assert run_log_lines.pop(0) == '      Traceback (most recent call last):'
-        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 36, in main'
+        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 35, in main'
         assert run_log_lines.pop(0) == "          raise ValueError('Dummy ValueError')"
         assert run_log_lines.pop(0) == '      ValueError: Dummy ValueError'
         assert run_log_lines.pop(0) == '[apify] INFO  Multi'
@@ -89,7 +89,7 @@ class TestActorLog:
         assert run_log_lines.pop(0) == 'message'
         assert run_log_lines.pop(0) == '[apify] ERROR Actor failed with an exception'
         assert run_log_lines.pop(0) == '      Traceback (most recent call last):'
-        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 44, in main'
+        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 43, in main'
         assert run_log_lines.pop(0) == "          raise RuntimeError('Dummy RuntimeError')"
         assert run_log_lines.pop(0) == '      RuntimeError: Dummy RuntimeError'
         assert run_log_lines.pop(0) == '[apify] INFO  Exiting Actor ({"exit_code": 91})'
