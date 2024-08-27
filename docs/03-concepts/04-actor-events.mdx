@@ -91,7 +91,7 @@ async def main():
         # Save the state when the `PERSIST_STATE` event happens
         async def save_state(event_data):
             nonlocal processed_items
-            Actor.log.info('Saving actor state', extra=event_data)
+            Actor.log.info('Saving Actor state', extra=event_data)
             await Actor.set_value('STATE', processed_items)
 
         Actor.on(ActorEventTypes.PERSIST_STATE, save_state)

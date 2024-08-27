@@ -22,9 +22,9 @@ def test__to_apify_request__simple(spider: Spider) -> None:
 
     apify_request = to_apify_request(scrapy_request, spider)
     assert apify_request is not None
-    assert apify_request.get('url') == 'https://example.com'
+    assert apify_request.url == 'https://example.com'
 
-    user_data = apify_request.get('userData', {})
+    user_data = apify_request.user_data
     assert isinstance(user_data, dict)
     assert 'scrapy_request' in user_data
     assert isinstance(user_data.get('scrapy_request'), str)
@@ -37,7 +37,7 @@ def test__to_apify_request__headers(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    assert apify_request['headers'] == dict(scrapy_request_headers.to_unicode_dict())
+    assert apify_request.headers == dict(scrapy_request_headers.to_unicode_dict())
 
 
 def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
@@ -50,10 +50,10 @@ def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    assert apify_request.get('url') == 'https://example.com'
-    assert apify_request.get('method') == 'GET'
+    assert apify_request.url == 'https://example.com'
+    assert apify_request.method == 'GET'
 
-    user_data = apify_request.get('userData', {})
+    user_data = apify_request.user_data
 
     assert isinstance(user_data, dict)
     assert user_data['some_user_data'] == 'test'
@@ -75,12 +75,12 @@ def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
     assert apify_request is not None
 
-    assert apify_request.get('url') == 'https://example.com'
-    assert apify_request.get('method') == 'GET'
-    assert apify_request.get('id') == 'abc123'
-    assert apify_request.get('uniqueKey') == 'https://example.com'
+    assert apify_request.url == 'https://example.com'
+    assert apify_request.method == 'GET'
+    assert apify_request.id == 'abc123'
+    assert apify_request.unique_key == 'https://example.com'
 
-    user_data = apify_request.get('userData', {})
+    user_data = apify_request.user_data
 
     assert isinstance(user_data, dict)
     assert user_data['some_user_data'] == 'hello'

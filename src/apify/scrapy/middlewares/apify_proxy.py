@@ -12,8 +12,7 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from apify.actor import Actor
-from apify.proxy_configuration import ProxyConfiguration
+from apify import Actor, ProxyConfiguration
 from apify.scrapy.utils import get_basic_auth_header
 
 
@@ -43,11 +42,9 @@ class ApifyHttpProxyMiddleware:
         """Create an instance of ApifyHttpProxyMiddleware from a Scrapy Crawler.
 
         Args:
-            cls: Class type.
             crawler: Scrapy Crawler object.
 
-        Returns:
-            ApifyHttpProxyMiddleware: Instance of the class.
+        Returns: Instance of the class.
         """
         proxy_settings: dict | None = crawler.settings.get('APIFY_PROXY_SETTINGS')
 
@@ -74,9 +71,6 @@ class ApifyHttpProxyMiddleware:
 
         Raises:
             ValueError: If username and password are not provided in the proxy URL.
-
-        Returns:
-            None: The request is processed and middleware pipeline can continue.
         """
         Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: request={request}, spider={spider}')
         url = await self._get_new_proxy_url()
@@ -123,8 +117,7 @@ class ApifyHttpProxyMiddleware:
         Raises:
             NotConfigured: If creation of the proxy configuration fails.
 
-        Returns:
-            ParseResult: New proxy URL.
+        Returns: New proxy URL.
         """
         # Get proxy configuration, creating it if necessary
         proxy_cfg = (
@@ -144,4 +137,4 @@ class ApifyHttpProxyMiddleware:
 
         # Get a new proxy URL and return it
         new_url = await proxy_cfg.new_url()
-        return urlparse(new_url)
+        return urlparse(str(new_url))

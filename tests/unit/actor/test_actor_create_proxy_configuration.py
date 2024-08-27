@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 import pytest
+
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 

@@ -10,11 +10,9 @@ try:
     from scrapy.utils.python import to_bytes
 except ImportError as exc:
     raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
+        'To use this module, you need to install the "scrapy" extra. For example, if you use pip, run "pip install apify[scrapy]".',
     ) from exc
 
-from apify.actor import Actor
-from apify.storages import RequestQueue, StorageClientManager
 
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 
@@ -71,31 +69,3 @@ def apply_apify_settings(*, settings: Settings | None = None, proxy_config: dict
     settings['APIFY_PROXY_SETTINGS'] = proxy_config
 
     return settings
-
-
-async def open_queue_with_custom_client() -> RequestQueue:
-    """Open a Request Queue with custom Apify Client.
-
-    TODO: add support for custom client to Actor.open_request_queue(), so that
-    we don't have to do this hacky workaround
-    """
-    # Create a new Apify Client with its httpx client in the custom event loop
-    custom_loop_apify_client = Actor.new_client()
-
-    # Set the new Apify Client as the default client, back up the old client
-    old_client = Actor.apify_client
-    StorageClientManager.set_cloud_client(custom_loop_apify_client)
-
-    # Create a new Request Queue in the custom event loop,
-    # replace its Apify client with the custom loop's Apify client
-    rq = await Actor.open_request_queue()
-
-    if Actor.config.is_at_home:
-        rq._request_queue_client = custom_loop_apify_client.request_queue(
-            rq._id,
-            client_key=rq._client_key,
-        )
-
-    # Restore the old Apify Client as the default client
-    StorageClientManager.set_cloud_client(old_client)
-    return rq

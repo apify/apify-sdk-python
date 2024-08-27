@@ -9,6 +9,7 @@ from apify import Actor
 
 if TYPE_CHECKING:
     import pytest
+
     from apify_client import ApifyClientAsync
 
     from .conftest import ActorFactory

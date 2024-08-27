@@ -19,11 +19,12 @@ class TestActorEvents:
             from typing import Any, Callable
 
             from apify_shared.consts import ActorEventTypes, ApifyEnvVars
+            from crawlee.events._types import Event, EventSystemInfoData
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
             was_system_info_emitted = False
-            system_infos = []
+            system_infos = list[EventSystemInfoData]()
 
             def on_event(event_type: ActorEventTypes) -> Callable:
                 async def log_event(data: Any) -> None:
@@ -38,8 +39,8 @@ class TestActorEvents:
                 return log_event
 
             async with Actor:
-                Actor.on(ActorEventTypes.SYSTEM_INFO, on_event(ActorEventTypes.SYSTEM_INFO))
-                Actor.on(ActorEventTypes.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
+                Actor.on(Event.SYSTEM_INFO, on_event(ActorEventTypes.SYSTEM_INFO))
+                Actor.on(Event.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
                 await asyncio.sleep(3)
 
                 # The SYSTEM_INFO event sometimes takes a while to appear, let's wait for it for a while longer
@@ -50,7 +51,7 @@ class TestActorEvents:
 
                 # Check that parsing datetimes works correctly
                 # Check `createdAt` is a datetime (so it's the same locally and on platform)
-                assert isinstance(system_infos[0]['createdAt'], datetime)
+                assert isinstance(system_infos[0].cpu_info.created_at, datetime)
 
         actor = await make_actor('actor-interval-events', main_func=main)
 
@@ -68,7 +69,8 @@ class TestActorEvents:
         async def main() -> None:
             import os
 
-            from apify_shared.consts import ActorEventTypes, ApifyEnvVars
+            from apify_shared.consts import ApifyEnvVars
+            from crawlee.events._types import Event
 
             os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '100'
 
@@ -80,11 +82,11 @@ class TestActorEvents:
                 counter += 1
 
             async with Actor:
-                Actor.on(ActorEventTypes.PERSIST_STATE, count_event)
+                Actor.on(Event.PERSIST_STATE, count_event)
                 await asyncio.sleep(0.5)
                 assert counter > 1
                 last_count = counter
-                Actor.off(ActorEventTypes.PERSIST_STATE, count_event)
+                Actor.off(Event.PERSIST_STATE, count_event)
                 await asyncio.sleep(0.5)
                 assert counter == last_count
 

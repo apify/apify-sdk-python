@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import base64
-import secrets
 from typing import Any
 
-from apify_shared.utils import ignore_docs
 from cryptography.exceptions import InvalidTag as InvalidTagException
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from apify.consts import ENCRYPTED_INPUT_VALUE_REGEXP
+from apify_shared.utils import ignore_docs
+from crawlee._utils.crypto import crypto_random_object_id
+
+from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP
 
 ENCRYPTION_KEY_LENGTH = 32
 ENCRYPTION_IV_LENGTH = 16
@@ -25,11 +26,10 @@ def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     It returns the encrypted password and encrypted value in BASE64 format.
 
     Args:
-        value (str): The value which should be encrypted.
-        public_key (RSAPublicKey): Public key to use for encryption.
+        value: The value which should be encrypted.
+        public_key: Public key to use for encryption.
 
-    Returns:
-        disc: Encrypted password and value.
+    Returns: Encrypted password and value.
     """
     key_bytes = crypto_random_object_id(ENCRYPTION_KEY_LENGTH).encode('utf-8')
     initialized_vector_bytes = crypto_random_object_id(ENCRYPTION_IV_LENGTH).encode('utf-8')
@@ -65,12 +65,11 @@ def private_decrypt(
     """Decrypts the given encrypted value using the private key and password.
 
     Args:
-        encrypted_password (str): Password used to encrypt the private key encoded as base64 string.
-        encrypted_value (str): Encrypted value to decrypt as base64 string.
-        private_key (RSAPrivateKey): Private key to use for decryption.
+        encrypted_password: Password used to encrypt the private key encoded as base64 string.
+        encrypted_value: Encrypted value to decrypt as base64 string.
+        private_key: Private key to use for decryption.
 
-    Returns:
-        str: Decrypted value.
+    Returns: Decrypted value.
     """
     encrypted_password_bytes = base64.b64decode(encrypted_password.encode('utf-8'))
     encrypted_value_bytes = base64.b64decode(encrypted_value.encode('utf-8'))
@@ -125,13 +124,7 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     return public_key
 
 
-def crypto_random_object_id(length: int = 17) -> str:
-    """Python reimplementation of cryptoRandomObjectId from `@apify/utilities`."""
-    chars = 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join(secrets.choice(chars) for _ in range(length))
-
-
-def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:  # noqa: A002
+def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:
     """Decrypt input secrets."""
     if not isinstance(input, dict):
         return input

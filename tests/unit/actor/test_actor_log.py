@@ -8,15 +8,17 @@ from typing import TYPE_CHECKING
 from apify_client import __version__ as apify_client_version
 
 from apify import Actor, __version__
-from apify.log import logger
+from apify._log import logger
 
 if TYPE_CHECKING:
     import pytest
 
 
 class TestActorLog:
-    async def test_actor_log(self: TestActorLog, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_actor_log(self: TestActorLog, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
         caplog.set_level(logging.DEBUG, logger='apify')
+        monkeypatch.setenv('APIFY_IS_AT_HOME', '1')
+
         with contextlib.suppress(RuntimeError):
             async with Actor:
                 # Test Actor.log
@@ -42,7 +44,7 @@ class TestActorLog:
         assert len(caplog.records) == 12
 
         assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].message == 'Initializing actor...'
+        assert caplog.records[0].message == 'Initializing Actor...'
 
         assert caplog.records[1].levelno == logging.INFO
         assert caplog.records[1].message == 'System info'
@@ -84,7 +86,7 @@ class TestActorLog:
         assert str(caplog.records[9].exc_info[1]) == 'Dummy RuntimeError'
 
         assert caplog.records[10].levelno == logging.INFO
-        assert caplog.records[10].message == 'Exiting actor'
+        assert caplog.records[10].message == 'Exiting Actor'
 
         assert caplog.records[11].levelno == logging.DEBUG
-        assert caplog.records[11].message == 'Not calling sys.exit(91) because actor is running in an unit test'
+        assert caplog.records[11].message == 'Not calling sys.exit(91) because Actor is running in an unit test'

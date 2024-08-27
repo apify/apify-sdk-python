@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+
 from apify_shared.consts import ActorEnvVars
 
 from apify import Actor
 
 if TYPE_CHECKING:
-    from apify._memory_storage import MemoryStorageClient
+    from crawlee.memory_storage_client import MemoryStorageClient
 
 # NOTE: We only test the dataset methods available on Actor class/instance.
 # Actual tests for the implementations are in storages/.
@@ -52,7 +53,7 @@ class TestActorOpenDataset:
 
 class TestActorPushData:
     async def test_push_data(self: TestActorPushData) -> None:
-        async with Actor() as my_actor:
+        async with Actor as my_actor:
             dataset = await my_actor.open_dataset()
             desired_item_count = 100
             await dataset.push_data([{'id': i} for i in range(desired_item_count)])
@@ -61,5 +62,4 @@ class TestActorPushData:
             assert dataset_info is not None
 
             list_page = await dataset.get_data(limit=desired_item_count)
-            assert list_page.items[0]['id'] == 0
-            assert list_page.items[-1]['id'] == desired_item_count - 1
+            assert {item['id'] for item in list_page.items} == set(range(desired_item_count))

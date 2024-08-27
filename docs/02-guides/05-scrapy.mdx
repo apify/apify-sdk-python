@@ -87,7 +87,7 @@ class TitleSpider(scrapy.Spider):
             if link_url.startswith(('http://', 'https://')):
                 yield scrapy.Request(link_url)
 
-# Pushes the scraped items into the actor's default dataset
+# Pushes the scraped items into the Actor's default dataset
 class ActorDatasetPushPipeline:
     async def process_item(self, item, spider):
         item_dict = ItemAdapter(item).asdict()

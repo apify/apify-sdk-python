@@ -7,19 +7,20 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Awaitable, Callable, Mapping, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol, cast
 
 import pytest
-from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorSourceType
 from filelock import FileLock
 
+from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorJobStatus, ActorSourceType
+
+import apify._actor
 from ._utils import generate_unique_resource_name
-from apify import Actor
-from apify.config import Configuration
-from apify.storages import Dataset, KeyValueStore, RequestQueue, StorageClientManager
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Mapping
+
     from apify_client.clients.resource_clients import ActorClientAsync
 
 TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
@@ -30,16 +31,13 @@ SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 # To isolate the tests, we need to reset the used singletons before each test case
 # We also patch the default storage client with a tmp_path
 @pytest.fixture(autouse=True)
-def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Actor, '_default_instance', None)
-    monkeypatch.setattr(Configuration, '_default_instance', None)
-    monkeypatch.setattr(Dataset, '_cache_by_id', None)
-    monkeypatch.setattr(Dataset, '_cache_by_name', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_id', None)
-    monkeypatch.setattr(KeyValueStore, '_cache_by_name', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_id', None)
-    monkeypatch.setattr(RequestQueue, '_cache_by_name', None)
-    monkeypatch.setattr(StorageClientManager, '_default_instance', None)
+def _reset_and_patch_default_instances() -> None:
+    from crawlee import service_container
+
+    cast(dict, service_container._services).clear()
+    delattr(apify._actor.Actor, '__wrapped__')
+
+    # TODO: StorageClientManager local storage client purge  # noqa: TD003
 
 
 # This fixture can't be session-scoped,
@@ -91,7 +89,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
 
 @pytest.fixture(scope='session')
 def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
-    """Create a dictionary of the base source files for a testing actor.
+    """Create a dictionary of the base source files for a testing Actor.
 
     It takes the files from `tests/integration/actor_source_base`,
     builds the Apify SDK wheel from the current codebase,
@@ -133,13 +131,12 @@ class ActorFactory(Protocol):
         main_func: Callable | None = None,
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
-    ) -> Awaitable[ActorClientAsync]:
-        ...
+    ) -> Awaitable[ActorClientAsync]: ...
 
 
 @pytest.fixture()
 async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_client_async: ApifyClientAsync) -> AsyncIterator[ActorFactory]:
-    """A fixture for returning a temporary actor factory."""
+    """A fixture for returning a temporary Actor factory."""
     actor_clients_for_cleanup: list[ActorClientAsync] = []
 
     async def _make_actor(
@@ -149,20 +146,19 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
     ) -> ActorClientAsync:
-        """Create a temporary actor from the given main function or source file(s).
+        """Create a temporary Actor from the given main function or source file(s).
 
-        The actor will be uploaded to the Apify Platform, built there, and after the test finishes, it will be automatically deleted.
+        The Actor will be uploaded to the Apify Platform, built there, and after the test finishes, it will be automatically deleted.
 
         You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
         Args:
-            actor_label (str): The label which will be a part of the generated actor name
-            main_func (Callable, optional): The main function of the actor.
-            main_py (str, optional): The `src/main.py` file of the actor.
-            source_files (dict, optional): A dictionary of the source files of the actor.
+            actor_label: The label which will be a part of the generated Actor name
+            main_func: The main function of the Actor.
+            main_py: The `src/main.py` file of the Actor.
+            source_files: A dictionary of the source files of the Actor.
 
-        Returns:
-            ActorClientAsync: A resource client for the created actor.
+        Returns: A resource client for the created Actor.
         """
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')
@@ -176,7 +172,17 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
         if main_func:
             func_source = textwrap.dedent(inspect.getsource(main_func))
             func_source = func_source.replace(f'def {main_func.__name__}(', 'def main(')
-            main_py = f'import asyncio\n\nfrom apify import Actor\n\n\n{func_source}'
+            main_py = '\n'.join(  # noqa: FLY002
+                [
+                    'import asyncio',
+                    '',
+                    'from apify import Actor',
+                    '',
+                    '',
+                    '',
+                    func_source,
+                ]
+            )
 
         if main_py:
             source_files = {'src/main.py': main_py}
@@ -206,7 +212,7 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
                 }
             )
 
-        print(f'Creating actor {actor_name}...')
+        print(f'Creating Actor {actor_name}...')
         created_actor = await apify_client_async.actors().create(
             name=actor_name,
             default_run_build='latest',
@@ -224,7 +230,7 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
 
         actor_client = apify_client_async.actor(created_actor['id'])
 
-        print(f'Building actor {actor_name}...')
+        print(f'Building Actor {actor_name}...')
         build = await actor_client.build(version_number='0.0', wait_for_finish=300)
 
         assert build['status'] == ActorJobStatus.SUCCEEDED

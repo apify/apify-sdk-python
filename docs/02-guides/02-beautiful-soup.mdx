@@ -36,7 +36,7 @@ async def main():
         max_depth = actor_input.get('max_depth', 1)
 
         if not start_urls:
-            Actor.log.info('No start URLs specified in actor input, exiting...')
+            Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
         # Enqueue the starting URLs in the default request queue

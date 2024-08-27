@@ -50,7 +50,7 @@ tests with HTML coverage report execute `make unit-tests-cov`.
 
 ## Integration tests
 
-We have integration tests which build and run actors using the Python SDK on the Apify Platform. To run these tests,
+We have integration tests which build and run Actors using the Python SDK on the Apify Platform. To run these tests,
 you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to
 use for the tests, and then start them with `make integration-tests`.
 

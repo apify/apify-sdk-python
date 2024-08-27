@@ -3,16 +3,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+
 from apify_shared.consts import ApifyEnvVars
 from apify_shared.utils import json_dumps
 
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 from apify import Actor
+from apify._consts import ENCRYPTED_INPUT_VALUE_PREFIX
 from apify._crypto import public_encrypt
-from apify.consts import ENCRYPTED_INPUT_VALUE_PREFIX
 
 if TYPE_CHECKING:
-    from apify._memory_storage import MemoryStorageClient
+    from crawlee.memory_storage_client import MemoryStorageClient
 
 
 # NOTE: We only test the key-value store methods available on Actor class/instance.
@@ -44,7 +45,7 @@ class TestKeyValueStoreOnActor:
         test_key = 'test_key'
         test_value = 'test_value'
         test_content_type = 'text/plain'
-        async with Actor() as my_actor:
+        async with Actor as my_actor:
             await my_actor.set_value(key=test_key, value=test_value, content_type=test_content_type)
             value = await my_actor.get_value(key=test_key)
             assert value == test_value
@@ -53,14 +54,14 @@ class TestKeyValueStoreOnActor:
         input_key = 'INPUT'
         test_input = {'foo': 'bar'}
 
-        await memory_storage_client.key_value_stores().get_or_create(_id='default')
+        await memory_storage_client.key_value_stores().get_or_create(id='default')
         await memory_storage_client.key_value_store('default').set_record(
             key=input_key,
             value=json_dumps(test_input),
             content_type='application/json',
         )
 
-        async with Actor() as my_actor:
+        async with Actor as my_actor:
             input = await my_actor.get_input()  # noqa: A001
             assert input['foo'] == test_input['foo']
 
@@ -80,14 +81,14 @@ class TestKeyValueStoreOnActor:
             'secret': f'{ENCRYPTED_INPUT_VALUE_PREFIX}:{encrypted_secret["encrypted_password"]}:{encrypted_secret["encrypted_value"]}',
         }
 
-        await memory_storage_client.key_value_stores().get_or_create(_id='default')
+        await memory_storage_client.key_value_stores().get_or_create(id='default')
         await memory_storage_client.key_value_store('default').set_record(
             key=input_key,
             value=json_dumps(input_with_secret),
             content_type='application/json',
         )
 
-        async with Actor() as my_actor:
+        async with Actor as my_actor:
             input = await my_actor.get_input()  # noqa: A001
             assert input['foo'] == input_with_secret['foo']
             assert input['secret'] == secret_string

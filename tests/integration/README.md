@@ -1,7 +1,7 @@
 Integration tests
 =================
 
-We have integration tests which build and run actors using the Python SDK on the Apify Platform.
+We have integration tests which build and run Actors using the Python SDK on the Apify Platform.
 To run these tests, you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to use for the tests,
 and then start them with `make integration-tests`.
 
@@ -25,20 +25,20 @@ async def test_something(apify_client_async: ApifyClientAsync) -> None:
 
 ### `make_actor`
 
-This fixture returns a factory function for creating actors on the Apify Platform.
+This fixture returns a factory function for creating Actors on the Apify Platform.
 
-For the actor source, the fixture takes the files from `tests/integration/actor_source_base`,
+For the Actor source, the fixture takes the files from `tests/integration/actor_source_base`,
 builds the Apify SDK wheel from the current codebase,
-and adds the actor source you passed to the fixture as an argument.
+and adds the Actor source you passed to the fixture as an argument.
 You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
-The created actor will be uploaded to the platform, built there, and after the test finishes, it will be automatically deleted.
-If the actor build fails, it will not be deleted, so that you can check why the build failed.
+The created Actor will be uploaded to the platform, built there, and after the test finishes, it will be automatically deleted.
+If the Actor build fails, it will not be deleted, so that you can check why the build failed.
 
-### Creating test actor straight from a Python function
+### Creating test Actor straight from a Python function
 
-You can create actors straight from a Python function.
-This is great because you can have the test actor source code checked with the linter.
+You can create Actors straight from a Python function.
+This is great because you can have the test Actor source code checked with the linter.
 
 ```python
 async def test_something(self, make_actor: ActorFactory) -> None:
@@ -54,7 +54,7 @@ async def test_something(self, make_actor: ActorFactory) -> None:
     assert run_result['status'] == 'SUCCEEDED'
 ```
 
-These actors will have the `src/main.py` file set to the `main` function definition,
+These Actors will have the `src/main.py` file set to the `main` function definition,
 prepended with `import asyncio` and `from apify import Actor`, for your convenience.
 
 You can also pass extra imports directly to the main function:
@@ -65,7 +65,7 @@ async def test_something(self, make_actor: ActorFactory) -> None:
         import os
         from apify_shared.consts import ActorEventTypes, ActorEnvVars
         async with Actor:
-            print('The actor is running with ' + os.getenv(ActorEnvVars.MEMORY_MBYTES) + 'MB of memory')
+            print('The Actor is running with ' + os.getenv(ActorEnvVars.MEMORY_MBYTES) + 'MB of memory')
             await Actor.on(ActorEventTypes.SYSTEM_INFO, lambda event_data: print(event_data))
 
     actor = await make_actor('something', main_func=main)
@@ -76,10 +76,10 @@ async def test_something(self, make_actor: ActorFactory) -> None:
     assert run_result['status'] == 'SUCCEEDED'
 ```
 
-### Creating actor from source files
+### Creating Actor from source files
 
 You can also pass the source files directly if you need something more complex
-(e.g. pass some fixed value to the actor source code or use multiple source files).
+(e.g. pass some fixed value to the Actor source code or use multiple source files).
 
 To pass the source code of the `src/main.py` file directly, use the `main_py` argument to `make_actor`:
 

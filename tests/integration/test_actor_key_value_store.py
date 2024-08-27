@@ -9,6 +9,7 @@ from apify import Actor
 
 if TYPE_CHECKING:
     import pytest
+
     from apify_client import ApifyClientAsync
 
     from .conftest import ActorFactory
@@ -186,12 +187,16 @@ class TestActorGetInput:
 class TestGetPublicUrl:
     async def test_get_public_url(self: TestGetPublicUrl, make_actor: ActorFactory) -> None:
         async def main() -> None:
+            from typing import cast
+
+            from apify.apify_storage_client._key_value_store_client import KeyValueStoreClient
+
             async with Actor:
                 public_api_url = Actor.config.api_public_base_url
                 default_store_id = Actor.config.default_key_value_store_id
 
                 store = await Actor.open_key_value_store()
-                record_url = await store.get_public_url('dummy')
+                record_url = await cast(KeyValueStoreClient, store._resource_client).get_public_url('dummy')
                 print(record_url)
 
                 assert record_url == f'{public_api_url}/v2/key-value-stores/{default_store_id}/records/dummy'

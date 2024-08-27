@@ -4,9 +4,10 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
+from crawlee._utils.crypto import crypto_random_object_id
+
 from ._utils import generate_unique_resource_name
 from apify import Actor
-from apify._crypto import crypto_random_object_id
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -307,7 +308,7 @@ class TestActorMetamorph:
 
                 # This should not be called
                 await Actor.set_value('RECORD_AFTER_METAMORPH_CALL', 'dummy')
-                raise AssertionError('The actor should have been metamorphed by now')
+                raise AssertionError('The Actor should have been metamorphed by now')
 
         inner_actor = await make_actor('metamorph-inner', main_func=main_inner)
         outer_actor = await make_actor('metamorph-outer', main_func=main_outer)
@@ -328,7 +329,7 @@ class TestActorMetamorph:
 
         assert await outer_run_key_value_store.get_record('RECORD_AFTER_METAMORPH_CALL') is None
 
-        # After metamorph, the run still belongs to the original actor, so the inner one should have no runs
+        # After metamorph, the run still belongs to the original Actor, so the inner one should have no runs
         assert await inner_actor.last_run().get() is None
 
 

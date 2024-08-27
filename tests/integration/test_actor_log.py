@@ -13,7 +13,7 @@ class TestActorLog:
         async def main() -> None:
             import logging
 
-            from apify.log import ActorLogFormatter, logger
+            from apify._log import ActorLogFormatter, logger
 
             # Clear any other log handlers, so they don't mess with this test
             client_logger = logging.getLogger('apify_client')
@@ -72,24 +72,24 @@ class TestActorLog:
         assert run_log_lines.pop(0).startswith('ACTOR: Pulling Docker image')
         assert run_log_lines.pop(0) == 'ACTOR: Creating Docker container.'
         assert run_log_lines.pop(0) == 'ACTOR: Starting Docker container.'
-        assert run_log_lines.pop(0) == 'INFO  Initializing actor...'
-        assert run_log_lines.pop(0).startswith(f'INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "')
-        assert run_log_lines.pop(0) == 'DEBUG Debug message'
-        assert run_log_lines.pop(0) == 'INFO  Info message'
-        assert run_log_lines.pop(0) == 'WARN  Warning message'
-        assert run_log_lines.pop(0) == 'ERROR Error message'
-        assert run_log_lines.pop(0) == 'ERROR Exception message'
+        assert run_log_lines.pop(0) == '[apify] INFO  Initializing Actor...'
+        assert run_log_lines.pop(0).startswith(f'[apify] INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "')
+        assert run_log_lines.pop(0) == '[apify] DEBUG Debug message'
+        assert run_log_lines.pop(0) == '[apify] INFO  Info message'
+        assert run_log_lines.pop(0) == '[apify] WARN  Warning message'
+        assert run_log_lines.pop(0) == '[apify] ERROR Error message'
+        assert run_log_lines.pop(0) == '[apify] ERROR Exception message'
         assert run_log_lines.pop(0) == '      Traceback (most recent call last):'
-        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 34, in main'
+        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 35, in main'
         assert run_log_lines.pop(0) == "          raise ValueError('Dummy ValueError')"
         assert run_log_lines.pop(0) == '      ValueError: Dummy ValueError'
-        assert run_log_lines.pop(0) == 'INFO  Multi'
-        assert run_log_lines.pop(0) == '      line'
-        assert run_log_lines.pop(0) == '      log'
-        assert run_log_lines.pop(0) == '      message'
-        assert run_log_lines.pop(0) == 'ERROR Actor failed with an exception'
+        assert run_log_lines.pop(0) == '[apify] INFO  Multi'
+        assert run_log_lines.pop(0) == 'line'
+        assert run_log_lines.pop(0) == 'log'
+        assert run_log_lines.pop(0) == 'message'
+        assert run_log_lines.pop(0) == '[apify] ERROR Actor failed with an exception'
         assert run_log_lines.pop(0) == '      Traceback (most recent call last):'
-        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 42, in main'
+        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 43, in main'
         assert run_log_lines.pop(0) == "          raise RuntimeError('Dummy RuntimeError')"
         assert run_log_lines.pop(0) == '      RuntimeError: Dummy RuntimeError'
-        assert run_log_lines.pop(0) == 'INFO  Exiting actor ({"exit_code": 91})'
+        assert run_log_lines.pop(0) == '[apify] INFO  Exiting Actor ({"exit_code": 91})'

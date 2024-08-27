@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import traceback
 
+from apify._configuration import Configuration
+from apify.apify_storage_client import ApifyStorageClient
+
 try:
     from scrapy import Spider
     from scrapy.core.scheduler import BaseScheduler
@@ -12,10 +15,11 @@ except ImportError as exc:
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
     ) from exc
 
-from apify._crypto import crypto_random_object_id
-from apify.actor import Actor
+from crawlee._utils.crypto import crypto_random_object_id
+
+from apify import Actor
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
-from apify.scrapy.utils import nested_event_loop, open_queue_with_custom_client
+from apify.scrapy.utils import nested_event_loop
 from apify.storages import RequestQueue
 
 
@@ -44,8 +48,12 @@ class ApifyScheduler(BaseScheduler):
         """
         self.spider = spider
 
+        async def open_queue() -> RequestQueue:
+            custom_loop_apify_client = ApifyStorageClient(configuration=Configuration.get_global_configuration())
+            return await RequestQueue.open(storage_client=custom_loop_apify_client)
+
         try:
-            self._rq = nested_event_loop.run_until_complete(open_queue_with_custom_client())
+            self._rq = nested_event_loop.run_until_complete(open_queue())
         except BaseException:
             traceback.print_exc()
             raise
@@ -95,18 +103,13 @@ class ApifyScheduler(BaseScheduler):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
-            result = nested_event_loop.run_until_complete(
-                self._rq.add_request(
-                    apify_request,
-                    use_extended_unique_key=True,
-                )
-            )
+            result = nested_event_loop.run_until_complete(self._rq.add_request(apify_request))
         except BaseException:
             traceback.print_exc()
             raise
 
         Actor.log.debug(f'[{call_id}]: rq.add_request.result={result}...')
-        return bool(result['wasAlreadyPresent'])
+        return bool(result.was_already_present)
 
     def next_request(self: ApifyScheduler) -> Request | None:
         """Fetch the next request from the scheduler.

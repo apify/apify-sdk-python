@@ -4,7 +4,7 @@ import asyncio
 import logging
 
 from .main import main
-from apify.log import ActorLogFormatter
+from apify._log import ActorLogFormatter
 
 handler = logging.StreamHandler()
 handler.setFormatter(ActorLogFormatter())

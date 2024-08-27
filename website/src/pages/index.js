@@ -15,10 +15,10 @@ function Hero() {
                     <div className={clsx(styles.relative, 'row')}>
                         <div className="col">
                             <h1 className={styles.tagline}>
-                                Apify SDK for Python<br /> is a toolkit for<br /> building actors
+                                Apify SDK for Python<br /> is a toolkit for<br /> building Actors
                             </h1>
                             <h1 className={styles.tagline}>
-                                <span>Apify SDK</span> for <span>Python</span><br /> is a <span>toolkit</span> for<br /> building <span>actors</span>
+                                <span>Apify SDK</span> for <span>Python</span><br /> is a <span>toolkit</span> for<br /> building <span>Actors</span>
                             </h1>
                         </div>
                     </div>
@@ -27,7 +27,7 @@ function Hero() {
                             <h2></h2>
                             <h2>
                                 The Apify SDK for Python is the official library for creating Apify Actors in Python.
-                                It provides useful features like actor lifecycle management, local storage emulation, and actor event handling.
+                                It provides useful features like Actor lifecycle management, local storage emulation, and Actor event handling.
                             </h2>
                         </div>
                     </div>
@@ -66,8 +66,8 @@ export default function Home() {
                     <div className="row padding-horiz--md" >
                         <div className="col col--4">
                             <p style={{ lineHeight: '200%' }}>
-                            For example, the Apify SDK makes it easy to read the actor input with the <code>Actor.get_input()</code> method,
-                            and to save scraped data from your actors to a dataset
+                            For example, the Apify SDK makes it easy to read the Actor input with the <code>Actor.get_input()</code> method,
+                            and to save scraped data from your Actors to a dataset
                                 {' '}by simply using the <code>Actor.push_data()</code> method.
                             </p>
                         </div>
