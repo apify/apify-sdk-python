@@ -13,7 +13,7 @@ class TestActorLog:
         async def main() -> None:
             import logging
 
-            from apify._log import ActorLogFormatter, logger
+            from apify.log import ActorLogFormatter, logger
 
             # Clear any other log handlers, so they don't mess with this test
             client_logger = logging.getLogger('apify_client')
