@@ -347,7 +347,7 @@ class TestProxyConfigurationNewProxyInfo:
         assert proxy_info.url == proxy_urls[0]
 
 
-@pytest.fixture()
+@pytest.fixture
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
     apify_client_async_patcher.patch(
         'user',

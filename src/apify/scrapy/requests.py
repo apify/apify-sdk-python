@@ -140,7 +140,8 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
         # Update the meta field with the meta field from the apify_request
         meta = scrapy_request.meta or {}
         meta.update({'apify_request_id': apify_request.id, 'apify_request_unique_key': apify_request.unique_key})
-        scrapy_request._meta = meta  # scrapy_request.meta is a property, so we have to set it like this
+        # scrapy_request.meta is a property, so we have to set it like this
+        scrapy_request._meta = meta  # noqa: SLF001
 
     # If the apify_request comes directly from the Request Queue, typically start URLs
     else:

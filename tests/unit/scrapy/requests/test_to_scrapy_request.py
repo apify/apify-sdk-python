@@ -15,7 +15,7 @@ class DummySpider(Spider):
     name = 'dummy_spider'
 
 
-@pytest.fixture()
+@pytest.fixture
 def spider() -> DummySpider:
     """Fixture to create a "dummy" Scrapy spider."""
     return DummySpider()

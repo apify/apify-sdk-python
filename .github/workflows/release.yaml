@@ -104,16 +104,12 @@ jobs:
         if: steps.get-release-type.outputs.release_type != 'final'
         run: python ./scripts/update_version_for_prerelease.py ${{ steps.get-release-type.outputs.release_type }}
 
-      - # Build a source distribution and a python3-only wheel
-        name: Build distribution files
+      # Builds the package.
+      - name: Build package
         run: make build
 
-      - # Check whether the package description will render correctly on PyPI
-        name: Check package rendering on PyPI
-        run: make twine-check
-
-      - # Publish package to PyPI using their official GitHub action
-        name: Publish package to PyPI
+      # Publishes the package to PyPI using PyPA official GitHub action with OIDC authentication.
+      - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
       - # Tag the current commit with the version tag if this is not made from the release event (releases are tagged with the release process)

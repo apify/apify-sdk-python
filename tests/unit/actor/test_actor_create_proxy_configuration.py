@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 DUMMY_PASSWORD = 'DUMMY_PASSWORD'
 
 
-@pytest.fixture()
+@pytest.fixture
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
     apify_client_async_patcher.patch('user', 'get', return_value={'proxy': {'password': DUMMY_PASSWORD}})
     return ApifyClientAsync()

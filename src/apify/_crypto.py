@@ -124,21 +124,21 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     return public_key
 
 
-def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:
+def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input_data: Any) -> Any:
     """Decrypt input secrets."""
-    if not isinstance(input, dict):
-        return input
+    if not isinstance(input_data, dict):
+        return input_data
 
-    for key, value in input.items():
+    for key, value in input_data.items():
         if isinstance(value, str):
             match = ENCRYPTED_INPUT_VALUE_REGEXP.fullmatch(value)
             if match:
                 encrypted_password = match.group(1)
                 encrypted_value = match.group(2)
-                input[key] = private_decrypt(
+                input_data[key] = private_decrypt(
                     encrypted_password,
                     encrypted_value,
                     private_key=private_key,
                 )
 
-    return input
+    return input_data

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.fixture()
+@pytest.fixture
 def reset_default_instances() -> Callable[[], None]:
     def reset() -> None:
         from crawlee.storages._creation_management import (
@@ -163,12 +163,12 @@ class ApifyClientAsyncPatcher:
         self.monkeypatch.setattr(ApifyClientAsync, '__getattr__', getattr_override, raising=False)
 
 
-@pytest.fixture()
+@pytest.fixture
 def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAsyncPatcher:
     return ApifyClientAsyncPatcher(monkeypatch)
 
 
-@pytest.fixture()
+@pytest.fixture
 def memory_storage_client() -> MemoryStorageClient:
     configuration = CrawleeConfiguration()
     configuration.persist_storage = True

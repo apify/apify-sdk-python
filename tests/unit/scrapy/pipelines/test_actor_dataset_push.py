@@ -24,13 +24,13 @@ class TitleItem(Item):
     title = Field()
 
 
-@pytest.fixture()
+@pytest.fixture
 def spider() -> DummySpider:
     """Fixture to create a "dummy" Scrapy spider."""
     return DummySpider()
 
 
-@pytest.fixture()
+@pytest.fixture
 def pipeline() -> ActorDatasetPushPipeline:
     """Fixture to create an Actor dataset push pipeline."""
     return ActorDatasetPushPipeline()

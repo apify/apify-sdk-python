@@ -30,7 +30,7 @@ class TestIsAtHome:
 
 
 class TestGetEnv:
-    async def test_get_env_use_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: PLR0912
+    async def test_get_env_use_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ignored_env_vars = {
             ApifyEnvVars.INPUT_KEY,
             ApifyEnvVars.MEMORY_MBYTES,

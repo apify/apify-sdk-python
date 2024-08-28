@@ -45,7 +45,7 @@ def _reset_and_patch_default_instances() -> None:
 # because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
 # but `pytest-asyncio` closes the event loop after each test,
 # and uses a new one for the next test.
-@pytest.fixture()
+@pytest.fixture
 def apify_client_async() -> ApifyClientAsync:
     api_token = os.getenv(TOKEN_ENV_VAR)
     api_url = os.getenv(API_URL_ENV_VAR)
@@ -134,7 +134,7 @@ class ActorFactory(Protocol):
     ) -> Awaitable[ActorClientAsync]: ...
 
 
-@pytest.fixture()
+@pytest.fixture
 async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_client_async: ApifyClientAsync) -> AsyncIterator[ActorFactory]:
     """A fixture for returning a temporary Actor factory."""
     actor_clients_for_cleanup: list[ActorClientAsync] = []

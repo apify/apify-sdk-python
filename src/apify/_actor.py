@@ -216,7 +216,7 @@ class _ActorType:
                 await self._event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self._event_manager.__aexit__(None, None, None)
-            cast(dict, service_container._services).clear()
+            cast(dict, service_container._services).clear()  # noqa: SLF001
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
