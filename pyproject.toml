@@ -46,8 +46,6 @@ keywords = [
 # https://github.com/apify/apify-sdk-python/pull/154.
 [tool.poetry.dependencies]
 python = "^3.9"
-aiofiles = "^22.1.0"
-aioshutil = "^1.0"
 apify-client = "^1.7.1"
 apify-shared = "^1.1.2"
 colorama = "^0.4.6"
@@ -55,10 +53,7 @@ crawlee = "^0.3.0"
 cryptography = "^42.0.4"
 httpx = "^0.27.0"
 lazy-object-proxy = "^1.10.0"
-psutil = "^6.0.0"
-pyee = "^11.0.0"
 scrapy = { version = "^2.11.0", optional = true }
-sortedcollections = "^2.0.0"
 typing-extensions = "^4.1.0"
 websockets = "^10.1"
 
@@ -77,10 +72,7 @@ pytest-xdist = "^3.6.0"
 respx = "^0.21.0"
 ruff = "^0.6.0"
 setuptools = "^74.0.0"              # setuptools are used by pytest but not explicitly required
-twine = "^5.1.0"
-types-aiofiles = "^24.1.0.20240626"
 types-colorama = "^0.4.15.20240311"
-types-psutil = "^6.0.0.20240621"
 
 [tool.poetry.extras]
 scrapy = ["scrapy"]
@@ -191,7 +183,7 @@ warn_unused_ignores = true
 exclude = []
 
 [[tool.mypy.overrides]]
-module = ['scrapy', 'scrapy.*', 'sortedcollections', 'lazy_object_proxy']
+module = ['scrapy', 'scrapy.*', 'lazy_object_proxy']
 ignore_missing_imports = true
 
 [tool.coverage.report]
