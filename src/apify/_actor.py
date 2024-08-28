@@ -11,7 +11,7 @@ from pydantic import AliasChoices
 from typing_extensions import Self
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
+from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee import service_container
 from crawlee.events._types import Event, EventPersistStateData
@@ -31,6 +31,8 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from crawlee.proxy_configuration import _NewUrlFunction
+
+    from apify._models import Webhook
 
 
 MainReturnType = TypeVar('MainReturnType')
@@ -533,7 +535,7 @@ class _ActorType:
         memory_mbytes: int | None = None,
         timeout: timedelta | None = None,
         wait_for_finish: int | None = None,
-        webhooks: list[dict] | None = None,
+        webhooks: list[Webhook] | None = None,
     ) -> dict:
         """Run an Actor on the Apify platform.
 
@@ -555,10 +557,6 @@ class _ActorType:
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
-                Each webhook is represented by a dictionary containing these items:
-                    * `event_types`: list of `WebhookEventType` values which trigger the webhook
-                    * `request_url`: URL to which to send the webhook HTTP request
-                    * `payload_template` (optional): Optional template for the request payload
 
         Returns:
             Info about the started Actor run
@@ -574,7 +572,9 @@ class _ActorType:
             memory_mbytes=memory_mbytes,
             timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
             wait_for_finish=wait_for_finish,
-            webhooks=webhooks,
+            webhooks=[hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks]
+            if webhooks
+            else None,
         )
 
     async def abort(
@@ -619,7 +619,7 @@ class _ActorType:
         build: str | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | None = None,
-        webhooks: list[dict] | None = None,
+        webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
     ) -> dict | None:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
@@ -656,7 +656,9 @@ class _ActorType:
             build=build,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-            webhooks=webhooks,
+            webhooks=[hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks]
+            if webhooks
+            else [],
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
 
@@ -668,7 +670,7 @@ class _ActorType:
         build: str | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | None = None,
-        webhooks: list[dict] | None = None,
+        webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
     ) -> dict | None:
@@ -708,7 +710,9 @@ class _ActorType:
             build=build,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-            webhooks=webhooks,
+            webhooks=[hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks]
+            if webhooks
+            else [],
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
 
@@ -796,10 +800,8 @@ class _ActorType:
 
     async def add_webhook(
         self,
+        webhook: Webhook,
         *,
-        event_types: list[WebhookEventType],
-        request_url: str,
-        payload_template: str | None = None,
         ignore_ssl_errors: bool | None = None,
         do_not_retry: bool | None = None,
         idempotency_key: str | None = None,
@@ -814,9 +816,7 @@ class _ActorType:
         For more information about Apify Actor webhooks, please see the [documentation](https://docs.apify.com/webhooks).
 
         Args:
-            event_types: List of event types that should trigger the webhook. At least one is required.
-            request_url: URL that will be invoked once the webhook is triggered.
-            payload_template: Specification of the payload that will be sent to request_url
+            webhook: The webhook to be added
             ignore_ssl_errors: Whether the webhook should ignore SSL errors returned by request_url
             do_not_retry: Whether the webhook should retry sending the payload to request_url upon failure.
             idempotency_key: A unique identifier of a webhook. You can use it to ensure that you won't create
@@ -837,9 +837,9 @@ class _ActorType:
 
         return await self._apify_client.webhooks().create(
             actor_run_id=self._configuration.actor_run_id,
-            event_types=event_types,
-            request_url=request_url,
-            payload_template=payload_template,
+            event_types=webhook.event_types,
+            request_url=webhook.request_url,
+            payload_template=webhook.payload_template,
             ignore_ssl_errors=ignore_ssl_errors,
             do_not_retry=do_not_retry,
             idempotency_key=idempotency_key,
