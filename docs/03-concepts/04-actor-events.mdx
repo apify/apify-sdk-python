@@ -75,8 +75,7 @@ and to remove them, you use the [`Actor.off()`](../../reference/class/Actor#off)
 
 ```python title="src/main.py"
 import asyncio
-from apify import Actor
-from apify_shared.consts import ActorEventTypes
+from apify import Actor, Event
 
 async def main():
     async with Actor:
@@ -94,7 +93,7 @@ async def main():
             Actor.log.info('Saving Actor state', extra=event_data)
             await Actor.set_value('STATE', processed_items)
 
-        Actor.on(ActorEventTypes.PERSIST_STATE, save_state)
+        Actor.on(Event.PERSIST_STATE, save_state)
 
         # Do some fake work
         for i in range(processed_items, total_items):
@@ -103,7 +102,7 @@ async def main():
             await asyncio.sleep(0.1)
 
         # Suppose we can stop saving the state now
-        Actor.off(ActorEventTypes.PERSIST_STATE, save_state)
+        Actor.off(Event.PERSIST_STATE, save_state)
 
         # Do some more fake work, this time something that can't be restarted,
         # so no point persisting the state

@@ -57,23 +57,6 @@ async def main():
         raise RuntimeError('Ouch!')
 ```
 
-#### Main function
-
-Another option is to pass a function to the Actor via the [`Actor.main(main_func)`](../../reference/class/Actor#main) method,
-which causes the Actor to initialize, run the main function, and exit, catching any runtime errors in the passed function.
-
-```python title="src/main.py"
-from apify import Actor
-
-async def actor_main_func():
-    Actor.log.info('Actor input:', await Actor.get_input())
-    await Actor.set_value('OUTPUT', 'Hello, world!')
-    raise RuntimeError('Ouch!')
-
-async def main():
-    await Actor.main(actor_main_func)
-```
-
 ### Rebooting an Actor
 
 Sometimes, you want to restart your Actor to make it run from the beginning again.
