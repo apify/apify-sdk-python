@@ -593,7 +593,7 @@ class _ActorType:
             run_id: The ID of the Actor run to be aborted.
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             status_message: Status message of the Actor to be set on the platform.
-            gracefully: If True, the Actor run will abort gracefully. It will send `aborting` and `persistStates`
+            gracefully: If True, the Actor run will abort gracefully. It will send `aborting` and `persistState`
                 events into the run and force-stop the run after 30 seconds. It is helpful in cases where you plan
                 to resurrect the run later.
 
