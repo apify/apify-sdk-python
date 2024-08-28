@@ -55,4 +55,4 @@ build-api-reference:
 	cd website && ./build_api_reference.sh
 
 run-doc: build-api-reference
-	cd website && corepack enable && yarn && yarn start
+	cd website && npm clean-install && npm run start
