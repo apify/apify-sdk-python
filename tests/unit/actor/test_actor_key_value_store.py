@@ -78,7 +78,7 @@ class TestKeyValueStoreOnActor:
         encrypted_secret = public_encrypt(secret_string, public_key=PUBLIC_KEY)
         input_with_secret = {
             'foo': 'bar',
-            'secret': f'{ENCRYPTED_INPUT_VALUE_PREFIX}:{encrypted_secret["encrypted_password"]}:{encrypted_secret["encrypted_value"]}',
+            'secret': f'{ENCRYPTED_INPUT_VALUE_PREFIX}:{encrypted_secret["encrypted_password"]}:{encrypted_secret["encrypted_value"]}',  # noqa: E501
         }
 
         await memory_storage_client.key_value_stores().get_or_create(id='default')

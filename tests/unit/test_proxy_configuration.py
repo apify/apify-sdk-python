@@ -67,7 +67,10 @@ class TestProxyConfiguration:
                 ProxyConfiguration(country_code=invalid_country_code)  # type: ignore
 
         with pytest.raises(ValueError, match='Exactly one of .* must be specified'):
-            ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222')
+            ProxyConfiguration(
+                proxy_urls=['http://proxy.com:1111'],
+                new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222',
+            )
 
         with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
             ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], groups=['GROUP1'])
@@ -76,7 +79,9 @@ class TestProxyConfiguration:
             ProxyConfiguration(proxy_urls=['bad-url'])
 
         with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
-            ProxyConfiguration(new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222', groups=['GROUP1'])
+            ProxyConfiguration(
+                new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222', groups=['GROUP1']
+            )
 
 
 class TestProxyConfigurationNewUrl:

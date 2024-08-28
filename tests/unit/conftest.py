@@ -51,7 +51,11 @@ def reset_default_instances() -> Callable[[], None]:
 # To isolate the tests, we need to reset the used singletons before each test case
 # We also set the MemoryStorageClient to use a temp path
 @pytest.fixture(autouse=True)
-def _reset_and_patch_default_instances(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_default_instances: Callable[[], None]) -> None:
+def _reset_and_patch_default_instances(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    reset_default_instances: Callable[[], None],
+) -> None:
     # This forces the MemoryStorageClient to use tmp_path for its storage dir
     monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
 
@@ -119,7 +123,9 @@ class ApifyClientAsyncPatcher:
         original_submethod = getattr(client_method_return_type, submethod, None)
 
         if not original_submethod:
-            raise ValueError(f'apify_client.{client_method_return_type.__name__} does not contain method "{submethod}"!')
+            raise ValueError(
+                f'apify_client.{client_method_return_type.__name__} does not contain method "{submethod}"!'
+            )
 
         if is_async is None:
             is_async = inspect.iscoroutinefunction(original_submethod)

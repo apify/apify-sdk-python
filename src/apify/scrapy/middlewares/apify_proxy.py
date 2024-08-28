@@ -49,14 +49,18 @@ class ApifyHttpProxyMiddleware:
         proxy_settings: dict | None = crawler.settings.get('APIFY_PROXY_SETTINGS')
 
         if proxy_settings is None:
-            Actor.log.warning('ApifyHttpProxyMiddleware is not going to be used. Object "proxyConfiguration" is probably missing in the Actor input.')
+            Actor.log.warning(
+                'ApifyHttpProxyMiddleware is not going to be used. Object "proxyConfiguration" is probably missing '
+                ' in the Actor input.'
+            )
             raise NotConfigured
 
         use_apify_proxy = proxy_settings.get('useApifyProxy', False)
 
         if use_apify_proxy is not True:
             Actor.log.warning(
-                'ApifyHttpProxyMiddleware is not going to be used. Actor input field "proxyConfiguration.useApifyProxy" is probably set to False.'
+                'ApifyHttpProxyMiddleware is not going to be used. Actor input field '
+                '"proxyConfiguration.useApifyProxy" is probably set to False.'
             )
             raise NotConfigured
 
@@ -106,7 +110,10 @@ class ApifyHttpProxyMiddleware:
         )
 
         if isinstance(exception, TunnelError):
-            Actor.log.warning(f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", reason="{exception}", skipping...')
+            Actor.log.warning(
+                f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", '
+                'reason="{exception}", skipping...'
+            )
             return request
 
         return None
@@ -129,7 +136,9 @@ class ApifyHttpProxyMiddleware:
         # If the proxy configuration is still not available, raise an error. However, this should not happen due
         # to the checks in the `from_crawler` method.
         if proxy_cfg is None:
-            Actor.log.error('Creation of proxy configuration failed. Check the field "proxyConfiguration" in the Actor input.')
+            Actor.log.error(
+                'Creation of proxy configuration failed. Check the field "proxyConfiguration" in the Actor input.'
+            )
             raise NotConfigured
 
         # Store the proxy configuration for future use

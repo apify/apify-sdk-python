@@ -118,7 +118,9 @@ class TestActorMethodsWorksOnlyOnPlatform:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         async with Actor:
-            await Actor.add_webhook(event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com')
+            await Actor.add_webhook(
+                event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com'
+            )
 
         assert len(caplog.records) == 1
         assert caplog.records[0].levelname == 'ERROR'

@@ -27,7 +27,10 @@ class TestEventManagerLocal:
 
         assert len(caplog.records) == 1
         assert caplog.records[0].levelno == logging.DEBUG
-        assert caplog.records[0].message == 'APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.'
+        assert (
+            caplog.records[0].message
+            == 'APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.'
+        )
 
     async def test_event_handling_local(self) -> None:
         async with EventManager() as event_manager:

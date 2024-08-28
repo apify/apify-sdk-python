@@ -60,7 +60,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
         else:
             unique_key = crypto_random_object_id(8)
 
-        if scrapy_request.meta.get('apify_request_id'):  # noqa: SIM108
+        if scrapy_request.meta.get('apify_request_id'):
             request_id = scrapy_request.meta['apify_request_id']
         else:
             request_id = unique_key_to_request_id(unique_key)
@@ -78,7 +78,9 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
         if isinstance(scrapy_request.headers, Headers):
             apify_request.headers = dict(scrapy_request.headers.to_unicode_dict())
         else:
-            Actor.log.warning(f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}')
+            Actor.log.warning(
+                f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}'
+            )
 
         # Serialize the Scrapy Request and store it in the apify_request.
         #   - This process involves converting the Scrapy Request object into a dictionary, encoding it to base64,
@@ -162,7 +164,8 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
             scrapy_request.headers = Headers(apify_request.headers)
         else:
             Actor.log.warning(
-                f'apify_request[headers] is not an instance of the dict class, apify_request[headers] = {apify_request.headers}',
+                'apify_request[headers] is not an instance of the dict class, '
+                f'apify_request[headers] = {apify_request.headers}',
             )
 
     # Add optional 'userData' field

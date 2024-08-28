@@ -7,7 +7,15 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic_core import TzInfo
 
-from apify_shared.consts import BOOL_ENV_VARS, DATETIME_ENV_VARS, FLOAT_ENV_VARS, INTEGER_ENV_VARS, STRING_ENV_VARS, ActorEnvVars, ApifyEnvVars
+from apify_shared.consts import (
+    BOOL_ENV_VARS,
+    DATETIME_ENV_VARS,
+    FLOAT_ENV_VARS,
+    INTEGER_ENV_VARS,
+    STRING_ENV_VARS,
+    ActorEnvVars,
+    ApifyEnvVars,
+)
 
 from apify import Actor
 
@@ -87,7 +95,10 @@ class TestGetEnv:
 
             datetime_get_env_var = datetime_env_var.name.lower()
             expected_get_env[datetime_get_env_var] = datetime.now(TzInfo(0))  # type: ignore
-            monkeypatch.setenv(datetime_env_var, expected_get_env[datetime_get_env_var].strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+            monkeypatch.setenv(
+                datetime_env_var,
+                expected_get_env[datetime_get_env_var].strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            )
 
         for string_env_var in STRING_ENV_VARS:
             if string_env_var in ignored_env_vars:
@@ -109,7 +120,9 @@ class TestGetEnv:
                 expected_get_env[env_name] = timedelta(milliseconds=env_value)
 
         # Convert dedicated_cpus to float
-        expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()] = float(expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()])
+        expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()] = float(
+            expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()]
+        )
 
         # Update expectations for legacy configuration
         for old_name, new_name in legacy_env_vars.items():

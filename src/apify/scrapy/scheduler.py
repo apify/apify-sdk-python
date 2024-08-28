@@ -130,7 +130,9 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-        Actor.log.debug(f'[{call_id}]: a new apify_request from the scheduler was fetched (apify_request={apify_request})')
+        Actor.log.debug(
+            f'[{call_id}]: a new apify_request from the scheduler was fetched (apify_request={apify_request})'
+        )
 
         if apify_request is None:
             return None
@@ -148,6 +150,7 @@ class ApifyScheduler(BaseScheduler):
 
         scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
         Actor.log.debug(
-            f'[{call_id}]: apify_request was transformed to the scrapy_request which is gonna be returned (scrapy_request={scrapy_request})',
+            f'[{call_id}]: apify_request was transformed to the scrapy_request which is gonna be returned '
+            f'(scrapy_request={scrapy_request})',
         )
         return scrapy_request

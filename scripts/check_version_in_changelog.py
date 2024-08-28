@@ -23,4 +23,6 @@ if __name__ == '__main__':
             if re.match(rf'## \[{current_package_version}\].*$', line):
                 break
         else:
-            raise RuntimeError(f'There is no entry in the changelog for the current package version ({current_package_version})')
+            raise RuntimeError(
+                f'There is no entry in the changelog for the current package version ({current_package_version})'
+            )

@@ -86,7 +86,7 @@ types-psutil = "^6.0.0.20240621"
 scrapy = ["scrapy"]
 
 [tool.ruff]
-line-length = 150
+line-length = 120
 
 [tool.ruff.lint]
 select = ["ALL"]
