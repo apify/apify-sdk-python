@@ -20,7 +20,7 @@ from crawlee.events._types import (
     EventSystemInfoData,
 )
 
-from apify._log import logger
+from apify.log import logger
 
 if TYPE_CHECKING:
     from types import TracebackType
