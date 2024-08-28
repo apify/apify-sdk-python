@@ -19,6 +19,7 @@ from crawlee.events._types import Event, EventPersistStateData
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
+from apify._models import ActorRun
 from apify._platform_event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import get_system_info, is_running_in_ipython
@@ -536,7 +537,7 @@ class _ActorType:
         timeout: timedelta | None = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
-    ) -> dict:
+    ) -> ActorRun:
         """Run an Actor on the Apify platform.
 
         Unlike `Actor.call`, this method just starts the run without waiting for finish.
@@ -565,16 +566,20 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return await client.actor(actor_id).start(
-            run_input=run_input,
-            content_type=content_type,
-            build=build,
-            memory_mbytes=memory_mbytes,
-            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-            wait_for_finish=wait_for_finish,
-            webhooks=[hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks]
-            if webhooks
-            else None,
+        return ActorRun.model_validate(
+            await client.actor(actor_id).start(
+                run_input=run_input,
+                content_type=content_type,
+                build=build,
+                memory_mbytes=memory_mbytes,
+                timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+                wait_for_finish=wait_for_finish,
+                webhooks=[
+                    hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
+                ]
+                if webhooks
+                else None,
+            )
         )
 
     async def abort(
@@ -584,7 +589,7 @@ class _ActorType:
         token: str | None = None,
         status_message: str | None = None,
         gracefully: bool | None = None,
-    ) -> dict:
+    ) -> ActorRun:
         """Abort given Actor run on the Apify platform using the current user account.
 
         The user account is determined by the `APIFY_TOKEN` environment variable.
@@ -607,7 +612,7 @@ class _ActorType:
         if status_message:
             await client.run(run_id).update(status_message=status_message)
 
-        return await client.run(run_id).abort(gracefully=gracefully)
+        return ActorRun.model_validate(await client.run(run_id).abort(gracefully=gracefully))
 
     async def call(
         self,
@@ -621,7 +626,7 @@ class _ActorType:
         timeout: timedelta | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
-    ) -> dict | None:
+    ) -> ActorRun | None:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -650,16 +655,20 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return await client.actor(actor_id).call(
-            run_input=run_input,
-            content_type=content_type,
-            build=build,
-            memory_mbytes=memory_mbytes,
-            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-            webhooks=[hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks]
-            if webhooks
-            else [],
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+        return ActorRun.model_validate(
+            await client.actor(actor_id).call(
+                run_input=run_input,
+                content_type=content_type,
+                build=build,
+                memory_mbytes=memory_mbytes,
+                timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+                webhooks=[
+                    hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks
+                ]
+                if webhooks
+                else [],
+                wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            )
         )
 
     async def call_task(
@@ -673,7 +682,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
-    ) -> dict | None:
+    ) -> ActorRun | None:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -705,15 +714,19 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return await client.task(task_id).call(
-            task_input=task_input,
-            build=build,
-            memory_mbytes=memory_mbytes,
-            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-            webhooks=[hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks]
-            if webhooks
-            else [],
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+        return ActorRun.model_validate(
+            await client.task(task_id).call(
+                task_input=task_input,
+                build=build,
+                memory_mbytes=memory_mbytes,
+                timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+                webhooks=[
+                    hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks
+                ]
+                if webhooks
+                else [],
+                wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            )
         )
 
     async def metamorph(
