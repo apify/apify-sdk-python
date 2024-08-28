@@ -16,14 +16,14 @@ class DummySpider(Spider):
     name = 'dummy_spider'
 
 
-@pytest.fixture()
+@pytest.fixture
 def middleware() -> ApifyHttpProxyMiddleware:
     """Fixture to create an Apify HTTP proxy middleware."""
     proxy_settings = {'useApifyProxy': True}
     return ApifyHttpProxyMiddleware(proxy_settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     """Fixture to create a Scrapy crawler."""
     crawler = Crawler(DummySpider)
@@ -31,19 +31,19 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     return crawler
 
 
-@pytest.fixture()
+@pytest.fixture
 def spider() -> DummySpider:
     """Fixture to create a "dummy" Scrapy spider."""
     return DummySpider()
 
 
-@pytest.fixture()
+@pytest.fixture
 def dummy_request() -> Request:
     """Fixture to create a "dummy" Scrapy spider."""
     return Request('https://example.com')
 
 
-@pytest.fixture()
+@pytest.fixture
 def proxy_configuration() -> ProxyConfiguration:
     """Fixture to create an Apify ProxyConfiguration object."""
     return ProxyConfiguration()

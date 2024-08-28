@@ -72,17 +72,15 @@ class ProxyInfo(CrawleeProxyInfo):
     """Provides information about a proxy connection that is used for requests."""
 
     groups: list[str] = field(default_factory=list)
-    """An array of proxy groups to be used by the [Apify Proxy](https://docs.apify.com/proxy).
-    If not provided, the proxy will select the groups automatically.
-    """
+    """An array of proxy groups to be used by the [Apify Proxy](https://docs.apify.com/proxy). If not provided,
+    the proxy will select the groups automatically."""
 
     country_code: str | None = None
-    """If set and relevant proxies are available in your Apify account, all proxied requests will
-    use IP addresses that are geolocated to the specified country. For example `GB` for IPs
-    from Great Britain. Note that online services often have their own rules for handling
-    geolocation and thus the country selection is a best attempt at geolocation, rather than
-    a guaranteed hit. This parameter is optional, by default, each proxied request is assigned
-    an IP address from a random country. The country code needs to be a two letter ISO country code.
+    """If set and relevant proxies are available in your Apify account, all proxied requests will use IP addresses
+    that are geolocated to the specified country. For example `GB` for IPs from Great Britain. Note that online
+    services often have their own rules for handling geolocation and thus the country selection is a best attempt
+    at geolocation, rather than a guaranteed hit. This parameter is optional, by default, each proxied request is
+    assigned an IP address from a random country. The country code needs to be a two letter ISO country code.
     See the [full list of available country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements).
     This parameter is optional, by default, the proxy uses all available proxy servers from all countries.
     """
@@ -91,13 +89,13 @@ class ProxyInfo(CrawleeProxyInfo):
 class ProxyConfiguration(CrawleeProxyConfiguration):
     """Configures a connection to a proxy server with the provided options.
 
-    Proxy servers are used to prevent target websites from blocking your crawlers based on IP address rate limits or blacklists.
-    The default servers used by this class are managed by [Apify Proxy](https://docs.apify.com/proxy).
-    To be able to use Apify Proxy, you need an Apify account and access to the selected proxies. If you provide no configuration option,
-    the proxies will be managed automatically using a smart algorithm.
+    Proxy servers are used to prevent target websites from blocking your crawlers based on IP address rate limits or
+    blacklists. The default servers used by this class are managed by [Apify Proxy](https://docs.apify.com/proxy).
+    To be able to use Apify Proxy, you need an Apify account and access to the selected proxies. If you provide
+    no configuration option, the proxies will be managed automatically using a smart algorithm.
 
-    If you want to use your own proxies, use the `proxy_urls` or `new_url_function` constructor options.
-    Your list of proxy URLs will be rotated by the configuration, if this option is provided.
+    If you want to use your own proxies, use the `proxy_urls` or `new_url_function` constructor options. Your list
+    of proxy URLs will be rotated by the configuration, if this option is provided.
     """
 
     _configuration: Configuration
@@ -115,10 +113,13 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         _actor_config: Configuration | None = None,
         _apify_client: ApifyClientAsync | None = None,
     ) -> None:
-        """Create a ProxyConfiguration instance. It is highly recommended to use `Actor.create_proxy_configuration()` instead of this.
+        """Create a ProxyConfiguration instance.
+
+        It is highly recommended to use `Actor.create_proxy_configuration()` instead of this.
 
         Args:
-            password: Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'], if available.
+            password: Password for the Apify Proxy. If not provided, will use os.environ['APIFY_PROXY_PASSWORD'],
+                if available.
             groups: Proxy groups which the Apify Proxy should use, if provided.
             country_code: Country which the Apify Proxy should use, if provided.
             proxy_urls: Custom proxy server URLs which should be rotated through.
@@ -145,14 +146,17 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
         if proxy_urls and any('apify.com' in url for url in proxy_urls):
             logger.warning(
-                'Some Apify proxy features may work incorrectly. Please consider setting up Apify properties instead of `proxy_urls`.\n'
+                'Some Apify proxy features may work incorrectly. Please consider setting up Apify properties '
+                'instead of `proxy_urls`.\n'
                 'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration'
             )
 
         self._uses_apify_proxy = not (proxy_urls or new_url_function or tiered_proxy_urls)
 
         super().__init__(
-            proxy_urls=[f'http://{_actor_config.proxy_hostname}:{_actor_config.proxy_port}'] if self._uses_apify_proxy else proxy_urls,
+            proxy_urls=[f'http://{_actor_config.proxy_hostname}:{_actor_config.proxy_port}']
+            if self._uses_apify_proxy
+            else proxy_urls,
             new_url_function=new_url_function,
             tiered_proxy_urls=tiered_proxy_urls,
         )
@@ -170,13 +174,13 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         self._country_code = country_code
 
     async def initialize(self) -> None:
-        """Load the Apify Proxy password if the API token is provided and check access to Apify Proxy and provided proxy groups.
+        """Load the Apify Proxy password if the API token is provided and check access to Apify Proxy and proxy groups.
 
-        Only called if Apify Proxy configuration is used.
-        Also checks if country has access to Apify Proxy groups if the country code is provided.
+        Only called if Apify Proxy configuration is used. Also checks if country has access to Apify Proxy groups
+        if the country code is provided.
 
-        You should use the Actor.create_proxy_configuration function
-        to create a pre-initialized `ProxyConfiguration` instance instead of calling this manually.
+        You should use the Actor.create_proxy_configuration function to create a pre-initialized
+        `ProxyConfiguration` instance instead of calling this manually.
         """
         if self._uses_apify_proxy:
             await self._maybe_fetch_password()
@@ -190,18 +194,19 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
     ) -> ProxyInfo | None:
         """Create a new ProxyInfo object.
 
-        Use it if you want to work with a rich representation of a proxy URL.
-        If you need the URL string only, use `ProxyConfiguration.new_url`.
+        Use it if you want to work with a rich representation of a proxy URL. If you need the URL string only,
+        use `ProxyConfiguration.new_url`.
 
         Args:
             session_id: Represents the identifier of a proxy session (https://docs.apify.com/proxy#sessions).
-                All the HTTP requests going through the proxy with the same session identifier
-                will use the same target proxy server (i.e. the same IP address).
-                The identifier must not be longer than 50 characters and include only the following: `0-9`, `a-z`, `A-Z`, `"."`, `"_"` and `"~"`.
-            request: request for which the proxy info is being issued, used in proxy tier handling
-            proxy_tier: allows forcing the proxy tier to be used
+                All the HTTP requests going through the proxy with the same session identifier will use the same
+                target proxy server (i.e. the same IP address). The identifier must not be longer than 50 characters
+                and include only the following: `0-9`, `a-z`, `A-Z`, `"."`, `"_"` and `"~"`.
+            request: request for which the proxy info is being issued, used in proxy tier handling.
+            proxy_tier: allows forcing the proxy tier to be used.
 
-        Returns: Dictionary that represents information about the proxy and its configuration.
+        Returns:
+            Dictionary that represents information about the proxy and its configuration.
         """
         if session_id is not None:
             _check(session_id, label='session_id', max_length=SESSION_ID_MAX_LENGTH, pattern=APIFY_PROXY_VALUE_REGEX)
@@ -250,17 +255,17 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                 if self._password:
                     if self._password != password:
                         logger.warning(
-                            'The Apify Proxy password you provided belongs to'
-                            ' a different user than the Apify token you are using. Are you sure this is correct?'
+                            'The Apify Proxy password you provided belongs to a different user than the Apify '
+                            'token you are using. Are you sure this is correct?'
                         )
                 else:
                     self._password = password
 
         if not self._password:
             raise ValueError(
-                'Apify Proxy password must be provided using the "password" constructor argument'
-                f' or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable.'
-                f' If you add the "{ApifyEnvVars.TOKEN}" environment variable, the password will be automatically inferred.'
+                'Apify Proxy password must be provided using the "password" constructor argument '
+                f'or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable. If you add '
+                f'the "{ApifyEnvVars.TOKEN}" environment variable, the password will be automatically inferred.'
             )
 
     async def _check_access(self) -> None:
@@ -288,8 +293,8 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             self.is_man_in_the_middle = status['isManInTheMiddle']
         else:
             logger.warning(
-                'Apify Proxy access check timed out. Watch out for errors with status code 407. '
-                "If you see some, it most likely means you don't have access to either all or some of the proxies you're trying to use."
+                'Apify Proxy access check timed out. Watch out for errors with status code 407. If you see some, it '
+                'most likely means you do not have access to either all or some of the proxies you are trying to use.'
             )
 
     def _get_username(self, session_id: int | str | None = None) -> str:

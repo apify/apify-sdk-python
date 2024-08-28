@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.7.3](../../releases/tag/v1.7.3) - Unreleased
+## [2.0.0](../../releases/tag/v2.0.0) - Unreleased
 
 ### Added
 

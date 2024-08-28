@@ -10,7 +10,8 @@ try:
     from scrapy.utils.python import to_bytes
 except ImportError as exc:
     raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. For example, if you use pip, run "pip install apify[scrapy]".',
+        'To use this module, you need to install the "scrapy" extra. For example, if you use pip, run '
+        '"pip install apify[scrapy]".'
     ) from exc
 
 

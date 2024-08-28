@@ -15,7 +15,7 @@ class DummySpider(Spider):
     name = 'dummy_spider'
 
 
-@pytest.fixture()
+@pytest.fixture
 def spider() -> DummySpider:
     """Fixture to create a "dummy" Scrapy spider."""
     return DummySpider()
@@ -23,7 +23,13 @@ def spider() -> DummySpider:
 
 def test__to_scrapy_request__without_reconstruction(spider: Spider) -> None:
     # Without reconstruction of encoded Scrapy request
-    apify_request = CrawleeRequest(url='https://example.com', method='GET', unique_key='https://example.com', id='fvwscO2UJLdr10B', user_data={})
+    apify_request = CrawleeRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        id='fvwscO2UJLdr10B',
+        user_data={},
+    )
 
     scrapy_request = to_scrapy_request(apify_request, spider)
 

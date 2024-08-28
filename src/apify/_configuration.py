@@ -161,7 +161,8 @@ class Configuration(CrawleeConfiguration):
         Field(
             alias='apify_sdk_latest_version',
             deprecated=True,
-            description='Specifies the most recent release version of the Apify SDK for Javascript. Used for checking for updates.',
+            description='Specifies the most recent release version of the Apify SDK for Javascript. Used for '
+            'checking for updates.',
         ),
     ] = None
 

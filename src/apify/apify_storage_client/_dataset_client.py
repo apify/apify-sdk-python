@@ -48,7 +48,7 @@ class DatasetClient(BaseDatasetClient):
         self,
         *,
         offset: int | None = 0,
-        limit: int | None = BaseDatasetClient._LIST_ITEMS_LIMIT,
+        limit: int | None = BaseDatasetClient._LIST_ITEMS_LIMIT,  # noqa: SLF001
         clean: bool = False,
         desc: bool = False,
         fields: list[str] | None = None,

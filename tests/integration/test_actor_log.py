@@ -73,7 +73,9 @@ class TestActorLog:
         assert run_log_lines.pop(0) == 'ACTOR: Creating Docker container.'
         assert run_log_lines.pop(0) == 'ACTOR: Starting Docker container.'
         assert run_log_lines.pop(0) == '[apify] INFO  Initializing Actor...'
-        assert run_log_lines.pop(0).startswith(f'[apify] INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "')
+        assert run_log_lines.pop(0).startswith(
+            f'[apify] INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "'
+        )
         assert run_log_lines.pop(0) == '[apify] DEBUG Debug message'
         assert run_log_lines.pop(0) == '[apify] INFO  Info message'
         assert run_log_lines.pop(0) == '[apify] WARN  Warning message'

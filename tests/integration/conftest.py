@@ -45,7 +45,7 @@ def _reset_and_patch_default_instances() -> None:
 # because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
 # but `pytest-asyncio` closes the event loop after each test,
 # and uses a new one for the next test.
-@pytest.fixture()
+@pytest.fixture
 def apify_client_async() -> ApifyClientAsync:
     api_token = os.getenv(TOKEN_ENV_VAR)
     api_url = os.getenv(API_URL_ENV_VAR)
@@ -91,9 +91,8 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
 def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
     """Create a dictionary of the base source files for a testing Actor.
 
-    It takes the files from `tests/integration/actor_source_base`,
-    builds the Apify SDK wheel from the current codebase,
-    and adds them all together in a dictionary.
+    It takes the files from `tests/integration/actor_source_base`, builds the Apify SDK wheel from
+    the current codebase, and adds them all together in a dictionary.
     """
     source_files: dict[str, str | bytes] = {}
 
@@ -113,11 +112,17 @@ def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
     sdk_wheel_file_name = sdk_wheel_path.name
     source_files[sdk_wheel_file_name] = sdk_wheel_path.read_bytes()
 
-    source_files['requirements.txt'] = str(source_files['requirements.txt']).replace('APIFY_SDK_WHEEL_PLACEHOLDER', f'./{sdk_wheel_file_name}')
+    source_files['requirements.txt'] = str(source_files['requirements.txt']).replace(
+        'APIFY_SDK_WHEEL_PLACEHOLDER', f'./{sdk_wheel_file_name}'
+    )
 
     current_major_minor_python_version = '.'.join([str(x) for x in sys.version_info[:2]])
-    integration_tests_python_version = os.getenv('INTEGRATION_TESTS_PYTHON_VERSION') or current_major_minor_python_version
-    source_files['Dockerfile'] = str(source_files['Dockerfile']).replace('BASE_IMAGE_VERSION_PLACEHOLDER', integration_tests_python_version)
+    integration_tests_python_version = (
+        os.getenv('INTEGRATION_TESTS_PYTHON_VERSION') or current_major_minor_python_version
+    )
+    source_files['Dockerfile'] = str(source_files['Dockerfile']).replace(
+        'BASE_IMAGE_VERSION_PLACEHOLDER', integration_tests_python_version
+    )
 
     return source_files
 
@@ -134,8 +139,11 @@ class ActorFactory(Protocol):
     ) -> Awaitable[ActorClientAsync]: ...
 
 
-@pytest.fixture()
-async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_client_async: ApifyClientAsync) -> AsyncIterator[ActorFactory]:
+@pytest.fixture
+async def make_actor(
+    actor_base_source_files: dict[str, str | bytes],
+    apify_client_async: ApifyClientAsync,
+) -> AsyncIterator[ActorFactory]:
     """A fixture for returning a temporary Actor factory."""
     actor_clients_for_cleanup: list[ActorClientAsync] = []
 
@@ -148,7 +156,8 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
     ) -> ActorClientAsync:
         """Create a temporary Actor from the given main function or source file(s).
 
-        The Actor will be uploaded to the Apify Platform, built there, and after the test finishes, it will be automatically deleted.
+        The Actor will be uploaded to the Apify Platform, built there, and after the test finishes, it will
+        be automatically deleted.
 
         You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
@@ -158,7 +167,8 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
             main_py: The `src/main.py` file of the Actor.
             source_files: A dictionary of the source files of the Actor.
 
-        Returns: A resource client for the created Actor.
+        Returns:
+            A resource client for the created Actor.
         """
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')
@@ -189,7 +199,8 @@ async def make_actor(actor_base_source_files: dict[str, str | bytes], apify_clie
 
         assert source_files is not None
 
-        # Copy the source files dict from the fixture so that we're not overwriting it, and merge the passed argument in it
+        # Copy the source files dict from the fixture so that we're not overwriting it, and merge the passed
+        # argument in it.
         actor_source_files = actor_base_source_files.copy()
         actor_source_files.update(source_files)
 

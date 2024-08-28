@@ -37,8 +37,15 @@ def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
 
     password_bytes = key_bytes + initialized_vector_bytes
 
-    # NOTE: Auth Tag is appended to the end of the encrypted data, it has length of 16 bytes and ensures integrity of the data.
-    cipher = Cipher(algorithms.AES(key_bytes), modes.GCM(initialized_vector_bytes, min_tag_length=ENCRYPTION_AUTH_TAG_LENGTH))
+    # NOTE: Auth Tag is appended to the end of the encrypted data, it has length of 16 bytes and ensures integrity
+    # of the data.
+    cipher = Cipher(
+        algorithms.AES(key_bytes),
+        modes.GCM(
+            initialized_vector_bytes,
+            min_tag_length=ENCRYPTION_AUTH_TAG_LENGTH,
+        ),
+    )
     encryptor = cipher.encryptor()
     encrypted_value_bytes = encryptor.update(value_bytes) + encryptor.finalize()
     encrypted_password_bytes = public_key.encrypt(
@@ -94,7 +101,9 @@ def private_decrypt(
     initialization_vector_bytes = password_bytes[ENCRYPTION_KEY_LENGTH:]
 
     try:
-        cipher = Cipher(algorithms.AES(encryption_key_bytes), modes.GCM(initialization_vector_bytes, authentication_tag_bytes))
+        cipher = Cipher(
+            algorithms.AES(encryption_key_bytes), modes.GCM(initialization_vector_bytes, authentication_tag_bytes)
+        )
         decryptor = cipher.decryptor()
         decipher_bytes = decryptor.update(encrypted_data_bytes) + decryptor.finalize()
     except InvalidTagException as exc:
@@ -124,21 +133,21 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     return public_key
 
 
-def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input: Any) -> Any:
+def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input_data: Any) -> Any:
     """Decrypt input secrets."""
-    if not isinstance(input, dict):
-        return input
+    if not isinstance(input_data, dict):
+        return input_data
 
-    for key, value in input.items():
+    for key, value in input_data.items():
         if isinstance(value, str):
             match = ENCRYPTED_INPUT_VALUE_REGEXP.fullmatch(value)
             if match:
                 encrypted_password = match.group(1)
                 encrypted_value = match.group(2)
-                input[key] = private_decrypt(
+                input_data[key] = private_decrypt(
                     encrypted_password,
                     encrypted_value,
                     private_key=private_key,
                 )
 
-    return input
+    return input_data

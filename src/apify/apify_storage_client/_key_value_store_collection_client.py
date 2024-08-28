@@ -40,4 +40,11 @@ class KeyValueStoreCollectionClient(BaseKeyValueStoreCollectionClient):
         offset: int | None = None,
         desc: bool = False,
     ) -> KeyValueStoreListPage:
-        return KeyValueStoreListPage.model_validate(await self._client.list(unnamed=unnamed, limit=limit, offset=offset, desc=desc))
+        return KeyValueStoreListPage.model_validate(
+            await self._client.list(
+                unnamed=unnamed,
+                limit=limit,
+                offset=offset,
+                desc=desc,
+            )
+        )

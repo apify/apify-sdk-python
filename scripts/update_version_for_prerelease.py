@@ -29,7 +29,9 @@ if __name__ == '__main__':
 
     # We can only transform a stable release version (X.Y.Z) to a prerelease version (X.Y.ZxxxN)
     if not re.match(r'^\d+\.\d+\.\d+$', current_version):
-        raise RuntimeError(f'The current version {current_version} does not match the proper semver format for stable releases (X.Y.Z)')
+        raise RuntimeError(
+            f'The current version {current_version} does not match the proper semver format for stable releases (X.Y.Z)'
+        )
 
     # Load the version numbers of the currently published versions from PyPI
     published_versions = get_published_package_versions()
@@ -43,8 +45,7 @@ if __name__ == '__main__':
     for version in published_versions:
         if version.startswith(f'{current_version}{prerelease_prefix}'):
             prerelease_version = int(version.split(prerelease_prefix)[1])
-            if prerelease_version > latest_prerelease:
-                latest_prerelease = prerelease_version
+            latest_prerelease = max(prerelease_version, latest_prerelease)
 
     # Write the latest prerelease version number to pyproject.toml
     new_prerelease_version_number = f'{current_version}{prerelease_prefix}{latest_prerelease + 1}'

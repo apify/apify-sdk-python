@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 DUMMY_PASSWORD = 'DUMMY_PASSWORD'
 
 
-@pytest.fixture()
+@pytest.fixture
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
     apify_client_async_patcher.patch('user', 'get', return_value={'proxy': {'password': DUMMY_PASSWORD}})
     return ApifyClientAsync()
@@ -134,7 +134,10 @@ class TestActorCreateProxyConfiguration:
             }
         )
         assert proxy_configuration is not None
-        assert await proxy_configuration.new_url() == f'http://groups-{"+".join(groups)},country-{country_code}:{DUMMY_PASSWORD}@proxy.apify.com:8000'
+        assert (
+            await proxy_configuration.new_url()
+            == f'http://groups-{"+".join(groups)},country-{country_code}:{DUMMY_PASSWORD}@proxy.apify.com:8000'
+        )
 
         assert len(patched_apify_client.calls['user']['get']) == 2  # type: ignore
         assert len(route.calls) == 2

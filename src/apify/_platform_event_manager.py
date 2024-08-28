@@ -11,7 +11,14 @@ from typing_extensions import Self, Unpack, override
 from apify_shared.utils import ignore_docs
 from crawlee.events._event_manager import EventManager, EventManagerOptions
 from crawlee.events._local_event_manager import LocalEventManager
-from crawlee.events._types import Event, EventAbortingData, EventExitData, EventMigratingData, EventPersistStateData, EventSystemInfoData
+from crawlee.events._types import (
+    Event,
+    EventAbortingData,
+    EventExitData,
+    EventMigratingData,
+    EventPersistStateData,
+    EventSystemInfoData,
+)
 
 from apify._log import logger
 
@@ -146,7 +153,9 @@ class PlatformEventManager(EventManager):
 
         # Run tasks but don't await them
         if self._config.actor_events_ws_url:
-            self._process_platform_messages_task = asyncio.create_task(self._process_platform_messages(self._config.actor_events_ws_url))
+            self._process_platform_messages_task = asyncio.create_task(
+                self._process_platform_messages(self._config.actor_events_ws_url)
+            )
             is_connected = await self._connected_to_platform_websocket
             if not is_connected:
                 raise RuntimeError('Error connecting to platform events websocket!')
@@ -181,7 +190,10 @@ class PlatformEventManager(EventManager):
                         parsed_message = event_data_adapter.validate_json(message)
 
                         if isinstance(parsed_message, UnknownEvent):
-                            logger.info(f'Unknown message received: event_name={parsed_message.name}, event_data={parsed_message.data}')
+                            logger.info(
+                                f'Unknown message received: event_name={parsed_message.name}, '
+                                f'event_data={parsed_message.data}'
+                            )
                             continue
 
                         self.emit(

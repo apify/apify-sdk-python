@@ -136,7 +136,9 @@ class TestActorStart:
         inner_actor_id = (await inner_actor.get() or {})['id']
         test_value = crypto_random_object_id()
 
-        outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+        outer_run_result = await outer_actor.call(
+            run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id}
+        )
 
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
@@ -177,7 +179,9 @@ class TestActorCall:
         inner_actor_id = (await inner_actor.get() or {})['id']
         test_value = crypto_random_object_id()
 
-        outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+        outer_run_result = await outer_actor.call(
+            run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id}
+        )
 
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
@@ -316,7 +320,9 @@ class TestActorMetamorph:
         inner_actor_id = (await inner_actor.get() or {})['id']
         test_value = crypto_random_object_id()
 
-        outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+        outer_run_result = await outer_actor.call(
+            run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id}
+        )
 
         assert outer_run_result is not None
         assert outer_run_result['status'] == 'SUCCEEDED'
@@ -425,7 +431,9 @@ class TestActorAddWebhook:
             server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
             await asyncio.sleep(1)
 
-        client_actor_run_result = await client_actor.call(run_input={'server_actor_container_url': server_actor_container_url})
+        client_actor_run_result = await client_actor.call(
+            run_input={'server_actor_container_url': server_actor_container_url}
+        )
         assert client_actor_run_result is not None
         assert client_actor_run_result['status'] == 'SUCCEEDED'
 

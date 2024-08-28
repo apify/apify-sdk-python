@@ -27,7 +27,10 @@ class TestEventManagerLocal:
 
         assert len(caplog.records) == 1
         assert caplog.records[0].levelno == logging.DEBUG
-        assert caplog.records[0].message == 'APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.'
+        assert (
+            caplog.records[0].message
+            == 'APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.'
+        )
 
     async def test_event_handling_local(self) -> None:
         async with EventManager() as event_manager:
@@ -164,7 +167,7 @@ class TestEventManagerOnPlatform:
             if data:
                 message['data'] = data
 
-            websockets.broadcast(connected_ws_clients, json.dumps(message))
+            websockets.broadcast(connected_ws_clients, json.dumps(message))  # type: ignore
 
         async with websockets.server.serve(handler, host='localhost') as ws_server:
             # When you don't specify a port explicitly, the websocket connection is opened on a random free port.

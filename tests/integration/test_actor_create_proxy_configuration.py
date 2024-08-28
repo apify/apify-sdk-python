@@ -61,7 +61,10 @@ class TestActorCreateProxyConfiguration:
                 }
             )
             assert proxy_configuration is not None
-            assert await proxy_configuration.new_url() == f'http://groups-{"+".join(groups)},country-{country_code}:{proxy_url_suffix}'
+            assert (
+                await proxy_configuration.new_url()
+                == f'http://groups-{"+".join(groups)},country-{country_code}:{proxy_url_suffix}'
+            )
 
             await Actor.exit()
 
