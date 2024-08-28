@@ -818,7 +818,7 @@ class _ActorType:
         ignore_ssl_errors: bool | None = None,
         do_not_retry: bool | None = None,
         idempotency_key: str | None = None,
-    ) -> dict | None:
+    ) -> None:
         """Create an ad-hoc webhook for the current Actor run.
 
         This webhook lets you receive a notification when the Actor run finished or failed.
@@ -842,13 +842,13 @@ class _ActorType:
 
         if not self.is_at_home():
             self.log.error('Actor.add_webhook() is only supported when running on the Apify platform.')
-            return None
+            return
 
         # If is_at_home() is True, config.actor_run_id is always set
         if not self._configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        return await self._apify_client.webhooks().create(
+        await self._apify_client.webhooks().create(
             actor_run_id=self._configuration.actor_run_id,
             event_types=webhook.event_types,
             request_url=webhook.request_url,
@@ -863,7 +863,7 @@ class _ActorType:
         status_message: str,
         *,
         is_terminal: bool | None = None,
-    ) -> dict | None:
+    ) -> ActorRun | None:
         """Set the status message for the current Actor run.
 
         Args:
@@ -884,8 +884,10 @@ class _ActorType:
         if not self._configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        return await self._apify_client.run(self._configuration.actor_run_id).update(
-            status_message=status_message, is_status_message_terminal=is_terminal
+        return ActorRun.model_validate(
+            await self._apify_client.run(self._configuration.actor_run_id).update(
+                status_message=status_message, is_status_message_terminal=is_terminal
+            )
         )
 
     async def create_proxy_configuration(
