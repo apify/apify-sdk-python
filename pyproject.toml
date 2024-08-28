@@ -81,6 +81,7 @@ twine = "^5.1.0"
 types-aiofiles = "^24.1.0.20240626"
 types-colorama = "^0.4.15.20240311"
 types-psutil = "^6.0.0.20240621"
+griffe = "^1.2.0"
 
 [tool.poetry.extras]
 scrapy = ["scrapy"]
