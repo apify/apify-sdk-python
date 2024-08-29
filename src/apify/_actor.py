@@ -566,21 +566,24 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return ActorRun.model_validate(
-            await client.actor(actor_id).start(
-                run_input=run_input,
-                content_type=content_type,
-                build=build,
-                memory_mbytes=memory_mbytes,
-                timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-                wait_for_finish=wait_for_finish,
-                webhooks=[
-                    hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
-                ]
-                if webhooks
-                else None,
-            )
+        if webhooks:
+            serialized_webhooks = [
+                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
+            ]
+        else:
+            serialized_webhooks = None
+
+        api_result = await client.actor(actor_id).start(
+            run_input=run_input,
+            content_type=content_type,
+            build=build,
+            memory_mbytes=memory_mbytes,
+            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+            wait_for_finish=wait_for_finish,
+            webhooks=serialized_webhooks,
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def abort(
         self,
@@ -612,7 +615,9 @@ class _ActorType:
         if status_message:
             await client.run(run_id).update(status_message=status_message)
 
-        return ActorRun.model_validate(await client.run(run_id).abort(gracefully=gracefully))
+        api_result = await client.run(run_id).abort(gracefully=gracefully)
+
+        return ActorRun.model_validate(api_result)
 
     async def call(
         self,
@@ -655,21 +660,24 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return ActorRun.model_validate(
-            await client.actor(actor_id).call(
-                run_input=run_input,
-                content_type=content_type,
-                build=build,
-                memory_mbytes=memory_mbytes,
-                timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-                webhooks=[
-                    hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks
-                ]
-                if webhooks
-                else [],
-                wait_secs=int(wait.total_seconds()) if wait is not None else None,
-            )
+        if webhooks:
+            serialized_webhooks = [
+                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
+            ]
+        else:
+            serialized_webhooks = None
+
+        api_result = await client.actor(actor_id).call(
+            run_input=run_input,
+            content_type=content_type,
+            build=build,
+            memory_mbytes=memory_mbytes,
+            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+            webhooks=serialized_webhooks,
+            wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def call_task(
         self,
@@ -714,20 +722,23 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return ActorRun.model_validate(
-            await client.task(task_id).call(
-                task_input=task_input,
-                build=build,
-                memory_mbytes=memory_mbytes,
-                timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-                webhooks=[
-                    hook.model_dump(by_alias=True, exclude_defaults=True, exclude_unset=True) for hook in webhooks
-                ]
-                if webhooks
-                else [],
-                wait_secs=int(wait.total_seconds()) if wait is not None else None,
-            )
+        if webhooks:
+            serialized_webhooks = [
+                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
+            ]
+        else:
+            serialized_webhooks = None
+
+        api_result = await client.task(task_id).call(
+            task_input=task_input,
+            build=build,
+            memory_mbytes=memory_mbytes,
+            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+            webhooks=serialized_webhooks,
+            wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def metamorph(
         self,
@@ -884,11 +895,11 @@ class _ActorType:
         if not self._configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        return ActorRun.model_validate(
-            await self._apify_client.run(self._configuration.actor_run_id).update(
-                status_message=status_message, is_status_message_terminal=is_terminal
-            )
+        api_result = await self._apify_client.run(self._configuration.actor_run_id).update(
+            status_message=status_message, is_status_message_terminal=is_terminal
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def create_proxy_configuration(
         self,
