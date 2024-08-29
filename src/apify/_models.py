@@ -57,6 +57,7 @@ class ActorRunStats(BaseModel):
 
 class ActorRunOptions(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
+
     build: str
     timeout: Annotated[timedelta, Field(alias='timeoutSecs')]
     memory_mbytes: Annotated[int, Field(alias='memoryMbytes')]
@@ -65,6 +66,7 @@ class ActorRunOptions(BaseModel):
 
 class ActorRunUsage(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
+
     actor_compute_units: Annotated[float | None, Field(alias='ACTOR_COMPUTE_UNITS')] = None
     dataset_reads: Annotated[float | None, Field(alias='DATASET_READS')] = None
     dataset_writes: Annotated[float | None, Field(alias='DATASET_WRITES')] = None
