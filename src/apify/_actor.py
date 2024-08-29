@@ -11,7 +11,7 @@ from pydantic import AliasChoices
 from typing_extensions import Self
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars, WebhookEventType
+from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee import service_container
 from crawlee.events._types import Event, EventPersistStateData
@@ -19,6 +19,7 @@ from crawlee.events._types import Event, EventPersistStateData
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
+from apify._models import ActorRun
 from apify._platform_event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import get_system_info, is_running_in_ipython
@@ -31,6 +32,8 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from crawlee.proxy_configuration import _NewUrlFunction
+
+    from apify._models import Webhook
 
 
 MainReturnType = TypeVar('MainReturnType')
@@ -533,8 +536,8 @@ class _ActorType:
         memory_mbytes: int | None = None,
         timeout: timedelta | None = None,
         wait_for_finish: int | None = None,
-        webhooks: list[dict] | None = None,
-    ) -> dict:
+        webhooks: list[Webhook] | None = None,
+    ) -> ActorRun:
         """Run an Actor on the Apify platform.
 
         Unlike `Actor.call`, this method just starts the run without waiting for finish.
@@ -555,10 +558,6 @@ class _ActorType:
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
-                Each webhook is represented by a dictionary containing these items:
-                    * `event_types`: list of `WebhookEventType` values which trigger the webhook
-                    * `request_url`: URL to which to send the webhook HTTP request
-                    * `payload_template` (optional): Optional template for the request payload
 
         Returns:
             Info about the started Actor run
@@ -567,15 +566,24 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return await client.actor(actor_id).start(
+        if webhooks:
+            serialized_webhooks = [
+                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
+            ]
+        else:
+            serialized_webhooks = None
+
+        api_result = await client.actor(actor_id).start(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
             wait_for_finish=wait_for_finish,
-            webhooks=webhooks,
+            webhooks=serialized_webhooks,
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def abort(
         self,
@@ -584,7 +592,7 @@ class _ActorType:
         token: str | None = None,
         status_message: str | None = None,
         gracefully: bool | None = None,
-    ) -> dict:
+    ) -> ActorRun:
         """Abort given Actor run on the Apify platform using the current user account.
 
         The user account is determined by the `APIFY_TOKEN` environment variable.
@@ -607,7 +615,9 @@ class _ActorType:
         if status_message:
             await client.run(run_id).update(status_message=status_message)
 
-        return await client.run(run_id).abort(gracefully=gracefully)
+        api_result = await client.run(run_id).abort(gracefully=gracefully)
+
+        return ActorRun.model_validate(api_result)
 
     async def call(
         self,
@@ -619,9 +629,9 @@ class _ActorType:
         build: str | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | None = None,
-        webhooks: list[dict] | None = None,
+        webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
-    ) -> dict | None:
+    ) -> ActorRun | None:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -650,15 +660,24 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return await client.actor(actor_id).call(
+        if webhooks:
+            serialized_webhooks = [
+                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
+            ]
+        else:
+            serialized_webhooks = None
+
+        api_result = await client.actor(actor_id).call(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-            webhooks=webhooks,
+            webhooks=serialized_webhooks,
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def call_task(
         self,
@@ -668,10 +687,10 @@ class _ActorType:
         build: str | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | None = None,
-        webhooks: list[dict] | None = None,
+        webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
-    ) -> dict | None:
+    ) -> ActorRun | None:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -703,14 +722,23 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self._apify_client
 
-        return await client.task(task_id).call(
+        if webhooks:
+            serialized_webhooks = [
+                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
+            ]
+        else:
+            serialized_webhooks = None
+
+        api_result = await client.task(task_id).call(
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
-            webhooks=webhooks,
+            webhooks=serialized_webhooks,
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def metamorph(
         self,
@@ -796,14 +824,12 @@ class _ActorType:
 
     async def add_webhook(
         self,
+        webhook: Webhook,
         *,
-        event_types: list[WebhookEventType],
-        request_url: str,
-        payload_template: str | None = None,
         ignore_ssl_errors: bool | None = None,
         do_not_retry: bool | None = None,
         idempotency_key: str | None = None,
-    ) -> dict | None:
+    ) -> None:
         """Create an ad-hoc webhook for the current Actor run.
 
         This webhook lets you receive a notification when the Actor run finished or failed.
@@ -814,9 +840,7 @@ class _ActorType:
         For more information about Apify Actor webhooks, please see the [documentation](https://docs.apify.com/webhooks).
 
         Args:
-            event_types: List of event types that should trigger the webhook. At least one is required.
-            request_url: URL that will be invoked once the webhook is triggered.
-            payload_template: Specification of the payload that will be sent to request_url
+            webhook: The webhook to be added
             ignore_ssl_errors: Whether the webhook should ignore SSL errors returned by request_url
             do_not_retry: Whether the webhook should retry sending the payload to request_url upon failure.
             idempotency_key: A unique identifier of a webhook. You can use it to ensure that you won't create
@@ -829,17 +853,17 @@ class _ActorType:
 
         if not self.is_at_home():
             self.log.error('Actor.add_webhook() is only supported when running on the Apify platform.')
-            return None
+            return
 
         # If is_at_home() is True, config.actor_run_id is always set
         if not self._configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        return await self._apify_client.webhooks().create(
+        await self._apify_client.webhooks().create(
             actor_run_id=self._configuration.actor_run_id,
-            event_types=event_types,
-            request_url=request_url,
-            payload_template=payload_template,
+            event_types=webhook.event_types,
+            request_url=webhook.request_url,
+            payload_template=webhook.payload_template,
             ignore_ssl_errors=ignore_ssl_errors,
             do_not_retry=do_not_retry,
             idempotency_key=idempotency_key,
@@ -850,7 +874,7 @@ class _ActorType:
         status_message: str,
         *,
         is_terminal: bool | None = None,
-    ) -> dict | None:
+    ) -> ActorRun | None:
         """Set the status message for the current Actor run.
 
         Args:
@@ -871,9 +895,11 @@ class _ActorType:
         if not self._configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        return await self._apify_client.run(self._configuration.actor_run_id).update(
+        api_result = await self._apify_client.run(self._configuration.actor_run_id).update(
             status_message=status_message, is_status_message_terminal=is_terminal
         )
+
+        return ActorRun.model_validate(api_result)
 
     async def create_proxy_configuration(
         self,

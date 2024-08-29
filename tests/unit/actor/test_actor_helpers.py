@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars, WebhookEventType
 
-from apify import Actor
+from apify import Actor, Webhook
 from apify._actor import _ActorType
 
 if TYPE_CHECKING:
@@ -34,11 +34,50 @@ class TestActorNewClient:
 
 
 class TestActorCallStartAbortActor:
+    FAKE_ACTOR_RUN: ClassVar = {
+        'id': 'asdfasdf',
+        'buildId': '3ads35',
+        'buildNumber': '3.4.5',
+        'actId': 'actor_id',
+        'actorId': 'actor_id',
+        'userId': 'user_id',
+        'startedAt': '2024-08-08 12:12:44',
+        'status': 'RUNNING',
+        'meta': {'origin': 'API'},
+        'containerUrl': 'http://0.0.0.0:3333',
+        'defaultDatasetId': 'dhasdrfughaerguoi',
+        'defaultKeyValueStoreId': 'asjkldhguiofg',
+        'defaultRequestQueueId': 'lkjgklserjghios',
+        'stats': {
+            'inputBodyLen': 0,
+            'restartCount': 0,
+            'resurrectCount': 0,
+            'memAvgBytes': 0,
+            'memMaxBytes': 0,
+            'memCurrentBytes': 0,
+            'cpuAvgUsage': 0,
+            'cpuMaxUsage': 0,
+            'cpuCurrentUsage': 0,
+            'netRxBytes': 0,
+            'netTxBytes': 0,
+            'durationMillis': 3333,
+            'runTimeSecs': 33,
+            'metamorph': 0,
+            'computeUnits': 4.33,
+        },
+        'options': {
+            'build': '',
+            'timeoutSecs': 44,
+            'memoryMbytes': 4096,
+            'diskMbytes': 16384,
+        },
+    }
+
     async def test_actor_call(
         self: TestActorCallStartAbortActor,
         apify_client_async_patcher: ApifyClientAsyncPatcher,
     ) -> None:
-        apify_client_async_patcher.patch('actor', 'call', return_value=None)
+        apify_client_async_patcher.patch('actor', 'call', return_value=self.FAKE_ACTOR_RUN)
         actor_id = 'some-actor-id'
 
         async with Actor:
@@ -52,7 +91,7 @@ class TestActorCallStartAbortActor:
         self: TestActorCallStartAbortActor,
         apify_client_async_patcher: ApifyClientAsyncPatcher,
     ) -> None:
-        apify_client_async_patcher.patch('task', 'call', return_value=None)
+        apify_client_async_patcher.patch('task', 'call', return_value=self.FAKE_ACTOR_RUN)
         task_id = 'some-task-id'
 
         async with Actor:
@@ -65,7 +104,7 @@ class TestActorCallStartAbortActor:
         self: TestActorCallStartAbortActor,
         apify_client_async_patcher: ApifyClientAsyncPatcher,
     ) -> None:
-        apify_client_async_patcher.patch('actor', 'start', return_value=None)
+        apify_client_async_patcher.patch('actor', 'start', return_value=self.FAKE_ACTOR_RUN)
         actor_id = 'some-id'
 
         async with Actor:
@@ -78,7 +117,7 @@ class TestActorCallStartAbortActor:
         self: TestActorCallStartAbortActor,
         apify_client_async_patcher: ApifyClientAsyncPatcher,
     ) -> None:
-        apify_client_async_patcher.patch('run', 'abort', return_value=None)
+        apify_client_async_patcher.patch('run', 'abort', return_value=self.FAKE_ACTOR_RUN)
         run_id = 'some-run-id'
 
         async with Actor:
@@ -119,7 +158,7 @@ class TestActorMethodsWorksOnlyOnPlatform:
     ) -> None:
         async with Actor:
             await Actor.add_webhook(
-                event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com'
+                Webhook(event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com')
             )
 
         assert len(caplog.records) == 1
