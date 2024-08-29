@@ -406,15 +406,17 @@ class TestActorAddWebhook:
                 await Actor.set_value('WEBHOOK_BODY', webhook_body)
 
         async def main_client() -> None:
-            from apify_shared.consts import WebhookEventType
+            from apify import Webhook, WebhookEventType
 
             async with Actor:
                 actor_input = await Actor.get_input() or {}
                 server_actor_container_url = str(actor_input.get('server_actor_container_url'))
 
                 await Actor.add_webhook(
-                    event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED],
-                    request_url=server_actor_container_url,
+                    Webhook(
+                        event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED],
+                        request_url=server_actor_container_url,
+                    )
                 )
 
         server_actor, client_actor = await asyncio.gather(

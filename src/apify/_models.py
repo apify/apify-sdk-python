@@ -41,17 +41,17 @@ class ActorRunStats(BaseModel):
     input_body_len: Annotated[int, Field(alias='inputBodyLen')]
     restart_count: Annotated[int, Field(alias='restartCount')]
     resurrect_count: Annotated[int, Field(alias='resurrectCount')]
-    mem_avg_bytes: Annotated[float, Field(alias='memAvgBytes')]
-    mem_max_bytes: Annotated[int, Field(alias='memMaxBytes')]
-    mem_current_bytes: Annotated[int, Field(alias='memCurrentBytes')]
-    cpu_avg_usage: Annotated[float, Field(alias='cpuAvgUsage')]
-    cpu_max_usage: Annotated[float, Field(alias='cpuMaxUsage')]
-    cpu_current_usage: Annotated[float, Field(alias='cpuCurrentUsage')]
-    net_rx_bytes: Annotated[int, Field(alias='netRxBytes')]
-    net_tx_bytes: Annotated[int, Field(alias='netTxBytes')]
-    duration: Annotated[timedelta_ms, Field(alias='durationMillis')]
-    run_time: Annotated[timedelta, Field(alias='runTimeSecs')]
-    metamorph: Annotated[int, Field(alias='metamorph')]
+    mem_avg_bytes: Annotated[float | None, Field(alias='memAvgBytes')] = None
+    mem_max_bytes: Annotated[int | None, Field(alias='memMaxBytes')] = None
+    mem_current_bytes: Annotated[int | None, Field(alias='memCurrentBytes')] = None
+    cpu_avg_usage: Annotated[float | None, Field(alias='cpuAvgUsage')] = None
+    cpu_max_usage: Annotated[float | None, Field(alias='cpuMaxUsage')] = None
+    cpu_current_usage: Annotated[float | None, Field(alias='cpuCurrentUsage')] = None
+    net_rx_bytes: Annotated[int | None, Field(alias='netRxBytes')] = None
+    net_tx_bytes: Annotated[int | None, Field(alias='netTxBytes')] = None
+    duration: Annotated[timedelta_ms | None, Field(alias='durationMillis')] = None
+    run_time: Annotated[timedelta | None, Field(alias='runTimeSecs')] = None
+    metamorph: Annotated[int | None, Field(alias='metamorph')] = None
     compute_units: Annotated[float, Field(alias='computeUnits')]
 
 
@@ -65,18 +65,18 @@ class ActorRunOptions(BaseModel):
 
 class ActorRunUsage(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
-    actor_compute_units: Annotated[int | None, Field(alias='ACTOR_COMPUTE_UNITS')] = None
-    dataset_reads: Annotated[int | None, Field(alias='DATASET_READS')] = None
-    dataset_writes: Annotated[int | None, Field(alias='DATASET_WRITES')] = None
-    key_value_store_reads: Annotated[int | None, Field(alias='KEY_VALUE_STORE_READS')] = None
-    key_value_store_writes: Annotated[int | None, Field(alias='KEY_VALUE_STORE_WRITES')] = None
-    key_value_store_lists: Annotated[int | None, Field(alias='KEY_VALUE_STORE_LISTS')] = None
-    request_queue_reads: Annotated[int | None, Field(alias='REQUEST_QUEUE_READS')] = None
-    request_queue_writes: Annotated[int | None, Field(alias='REQUEST_QUEUE_WRITES')] = None
-    data_transfer_internal_gbytes: Annotated[int | None, Field(alias='DATA_TRANSFER_INTERNAL_GBYTES')] = None
-    data_transfer_external_gbytes: Annotated[int | None, Field(alias='DATA_TRANSFER_EXTERNAL_GBYTES')] = None
-    proxy_residential_transfer_gbytes: Annotated[int | None, Field(alias='PROXY_RESIDENTIAL_TRANSFER_GBYTES')] = None
-    proxy_serps: Annotated[int | None, Field(alias='PROXY_SERPS')] = None
+    actor_compute_units: Annotated[float | None, Field(alias='ACTOR_COMPUTE_UNITS')] = None
+    dataset_reads: Annotated[float | None, Field(alias='DATASET_READS')] = None
+    dataset_writes: Annotated[float | None, Field(alias='DATASET_WRITES')] = None
+    key_value_store_reads: Annotated[float | None, Field(alias='KEY_VALUE_STORE_READS')] = None
+    key_value_store_writes: Annotated[float | None, Field(alias='KEY_VALUE_STORE_WRITES')] = None
+    key_value_store_lists: Annotated[float | None, Field(alias='KEY_VALUE_STORE_LISTS')] = None
+    request_queue_reads: Annotated[float | None, Field(alias='REQUEST_QUEUE_READS')] = None
+    request_queue_writes: Annotated[float | None, Field(alias='REQUEST_QUEUE_WRITES')] = None
+    data_transfer_internal_gbytes: Annotated[float | None, Field(alias='DATA_TRANSFER_INTERNAL_GBYTES')] = None
+    data_transfer_external_gbytes: Annotated[float | None, Field(alias='DATA_TRANSFER_EXTERNAL_GBYTES')] = None
+    proxy_residential_transfer_gbytes: Annotated[float | None, Field(alias='PROXY_RESIDENTIAL_TRANSFER_GBYTES')] = None
+    proxy_serps: Annotated[float | None, Field(alias='PROXY_SERPS')] = None
 
 
 class ActorRun(BaseModel):
@@ -90,7 +90,7 @@ class ActorRun(BaseModel):
     finished_at: Annotated[datetime | None, Field(alias='finishedAt')] = None
     status: Annotated[ActorJobStatus, Field(alias='status')]
     status_message: Annotated[str | None, Field(alias='statusMessage')] = None
-    is_status_message_terminal: Annotated[bool, Field(alias='isStatusMessageTerminal')] = False
+    is_status_message_terminal: Annotated[bool | None, Field(alias='isStatusMessageTerminal')] = None
     meta: Annotated[ActorRunMeta, Field(alias='meta')]
     stats: Annotated[ActorRunStats, Field(alias='stats')]
     options: Annotated[ActorRunOptions, Field(alias='options')]
@@ -99,10 +99,10 @@ class ActorRun(BaseModel):
     default_key_value_store_id: Annotated[str, Field(alias='defaultKeyValueStoreId')]
     default_dataset_id: Annotated[str, Field(alias='defaultDatasetId')]
     default_request_queue_id: Annotated[str, Field(alias='defaultRequestQueueId')]
-    build_number: Annotated[str, Field(alias='buildNumber')]
+    build_number: Annotated[str | None, Field(alias='buildNumber')] = None
     container_url: Annotated[str, Field(alias='containerUrl')]
-    is_container_server_ready: Annotated[bool, Field(alias='isContainerServerReady')] = False
+    is_container_server_ready: Annotated[bool | None, Field(alias='isContainerServerReady')] = None
     git_branch_name: Annotated[str | None, Field(alias='gitBranchName')] = None
     usage: Annotated[ActorRunUsage | None, Field(alias='usage')] = None
     usage_total_usd: Annotated[float | None, Field(alias='usageTotalUsd')] = None
-    usage_usd: Annotated[float | None, Field(alias='usageUsd')] = None
+    usage_usd: Annotated[ActorRunUsage | None, Field(alias='usageUsd')] = None
