@@ -60,18 +60,20 @@ class DatasetClient(BaseDatasetClient):
         view: str | None = None,
     ) -> DatasetItemsListPage:
         return DatasetItemsListPage.model_validate(
-            await self._client.list_items(
-                offset=offset,
-                limit=limit,
-                clean=clean,
-                desc=desc,
-                fields=fields,
-                omit=omit,
-                unwind=unwind,
-                skip_empty=skip_empty,
-                skip_hidden=skip_hidden,
-                flatten=flatten,
-                view=view,
+            vars(
+                await self._client.list_items(
+                    offset=offset,
+                    limit=limit,
+                    clean=clean,
+                    desc=desc,
+                    fields=fields,
+                    omit=omit,
+                    unwind=unwind,
+                    skip_empty=skip_empty,
+                    skip_hidden=skip_hidden,
+                    flatten=flatten,
+                    view=view,
+                )
             )
         )
 
