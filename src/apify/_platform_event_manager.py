@@ -94,6 +94,11 @@ class EventWithoutData(BaseModel):
     data: Any = None
 
 
+class DeprecatedEvent(BaseModel):
+    name: Literal['cpuInfo']
+    data: Annotated[dict[str, Any], Field(default_factory=dict)]
+
+
 class UnknownEvent(BaseModel):
     name: str
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
@@ -109,12 +114,13 @@ EventMessage = Union[
 ]
 
 
-event_data_adapter: TypeAdapter[EventMessage | UnknownEvent] = TypeAdapter(
+event_data_adapter: TypeAdapter[EventMessage | DeprecatedEvent | UnknownEvent] = TypeAdapter(
     Union[
         Annotated[
             EventMessage,
             Discriminator('name'),
         ],
+        DeprecatedEvent,
         UnknownEvent,
     ]
 )
@@ -188,6 +194,9 @@ class PlatformEventManager(EventManager):
                 async for message in websocket:
                     try:
                         parsed_message = event_data_adapter.validate_json(message)
+
+                        if isinstance(parsed_message, DeprecatedEvent):
+                            continue
 
                         if isinstance(parsed_message, UnknownEvent):
                             logger.info(
