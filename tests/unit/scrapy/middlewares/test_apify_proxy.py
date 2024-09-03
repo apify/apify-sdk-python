@@ -129,24 +129,14 @@ async def test__process_request(
 
 
 @pytest.mark.parametrize(
-    ('exception', 'none_returned_values_is_expected'),
-    [
-        (TunnelError(), False),
-        (ValueError(), True),
-    ],
+    'exception',
+    [TunnelError(), ValueError()],
 )
 def test__process_exception(
     middleware: ApifyHttpProxyMiddleware,
     spider: DummySpider,
     dummy_request: Request,
     exception: Exception,
-    *,
-    none_returned_values_is_expected: bool,
 ) -> None:
-    returned_value = middleware.process_exception(dummy_request, exception, spider)
-
-    if none_returned_values_is_expected:
-        assert returned_value is None
-
-    else:
-        assert returned_value == dummy_request
+    returned_value = middleware.process_exception(dummy_request, exception, spider)  # type: ignore
+    assert returned_value is None
