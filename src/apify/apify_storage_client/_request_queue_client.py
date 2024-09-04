@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from more_itertools import chunked
 from typing_extensions import override
 
 from crawlee import Request
@@ -157,8 +158,11 @@ class RequestQueueClient(BaseRequestQueueClient):
         *,
         forefront: bool = False,
     ) -> BatchRequestsOperationResponse:
-        return BatchRequestsOperationResponse.model_validate(
-            await self._client.batch_add_requests(
+        processed = []
+        unprocessed = []
+
+        for chunk in chunked(requests, 25):
+            response = await self._client.batch_add_requests(
                 requests=[
                     r.model_dump(
                         by_alias=True,
@@ -170,10 +174,18 @@ class RequestQueueClient(BaseRequestQueueClient):
                             'data',
                         },
                     )
-                    for r in requests
+                    for r in chunk
                 ],
                 forefront=forefront,
             )
+            processed.extend(response['processedRequests'])
+            unprocessed.extend(response['unprocessedRequests'])
+
+        return BatchRequestsOperationResponse.model_validate(
+            {
+                'processedRequests': processed,
+                'unprocessedRequests': unprocessed,
+            }
         )
 
     @override
