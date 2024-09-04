@@ -11,7 +11,7 @@ sed_no_backup() {
 }
 
 # Create docspec dump of this package's source code through pydoc-markdown
-poetry run pydoc-markdown --quiet --dump > docspec-dump.jsonl
+pydoc-markdown --quiet --dump > docspec-dump.jsonl
 sed_no_backup "s#${PWD}/..#REPO_ROOT_PLACEHOLDER#g" docspec-dump.jsonl
 
 # Create docpec dump from the right version of the apify-shared package
@@ -24,7 +24,7 @@ sed_no_backup "s#search_path: \[../src\]#search_path: \[./src\]#g" "${apify_shar
 (
     cd "${apify_shared_tempdir}";
     git checkout --quiet "v${apify_shared_version}";
-    poetry run pydoc-markdown --quiet --dump > ./apify-shared-docspec-dump.jsonl
+    pydoc-markdown --quiet --dump > ./apify-shared-docspec-dump.jsonl
 )
 
 cp "${apify_shared_tempdir}/apify-shared-docspec-dump.jsonl" .

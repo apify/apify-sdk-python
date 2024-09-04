@@ -52,7 +52,7 @@ check-changelog-entry:
 	poetry run python scripts/check_version_in_changelog.py
 
 build-api-reference:
-	cd website && ./build_api_reference.sh
+	cd website && poetry run ./build_api_reference.sh
 
 run-doc: build-api-reference
 	cd website && npm clean-install && npm run start
