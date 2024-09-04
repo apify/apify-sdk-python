@@ -23,6 +23,7 @@ module.exports = {
         [
             '@apify/docs-theme',
             {
+                changelogFromRoot: true,
                 subNavbar: {
                     title: 'SDK for Python',
                     items: [
