@@ -35,7 +35,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: make install-dev
+        run: |
+          pipx install poetry
+          make install-dev
 
       - name: Run integration tests
         run: make INTEGRATION_TESTS_CONCURRENCY=8 integration-tests
