@@ -39,3 +39,68 @@ class TestRequestQueue:
         run_result = await actor.call()
         assert run_result is not None
         assert run_result['status'] == 'SUCCEEDED'
+
+    async def test_batch(self, make_actor: ActorFactory) -> None:
+        async def main() -> None:
+            async with Actor:
+                desired_request_count = 100
+                print('Opening request queue...')
+                # I have seen it get stuck on this call
+                rq = await Actor.open_request_queue()
+                # Add some requests
+                await rq.add_requests_batched([f'https://example.com/{i}' for i in range(desired_request_count)])
+
+                handled_request_count = 0
+                while next_request := await rq.fetch_next_request():
+                    print('Fetching next request...')
+                    queue_operation_info = await rq.mark_request_as_handled(next_request)
+                    assert queue_operation_info is not None
+                    assert queue_operation_info.was_already_handled is False
+                    handled_request_count += 1
+
+                assert handled_request_count == desired_request_count
+                print('Waiting for queue to be finished...')
+                is_finished = await rq.is_finished()
+                assert is_finished is True
+
+        actor = await make_actor('rq-batch-test', main_func=main)
+
+        run_result = await actor.call()
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
+
+    async def test_batch_non_unique(self, make_actor: ActorFactory) -> None:
+        async def main() -> None:
+            from crawlee import Request
+
+            async with Actor:
+                desired_request_count = 100
+                print('Opening request queue...')
+                # I have seen it get stuck on this call
+                rq = await Actor.open_request_queue()
+                # Add some requests
+                await rq.add_requests_batched(
+                    [
+                        Request.from_url(f'https://example.com/{i}', unique_key=str(i - 1 if i % 4 == 1 else i))
+                        for i in range(desired_request_count)
+                    ]
+                )
+
+                handled_request_count = 0
+                while next_request := await rq.fetch_next_request():
+                    print('Fetching next request...')
+                    queue_operation_info = await rq.mark_request_as_handled(next_request)
+                    assert queue_operation_info is not None
+                    assert queue_operation_info.was_already_handled is False
+                    handled_request_count += 1
+
+                assert handled_request_count == desired_request_count * 3 / 4
+                print('Waiting for queue to be finished...')
+                is_finished = await rq.is_finished()
+                assert is_finished is True
+
+        actor = await make_actor('rq-batch-test', main_func=main)
+
+        run_result = await actor.call()
+        assert run_result is not None
+        assert run_result['status'] == 'SUCCEEDED'
