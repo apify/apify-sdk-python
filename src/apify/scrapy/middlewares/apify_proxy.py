@@ -93,7 +93,7 @@ class ApifyHttpProxyMiddleware:
         request: Request,
         exception: Exception,
         spider: Spider,
-    ) -> None | Request:
+    ) -> None:
         """Process an exception that occurs during request processing.
 
         Args:
@@ -102,8 +102,9 @@ class ApifyHttpProxyMiddleware:
             spider: Scrapy Spider object.
 
         Returns:
-            If a TunnelError occurs, return the request object to halt its processing in the middleware pipeline.
-            Return None otherwise to allow the continuation of request processing.
+            Returning None, meaning Scrapy will continue processing this exception, executing any other
+            process_exception() methods of installed middleware, until no middleware is left and the default
+            exception handling kicks in.
         """
         Actor.log.debug(
             f'ApifyHttpProxyMiddleware.process_exception: request={request}, exception={exception}, spider={spider}',
@@ -114,9 +115,6 @@ class ApifyHttpProxyMiddleware:
                 f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", '
                 'reason="{exception}", skipping...'
             )
-            return request
-
-        return None
 
     async def _get_new_proxy_url(self: ApifyHttpProxyMiddleware) -> ParseResult:
         """Get a new proxy URL.
