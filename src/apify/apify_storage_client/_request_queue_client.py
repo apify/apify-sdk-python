@@ -161,7 +161,7 @@ class RequestQueueClient(BaseRequestQueueClient):
         processed = []
         unprocessed = []
 
-        for chunk in chunked(requests, 25):
+        for chunk in chunked(requests, 25):  # The API endpoint won't accept more than 25 requests at once
             response = await self._client.batch_add_requests(
                 requests=[
                     r.model_dump(
