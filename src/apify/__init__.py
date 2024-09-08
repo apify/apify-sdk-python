@@ -1,6 +1,7 @@
 from importlib import metadata
 
 from apify_shared.consts import WebhookEventType
+from crawlee import Request
 from crawlee.events._types import Event
 
 from apify._actor import Actor
@@ -16,6 +17,7 @@ __all__ = [
     'Configuration',
     'ProxyConfiguration',
     'ProxyInfo',
+    'Request',
     'Webhook',
     'WebhookEventType',
     '__version__',

@@ -34,7 +34,7 @@ unit-tests-cov:
 	poetry run pytest --numprocesses=auto --verbose --cov=src/apify --cov-report=html tests/unit
 
 integration-tests:
-	poetry run pytest --numprocesses=$(INTEGRATION_TESTS_CONCURRENCY) tests/integration
+	poetry run pytest --numprocesses=$(INTEGRATION_TESTS_CONCURRENCY) --verbose tests/integration
 
 format:
 	poetry run ruff check --fix $(DIRS_WITH_CODE)
