@@ -27,27 +27,108 @@ pip install apify[scrapy]
 
 For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/sdk/python/).
 
-## Example
+## Examples
+
+Below are few examples demonstrating how to use the Apify SDK with some web scraping-related libraries.
+
+### Apify SDK with HTTPX and BeautifulSoup
+
+This example illustrates how to integrate the Apify SDK with [HTTPX](https://www.python-httpx.org/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/) to scrape data from web pages.
 
 ```python
 from apify import Actor
 from bs4 import BeautifulSoup
 from httpx import AsyncClient
 
+
 async def main() -> None:
     async with Actor:
-        # Read the input parameters from the Actor input
-        actor_input = await Actor.get_input()
-        # Fetch the HTTP response from the specified URL
-        async with AsyncClient() as client:
-            response = await client.get(actor_input['url'])
-        # Process the HTML content
-        soup = BeautifulSoup(response.content, 'html.parser')
-        # Push the extracted data
-        await Actor.push_data({
-            'url': actor_input['url'],
-            'title': soup.title.string,
-        })
+        # Retrieve the Actor input, and use default values if not provided.
+        actor_input = await Actor.get_input() or {}
+        start_urls = actor_input.get('start_urls', [{'url': 'https://apify.com'}])
+
+        # Open the default request queue for handling URLs to be processed.
+        request_queue = await Actor.open_request_queue()
+
+        # Enqueue the start URLs.
+        for start_url in start_urls:
+            url = start_url.get('url')
+            await request_queue.add_request(url)
+
+        # Process the URLs from the request queue.
+        while request := await request_queue.fetch_next_request():
+            Actor.log.info(f'Scraping {request.url} ...')
+
+            # Fetch the HTTP response from the specified URL using HTTPX.
+            async with AsyncClient() as client:
+                response = await client.get(request.url)
+
+            # Parse the HTML content using Beautiful Soup.
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            # Extract the desired data.
+            data = {
+                'url': actor_input['url'],
+                'title': soup.title.string,
+                'h1s': [h1.text for h1 in soup.find_all('h1')],
+                'h2s': [h2.text for h2 in soup.find_all('h2')],
+                'h3s': [h3.text for h3 in soup.find_all('h3')],
+            }
+
+            # Store the extracted data to the default dataset.
+            await Actor.push_data(data)
+```
+
+### Apify SDK with PlaywrightCrawler from Crawlee
+
+This example demonstrates how to use the Apify SDK alongside `PlaywrightCrawler` from [Crawlee](https://crawlee.dev/python) to perform web scraping.
+
+```python
+from apify import Actor, Request
+from crawlee.playwright_crawler import PlaywrightCrawler, PlaywrightCrawlingContext
+
+
+async def main() -> None:
+    async with Actor:
+        # Retrieve the Actor input, and use default values if not provided.
+        actor_input = await Actor.get_input() or {}
+        start_urls = [url.get('url') for url in actor_input.get('start_urls', [{'url': 'https://apify.com'}])]
+
+        # Exit if no start URLs are provided.
+        if not start_urls:
+            Actor.log.info('No start URLs specified in Actor input, exiting...')
+            await Actor.exit()
+
+        # Create a crawler.
+        crawler = PlaywrightCrawler(
+            # Limit the crawl to max requests. Remove or increase it for crawling all links.
+            max_requests_per_crawl=50,
+            headless=True,
+        )
+
+        # Define a request handler, which will be called for every request.
+        @crawler.router.default_handler
+        async def request_handler(context: PlaywrightCrawlingContext) -> None:
+            url = context.request.url
+            Actor.log.info(f'Scraping {url}...')
+
+            # Extract the desired data.
+            data = {
+                'url': context.request.url,
+                'title': await context.page.title(),
+                'h1s': [await h1.text_content() for h1 in await context.page.locator('h1').all()],
+                'h2s': [await h2.text_content() for h2 in await context.page.locator('h2').all()],
+                'h3s': [await h3.text_content() for h3 in await context.page.locator('h3').all()],
+            }
+
+            # Store the extracted data to the default dataset.
+            await context.push_data(data)
+
+            # Enqueue additional links found on the current page.
+            await context.enqueue_links()
+
+        # Run the crawler with the starting URLs.
+        await crawler.run(start_urls)
 ```
 
 ## What are Actors?
