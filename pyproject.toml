@@ -71,7 +71,7 @@ pytest-timeout = "~2.3.0"
 pytest-xdist = "~3.6.0"
 respx = "~0.21.0"
 ruff = "~0.6.0"
-setuptools = "~74.0.0"     # setuptools are used by pytest but not explicitly required
+setuptools = "~74.1.0"     # setuptools are used by pytest but not explicitly required
 
 [tool.poetry.extras]
 scrapy = ["scrapy"]
