@@ -48,7 +48,7 @@ class _ActorType:
 
     def __init__(
         self,
-        config: Configuration | None = None,
+        configuration: Configuration | None = None,
         *,
         configure_logging: bool = True,
     ) -> None:
@@ -58,10 +58,11 @@ class _ActorType:
         (e.g. `Actor.open_dataset()`).
 
         Args:
-            config: The Actor configuration to be used. If not passed, a new Configuration instance will be created.
+            configuration: The Actor configuration to be used. If not passed, a new Configuration instance will
+                be created.
             configure_logging: Should the default logging configuration be configured?
         """
-        self._configuration = config or Configuration.get_global_configuration()
+        self._configuration = configuration or Configuration.get_global_configuration()
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
@@ -121,14 +122,19 @@ class _ActorType:
 
         return super().__repr__()
 
-    def __call__(self, config: Configuration | None = None, *, configure_logging: bool = True) -> Self:
+    def __call__(self, configuration: Configuration | None = None, *, configure_logging: bool = True) -> Self:
         """Make a new Actor instance with a non-default configuration."""
-        return self.__class__(config=config, configure_logging=configure_logging)
+        return self.__class__(configuration=configuration, configure_logging=configure_logging)
 
     @property
     def apify_client(self) -> ApifyClientAsync:
         """The ApifyClientAsync instance the Actor instance uses."""
         return self._apify_client
+
+    @property
+    def configuration(self) -> Configuration:
+        """The Configuration instance the Actor instance uses."""
+        return self._configuration
 
     @property
     def config(self) -> Configuration:
