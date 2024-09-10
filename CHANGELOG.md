@@ -2,6 +2,8 @@
 
 ## [2.0.0](../../releases/tag/v2.0.0) - 2024-09-10
 
+- Check the [Upgrading to v2.0](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v20) guide.
+
 ### 🚀 Features
 
 - Using Crawlee for Python under the hood ([#210](https://github.com/apify/apify-sdk-python/pull/210)) by [@janbuchar](https://github.com/janbuchar)
