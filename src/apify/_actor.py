@@ -24,7 +24,7 @@ from apify._platform_event_manager import EventManager, LocalEventManager, Platf
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import get_system_info, is_running_in_ipython
 from apify.apify_storage_client import ApifyStorageClient
-from apify.log import logger
+from apify.log import _configure_logging, logger
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
@@ -46,16 +46,24 @@ class _ActorType:
     _configuration: Configuration
     _is_exiting = False
 
-    def __init__(self, config: Configuration | None = None) -> None:
+    def __init__(
+        self,
+        configuration: Configuration | None = None,
+        *,
+        configure_logging: bool = True,
+    ) -> None:
         """Create an Actor instance.
 
         Note that you don't have to do this, all the functionality is accessible using the default instance
         (e.g. `Actor.open_dataset()`).
 
         Args:
-            config: The Actor configuration to be used. If not passed, a new Configuration instance will be created.
+            configuration: The Actor configuration to be used. If not passed, a new Configuration instance will
+                be created.
+            configure_logging: Should the default logging configuration be configured?
         """
-        self._configuration = config or Configuration.get_global_configuration()
+        self._configuration = configuration or Configuration.get_global_configuration()
+        self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
         self._event_manager: EventManager
@@ -81,6 +89,9 @@ class _ActorType:
         When you exit the `async with` block, the `Actor.exit()` method is called, and if any exception happens while
         executing the block code, the `Actor.fail` method is called.
         """
+        if self._configure_logging:
+            _configure_logging(self._configuration)
+
         await self.init()
         return self
 
@@ -111,14 +122,19 @@ class _ActorType:
 
         return super().__repr__()
 
-    def __call__(self, config: Configuration) -> Self:
+    def __call__(self, configuration: Configuration | None = None, *, configure_logging: bool = True) -> Self:
         """Make a new Actor instance with a non-default configuration."""
-        return self.__class__(config=config)
+        return self.__class__(configuration=configuration, configure_logging=configure_logging)
 
     @property
     def apify_client(self) -> ApifyClientAsync:
         """The ApifyClientAsync instance the Actor instance uses."""
         return self._apify_client
+
+    @property
+    def configuration(self) -> Configuration:
+        """The Configuration instance the Actor instance uses."""
+        return self._configuration
 
     @property
     def config(self) -> Configuration:
