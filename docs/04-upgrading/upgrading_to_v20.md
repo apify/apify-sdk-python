@@ -22,6 +22,7 @@ Attributes suffixed with `_millis` were renamed to remove said suffix and have t
 - The `Actor.main` method has been removed as it brings no benefits compared to using `async with Actor`.
 - The `Actor.add_webhook`, `Actor.start`, `Actor.call` and `Actor.start_task` methods now accept instances of the `apify.Webhook` model instead of an untyped `dict`.
 - `Actor.start`, `Actor.call`, `Actor.start_task`, `Actor.set_status_message` and `Actor.abort` return instances of the `ActorRun` model instead of an untyped `dict`.
+- Upon entering the context manager (`async with Actor`), the `Actor` puts the default logging configuration in place. This can be disabled using the `configure_logging` parameter.
 
 ## Scrapy integration
 
