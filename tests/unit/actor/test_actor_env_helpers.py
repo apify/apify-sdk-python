@@ -49,6 +49,7 @@ class TestGetEnv:
             ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID,
             ApifyEnvVars.SDK_LATEST_VERSION,
             ApifyEnvVars.LOG_FORMAT,
+            ApifyEnvVars.LOG_LEVEL,
         }
 
         legacy_env_vars = {
@@ -65,6 +66,8 @@ class TestGetEnv:
 
         # Set up random env vars
         expected_get_env: dict[str, Any] = {}
+        expected_get_env[ApifyEnvVars.LOG_LEVEL.name.lower()] = 'INFO'
+
         for int_env_var in INTEGER_ENV_VARS:
             if int_env_var in ignored_env_vars:
                 continue

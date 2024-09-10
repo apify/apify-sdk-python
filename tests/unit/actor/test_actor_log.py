@@ -24,7 +24,7 @@ class TestActorLog:
         monkeypatch.setenv('APIFY_IS_AT_HOME', '1')
 
         with contextlib.suppress(RuntimeError):
-            async with Actor:
+            async with Actor(configure_logging=False):
                 # Test Actor.log
                 Actor.log.debug('Debug message')
                 Actor.log.info('Info message')

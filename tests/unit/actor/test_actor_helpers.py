@@ -134,6 +134,7 @@ class TestActorMethodsWorksOnlyOnPlatform:
         self: TestActorMethodsWorksOnlyOnPlatform,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        caplog.set_level('WARNING')
         async with Actor:
             await Actor.metamorph('random-id')
 
@@ -145,6 +146,7 @@ class TestActorMethodsWorksOnlyOnPlatform:
         self: TestActorMethodsWorksOnlyOnPlatform,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        caplog.set_level('WARNING')
         async with Actor:
             await Actor.reboot()
 
@@ -156,6 +158,7 @@ class TestActorMethodsWorksOnlyOnPlatform:
         self: TestActorMethodsWorksOnlyOnPlatform,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        caplog.set_level('WARNING')
         async with Actor:
             await Actor.add_webhook(
                 Webhook(event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com')

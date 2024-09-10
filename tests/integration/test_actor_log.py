@@ -13,21 +13,11 @@ class TestActorLog:
         async def main() -> None:
             import logging
 
-            from apify.log import ActorLogFormatter, logger
-
-            # Clear any other log handlers, so they don't mess with this test
-            client_logger = logging.getLogger('apify_client')
-            apify_logger = logging.getLogger('apify')
-            client_logger.handlers.clear()
-            apify_logger.handlers.clear()
-
-            # Set handler only on the 'apify' logger
-            apify_logger.setLevel(logging.DEBUG)
-            handler = logging.StreamHandler()
-            handler.setFormatter(ActorLogFormatter())
-            apify_logger.addHandler(handler)
+            from apify.log import logger
 
             async with Actor:
+                logger.setLevel(logging.DEBUG)
+
                 # Test Actor.log
                 Actor.log.debug('Debug message')
                 Actor.log.info('Info message')
@@ -82,7 +72,7 @@ class TestActorLog:
         assert run_log_lines.pop(0) == '[apify] ERROR Error message'
         assert run_log_lines.pop(0) == '[apify] ERROR Exception message'
         assert run_log_lines.pop(0) == '      Traceback (most recent call last):'
-        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 35, in main'
+        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 25, in main'
         assert run_log_lines.pop(0) == "          raise ValueError('Dummy ValueError')"
         assert run_log_lines.pop(0) == '      ValueError: Dummy ValueError'
         assert run_log_lines.pop(0) == '[apify] INFO  Multi'
@@ -91,7 +81,7 @@ class TestActorLog:
         assert run_log_lines.pop(0) == 'message'
         assert run_log_lines.pop(0) == '[apify] ERROR Actor failed with an exception'
         assert run_log_lines.pop(0) == '      Traceback (most recent call last):'
-        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 43, in main'
+        assert run_log_lines.pop(0) == '        File "/usr/src/app/src/main.py", line 33, in main'
         assert run_log_lines.pop(0) == "          raise RuntimeError('Dummy RuntimeError')"
         assert run_log_lines.pop(0) == '      RuntimeError: Dummy RuntimeError'
         assert run_log_lines.pop(0) == '[apify] INFO  Exiting Actor ({"exit_code": 91})'
