@@ -1,6 +1,24 @@
 # Changelog
 
-## [2.0.0](../../releases/tag/v2.0.0) - Unreleased
+## [2.0.0](../../releases/tag/v2.0.0) - 2024-09-10
+
+- Check the [Upgrading to v2.0](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v20) guide.
+
+### 🚀 Features
+
+- Using Crawlee for Python under the hood ([#210](https://github.com/apify/apify-sdk-python/pull/210)) by [@janbuchar](https://github.com/janbuchar)
+- Better Actor API typing ([#256](https://github.com/apify/crawlee-python/pull/256)) by [@janbuchar](https://github.com/janbuchar)
+- Expose Request from Crawlee ([#266](https://github.com/apify/crawlee-python/pull/266)) by [@vdusek](https://github.com/vdusek)
+- Improve examples in README ([#269](https://github.com/apify/crawlee-python/pull/269)) by [@vdusek](https://github.com/vdusek)
+- Automatically configure logging ([#271](https://github.com/apify/crawlee-python/pull/271)) by [@janbuchar](https://github.com/janbuchar)
+
+### 🐛 Bug Fixes
+
+- Make `apify.log` public ([#249](https://github.com/apify/crawlee-python/pull/249)) by [@janbuchar](https://github.com/janbuchar)
+- Dataset list response handling ([#257](https://github.com/apify/crawlee-python/pull/257)) by [@janbuchar](https://github.com/janbuchar)
+- Ignore deprecated platform events ([#258](https://github.com/apify/crawlee-python/pull/258)) by [@janbuchar](https://github.com/janbuchar)
+- Possible infinity loop in Apify-Scrapy proxy middleware ([#259](https://github.com/apify/crawlee-python/pull/259)) by [@vdusek](https://github.com/vdusek)
+- Hotfix for `batch_add_requests` batch size limit ([#261](https://github.com/apify/crawlee-python/pull/261)) by [@janbuchar](https://github.com/janbuchar)
 
 ### Added
 
