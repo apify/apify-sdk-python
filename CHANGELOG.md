@@ -6,7 +6,7 @@
 
 ## [2.0.0](../../releases/tag/v2.0.0) - 2024-09-10
 
-- Check the [Upgrading to v2.0](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v20) guide.
+- Check the [Upgrading to v2.0](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2) guide.
 
 ### 🚀 Features
 
