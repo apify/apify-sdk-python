@@ -1,9 +1,13 @@
 ---
-id: upgrading-to-v20
-title: Upgrading to v2.0
+id: upgrading-to-v2
+title: Upgrading to v2
 ---
 
 This page summarizes most of the breaking changes between Apify Python SDK v1.x and v2.0.
+
+## Python version support
+
+Support for Python 3.8 has been dropped. The Apify Python SDK v2.x now requires Python 3.9 or later. Make sure your environment is running a compatible version before upgrading.
 
 ## Storages
 
