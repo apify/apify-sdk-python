@@ -46,7 +46,7 @@ keywords = [
 # https://github.com/apify/apify-sdk-python/pull/154.
 [tool.poetry.dependencies]
 python = "^3.9"
-apify-client = ">=1.7.1"
+apify-client = ">=1.8.1"
 apify-shared = ">=1.1.2"
 crawlee = ">=0.3.5"
 cryptography = ">=42.0.0"
