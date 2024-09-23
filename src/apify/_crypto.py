@@ -114,6 +114,7 @@ def private_decrypt(
     return decipher_bytes.decode('utf-8')
 
 
+@ignore_docs
 def load_private_key(private_key_file_base64: str, private_key_password: str) -> rsa.RSAPrivateKey:
     private_key = serialization.load_pem_private_key(
         base64.b64decode(private_key_file_base64.encode('utf-8')),
@@ -133,6 +134,7 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     return public_key
 
 
+@ignore_docs
 def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input_data: Any) -> Any:
     """Decrypt input secrets."""
     if not isinstance(input_data, dict):

@@ -27,6 +27,7 @@ COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
 SESSION_ID_MAX_LENGTH = 50
 
 
+@ignore_docs
 def is_url(url: str) -> bool:
     """Check if the given string is a valid URL."""
     try:

@@ -57,15 +57,9 @@ const TYPEDOC_KINDS = {
 }
 
 const GROUP_ORDER = [
-    'Main Classes',
-    'Main Clients',
-    'Resource Clients',
-    'Async Resource Clients',
-    'Helper Classes',
-    'Errors',
-    'Constructors',
-    'Methods',
-    'Properties',
+    'Classes',
+    'Data structures',
+    'Scrapy Integration',
     'Constants',
     'Enumeration Members'
 ];
@@ -79,22 +73,23 @@ const groupSort = (g1, g2) => {
 
 function getGroupName(object) {
     const groupPredicates = {
+        'Scrapy integration': (x) => ['ApifyScheduler', 'ActorDatasetPushPipeline', 'ApifyHttpProxyMiddleware', 'apply_apify_settings'].includes(x.name),
+        'Data structures': (x) => ['BaseModel', 'TypedDict'].some(base => x?.bases?.includes(base)) || x?.decorations?.some(d => d.name === 'dataclass'),
         'Errors': (x) => x.name.toLowerCase().includes('error'),
-        'Main Classes': (x) => ['Actor', 'Dataset', 'KeyValueStore', 'RequestQueue'].includes(x.name),
+        'Classes': (x) => x.kindString === 'Class',
         'Main Clients': (x) => ['ApifyClient', 'ApifyClientAsync'].includes(x.name),
         'Async Resource Clients': (x) => x.name.toLowerCase().includes('async'),
         'Resource Clients': (x) => x.kindString === 'Class' && x.name.toLowerCase().includes('client'),
-        'Helper Classes': (x) => x.kindString === 'Class',
         'Methods': (x) => x.kindString === 'Method',
         'Constructors': (x) => x.kindString === 'Constructor',
         'Properties': (x) => x.kindString === 'Property',
         'Constants': (x) => x.kindString === 'Enumeration',
-        'Enumeration Members': (x) => x.kindString === 'Enumeration Member',
+        'Enumeration members': (x) => x.kindString === 'Enumeration Member',
     };
 
     const [group] = Object.entries(groupPredicates).find(
         ([_, predicate]) => predicate(object)
-    );
+    ) ?? ['Other'];
 
     return group;
 }
@@ -162,7 +157,8 @@ function extractArgsAndReturns(docstring) {
 
 // Objects with decorators named 'ignore_docs' or with empty docstrings will be ignored
 function isHidden(member) {
-    return member.decorations?.some(d => d.name === 'ignore_docs') || member.name === 'ignore_docs' || !member.docstring?.content;
+    return member.decorations?.some(d => d.name === 'ignore_docs') 
+        || member.name === 'ignore_docs';
 }
 
 // Each object in the Typedoc structure has an unique ID,
@@ -207,6 +203,14 @@ function convertObject(obj, parent, module) {
                 moduleName = moduleShortcuts[fullName].replace(`.${member.name}`, '');
             }
 
+            if(member.name === 'Actor' || (member.name.endsWith('Client') && !member.name.endsWith('StorageClient')) || member.name === 'ListPage') {
+                continue;
+            }
+
+            if (member.name === '_ActorType') {
+                member.name = 'Actor';
+            }
+
             // Create the Typedoc member object
             let typedocMember = {
                 id: oid++,
@@ -214,6 +218,7 @@ function convertObject(obj, parent, module) {
                 module: moduleName, // This is an extension to the original Typedoc structure, to support showing where the member is exported from
                 ...typedocKind,
                 flags: {},
+                bases: member.bases,
                 comment: member.docstring ? {
                     summary: [{
                         kind: 'text',
@@ -230,6 +235,10 @@ function convertObject(obj, parent, module) {
                     url: memberGitHubUrl,
                 }],
             };
+
+            if(!GROUP_ORDER.includes(getGroupName(typedocMember)) && parent.kindString === 'Project'){
+                continue;
+            }
 
             if(typedocMember.kindString === 'Method') {
                 const { parameters, returns } = extractArgsAndReturns(member.docstring?.content ?? '');

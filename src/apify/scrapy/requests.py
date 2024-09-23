@@ -4,6 +4,8 @@ import codecs
 import pickle
 from typing import Any, cast
 
+from apify_shared.utils import ignore_docs
+
 try:
     from scrapy import Request, Spider
     from scrapy.http.headers import Headers
@@ -28,6 +30,7 @@ def _is_request_produced_by_middleware(scrapy_request: Request) -> bool:
     return bool(scrapy_request.meta.get('redirect_times')) or bool(scrapy_request.meta.get('retry_times'))
 
 
+@ignore_docs
 def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest | None:
     """Convert a Scrapy request to an Apify request.
 
@@ -98,6 +101,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
     return apify_request
 
 
+@ignore_docs
 def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
     """Convert an Apify request to a Scrapy request.
 

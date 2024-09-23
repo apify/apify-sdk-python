@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from apify_shared.utils import ignore_docs
 from crawlee._log_config import CrawleeLogFormatter, configure_logger, get_configured_log_level
 
 if TYPE_CHECKING:
@@ -15,6 +16,7 @@ logger_name = __name__.split('.')[0]
 logger = logging.getLogger(logger_name)
 
 
+@ignore_docs
 class ActorLogFormatter(CrawleeLogFormatter):  # noqa: D101 Inherited from parent class
     pass
 
