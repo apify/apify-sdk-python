@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from apify_shared.utils import ignore_docs
 from crawlee._log_config import CrawleeLogFormatter, configure_logger, get_configured_log_level
 
 if TYPE_CHECKING:

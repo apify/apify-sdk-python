@@ -8,7 +8,6 @@ import websockets.client
 from pydantic import BaseModel, Discriminator, Field, TypeAdapter
 from typing_extensions import Self, Unpack, override
 
-from apify_shared.utils import ignore_docs
 from crawlee.events._event_manager import EventManager, EventManagerOptions
 from crawlee.events._local_event_manager import LocalEventManager
 from crawlee.events._types import (

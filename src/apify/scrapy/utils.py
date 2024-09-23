@@ -4,6 +4,8 @@ import asyncio
 from base64 import b64encode
 from urllib.parse import unquote
 
+from apify_shared.utils import ignore_docs
+
 try:
     from scrapy.settings import Settings  # noqa: TCH002
     from scrapy.utils.project import get_project_settings

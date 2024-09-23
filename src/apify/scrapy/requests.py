@@ -4,6 +4,8 @@ import codecs
 import pickle
 from typing import Any, cast
 
+from apify_shared.utils import ignore_docs
+
 try:
     from scrapy import Request, Spider
     from scrapy.http.headers import Headers
