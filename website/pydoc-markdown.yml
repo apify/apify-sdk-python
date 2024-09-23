@@ -4,6 +4,7 @@ loaders:
 processors:
   - type: filter
     skip_empty_modules: true
+    documented_only: false
   - type: crossref
 renderer:
   type: docusaurus

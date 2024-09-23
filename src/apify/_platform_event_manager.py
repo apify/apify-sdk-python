@@ -126,7 +126,6 @@ event_data_adapter: TypeAdapter[EventMessage | DeprecatedEvent | UnknownEvent] =
 )
 
 
-@ignore_docs
 class PlatformEventManager(EventManager):
     """A class for managing Actor events.
 

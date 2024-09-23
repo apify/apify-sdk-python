@@ -15,6 +15,7 @@ logger_name = __name__.split('.')[0]
 logger = logging.getLogger(logger_name)
 
 
+@ignore_docs
 class ActorLogFormatter(CrawleeLogFormatter):  # noqa: D101 Inherited from parent class
     pass
 
