@@ -1,0 +1,12 @@
+.tsd-parameters li {
+    margin-bottom: 16px;
+}
+
+.tsd-parameters-title {
+    font-size: 16px;
+    margin-bottom: 16px !important;
+}
+
+.tsd-returns-title {
+    font-size: 16px;
+}
