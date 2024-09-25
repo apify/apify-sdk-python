@@ -66,6 +66,9 @@ module.exports = {
                     rehypePlugins: [externalLinkProcessor],
                     editUrl: 'https://github.com/apify/apify-sdk-python/edit/master/website/',
                 },
+                theme: {
+                    customCss: require.resolve('./src/css/custom.css'),
+                },
             }),
         ],
     ]),
