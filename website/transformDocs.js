@@ -57,15 +57,9 @@ const TYPEDOC_KINDS = {
 }
 
 const GROUP_ORDER = [
-    'Main Classes',
-    'Main Clients',
-    'Resource Clients',
-    'Async Resource Clients',
-    'Helper Classes',
-    'Errors',
-    'Constructors',
-    'Methods',
-    'Properties',
+    'Classes',
+    'Data structures',
+    'Scrapy Integration',
     'Constants',
     'Enumeration Members'
 ];
@@ -79,22 +73,23 @@ const groupSort = (g1, g2) => {
 
 function getGroupName(object) {
     const groupPredicates = {
+        'Scrapy integration': (x) => ['ApifyScheduler', 'ActorDatasetPushPipeline', 'ApifyHttpProxyMiddleware', 'apply_apify_settings'].includes(x.name),
+        'Data structures': (x) => ['BaseModel', 'TypedDict'].some(base => x?.bases?.includes(base)) || x?.decorations?.some(d => d.name === 'dataclass'),
         'Errors': (x) => x.name.toLowerCase().includes('error'),
-        'Main Classes': (x) => ['Actor', 'Dataset', 'KeyValueStore', 'RequestQueue'].includes(x.name),
+        'Classes': (x) => x.kindString === 'Class',
         'Main Clients': (x) => ['ApifyClient', 'ApifyClientAsync'].includes(x.name),
         'Async Resource Clients': (x) => x.name.toLowerCase().includes('async'),
         'Resource Clients': (x) => x.kindString === 'Class' && x.name.toLowerCase().includes('client'),
-        'Helper Classes': (x) => x.kindString === 'Class',
         'Methods': (x) => x.kindString === 'Method',
         'Constructors': (x) => x.kindString === 'Constructor',
         'Properties': (x) => x.kindString === 'Property',
         'Constants': (x) => x.kindString === 'Enumeration',
-        'Enumeration Members': (x) => x.kindString === 'Enumeration Member',
+        'Enumeration members': (x) => x.kindString === 'Enumeration Member',
     };
 
     const [group] = Object.entries(groupPredicates).find(
         ([_, predicate]) => predicate(object)
-    );
+    ) ?? ['Other'];
 
     return group;
 }
@@ -139,30 +134,10 @@ function sortChildren(typedocMember) {
     typedocMember.groups.sort((a, b) => groupSort(a.title, b.title));
 }
 
-// Parses the arguments and return value description of a method from its docstring
-function extractArgsAndReturns(docstring) {
-    const parameters = (docstring
-        .split('Args:')[1] ?? '').split('Returns:')[0] // Get the part between Args: and Returns:
-        .split(/(^|\n)\s*([\w]+)\s*\(.*?\)\s*:\s*/) // Magic regex which splits the arguments into an array, and removes the argument types
-        .filter(x => x.length > 1) // Remove empty strings
-        .reduce((acc, curr, idx, arr) => { // Collect the argument names and types into an object
-            if(idx % 2 === 0){
-                return {...acc, [curr]: arr[idx+1]} // If the index is even, the current string is an argument name, and the next string is its type
-            }
-            return acc;
-        }, {});
-
-    const returns = (docstring
-        .split('Returns:')[1] ?? '').split('Raises:')[0] // Get the part between Returns: and Raises:
-        .split(':')[1]?.trim() || undefined; // Split the return value into its type and description, return description
-
-
-    return { parameters, returns };
-}
-
 // Objects with decorators named 'ignore_docs' or with empty docstrings will be ignored
 function isHidden(member) {
-    return member.decorations?.some(d => d.name === 'ignore_docs') || member.name === 'ignore_docs' || !member.docstring?.content;
+    return member.decorations?.some(d => d.name === 'ignore_docs') 
+        || member.name === 'ignore_docs';
 }
 
 // Each object in the Typedoc structure has an unique ID,
@@ -207,6 +182,32 @@ function convertObject(obj, parent, module) {
                 moduleName = moduleShortcuts[fullName].replace(`.${member.name}`, '');
             }
 
+            if(member.name === 'Actor' || (member.name.endsWith('Client') && !member.name.endsWith('StorageClient')) || member.name === 'ListPage') {
+                continue;
+            }
+
+            if (member.name === '_ActorType') {
+                member.name = 'Actor';
+            }
+
+            let docstring = { text: member.docstring?.content ?? '' };
+            try {
+                docstring = JSON.parse(docstring.text);
+
+                docstring.args = docstring.sections.find((section) => Object.keys(section)[0] === 'Arguments')['Arguments'] ?? [];
+
+                docstring.args = docstring.args.reduce((acc, arg) => {
+                    acc[arg.param] = arg.desc;
+                    return acc;
+                }, {});
+
+                docstring.returns = docstring.sections.find((section) => Object.keys(section)[0] === 'Returns')['Returns'] ?? [];
+
+                docstring.returns = docstring.returns.join('\n');
+            } catch {
+                // Do nothing
+            }
+
             // Create the Typedoc member object
             let typedocMember = {
                 id: oid++,
@@ -214,10 +215,11 @@ function convertObject(obj, parent, module) {
                 module: moduleName, // This is an extension to the original Typedoc structure, to support showing where the member is exported from
                 ...typedocKind,
                 flags: {},
+                bases: member.bases,
                 comment: member.docstring ? {
                     summary: [{
                         kind: 'text',
-                        text: member.docstring?.content,
+                        text: docstring.text,
                     }],
                 } : undefined,
                 type: typedocType,
@@ -231,9 +233,11 @@ function convertObject(obj, parent, module) {
                 }],
             };
 
-            if(typedocMember.kindString === 'Method') {
-                const { parameters, returns } = extractArgsAndReturns(member.docstring?.content ?? '');
+            if(!GROUP_ORDER.includes(getGroupName(typedocMember)) && parent.kindString === 'Project'){
+                continue;
+            }
 
+            if(typedocMember.kindString === 'Method') {
                 typedocMember.signatures = [{
                     id: oid++,
                     name: member.name,
@@ -241,14 +245,13 @@ function convertObject(obj, parent, module) {
                     kind: 4096,
                     kindString: 'Call signature',
                     flags: {},
-                    comment: member.docstring ? {
+                    comment: docstring.text ? {
                         summary: [{
                             kind: 'text',
-                            text: member.docstring?.content
-                                .replace(/\**(Args|Arguments|Returns)[\s\S]+/, ''),
+                            text: docstring?.text,
                         }],
-                        blockTags: returns ? [
-                            { tag: '@returns', content: [{ kind: 'text', text: returns }] },
+                        blockTags: docstring?.returns ? [
+                            { tag: '@returns', content: [{ kind: 'text', text: docstring.returns }] },
                         ] : undefined,
                     } : undefined,
                     type: inferTypedocType(member.return_type),
@@ -262,10 +265,10 @@ function convertObject(obj, parent, module) {
                             'keyword-only': arg.type === 'KEYWORD_ONLY' ? 'true' : undefined,
                         },
                         type: inferTypedocType(arg.datatype),
-                        comment: parameters[arg.name] ? {
+                        comment: docstring.args?.[arg.name] ? {
                             summary: [{
                                 kind: 'text',
-                                text: parameters[arg.name]
+                                text: docstring.args[arg.name]
                             }]
                         } : undefined,
                         defaultValue: arg.default_value,
@@ -321,15 +324,14 @@ function main() {
 
     // Load the docspec dump files of this module and of apify-shared
     const thisPackageDocspecDump = fs.readFileSync('docspec-dump.jsonl', 'utf8');
-    const thisPackageModules = thisPackageDocspecDump.split('\n').filter((line) => line !== '');
+    const thisPackageModules = JSON.parse(thisPackageDocspecDump)
 
     const apifySharedDocspecDump = fs.readFileSync('apify-shared-docspec-dump.jsonl', 'utf8');
     const apifySharedModules = apifySharedDocspecDump.split('\n').filter((line) => line !== '');
 
     // Convert all the modules, store them in the root object
-    for (const module of [...thisPackageModules, ...apifySharedModules]) {
-        const parsedModule = JSON.parse(module);
-        convertObject(parsedModule, typedocApiReference, parsedModule);
+    for (const module of thisPackageModules) {
+        convertObject(module, typedocApiReference, module);
     };
 
     // Recursively fix references (collect names->ids of all the named entities and then inject those in the reference objects)

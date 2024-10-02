@@ -4,6 +4,8 @@ import asyncio
 from base64 import b64encode
 from urllib.parse import unquote
 
+from apify_shared.utils import ignore_docs
+
 try:
     from scrapy.settings import Settings  # noqa: TCH002
     from scrapy.utils.project import get_project_settings
@@ -18,6 +20,7 @@ except ImportError as exc:
 nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 
 
+@ignore_docs
 def get_basic_auth_header(username: str, password: str, auth_encoding: str = 'latin-1') -> bytes:
     """Generate a basic authentication header for the given username and password."""
     string = f'{unquote(username)}:{unquote(password)}'
@@ -25,6 +28,7 @@ def get_basic_auth_header(username: str, password: str, auth_encoding: str = 'la
     return b'Basic ' + b64encode(user_pass)
 
 
+@ignore_docs
 def get_running_event_loop_id() -> int:
     """Get the ID of the currently running event loop.
 
