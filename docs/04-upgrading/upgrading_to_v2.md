@@ -14,8 +14,8 @@ Support for Python 3.8 has been dropped. The Apify Python SDK v2.x now requires 
 - The SDK now uses [crawlee](https://github.com/apify/crawlee-python) for local storage emulation. This change should not affect intended usage (working with `Dataset`, `KeyValueStore` and `RequestQueue` classes from the `apify.storages` module or using the shortcuts exposed by the `Actor` class) in any way.
 - There is a difference in the `RequestQueue.add_request` method: it accepts an `apify.Request` object instead of a free-form dictionary. 
     - A quick way to migrate from dict-based arguments is to wrap it with a `Request.model_validate()` call.
-    - The preferred way is to instantiate it directly, e.g., `Request(url='https://example.tld', ...)`, or using the `Request.from_url` helper which prefills the `unique_key` and `id` attributes.
-    - For simple use cases, `add_request` also accepts plain strings that contain an URL.
+    - The preferred way is using the `Request.from_url` helper which prefills the `unique_key` and `id` attributes, or instantiating it directly, e.g., `Request(url='https://example.tld', ...)`.
+    - For simple use cases, `add_request` also accepts plain strings that contain an URL, e.g. `queue.add_request('https://example.tld')`.
 - Removing the `StorageClientManager` class is a significant change. If you need to change the storage client, use `crawlee.service_container` instead.
 
 ## Configuration
