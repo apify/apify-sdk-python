@@ -73,7 +73,7 @@ You can either use them without arguments to open the default storages,
 or you can pass a storage ID or name to open another storage.
 
 ```python title="src/main.py"
-from apify import Actor
+from apify import Actor, Request
 
 async def main():
     async with Actor:
@@ -87,7 +87,7 @@ async def main():
 
         # Work with the request queue with the name 'my-queue'
         request_queue = await Actor.open_request_queue(name='my-queue')
-        await request_queue.add_request({ 'uniqueKey': 'v0Nr', 'url': 'https://example.com' })
+        await request_queue.add_request(Request.from_url('https://example.com', unique_key='v0Nr'}))
 ```
 
 ## Deleting storages
@@ -239,7 +239,7 @@ you can use the [`RequestQueue.is_finished()`](../../reference/class/RequestQueu
 ```python title="src/main.py"
 import asyncio
 import random
-from apify import Actor
+from apify import Actor, Request
 
 
 async def main():
@@ -249,13 +249,13 @@ async def main():
 
         # Add some requests to the queue
         for i in range(1, 10):
-            await queue.add_request({ 'uniqueKey': f'{i}', 'url': f'http://example.com/{i}' })
+            await queue.add_request(Request.from_url(f'http://example.com/{i}', unique_key=f'{i}'))
 
         # Add a request to the start of the queue, for priority processing
-        await queue.add_request({ 'uniqueKey': '0', 'url': 'http://example.com/0' }, forefront=True)
+        await queue.add_request(Request.from_url(f'http://example.com/0', unique_key='0'), forefront=True)
 
         # If you try to add an existing request again, it will not do anything
-        operation_info = await queue.add_request({ 'uniqueKey': '5', 'url': 'http://different-example.com/5' })
+        operation_info = await queue.add_request(Request.from_url(f'http://different-example.com/5', unique_key='5'))
         print(operation_info)
         print(await queue.get_request(operation_info['requestId']))
 
