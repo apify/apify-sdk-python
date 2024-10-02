@@ -25,7 +25,6 @@ def test__to_apify_request__simple(spider: Spider) -> None:
     assert apify_request.url == 'https://example.com'
 
     user_data = apify_request.user_data
-    assert isinstance(user_data, dict)
     assert 'scrapy_request' in user_data
     assert isinstance(user_data.get('scrapy_request'), str)
 
@@ -55,7 +54,6 @@ def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
 
     user_data = apify_request.user_data
 
-    assert isinstance(user_data, dict)
     assert user_data['some_user_data'] == 'test'
     assert 'scrapy_request' in user_data
     assert isinstance(user_data.get('scrapy_request'), str)
@@ -82,7 +80,6 @@ def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
 
     user_data = apify_request.user_data
 
-    assert isinstance(user_data, dict)
     assert user_data['some_user_data'] == 'hello'
     assert 'scrapy_request' in user_data
     assert isinstance(user_data.get('scrapy_request'), str)
