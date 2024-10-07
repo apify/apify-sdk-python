@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Annotated
 
 from pydantic import AliasChoices, BeforeValidator, Field
+from typing_extensions import deprecated
 
 from crawlee._utils.models import timedelta_ms
 from crawlee.configuration import Configuration as CrawleeConfiguration
@@ -160,15 +161,16 @@ class Configuration(CrawleeConfiguration):
         str | None,
         Field(
             alias='apify_sdk_latest_version',
-            deprecated=True,
             description='Specifies the most recent release version of the Apify SDK for Javascript. Used for '
             'checking for updates.',
         ),
+        deprecated('SDK version checking is not supported for the Python SDK'),
     ] = None
 
     log_format: Annotated[
         str | None,
-        Field(alias='apify_log_format', deprecated=True),
+        Field(alias='apify_log_format'),
+        deprecated('Adjust the log format in code instead'),
     ] = None
 
     max_paid_dataset_items: Annotated[
@@ -256,6 +258,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_standby_port',
             description='TCP port for the Actor to start an HTTP server to receive messages in the Actor Standby mode',
         ),
+        deprecated('Use `web_server_port` instead'),
     ] = 4322
 
     token: Annotated[
