@@ -265,7 +265,7 @@ class Configuration(CrawleeConfiguration):
         str,
         Field(
             alias='actor_standby_url',
-            description='URL for accessing the HTTP server in Actor Standby mode',
+            description='URL for accessing web servers of Actor runs in Standby mode',
         ),
     ]
 
@@ -304,7 +304,7 @@ class Configuration(CrawleeConfiguration):
                 'actor_web_server_url',
                 'apify_container_url',
             ),
-            description='Unique public URL for accessing the Actor run web server from the outside world',
+            description='Unique public URL for accessing a specific Actor run web server from the outside world.',
         ),
     ] = 'http://localhost:4321'
 
