@@ -259,7 +259,15 @@ class Configuration(CrawleeConfiguration):
             description='TCP port for the Actor to start an HTTP server to receive messages in the Actor Standby mode',
         ),
         deprecated('Use `web_server_port` instead'),
-    ] = 4322
+    ] = 4321
+
+    standby_url: Annotated[
+        str,
+        Field(
+            alias='actor_standby_url',
+            description='URL for accessing the HTTP server in Actor Standby mode',
+        ),
+    ]
 
     token: Annotated[
         str | None,
