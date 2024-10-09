@@ -304,7 +304,7 @@ class Configuration(CrawleeConfiguration):
                 'actor_web_server_url',
                 'apify_container_url',
             ),
-            description='Unique public URL for accessing a specific Actor run web server from the outside world.',
+            description='Unique public URL for accessing a specific Actor run web server from the outside world',
         ),
     ] = 'http://localhost:4321'
 
