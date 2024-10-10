@@ -16,6 +16,7 @@ except ImportError as exc:
     ) from exc
 
 from crawlee import Request as CrawleeRequest
+from crawlee._types import HttpHeaders
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee._utils.requests import compute_unique_key, unique_key_to_request_id
 
@@ -79,7 +80,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
 
         # Convert Scrapy's headers to a dictionary and store them in the apify_request
         if isinstance(scrapy_request.headers, Headers):
-            apify_request.headers = dict(scrapy_request.headers.to_unicode_dict())
+            apify_request.headers = HttpHeaders(scrapy_request.headers.to_unicode_dict())
         else:
             Actor.log.warning(
                 f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}'

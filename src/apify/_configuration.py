@@ -8,6 +8,7 @@ from pydantic import AliasChoices, BeforeValidator, Field
 from typing_extensions import deprecated
 
 from crawlee._utils.models import timedelta_ms
+from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
 
@@ -262,12 +263,13 @@ class Configuration(CrawleeConfiguration):
     ] = 4321
 
     standby_url: Annotated[
-        str,
+        str | None,
+        BeforeValidator(validate_http_url),
         Field(
             alias='actor_standby_url',
             description='URL for accessing web servers of Actor runs in Standby mode',
         ),
-    ]
+    ] = None
 
     token: Annotated[
         str | None,
