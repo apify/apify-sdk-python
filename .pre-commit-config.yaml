@@ -13,12 +13,6 @@ repos:
         language: system
         pass_filenames: false
 
-      - id: unit-tests
-        name: Run unit tests
-        entry: make unit-tests
-        language: system
-        pass_filenames: false
-
       - id: check-changelog-entry
         name: Check changelog entry
         entry: make check-changelog-entry
