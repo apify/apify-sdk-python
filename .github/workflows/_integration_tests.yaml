@@ -16,7 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        # Run integration tests only on the oldest and newest supported Python versions,
+        # as these tests are time-consuming and these versions are the most likely to encounter issues.
+        python-version: ["3.9", "3.12"]
       max-parallel: 1 # no concurrency on this level, to not overshoot the test user limits
 
     steps:
