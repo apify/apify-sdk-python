@@ -22,7 +22,6 @@ jobs:
   unit_tests:
     name: Unit tests
     uses: apify/workflows/.github/workflows/python/unit_tests.yaml
-    secrets: inherit
 
   # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
   changelog_entry_check:
