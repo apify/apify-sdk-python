@@ -21,7 +21,7 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
-def test__to_scrapy_request__without_reconstruction(spider: Spider) -> None:
+def test_without_reconstruction(spider: Spider) -> None:
     # Without reconstruction of encoded Scrapy request
     apify_request = CrawleeRequest(
         url='https://example.com',
@@ -40,7 +40,7 @@ def test__to_scrapy_request__without_reconstruction(spider: Spider) -> None:
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
 
 
-def test__to_scrapy_request__without_reconstruction_with_optional_fields(spider: Spider) -> None:
+def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
     # Without reconstruction of encoded Scrapy request
     apify_request = CrawleeRequest(
         url='https://crawlee.dev',
@@ -62,7 +62,7 @@ def test__to_scrapy_request__without_reconstruction_with_optional_fields(spider:
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
-def test__to_scrapy_request__with_reconstruction(spider: Spider) -> None:
+def test_with_reconstruction(spider: Spider) -> None:
     # With reconstruction of encoded Scrapy request
     apify_request = CrawleeRequest(
         url='https://apify.com',
@@ -84,7 +84,7 @@ def test__to_scrapy_request__with_reconstruction(spider: Spider) -> None:
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
-def test__to_scrapy_request__with_reconstruction_with_optional_fields(spider: Spider) -> None:
+def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
     # With reconstruction of encoded Scrapy request
     apify_request = CrawleeRequest(
         url='https://apify.com',
@@ -109,7 +109,7 @@ def test__to_scrapy_request__with_reconstruction_with_optional_fields(spider: Sp
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
-def test__to_scrapy_request__invalid_request_for_reconstruction(spider: Spider) -> None:
+def test_invalid_request_for_reconstruction(spider: Spider) -> None:
     apify_request = CrawleeRequest(
         url='https://example.com',
         method='GET',
