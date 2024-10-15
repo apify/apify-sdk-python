@@ -70,7 +70,16 @@ jobs:
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [should_release, linting, type_checking, unit_tests, integration_tests]
+    needs:
+      [
+        should_release,
+        lint_check,
+        type_check,
+        unit_tests,
+        changelog_entry_check,
+        version_conflict_check,
+        integration_tests,
+      ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
