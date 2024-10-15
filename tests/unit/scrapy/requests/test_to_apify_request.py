@@ -19,7 +19,7 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
-def test__to_apify_request__simple(spider: Spider) -> None:
+def test_creates_simple_request(spider: Spider) -> None:
     scrapy_request = Request(url='https://example.com')
 
     apify_request = to_apify_request(scrapy_request, spider)
@@ -31,7 +31,7 @@ def test__to_apify_request__simple(spider: Spider) -> None:
     assert isinstance(user_data.get('scrapy_request'), str)
 
 
-def test__to_apify_request__headers(spider: Spider) -> None:
+def test_handles_headers(spider: Spider) -> None:
     scrapy_request_headers = Headers({'Authorization': 'Bearer access_token'})
     scrapy_request = Request(url='https://example.com', headers=scrapy_request_headers)
 
@@ -41,7 +41,7 @@ def test__to_apify_request__headers(spider: Spider) -> None:
     assert apify_request.headers == HttpHeaders(scrapy_request_headers.to_unicode_dict())
 
 
-def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
+def test_without_id_and_unique_key(spider: Spider) -> None:
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -61,7 +61,7 @@ def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:
     assert isinstance(user_data.get('scrapy_request'), str)
 
 
-def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
+def test_with_id_and_unique_key(spider: Spider) -> None:
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -87,7 +87,7 @@ def test__to_apify_request__with_id_and_unique_key(spider: Spider) -> None:
     assert isinstance(user_data.get('scrapy_request'), str)
 
 
-def test__to_apify_request__invalid_scrapy_request(spider: Spider) -> None:
+def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
     scrapy_request = 'invalid_request'
 
     apify_request = to_apify_request(scrapy_request, spider)
