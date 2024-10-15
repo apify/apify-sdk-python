@@ -23,13 +23,13 @@ if TYPE_CHECKING:
     import pytest
 
 
-async def test_is_at_home_local() -> None:
+async def test_actor_is_not_at_home_when_local() -> None:
     async with Actor as actor:
         is_at_home = actor.is_at_home()
         assert is_at_home is False
 
 
-async def test_is_at_home_on_apify(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_actor_is_at_home_on_apify(monkeypatch: pytest.MonkeyPatch) -> None:
     print('setenv')
     monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'true')
     async with Actor as actor:
@@ -37,7 +37,7 @@ async def test_is_at_home_on_apify(monkeypatch: pytest.MonkeyPatch) -> None:
         assert is_at_home is True
 
 
-async def test_get_env_use_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     ignored_env_vars = {
         ApifyEnvVars.INPUT_KEY,
         ApifyEnvVars.MEMORY_MBYTES,
