@@ -78,7 +78,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
             id=request_id,
         )
 
-        # Convert Scrapy's headers to a dictionary and store them in the apify_request
+        # Convert Scrapy's headers to a HttpHeaders and store them in the apify_request
         if isinstance(scrapy_request.headers, Headers):
             apify_request.headers = HttpHeaders(scrapy_request.headers.to_unicode_dict())
         else:
