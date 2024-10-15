@@ -11,31 +11,35 @@ on:
   workflow_call:
 
 jobs:
-  run_linting:
-    name: Run linting
-    uses: ./.github/workflows/_linting.yaml
+  lint_check:
+    name: Lint check
+    uses: apify/workflows/.github/workflows/python/lint_check.yaml
 
-  run_type_checking:
-    name: Run type checking
-    uses: ./.github/workflows/_type_checking.yaml
+  type_check:
+    name: Type check
+    uses: apify/workflows/.github/workflows/python/type_check.yaml
 
-  run_unit_tests:
-    name: Run unit tests
-    uses: ./.github/workflows/_unit_tests.yaml
+  unit_tests:
+    name: Unit tests
+    uses: apify/workflows/.github/workflows/python/unit_tests.yaml
+    secrets: inherit
 
-  check_changelog_entry:
-    name: Check changelog entry
-    uses: ./.github/workflows/_check_changelog_entry.yaml
+  # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
+  changelog_entry_check:
+    name: Changelog entry check
+    uses: ./.github/workflows/_changelog_entry_check.yaml
 
-  check_docs_build:
-    name: Check docs build
-    uses: ./.github/workflows/_check_docs_build.yaml
+  # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
+  version_conflict_check:
+    name: Version conflict check
+    uses: ./.github/workflows/_version_conflict_check.yaml
 
-  check_version_conflict:
-    name: Check version conflict
-    uses: ./.github/workflows/_check_version_conflict.yaml
+  docs_check:
+    name: Docs check
+    uses: apify/workflows/.github/workflows/python/docs_check.yaml
+    secrets: inherit
 
-  run_integration_tests:
-    name: Run integration tests
-    uses: ./.github/workflows/_integration_tests.yaml
+  integration_tests:
+    name: Integration tests
+    uses: apify/workflows/.github/workflows/python/integration_tests.yaml
     secrets: inherit

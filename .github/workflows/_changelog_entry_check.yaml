@@ -1,11 +1,11 @@
-name: Check changelog entry
+name: Changelog entry check
 
 on:
   workflow_call:
 
 jobs:
   check_changelog_entry:
-    name: Check changelog entry
+    name: Changelog entry check
     runs-on: ubuntu-latest
     if: (!startsWith(github.event.pull_request.title, 'docs:'))
     env:
@@ -25,5 +25,5 @@ jobs:
           pipx install --python ${{ env.PYTHON_VERSION }} poetry
           make install-dev
 
-      - name: Check changelog entry
+      - name: Execute changelog entry check
         run: make check-changelog-entry

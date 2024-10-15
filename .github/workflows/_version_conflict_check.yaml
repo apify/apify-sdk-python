@@ -1,11 +1,11 @@
-name: Check version conflict
+name: Version conflict check
 
 on:
   workflow_call:
 
 jobs:
   check_version_conflict:
-    name: Check version conflict
+    name: Version conflict check
     runs-on: ubuntu-latest
     if: (!startsWith(github.event.pull_request.title, 'docs:'))
     env:
@@ -25,5 +25,5 @@ jobs:
           pipx install --python ${{ env.PYTHON_VERSION }} poetry
           make install-dev
 
-      - name: Check version conflict
+      - name: Execute version conflict check
         run: make check-version-conflict

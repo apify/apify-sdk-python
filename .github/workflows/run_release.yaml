@@ -34,25 +34,38 @@ jobs:
       - name: Dummy step
         run: true
 
-  linting:
-    name: Run linting
+  lint_check:
+    name: Lint check
     needs: [should_release]
-    uses: ./.github/workflows/_linting.yaml
+    uses: apify/workflows/.github/workflows/python/lint_check.yaml
 
-  type_checking:
-    name: Run type checking
+  type_check:
+    name: Type check
     needs: [should_release]
-    uses: ./.github/workflows/_type_checking.yaml
+    uses: apify/workflows/.github/workflows/python/type_check.yaml
 
   unit_tests:
-    name: Run unit tests
+    name: Unit tests
     needs: [should_release]
-    uses: ./.github/workflows/_unit_tests.yaml
+    uses: apify/workflows/.github/workflows/python/unit_tests.yaml
+    secrets: inherit
+
+  # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
+  changelog_entry_check:
+    name: Changelog entry check
+    needs: [should_release]
+    uses: ./.github/workflows/_changelog_entry_check.yaml
+
+  # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
+  version_conflict_check:
+    name: Version conflict check
+    needs: [should_release]
+    uses: ./.github/workflows/_version_conflict_check.yaml
 
   integration_tests:
-    name: Run integration tests
+    name: Integration tests
     needs: [should_release]
-    uses: ./.github/workflows/_integration_tests.yaml
+    uses: apify/workflows/.github/workflows/python/integration_tests.yaml
     secrets: inherit
 
   publish_to_pypi:

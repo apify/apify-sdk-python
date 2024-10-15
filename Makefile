@@ -1,6 +1,6 @@
 .PHONY: clean install-dev build publish-to-pypi lint type-check unit-tests unit-tests-cov \
 		integration-tests format check-code check-version-availability check-changelog-entry \
-		check-version-conflict build-api-reference run-doc
+		check-version-conflict build-api-reference run-docs
 
 DIRS_WITH_CODE = src tests scripts
 
@@ -55,5 +55,8 @@ check-code: lint type-check unit-tests check-changelog-entry check-version-confl
 build-api-reference:
 	cd website && poetry run ./build_api_reference.sh
 
-run-doc: build-api-reference
+build-docs: build-api-reference
+	cd website && yarn && yarn build
+
+run-docs: build-api-reference
 	cd website && npm clean-install && npm run start
