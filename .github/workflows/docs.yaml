@@ -15,6 +15,9 @@ jobs:
       pages: write
       id-token: write
     runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: 18
+      PYTHON_VERSION: 3.12
 
     steps:
       - name: Checkout repository
@@ -22,14 +25,14 @@ jobs:
         with:
           token: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
 
-      - name: Set up Node.js
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: website/package-lock.json
 
-      - name: Install Node.js dependencies
+      - name: Install Node dependencies
         run: |
           npm install
           npm update @apify/docs-theme
@@ -48,11 +51,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: |
-          pipx install poetry
+          pipx install --python ${{ matrix.python-version }} poetry
           make install-dev
 
       - name: Build generated API reference

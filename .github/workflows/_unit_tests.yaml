@@ -5,7 +5,7 @@ on:
 
 jobs:
   unit_tests:
-    name: Run unit tests
+    name: Unit tests
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -13,8 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      # We need to check out the head commit in case of PRs,
-      # and the default ref otherwise (during release).
+      # We need to check out the head commit in case of PRs, and the default ref otherwise (during release).
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -27,8 +26,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pipx install poetry
+          pipx install --python ${{ matrix.python-version }} poetry
           make install-dev
 
       - name: Run unit tests
         run: make unit-tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

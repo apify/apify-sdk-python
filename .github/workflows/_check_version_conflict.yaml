@@ -1,0 +1,29 @@
+name: Check version conflict
+
+on:
+  workflow_call:
+
+jobs:
+  check_version_conflict:
+    name: Check version conflict
+    runs-on: ubuntu-latest
+    if: (!startsWith(github.event.pull_request.title, 'docs:'))
+    env:
+      PYTHON_VERSION: 3.12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pipx install --python ${{ env.PYTHON_VERSION }} poetry
+          make install-dev
+
+      - name: Check version conflict
+        run: make check-version-conflict

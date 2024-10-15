@@ -1,0 +1,41 @@
+name: Run code checks
+
+on:
+  # Trigger code checks on opening a new pull request.
+  pull_request_target:
+
+  # Do not trigger code checks on push to the master branch, as they will be triggered
+  # by the release workflow.
+
+  # Trigger code checks on workflow call (e.g. from run release workflow).
+  workflow_call:
+
+jobs:
+  run_linting:
+    name: Run linting
+    uses: ./.github/workflows/_linting.yaml
+
+  run_type_checking:
+    name: Run type checking
+    uses: ./.github/workflows/_type_checking.yaml
+
+  run_unit_tests:
+    name: Run unit tests
+    uses: ./.github/workflows/_unit_tests.yaml
+
+  check_changelog_entry:
+    name: Check changelog entry
+    uses: ./.github/workflows/_check_changelog_entry.yaml
+
+  check_docs_build:
+    name: Check docs build
+    uses: ./.github/workflows/_check_docs_build.yaml
+
+  check_version_conflict:
+    name: Check version conflict
+    uses: ./.github/workflows/_check_version_conflict.yaml
+
+  run_integration_tests:
+    name: Run integration tests
+    uses: ./.github/workflows/_integration_tests.yaml
+    secrets: inherit

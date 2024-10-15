@@ -1,4 +1,4 @@
-name: Check & Release
+name: Run release
 
 on:
   # Push to master will publish a beta version
@@ -28,36 +28,43 @@ jobs:
     name: Check whether to release
     if: (!startsWith(github.event.head_commit.message, 'docs:') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: 3.12
     steps:
       - name: Dummy step
         run: true
 
-  lint_and_type_checks:
-    name: Run lint and type_checks
+  linting:
+    name: Run linting
     needs: [should_release]
-    uses: ./.github/workflows/lint_and_type_checks.yaml
+    uses: ./.github/workflows/_linting.yaml
+
+  type_checking:
+    name: Run type checking
+    needs: [should_release]
+    uses: ./.github/workflows/_type_checking.yaml
 
   unit_tests:
     name: Run unit tests
     needs: [should_release]
-    uses: ./.github/workflows/unit_tests.yaml
+    uses: ./.github/workflows/_unit_tests.yaml
 
   integration_tests:
     name: Run integration tests
     needs: [should_release]
-    uses: ./.github/workflows/integration_tests.yaml
+    uses: ./.github/workflows/_integration_tests.yaml
     secrets: inherit
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [should_release, lint_and_type_checks, unit_tests, integration_tests]
+    needs: [should_release, linting, type_checking, unit_tests, integration_tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
     environment:
       name: pypi
-      url: https://pypi.org/p/apify
+      url: https://pypi.org/project/apify/
 
     steps:
       - name: Checkout repository
@@ -66,11 +73,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: |
-          pipx install poetry
+          pipx install --python ${{ matrix.python-version }} poetry
           make install-dev
 
       - # Determine if this is a prerelease or latest release
