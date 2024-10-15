@@ -70,7 +70,7 @@ def proxy_configuration() -> ProxyConfiguration:
         'use_apify_proxy_false',
     ],
 )
-def test_middleware_initialization_from_crawler(
+def test_initialization_from_crawler(
     crawler: Crawler,
     monkeypatch: pytest.MonkeyPatch,
     settings: dict,
@@ -92,7 +92,7 @@ def test_middleware_initialization_from_crawler(
     ['http://username:password@proxy.example.com:8080', 'http://hsdfgds:52354325@proxy.apify.com:5748'],
     ids=['example_proxy', 'apify_proxy'],
 )
-async def test_middleware_retrieves_new_proxy_url(
+async def test_retrieves_new_proxy_url(
     monkeypatch: pytest.MonkeyPatch,
     middleware: ApifyHttpProxyMiddleware,
     proxy_configuration: ProxyConfiguration,
@@ -116,7 +116,7 @@ async def test_middleware_retrieves_new_proxy_url(
     ],
     ids=['valid_example_proxy', 'valid_apify_proxy', 'invalid_proxy_missing_credentials'],
 )
-async def test_middleware_process_request_with_proxy(
+async def test_process_request_with_proxy(
     monkeypatch: pytest.MonkeyPatch,
     middleware: ApifyHttpProxyMiddleware,
     spider: DummySpider,
@@ -144,7 +144,7 @@ async def test_middleware_process_request_with_proxy(
     [TunnelError(), ValueError()],
     ids=['tunnel_error', 'value_error'],
 )
-def test_middleware_handles_exceptions(
+def test_handles_exceptions(
     middleware: ApifyHttpProxyMiddleware,
     spider: DummySpider,
     dummy_request: Request,
