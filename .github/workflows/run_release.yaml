@@ -37,17 +37,17 @@ jobs:
   lint_check:
     name: Lint check
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/lint_check.yaml
+    uses: apify/workflows/.github/workflows/python/lint_check.yaml@main
 
   type_check:
     name: Type check
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/type_check.yaml
+    uses: apify/workflows/.github/workflows/python/type_check.yaml@main
 
   unit_tests:
     name: Unit tests
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/unit_tests.yaml
+    uses: apify/workflows/.github/workflows/python/unit_tests.yaml@main
 
   # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
   changelog_entry_check:
@@ -64,7 +64,7 @@ jobs:
   integration_tests:
     name: Integration tests
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/integration_tests.yaml
+    uses: apify/workflows/.github/workflows/python/integration_tests.yaml@main
     secrets: inherit
 
   publish_to_pypi:
