@@ -32,7 +32,7 @@ jobs:
       PYTHON_VERSION: 3.12
     steps:
       - name: Dummy step
-        run: true
+        run: "true"
 
   lint_check:
     name: Lint check
@@ -96,7 +96,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           pipx install --python ${{ matrix.python-version }} poetry
           make install-dev
