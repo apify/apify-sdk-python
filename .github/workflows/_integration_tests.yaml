@@ -4,10 +4,12 @@ on:
   workflow_call:
     secrets:
       APIFY_TEST_USER_PYTHON_SDK_API_TOKEN:
-        description: API token of the Python SDK testing user on Apify
+        description: API token of the Python SDK & client testing user on Apify
         required: true
 
-concurrency: # This is to make sure that only one run of this workflow is running at the same time, to not overshoot the test user limits
+# This is to make sure that only one run of this workflow is running at the same time,
+# to not overshoot the test user limits.
+concurrency:
   group: integration_tests
 
 jobs:

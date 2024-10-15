@@ -12,11 +12,8 @@ jobs:
       PYTHON_VERSION: 3.12
 
     steps:
-      # We need to check out the head commit in case of PRs, and the default ref otherwise (during release).
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: "${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
