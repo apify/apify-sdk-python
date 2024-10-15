@@ -1,0 +1,43 @@
+name: Run code checks
+
+on:
+  # Trigger code checks on opening a new pull request.
+  pull_request_target:
+
+  # Do not trigger code checks on push to the master branch, as they will be triggered
+  # by the release workflow.
+
+  # Trigger code checks on workflow call (e.g. from run release workflow).
+  workflow_call:
+
+jobs:
+  lint_check:
+    name: Lint check
+    uses: apify/workflows/.github/workflows/python/lint_check.yaml
+
+  type_check:
+    name: Type check
+    uses: apify/workflows/.github/workflows/python/type_check.yaml
+
+  unit_tests:
+    name: Unit tests
+    uses: apify/workflows/.github/workflows/python/unit_tests.yaml
+
+  # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
+  changelog_entry_check:
+    name: Changelog entry check
+    uses: ./.github/workflows/_changelog_entry_check.yaml
+
+  # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
+  version_conflict_check:
+    name: Version conflict check
+    uses: ./.github/workflows/_version_conflict_check.yaml
+
+  docs_check:
+    name: Docs check
+    uses: apify/workflows/.github/workflows/python/docs_check.yaml
+
+  integration_tests:
+    name: Integration tests
+    uses: apify/workflows/.github/workflows/python/integration_tests.yaml
+    secrets: inherit
