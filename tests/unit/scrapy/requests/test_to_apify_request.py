@@ -4,6 +4,8 @@ import pytest
 from scrapy import Request, Spider
 from scrapy.http.headers import Headers
 
+from crawlee._types import HttpHeaders
+
 from apify.scrapy.requests import to_apify_request
 
 
@@ -36,7 +38,7 @@ def test__to_apify_request__headers(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    assert apify_request.headers == dict(scrapy_request_headers.to_unicode_dict())
+    assert apify_request.headers == HttpHeaders(scrapy_request_headers.to_unicode_dict())
 
 
 def test__to_apify_request__without_id_and_unique_key(spider: Spider) -> None:

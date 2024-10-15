@@ -263,13 +263,13 @@ class Configuration(CrawleeConfiguration):
     ] = 4321
 
     standby_url: Annotated[
-        str | None,
+        str,
         BeforeValidator(validate_http_url),
         Field(
             alias='actor_standby_url',
             description='URL for accessing web servers of Actor runs in Standby mode',
         ),
-    ] = None
+    ] = 'http://localhost'
 
     token: Annotated[
         str | None,

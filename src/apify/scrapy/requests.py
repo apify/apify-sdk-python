@@ -165,13 +165,7 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
 
     # Add optional 'headers' field
     if apify_request.headers:
-        if isinstance(cast(Any, apify_request.headers), dict):
-            scrapy_request.headers = Headers(apify_request.headers)
-        else:
-            Actor.log.warning(
-                'apify_request[headers] is not an instance of the dict class, '
-                f'apify_request[headers] = {apify_request.headers}',
-            )
+        scrapy_request.headers |= Headers(apify_request.headers)
 
     # Add optional 'userData' field
     if apify_request.user_data:

@@ -19,8 +19,8 @@ repos:
         language: system
         pass_filenames: false
 
-      - id: check-version-conflict
-        name: Check version conflict
-        entry: make check-version-conflict
+      - id: check-version-availability
+        name: Check version availability
+        entry: make check-version-availability
         language: system
         pass_filenames: false
