@@ -5,14 +5,14 @@ from scrapy.settings import Settings
 from apify.scrapy.utils import apply_apify_settings
 
 
-def test__apply_apify_settings__overrides_scheduler() -> None:
+def test_overrides_scheduler() -> None:
     settings = Settings()
     new_settings = apply_apify_settings(settings=settings)
 
     assert new_settings.get('SCHEDULER') == 'apify.scrapy.scheduler.ApifyScheduler'
 
 
-def test__apply_apify_settings__update_item_pipelines() -> None:
+def test_updates_item_pipelines() -> None:
     settings = Settings(
         {
             'ITEM_PIPELINES': {
@@ -28,7 +28,7 @@ def test__apply_apify_settings__update_item_pipelines() -> None:
     }
 
 
-def test__apply_apify_settings__update_downloader_middlewares() -> None:
+def test_updates_downloader_middlewares() -> None:
     settings = Settings(
         {
             'DOWNLOADER_MIDDLEWARES': {
@@ -49,7 +49,7 @@ def test__apply_apify_settings__update_downloader_middlewares() -> None:
     }
 
 
-def test__apply_apify_settings__add_proxy_config() -> None:
+def test_adds_proxy_config() -> None:
     settings = Settings()
     new_settings = apply_apify_settings(settings=settings)
     assert new_settings.get('APIFY_PROXY_SETTINGS') is None
