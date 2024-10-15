@@ -16,7 +16,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     env:
-      NODE_VERSION: 18
+      NODE_VERSION: 20
       PYTHON_VERSION: 3.12
 
     steps:
