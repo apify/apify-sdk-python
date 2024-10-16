@@ -16,7 +16,7 @@ jobs:
       id-token: write # Required for OIDC authentication.
     environment:
       name: pypi
-      url: https://pypi.org/project/crawlee
+      url: https://pypi.org/project/apify/
     env:
       PYTHON_VERSION: 3.12
 
