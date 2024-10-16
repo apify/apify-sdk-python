@@ -37,7 +37,7 @@ def pipeline() -> ActorDatasetPushPipeline:
 
 
 @dataclass(frozen=True)
-class TestCase:
+class ItemTestCase:
     item: Item
     item_dict: dict
     expected_exception: type[Exception] | None
@@ -46,17 +46,17 @@ class TestCase:
 @pytest.mark.parametrize(
     'tc',
     [
-        TestCase(
+        ItemTestCase(
             item=DummyItem(a='string', b=123, c=False),
             item_dict={'a': 'string', 'b': 123, 'c': False},
             expected_exception=None,
         ),
-        TestCase(
+        ItemTestCase(
             item=TitleItem(url='https://example.com', title='Example'),
             item_dict={'url': 'https://example.com', 'title': 'Example'},
             expected_exception=None,
         ),
-        TestCase(
+        ItemTestCase(
             item=None,
             item_dict={},
             expected_exception=TypeError,
@@ -68,7 +68,7 @@ async def test_process_item(
     monkeypatch: pytest.MonkeyPatch,
     pipeline: ActorDatasetPushPipeline,
     spider: Spider,
-    tc: TestCase,
+    tc: ItemTestCase,
 ) -> None:
     dataset = []
 
