@@ -1,16 +1,18 @@
 name: Run release
 
 on:
-  # Push to master will publish a beta version
+  # Push to master will publish a beta version.
   push:
     branches:
       - master
     tags-ignore:
       - "**"
-  # A release via GitHub releases will publish a stable version
+
+  # A release via GitHub releases will publish a stable version.
   release:
     types: [published]
-  # Workflow dispatch will publish whatever you choose
+
+  # Workflow dispatch will publish whatever you choose.
   workflow_dispatch:
     inputs:
       release_type:
@@ -37,17 +39,17 @@ jobs:
   lint_check:
     name: Lint check
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/lint_check.yaml
+    uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
 
   type_check:
     name: Type check
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/type_check.yaml
+    uses: apify/workflows/.github/workflows/python_type_check.yaml@main
 
   unit_tests:
     name: Unit tests
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/unit_tests.yaml
+    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
 
   # TODO: remove this once https://github.com/apify/apify-sdk-python/issues/241 is resolved
   changelog_entry_check:
@@ -64,7 +66,7 @@ jobs:
   integration_tests:
     name: Integration tests
     needs: [should_release]
-    uses: apify/workflows/.github/workflows/python/integration_tests.yaml
+    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
     secrets: inherit
 
   publish_to_pypi:
@@ -98,7 +100,7 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pipx install --python ${{ matrix.python-version }} poetry
+          pipx install --python ${{ env.PYTHON_VERSION }} poetry
           make install-dev
 
       - # Determine if this is a prerelease or latest release

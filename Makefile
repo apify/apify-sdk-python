@@ -56,7 +56,7 @@ build-api-reference:
 	cd website && poetry run ./build_api_reference.sh
 
 build-docs: build-api-reference
-	cd website && yarn && yarn build
+	cd website && npm clean-install && npm run build
 
 run-docs: build-api-reference
 	cd website && npm clean-install && npm run start
