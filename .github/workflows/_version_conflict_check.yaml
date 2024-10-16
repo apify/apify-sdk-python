@@ -3,13 +3,14 @@ name: Version conflict check
 on:
   workflow_call:
 
+env:
+  PYTHON_VERSION: 3.12
+
 jobs:
   check_version_conflict:
     name: Version conflict check
     runs-on: ubuntu-latest
     if: (!startsWith(github.event.pull_request.title, 'docs:'))
-    env:
-      PYTHON_VERSION: 3.12
 
     steps:
       - name: Checkout repository
