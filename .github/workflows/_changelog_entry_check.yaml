@@ -3,13 +3,14 @@ name: Changelog entry check
 on:
   workflow_call:
 
+env:
+  PYTHON_VERSION: 3.12
+
 jobs:
   check_changelog_entry:
     name: Changelog entry check
     runs-on: ubuntu-latest
     if: (!startsWith(github.event.pull_request.title, 'docs:'))
-    env:
-      PYTHON_VERSION: 3.12
 
     steps:
       - name: Checkout repository

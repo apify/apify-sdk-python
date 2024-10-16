@@ -25,13 +25,14 @@ on:
           - beta
           - final
 
+env:
+  PYTHON_VERSION: 3.12
+
 jobs:
   should_release:
     name: Check whether to release
     if: (!startsWith(github.event.head_commit.message, 'docs:') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    env:
-      PYTHON_VERSION: 3.12
     steps:
       - name: Dummy step
         run: "true"
