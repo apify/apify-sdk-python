@@ -6,13 +6,6 @@ on:
   # step required for PRs from forks. This prevents their potential exposure.
   pull_request:
 
-  # Trigger code checks on pushing to the master branch.
-  push:
-    branches:
-      - master
-    tags-ignore:
-      - "**"
-
 jobs:
   lint_check:
     name: Lint check
