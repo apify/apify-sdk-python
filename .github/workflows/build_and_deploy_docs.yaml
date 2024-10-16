@@ -63,8 +63,7 @@ jobs:
         run: make build-api-reference
 
       - name: Build Docusaurus docs
-        run: npm run build
-        working-directory: ./website
+        run: make build-docs
 
       - name: Set up GitHub Pages
         uses: actions/configure-pages@v5

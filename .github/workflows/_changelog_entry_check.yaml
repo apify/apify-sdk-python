@@ -26,5 +26,5 @@ jobs:
           pipx install --python ${{ env.PYTHON_VERSION }} poetry
           make install-dev
 
-      - name: Execute changelog entry check
+      - name: Run changelog entry check
         run: make check-changelog-entry

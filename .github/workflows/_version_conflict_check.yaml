@@ -26,5 +26,5 @@ jobs:
           pipx install --python ${{ env.PYTHON_VERSION }} poetry
           make install-dev
 
-      - name: Execute version conflict check
+      - name: Run version conflict check
         run: make check-version-conflict

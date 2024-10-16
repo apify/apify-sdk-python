@@ -55,7 +55,7 @@ check-code: lint type-check unit-tests check-changelog-entry check-version-confl
 build-api-reference:
 	cd website && poetry run ./build_api_reference.sh
 
-build-docs: build-api-reference
+build-docs:
 	cd website && npm clean-install && npm run build
 
 run-docs: build-api-reference
