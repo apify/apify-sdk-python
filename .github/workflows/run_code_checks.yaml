@@ -2,13 +2,16 @@ name: Run code checks
 
 on:
   # Trigger code checks on opening a new pull request.
-  pull_request_target:
+  # Secrets are only made available to the integration tests job, with a manual approval
+  # step required for PRs from forks. This prevents their potential exposure.
+  pull_request:
 
-  # Do not trigger code checks on push to the master branch, as they will be triggered
-  # by the release workflow.
-
-  # Trigger code checks on workflow call (e.g. from run release workflow).
-  workflow_call:
+  # Trigger code checks on pushing to the master branch.
+  push:
+    branches:
+      - master
+    tags-ignore:
+      - "**"
 
 jobs:
   lint_check:
@@ -39,5 +42,6 @@ jobs:
 
   integration_tests:
     name: Integration tests
+    needs: [lint_check, type_check, unit_tests, changelog_entry_check, version_conflict_check, docs_check]
     uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
     secrets: inherit
