@@ -228,7 +228,7 @@ async def make_actor(
             name=actor_name,
             default_run_build='latest',
             default_run_memory_mbytes=256,
-            default_run_timeout_secs=300,
+            default_run_timeout_secs=600,
             versions=[
                 {
                     'versionNumber': '0.0',
