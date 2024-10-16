@@ -15,89 +15,93 @@ PRIVATE_KEY = load_private_key(PRIVATE_KEY_PEM_BASE64, PRIVATE_KEY_PASSWORD)
 PUBLIC_KEY = _load_public_key(PUBLIC_KEY_PEM_BASE64)
 
 
-class TestCrypto:
-    def test_encrypt_decrypt_varions_string(self: TestCrypto) -> None:
-        for value in [
-            crypto_random_object_id(10),
-            '👍',
-            '!',
-            '@',
-            '#',
-            '$',
-            '%',
-            '^',
-            '&',
-            '*',
-            '(',
-            ')',
-            '-',
-            '_',
-            '=',
-            '+',
-            '[',
-            ']',
-            '{',
-            '}',
-            '|',
-            ';',
-            ':',
-            '"',
-            "'",
-            ',',
-            '.',
-            '<',
-            '>',
-            '?',
-            '/',
-            '~',
-        ]:
-            encrypted = public_encrypt(value, public_key=PUBLIC_KEY)
-            decrypted_value = private_decrypt(**encrypted, private_key=PRIVATE_KEY)
-            assert decrypted_value == value
-
-    def test_throw_if_password_is_not_valid(self: TestCrypto) -> None:
-        test_value = 'test'
-        encrypted = public_encrypt(test_value, public_key=PUBLIC_KEY)
-        encrypted['encrypted_password'] = base64.b64encode(b'invalid_password').decode('utf-8')
-
-        with pytest.raises(ValueError, match='Ciphertext length must be equal to key size.'):
-            private_decrypt(**encrypted, private_key=PRIVATE_KEY)
-
-    def test_throw_error_if_cipher_is_manipulated(self: TestCrypto) -> None:
-        test_value = 'test2'
-        encrypted = public_encrypt(test_value, public_key=PUBLIC_KEY)
-        encrypted['encrypted_value'] = base64.b64encode(
-            b'invalid_cipher' + base64.b64decode(encrypted['encrypted_value'].encode('utf-8')),
-        ).decode('utf-8')
-
-        with pytest.raises(ValueError, match='Decryption failed, malformed encrypted value or password.'):
-            private_decrypt(**encrypted, private_key=PRIVATE_KEY)
-
-    def test_same_encrypted_value_should_return_deffirent_cipher(self: TestCrypto) -> None:
-        test_value = 'test3'
-        encrypted1 = public_encrypt(test_value, public_key=PUBLIC_KEY)
-        encrypted2 = public_encrypt(test_value, public_key=PUBLIC_KEY)
-        assert encrypted1['encrypted_value'] != encrypted2['encrypted_value']
-
-    # Check if the method is compatible with js version of the same method in:
-    # https://github.com/apify/apify-shared-js/blob/master/packages/utilities/src/crypto.ts
-    def test_private_encrypt_node_js_encrypted_value(self: TestCrypto) -> None:
-        value = 'encrypted_with_node_js'
-        # This was encrypted with nodejs version of the same method.
-        encrypted_value_with_node_js = {
-            'encrypted_password': 'lw0ez64/T1UcCQMLfhucZ6VIfMcf/TKni7PmXlL/ZRA4nmdGYz7/YQUzGWzKbLChrpqbG21DHxPIubUIQFDFE1ASkLvoSd0Ks8/wjKHMyhp+hsg5aSh9EZK6pBFpp6FeHoinV80+UURTvJuSVbWd1Orw5Frl41taP6RK3uNJlXikmgs8Xc7mShFEENgkz6y9+Pbe7jpcKkaJ2U/h7FN0eNON189kNFYVuAE1n2N6C3Q7dFnjl2e1btqErvg5Vu7ZS4BbX3wgC2qLYySGnqI3BNI5VGhAnncnQcjHb+85qG+LKoPekgY9I0s0kGMxiz/bmy1mYm9O+Lj1mbVUr7BDjQ==',  # noqa: E501
-            'encrypted_value': 'k8nkZDCi0hRfBc0RRefxeSHeGV0X60N03VCrhRhENKXBjrF/tEg=',
-        }
-        decrypted_value = private_decrypt(
-            **encrypted_value_with_node_js,
-            private_key=PRIVATE_KEY,
-        )
-
+def test_encrypt_decrypt_various_strings() -> None:
+    for value in [
+        crypto_random_object_id(10),
+        '👍',
+        '!',
+        '@',
+        '#',
+        '$',
+        '%',
+        '^',
+        '&',
+        '*',
+        '(',
+        ')',
+        '-',
+        '_',
+        '=',
+        '+',
+        '[',
+        ']',
+        '{',
+        '}',
+        '|',
+        ';',
+        ':',
+        '"',
+        "'",
+        ',',
+        '.',
+        '<',
+        '>',
+        '?',
+        '/',
+        '~',
+    ]:
+        encrypted = public_encrypt(value, public_key=PUBLIC_KEY)
+        decrypted_value = private_decrypt(**encrypted, private_key=PRIVATE_KEY)
         assert decrypted_value == value
 
-    def test_crypto_random_object_id(self: TestCrypto) -> None:
-        assert len(crypto_random_object_id()) == 17
-        assert len(crypto_random_object_id(5)) == 5
-        long_random_object_id = crypto_random_object_id(1000)
-        for char in long_random_object_id:
-            assert char in 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+def test_decryption_fails_with_invalid_password() -> None:
+    test_value = 'test'
+    encrypted = public_encrypt(test_value, public_key=PUBLIC_KEY)
+    encrypted['encrypted_password'] = base64.b64encode(b'invalid_password').decode('utf-8')
+
+    with pytest.raises(ValueError, match='Ciphertext length must be equal to key size.'):
+        private_decrypt(**encrypted, private_key=PRIVATE_KEY)
+
+
+def test_decryption_fails_with_manipulated_cipher() -> None:
+    test_value = 'test2'
+    encrypted = public_encrypt(test_value, public_key=PUBLIC_KEY)
+    encrypted['encrypted_value'] = base64.b64encode(
+        b'invalid_cipher' + base64.b64decode(encrypted['encrypted_value'].encode('utf-8')),
+    ).decode('utf-8')
+
+    with pytest.raises(ValueError, match='Decryption failed, malformed encrypted value or password.'):
+        private_decrypt(**encrypted, private_key=PRIVATE_KEY)
+
+
+def test_same_value_produces_different_cipher_each_time() -> None:
+    test_value = 'test3'
+    encrypted1 = public_encrypt(test_value, public_key=PUBLIC_KEY)
+    encrypted2 = public_encrypt(test_value, public_key=PUBLIC_KEY)
+    assert encrypted1['encrypted_value'] != encrypted2['encrypted_value']
+
+
+# Check if the method is compatible with js version of the same method in:
+# https://github.com/apify/apify-shared-js/blob/master/packages/utilities/src/crypto.ts
+def test_private_decrypt_with_node_js_encrypted_value() -> None:
+    value = 'encrypted_with_node_js'
+    # This was encrypted with nodejs version of the same method.
+    encrypted_value_with_node_js = {
+        'encrypted_password': 'lw0ez64/T1UcCQMLfhucZ6VIfMcf/TKni7PmXlL/ZRA4nmdGYz7/YQUzGWzKbLChrpqbG21DHxPIubUIQFDFE1ASkLvoSd0Ks8/wjKHMyhp+hsg5aSh9EZK6pBFpp6FeHoinV80+UURTvJuSVbWd1Orw5Frl41taP6RK3uNJlXikmgs8Xc7mShFEENgkz6y9+Pbe7jpcKkaJ2U/h7FN0eNON189kNFYVuAE1n2N6C3Q7dFnjl2e1btqErvg5Vu7ZS4BbX3wgC2qLYySGnqI3BNI5VGhAnncnQcjHb+85qG+LKoPekgY9I0s0kGMxiz/bmy1mYm9O+Lj1mbVUr7BDjQ==',  # noqa: E501
+        'encrypted_value': 'k8nkZDCi0hRfBc0RRefxeSHeGV0X60N03VCrhRhENKXBjrF/tEg=',
+    }
+    decrypted_value = private_decrypt(
+        **encrypted_value_with_node_js,
+        private_key=PRIVATE_KEY,
+    )
+
+    assert decrypted_value == value
+
+
+def test_crypto_random_object_id_length_and_charset() -> None:
+    assert len(crypto_random_object_id()) == 17
+    assert len(crypto_random_object_id(5)) == 5
+    long_random_object_id = crypto_random_object_id(1000)
+    for char in long_random_object_id:
+        assert char in 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'

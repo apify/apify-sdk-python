@@ -37,37 +37,38 @@ def pipeline() -> ActorDatasetPushPipeline:
 
 
 @dataclass(frozen=True)
-class TestCase:
+class ItemTestCase:
     item: Item
     item_dict: dict
     expected_exception: type[Exception] | None
 
 
-test_cases = [
-    TestCase(
-        item=DummyItem(a='string', b=123, c=False),
-        item_dict={'a': 'string', 'b': 123, 'c': False},
-        expected_exception=None,
-    ),
-    TestCase(
-        item=TitleItem(url='https://example.com', title='Example'),
-        item_dict={'url': 'https://example.com', 'title': 'Example'},
-        expected_exception=None,
-    ),
-    TestCase(
-        item=None,
-        item_dict={},
-        expected_exception=TypeError,
-    ),
-]
-
-
-@pytest.mark.parametrize('tc', test_cases)
-async def test__process_item(
+@pytest.mark.parametrize(
+    'tc',
+    [
+        ItemTestCase(
+            item=DummyItem(a='string', b=123, c=False),
+            item_dict={'a': 'string', 'b': 123, 'c': False},
+            expected_exception=None,
+        ),
+        ItemTestCase(
+            item=TitleItem(url='https://example.com', title='Example'),
+            item_dict={'url': 'https://example.com', 'title': 'Example'},
+            expected_exception=None,
+        ),
+        ItemTestCase(
+            item=None,
+            item_dict={},
+            expected_exception=TypeError,
+        ),
+    ],
+    ids=['dummy_item_with_valid_data', 'title_item_with_valid_data', 'none_item_raises_type_error'],
+)
+async def test_process_item(
     monkeypatch: pytest.MonkeyPatch,
     pipeline: ActorDatasetPushPipeline,
     spider: Spider,
-    tc: TestCase,
+    tc: ItemTestCase,
 ) -> None:
     dataset = []
 
