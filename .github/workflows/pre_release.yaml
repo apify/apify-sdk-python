@@ -4,7 +4,7 @@ on:
   # Trigger a beta version release (pre-release) on push to the master branch.
   push:
     branches:
-      - master
+      - automated-release-process # TODO replace with master
     tags-ignore:
       - "**" # Ignore all tags to prevent duplicate builds when tags are pushed.
 
