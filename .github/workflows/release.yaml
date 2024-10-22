@@ -110,6 +110,7 @@ jobs:
   trigger_docker_build:
     name: Trigger Docker image build
     needs: [release_metadata, update_changelog]
+    runs-on: ubuntu-latest
     steps:
       - # Trigger building the Python Docker images in apify/apify-actor-docker repo
         name: Trigger Docker image build
