@@ -251,6 +251,7 @@ class Configuration(CrawleeConfiguration):
             ),
             description='Date when the Actor will time out',
         ),
+        BeforeValidator(lambda val: val if val != '' else None),
     ] = None
 
     standby_port: Annotated[
