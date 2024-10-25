@@ -11,6 +11,7 @@ def get_system_info() -> dict:
     system_info: dict[str, str | bool] = {
         'apify_sdk_version': metadata.version('apify'),
         'apify_client_version': metadata.version('apify-client'),
+        'crawlee_version': metadata.version('crawlee'),
         'python_version': python_version,
         'os': sys.platform,
     }
