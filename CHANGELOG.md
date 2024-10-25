@@ -1,8 +1,21 @@
 # Changelog
 
-## [2.0.1](../../releases/tag/v2.0.1) - Unreleased
+## [2.0.2](../../releases/tag/v2.0.2) - Unreleased
 
 - ...
+
+## [2.0.1](../../releases/tag/v2.0.1) - 2024-10-25
+
+### 🚀 Features
+
+- Add standby URL and change default standby port
+- Add crawlee version to system info output
+
+### 🐛 Bug Fixes
+
+- Allow empty timeout_at environment variable
+- Use HttpHeaders type in Scrapy integration
+- Adjust tests for Scrapy user data
 
 ## [2.0.0](../../releases/tag/v2.0.0) - 2024-09-10
 
