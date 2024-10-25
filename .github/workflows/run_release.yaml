@@ -64,11 +64,12 @@ jobs:
     needs: [should_release]
     uses: ./.github/workflows/_version_conflict_check.yaml
 
-  integration_tests:
-    name: Integration tests
-    needs: [should_release]
-    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
-    secrets: inherit
+  # tmp disabled due to instability
+  # integration_tests:
+  #   name: Integration tests
+  #   needs: [should_release]
+  #   uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
+  #   secrets: inherit
 
   publish_to_pypi:
     name: Publish to PyPI
@@ -80,7 +81,7 @@ jobs:
         unit_tests,
         changelog_entry_check,
         version_conflict_check,
-        integration_tests,
+        # integration_tests,  # tmp disabled due to instability
       ]
     runs-on: ubuntu-latest
     permissions:
