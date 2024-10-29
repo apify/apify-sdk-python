@@ -30,6 +30,7 @@ jobs:
     with:
       version_number: ${{ needs.release_metadata.outputs.version_number }}
       changelog: ${{ needs.release_metadata.outputs.changelog }}
+      existing_changelog_path: CHANGELOG.md
     secrets: 
       version_number: ${{ steps.release_metadata.outputs.version_number }}
       tag_name: ${{ steps.release_metadata.outputs.tag_name }}
