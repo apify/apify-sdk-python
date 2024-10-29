@@ -25,14 +25,14 @@ async def test_actor_reports_running_on_platform(
 
     actor = await make_actor('is-at-home', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
-
-    run_client = apify_client_async.run(run_result['id'])
-    run_client_result = await run_client.wait_for_finish(wait_secs=300)
-
-    assert run_client_result is not None
-    assert run_client_result['status'] == 'SUCCEEDED'
+    assert run_result['status'] == 'SUCCEEDED'
 
 
 async def test_actor_retrieves_env_vars(
@@ -57,13 +57,13 @@ async def test_actor_retrieves_env_vars(
 
     actor = await make_actor('get-env', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
-
-    run_client = apify_client_async.run(run_result['id'])
-    run_client_result = await run_client.wait_for_finish(wait_secs=300)
-
-    assert run_client_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
@@ -87,13 +87,13 @@ async def test_actor_creates_new_client_instance(
 
     actor = await make_actor('new-client', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
-
-    run_client = apify_client_async.run(run_result['id'])
-    run_client_result = await run_client.wait_for_finish(wait_secs=300)
-
-    assert run_client_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
@@ -101,7 +101,10 @@ async def test_actor_creates_new_client_instance(
     assert output_record['value'] == 'TESTING-OUTPUT'
 
 
-async def test_actor_sets_status_message(make_actor: ActorFactory) -> None:
+async def test_actor_sets_status_message(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             actor_input = await Actor.get_input() or {}
@@ -109,22 +112,33 @@ async def test_actor_sets_status_message(make_actor: ActorFactory) -> None:
 
     actor = await make_actor('set-status-message', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
     assert run_result['statusMessage'] == 'testing-status-message'
     assert run_result['isStatusMessageTerminal'] is None
 
-    run_result = await actor.call(run_input={'is_terminal': True})
+    call_result_2 = await actor.call(run_input={'is_terminal': True})
+    assert call_result_2 is not None
 
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
-    assert run_result['statusMessage'] == 'testing-status-message'
-    assert run_result['isStatusMessageTerminal'] is True
+    run_client_2 = apify_client_async.run(call_result_2['id'])
+    run_result_2 = await run_client_2.wait_for_finish(wait_secs=300)
+
+    assert run_result_2 is not None
+    assert run_result_2['status'] == 'SUCCEEDED'
+    assert run_result_2['statusMessage'] == 'testing-status-message'
+    assert run_result_2['isStatusMessageTerminal'] is True
 
 
-async def test_actor_starts_another_actor_instance(make_actor: ActorFactory) -> None:
+async def test_actor_starts_another_actor_instance(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main_inner() -> None:
         async with Actor:
             await asyncio.sleep(5)
@@ -152,10 +166,14 @@ async def test_actor_starts_another_actor_instance(make_actor: ActorFactory) -> 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
 
-    outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+    outer_call_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+    assert outer_call_result is not None
 
-    assert outer_run_result is not None
-    assert outer_run_result['status'] == 'SUCCEEDED'
+    run_client_outer = apify_client_async.run(outer_call_result['id'])
+    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=300)
+
+    assert run_result_outer is not None
+    assert run_result_outer['status'] == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish()
 
