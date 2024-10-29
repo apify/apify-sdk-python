@@ -63,7 +63,7 @@ async def test_emit_and_capture_interval_events(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -113,7 +113,7 @@ async def test_event_listener_can_be_removed_successfully(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'

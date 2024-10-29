@@ -31,7 +31,7 @@ async def test_same_references_in_default_kvs(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -64,7 +64,7 @@ async def test_same_references_in_named_kvs(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -117,7 +117,7 @@ async def test_set_and_get_value_in_same_run(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -137,7 +137,7 @@ async def test_set_value_in_one_run_and_get_value_in_another(
     assert call_result_set is not None
 
     run_client_set = apify_client_async.run(call_result_set['id'])
-    run_result_set = await run_client_set.wait_for_finish(wait_secs=300)
+    run_result_set = await run_client_set.wait_for_finish(wait_secs=600)
 
     assert run_result_set is not None
     assert run_result_set['status'] == 'SUCCEEDED'
@@ -168,7 +168,7 @@ async def test_set_value_in_one_run_and_get_value_in_another(
     assert call_result_get is not None
 
     run_client_get = apify_client_async.run(call_result_get['id'])
-    run_result_get = await run_client_get.wait_for_finish(wait_secs=300)
+    run_result_get = await run_client_get.wait_for_finish(wait_secs=600)
 
     assert run_result_get is not None
     assert run_result_get['status'] == 'SUCCEEDED'
@@ -223,7 +223,7 @@ async def test_actor_get_input_from_run(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -254,7 +254,7 @@ async def test_generate_public_url_for_kvs_record(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'

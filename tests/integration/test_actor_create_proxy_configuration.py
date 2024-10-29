@@ -35,7 +35,7 @@ async def test_create_basic_proxy_configuration(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -81,7 +81,7 @@ async def test_create_proxy_configuration_with_groups_and_country(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'

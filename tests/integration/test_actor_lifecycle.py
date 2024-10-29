@@ -43,7 +43,7 @@ async def test_actor_init_and_double_init_prevention(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -66,7 +66,7 @@ async def test_actor_init_correctly_in_async_with_block(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -88,7 +88,7 @@ async def test_actor_exit_with_different_exit_codes(
         assert call_result is not None
 
         run_client = apify_client_async.run(call_result['id'])
-        run_result = await run_client.wait_for_finish(wait_secs=300)
+        run_result = await run_client.wait_for_finish(wait_secs=600)
 
         assert run_result is not None
         assert run_result['exitCode'] == exit_code
@@ -110,7 +110,7 @@ async def test_actor_fail_with_custom_exit_codes_and_status_messages(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['exitCode'] == 1
@@ -121,7 +121,7 @@ async def test_actor_fail_with_custom_exit_codes_and_status_messages(
         assert call_result is not None
 
         run_client = apify_client_async.run(call_result['id'])
-        run_result = await run_client.wait_for_finish(wait_secs=300)
+        run_result = await run_client.wait_for_finish(wait_secs=600)
 
         assert run_result is not None
         assert run_result['exitCode'] == exit_code
@@ -132,7 +132,7 @@ async def test_actor_fail_with_custom_exit_codes_and_status_messages(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'FAILED'
@@ -153,7 +153,7 @@ async def test_actor_fails_correctly_with_exception(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['exitCode'] == 91

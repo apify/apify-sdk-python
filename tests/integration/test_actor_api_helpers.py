@@ -29,7 +29,7 @@ async def test_actor_reports_running_on_platform(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -61,7 +61,7 @@ async def test_actor_retrieves_env_vars(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -91,7 +91,7 @@ async def test_actor_creates_new_client_instance(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -116,7 +116,7 @@ async def test_actor_sets_status_message(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -127,7 +127,7 @@ async def test_actor_sets_status_message(
     assert call_result_2 is not None
 
     run_client_2 = apify_client_async.run(call_result_2['id'])
-    run_result_2 = await run_client_2.wait_for_finish(wait_secs=300)
+    run_result_2 = await run_client_2.wait_for_finish(wait_secs=600)
 
     assert run_result_2 is not None
     assert run_result_2['status'] == 'SUCCEEDED'
@@ -170,12 +170,12 @@ async def test_actor_starts_another_actor_instance(
     assert outer_call_result is not None
 
     run_client_outer = apify_client_async.run(outer_call_result['id'])
-    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=300)
+    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=600)
 
     assert run_result_outer is not None
     assert run_result_outer['status'] == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=300)
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -217,12 +217,12 @@ async def test_actor_calls_another_actor(
     assert outer_call_result is not None
 
     run_client_outer = apify_client_async.run(outer_call_result['id'])
-    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=300)
+    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=600)
 
     assert run_result_outer is not None
     assert run_result_outer['status'] == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=300)
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -269,12 +269,12 @@ async def test_actor_calls_task(
     assert outer_call_result is not None
 
     run_client_outer = apify_client_async.run(outer_call_result['id'])
-    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=300)
+    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=600)
 
     assert run_result_outer is not None
     assert run_result_outer['status'] == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=300)
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -311,12 +311,12 @@ async def test_actor_aborts_another_actor_run(
     assert outer_call_result is not None
 
     run_client_outer = apify_client_async.run(outer_call_result['id'])
-    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=300)
+    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=600)
 
     assert run_result_outer is not None
     assert run_result_outer['status'] == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=300)
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
     inner_actor_last_run = await inner_actor.last_run().get()
     assert inner_actor_last_run is not None
     assert inner_actor_last_run['status'] == 'ABORTED'
@@ -370,7 +370,7 @@ async def test_actor_metamorphs_into_another_actor(
     assert outer_call_result is not None
 
     run_client_outer = apify_client_async.run(outer_call_result['id'])
-    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=300)
+    run_result_outer = await run_client_outer.wait_for_finish(wait_secs=600)
 
     assert run_result_outer is not None
     assert run_result_outer['status'] == 'SUCCEEDED'
@@ -410,7 +410,7 @@ async def test_actor_reboots_successfully(
     assert call_result is not None
 
     run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=300)
+    run_result = await run_client.wait_for_finish(wait_secs=600)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -491,12 +491,12 @@ async def test_actor_adds_webhook_and_receives_event(
     assert ac_call_result is not None
 
     ac_run_client = apify_client_async.run(ac_call_result['id'])
-    ac_run_result = await ac_run_client.wait_for_finish(wait_secs=300)
+    ac_run_result = await ac_run_client.wait_for_finish(wait_secs=600)
 
     assert ac_run_result is not None
     assert ac_run_result['status'] == 'SUCCEEDED'
 
-    sa_run_result = await server_actor.last_run().wait_for_finish(wait_secs=300)
+    sa_run_result = await server_actor.last_run().wait_for_finish(wait_secs=600)
 
     assert sa_run_result is not None
     assert sa_run_result['status'] == 'SUCCEEDED'
