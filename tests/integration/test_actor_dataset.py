@@ -15,7 +15,10 @@ if TYPE_CHECKING:
     from .conftest import ActorFactory
 
 
-async def test_push_and_verify_data_in_default_dataset(make_actor: ActorFactory) -> None:
+async def test_push_and_verify_data_in_default_dataset(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     desired_item_count = 100  # Also change inside main() if you're changing this
 
     async def main() -> None:
@@ -25,32 +28,48 @@ async def test_push_and_verify_data_in_default_dataset(make_actor: ActorFactory)
 
     actor = await make_actor('push-data', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
+
     list_page = await actor.last_run().dataset().list_items()
     assert list_page.items[0]['id'] == 0
     assert list_page.items[-1]['id'] == desired_item_count - 1
     assert len(list_page.items) == list_page.count == desired_item_count
 
 
-async def test_push_large_data_chunks_over_9mb(make_actor: ActorFactory) -> None:
+async def test_push_large_data_chunks_over_9mb(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             await Actor.push_data([{'str': 'x' * 10000} for _ in range(5000)])  # ~50MB
 
     actor = await make_actor('push-data-over-9mb', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
+
     async for item in actor.last_run().dataset().iterate_items():
         assert item['str'] == 'x' * 10000
 
 
-async def test_same_references_in_default_dataset(make_actor: ActorFactory) -> None:
+async def test_same_references_in_default_dataset(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             dataset1 = await Actor.open_dataset()
@@ -59,12 +78,20 @@ async def test_same_references_in_default_dataset(make_actor: ActorFactory) -> N
 
     actor = await make_actor('dataset-same-ref-default', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
-async def test_same_references_in_named_dataset(make_actor: ActorFactory) -> None:
+async def test_same_references_in_named_dataset(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     dataset_name = generate_unique_resource_name('dataset')
 
     async def main() -> None:
@@ -84,12 +111,20 @@ async def test_same_references_in_named_dataset(make_actor: ActorFactory) -> Non
 
     actor = await make_actor('dataset-same-ref-named', main_func=main)
 
-    run_result = await actor.call(run_input={'datasetName': dataset_name})
+    call_result = await actor.call(run_input={'datasetName': dataset_name})
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
-async def test_force_cloud(apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_force_cloud(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert apify_client_async.token is not None
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 

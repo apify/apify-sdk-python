@@ -16,7 +16,10 @@ if TYPE_CHECKING:
     from .conftest import ActorFactory
 
 
-async def test_same_references_in_default_rq(make_actor: ActorFactory) -> None:
+async def test_same_references_in_default_rq(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             rq1 = await Actor.open_request_queue()
@@ -25,12 +28,20 @@ async def test_same_references_in_default_rq(make_actor: ActorFactory) -> None:
 
     actor = await make_actor('rq-same-ref-default', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
-async def test_same_references_in_named_rq(make_actor: ActorFactory) -> None:
+async def test_same_references_in_named_rq(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     rq_name = generate_unique_resource_name('request-queue')
 
     async def main() -> None:
@@ -50,12 +61,20 @@ async def test_same_references_in_named_rq(make_actor: ActorFactory) -> None:
 
     actor = await make_actor('rq-same-ref-named', main_func=main)
 
-    run_result = await actor.call(run_input={'rqName': rq_name})
+    call_result = await actor.call(run_input={'rqName': rq_name})
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
-async def test_force_cloud(apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_force_cloud(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert apify_client_async.token is not None
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 

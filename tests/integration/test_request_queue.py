@@ -5,10 +5,15 @@ from typing import TYPE_CHECKING
 from apify import Actor
 
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
     from .conftest import ActorFactory
 
 
-async def test_add_and_fetch_requests(make_actor: ActorFactory) -> None:
+async def test_add_and_fetch_requests(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             desired_request_count = 100
@@ -35,12 +40,20 @@ async def test_add_and_fetch_requests(make_actor: ActorFactory) -> None:
 
     actor = await make_actor('rq-simple-test', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
-async def test_add_requests_in_batches(make_actor: ActorFactory) -> None:
+async def test_add_requests_in_batches(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             desired_request_count = 100
@@ -65,12 +78,20 @@ async def test_add_requests_in_batches(make_actor: ActorFactory) -> None:
 
     actor = await make_actor('rq-batch-test', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
-async def test_add_non_unique_requests_in_batch(make_actor: ActorFactory) -> None:
+async def test_add_non_unique_requests_in_batch(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         from crawlee import Request
 
@@ -102,6 +123,11 @@ async def test_add_non_unique_requests_in_batch(make_actor: ActorFactory) -> Non
 
     actor = await make_actor('rq-batch-test', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'

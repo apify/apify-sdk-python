@@ -8,10 +8,15 @@ from apify_shared.consts import ActorEventTypes
 from apify import Actor
 
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
     from .conftest import ActorFactory
 
 
-async def test_emit_and_capture_interval_events(make_actor: ActorFactory) -> None:
+async def test_emit_and_capture_interval_events(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         import os
         from datetime import datetime
@@ -54,10 +59,15 @@ async def test_emit_and_capture_interval_events(make_actor: ActorFactory) -> Non
 
     actor = await make_actor('actor-interval-events', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
+
     dataset_items_page = await actor.last_run().dataset().list_items()
     persist_state_events = [
         item for item in dataset_items_page.items if item['event_type'] == ActorEventTypes.PERSIST_STATE
@@ -69,7 +79,10 @@ async def test_emit_and_capture_interval_events(make_actor: ActorFactory) -> Non
     assert len(system_info_events) > 0
 
 
-async def test_event_listener_can_be_removed_successfully(make_actor: ActorFactory) -> None:
+async def test_event_listener_can_be_removed_successfully(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         import os
 
@@ -96,7 +109,11 @@ async def test_event_listener_can_be_removed_successfully(make_actor: ActorFacto
 
     actor = await make_actor('actor-off-event', main_func=main)
 
-    run = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
 
-    assert run is not None
-    assert run['status'] == 'SUCCEEDED'
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
+    assert run_result is not None
+    assert run_result['status'] == 'SUCCEEDED'

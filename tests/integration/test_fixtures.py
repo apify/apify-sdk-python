@@ -13,7 +13,10 @@ if TYPE_CHECKING:
     from .conftest import ActorFactory
 
 
-async def test_actor_from_main_func(make_actor: ActorFactory) -> None:
+async def test_actor_from_main_func(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         import os
 
@@ -24,7 +27,11 @@ async def test_actor_from_main_func(make_actor: ActorFactory) -> None:
 
     actor = await make_actor('make-actor-main-func', main_func=main)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
 
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
@@ -34,7 +41,10 @@ async def test_actor_from_main_func(make_actor: ActorFactory) -> None:
     assert run_result['actId'] == output_record['value']
 
 
-async def test_actor_from_main_py(make_actor: ActorFactory) -> None:
+async def test_actor_from_main_py(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     expected_output = f'ACTOR_OUTPUT_{crypto_random_object_id(5)}'
     main_py_source = f"""
         import asyncio
@@ -46,7 +56,12 @@ async def test_actor_from_main_py(make_actor: ActorFactory) -> None:
 
     actor = await make_actor('make-actor-main-py', main_py=main_py_source)
 
-    run_result = await actor.call()
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
     assert run_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
@@ -55,7 +70,10 @@ async def test_actor_from_main_py(make_actor: ActorFactory) -> None:
     assert output_record['value'] == expected_output
 
 
-async def test_actor_from_source_files(make_actor: ActorFactory) -> None:
+async def test_actor_from_source_files(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     test_started_at = datetime.now(timezone.utc)
     actor_source_files = {
         'src/utils.py': """
@@ -77,9 +95,14 @@ async def test_actor_from_source_files(make_actor: ActorFactory) -> None:
     }
     actor = await make_actor('make-actor-source-files', source_files=actor_source_files)
 
-    actor_run = await actor.call()
-    assert actor_run is not None
-    assert actor_run['status'] == 'SUCCEEDED'
+    call_result = await actor.call()
+    assert call_result is not None
+
+    run_client = apify_client_async.run(call_result['id'])
+    run_result = await run_client.wait_for_finish(wait_secs=300)
+
+    assert run_result is not None
+    assert run_result['status'] == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
     assert output_record is not None
