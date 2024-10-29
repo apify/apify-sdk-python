@@ -242,9 +242,9 @@ async def make_actor(
         actor_client = apify_client_async.actor(created_actor['id'])
 
         print(f'Building Actor {actor_name}...')
-        build_result = await actor_client.build(version_number='0.0', wait_for_finish=60)
+        build_result = await actor_client.build(version_number='0.0')
         build_client = apify_client_async.build(build_result['id'])
-        build_client_result = await build_client.wait_for_finish(wait_secs=600)
+        build_client_result = await build_client.wait_for_finish(wait_secs=300)
 
         assert build_client_result is not None
         assert build_client_result['status'] == ActorJobStatus.SUCCEEDED

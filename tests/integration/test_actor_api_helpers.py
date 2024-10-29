@@ -15,7 +15,10 @@ if TYPE_CHECKING:
     from .conftest import ActorFactory
 
 
-async def test_actor_reports_running_on_platform(make_actor: ActorFactory) -> None:
+async def test_actor_reports_running_on_platform(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             assert Actor.is_at_home() is True
@@ -23,12 +26,19 @@ async def test_actor_reports_running_on_platform(make_actor: ActorFactory) -> No
     actor = await make_actor('is-at-home', main_func=main)
 
     run_result = await actor.call()
-
     assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+
+    run_client = apify_client_async.run(run_result['id'])
+    run_client_result = await run_client.wait_for_finish(wait_secs=300)
+
+    assert run_client_result is not None
+    assert run_client_result['status'] == 'SUCCEEDED'
 
 
-async def test_actor_retrieves_env_vars(make_actor: ActorFactory) -> None:
+async def test_actor_retrieves_env_vars(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         async with Actor:
             env_dict = Actor.get_env()
@@ -48,12 +58,19 @@ async def test_actor_retrieves_env_vars(make_actor: ActorFactory) -> None:
     actor = await make_actor('get-env', main_func=main)
 
     run_result = await actor.call()
-
     assert run_result is not None
+
+    run_client = apify_client_async.run(run_result['id'])
+    run_client_result = await run_client.wait_for_finish(wait_secs=300)
+
+    assert run_client_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
 
-async def test_actor_creates_new_client_instance(make_actor: ActorFactory) -> None:
+async def test_actor_creates_new_client_instance(
+    apify_client_async: ApifyClientAsync,
+    make_actor: ActorFactory,
+) -> None:
     async def main() -> None:
         import os
 
@@ -71,8 +88,12 @@ async def test_actor_creates_new_client_instance(make_actor: ActorFactory) -> No
     actor = await make_actor('new-client', main_func=main)
 
     run_result = await actor.call()
-
     assert run_result is not None
+
+    run_client = apify_client_async.run(run_result['id'])
+    run_client_result = await run_client.wait_for_finish(wait_secs=300)
+
+    assert run_client_result is not None
     assert run_result['status'] == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
