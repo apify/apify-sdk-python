@@ -5,10 +5,13 @@ from typing import TYPE_CHECKING
 from apify import Actor
 
 if TYPE_CHECKING:
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_add_and_fetch_requests(make_actor: ActorFactory) -> None:
+async def test_add_and_fetch_requests(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             desired_request_count = 100
@@ -33,14 +36,16 @@ async def test_add_and_fetch_requests(make_actor: ActorFactory) -> None:
             is_finished = await rq.is_finished()
             assert is_finished is True
 
-    actor = await make_actor('rq-simple-test', main_func=main)
+    actor = await make_actor(label='rq-simple-test', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_add_requests_in_batches(make_actor: ActorFactory) -> None:
+async def test_add_requests_in_batches(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             desired_request_count = 100
@@ -63,14 +68,16 @@ async def test_add_requests_in_batches(make_actor: ActorFactory) -> None:
             is_finished = await rq.is_finished()
             assert is_finished is True
 
-    actor = await make_actor('rq-batch-test', main_func=main)
+    actor = await make_actor(label='rq-batch-test', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_add_non_unique_requests_in_batch(make_actor: ActorFactory) -> None:
+async def test_add_non_unique_requests_in_batch(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         from crawlee import Request
 
@@ -100,8 +107,7 @@ async def test_add_non_unique_requests_in_batch(make_actor: ActorFactory) -> Non
             is_finished = await rq.is_finished()
             assert is_finished is True
 
-    actor = await make_actor('rq-batch-test', main_func=main)
+    actor = await make_actor(label='rq-batch-test', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'

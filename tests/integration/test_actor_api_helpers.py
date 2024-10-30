@@ -8,27 +8,32 @@ from crawlee._utils.crypto import crypto_random_object_id
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
+from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_actor_reports_running_on_platform(make_actor: ActorFactory) -> None:
+async def test_actor_reports_running_on_platform(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             assert Actor.is_at_home() is True
 
-    actor = await make_actor('is-at-home', main_func=main)
+    actor = await make_actor(label='is-at-home', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_actor_retrieves_env_vars(make_actor: ActorFactory) -> None:
+async def test_actor_retrieves_env_vars(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             env_dict = Actor.get_env()
@@ -45,15 +50,16 @@ async def test_actor_retrieves_env_vars(make_actor: ActorFactory) -> None:
             assert len(env_dict.get('default_key_value_store_id', '')) == 17
             assert len(env_dict.get('default_request_queue_id', '')) == 17
 
-    actor = await make_actor('get-env', main_func=main)
+    actor = await make_actor(label='get-env', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_actor_creates_new_client_instance(make_actor: ActorFactory) -> None:
+async def test_actor_creates_new_client_instance(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         import os
 
@@ -68,42 +74,43 @@ async def test_actor_creates_new_client_instance(make_actor: ActorFactory) -> No
             kv_store_client = new_client.key_value_store(default_key_value_store_id)
             await kv_store_client.set_record('OUTPUT', 'TESTING-OUTPUT')
 
-    actor = await make_actor('new-client', main_func=main)
+    actor = await make_actor(label='new-client', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
     assert output_record is not None
     assert output_record['value'] == 'TESTING-OUTPUT'
 
 
-async def test_actor_sets_status_message(make_actor: ActorFactory) -> None:
+async def test_actor_sets_status_message(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             actor_input = await Actor.get_input() or {}
             await Actor.set_status_message('testing-status-message', **actor_input)
 
-    actor = await make_actor('set-status-message', main_func=main)
+    actor = await make_actor(label='set-status-message', main_func=main)
+    run_result_1 = await run_actor(actor)
 
-    run_result = await actor.call()
+    assert run_result_1.status == 'SUCCEEDED'
+    assert run_result_1.status_message == 'testing-status-message'
+    assert run_result_1.is_status_message_terminal is None
 
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
-    assert run_result['statusMessage'] == 'testing-status-message'
-    assert run_result['isStatusMessageTerminal'] is None
+    run_result_2 = await run_actor(actor, run_input={'is_terminal': True})
 
-    run_result = await actor.call(run_input={'is_terminal': True})
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
-    assert run_result['statusMessage'] == 'testing-status-message'
-    assert run_result['isStatusMessageTerminal'] is True
+    assert run_result_2.status == 'SUCCEEDED'
+    assert run_result_2.status_message == 'testing-status-message'
+    assert run_result_2.is_status_message_terminal is True
 
 
-async def test_actor_starts_another_actor_instance(make_actor: ActorFactory) -> None:
+async def test_actor_starts_another_actor_instance(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main_inner() -> None:
         async with Actor:
             await asyncio.sleep(5)
@@ -125,25 +132,30 @@ async def test_actor_starts_another_actor_instance(make_actor: ActorFactory) -> 
             assert inner_run_status is not None
             assert inner_run_status.get('status') in ['READY', 'RUNNING']
 
-    inner_actor = await make_actor('start-inner', main_func=main_inner)
-    outer_actor = await make_actor('start-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='start-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='start-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
 
-    outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+    run_result_outer = await run_actor(
+        outer_actor,
+        run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
+    )
 
-    assert outer_run_result is not None
-    assert outer_run_result['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish()
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
 
-async def test_actor_calls_another_actor(make_actor: ActorFactory) -> None:
+async def test_actor_calls_another_actor(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main_inner() -> None:
         async with Actor:
             await asyncio.sleep(5)
@@ -165,25 +177,31 @@ async def test_actor_calls_another_actor(make_actor: ActorFactory) -> None:
             assert inner_run_status is not None
             assert inner_run_status.get('status') == 'SUCCEEDED'
 
-    inner_actor = await make_actor('call-inner', main_func=main_inner)
-    outer_actor = await make_actor('call-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='call-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='call-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
 
-    outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+    run_result_outer = await run_actor(
+        outer_actor,
+        run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
+    )
 
-    assert outer_run_result is not None
-    assert outer_run_result['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish()
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
 
-async def test_actor_calls_task(make_actor: ActorFactory, apify_client_async: ApifyClientAsync) -> None:
+async def test_actor_calls_task(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
     async def main_inner() -> None:
         async with Actor:
             await asyncio.sleep(5)
@@ -204,8 +222,8 @@ async def test_actor_calls_task(make_actor: ActorFactory, apify_client_async: Ap
             assert inner_run_status is not None
             assert inner_run_status.get('status') == 'SUCCEEDED'
 
-    inner_actor = await make_actor('call-task-inner', main_func=main_inner)
-    outer_actor = await make_actor('call-task-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='call-task-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='call-task-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
@@ -216,12 +234,14 @@ async def test_actor_calls_task(make_actor: ActorFactory, apify_client_async: Ap
         task_input={'test_value': test_value},
     )
 
-    outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_task_id': task['id']})
+    run_result_outer = await run_actor(
+        outer_actor,
+        run_input={'test_value': test_value, 'inner_task_id': task['id']},
+    )
 
-    assert outer_run_result is not None
-    assert outer_run_result['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish()
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -230,7 +250,10 @@ async def test_actor_calls_task(make_actor: ActorFactory, apify_client_async: Ap
     await apify_client_async.task(task['id']).delete()
 
 
-async def test_actor_aborts_another_actor_run(make_actor: ActorFactory) -> None:
+async def test_actor_aborts_another_actor_run(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main_inner() -> None:
         async with Actor:
             await asyncio.sleep(180)
@@ -246,26 +269,32 @@ async def test_actor_aborts_another_actor_run(make_actor: ActorFactory) -> None:
 
             await Actor.abort(inner_run_id)
 
-    inner_actor = await make_actor('abort-inner', main_func=main_inner)
-    outer_actor = await make_actor('abort-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='abort-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='abort-outer', main_func=main_outer)
 
     inner_run_id = (await inner_actor.start())['id']
 
-    outer_run_result = await outer_actor.call(run_input={'inner_run_id': inner_run_id})
+    run_result_outer = await run_actor(
+        outer_actor,
+        run_input={'inner_run_id': inner_run_id},
+    )
 
-    assert outer_run_result is not None
-    assert outer_run_result['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish()
-    inner_actor_last_run = await inner_actor.last_run().get()
-    assert inner_actor_last_run is not None
-    assert inner_actor_last_run['status'] == 'ABORTED'
+    await inner_actor.last_run().wait_for_finish(wait_secs=600)
+    inner_actor_last_run_dict = await inner_actor.last_run().get()
+    inner_actor_last_run = ActorRun.model_validate(inner_actor_last_run_dict)
+
+    assert inner_actor_last_run.status == 'ABORTED'
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is None
 
 
-async def test_actor_metamorphs_into_another_actor(make_actor: ActorFactory) -> None:
+async def test_actor_metamorphs_into_another_actor(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main_inner() -> None:
         import os
 
@@ -297,16 +326,18 @@ async def test_actor_metamorphs_into_another_actor(make_actor: ActorFactory) -> 
             await Actor.set_value('RECORD_AFTER_METAMORPH_CALL', 'dummy')
             raise AssertionError('The Actor should have been metamorphed by now')
 
-    inner_actor = await make_actor('metamorph-inner', main_func=main_inner)
-    outer_actor = await make_actor('metamorph-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='metamorph-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='metamorph-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
 
-    outer_run_result = await outer_actor.call(run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id})
+    run_result_outer = await run_actor(
+        outer_actor,
+        run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
+    )
 
-    assert outer_run_result is not None
-    assert outer_run_result['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
     outer_run_key_value_store = outer_actor.last_run().key_value_store()
 
@@ -320,7 +351,10 @@ async def test_actor_metamorphs_into_another_actor(make_actor: ActorFactory) -> 
     assert await inner_actor.last_run().get() is None
 
 
-async def test_actor_reboots_successfully(make_actor: ActorFactory) -> None:
+async def test_actor_reboots_successfully(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             print('Starting...')
@@ -334,11 +368,14 @@ async def test_actor_reboots_successfully(make_actor: ActorFactory) -> None:
 
             print('Finishing...')
 
-    actor = await make_actor('actor_rebooter', main_func=main)
-    run_result = await actor.call(run_input={'counter_key': 'reboot_counter'})
+    actor = await make_actor(label='actor_rebooter', main_func=main)
 
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    run_result = await run_actor(
+        actor,
+        run_input={'counter_key': 'reboot_counter'},
+    )
+
+    assert run_result.status == 'SUCCEEDED'
 
     not_written_value = await actor.last_run().key_value_store().get_record('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
     assert not_written_value is None
@@ -348,7 +385,10 @@ async def test_actor_reboots_successfully(make_actor: ActorFactory) -> None:
     assert reboot_counter['value'] == 2
 
 
-async def test_actor_adds_webhook_and_receives_event(make_actor: ActorFactory) -> None:
+async def test_actor_adds_webhook_and_receives_event(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main_server() -> None:
         import os
         from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -369,9 +409,7 @@ async def test_actor_adds_webhook_and_receives_event(make_actor: ActorFactory) -
                     nonlocal webhook_body
                     content_length = self.headers.get('content-length')
                     length = int(content_length) if content_length else 0
-
                     webhook_body = self.rfile.read(length).decode('utf-8')
-
                     self.send_response(200)
                     self.end_headers()
                     self.wfile.write(bytes('Hello, world!', encoding='utf-8'))
@@ -399,33 +437,34 @@ async def test_actor_adds_webhook_and_receives_event(make_actor: ActorFactory) -
             )
 
     server_actor, client_actor = await asyncio.gather(
-        make_actor('add-webhook-server', main_func=main_server),
-        make_actor('add-webhook-client', main_func=main_client),
+        make_actor(label='add-webhook-server', main_func=main_server),
+        make_actor(label='add-webhook-client', main_func=main_client),
     )
 
     server_actor_run = await server_actor.start()
     server_actor_container_url = server_actor_run['containerUrl']
 
-    # Give the server actor some time to start running
     server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
     while not server_actor_initialized:
         server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
         await asyncio.sleep(1)
 
-    client_actor_run_result = await client_actor.call(
-        run_input={'server_actor_container_url': server_actor_container_url}
+    ac_run_result = await run_actor(
+        client_actor,
+        run_input={'server_actor_container_url': server_actor_container_url},
     )
-    assert client_actor_run_result is not None
-    assert client_actor_run_result['status'] == 'SUCCEEDED'
 
-    server_actor_run_result = await server_actor.last_run().wait_for_finish()
-    assert server_actor_run_result is not None
-    assert server_actor_run_result['status'] == 'SUCCEEDED'
+    assert ac_run_result.status == 'SUCCEEDED'
+
+    sa_run_result_dict = await server_actor.last_run().wait_for_finish(wait_secs=600)
+    sa_run_result = ActorRun.model_validate(sa_run_result_dict)
+
+    assert sa_run_result.status == 'SUCCEEDED'
 
     webhook_body_record = await server_actor.last_run().key_value_store().get_record('WEBHOOK_BODY')
     assert webhook_body_record is not None
     assert webhook_body_record['value'] != ''
     parsed_webhook_body = json.loads(webhook_body_record['value'])
 
-    assert parsed_webhook_body['eventData']['actorId'] == client_actor_run_result['actId']
-    assert parsed_webhook_body['eventData']['actorRunId'] == client_actor_run_result['id']
+    assert parsed_webhook_body['eventData']['actorId'] == ac_run_result.act_id
+    assert parsed_webhook_body['eventData']['actorRunId'] == ac_run_result.id

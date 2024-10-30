@@ -8,10 +8,13 @@ from apify_shared.consts import ActorEventTypes
 from apify import Actor
 
 if TYPE_CHECKING:
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_emit_and_capture_interval_events(make_actor: ActorFactory) -> None:
+async def test_emit_and_capture_interval_events(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         import os
         from datetime import datetime
@@ -42,22 +45,21 @@ async def test_emit_and_capture_interval_events(make_actor: ActorFactory) -> Non
             Actor.on(Event.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
             await asyncio.sleep(3)
 
-            # The SYSTEM_INFO event sometimes takes a while to appear, let's wait for it for a while longer
+            # The SYSTEM_INFO event sometimes takes a while to appear, let's wait for it for a while longer.
             for _ in range(20):
                 if was_system_info_emitted:
                     break
                 await asyncio.sleep(1)
 
-            # Check that parsing datetimes works correctly
-            # Check `createdAt` is a datetime (so it's the same locally and on platform)
+            # Check that parsing datetimes works correctly.
+            # Check `createdAt` is a datetime (so it's the same locally and on platform).
             assert isinstance(system_infos[0].cpu_info.created_at, datetime)
 
-    actor = await make_actor('actor-interval-events', main_func=main)
+    actor = await make_actor(label='actor-interval-events', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
+    assert run_result.status == 'SUCCEEDED'
 
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
     dataset_items_page = await actor.last_run().dataset().list_items()
     persist_state_events = [
         item for item in dataset_items_page.items if item['event_type'] == ActorEventTypes.PERSIST_STATE
@@ -69,7 +71,10 @@ async def test_emit_and_capture_interval_events(make_actor: ActorFactory) -> Non
     assert len(system_info_events) > 0
 
 
-async def test_event_listener_can_be_removed_successfully(make_actor: ActorFactory) -> None:
+async def test_event_listener_can_be_removed_successfully(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         import os
 
@@ -94,9 +99,7 @@ async def test_event_listener_can_be_removed_successfully(make_actor: ActorFacto
             await asyncio.sleep(0.5)
             assert counter == last_count
 
-    actor = await make_actor('actor-off-event', main_func=main)
+    actor = await make_actor(label='actor-off-event', main_func=main)
+    run_result = await run_actor(actor)
 
-    run = await actor.call()
-
-    assert run is not None
-    assert run['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'

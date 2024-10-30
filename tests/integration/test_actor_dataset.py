@@ -12,10 +12,13 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_push_and_verify_data_in_default_dataset(make_actor: ActorFactory) -> None:
+async def test_push_and_verify_data_in_default_dataset(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     desired_item_count = 100  # Also change inside main() if you're changing this
 
     async def main() -> None:
@@ -23,48 +26,54 @@ async def test_push_and_verify_data_in_default_dataset(make_actor: ActorFactory)
         async with Actor:
             await Actor.push_data([{'id': i} for i in range(desired_item_count)])
 
-    actor = await make_actor('push-data', main_func=main)
+    actor = await make_actor(label='push-data', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
+    assert run_result.status == 'SUCCEEDED'
 
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
     list_page = await actor.last_run().dataset().list_items()
     assert list_page.items[0]['id'] == 0
     assert list_page.items[-1]['id'] == desired_item_count - 1
     assert len(list_page.items) == list_page.count == desired_item_count
 
 
-async def test_push_large_data_chunks_over_9mb(make_actor: ActorFactory) -> None:
+async def test_push_large_data_chunks_over_9mb(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             await Actor.push_data([{'str': 'x' * 10000} for _ in range(5000)])  # ~50MB
 
-    actor = await make_actor('push-data-over-9mb', main_func=main)
+    actor = await make_actor(label='push-data-over-9mb', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
+    assert run_result.status == 'SUCCEEDED'
 
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
     async for item in actor.last_run().dataset().iterate_items():
         assert item['str'] == 'x' * 10000
 
 
-async def test_same_references_in_default_dataset(make_actor: ActorFactory) -> None:
+async def test_same_references_in_default_dataset(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             dataset1 = await Actor.open_dataset()
             dataset2 = await Actor.open_dataset()
             assert dataset1 is dataset2
 
-    actor = await make_actor('dataset-same-ref-default', main_func=main)
+    actor = await make_actor(label='dataset-same-ref-default', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_same_references_in_named_dataset(make_actor: ActorFactory) -> None:
+async def test_same_references_in_named_dataset(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     dataset_name = generate_unique_resource_name('dataset')
 
     async def main() -> None:
@@ -82,14 +91,16 @@ async def test_same_references_in_named_dataset(make_actor: ActorFactory) -> Non
 
             await dataset_by_name_1.drop()
 
-    actor = await make_actor('dataset-same-ref-named', main_func=main)
+    actor = await make_actor(label='dataset-same-ref-named', main_func=main)
+    run_result = await run_actor(actor, run_input={'datasetName': dataset_name})
 
-    run_result = await actor.call(run_input={'datasetName': dataset_name})
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_force_cloud(apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_force_cloud(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert apify_client_async.token is not None
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 

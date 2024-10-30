@@ -13,24 +13,29 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_same_references_in_default_rq(make_actor: ActorFactory) -> None:
+async def test_same_references_in_default_rq(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             rq1 = await Actor.open_request_queue()
             rq2 = await Actor.open_request_queue()
             assert rq1 is rq2
 
-    actor = await make_actor('rq-same-ref-default', main_func=main)
+    actor = await make_actor(label='rq-same-ref-default', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_same_references_in_named_rq(make_actor: ActorFactory) -> None:
+async def test_same_references_in_named_rq(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     rq_name = generate_unique_resource_name('request-queue')
 
     async def main() -> None:
@@ -48,14 +53,16 @@ async def test_same_references_in_named_rq(make_actor: ActorFactory) -> None:
 
             await rq_by_name_1.drop()
 
-    actor = await make_actor('rq-same-ref-named', main_func=main)
+    actor = await make_actor(label='rq-same-ref-named', main_func=main)
+    run_result = await run_actor(actor, run_input={'rqName': rq_name})
 
-    run_result = await actor.call(run_input={'rqName': rq_name})
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_force_cloud(apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_force_cloud(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert apify_client_async.token is not None
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 
