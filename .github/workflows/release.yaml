@@ -25,13 +25,12 @@ jobs:
   release_metadata:
     name: Prepare release metadata
     runs-on: ubuntu-latest
-    outputs:etadata, lint_check, type_check, unit_tests]
     uses: apify/workflows/.github/workflows/python_bump_and_update_changelog.yaml@main
     with:
       version_number: ${{ needs.release_metadata.outputs.version_number }}
       changelog: ${{ needs.release_metadata.outputs.changelog }}
       existing_changelog_path: CHANGELOG.md
-    secrets: 
+    outputs: 
       version_number: ${{ steps.release_metadata.outputs.version_number }}
       tag_name: ${{ steps.release_metadata.outputs.tag_name }}
       changelog: ${{ steps.release_metadata.outputs.changelog }}
