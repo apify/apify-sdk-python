@@ -27,7 +27,7 @@ class ApifyHttpProxyMiddleware:
     proxy_settings = {'useApifyProxy': true, 'apifyProxyGroups': []}
     """
 
-    def __init__(self: ApifyHttpProxyMiddleware, proxy_settings: dict) -> None:
+    def __init__(self, proxy_settings: dict) -> None:
         """Create a new instance.
 
         Args:
@@ -66,7 +66,7 @@ class ApifyHttpProxyMiddleware:
 
         return cls(proxy_settings)
 
-    async def process_request(self: ApifyHttpProxyMiddleware, request: Request, spider: Spider) -> None:
+    async def process_request(self, request: Request, spider: Spider) -> None:
         """Process a Scrapy request by assigning a new proxy.
 
         Args:
@@ -89,7 +89,7 @@ class ApifyHttpProxyMiddleware:
         Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: updated request.meta={request.meta}')
 
     def process_exception(
-        self: ApifyHttpProxyMiddleware,
+        self,
         request: Request,
         exception: Exception,
         spider: Spider,
@@ -116,7 +116,7 @@ class ApifyHttpProxyMiddleware:
                 'reason="{exception}", skipping...'
             )
 
-    async def _get_new_proxy_url(self: ApifyHttpProxyMiddleware) -> ParseResult:
+    async def _get_new_proxy_url(self) -> ParseResult:
         """Get a new proxy URL.
 
         Raises:

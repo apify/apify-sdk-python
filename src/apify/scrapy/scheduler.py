@@ -29,7 +29,7 @@ class ApifyScheduler(BaseScheduler):
     This scheduler requires the asyncio Twisted reactor to be installed.
     """
 
-    def __init__(self: ApifyScheduler) -> None:
+    def __init__(self) -> None:
         """Create a new instance."""
         if not is_asyncio_reactor_installed():
             raise ValueError(
@@ -40,7 +40,7 @@ class ApifyScheduler(BaseScheduler):
         self._rq: RequestQueue | None = None
         self.spider: Spider | None = None
 
-    def open(self: ApifyScheduler, spider: Spider) -> None:  # this has to be named "open"
+    def open(self, spider: Spider) -> None:  # this has to be named "open"
         """Open the scheduler.
 
         Args:
@@ -58,7 +58,7 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-    def has_pending_requests(self: ApifyScheduler) -> bool:
+    def has_pending_requests(self) -> bool:
         """Check if the scheduler has any pending requests.
 
         Returns:
@@ -75,7 +75,7 @@ class ApifyScheduler(BaseScheduler):
 
         return not is_finished
 
-    def enqueue_request(self: ApifyScheduler, request: Request) -> bool:
+    def enqueue_request(self, request: Request) -> bool:
         """Add a request to the scheduler.
 
         This could be called from either from a spider or a downloader middleware (e.g. redirect, retry, ...).
@@ -111,7 +111,7 @@ class ApifyScheduler(BaseScheduler):
         Actor.log.debug(f'[{call_id}]: rq.add_request.result={result}...')
         return bool(result.was_already_present)
 
-    def next_request(self: ApifyScheduler) -> Request | None:
+    def next_request(self) -> Request | None:
         """Fetch the next request from the scheduler.
 
         Returns:

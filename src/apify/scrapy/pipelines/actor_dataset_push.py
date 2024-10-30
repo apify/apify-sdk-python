@@ -19,7 +19,7 @@ class ActorDatasetPushPipeline:
     """
 
     async def process_item(
-        self: ActorDatasetPushPipeline,
+        self,
         item: Item,
         spider: Spider,
     ) -> Item:
