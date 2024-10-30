@@ -1,8 +1,7 @@
 .PHONY: clean install-dev build publish-to-pypi lint type-check unit-tests unit-tests-cov \
-		integration-tests format check-code check-version-availability check-changelog-entry \
-		check-version-conflict build-api-reference run-docs
+		integration-tests format check-code build-api-reference build-docs run-docs
 
-DIRS_WITH_CODE = src tests scripts
+DIRS_WITH_CODE = src tests
 
 # This is default for local testing, but GitHub workflows override it to a higher value in CI
 INTEGRATION_TESTS_CONCURRENCY = 1
@@ -42,15 +41,9 @@ format:
 	poetry run ruff check --fix $(DIRS_WITH_CODE)
 	poetry run ruff format $(DIRS_WITH_CODE)
 
-check-changelog-entry:
-	poetry run python scripts/check_changelog_entry.py
-
-check-version-conflict:
-	poetry run python scripts/check_version_conflict.py
-
 # The check-code target runs a series of checks equivalent to those performed by pre-commit hooks
 # and the run_checks.yaml GitHub Actions workflow.
-check-code: lint type-check unit-tests check-changelog-entry check-version-conflict
+check-code: lint type-check unit-tests
 
 build-api-reference:
 	cd website && poetry run ./build_api_reference.sh

@@ -1,57 +1,58 @@
 # Changelog
 
-## [2.0.2](../../releases/tag/v2.0.2) - Unreleased
+All notable changes to this project will be documented in this file.
 
-- ...
-
-## [2.0.1](../../releases/tag/v2.0.1) - 2024-10-25
+## [2.0.1](https://github.com/apify/apify-sdk-python/releases/tags/v2.0.1) (2024-10-25)
 
 ### 🚀 Features
 
-- Add standby URL and change default standby port
-- Add crawlee version to system info output
+- Add standby URL, change default standby port ([#287](https://github.com/apify/apify-sdk-python/pull/287)) ([8cd2f2c](https://github.com/apify/apify-sdk-python/commit/8cd2f2cb9d1191dbc93bf1b8a2d70189881c64ad)) by [@jirimoravcik](https://github.com/jirimoravcik)
+- Add crawlee version to system info print ([#304](https://github.com/apify/apify-sdk-python/pull/304)) ([c28f38f](https://github.com/apify/apify-sdk-python/commit/c28f38f4e205515e1b5d1ce97a2072be3a09d338)) by [@vdusek](https://github.com/vdusek)
 
 ### 🐛 Bug Fixes
 
-- Allow empty timeout_at environment variable
-- Use HttpHeaders type in Scrapy integration
-- Adjust tests for Scrapy user data
+- Adjust tests of scrapy user data ([#284](https://github.com/apify/apify-sdk-python/pull/284)) ([26ffb15](https://github.com/apify/apify-sdk-python/commit/26ffb15797effcfad1a25c840dd3d17663e26ea3)) by [@janbuchar](https://github.com/janbuchar)
+- Use HttpHeaders type in Scrapy integration ([#289](https://github.com/apify/apify-sdk-python/pull/289)) ([3e33e91](https://github.com/apify/apify-sdk-python/commit/3e33e9147bfd60554b9da41b032c0451f91ba27b)) by [@vdusek](https://github.com/vdusek)
+- Allow empty timeout_at env variable ([#303](https://github.com/apify/apify-sdk-python/pull/303)) ([b67ec98](https://github.com/apify/apify-sdk-python/commit/b67ec989dfcc21756cc976c52edc25735a3f0501)) by [@janbuchar](https://github.com/janbuchar), closes [#596](https://github.com/apify/apify-sdk-python/issues/596)
 
-## [2.0.0](../../releases/tag/v2.0.0) - 2024-09-10
+
+## [2.0.0](https://github.com/apify/apify-sdk-python/releases/tags/v2.0.0) (2024-09-10)
 
 - Check the [Upgrading to v2.0](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2) guide.
 
 ### 🚀 Features
 
-- Using Crawlee for Python under the hood ([#210](https://github.com/apify/apify-sdk-python/pull/210)) by [@janbuchar](https://github.com/janbuchar)
-- Better Actor API typing ([#256](https://github.com/apify/crawlee-python/pull/256)) by [@janbuchar](https://github.com/janbuchar)
-- Expose Request from Crawlee ([#266](https://github.com/apify/crawlee-python/pull/266)) by [@vdusek](https://github.com/vdusek)
-- Improve examples in README ([#269](https://github.com/apify/crawlee-python/pull/269)) by [@vdusek](https://github.com/vdusek)
-- Automatically configure logging ([#271](https://github.com/apify/crawlee-python/pull/271)) by [@janbuchar](https://github.com/janbuchar)
+- Better Actor API typing ([#256](https://github.com/apify/apify-sdk-python/pull/256)) ([abb87e7](https://github.com/apify/apify-sdk-python/commit/abb87e7f3c272f88a9a76292d8394fe93b98428a)) by [@janbuchar](https://github.com/janbuchar), closes [#243](https://github.com/apify/apify-sdk-python/issues/243)
+- Expose Request from Crawlee ([#266](https://github.com/apify/apify-sdk-python/pull/266)) ([1f01278](https://github.com/apify/apify-sdk-python/commit/1f01278c77f261500bc74efd700c0583ac45fd82)) by [@vdusek](https://github.com/vdusek)
+- Automatically configure logging ([#271](https://github.com/apify/apify-sdk-python/pull/271)) ([1906bb2](https://github.com/apify/apify-sdk-python/commit/1906bb216b8a3f1c2ad740c551ee019c2ba0696f)) by [@janbuchar](https://github.com/janbuchar)
 
 ### 🐛 Bug Fixes
 
-- Make `apify.log` public ([#249](https://github.com/apify/crawlee-python/pull/249)) by [@janbuchar](https://github.com/janbuchar)
-- Dataset list response handling ([#257](https://github.com/apify/crawlee-python/pull/257)) by [@janbuchar](https://github.com/janbuchar)
-- Ignore deprecated platform events ([#258](https://github.com/apify/crawlee-python/pull/258)) by [@janbuchar](https://github.com/janbuchar)
-- Possible infinity loop in Apify-Scrapy proxy middleware ([#259](https://github.com/apify/crawlee-python/pull/259)) by [@vdusek](https://github.com/vdusek)
-- Hotfix for `batch_add_requests` batch size limit ([#261](https://github.com/apify/crawlee-python/pull/261)) by [@janbuchar](https://github.com/janbuchar)
+- Make apify.log public again ([#249](https://github.com/apify/apify-sdk-python/pull/249)) ([22677f5](https://github.com/apify/apify-sdk-python/commit/22677f57b2aff6c9bddbee305e5a62e39bbf5915)) by [@janbuchar](https://github.com/janbuchar)
+- Dataset list response handling ([#257](https://github.com/apify/apify-sdk-python/pull/257)) ([0ea57d7](https://github.com/apify/apify-sdk-python/commit/0ea57d7c4788bff31f215c447c1881e56d6508bb)) by [@janbuchar](https://github.com/janbuchar)
+- Ignore deprecated platform events ([#258](https://github.com/apify/apify-sdk-python/pull/258)) ([ed5ab3b](https://github.com/apify/apify-sdk-python/commit/ed5ab3b80c851a817aa87806c39cd8ef3e86fde5)) by [@janbuchar](https://github.com/janbuchar)
+- Possible infinity loop in Apify-Scrapy proxy middleware ([#259](https://github.com/apify/apify-sdk-python/pull/259)) ([8647a94](https://github.com/apify/apify-sdk-python/commit/8647a94289423528f2940d9f7174f81682fbb407)) by [@vdusek](https://github.com/vdusek)
+- Hotfix for batch_add_requests batch size limit ([#261](https://github.com/apify/apify-sdk-python/pull/261)) ([61d7a39](https://github.com/apify/apify-sdk-python/commit/61d7a392d182a752c91193170dca351f4cb0fbf3)) by [@janbuchar](https://github.com/janbuchar)
 
-### Added
+### Refactor
 
-- Upgrade Apify Client to 1.7.1
+- Preparation for v2 release ([#210](https://github.com/apify/apify-sdk-python/pull/210)) ([2f9dcc5](https://github.com/apify/apify-sdk-python/commit/2f9dcc559414f31e3f4fc87e72417a36494b9c84)) by [@janbuchar](https://github.com/janbuchar), closes [#135](https://github.com/apify/apify-sdk-python/issues/135), [#137](https://github.com/apify/apify-sdk-python/issues/137), [#138](https://github.com/apify/apify-sdk-python/issues/138), [#147](https://github.com/apify/apify-sdk-python/issues/147), [#149](https://github.com/apify/apify-sdk-python/issues/149), [#237](https://github.com/apify/apify-sdk-python/issues/237)
 
-## [1.7.2](../../releases/tag/v1.7.2) - 2024-07-08
 
-### Added
+## [1.7.2](https://github.com/apify/apify-sdk-python/releases/tags/v1.7.2) (2024-07-08)
 
-- Add Actor Standby port
+### 🚀 Features
 
-## [1.7.1](../../releases/tag/v1.7.1) - 2024-05-23
+- Add actor standby port ([#220](https://github.com/apify/apify-sdk-python/pull/220)) ([6d0d87d](https://github.com/apify/apify-sdk-python/commit/6d0d87dcaedaf42d8eeb7d23c56f6b102434cbcb)) by [@jirimoravcik](https://github.com/jirimoravcik)
 
-### Fixed
 
-- Set a timeout for Actor cleanup
+## [1.7.1](https://github.com/apify/apify-sdk-python/releases/tags/v1.7.1) (2024-05-23)
+
+### 🐛 Bug Fixes
+
+- Set a timeout for Actor cleanup ([#206](https://github.com/apify/apify-sdk-python/pull/206)) ([cfed57d](https://github.com/apify/apify-sdk-python/commit/cfed57d6cff4fd15fe4b25578573190d53b9942c)) by [@janbuchar](https://github.com/janbuchar), closes [#200](https://github.com/apify/apify-sdk-python/issues/200)
+
+
 
 ## [1.7.0](../../releases/tag/v1.7.0) - 2024-03-12
 
