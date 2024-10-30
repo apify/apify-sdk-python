@@ -12,12 +12,12 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
 
-    from .conftest import MakeActorFunction
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
 async def test_push_and_verify_data_in_default_dataset(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     desired_item_count = 100  # Also change inside main() if you're changing this
 
@@ -26,16 +26,10 @@ async def test_push_and_verify_data_in_default_dataset(
         async with Actor:
             await Actor.push_data([{'id': i} for i in range(desired_item_count)])
 
-    actor = await make_actor('push-data', main_func=main)
+    actor = await make_actor(label='push-data', main_func=main)
+    run_result = await run_actor(actor)
 
-    call_result = await actor.call()
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
     list_page = await actor.last_run().dataset().list_items()
     assert list_page.items[0]['id'] == 0
@@ -44,31 +38,25 @@ async def test_push_and_verify_data_in_default_dataset(
 
 
 async def test_push_large_data_chunks_over_9mb(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
             await Actor.push_data([{'str': 'x' * 10000} for _ in range(5000)])  # ~50MB
 
-    actor = await make_actor('push-data-over-9mb', main_func=main)
+    actor = await make_actor(label='push-data-over-9mb', main_func=main)
+    run_result = await run_actor(actor)
 
-    call_result = await actor.call()
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
     async for item in actor.last_run().dataset().iterate_items():
         assert item['str'] == 'x' * 10000
 
 
 async def test_same_references_in_default_dataset(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -76,21 +64,15 @@ async def test_same_references_in_default_dataset(
             dataset2 = await Actor.open_dataset()
             assert dataset1 is dataset2
 
-    actor = await make_actor('dataset-same-ref-default', main_func=main)
+    actor = await make_actor(label='dataset-same-ref-default', main_func=main)
+    run_result = await run_actor(actor)
 
-    call_result = await actor.call()
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
 async def test_same_references_in_named_dataset(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     dataset_name = generate_unique_resource_name('dataset')
 
@@ -109,16 +91,10 @@ async def test_same_references_in_named_dataset(
 
             await dataset_by_name_1.drop()
 
-    actor = await make_actor('dataset-same-ref-named', main_func=main)
+    actor = await make_actor(label='dataset-same-ref-named', main_func=main)
+    run_result = await run_actor(actor, run_input={'datasetName': dataset_name})
 
-    call_result = await actor.call(run_input={'datasetName': dataset_name})
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
 async def test_force_cloud(

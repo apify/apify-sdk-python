@@ -28,7 +28,7 @@ async def test_create_basic_proxy_configuration(
             assert proxy_configuration._country_code == country_code
 
     actor = await make_actor(label='proxy-configuration', main_func=main)
-    run_result = await run_actor(actor=actor)
+    run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
 
@@ -65,6 +65,6 @@ async def test_create_proxy_configuration_with_groups_and_country(
         await Actor.exit()
 
     actor = await make_actor(label='proxy-configuration', main_func=main)
-    run_result = await run_actor(actor=actor)
+    run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'

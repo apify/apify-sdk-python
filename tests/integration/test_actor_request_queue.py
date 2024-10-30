@@ -13,12 +13,12 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
 
-    from .conftest import MakeActorFunction
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
 async def test_same_references_in_default_rq(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -26,21 +26,15 @@ async def test_same_references_in_default_rq(
             rq2 = await Actor.open_request_queue()
             assert rq1 is rq2
 
-    actor = await make_actor('rq-same-ref-default', main_func=main)
+    actor = await make_actor(label='rq-same-ref-default', main_func=main)
+    run_result = await run_actor(actor)
 
-    call_result = await actor.call()
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
 async def test_same_references_in_named_rq(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     rq_name = generate_unique_resource_name('request-queue')
 
@@ -59,16 +53,10 @@ async def test_same_references_in_named_rq(
 
             await rq_by_name_1.drop()
 
-    actor = await make_actor('rq-same-ref-named', main_func=main)
+    actor = await make_actor(label='rq-same-ref-named', main_func=main)
+    run_result = await run_actor(actor, run_input={'rqName': rq_name})
 
-    call_result = await actor.call(run_input={'rqName': rq_name})
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
 async def test_force_cloud(

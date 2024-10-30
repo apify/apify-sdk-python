@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 
     from apify_client.clients.resource_clients import ActorClientAsync
 
-TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
-API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
-SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
+_TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
+_API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
+_SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 
 
 @pytest.fixture(autouse=True)
@@ -52,11 +52,11 @@ def apify_client_async() -> ApifyClientAsync:
     because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
     but `pytest-asyncio` closes the event loop after each test, and uses a new one for the next test.
     """
-    api_token = os.getenv(TOKEN_ENV_VAR)
-    api_url = os.getenv(API_URL_ENV_VAR)
+    api_token = os.getenv(_TOKEN_ENV_VAR)
+    api_url = os.getenv(_API_URL_ENV_VAR)
 
     if not api_token:
-        raise RuntimeError(f'{TOKEN_ENV_VAR} environment variable is missing, cannot run tests!')
+        raise RuntimeError(f'{_TOKEN_ENV_VAR} environment variable is missing, cannot run tests!')
 
     return ApifyClientAsync(api_token, api_url=api_url)
 
@@ -73,7 +73,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
         if not was_wheel_built_this_test_run_file.exists():
             subprocess.run(
                 args='python -m build',
-                cwd=SDK_ROOT_PATH,
+                cwd=_SDK_ROOT_PATH,
                 shell=True,
                 check=True,
                 capture_output=True,
@@ -81,7 +81,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
             was_wheel_built_this_test_run_file.touch()
 
         # Read the current package version, necessary for getting the right wheel filename.
-        pyproject_toml_file = (SDK_ROOT_PATH / 'pyproject.toml').read_text(encoding='utf-8')
+        pyproject_toml_file = (_SDK_ROOT_PATH / 'pyproject.toml').read_text(encoding='utf-8')
         for line in pyproject_toml_file.splitlines():
             if line.startswith('version = '):
                 delim = '"' if '"' in line else "'"
@@ -90,7 +90,7 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
         else:
             raise RuntimeError('Unable to find version string.')
 
-        wheel_path = SDK_ROOT_PATH / 'dist' / f'apify-{sdk_version}-py3-none-any.whl'
+        wheel_path = _SDK_ROOT_PATH / 'dist' / f'apify-{sdk_version}-py3-none-any.whl'
 
         # Just to be sure.
         assert wheel_path.exists()

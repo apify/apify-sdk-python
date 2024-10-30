@@ -5,14 +5,12 @@ from typing import TYPE_CHECKING
 from apify import Actor, __version__
 
 if TYPE_CHECKING:
-    from apify_client import ApifyClientAsync
-
-    from .conftest import MakeActorFunction
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
 async def test_actor_logging(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
         import logging
@@ -42,16 +40,10 @@ async def test_actor_logging(
             # Test that exception in Actor.main is logged with the traceback
             raise RuntimeError('Dummy RuntimeError')
 
-    actor = await make_actor('actor-log', main_func=main)
+    actor = await make_actor(label='actor-log', main_func=main)
+    run_result = await run_actor(actor)
 
-    call_result = await actor.call()
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'FAILED'
+    assert run_result.status == 'FAILED'
 
     run_log = await actor.last_run().log().get()
     assert run_log is not None

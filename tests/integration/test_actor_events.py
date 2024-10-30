@@ -8,14 +8,12 @@ from apify_shared.consts import ActorEventTypes
 from apify import Actor
 
 if TYPE_CHECKING:
-    from apify_client import ApifyClientAsync
-
-    from .conftest import MakeActorFunction
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
 async def test_emit_and_capture_interval_events(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
         import os
@@ -47,26 +45,20 @@ async def test_emit_and_capture_interval_events(
             Actor.on(Event.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
             await asyncio.sleep(3)
 
-            # The SYSTEM_INFO event sometimes takes a while to appear, let's wait for it for a while longer
+            # The SYSTEM_INFO event sometimes takes a while to appear, let's wait for it for a while longer.
             for _ in range(20):
                 if was_system_info_emitted:
                     break
                 await asyncio.sleep(1)
 
-            # Check that parsing datetimes works correctly
-            # Check `createdAt` is a datetime (so it's the same locally and on platform)
+            # Check that parsing datetimes works correctly.
+            # Check `createdAt` is a datetime (so it's the same locally and on platform).
             assert isinstance(system_infos[0].cpu_info.created_at, datetime)
 
-    actor = await make_actor('actor-interval-events', main_func=main)
+    actor = await make_actor(label='actor-interval-events', main_func=main)
+    run_result = await run_actor(actor)
 
-    call_result = await actor.call()
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
     dataset_items_page = await actor.last_run().dataset().list_items()
     persist_state_events = [
@@ -80,8 +72,8 @@ async def test_emit_and_capture_interval_events(
 
 
 async def test_event_listener_can_be_removed_successfully(
-    apify_client_async: ApifyClientAsync,
     make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
         import os
@@ -107,13 +99,7 @@ async def test_event_listener_can_be_removed_successfully(
             await asyncio.sleep(0.5)
             assert counter == last_count
 
-    actor = await make_actor('actor-off-event', main_func=main)
+    actor = await make_actor(label='actor-off-event', main_func=main)
+    run_result = await run_actor(actor)
 
-    call_result = await actor.call()
-    assert call_result is not None
-
-    run_client = apify_client_async.run(call_result['id'])
-    run_result = await run_client.wait_for_finish(wait_secs=600)
-
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
