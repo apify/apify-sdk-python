@@ -64,12 +64,12 @@ def _reset_and_patch_default_instances(
 
 # This class is used to patch the ApifyClientAsync methods to return a fixed value or be replaced with another method.
 class ApifyClientAsyncPatcher:
-    def __init__(self: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch) -> None:
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.monkeypatch = monkeypatch
         self.calls: dict[str, dict[str, list[tuple[Any, Any]]]] = defaultdict(lambda: defaultdict(list))
 
     def patch(
-        self: ApifyClientAsyncPatcher,
+        self,
         method: str,
         submethod: str,
         *,

@@ -7,7 +7,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Protocol, cast
 
 import pytest
 from filelock import FileLock
@@ -17,21 +17,25 @@ from apify_shared.consts import ActorJobStatus, ActorSourceType
 
 import apify._actor
 from ._utils import generate_unique_resource_name
+from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Mapping
 
     from apify_client.clients.resource_clients import ActorClientAsync
 
-TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
-API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
-SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
+_TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
+_API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
+_SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 
 
-# To isolate the tests, we need to reset the used singletons before each test case
-# We also patch the default storage client with a tmp_path
 @pytest.fixture(autouse=True)
 def _reset_and_patch_default_instances() -> None:
+    """Reset the used singletons and patch the default storage client with a temporary directory.
+
+    To isolate the tests, we need to reset the used singletons before each test case. We also patch the default
+    storage client with a tmp_path.
+    """
     from crawlee import service_container
 
     cast(dict, service_container._services).clear()
@@ -40,37 +44,44 @@ def _reset_and_patch_default_instances() -> None:
     # TODO: StorageClientManager local storage client purge  # noqa: TD003
 
 
-# This fixture can't be session-scoped,
-# because then you start getting `RuntimeError: Event loop is closed` errors,
-# because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
-# but `pytest-asyncio` closes the event loop after each test,
-# and uses a new one for the next test.
 @pytest.fixture
 def apify_client_async() -> ApifyClientAsync:
-    api_token = os.getenv(TOKEN_ENV_VAR)
-    api_url = os.getenv(API_URL_ENV_VAR)
+    """Create an instance of the ApifyClientAsync.
+
+    This fixture can't be session-scoped, because then you start getting `RuntimeError: Event loop is closed` errors,
+    because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
+    but `pytest-asyncio` closes the event loop after each test, and uses a new one for the next test.
+    """
+    api_token = os.getenv(_TOKEN_ENV_VAR)
+    api_url = os.getenv(_API_URL_ENV_VAR)
 
     if not api_token:
-        raise RuntimeError(f'{TOKEN_ENV_VAR} environment variable is missing, cannot run tests!')
+        raise RuntimeError(f'{_TOKEN_ENV_VAR} environment variable is missing, cannot run tests!')
 
     return ApifyClientAsync(api_token, api_url=api_url)
 
 
-# Build the package wheel if it hasn't been built yet, and return the path to the wheel
 @pytest.fixture(scope='session')
 def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -> Path:
+    """Build the package wheel if it hasn't been built yet, and return the path to the wheel."""
     # Make sure the wheel is not being built concurrently across all the pytest-xdist runners,
-    # through locking the building process with a temp file
+    # through locking the building process with a temp file.
     with FileLock(tmp_path_factory.getbasetemp().parent / 'sdk_wheel_build.lock'):
         # Make sure the wheel is built exactly once across across all the pytest-xdist runners,
-        # through an indicator file saying that the wheel was already built
+        # through an indicator file saying that the wheel was already built.
         was_wheel_built_this_test_run_file = tmp_path_factory.getbasetemp() / f'wheel_was_built_in_run_{testrun_uid}'
         if not was_wheel_built_this_test_run_file.exists():
-            subprocess.run('python -m build', cwd=SDK_ROOT_PATH, shell=True, check=True, capture_output=True)  # noqa: S602, S607
+            subprocess.run(
+                args='python -m build',
+                cwd=_SDK_ROOT_PATH,
+                shell=True,
+                check=True,
+                capture_output=True,
+            )
             was_wheel_built_this_test_run_file.touch()
 
-        # Read the current package version, necessary for getting the right wheel filename
-        pyproject_toml_file = (SDK_ROOT_PATH / 'pyproject.toml').read_text(encoding='utf-8')
+        # Read the current package version, necessary for getting the right wheel filename.
+        pyproject_toml_file = (_SDK_ROOT_PATH / 'pyproject.toml').read_text(encoding='utf-8')
         for line in pyproject_toml_file.splitlines():
             if line.startswith('version = '):
                 delim = '"' if '"' in line else "'"
@@ -79,9 +90,9 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
         else:
             raise RuntimeError('Unable to find version string.')
 
-        wheel_path = SDK_ROOT_PATH / 'dist' / f'apify-{sdk_version}-py3-none-any.whl'
+        wheel_path = _SDK_ROOT_PATH / 'dist' / f'apify-{sdk_version}-py3-none-any.whl'
 
-        # Just to be sure
+        # Just to be sure.
         assert wheel_path.exists()
 
         return wheel_path
@@ -127,34 +138,18 @@ def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
     return source_files
 
 
-# Just a type for the make_actor result, so that we can import it in tests
-class ActorFactory(Protocol):
+class MakeActorFunction(Protocol):
+    """A type for the `make_actor` fixture."""
+
     def __call__(
-        self: ActorFactory,
-        actor_label: str,
+        self,
+        label: str,
         *,
         main_func: Callable | None = None,
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
-    ) -> Awaitable[ActorClientAsync]: ...
-
-
-@pytest.fixture
-async def make_actor(
-    actor_base_source_files: dict[str, str | bytes],
-    apify_client_async: ApifyClientAsync,
-) -> AsyncIterator[ActorFactory]:
-    """A fixture for returning a temporary Actor factory."""
-    actor_clients_for_cleanup: list[ActorClientAsync] = []
-
-    async def _make_actor(
-        actor_label: str,
-        *,
-        main_func: Callable | None = None,
-        main_py: str | None = None,
-        source_files: Mapping[str, str | bytes] | None = None,
-    ) -> ActorClientAsync:
-        """Create a temporary Actor from the given main function or source file(s).
+    ) -> Awaitable[ActorClientAsync]:
+        """Create a temporary Actor from the given main function or source files.
 
         The Actor will be uploaded to the Apify Platform, built there, and after the test finishes, it will
         be automatically deleted.
@@ -162,7 +157,7 @@ async def make_actor(
         You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
         Args:
-            actor_label: The label which will be a part of the generated Actor name
+            label: The label which will be a part of the generated Actor name.
             main_func: The main function of the Actor.
             main_py: The `src/main.py` file of the Actor.
             source_files: A dictionary of the source files of the Actor.
@@ -170,13 +165,34 @@ async def make_actor(
         Returns:
             A resource client for the created Actor.
         """
+
+
+@pytest.fixture
+async def make_actor(
+    actor_base_source_files: dict[str, str | bytes],
+    apify_client_async: ApifyClientAsync,
+) -> AsyncIterator[MakeActorFunction]:
+    """Fixture for creating temporary Actors for testing purposes.
+
+    This returns a function that creates a temporary Actor from the given main function or source files. The Actor
+    will be uploaded to the Apify Platform, built there, and after the test finishes, it will be automatically deleted.
+    """
+    actor_clients_for_cleanup: list[ActorClientAsync] = []
+
+    async def _make_actor(
+        label: str,
+        *,
+        main_func: Callable | None = None,
+        main_py: str | None = None,
+        source_files: Mapping[str, str | bytes] | None = None,
+    ) -> ActorClientAsync:
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')
 
         if (main_func and main_py) or (main_func and source_files) or (main_py and source_files):
             raise TypeError('Cannot specify more than one of `main_func`, `main_py` and `source_files` arguments')
 
-        actor_name = generate_unique_resource_name(actor_label)
+        actor_name = generate_unique_resource_name(label)
 
         # Get the source of main_func and convert it into a reasonable main_py file.
         if main_func:
@@ -204,7 +220,7 @@ async def make_actor(
         actor_source_files = actor_base_source_files.copy()
         actor_source_files.update(source_files)
 
-        # Reformat the source files in a format that the Apify API understands
+        # Reformat the source files in a format that the Apify API understands.
         source_files_for_api = []
         for file_name, file_contents in actor_source_files.items():
             if isinstance(file_contents, str):
@@ -242,19 +258,63 @@ async def make_actor(
         actor_client = apify_client_async.actor(created_actor['id'])
 
         print(f'Building Actor {actor_name}...')
-        build = await actor_client.build(version_number='0.0', wait_for_finish=300)
+        build_result = await actor_client.build(version_number='0.0')
+        build_client = apify_client_async.build(build_result['id'])
+        build_client_result = await build_client.wait_for_finish(wait_secs=600)
 
-        assert build['status'] == ActorJobStatus.SUCCEEDED
+        assert build_client_result is not None
+        assert build_client_result['status'] == ActorJobStatus.SUCCEEDED
 
-        # We only mark the client for cleanup if the build succeeded,
-        # so that if something goes wrong here,
-        # you have a chance to check the error
+        # We only mark the client for cleanup if the build succeeded, so that if something goes wrong here,
+        # you have a chance to check the error.
         actor_clients_for_cleanup.append(actor_client)
 
         return actor_client
 
     yield _make_actor
 
-    # Delete all the generated actors
+    # Delete all the generated Actors.
     for actor_client in actor_clients_for_cleanup:
         await actor_client.delete()
+
+
+class RunActorFunction(Protocol):
+    """A type for the `run_actor` fixture."""
+
+    def __call__(
+        self,
+        actor: ActorClientAsync,
+        *,
+        run_input: Any = None,
+    ) -> Coroutine[None, None, ActorRun]:
+        """Initiate an Actor run and wait for its completion.
+
+        Args:
+            actor: Actor async client, in testing context usually created by `make_actor` fixture.
+            run_input: Optional input for the Actor run.
+
+        Returns:
+            Actor run result.
+        """
+
+
+@pytest.fixture
+async def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
+    """Fixture for calling an Actor run and waiting for its completion.
+
+    This fixture returns a function that initiates an Actor run with optional run input, waits for its completion,
+    and retrieves the final result. It uses the `wait_for_finish` method with a timeout of 10 minutes.
+    """
+
+    async def _run_actor(actor: ActorClientAsync, *, run_input: Any = None) -> ActorRun:
+        call_result = await actor.call(run_input=run_input)
+
+        assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
+        assert 'id' in call_result, 'The result of ActorClientAsync.call() does not contain an ID.'
+
+        run_client = apify_client_async.run(call_result['id'])
+        run_result = await run_client.wait_for_finish(wait_secs=600)
+
+        return ActorRun.model_validate(run_result)
+
+    return _run_actor

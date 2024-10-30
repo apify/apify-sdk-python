@@ -12,24 +12,29 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_same_references_in_default_kvs(make_actor: ActorFactory) -> None:
+async def test_same_references_in_default_kvs(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             kvs1 = await Actor.open_key_value_store()
             kvs2 = await Actor.open_key_value_store()
             assert kvs1 is kvs2
 
-    actor = await make_actor('kvs-same-ref-default', main_func=main)
+    actor = await make_actor(label='kvs-same-ref-default', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_same_references_in_named_kvs(make_actor: ActorFactory) -> None:
+async def test_same_references_in_named_kvs(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     kvs_name = generate_unique_resource_name('key-value-store')
 
     async def main() -> None:
@@ -47,14 +52,16 @@ async def test_same_references_in_named_kvs(make_actor: ActorFactory) -> None:
 
             await kvs_by_name_1.drop()
 
-    actor = await make_actor('kvs-same-ref-named', main_func=main)
+    actor = await make_actor(label='kvs-same-ref-named', main_func=main)
+    run_result = await run_actor(actor, run_input={'kvsName': kvs_name})
 
-    run_result = await actor.call(run_input={'kvsName': kvs_name})
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_force_cloud(apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_force_cloud(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert apify_client_async.token is not None
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
 
@@ -80,7 +87,10 @@ async def test_force_cloud(apify_client_async: ApifyClientAsync, monkeypatch: py
         await key_value_store_client.delete()
 
 
-async def test_set_and_get_value_in_same_run(make_actor: ActorFactory) -> None:
+async def test_set_and_get_value_in_same_run(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         async with Actor:
             await Actor.set_value('test', {'number': 123, 'string': 'a string', 'nested': {'test': 1}})
@@ -89,23 +99,25 @@ async def test_set_and_get_value_in_same_run(make_actor: ActorFactory) -> None:
             assert value['string'] == 'a string'
             assert value['nested']['test'] == 1
 
-    actor = await make_actor('actor-get-set-value', main_func=main)
+    actor = await make_actor(label='actor-get-set-value', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_set_value_in_one_run_and_get_value_in_another(make_actor: ActorFactory) -> None:
+async def test_set_value_in_one_run_and_get_value_in_another(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main_set() -> None:
         async with Actor:
             await Actor.set_value('test', {'number': 123, 'string': 'a string', 'nested': {'test': 1}})
 
-    actor_set = await make_actor('actor-set-value', main_func=main_set)
+    actor_set = await make_actor(label='actor-set-value', main_func=main_set)
+    run_result_set = await run_actor(actor_set)
 
-    run_result_set = await actor_set.call()
-    assert run_result_set is not None
-    assert run_result_set['status'] == 'SUCCEEDED'
+    assert run_result_set.status == 'SUCCEEDED'
+
     # Externally check if the value is present in key-value store
     test_record = await actor_set.last_run().key_value_store().get_record('test')
     assert test_record is not None
@@ -124,16 +136,19 @@ async def test_set_value_in_one_run_and_get_value_in_another(make_actor: ActorFa
             assert value['string'] == 'a string'
             assert value['nested']['test'] == 1
 
-    actor_get = await make_actor('actor-get-value', main_func=main_get)
+    actor_get = await make_actor(label='actor-get-value', main_func=main_get)
     default_kvs_info = await actor_set.last_run().key_value_store().get()
     assert default_kvs_info is not None
 
-    run_result_get = await actor_get.call(run_input={'kvs-id': default_kvs_info['id']})
-    assert run_result_get is not None
-    assert run_result_get['status'] == 'SUCCEEDED'
+    run_result_get = await run_actor(actor_get, run_input={'kvs-id': default_kvs_info['id']})
+
+    assert run_result_get.status == 'SUCCEEDED'
 
 
-async def test_actor_get_input_from_run(make_actor: ActorFactory) -> None:
+async def test_actor_get_input_from_run(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     actor_source_files = {
         'INPUT_SCHEMA.json': """
             {
@@ -166,21 +181,25 @@ async def test_actor_get_input_from_run(make_actor: ActorFactory) -> None:
                     assert input_object['password'] == 'very secret'
         """,
     }
-    actor = await make_actor('actor-get-input', source_files=actor_source_files)
+    actor = await make_actor(label='actor-get-input', source_files=actor_source_files)
 
-    run_result = await actor.call(
+    run_result = await run_actor(
+        actor,
         run_input={
             'number': 123,
             'string': 'a string',
             'nested': {'test': 1},
             'password': 'very secret',
-        }
+        },
     )
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+
+    assert run_result.status == 'SUCCEEDED'
 
 
-async def test_generate_public_url_for_kvs_record(make_actor: ActorFactory) -> None:
+async def test_generate_public_url_for_kvs_record(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
     async def main() -> None:
         from typing import cast
 
@@ -196,8 +215,7 @@ async def test_generate_public_url_for_kvs_record(make_actor: ActorFactory) -> N
 
             assert record_url == f'{public_api_url}/v2/key-value-stores/{default_store_id}/records/dummy'
 
-    actor = await make_actor('kvs-get-public-url', main_func=main)
+    actor = await make_actor(label='kvs-get-public-url', main_func=main)
+    run_result = await run_actor(actor)
 
-    run_result = await actor.call()
-    assert run_result is not None
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
