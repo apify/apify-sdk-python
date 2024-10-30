@@ -7,12 +7,12 @@ from apify import Actor
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction
 
 
 async def test_add_and_fetch_requests(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -52,7 +52,7 @@ async def test_add_and_fetch_requests(
 
 async def test_add_requests_in_batches(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -90,7 +90,7 @@ async def test_add_requests_in_batches(
 
 async def test_add_non_unique_requests_in_batch(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         from crawlee import Request

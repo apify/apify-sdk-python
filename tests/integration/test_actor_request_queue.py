@@ -13,12 +13,12 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction
 
 
 async def test_same_references_in_default_rq(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -40,7 +40,7 @@ async def test_same_references_in_default_rq(
 
 async def test_same_references_in_named_rq(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     rq_name = generate_unique_resource_name('request-queue')
 

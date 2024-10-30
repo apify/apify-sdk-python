@@ -13,26 +13,26 @@ from apify._models import ActorRun
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory, RunActorFunction
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
 async def test_actor_reports_running_on_platform(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main() -> None:
         async with Actor:
             assert Actor.is_at_home() is True
 
-    actor = await make_actor('is-at-home', main_func=main)
+    actor = await make_actor(label='is-at-home', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
 
 
 async def test_actor_retrieves_env_vars(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -50,15 +50,15 @@ async def test_actor_retrieves_env_vars(
             assert len(env_dict.get('default_key_value_store_id', '')) == 17
             assert len(env_dict.get('default_request_queue_id', '')) == 17
 
-    actor = await make_actor('get-env', main_func=main)
+    actor = await make_actor(label='get-env', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
 
 
 async def test_actor_creates_new_client_instance(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main() -> None:
         import os
@@ -74,7 +74,7 @@ async def test_actor_creates_new_client_instance(
             kv_store_client = new_client.key_value_store(default_key_value_store_id)
             await kv_store_client.set_record('OUTPUT', 'TESTING-OUTPUT')
 
-    actor = await make_actor('new-client', main_func=main)
+    actor = await make_actor(label='new-client', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
@@ -85,15 +85,15 @@ async def test_actor_creates_new_client_instance(
 
 
 async def test_actor_sets_status_message(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main() -> None:
         async with Actor:
             actor_input = await Actor.get_input() or {}
             await Actor.set_status_message('testing-status-message', **actor_input)
 
-    actor = await make_actor('set-status-message', main_func=main)
+    actor = await make_actor(label='set-status-message', main_func=main)
     run_result_1 = await run_actor(actor)
 
     assert run_result_1.status == 'SUCCEEDED'
@@ -108,8 +108,8 @@ async def test_actor_sets_status_message(
 
 
 async def test_actor_starts_another_actor_instance(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main_inner() -> None:
         async with Actor:
@@ -132,8 +132,8 @@ async def test_actor_starts_another_actor_instance(
             assert inner_run_status is not None
             assert inner_run_status.get('status') in ['READY', 'RUNNING']
 
-    inner_actor = await make_actor('start-inner', main_func=main_inner)
-    outer_actor = await make_actor('start-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='start-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='start-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
@@ -153,8 +153,8 @@ async def test_actor_starts_another_actor_instance(
 
 
 async def test_actor_calls_another_actor(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main_inner() -> None:
         async with Actor:
@@ -177,8 +177,8 @@ async def test_actor_calls_another_actor(
             assert inner_run_status is not None
             assert inner_run_status.get('status') == 'SUCCEEDED'
 
-    inner_actor = await make_actor('call-inner', main_func=main_inner)
-    outer_actor = await make_actor('call-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='call-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='call-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
@@ -198,9 +198,9 @@ async def test_actor_calls_another_actor(
 
 
 async def test_actor_calls_task(
-    apify_client_async: ApifyClientAsync,
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
+    apify_client_async: ApifyClientAsync,
 ) -> None:
     async def main_inner() -> None:
         async with Actor:
@@ -222,8 +222,8 @@ async def test_actor_calls_task(
             assert inner_run_status is not None
             assert inner_run_status.get('status') == 'SUCCEEDED'
 
-    inner_actor = await make_actor('call-task-inner', main_func=main_inner)
-    outer_actor = await make_actor('call-task-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='call-task-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='call-task-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
@@ -251,8 +251,8 @@ async def test_actor_calls_task(
 
 
 async def test_actor_aborts_another_actor_run(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main_inner() -> None:
         async with Actor:
@@ -269,8 +269,8 @@ async def test_actor_aborts_another_actor_run(
 
             await Actor.abort(inner_run_id)
 
-    inner_actor = await make_actor('abort-inner', main_func=main_inner)
-    outer_actor = await make_actor('abort-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='abort-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='abort-outer', main_func=main_outer)
 
     inner_run_id = (await inner_actor.start())['id']
 
@@ -292,8 +292,8 @@ async def test_actor_aborts_another_actor_run(
 
 
 async def test_actor_metamorphs_into_another_actor(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main_inner() -> None:
         import os
@@ -326,8 +326,8 @@ async def test_actor_metamorphs_into_another_actor(
             await Actor.set_value('RECORD_AFTER_METAMORPH_CALL', 'dummy')
             raise AssertionError('The Actor should have been metamorphed by now')
 
-    inner_actor = await make_actor('metamorph-inner', main_func=main_inner)
-    outer_actor = await make_actor('metamorph-outer', main_func=main_outer)
+    inner_actor = await make_actor(label='metamorph-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='metamorph-outer', main_func=main_outer)
 
     inner_actor_id = (await inner_actor.get() or {})['id']
     test_value = crypto_random_object_id()
@@ -352,8 +352,8 @@ async def test_actor_metamorphs_into_another_actor(
 
 
 async def test_actor_reboots_successfully(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -368,7 +368,7 @@ async def test_actor_reboots_successfully(
 
             print('Finishing...')
 
-    actor = await make_actor('actor_rebooter', main_func=main)
+    actor = await make_actor(label='actor_rebooter', main_func=main)
 
     run_result = await run_actor(
         actor,
@@ -386,8 +386,8 @@ async def test_actor_reboots_successfully(
 
 
 async def test_actor_adds_webhook_and_receives_event(
+    make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
-    make_actor: ActorFactory,
 ) -> None:
     async def main_server() -> None:
         import os
@@ -437,8 +437,8 @@ async def test_actor_adds_webhook_and_receives_event(
             )
 
     server_actor, client_actor = await asyncio.gather(
-        make_actor('add-webhook-server', main_func=main_server),
-        make_actor('add-webhook-client', main_func=main_client),
+        make_actor(label='add-webhook-server', main_func=main_server),
+        make_actor(label='add-webhook-client', main_func=main_client),
     )
 
     server_actor_run = await server_actor.start()

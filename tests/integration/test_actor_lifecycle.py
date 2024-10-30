@@ -7,12 +7,12 @@ from apify import Actor
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction
 
 
 async def test_actor_init_and_double_init_prevention(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         my_actor = Actor
@@ -51,7 +51,7 @@ async def test_actor_init_and_double_init_prevention(
 
 async def test_actor_init_correctly_in_async_with_block(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         import apify._actor
@@ -74,7 +74,7 @@ async def test_actor_init_correctly_in_async_with_block(
 
 async def test_actor_exit_with_different_exit_codes(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -97,7 +97,7 @@ async def test_actor_exit_with_different_exit_codes(
 
 async def test_actor_fail_with_custom_exit_codes_and_status_messages(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -141,7 +141,7 @@ async def test_actor_fail_with_custom_exit_codes_and_status_messages(
 
 async def test_actor_fails_correctly_with_exception(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:

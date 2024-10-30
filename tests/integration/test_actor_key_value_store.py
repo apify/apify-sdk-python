@@ -12,12 +12,12 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction
 
 
 async def test_same_references_in_default_kvs(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -39,7 +39,7 @@ async def test_same_references_in_default_kvs(
 
 async def test_same_references_in_named_kvs(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     kvs_name = generate_unique_resource_name('key-value-store')
 
@@ -101,7 +101,7 @@ async def test_force_cloud(
 
 async def test_set_and_get_value_in_same_run(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         async with Actor:
@@ -125,7 +125,7 @@ async def test_set_and_get_value_in_same_run(
 
 async def test_set_value_in_one_run_and_get_value_in_another(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main_set() -> None:
         async with Actor:
@@ -176,7 +176,7 @@ async def test_set_value_in_one_run_and_get_value_in_another(
 
 async def test_actor_get_input_from_run(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     actor_source_files = {
         'INPUT_SCHEMA.json': """
@@ -231,7 +231,7 @@ async def test_actor_get_input_from_run(
 
 async def test_generate_public_url_for_kvs_record(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         from typing import cast

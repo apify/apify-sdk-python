@@ -10,12 +10,12 @@ from apify import Actor
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction
 
 
 async def test_emit_and_capture_interval_events(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         import os
@@ -81,7 +81,7 @@ async def test_emit_and_capture_interval_events(
 
 async def test_event_listener_can_be_removed_successfully(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         import os

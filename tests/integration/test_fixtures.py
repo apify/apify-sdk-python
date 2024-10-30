@@ -10,12 +10,12 @@ from apify import Actor
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
-    from .conftest import ActorFactory
+    from .conftest import MakeActorFunction
 
 
 async def test_actor_from_main_func(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     async def main() -> None:
         import os
@@ -43,7 +43,7 @@ async def test_actor_from_main_func(
 
 async def test_actor_from_main_py(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     expected_output = f'ACTOR_OUTPUT_{crypto_random_object_id(5)}'
     main_py_source = f"""
@@ -72,7 +72,7 @@ async def test_actor_from_main_py(
 
 async def test_actor_from_source_files(
     apify_client_async: ApifyClientAsync,
-    make_actor: ActorFactory,
+    make_actor: MakeActorFunction,
 ) -> None:
     test_started_at = datetime.now(timezone.utc)
     actor_source_files = {
