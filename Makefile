@@ -42,15 +42,9 @@ format:
 	poetry run ruff check --fix $(DIRS_WITH_CODE)
 	poetry run ruff format $(DIRS_WITH_CODE)
 
-check-changelog-entry:
-	poetry run python scripts/check_changelog_entry.py
-
-check-version-conflict:
-	poetry run python scripts/check_version_conflict.py
-
 # The check-code target runs a series of checks equivalent to those performed by pre-commit hooks
 # and the run_checks.yaml GitHub Actions workflow.
-check-code: lint type-check unit-tests check-changelog-entry check-version-conflict
+check-code: lint type-check unit-tests
 
 build-api-reference:
 	cd website && poetry run ./build_api_reference.sh
