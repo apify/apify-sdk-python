@@ -8,6 +8,7 @@ from crawlee._utils.crypto import crypto_random_object_id
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
+from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -26,7 +27,7 @@ async def test_actor_reports_running_on_platform(
     actor = await make_actor('is-at-home', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
 async def test_actor_retrieves_env_vars(
@@ -52,7 +53,7 @@ async def test_actor_retrieves_env_vars(
     actor = await make_actor('get-env', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
 
 async def test_actor_creates_new_client_instance(
@@ -76,7 +77,7 @@ async def test_actor_creates_new_client_instance(
     actor = await make_actor('new-client', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
     assert output_record is not None
@@ -95,15 +96,15 @@ async def test_actor_sets_status_message(
     actor = await make_actor('set-status-message', main_func=main)
     run_result_1 = await run_actor(actor)
 
-    assert run_result_1['status'] == 'SUCCEEDED'
-    assert run_result_1['statusMessage'] == 'testing-status-message'
-    assert run_result_1['isStatusMessageTerminal'] is None
+    assert run_result_1.status == 'SUCCEEDED'
+    assert run_result_1.status_message == 'testing-status-message'
+    assert run_result_1.is_status_message_terminal is None
 
     run_result_2 = await run_actor(actor, run_input={'is_terminal': True})
 
-    assert run_result_2['status'] == 'SUCCEEDED'
-    assert run_result_2['statusMessage'] == 'testing-status-message'
-    assert run_result_2['isStatusMessageTerminal'] is True
+    assert run_result_2.status == 'SUCCEEDED'
+    assert run_result_2.status_message == 'testing-status-message'
+    assert run_result_2.is_status_message_terminal is True
 
 
 async def test_actor_starts_another_actor_instance(
@@ -142,7 +143,7 @@ async def test_actor_starts_another_actor_instance(
         run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
     )
 
-    assert run_result_outer['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
@@ -187,7 +188,7 @@ async def test_actor_calls_another_actor(
         run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
     )
 
-    assert run_result_outer['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
@@ -238,7 +239,7 @@ async def test_actor_calls_task(
         run_input={'test_value': test_value, 'inner_task_id': task['id']},
     )
 
-    assert run_result_outer['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
@@ -278,12 +279,13 @@ async def test_actor_aborts_another_actor_run(
         run_input={'inner_run_id': inner_run_id},
     )
 
-    assert run_result_outer['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish(wait_secs=600)
-    inner_actor_last_run = await inner_actor.last_run().get()
-    assert inner_actor_last_run is not None
-    assert inner_actor_last_run['status'] == 'ABORTED'
+    inner_actor_last_run_dict = await inner_actor.last_run().get()
+    inner_actor_last_run = ActorRun.model_validate(inner_actor_last_run_dict)
+
+    assert inner_actor_last_run.status == 'ABORTED'
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is None
@@ -335,7 +337,7 @@ async def test_actor_metamorphs_into_another_actor(
         run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
     )
 
-    assert run_result_outer['status'] == 'SUCCEEDED'
+    assert run_result_outer.status == 'SUCCEEDED'
 
     outer_run_key_value_store = outer_actor.last_run().key_value_store()
 
@@ -373,7 +375,7 @@ async def test_actor_reboots_successfully(
         run_input={'counter_key': 'reboot_counter'},
     )
 
-    assert run_result['status'] == 'SUCCEEDED'
+    assert run_result.status == 'SUCCEEDED'
 
     not_written_value = await actor.last_run().key_value_store().get_record('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
     assert not_written_value is None
@@ -452,17 +454,17 @@ async def test_actor_adds_webhook_and_receives_event(
         run_input={'server_actor_container_url': server_actor_container_url},
     )
 
-    assert ac_run_result['status'] == 'SUCCEEDED'
+    assert ac_run_result.status == 'SUCCEEDED'
 
-    sa_run_result = await server_actor.last_run().wait_for_finish(wait_secs=600)
+    sa_run_result_dict = await server_actor.last_run().wait_for_finish(wait_secs=600)
+    sa_run_result = ActorRun.model_validate(sa_run_result_dict)
 
-    assert sa_run_result is not None
-    assert sa_run_result['status'] == 'SUCCEEDED'
+    assert sa_run_result.status == 'SUCCEEDED'
 
     webhook_body_record = await server_actor.last_run().key_value_store().get_record('WEBHOOK_BODY')
     assert webhook_body_record is not None
     assert webhook_body_record['value'] != ''
     parsed_webhook_body = json.loads(webhook_body_record['value'])
 
-    assert parsed_webhook_body['eventData']['actorId'] == ac_run_result['actId']
-    assert parsed_webhook_body['eventData']['actorRunId'] == ac_run_result['id']
+    assert parsed_webhook_body['eventData']['actorId'] == ac_run_result.act_id
+    assert parsed_webhook_body['eventData']['actorRunId'] == ac_run_result.id

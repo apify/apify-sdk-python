@@ -17,6 +17,7 @@ from apify_shared.consts import ActorJobStatus, ActorSourceType
 
 import apify._actor
 from ._utils import generate_unique_resource_name
+from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Mapping
@@ -64,7 +65,7 @@ class RunActorFunction(Protocol):
         actor: ActorClientAsync,
         *,
         run_input: Any = None,
-    ) -> Coroutine[None, None, dict]:
+    ) -> Coroutine[None, None, ActorRun]:
         """Initiate an Actor run and wait for its completion.
 
         Args:
@@ -87,7 +88,7 @@ async def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         A coroutine that initiates an Actor run and waits for its completion.
     """
 
-    async def _run_actor(actor: ActorClientAsync, *, run_input: Any = None) -> dict:
+    async def _run_actor(actor: ActorClientAsync, *, run_input: Any = None) -> ActorRun:
         call_result = await actor.call(run_input=run_input)
 
         assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
@@ -96,9 +97,7 @@ async def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         run_client = apify_client_async.run(call_result['id'])
         run_result = await run_client.wait_for_finish(wait_secs=600)
 
-        assert isinstance(run_result, dict), 'The result of RunClientAsync.wait_for_finish() is not a dictionary.'
-        assert 'status' in run_result, 'The result of RunClientAsync.wait_for_finish() does not contain a status.'
-        return run_result
+        return ActorRun.model_validate(run_result)
 
     return _run_actor
 
