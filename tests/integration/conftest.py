@@ -7,7 +7,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Protocol, cast
 
 import pytest
 from filelock import FileLock
@@ -54,6 +54,53 @@ def apify_client_async() -> ApifyClientAsync:
         raise RuntimeError(f'{TOKEN_ENV_VAR} environment variable is missing, cannot run tests!')
 
     return ApifyClientAsync(api_token, api_url=api_url)
+
+
+class RunActorFunction(Protocol):
+    """A type for the `run_actor` fixture."""
+
+    def __call__(
+        self,
+        actor: ActorClientAsync,
+        *,
+        run_input: Any = None,
+    ) -> Coroutine[None, None, dict]:
+        """Initiate an Actor run and wait for its completion.
+
+        Args:
+            actor: Actor async client, in testing context usually created by `make_actor` fixture.
+            run_input: Optional input for the Actor run.
+
+        Returns:
+            Actor run result.
+        """
+
+
+@pytest.fixture
+async def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
+    """Fixture for calling an Actor run and waiting for its completion.
+
+    This fixture returns a function that initiates an Actor run with optional run input, waits for its completion,
+    and retrieves the final result. It uses the `wait_for_finish` method with a timeout of 10 minutes.
+
+    Returns:
+        A coroutine that initiates an Actor run and waits for its completion.
+    """
+
+    async def _run_actor(actor: ActorClientAsync, *, run_input: Any = None) -> dict:
+        call_result = await actor.call(run_input=run_input)
+
+        assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
+        assert 'id' in call_result, 'The result of ActorClientAsync.call() does not contain an ID.'
+
+        run_client = apify_client_async.run(call_result['id'])
+        run_result = await run_client.wait_for_finish(wait_secs=600)
+
+        assert isinstance(run_result, dict), 'The result of RunClientAsync.wait_for_finish() is not a dictionary.'
+        assert 'status' in run_result, 'The result of RunClientAsync.wait_for_finish() does not contain a status.'
+        return run_result
+
+    return _run_actor
 
 
 # Build the package wheel if it hasn't been built yet, and return the path to the wheel
@@ -130,7 +177,7 @@ def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
 # Just a type for the make_actor result, so that we can import it in tests
 class ActorFactory(Protocol):
     def __call__(
-        self: ActorFactory,
+        self,
         actor_label: str,
         *,
         main_func: Callable | None = None,
