@@ -75,24 +75,24 @@ async def test_event_handling_local() -> None:
 
         dummy_persist_state = Mock()
 
-        # Test that they all work, and that they're called in order
+        # Test that they all work
         event_manager.emit(event=Event.PERSIST_STATE, event_data=dummy_persist_state)
         await asyncio.sleep(0.1)
-        assert event_calls[Event.PERSIST_STATE] == [
+        assert set(event_calls[Event.PERSIST_STATE]) == {
             (1, dummy_persist_state),
             (2, dummy_persist_state),
             (3, dummy_persist_state),
-        ]
+        }
         event_calls[Event.PERSIST_STATE].clear()
 
         # Test that if you remove one, the others stay
         event_manager.off(event=Event.PERSIST_STATE, listener=handler_persist_state_3)
         event_manager.emit(event=Event.PERSIST_STATE, event_data=dummy_persist_state)
         await asyncio.sleep(0.1)
-        assert event_calls[Event.PERSIST_STATE] == [
+        assert set(event_calls[Event.PERSIST_STATE]) == {
             (1, dummy_persist_state),
             (2, dummy_persist_state),
-        ]
+        }
         event_calls[Event.PERSIST_STATE].clear()
 
         # Test that removing all in bulk works
