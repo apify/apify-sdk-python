@@ -49,7 +49,7 @@ class SystemInfoEventData(BaseModel):
         return EventSystemInfoData.model_validate(
             {
                 'cpu_info': {
-                    'used_ratio': self.cpu_current_usage,
+                    'used_ratio': self.cpu_current_usage / 100,
                     'created_at': self.created_at,
                 },
                 'memory_info': {
