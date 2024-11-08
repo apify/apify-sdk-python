@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.1](https://github.com/apify/apify-sdk-python/releases/tags/v2.0.1) (2024-10-25)
+<!-- git-cliff-unreleased-start -->
+## 2.0.2 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix CPU usage calculation ([#315](https://github.com/apify/apify-sdk-python/pull/315)) ([0521d91](https://github.com/apify/apify-sdk-python/commit/0521d911afbb8029ad29949f69c4f19166a01fc0)) by [@janbuchar](https://github.com/janbuchar)
+
+
+<!-- git-cliff-unreleased-end -->
+## [2.0.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.0.1) (2024-10-25)
 
 ### 🚀 Features
 
@@ -16,7 +25,7 @@ All notable changes to this project will be documented in this file.
 - Allow empty timeout_at env variable ([#303](https://github.com/apify/apify-sdk-python/pull/303)) ([b67ec98](https://github.com/apify/apify-sdk-python/commit/b67ec989dfcc21756cc976c52edc25735a3f0501)) by [@janbuchar](https://github.com/janbuchar), closes [#596](https://github.com/apify/apify-sdk-python/issues/596)
 
 
-## [2.0.0](https://github.com/apify/apify-sdk-python/releases/tags/v2.0.0) (2024-09-10)
+## [2.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.0.0) (2024-09-10)
 
 ### 🚀 Features
 
@@ -37,42 +46,42 @@ All notable changes to this project will be documented in this file.
 - Preparation for v2 release ([#210](https://github.com/apify/apify-sdk-python/pull/210)) ([2f9dcc5](https://github.com/apify/apify-sdk-python/commit/2f9dcc559414f31e3f4fc87e72417a36494b9c84)) by [@janbuchar](https://github.com/janbuchar), closes [#135](https://github.com/apify/apify-sdk-python/issues/135), [#137](https://github.com/apify/apify-sdk-python/issues/137), [#138](https://github.com/apify/apify-sdk-python/issues/138), [#147](https://github.com/apify/apify-sdk-python/issues/147), [#149](https://github.com/apify/apify-sdk-python/issues/149), [#237](https://github.com/apify/apify-sdk-python/issues/237)
 
 
-## [1.7.2](https://github.com/apify/apify-sdk-python/releases/tags/v1.7.2) (2024-07-08)
+## [1.7.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.2) (2024-07-08)
 
 ### 🚀 Features
 
 - Add actor standby port ([#220](https://github.com/apify/apify-sdk-python/pull/220)) ([6d0d87d](https://github.com/apify/apify-sdk-python/commit/6d0d87dcaedaf42d8eeb7d23c56f6b102434cbcb)) by [@jirimoravcik](https://github.com/jirimoravcik)
 
 
-## [1.7.1](https://github.com/apify/apify-sdk-python/releases/tags/v1.7.1) (2024-05-23)
+## [1.7.1](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.1) (2024-05-23)
 
 ### 🐛 Bug Fixes
 
 - Set a timeout for Actor cleanup ([#206](https://github.com/apify/apify-sdk-python/pull/206)) ([cfed57d](https://github.com/apify/apify-sdk-python/commit/cfed57d6cff4fd15fe4b25578573190d53b9942c)) by [@janbuchar](https://github.com/janbuchar), closes [#200](https://github.com/apify/apify-sdk-python/issues/200)
 
 
-## [1.1.2](https://github.com/apify/apify-sdk-python/releases/tags/v1.1.2) (2023-08-02)
+## [1.1.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.2) (2023-08-02)
 
 ### 🚀 Features
 
 - Use Actor env vars ([#105](https://github.com/apify/apify-sdk-python/pull/105)) ([f0ba351](https://github.com/apify/apify-sdk-python/commit/f0ba35103eb9efbf39ea394d390430c849bf127c)) by [@jirimoravcik](https://github.com/jirimoravcik)
 
 
-## [1.1.0](https://github.com/apify/apify-sdk-python/releases/tags/v1.1.0) (2023-05-23)
+## [1.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.0) (2023-05-23)
 
 ### 🚀 Features
 
 - Use test user token from organisation secrets ([#90](https://github.com/apify/apify-sdk-python/pull/90)) ([7826a38](https://github.com/apify/apify-sdk-python/commit/7826a382d7a3c0a1531b3a7bb73369e2801e6fa0)) by [@drobnikj](https://github.com/drobnikj)
 
 
-## [0.2.0](https://github.com/apify/apify-sdk-python/releases/tags/v0.2.0) (2023-03-06)
+## [0.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v0.2.0) (2023-03-06)
 
 ### 🚀 Features
 
 - Add chunking mechanism to push_data, cleanup TODOs ([#67](https://github.com/apify/apify-sdk-python/pull/67)) ([5f38d51](https://github.com/apify/apify-sdk-python/commit/5f38d51a57912071439ac88405311d2cb7044190)) by [@jirimoravcik](https://github.com/jirimoravcik)
 
 
-## [0.1.0](https://github.com/apify/apify-sdk-python/releases/tags/v0.1.0) (2023-02-09)
+## [0.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v0.1.0) (2023-02-09)
 
 ### 🚀 Features
 
