@@ -200,5 +200,5 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
             await asyncio.sleep(0.1)
             assert len(event_calls) == 1
             assert event_calls[0] is not None
-            assert event_calls[0]['cpuInfo']['usedRatio'] == 8.45549815498155
+            assert event_calls[0]['cpuInfo']['usedRatio'] == 0.0845549815498155
             event_calls.clear()
