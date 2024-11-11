@@ -54,6 +54,26 @@ async def test_push_large_data_chunks_over_9mb(
         assert item['str'] == 'x' * 10000
 
 
+async def test_dataset_iter_items(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    async def main() -> None:
+        inserted_data = {'Something': 'something else'}
+
+        async with Actor:
+            dataset = await Actor.open_dataset()
+            await dataset.push_data(inserted_data)
+            requested_data = [item async for item in dataset.iterate_items()]
+
+            assert len(requested_data) == 1
+            assert requested_data[0] == inserted_data
+
+    actor = await make_actor(label='test_dataset_iter_items', main_func=main)
+    run_result = await run_actor(actor)
+    assert run_result.status == 'SUCCEEDED'
+
+
 async def test_same_references_in_default_dataset(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,

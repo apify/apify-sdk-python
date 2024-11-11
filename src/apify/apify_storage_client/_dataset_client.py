@@ -91,7 +91,7 @@ class DatasetClient(BaseDatasetClient):
         skip_empty: bool = False,
         skip_hidden: bool = False,
     ) -> AsyncIterator[dict]:
-        return self._client.iterate_items(
+        async for item in self._client.iterate_items(
             offset=offset,
             limit=limit,
             clean=clean,
@@ -101,7 +101,8 @@ class DatasetClient(BaseDatasetClient):
             unwind=unwind,
             skip_empty=skip_empty,
             skip_hidden=skip_hidden,
-        )
+        ):
+            yield item
 
     @override
     async def get_items_as_bytes(
