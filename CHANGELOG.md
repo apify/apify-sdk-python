@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 2.0.2 - **not yet released**
+## [2.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v2.0.2) (2024-11-12)
 
 ### 🐛 Bug Fixes
 
@@ -12,7 +11,6 @@ All notable changes to this project will be documented in this file.
 - Fix Dataset.iter_items for apify_storage ([#321](https://github.com/apify/apify-sdk-python/pull/321)) ([2db1beb](https://github.com/apify/apify-sdk-python/commit/2db1beb2d56a7e7954cd76023d1273c7546d7cbf)) by [@Pijukatel](https://github.com/Pijukatel), closes [#320](https://github.com/apify/apify-sdk-python/issues/320)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [2.0.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.0.1) (2024-10-25)
 
 ### 🚀 Features
