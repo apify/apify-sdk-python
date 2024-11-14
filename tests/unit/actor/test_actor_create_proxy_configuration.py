@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import typing
 from typing import TYPE_CHECKING
 
 import httpx
@@ -7,6 +8,8 @@ import pytest
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
+from crawlee._request import UserData
+from crawlee._types import HttpHeaders, HttpMethod
 
 from apify import Actor
 
@@ -141,3 +144,40 @@ async def test_proxy_configuration_with_actor_proxy_input(
     assert len(route.calls) == 2
 
     await Actor.exit()
+
+
+@pytest.mark.parametrize('request_method', typing.get_args(HttpMethod))
+@pytest.mark.parametrize(
+    'optional_input',
+    [
+        {},
+        {'payload': 'some payload', 'userData': {'some key': 'some value'}, 'headers': {'h1': 'v1', 'h2': 'v2'}},
+    ],
+    ids=['minimal', 'all_options'],
+)
+async def test_actor_create_request_list_request_types(
+    request_method: HttpMethod, optional_input: dict[str, str]
+) -> None:
+    """Tests proper request list generation from both minimal and full inputs for all method types."""
+    minimal_request_dict_input = {'url': 'https://www.abc.com', 'method': request_method}
+    request_dict_input = {**minimal_request_dict_input, **optional_input}
+    example_start_urls_input = [
+        request_dict_input,
+    ]
+
+    generated_request_list = Actor.create_request_list(actor_start_urls_input=example_start_urls_input)
+
+    assert not await generated_request_list.is_empty()
+    generated_request = await generated_request_list.fetch_next_request()
+    assert await generated_request_list.is_empty()
+
+    assert generated_request.method == request_dict_input['method']
+    assert generated_request.url == request_dict_input['url']
+    assert generated_request.payload == request_dict_input.get('payload', '').encode('utf-8')
+    expected_user_data = UserData()
+    if 'userData' in optional_input:
+        for key, value in optional_input['userData'].items():
+            expected_user_data[key] = value
+    assert generated_request.user_data == expected_user_data
+    expected_headers = HttpHeaders(root=optional_input.get('headers', {}))
+    assert generated_request.headers == expected_headers

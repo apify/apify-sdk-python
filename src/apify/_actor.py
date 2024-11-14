@@ -6,7 +6,6 @@ import sys
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
-from crawlee.storages import RequestList
 from lazy_object_proxy import Proxy
 from pydantic import AliasChoices
 from typing_extensions import Self
@@ -14,8 +13,9 @@ from typing_extensions import Self
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
-from crawlee import service_container, Request
+from crawlee import Request, service_container
 from crawlee.events._types import Event, EventPersistStateData
+from crawlee.storages import RequestList
 
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
@@ -976,18 +976,19 @@ class _ActorType:
         return proxy_configuration
 
     @staticmethod
-    def create_request_list(
-        *,
-        actor_start_urls_input: dict
-    ) ->RequestList:
-        return RequestList(requests=[
-            Request.from_url(
-                method=request_input.get("method"),
-                url=request_input.get("url"),
-                payload=request_input.get("payload", "").encode("utf-8"),
-                headers=request_input.get("headers", {}),
-                user_data=request_input.get("userData", {}),
-            ) for request_input in actor_start_urls_input])
+    def create_request_list(*, actor_start_urls_input: dict) -> RequestList:
+        return RequestList(
+            requests=[
+                Request.from_url(
+                    method=request_input.get('method'),
+                    url=request_input.get('url'),
+                    payload=request_input.get('payload', '').encode('utf-8'),
+                    headers=request_input.get('headers', {}),
+                    user_data=request_input.get('userData', {}),
+                )
+                for request_input in actor_start_urls_input
+            ]
+        )
 
 
 Actor = cast(_ActorType, Proxy(_ActorType))
