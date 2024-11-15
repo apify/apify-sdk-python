@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing
 from typing import TYPE_CHECKING
 from unittest import mock
+from unittest.mock import call
 
 import httpx
 import pytest
@@ -11,7 +12,7 @@ from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee._request import UserData
 from crawlee._types import HttpHeaders, HttpMethod
-from crawlee.http_clients import HttpxHttpClient, HttpResponse
+from crawlee.http_clients import HttpResponse, HttpxHttpClient
 
 from apify import Actor
 
@@ -160,14 +161,14 @@ async def test_proxy_configuration_with_actor_proxy_input(
 async def test_actor_create_request_list_request_types(
     request_method: HttpMethod, optional_input: dict[str, str]
 ) -> None:
-    """Tests proper request list generation from both minimal and full inputs for all method types."""
+    """Test proper request list generation from both minimal and full inputs for all method types for simple input."""
     minimal_request_dict_input = {'url': 'https://www.abc.com', 'method': request_method}
     request_dict_input = {**minimal_request_dict_input, **optional_input}
     example_start_urls_input = [
         request_dict_input,
     ]
 
-    generated_request_list =await Actor.create_request_list(actor_start_urls_input=example_start_urls_input)
+    generated_request_list = await Actor.create_request_list(actor_start_urls_input=example_start_urls_input)
 
     assert not await generated_request_list.is_empty()
     generated_request = await generated_request_list.fetch_next_request()
@@ -185,42 +186,89 @@ async def test_actor_create_request_list_request_types(
     assert generated_request.headers == expected_headers
 
 
-async def test_actor_create_request_list_from_url():
-    expected_urls = {"http://www.something.com", "https://www.something_else.com", "http://www.bla.net"}
-    response_body = "blablabla{} more blablabla{} ,\n even more blablbablba.{}".format(*expected_urls)
-    mocked_http_client = HttpxHttpClient()
+def _create_dummy_response(read_output: typing.Iterable[str]) -> HttpResponse:
+    """Create dummy_response that will iterate through read_output when called like dummy_response.read()"""
+
     class DummyResponse(HttpResponse):
         @property
         def http_version(self) -> str:
-            """The HTTP version used in the response."""
-            return ""
+            return ''
 
         @property
         def status_code(self) -> int:
-            """The HTTP status code received from the server."""
             return 200
 
         @property
         def headers(self) -> HttpHeaders:
-            """The HTTP headers received in the response."""
             return HttpHeaders()
 
         def read(self) -> bytes:
-            return response_body.encode('utf-8')
+            return next(read_output).encode('utf-8')
+
+    return DummyResponse()
 
 
-    async def mocked_send_request(*args, **kwargs):
-        return DummyResponse()
-    with mock.patch.object(mocked_http_client, "send_request", mocked_send_request) as mocked_send_request2:
+async def test_actor_create_request_list_from_url_correctly_send_requests() -> None:
+    """Test that injected HttpClient's method send_request is called with properly passed arguments."""
 
-        example_start_urls_input = [
-            {"requestsFromUrl": "https://crawlee.dev/file.txt", 'method': "GET"}
-            ]
+    example_start_urls_input = [
+        {'requestsFromUrl': 'https://crawlee.dev/file.txt', 'method': 'GET'},
+        {'requestsFromUrl': 'https://www.crawlee.dev/file2', 'method': 'PUT'},
+        {
+            'requestsFromUrl': 'https://www.something.som',
+            'method': 'POST',
+            'headers': {'key': 'value'},
+            'payload': 'some_payload',
+            'userData': 'irrelevant',
+        },
+    ]
+    mocked_read_outputs = ('' for url in example_start_urls_input)
+    http_client = HttpxHttpClient()
+    with mock.patch.object(
+        http_client, 'send_request', return_value=_create_dummy_response(mocked_read_outputs)
+    ) as mocked_send_request:
+        await Actor.create_request_list(actor_start_urls_input=example_start_urls_input, http_client=http_client)
+
+    expected_calls = [
+        call(
+            method=example_input['method'],
+            url=example_input['requestsFromUrl'],
+            headers=example_input.get('headers', {}),
+            payload=example_input.get('payload', '').encode('utf-8'),
+        )
+        for example_input in example_start_urls_input
+    ]
+    mocked_send_request.assert_has_calls(expected_calls)
 
 
-        generated_request_list =await Actor.create_request_list(actor_start_urls_input=example_start_urls_input, http_client=mocked_http_client)
+async def test_actor_create_request_list_from_url() -> None:
+    """Test that create_request_list is correctly reading urls from remote url sources and also from simple input."""
+    expected_simple_url = 'https://www.someurl.com'
+    expected_remote_urls_1 = {'http://www.something.com', 'https://www.somethingelse.com', 'http://www.bla.net'}
+    expected_remote_urls_2 = {'http://www.ok.com', 'https://www.true-positive.com'}
+    expected_urls = expected_remote_urls_1 | expected_remote_urls_2 | {expected_simple_url}
+    response_bodies = iter(
+        (
+            'blablabla{} more blablabla{} , even more blablabla. {} '.format(*expected_remote_urls_1),
+            'some stuff{} more stuff{} www.falsepositive www.false_positive.com'.format(*expected_remote_urls_2),
+        )
+    )
+
+    example_start_urls_input = [
+        {'requestsFromUrl': 'https://crawlee.dev/file.txt', 'method': 'GET'},
+        {'url': expected_simple_url, 'method': 'GET'},
+        {'requestsFromUrl': 'https://www.crawlee.dev/file2', 'method': 'GET'},
+    ]
+
+    http_client = HttpxHttpClient()
+    with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
+        generated_request_list = await Actor.create_request_list(
+            actor_start_urls_input=example_start_urls_input, http_client=http_client
+        )
         generated_requests = []
-        while request:= await generated_request_list.fetch_next_request():
+        while request := await generated_request_list.fetch_next_request():
+            print(request)
             generated_requests.append(request)
 
-        assert set(generated_request.url for generated_request in generated_requests) == expected_urls
+    # Check correctly created requests' urls in request list
+    assert {generated_request.url for generated_request in generated_requests} == expected_urls
