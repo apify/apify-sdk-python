@@ -96,10 +96,8 @@ async def test_actor_create_request_list_from_url_correctly_send_requests() -> N
 
     expected_calls = [
         call(
-            method=example_input['method'],
+            method='GET',
             url=example_input['requests_from_url'],
-            headers=example_input.get('headers', {}),
-            payload=example_input.get('payload', '').encode('utf-8'),
         )
         for example_input in example_start_urls_input
     ]
@@ -137,3 +135,7 @@ async def test_actor_create_request_list_from_url() -> None:
 
     # Check correctly created requests' urls in request list
     assert {generated_request.url for generated_request in generated_requests} == expected_urls
+
+async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
+    assert False
+    # TODO test that will check that additional properties, like payload, headers request type are all properly passed.

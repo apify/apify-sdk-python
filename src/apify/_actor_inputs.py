@@ -5,6 +5,7 @@ import re
 from asyncio import Task
 from typing import Any
 
+from functools import partial
 from pydantic import BaseModel, Field
 
 from crawlee import Request
@@ -67,23 +68,34 @@ def _create_requests_from_input(simple_url_inputs: list[_SimpleUrlInput]) -> lis
 async def _create_requests_from_url(
     remote_url_requests_inputs: list[_RequestsFromUrlInput], http_client: BaseHttpClient
 ) -> list[Request]:
+    """Crete list of requests from url.
+
+    Send GET requests to urls defined in each requests_from_url of remote_url_requests_inputs. Run extracting
+    callback on each response body and use URL_NO_COMMAS_REGEX regexp to find all links. Create list of Requests from
+    collected links and additional inputs stored in other attributes of each remote_url_requests_inputs.
+    """
     created_requests: list[Request] = []
 
-    def extract_requests_from_response(task: Task) -> list[Request]:
+    def create_requests_from_response(request_input: _SimpleUrlInput, task: Task) -> list[Request]:
+        """Callback to scrape response body with regexp and create Requests from macthes."""
         matches = re.finditer(URL_NO_COMMAS_REGEX, task.result().read().decode('utf-8'))
-        created_requests.extend([Request.from_url(match.group(0)) for match in matches])
+        created_requests.extend([Request.from_url(
+            match.group(0),
+            method=request_input.method,
+            payload=request_input.payload.encode('utf-8'),
+            headers=request_input.headers,
+            user_data=request_input.user_data) for match in matches])
 
     remote_url_requests = []
-    for request_input in remote_url_requests_inputs:
+    for remote_url_requests_input in remote_url_requests_inputs:
         task = asyncio.create_task(
             http_client.send_request(
-                method=request_input.method,
-                url=request_input.requests_from_url,
-                headers=request_input.headers,
-                payload=request_input.payload.encode('utf-8'),
+                method='GET',
+                url=remote_url_requests_input.requests_from_url,
             )
         )
-        task.add_done_callback(extract_requests_from_response)
+
+        task.add_done_callback(partial(create_requests_from_response, remote_url_requests_input))
         remote_url_requests.append(task)
 
     await asyncio.gather(*remote_url_requests)
