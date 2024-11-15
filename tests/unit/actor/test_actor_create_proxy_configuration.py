@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import httpx
 import pytest
@@ -10,6 +11,7 @@ from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee._request import UserData
 from crawlee._types import HttpHeaders, HttpMethod
+from crawlee.http_clients import HttpxHttpClient, HttpResponse
 
 from apify import Actor
 
@@ -165,7 +167,7 @@ async def test_actor_create_request_list_request_types(
         request_dict_input,
     ]
 
-    generated_request_list = Actor.create_request_list(actor_start_urls_input=example_start_urls_input)
+    generated_request_list =await Actor.create_request_list(actor_start_urls_input=example_start_urls_input)
 
     assert not await generated_request_list.is_empty()
     generated_request = await generated_request_list.fetch_next_request()
@@ -181,3 +183,44 @@ async def test_actor_create_request_list_request_types(
     assert generated_request.user_data == expected_user_data
     expected_headers = HttpHeaders(root=optional_input.get('headers', {}))
     assert generated_request.headers == expected_headers
+
+
+async def test_actor_create_request_list_from_url():
+    expected_urls = {"http://www.something.com", "https://www.something_else.com", "http://www.bla.net"}
+    response_body = "blablabla{} more blablabla{} ,\n even more blablbablba.{}".format(*expected_urls)
+    mocked_http_client = HttpxHttpClient()
+    class DummyResponse(HttpResponse):
+        @property
+        def http_version(self) -> str:
+            """The HTTP version used in the response."""
+            return ""
+
+        @property
+        def status_code(self) -> int:
+            """The HTTP status code received from the server."""
+            return 200
+
+        @property
+        def headers(self) -> HttpHeaders:
+            """The HTTP headers received in the response."""
+            return HttpHeaders()
+
+        def read(self) -> bytes:
+            return response_body.encode('utf-8')
+
+
+    async def mocked_send_request(*args, **kwargs):
+        return DummyResponse()
+    with mock.patch.object(mocked_http_client, "send_request", mocked_send_request) as mocked_send_request2:
+
+        example_start_urls_input = [
+            {"requestsFromUrl": "https://crawlee.dev/file.txt", 'method': "GET"}
+            ]
+
+
+        generated_request_list =await Actor.create_request_list(actor_start_urls_input=example_start_urls_input, http_client=mocked_http_client)
+        generated_requests = []
+        while request:= await generated_request_list.fetch_next_request():
+            generated_requests.append(request)
+
+        assert set(generated_request.url for generated_request in generated_requests) == expected_urls

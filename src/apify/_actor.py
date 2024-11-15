@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
 from datetime import timedelta
+from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
+from crawlee.http_clients import HttpxHttpClient, HttpResponse, BaseHttpClient
 from lazy_object_proxy import Proxy
 from pydantic import AliasChoices
 from typing_extensions import Self
@@ -38,6 +41,10 @@ if TYPE_CHECKING:
 
 
 MainReturnType = TypeVar('MainReturnType')
+
+URL_NO_COMMAS_REGEX = re.compile(r"https?:\/\/(www\.)?([a-zA-Z0-9]|[a-zA-Z0-9][-a-zA-Z0-9@:%._+~#=]{0,254}[a-zA-Z0-9])\.[a-z]{2,63}(:\d{1,5})?(\/[-a-zA-Z0-9@:%_+.~#?&/=()]*)?")
+# JS version. TODO rewrite to Python regexp
+# /https?:\/\/(www\.)?([\p{L}0-9]|[\p{L}0-9][-\p{L}0-9@:%._+~#=]{0,254}[\p{L}0-9])\.[a-z]{2,63}(:\d{1,5})?(\/[-\p{L}0-9@:%_+.~#?&/=()]*)?/giu;
 
 
 class _ActorType:
@@ -976,9 +983,18 @@ class _ActorType:
         return proxy_configuration
 
     @staticmethod
-    def create_request_list(*, actor_start_urls_input: dict) -> RequestList:
-        return RequestList(
-            requests=[
+    async def create_request_list(*, actor_start_urls_input: dict, http_client: BaseHttpClient = HttpxHttpClient()) -> RequestList:
+        simple_url_requests_inputs = [request_input for request_input in actor_start_urls_input if "url" in request_input]
+        remote_url_requests_inputs = [request_input for request_input in actor_start_urls_input if "requestsFromUrl" in request_input]
+
+        simple_url_requests = Actor._create_requests_from_input(simple_url_requests_inputs)
+        remote_url_requests = await Actor._create_requests_from_url(remote_url_requests_inputs, http_client=http_client)
+
+        return RequestList(requests=simple_url_requests + remote_url_requests)
+
+    @staticmethod
+    def _create_requests_from_input(simple_url_requests_inputs: list[dict[str,str]]) -> list[Request]:
+        return [
                 Request.from_url(
                     method=request_input.get('method'),
                     url=request_input.get('url'),
@@ -986,10 +1002,25 @@ class _ActorType:
                     headers=request_input.get('headers', {}),
                     user_data=request_input.get('userData', {}),
                 )
-                for request_input in actor_start_urls_input
-            ]
-        )
+                for request_input in simple_url_requests_inputs]
 
+    @staticmethod
+    async def _create_requests_from_url(remote_url_requests_inputs: list[dict[str,str]], http_client: BaseHttpClient ) -> list[Request]:
+        remote_url_requests = []
+        for input in remote_url_requests_inputs:
+            remote_url_requests.append(asyncio.create_task(http_client.send_request(
+                url=input["requestsFromUrl"],
+                headers=input.get("headers", {}),
+                payload=input.get("payload", "").encode('utf-8'),
+            )))
+        await asyncio.gather(*remote_url_requests)
+        # TODO as callbacks
+        return list(chain.from_iterable((Actor.extract_requests_from_response(finished_request.result()) for finished_request in remote_url_requests)))
+
+    @staticmethod
+    def extract_requests_from_response(response: HttpResponse) -> list[Request]:
+        matches = list(re.finditer(URL_NO_COMMAS_REGEX, response.read().decode('utf-8')))
+        return [Request.from_url(match.group(0)) for match in matches]
 
 Actor = cast(_ActorType, Proxy(_ActorType))
 """The entry point of the SDK, through which all the Actor operations should be done."""
