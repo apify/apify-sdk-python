@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import typing
 from unittest import mock
 from unittest.mock import call
@@ -11,6 +12,7 @@ from crawlee._types import HttpHeaders, HttpMethod  #  TODO: Make public in Craw
 from crawlee.http_clients import HttpResponse, HttpxHttpClient
 
 from apify import Actor
+from apify._actor_inputs import URL_NO_COMMAS_REGEX
 
 
 @pytest.mark.parametrize('request_method', typing.get_args(HttpMethod))
@@ -47,8 +49,7 @@ async def test_actor_create_request_list_request_types(
         for key, value in optional_input['user_data'].items():
             expected_user_data[key] = value
     assert generated_request.user_data == expected_user_data
-    expected_headers = HttpHeaders(root=optional_input.get('headers', {}))
-    assert generated_request.headers == expected_headers
+    assert generated_request.headers.root == optional_input.get('headers', {})
 
 
 def _create_dummy_response(read_output: typing.Iterator[str]) -> HttpResponse:
@@ -130,12 +131,74 @@ async def test_actor_create_request_list_from_url() -> None:
         )
         generated_requests = []
         while request := await generated_request_list.fetch_next_request():
-            print(request)
             generated_requests.append(request)
 
     # Check correctly created requests' urls in request list
     assert {generated_request.url for generated_request in generated_requests} == expected_urls
 
 async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
-    assert False
-    # TODO test that will check that additional properties, like payload, headers request type are all properly passed.
+    """Test that all generated request properties are correctly populated from input values."""
+    expected_simple_url = 'https://www.someurl.com'
+    example_start_urls_input = [
+        {'requests_from_url': 'https://crawlee.dev/file.txt',             'method': 'POST',
+            'headers': {'key': 'value'},
+            'payload': 'some_payload',
+            'user_data': {'another_key': 'another_value'}},
+    ]
+    response_bodies = iter((expected_simple_url,))
+    http_client = HttpxHttpClient()
+    with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
+        generated_request_list = await Actor.create_request_list(
+            actor_start_urls_input=example_start_urls_input, http_client=http_client
+        )
+        request = await generated_request_list.fetch_next_request()
+
+    # Check all properties correctly created for request
+    assert request.url == expected_simple_url
+    assert request.method == example_start_urls_input[0]['method']
+    assert request.headers.root == example_start_urls_input[0]['headers']
+    assert request.payload == example_start_urls_input[0]['payload'].encode('utf-8')
+    expected_user_data = UserData()
+    for key, value in example_start_urls_input[0]['user_data'].items():
+        expected_user_data[key] = value
+    assert request.user_data == expected_user_data
+
+
+@pytest.mark.parametrize('true_positive', [
+    'http://www.something.com',
+    'https://www.something.net',
+    'http://nowww.cz',
+    'https://with-hypen.com',
+    'http://number1.com',
+    'http://www.number.123',
+    'http://many.dots.com',
+    'http://a.com',
+    'http://www.something.com/somethignelse'
+    'http://www.something.com/somethignelse.txt',
+    #  "http://non-english-chars-á.com"  # re module not suitable, regex can do this with \p{L}. Do we want this?
+])
+def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
+    example_string= f'Some text {true_positive} some more text'
+    matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
+    assert len(matches) == 1
+    assert matches[0].group(0) == true_positive
+
+@pytest.mark.parametrize('false_positive',[
+    'http://www.a',
+    'http://a',
+    'http://a.a',
+    'http://123.456',
+    'www.something.com',
+    'http:www.something.com',
+])
+def test_url_no_commas_regex_false_positives(false_positive: str) -> None:
+    example_string= f'Some text {false_positive} some more text'
+    matches = list(re.findall(URL_NO_COMMAS_REGEX, example_string))
+    assert len(matches) == 0
+
+def test_url_no_commas_regex_multi_line() -> None:
+    true_positives = ('http://www.something.com', 'http://www.else.com')
+    example_string= 'Some text {} some more text \n Some new line text {} ...'.format(*true_positives)
+    matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
+    assert len(matches) == 2
+    assert {match.group(0) for match in matches} == set(true_positives)

@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import re
 from asyncio import Task
+from functools import partial
 from typing import Any
 
-from functools import partial
 from pydantic import BaseModel, Field
 
 from crawlee import Request
