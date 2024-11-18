@@ -2824,17 +2824,6 @@ files = [
 ]
 
 [[package]]
-name = "types-regex"
-version = "2024.11.6.20241108"
-description = "Typing stubs for regex"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "types-regex-2024.11.6.20241108.tar.gz", hash = "sha256:a774e307b99b3df49481b29e8b4962f021693052a8d8a2b9e6792fcec896cf5e"},
-    {file = "types_regex-2024.11.6.20241108-py3-none-any.whl", hash = "sha256:adec2ff2dfed00855551057334466fde923606599d01e7440556d53a3ef20835"},
-]
-
-[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -3226,4 +3215,4 @@ scrapy = ["scrapy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "da388b618b4c9b95567d426529d0b7cda05d33909995c409e595c99e6f1767ff"
+content-hash = "3698d5b2d562a7a83489d316a70b6685d4276f9aa9adb904ea5f39479cc8eeee"
