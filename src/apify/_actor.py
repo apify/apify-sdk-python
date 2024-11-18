@@ -16,7 +16,6 @@ from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee import service_container
 from crawlee.events._types import Event, EventPersistStateData
 
-from apify._actor_inputs import _create_request_list
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -32,9 +31,7 @@ if TYPE_CHECKING:
     import logging
     from types import TracebackType
 
-    from crawlee.http_clients import BaseHttpClient
     from crawlee.proxy_configuration import _NewUrlFunction
-    from crawlee.storages import RequestList
 
     from apify._models import Webhook
 
@@ -976,22 +973,6 @@ class _ActorType:
         await proxy_configuration.initialize()
 
         return proxy_configuration
-
-    @staticmethod
-    async def create_request_list(
-        *, actor_start_urls_input: list[dict[str, Any]], http_client: BaseHttpClient | None = None
-    ) -> RequestList:
-        """Creates request list from Actor input requestListSources. This accepts list of urls and requests_from_url.
-
-        Example:
-            actor_start_urls_input = [
-                # Gather urls from response body.
-                {'requests_from_url': 'https://crawlee.dev/file.txt', 'method': 'GET'},
-                # Directly include this url.
-                {'url': 'https://crawlee.dev', 'method': 'GET'}
-            ]
-        """
-        return await _create_request_list(actor_start_urls_input=actor_start_urls_input, http_client=http_client)
 
 
 Actor = cast(_ActorType, Proxy(_ActorType))

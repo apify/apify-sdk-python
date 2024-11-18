@@ -1,58 +1,57 @@
 from __future__ import annotations
 
-import re
-import typing
+from typing import Any, Iterator, get_args
 from unittest import mock
 from unittest.mock import call
 
 import pytest
+import regex
 
-from crawlee._request import UserData  #  TODO: Make public in Crawlee?
-from crawlee._types import HttpHeaders, HttpMethod  #  TODO: Make public in Crawlee?
+from crawlee._request import UserData
+from crawlee._types import HttpHeaders, HttpMethod
 from crawlee.http_clients import HttpResponse, HttpxHttpClient
 
-from apify import Actor
-from apify._actor_inputs import URL_NO_COMMAS_REGEX
+from apify.storages._actor_inputs import URL_NO_COMMAS_REGEX, ActorInputKeys, Input
 
 
-@pytest.mark.parametrize('request_method', typing.get_args(HttpMethod))
+@pytest.mark.parametrize('request_method', get_args(HttpMethod))
 @pytest.mark.parametrize(
     'optional_input',
     [
         {},
-        {'payload': 'some payload', 'user_data': {'some key': 'some value'}, 'headers': {'h1': 'v1', 'h2': 'v2'}},
+        {ActorInputKeys.startUrls.payload: 'some payload', ActorInputKeys.startUrls.userData:
+            {'some key': 'some value'}, ActorInputKeys.startUrls.headers: {'h1': 'v1', 'h2': 'v2'}},
     ],
     ids=['minimal', 'all_options'],
 )
 async def test_actor_create_request_list_request_types(
-    request_method: HttpMethod, optional_input: dict[str, typing.Any]
+    request_method: HttpMethod, optional_input: dict[str, Any]
 ) -> None:
     """Test proper request list generation from both minimal and full inputs for all method types for simple input."""
-    minimal_request_dict_input = {'url': 'https://www.abc.com', 'method': request_method}
+    minimal_request_dict_input = {ActorInputKeys.startUrls.url: 'https://www.abc.com',
+                                  ActorInputKeys.startUrls.method: request_method}
     request_dict_input = {**minimal_request_dict_input, **optional_input}
-    example_start_urls_input = [
-        request_dict_input,
-    ]
+    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls: [request_dict_input]}
 
-    generated_request_list = await Actor.create_request_list(actor_start_urls_input=example_start_urls_input)
+    generated_input = await Input.read(example_actor_input)
 
-    assert not await generated_request_list.is_empty()
-    generated_request = await generated_request_list.fetch_next_request()
+    assert not await generated_input.start_urls.is_empty()
+    generated_request = await generated_input.start_urls.fetch_next_request()
     assert generated_request is not None
-    assert await generated_request_list.is_empty()
+    assert await generated_input.start_urls.is_empty()
 
-    assert generated_request.method == request_dict_input['method']
-    assert generated_request.url == request_dict_input['url']
-    assert generated_request.payload == request_dict_input.get('payload', '').encode('utf-8')
+    assert generated_request.method == request_dict_input[ActorInputKeys.startUrls.method]
+    assert generated_request.url == request_dict_input[ActorInputKeys.startUrls.url]
+    assert generated_request.payload == request_dict_input.get(ActorInputKeys.startUrls.payload, '').encode('utf-8')
     expected_user_data = UserData()
-    if 'user_data' in optional_input:
-        for key, value in optional_input['user_data'].items():
+    if ActorInputKeys.startUrls.userData in optional_input:
+        for key, value in optional_input[ActorInputKeys.startUrls.userData].items():
             expected_user_data[key] = value
     assert generated_request.user_data == expected_user_data
-    assert generated_request.headers.root == optional_input.get('headers', {})
+    assert generated_request.headers.root == optional_input.get(ActorInputKeys.startUrls.headers, {})
 
 
-def _create_dummy_response(read_output: typing.Iterator[str]) -> HttpResponse:
+def _create_dummy_response(read_output: Iterator[str]) -> HttpResponse:
     """Create dummy_response that will iterate through read_output when called like dummy_response.read()"""
 
     class DummyResponse(HttpResponse):
@@ -76,31 +75,31 @@ def _create_dummy_response(read_output: typing.Iterator[str]) -> HttpResponse:
 
 async def test_actor_create_request_list_from_url_correctly_send_requests() -> None:
     """Test that injected HttpClient's method send_request is called with properly passed arguments."""
-
-    example_start_urls_input: list[dict[str, typing.Any]] = [
-        {'requests_from_url': 'https://crawlee.dev/file.txt', 'method': 'GET'},
-        {'requests_from_url': 'https://www.crawlee.dev/file2', 'method': 'PUT'},
+    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls: [
+        {ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt', ActorInputKeys.startUrls.method: 'GET'},
+        {ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2', ActorInputKeys.startUrls.method: 'PUT'},
         {
-            'requests_from_url': 'https://www.something.som',
-            'method': 'POST',
-            'headers': {'key': 'value'},
-            'payload': 'some_payload',
-            'user_data': {'another_key': 'another_value'},
+            ActorInputKeys.startUrls.requestsFromUrl: 'https://www.something.som',
+            ActorInputKeys.startUrls.method: 'POST',
+            ActorInputKeys.startUrls.headers: {'key': 'value'},
+            ActorInputKeys.startUrls.payload: 'some_payload',
+            ActorInputKeys.startUrls.userData: {'another_key': 'another_value'},
         },
-    ]
-    mocked_read_outputs = ('' for url in example_start_urls_input)
+    ]}
+
+    mocked_read_outputs = ('' for url in example_actor_input[ActorInputKeys.startUrls])
     http_client = HttpxHttpClient()
     with mock.patch.object(
         http_client, 'send_request', return_value=_create_dummy_response(mocked_read_outputs)
     ) as mocked_send_request:
-        await Actor.create_request_list(actor_start_urls_input=example_start_urls_input, http_client=http_client)
+        await Input.read(example_actor_input, http_client=http_client)
 
     expected_calls = [
         call(
             method='GET',
-            url=example_input['requests_from_url'],
+            url=example_input[ActorInputKeys.startUrls.requestsFromUrl],
         )
-        for example_input in example_start_urls_input
+        for example_input in example_actor_input[ActorInputKeys.startUrls]
     ]
     mocked_send_request.assert_has_calls(expected_calls)
 
@@ -118,19 +117,17 @@ async def test_actor_create_request_list_from_url() -> None:
         )
     )
 
-    example_start_urls_input = [
-        {'requests_from_url': 'https://crawlee.dev/file.txt', 'method': 'GET'},
-        {'url': expected_simple_url, 'method': 'GET'},
-        {'requests_from_url': 'https://www.crawlee.dev/file2', 'method': 'GET'},
-    ]
+    example_actor_input:dict[str, Any] = {ActorInputKeys.startUrls:[
+        {ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt', ActorInputKeys.startUrls.method: 'GET'},
+        {ActorInputKeys.startUrls.url: expected_simple_url, ActorInputKeys.startUrls.method: 'GET'},
+        {ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2', ActorInputKeys.startUrls.method: 'GET'},
+    ]}
 
     http_client = HttpxHttpClient()
     with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        generated_request_list = await Actor.create_request_list(
-            actor_start_urls_input=example_start_urls_input, http_client=http_client
-        )
+        generated_input = await Input.read(example_actor_input, http_client=http_client)
         generated_requests = []
-        while request := await generated_request_list.fetch_next_request():
+        while request := await generated_input.start_urls.fetch_next_request():
             generated_requests.append(request)
 
     # Check correctly created requests' urls in request list
@@ -139,27 +136,27 @@ async def test_actor_create_request_list_from_url() -> None:
 async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
     """Test that all generated request properties are correctly populated from input values."""
     expected_simple_url = 'https://www.someurl.com'
-    example_start_urls_input = [
-        {'requests_from_url': 'https://crawlee.dev/file.txt',             'method': 'POST',
-            'headers': {'key': 'value'},
-            'payload': 'some_payload',
-            'user_data': {'another_key': 'another_value'}},
-    ]
+    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls:[
+        {ActorInputKeys.startUrls.requestsFromUrl: 'https://crawlee.dev/file.txt', 'method': 'POST',
+         ActorInputKeys.startUrls.headers: {'key': 'value'},
+         ActorInputKeys.startUrls.payload: 'some_payload',
+         ActorInputKeys.startUrls.userData: {'another_key': 'another_value'}},
+    ]}
     response_bodies = iter((expected_simple_url,))
     http_client = HttpxHttpClient()
     with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        generated_request_list = await Actor.create_request_list(
-            actor_start_urls_input=example_start_urls_input, http_client=http_client
-        )
-        request = await generated_request_list.fetch_next_request()
+        generated_input = await Input.read(example_actor_input, http_client=http_client)
+        request = await generated_input.start_urls.fetch_next_request()
 
     # Check all properties correctly created for request
+    assert request
     assert request.url == expected_simple_url
-    assert request.method == example_start_urls_input[0]['method']
-    assert request.headers.root == example_start_urls_input[0]['headers']
-    assert request.payload == example_start_urls_input[0]['payload'].encode('utf-8')
+    assert request.method == example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.method]
+    assert request.headers.root == example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.headers]
+    assert request.payload == example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.payload].encode(
+        'utf-8')
     expected_user_data = UserData()
-    for key, value in example_start_urls_input[0]['user_data'].items():
+    for key, value in example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.userData].items():
         expected_user_data[key] = value
     assert request.user_data == expected_user_data
 
@@ -170,16 +167,16 @@ async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
     'http://nowww.cz',
     'https://with-hypen.com',
     'http://number1.com',
-    'http://www.number.123',
+    'http://www.number.123.abc',
     'http://many.dots.com',
     'http://a.com',
     'http://www.something.com/somethignelse'
     'http://www.something.com/somethignelse.txt',
-    #  "http://non-english-chars-á.com"  # re module not suitable, regex can do this with \p{L}. Do we want this?
+    'http://non-english-chars-áíéåü.com'
 ])
 def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
     example_string= f'Some text {true_positive} some more text'
-    matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
+    matches = list(regex.finditer(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 1
     assert matches[0].group(0) == true_positive
 
@@ -193,12 +190,12 @@ def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
 ])
 def test_url_no_commas_regex_false_positives(false_positive: str) -> None:
     example_string= f'Some text {false_positive} some more text'
-    matches = list(re.findall(URL_NO_COMMAS_REGEX, example_string))
+    matches = list(regex.findall(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 0
 
 def test_url_no_commas_regex_multi_line() -> None:
     true_positives = ('http://www.something.com', 'http://www.else.com')
     example_string= 'Some text {} some more text \n Some new line text {} ...'.format(*true_positives)
-    matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
+    matches = list(regex.finditer(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 2
     assert {match.group(0) for match in matches} == set(true_positives)

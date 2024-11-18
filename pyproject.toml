@@ -55,6 +55,7 @@ lazy-object-proxy = ">=1.10.0"
 scrapy = { version = ">=2.11.0", optional = true }
 typing-extensions = ">=4.1.0"
 websockets = ">=10.0 <14.0.0"
+regex = "^2024.11.6"
 
 [tool.poetry.group.dev.dependencies]
 build = "~1.2.0"
@@ -72,6 +73,7 @@ pytest-xdist = "~3.6.0"
 respx = "~0.21.0"
 ruff = "~0.7.0"
 setuptools = "~75.0.0"     # setuptools are used by pytest but not explicitly required
+types-regex = "^2024.11.6.20241108"
 
 [tool.poetry.extras]
 scrapy = ["scrapy"]
