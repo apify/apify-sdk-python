@@ -136,12 +136,13 @@ async def test_actor_create_request_list_from_url() -> None:
 async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
     """Test that all generated request properties are correctly populated from input values."""
     expected_simple_url = 'https://www.someurl.com'
-    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls:[
-        {ActorInputKeys.startUrls.requestsFromUrl: 'https://crawlee.dev/file.txt', 'method': 'POST',
-         ActorInputKeys.startUrls.headers: {'key': 'value'},
-         ActorInputKeys.startUrls.payload: 'some_payload',
-         ActorInputKeys.startUrls.userData: {'another_key': 'another_value'}},
-    ]}
+    example_start_url_input = {
+        ActorInputKeys.startUrls.requestsFromUrl: 'https://crawlee.dev/file.txt',
+        ActorInputKeys.startUrls.method: 'POST',
+        ActorInputKeys.startUrls.headers: {'key': 'value'},
+        ActorInputKeys.startUrls.payload: 'some_payload',
+        ActorInputKeys.startUrls.userData: {'another_key': 'another_value'}}
+    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls:[example_start_url_input]}
     response_bodies = iter((expected_simple_url,))
     http_client = HttpxHttpClient()
     with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
@@ -149,12 +150,12 @@ async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
         request = await generated_input.start_urls.fetch_next_request()
 
     # Check all properties correctly created for request
+    example_start_url_input = example_actor_input[ActorInputKeys.startUrls][0]
     assert request
     assert request.url == expected_simple_url
-    assert request.method == example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.method]
-    assert request.headers.root == example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.headers]
-    assert request.payload == example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.payload].encode(
-        'utf-8')
+    assert request.method == example_start_url_input[ActorInputKeys.startUrls.method]
+    assert request.headers.root == example_start_url_input[ActorInputKeys.startUrls.headers]
+    assert request.payload == str(example_start_url_input[ActorInputKeys.startUrls.payload]).encode('utf-8')
     expected_user_data = UserData()
     for key, value in example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.userData].items():
         expected_user_data[key] = value
@@ -174,7 +175,7 @@ async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
     'http://www.something.com/somethignelse.txt',
     'http://non-english-chars-áíéåü.com',
     'http://www.port.com:1234',
-    'http://username:password@something.apify.com'
+    'http://username:password@something.else.com'
 ])
 def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
     example_string= f'Some text {true_positive} some more text'
