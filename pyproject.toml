@@ -55,7 +55,6 @@ lazy-object-proxy = ">=1.10.0"
 scrapy = { version = ">=2.11.0", optional = true }
 typing-extensions = ">=4.1.0"
 websockets = ">=10.0 <14.0.0"
-regex = "^2024.11.6"
 
 [tool.poetry.group.dev.dependencies]
 build = "~1.2.0"

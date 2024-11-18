@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Iterator, get_args
 from unittest import mock
 from unittest.mock import call
 
 import pytest
-import regex
 
 from crawlee._request import UserData
 from crawlee._types import HttpHeaders, HttpMethod
@@ -172,11 +172,13 @@ async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
     'http://a.com',
     'http://www.something.com/somethignelse'
     'http://www.something.com/somethignelse.txt',
-    'http://non-english-chars-áíéåü.com'
+    'http://non-english-chars-áíéåü.com',
+    'http://www.port.com:1234',
+    'http://username:password@something.apify.com'
 ])
 def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
     example_string= f'Some text {true_positive} some more text'
-    matches = list(regex.finditer(URL_NO_COMMAS_REGEX, example_string))
+    matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 1
     assert matches[0].group(0) == true_positive
 
@@ -190,12 +192,12 @@ def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
 ])
 def test_url_no_commas_regex_false_positives(false_positive: str) -> None:
     example_string= f'Some text {false_positive} some more text'
-    matches = list(regex.findall(URL_NO_COMMAS_REGEX, example_string))
+    matches = list(re.findall(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 0
 
 def test_url_no_commas_regex_multi_line() -> None:
     true_positives = ('http://www.something.com', 'http://www.else.com')
     example_string= 'Some text {} some more text \n Some new line text {} ...'.format(*true_positives)
-    matches = list(regex.finditer(URL_NO_COMMAS_REGEX, example_string))
+    matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 2
     assert {match.group(0) for match in matches} == set(true_positives)

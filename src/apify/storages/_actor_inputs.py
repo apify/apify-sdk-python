@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from asyncio import Task
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-import regex
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
@@ -18,8 +18,8 @@ from crawlee.storages import RequestList
 
 from ._known_actor_input_keys import ActorInputKeys
 
-URL_NO_COMMAS_REGEX = regex.compile(
-    r'https?:\/\/(www\.)?([\p{L}0-9]|[\p{L}0-9][-\p{L}0-9@:%._+~#=]{0,254}[\p{L}0-9])\.[a-z]{2,63}(:\d{1,5})?(\/[-\p{L}0-9@:%_+.~#?&/=()]*)?'
+URL_NO_COMMAS_REGEX = re.compile(
+    r'https?:\/\/(www\.)?([^\W_]|[^\W_][-\w0-9@:%._+~#=]{0,254}[^\W_])\.[a-z]{2,63}(:\d{1,5})?(\/[-\w@:%+.~#?&/=()]*)?'
 )
 
 
@@ -108,7 +108,7 @@ async def _create_requests_from_url(
 
     def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
         """Callback to scrape response body with regexp and create Requests from matches."""
-        matches = regex.finditer(URL_NO_COMMAS_REGEX, task.result().read().decode('utf-8'))
+        matches = re.finditer(URL_NO_COMMAS_REGEX, task.result().read().decode('utf-8'))
         created_requests.extend([Request.from_url(
             match.group(0),
             method=request_input.method,
