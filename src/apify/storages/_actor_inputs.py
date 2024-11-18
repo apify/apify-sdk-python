@@ -23,12 +23,12 @@ URL_NO_COMMAS_REGEX = re.compile(
 )
 
 
-
 class _RequestDetails(BaseModel):
     method: HttpMethod
     payload: str = ''
     headers: dict[str, str] = Field(default_factory=dict)
-    user_data: dict[str, str]= Field(default_factory=dict, alias=ActorInputKeys.startUrls.userData)
+    user_data: dict[str, str] = Field(default_factory=dict, alias=ActorInputKeys.startUrls.userData)
+
 
 class _RequestsFromUrlInput(_RequestDetails):
     requests_from_url: str = Field(alias=ActorInputKeys.startUrls.requestsFromUrl)
@@ -36,6 +36,7 @@ class _RequestsFromUrlInput(_RequestDetails):
 
 class _SimpleUrlInput(_RequestDetails):
     url: str
+
 
 class Input(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -45,10 +46,12 @@ class Input(BaseModel):
     async def read(cls, raw_input: dict[str, Any], http_client: BaseHttpClient | None = None) -> Self:
         if ActorInputKeys.startUrls in raw_input:
             request_list = await _create_request_list(
-                actor_start_urls_input=raw_input[ActorInputKeys.startUrls], http_client=http_client)
+                actor_start_urls_input=raw_input[ActorInputKeys.startUrls], http_client=http_client
+            )
         else:
             request_list = RequestList()
         return cls(start_urls=request_list)
+
 
 async def _create_request_list(
     *, actor_start_urls_input: list[dict[str, Any]], http_client: BaseHttpClient | None = None
@@ -69,10 +72,13 @@ async def _create_request_list(
     if not http_client:
         http_client = HttpxHttpClient()
     simple_url_requests_inputs = [
-        _SimpleUrlInput(**request_input) for request_input in actor_start_urls_input
-        if ActorInputKeys.startUrls.url in request_input]
+        _SimpleUrlInput(**request_input)
+        for request_input in actor_start_urls_input
+        if ActorInputKeys.startUrls.url in request_input
+    ]
     remote_url_requests_inputs = [
-        _RequestsFromUrlInput(**request_input) for request_input in actor_start_urls_input
+        _RequestsFromUrlInput(**request_input)
+        for request_input in actor_start_urls_input
         if ActorInputKeys.startUrls.requestsFromUrl in request_input
     ]
 
@@ -109,12 +115,18 @@ async def _create_requests_from_url(
     def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
         """Callback to scrape response body with regexp and create Requests from matches."""
         matches = re.finditer(URL_NO_COMMAS_REGEX, task.result().read().decode('utf-8'))
-        created_requests.extend([Request.from_url(
-            match.group(0),
-            method=request_input.method,
-            payload=request_input.payload.encode('utf-8'),
-            headers=request_input.headers,
-            user_data=request_input.user_data) for match in matches])
+        created_requests.extend(
+            [
+                Request.from_url(
+                    match.group(0),
+                    method=request_input.method,
+                    payload=request_input.payload.encode('utf-8'),
+                    headers=request_input.headers,
+                    user_data=request_input.user_data,
+                )
+                for match in matches
+            ]
+        )
 
     remote_url_requests = []
     for remote_url_requests_input in remote_url_requests_inputs:

@@ -19,8 +19,11 @@ from apify.storages._actor_inputs import URL_NO_COMMAS_REGEX, ActorInputKeys, In
     'optional_input',
     [
         {},
-        {ActorInputKeys.startUrls.payload: 'some payload', ActorInputKeys.startUrls.userData:
-            {'some key': 'some value'}, ActorInputKeys.startUrls.headers: {'h1': 'v1', 'h2': 'v2'}},
+        {
+            ActorInputKeys.startUrls.payload: 'some payload',
+            ActorInputKeys.startUrls.userData: {'some key': 'some value'},
+            ActorInputKeys.startUrls.headers: {'h1': 'v1', 'h2': 'v2'},
+        },
     ],
     ids=['minimal', 'all_options'],
 )
@@ -28,8 +31,10 @@ async def test_actor_create_request_list_request_types(
     request_method: HttpMethod, optional_input: dict[str, Any]
 ) -> None:
     """Test proper request list generation from both minimal and full inputs for all method types for simple input."""
-    minimal_request_dict_input = {ActorInputKeys.startUrls.url: 'https://www.abc.com',
-                                  ActorInputKeys.startUrls.method: request_method}
+    minimal_request_dict_input = {
+        ActorInputKeys.startUrls.url: 'https://www.abc.com',
+        ActorInputKeys.startUrls.method: request_method,
+    }
     request_dict_input = {**minimal_request_dict_input, **optional_input}
     example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls: [request_dict_input]}
 
@@ -75,17 +80,25 @@ def _create_dummy_response(read_output: Iterator[str]) -> HttpResponse:
 
 async def test_actor_create_request_list_from_url_correctly_send_requests() -> None:
     """Test that injected HttpClient's method send_request is called with properly passed arguments."""
-    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls: [
-        {ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt', ActorInputKeys.startUrls.method: 'GET'},
-        {ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2', ActorInputKeys.startUrls.method: 'PUT'},
-        {
-            ActorInputKeys.startUrls.requestsFromUrl: 'https://www.something.som',
-            ActorInputKeys.startUrls.method: 'POST',
-            ActorInputKeys.startUrls.headers: {'key': 'value'},
-            ActorInputKeys.startUrls.payload: 'some_payload',
-            ActorInputKeys.startUrls.userData: {'another_key': 'another_value'},
-        },
-    ]}
+    example_actor_input: dict[str, Any] = {
+        ActorInputKeys.startUrls: [
+            {
+                ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt',
+                ActorInputKeys.startUrls.method: 'GET',
+            },
+            {
+                ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2',
+                ActorInputKeys.startUrls.method: 'PUT',
+            },
+            {
+                ActorInputKeys.startUrls.requestsFromUrl: 'https://www.something.som',
+                ActorInputKeys.startUrls.method: 'POST',
+                ActorInputKeys.startUrls.headers: {'key': 'value'},
+                ActorInputKeys.startUrls.payload: 'some_payload',
+                ActorInputKeys.startUrls.userData: {'another_key': 'another_value'},
+            },
+        ]
+    }
 
     mocked_read_outputs = ('' for url in example_actor_input[ActorInputKeys.startUrls])
     http_client = HttpxHttpClient()
@@ -117,11 +130,19 @@ async def test_actor_create_request_list_from_url() -> None:
         )
     )
 
-    example_actor_input:dict[str, Any] = {ActorInputKeys.startUrls:[
-        {ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt', ActorInputKeys.startUrls.method: 'GET'},
-        {ActorInputKeys.startUrls.url: expected_simple_url, ActorInputKeys.startUrls.method: 'GET'},
-        {ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2', ActorInputKeys.startUrls.method: 'GET'},
-    ]}
+    example_actor_input: dict[str, Any] = {
+        ActorInputKeys.startUrls: [
+            {
+                ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt',
+                ActorInputKeys.startUrls.method: 'GET',
+            },
+            {ActorInputKeys.startUrls.url: expected_simple_url, ActorInputKeys.startUrls.method: 'GET'},
+            {
+                ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2',
+                ActorInputKeys.startUrls.method: 'GET',
+            },
+        ]
+    }
 
     http_client = HttpxHttpClient()
     with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
@@ -133,7 +154,8 @@ async def test_actor_create_request_list_from_url() -> None:
     # Check correctly created requests' urls in request list
     assert {generated_request.url for generated_request in generated_requests} == expected_urls
 
-async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
+
+async def test_actor_create_request_list_from_url_additional_inputs() -> None:
     """Test that all generated request properties are correctly populated from input values."""
     expected_simple_url = 'https://www.someurl.com'
     example_start_url_input = {
@@ -141,8 +163,9 @@ async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
         ActorInputKeys.startUrls.method: 'POST',
         ActorInputKeys.startUrls.headers: {'key': 'value'},
         ActorInputKeys.startUrls.payload: 'some_payload',
-        ActorInputKeys.startUrls.userData: {'another_key': 'another_value'}}
-    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls:[example_start_url_input]}
+        ActorInputKeys.startUrls.userData: {'another_key': 'another_value'},
+    }
+    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls: [example_start_url_input]}
     response_bodies = iter((expected_simple_url,))
     http_client = HttpxHttpClient()
     with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
@@ -162,43 +185,50 @@ async def test_actor_create_request_list_from_url_additional_inputs()  -> None:
     assert request.user_data == expected_user_data
 
 
-@pytest.mark.parametrize('true_positive', [
-    'http://www.something.com',
-    'https://www.something.net',
-    'http://nowww.cz',
-    'https://with-hypen.com',
-    'http://number1.com',
-    'http://www.number.123.abc',
-    'http://many.dots.com',
-    'http://a.com',
-    'http://www.something.com/somethignelse'
-    'http://www.something.com/somethignelse.txt',
-    'http://non-english-chars-áíéåü.com',
-    'http://www.port.com:1234',
-    'http://username:password@something.else.com'
-])
+@pytest.mark.parametrize(
+    'true_positive',
+    [
+        'http://www.something.com',
+        'https://www.something.net',
+        'http://nowww.cz',
+        'https://with-hypen.com',
+        'http://number1.com',
+        'http://www.number.123.abc',
+        'http://many.dots.com',
+        'http://a.com',
+        'http://www.something.com/somethignelse' 'http://www.something.com/somethignelse.txt',
+        'http://non-english-chars-áíéåü.com',
+        'http://www.port.com:1234',
+        'http://username:password@something.else.com',
+    ],
+)
 def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
-    example_string= f'Some text {true_positive} some more text'
+    example_string = f'Some text {true_positive} some more text'
     matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 1
     assert matches[0].group(0) == true_positive
 
-@pytest.mark.parametrize('false_positive',[
-    'http://www.a',
-    'http://a',
-    'http://a.a',
-    'http://123.456',
-    'www.something.com',
-    'http:www.something.com',
-])
+
+@pytest.mark.parametrize(
+    'false_positive',
+    [
+        'http://www.a',
+        'http://a',
+        'http://a.a',
+        'http://123.456',
+        'www.something.com',
+        'http:www.something.com',
+    ],
+)
 def test_url_no_commas_regex_false_positives(false_positive: str) -> None:
-    example_string= f'Some text {false_positive} some more text'
+    example_string = f'Some text {false_positive} some more text'
     matches = list(re.findall(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 0
 
+
 def test_url_no_commas_regex_multi_line() -> None:
     true_positives = ('http://www.something.com', 'http://www.else.com')
-    example_string= 'Some text {} some more text \n Some new line text {} ...'.format(*true_positives)
+    example_string = 'Some text {} some more text \n Some new line text {} ...'.format(*true_positives)
     matches = list(re.finditer(URL_NO_COMMAS_REGEX, example_string))
     assert len(matches) == 2
     assert {match.group(0) for match in matches} == set(true_positives)
