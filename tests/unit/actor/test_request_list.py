@@ -11,7 +11,7 @@ from crawlee._request import UserData
 from crawlee._types import HttpHeaders, HttpMethod
 from crawlee.http_clients import HttpResponse, HttpxHttpClient
 
-from apify.storages.request_list import URL_NO_COMMAS_REGEX, RequestList
+from apify.storages._request_list import URL_NO_COMMAS_REGEX, RequestList
 
 
 @pytest.mark.parametrize('request_method', get_args(HttpMethod))
@@ -35,7 +35,7 @@ async def test_request_list_open_request_types(request_method: HttpMethod, optio
     }
     request_dict_input = {**minimal_request_dict_input, **optional_input}
 
-    request_list = await RequestList.open(actor_start_urls_input=[request_dict_input])
+    request_list = await RequestList.open(request_list_sources_input=[request_dict_input])
     assert not await request_list.is_empty()
     request = await request_list.fetch_next_request()
     assert request is not None
@@ -76,7 +76,7 @@ def _create_dummy_response(read_output: Iterator[str]) -> HttpResponse:
 
 async def test__request_list_open_from_url_correctly_send_requests() -> None:
     """Test that injected HttpClient's method send_request is called with properly passed arguments."""
-    actor_start_urls_input: list[dict[str, Any]] = [
+    request_list_sources_input: list[dict[str, Any]] = [
         {
             'requestsFromUrl': 'https://abc.dev/file.txt',
             'method': 'GET',
@@ -94,19 +94,20 @@ async def test__request_list_open_from_url_correctly_send_requests() -> None:
         },
     ]
 
-    mocked_read_outputs = ('' for url in actor_start_urls_input)
-    http_client = HttpxHttpClient()
+    mocked_read_outputs = ('' for url in request_list_sources_input)
+
+    mocked_http_client = mock.Mock(spec_set=HttpxHttpClient)
     with mock.patch.object(
-        http_client, 'send_request', return_value=_create_dummy_response(mocked_read_outputs)
+        mocked_http_client, 'send_request', return_value=_create_dummy_response(mocked_read_outputs)
     ) as mocked_send_request:
-        await RequestList.open(actor_start_urls_input=actor_start_urls_input, http_client=http_client)
+        await RequestList.open(request_list_sources_input=request_list_sources_input, http_client=mocked_http_client)
 
     expected_calls = [
         call(
             method='GET',
             url=example_input['requestsFromUrl'],
         )
-        for example_input in actor_start_urls_input
+        for example_input in request_list_sources_input
     ]
     mocked_send_request.assert_has_calls(expected_calls)
 
@@ -124,7 +125,7 @@ async def test_request_list_open_from_url() -> None:
         )
     )
 
-    actor_start_urls_input = [
+    request_list_sources_input = [
         {
             'requestsFromUrl': 'https://abc.dev/file.txt',
             'method': 'GET',
@@ -136,9 +137,11 @@ async def test_request_list_open_from_url() -> None:
         },
     ]
 
-    http_client = HttpxHttpClient()
-    with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        request_list = await RequestList.open(actor_start_urls_input=actor_start_urls_input, http_client=http_client)
+    mocked_http_client = mock.Mock(spec_set=HttpxHttpClient)
+    with mock.patch.object(mocked_http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
+        request_list = await RequestList.open(
+            request_list_sources_input=request_list_sources_input, http_client=mocked_http_client
+        )
         generated_requests = []
         while request := await request_list.fetch_next_request():
             generated_requests.append(request)
@@ -159,9 +162,11 @@ async def test_request_list_open_from_url_additional_inputs() -> None:
     }
 
     response_bodies = iter((expected_simple_url,))
-    http_client = HttpxHttpClient()
-    with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        request_list = await RequestList.open(actor_start_urls_input=[example_start_url_input], http_client=http_client)
+    mocked_http_client = mock.Mock(spec_set=HttpxHttpClient)
+    with mock.patch.object(mocked_http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
+        request_list = await RequestList.open(
+            request_list_sources_input=[example_start_url_input], http_client=mocked_http_client
+        )
         request = await request_list.fetch_next_request()
 
     # Check all properties correctly created for request
