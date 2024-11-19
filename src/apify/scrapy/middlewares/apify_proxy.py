@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, urlparse
 
 try:
-    from scrapy import Request, Spider  # noqa: TCH002
+    if TYPE_CHECKING:
+        from scrapy import Request, Spider
+        from scrapy.crawler import Crawler
     from scrapy.core.downloader.handlers.http11 import TunnelError
-    from scrapy.crawler import Crawler  # noqa: TCH002
     from scrapy.exceptions import NotConfigured
 except ImportError as exc:
     raise ImportError(

@@ -1,4 +1,3 @@
-# ruff: noqa: TCH001 TCH002 TCH003 (Pydantic)
 from __future__ import annotations
 
 from datetime import datetime, timedelta

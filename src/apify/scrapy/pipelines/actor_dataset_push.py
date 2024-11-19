@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from itemadapter.adapter import ItemAdapter
 
 try:
-    from scrapy import Item, Spider  # noqa: TCH002
+    if TYPE_CHECKING:
+        from scrapy import Item, Spider
 except ImportError as exc:
     raise ImportError(
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',

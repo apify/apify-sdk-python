@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import traceback
+from typing import TYPE_CHECKING
 
 from apify._configuration import Configuration
 from apify.apify_storage_client import ApifyStorageClient
@@ -8,8 +9,10 @@ from apify.apify_storage_client import ApifyStorageClient
 try:
     from scrapy import Spider
     from scrapy.core.scheduler import BaseScheduler
-    from scrapy.http.request import Request  # noqa: TCH002
     from scrapy.utils.reactor import is_asyncio_reactor_installed
+
+    if TYPE_CHECKING:
+        from scrapy.http.request import Request
 except ImportError as exc:
     raise ImportError(
         'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
