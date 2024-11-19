@@ -142,7 +142,7 @@ docstring-quotes = "double"
 inline-quotes = "single"
 
 [tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = ["pydantic.BaseModel", "crawlee.configuration.Configuration", "ApifyHttpProxyMiddleware"]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "crawlee.configuration.Configuration"]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-ignorelist = ["id"]
