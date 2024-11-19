@@ -1,5 +1,5 @@
 from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
-from ._actor_inputs import Input
+from ._actor_inputs import create_request_list
 
-__all__ = ['Dataset', 'KeyValueStore', 'RequestQueue', 'Input']
+__all__ = ['Dataset', 'KeyValueStore', 'RequestQueue', 'create_request_list']

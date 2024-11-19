@@ -11,7 +11,7 @@ from crawlee._request import UserData
 from crawlee._types import HttpHeaders, HttpMethod
 from crawlee.http_clients import HttpResponse, HttpxHttpClient
 
-from apify.storages._actor_inputs import URL_NO_COMMAS_REGEX, ActorInputKeys, Input
+from apify.storages._actor_inputs import URL_NO_COMMAS_REGEX, ActorInputKeys, create_request_list
 
 
 @pytest.mark.parametrize('request_method', get_args(HttpMethod))
@@ -36,24 +36,22 @@ async def test_actor_create_request_list_request_types(
         ActorInputKeys.startUrls.method: request_method,
     }
     request_dict_input = {**minimal_request_dict_input, **optional_input}
-    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls: [request_dict_input]}
 
-    generated_input = await Input.read(example_actor_input)
+    request_list = await create_request_list([request_dict_input])
+    assert not await request_list.is_empty()
+    request = await request_list.fetch_next_request()
+    assert request is not None
+    assert await request_list.is_empty()
 
-    assert not await generated_input.start_urls.is_empty()
-    generated_request = await generated_input.start_urls.fetch_next_request()
-    assert generated_request is not None
-    assert await generated_input.start_urls.is_empty()
-
-    assert generated_request.method == request_dict_input[ActorInputKeys.startUrls.method]
-    assert generated_request.url == request_dict_input[ActorInputKeys.startUrls.url]
-    assert generated_request.payload == request_dict_input.get(ActorInputKeys.startUrls.payload, '').encode('utf-8')
+    assert request.method == request_dict_input[ActorInputKeys.startUrls.method]
+    assert request.url == request_dict_input[ActorInputKeys.startUrls.url]
+    assert request.payload == request_dict_input.get(ActorInputKeys.startUrls.payload, '').encode('utf-8')
     expected_user_data = UserData()
     if ActorInputKeys.startUrls.userData in optional_input:
         for key, value in optional_input[ActorInputKeys.startUrls.userData].items():
             expected_user_data[key] = value
-    assert generated_request.user_data == expected_user_data
-    assert generated_request.headers.root == optional_input.get(ActorInputKeys.startUrls.headers, {})
+    assert request.user_data == expected_user_data
+    assert request.headers.root == optional_input.get(ActorInputKeys.startUrls.headers, {})
 
 
 def _create_dummy_response(read_output: Iterator[str]) -> HttpResponse:
@@ -80,39 +78,37 @@ def _create_dummy_response(read_output: Iterator[str]) -> HttpResponse:
 
 async def test_actor_create_request_list_from_url_correctly_send_requests() -> None:
     """Test that injected HttpClient's method send_request is called with properly passed arguments."""
-    example_actor_input: dict[str, Any] = {
-        ActorInputKeys.startUrls: [
-            {
-                ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt',
-                ActorInputKeys.startUrls.method: 'GET',
-            },
-            {
-                ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2',
-                ActorInputKeys.startUrls.method: 'PUT',
-            },
-            {
-                ActorInputKeys.startUrls.requestsFromUrl: 'https://www.something.som',
-                ActorInputKeys.startUrls.method: 'POST',
-                ActorInputKeys.startUrls.headers: {'key': 'value'},
-                ActorInputKeys.startUrls.payload: 'some_payload',
-                ActorInputKeys.startUrls.userData: {'another_key': 'another_value'},
-            },
-        ]
-    }
+    actor_start_urls_input: list[dict[str, Any]] = [
+        {
+            ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt',
+            ActorInputKeys.startUrls.method: 'GET',
+        },
+        {
+            ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2',
+            ActorInputKeys.startUrls.method: 'PUT',
+        },
+        {
+            ActorInputKeys.startUrls.requestsFromUrl: 'https://www.something.som',
+            ActorInputKeys.startUrls.method: 'POST',
+            ActorInputKeys.startUrls.headers: {'key': 'value'},
+            ActorInputKeys.startUrls.payload: 'some_payload',
+            ActorInputKeys.startUrls.userData: {'another_key': 'another_value'},
+        },
+    ]
 
-    mocked_read_outputs = ('' for url in example_actor_input[ActorInputKeys.startUrls])
+    mocked_read_outputs = ('' for url in actor_start_urls_input)
     http_client = HttpxHttpClient()
     with mock.patch.object(
         http_client, 'send_request', return_value=_create_dummy_response(mocked_read_outputs)
     ) as mocked_send_request:
-        await Input.read(example_actor_input, http_client=http_client)
+        await create_request_list(actor_start_urls_input, http_client=http_client)
 
     expected_calls = [
         call(
             method='GET',
             url=example_input[ActorInputKeys.startUrls.requestsFromUrl],
         )
-        for example_input in example_actor_input[ActorInputKeys.startUrls]
+        for example_input in actor_start_urls_input
     ]
     mocked_send_request.assert_has_calls(expected_calls)
 
@@ -130,25 +126,23 @@ async def test_actor_create_request_list_from_url() -> None:
         )
     )
 
-    example_actor_input: dict[str, Any] = {
-        ActorInputKeys.startUrls: [
-            {
-                ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt',
-                ActorInputKeys.startUrls.method: 'GET',
-            },
-            {ActorInputKeys.startUrls.url: expected_simple_url, ActorInputKeys.startUrls.method: 'GET'},
-            {
-                ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2',
-                ActorInputKeys.startUrls.method: 'GET',
-            },
-        ]
-    }
+    actor_start_urls_input = [
+        {
+            ActorInputKeys.startUrls.requestsFromUrl: 'https://abc.dev/file.txt',
+            ActorInputKeys.startUrls.method: 'GET',
+        },
+        {ActorInputKeys.startUrls.url: expected_simple_url, ActorInputKeys.startUrls.method: 'GET'},
+        {
+            ActorInputKeys.startUrls.requestsFromUrl: 'https://www.abc.dev/file2',
+            ActorInputKeys.startUrls.method: 'GET',
+        },
+    ]
 
     http_client = HttpxHttpClient()
     with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        generated_input = await Input.read(example_actor_input, http_client=http_client)
+        request_list = await create_request_list(actor_start_urls_input, http_client=http_client)
         generated_requests = []
-        while request := await generated_input.start_urls.fetch_next_request():
+        while request := await request_list.fetch_next_request():
             generated_requests.append(request)
 
     # Check correctly created requests' urls in request list
@@ -158,29 +152,28 @@ async def test_actor_create_request_list_from_url() -> None:
 async def test_actor_create_request_list_from_url_additional_inputs() -> None:
     """Test that all generated request properties are correctly populated from input values."""
     expected_simple_url = 'https://www.someurl.com'
-    example_start_url_input = {
+    example_start_url_input: dict[str, Any] = {
         ActorInputKeys.startUrls.requestsFromUrl: 'https://crawlee.dev/file.txt',
         ActorInputKeys.startUrls.method: 'POST',
         ActorInputKeys.startUrls.headers: {'key': 'value'},
         ActorInputKeys.startUrls.payload: 'some_payload',
         ActorInputKeys.startUrls.userData: {'another_key': 'another_value'},
     }
-    example_actor_input: dict[str, Any] = {ActorInputKeys.startUrls: [example_start_url_input]}
+
     response_bodies = iter((expected_simple_url,))
     http_client = HttpxHttpClient()
     with mock.patch.object(http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        generated_input = await Input.read(example_actor_input, http_client=http_client)
-        request = await generated_input.start_urls.fetch_next_request()
+        request_list = await create_request_list([example_start_url_input], http_client=http_client)
+        request = await request_list.fetch_next_request()
 
     # Check all properties correctly created for request
-    example_start_url_input = example_actor_input[ActorInputKeys.startUrls][0]
     assert request
     assert request.url == expected_simple_url
     assert request.method == example_start_url_input[ActorInputKeys.startUrls.method]
     assert request.headers.root == example_start_url_input[ActorInputKeys.startUrls.headers]
     assert request.payload == str(example_start_url_input[ActorInputKeys.startUrls.payload]).encode('utf-8')
     expected_user_data = UserData()
-    for key, value in example_actor_input[ActorInputKeys.startUrls][0][ActorInputKeys.startUrls.userData].items():
+    for key, value in example_start_url_input[ActorInputKeys.startUrls.userData].items():
         expected_user_data[key] = value
     assert request.user_data == expected_user_data
 

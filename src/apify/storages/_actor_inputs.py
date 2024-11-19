@@ -4,12 +4,9 @@ import asyncio
 import re
 from asyncio import Task
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
-if TYPE_CHECKING:
-    from typing_extensions import Self
+from pydantic import BaseModel, Field
 
 from crawlee import Request
 from crawlee._types import HttpMethod
@@ -24,7 +21,7 @@ URL_NO_COMMAS_REGEX = re.compile(
 
 
 class _RequestDetails(BaseModel):
-    method: HttpMethod
+    method: HttpMethod = 'GET'
     payload: str = ''
     headers: dict[str, str] = Field(default_factory=dict)
     user_data: dict[str, str] = Field(default_factory=dict, alias=ActorInputKeys.startUrls.userData)
@@ -38,23 +35,8 @@ class _SimpleUrlInput(_RequestDetails):
     url: str
 
 
-class Input(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    start_urls: RequestList
-
-    @classmethod
-    async def read(cls, raw_input: dict[str, Any], http_client: BaseHttpClient | None = None) -> Self:
-        if ActorInputKeys.startUrls in raw_input:
-            request_list = await _create_request_list(
-                actor_start_urls_input=raw_input[ActorInputKeys.startUrls], http_client=http_client
-            )
-        else:
-            request_list = RequestList()
-        return cls(start_urls=request_list)
-
-
-async def _create_request_list(
-    *, actor_start_urls_input: list[dict[str, Any]], http_client: BaseHttpClient | None = None
+async def create_request_list(
+    actor_start_urls_input: list[dict[str, Any]], http_client: BaseHttpClient | None = None
 ) -> RequestList:
     """Creates RequestList from Actor input requestListSources.
 
