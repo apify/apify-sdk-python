@@ -10,7 +10,10 @@ from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
+from apify._utils import docs_group
 
+
+@docs_group('Classes')
 class Configuration(CrawleeConfiguration):
     """A class for specifying the configuration of an Actor.
 
