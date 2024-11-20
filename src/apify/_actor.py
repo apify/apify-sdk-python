@@ -22,7 +22,7 @@ from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._models import ActorRun
 from apify._platform_event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify._proxy_configuration import ProxyConfiguration
-from apify._utils import get_system_info, is_running_in_ipython, docs_group, docs_name
+from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
 from apify.apify_storage_client import ApifyStorageClient
 from apify.log import _configure_logging, logger
 from apify.storages import Dataset, KeyValueStore, RequestQueue

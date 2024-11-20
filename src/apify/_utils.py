@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Callable, Literal
-
 import builtins
 import sys
 from importlib import metadata
+from typing import Callable, Literal
 
 
 def get_system_info() -> dict:
@@ -44,8 +43,10 @@ def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
     return wrapper
 
 
-def docs_name(symbol_name: str) -> Callable:
-    """Decorator for renaming symbols in documentation. This changes the rendered name of the symbol only in the web documentation.
+def docs_name(symbol_name: str) -> Callable: # noqa: ARG001
+    """Decorator for renaming symbols in documentation.
+
+    This changes the rendered name of the symbol only in the rendered web documentation.
 
     This decorator is used purely for documentation purposes and does not alter the behavior
     of the decorated callable.

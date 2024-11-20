@@ -19,9 +19,8 @@ from crawlee.events._types import (
     EventSystemInfoData,
 )
 
-from apify.log import logger
-
 from apify._utils import docs_group
+from apify.log import logger
 
 if TYPE_CHECKING:
     from types import TracebackType

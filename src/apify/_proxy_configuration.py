@@ -16,9 +16,8 @@ from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
 from crawlee.proxy_configuration import _NewUrlFunction
 
 from apify._configuration import Configuration
-from apify.log import logger
-
 from apify._utils import docs_group
+from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
