@@ -12,7 +12,9 @@ from apify.apify_storage_client._key_value_store_collection_client import KeyVal
 from apify.apify_storage_client._request_queue_client import RequestQueueClient
 from apify.apify_storage_client._request_queue_collection_client import RequestQueueCollectionClient
 
+from apify._utils import docs_group
 
+@docs_group('Classes')
 class ApifyStorageClient(BaseStorageClient):
     """A storage client implementation based on the Apify platform storage."""
 

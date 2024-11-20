@@ -18,6 +18,8 @@ from crawlee.proxy_configuration import _NewUrlFunction
 from apify._configuration import Configuration
 from apify.log import logger
 
+from apify._utils import docs_group
+
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
     from crawlee import Request
@@ -68,6 +70,7 @@ def _check(
         raise ValueError(f'{error_str} does not match pattern {pattern.pattern!r}')
 
 
+@docs_group('Classes')
 @dataclass
 class ProxyInfo(CrawleeProxyInfo):
     """Provides information about a proxy connection that is used for requests."""
@@ -86,7 +89,7 @@ class ProxyInfo(CrawleeProxyInfo):
     This parameter is optional, by default, the proxy uses all available proxy servers from all countries.
     """
 
-
+@docs_group('Classes')
 class ProxyConfiguration(CrawleeProxyConfiguration):
     """Configures a connection to a proxy server with the provided options.
 
