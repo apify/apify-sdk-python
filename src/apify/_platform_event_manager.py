@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime  # noqa: TCH003
+from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
 import websockets.client

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 from lazy_object_proxy import Proxy
 from pydantic import AliasChoices
-from typing_extensions import Self
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
@@ -30,6 +29,8 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 if TYPE_CHECKING:
     import logging
     from types import TracebackType
+
+    from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
 
