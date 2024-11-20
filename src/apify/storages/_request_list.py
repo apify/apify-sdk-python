@@ -51,17 +51,25 @@ class RequestList(CrawleeRequestList):
     ) -> RequestList:
         """Creates RequestList from Actor input requestListSources.
 
-        name is name of the returned RequestList
-        request_list_sources_input  can contain list dicts with either url or requestsFromUrl key
-        http_client is client that will be used to send get request to url defined in requestsFromUrl
+        Args:
+            name: Name of the returned RequestList.
+            request_list_sources_input: List of dicts with either url key or requestsFromUrl key.
+            http_client: Client that will be used to send get request to urls defined by value of requestsFromUrl keys.
 
-        Example request_list_sources_input:
-            [
-                # Gather urls from response body.
-                {'requestsFromUrl': 'https://crawlee.dev/file.txt', 'method': 'GET'},
-                # Directly include this url.
-                {'url': 'https://crawlee.dev', 'method': 'GET'}
-            ]
+        Returns:
+            RequestList created from request_list_sources_input.
+
+        ### Usage
+
+        ```python
+        example_input = [
+            # Gather urls from response body.
+            {'requestsFromUrl': 'https://crawlee.dev/file.txt', 'method': 'GET'},
+            # Directly include this url.
+            {'url': 'https://crawlee.dev', 'method': 'GET'}
+        ]
+        request_list = await RequestList.open(request_list_sources_input=example_input)
+        ```
         """
         request_list_sources_input = request_list_sources_input or []
         return await RequestList._create_request_list(name, request_list_sources_input, http_client)
@@ -73,7 +81,7 @@ class RequestList(CrawleeRequestList):
         if not http_client:
             http_client = HttpxHttpClient()
 
-        ulr_inputs = url_input_adapter.validate_python(request_list_sources_input)  # instance of list[Union[...]]
+        ulr_inputs = url_input_adapter.validate_python(request_list_sources_input)
 
         simple_url_inputs = [url_input for url_input in ulr_inputs if type(url_input) is _SimpleUrlInput]
         remote_url_inputs = [url_input for url_input in ulr_inputs if type(url_input) is _RequestsFromUrlInput]

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Iterator, get_args
-from unittest import mock
-from unittest.mock import call
+from dataclasses import dataclass
+from typing import Any, get_args
 
 import pytest
+import respx
+from httpx import Response
 
 from crawlee._request import UserData
-from crawlee._types import HttpHeaders, HttpMethod
-from crawlee.http_clients import HttpResponse, HttpxHttpClient
+from crawlee._types import HttpMethod
 
 from apify.storages._request_list import URL_NO_COMMAS_REGEX, RequestList
 
@@ -52,30 +52,9 @@ async def test_request_list_open_request_types(request_method: HttpMethod, optio
     assert request.headers.root == optional_input.get('headers', {})
 
 
-def _create_dummy_response(read_output: Iterator[str]) -> HttpResponse:
-    """Create dummy_response that will iterate through read_output when called like dummy_response.read()"""
-
-    class DummyResponse(HttpResponse):
-        @property
-        def http_version(self) -> str:
-            return ''
-
-        @property
-        def status_code(self) -> int:
-            return 200
-
-        @property
-        def headers(self) -> HttpHeaders:
-            return HttpHeaders()
-
-        def read(self) -> bytes:
-            return next(read_output).encode('utf-8')
-
-    return DummyResponse()
-
-
-async def test__request_list_open_from_url_correctly_send_requests() -> None:
-    """Test that injected HttpClient's method send_request is called with properly passed arguments."""
+@respx.mock
+async def test_request_list_open_from_url_correctly_send_requests() -> None:
+    """Test that requests are sent to expected urls."""
     request_list_sources_input: list[dict[str, Any]] = [
         {
             'requestsFromUrl': 'https://abc.dev/file.txt',
@@ -94,65 +73,65 @@ async def test__request_list_open_from_url_correctly_send_requests() -> None:
         },
     ]
 
-    mocked_read_outputs = ('' for url in request_list_sources_input)
+    routes = [respx.get(entry['requestsFromUrl']) for entry in request_list_sources_input]
 
-    mocked_http_client = mock.Mock(spec_set=HttpxHttpClient)
-    with mock.patch.object(
-        mocked_http_client, 'send_request', return_value=_create_dummy_response(mocked_read_outputs)
-    ) as mocked_send_request:
-        await RequestList.open(request_list_sources_input=request_list_sources_input, http_client=mocked_http_client)
+    await RequestList.open(request_list_sources_input=request_list_sources_input)
 
-    expected_calls = [
-        call(
-            method='GET',
-            url=example_input['requestsFromUrl'],
-        )
-        for example_input in request_list_sources_input
-    ]
-    mocked_send_request.assert_has_calls(expected_calls)
+    for route in routes:
+        assert route.called
 
 
+@respx.mock
 async def test_request_list_open_from_url() -> None:
     """Test that create_request_list is correctly reading urls from remote url sources and also from simple input."""
     expected_simple_url = 'https://www.someurl.com'
     expected_remote_urls_1 = {'http://www.something.com', 'https://www.somethingelse.com', 'http://www.bla.net'}
     expected_remote_urls_2 = {'http://www.ok.com', 'https://www.true-positive.com'}
     expected_urls = expected_remote_urls_1 | expected_remote_urls_2 | {expected_simple_url}
-    response_bodies = iter(
-        (
+
+    @dataclass
+    class MockedUrlInfo:
+        url: str
+        response_text: str
+
+    mocked_urls = (
+        MockedUrlInfo(
+            'https://abc.dev/file.txt',
             'blablabla{} more blablabla{} , even more blablabla. {} '.format(*expected_remote_urls_1),
-            'some stuff{} more stuff{} www.falsepositive www.false_positive.com'.format(*expected_remote_urls_2),
-        )
+        ),
+        MockedUrlInfo(
+            'https://www.abc.dev/file2',
+            'some stuff{} more stuff{} www.false_positive.com'.format(*expected_remote_urls_2),
+        ),
     )
 
     request_list_sources_input = [
         {
-            'requestsFromUrl': 'https://abc.dev/file.txt',
+            'requestsFromUrl': mocked_urls[0].url,
             'method': 'GET',
         },
         {'url': expected_simple_url, 'method': 'GET'},
         {
-            'requestsFromUrl': 'https://www.abc.dev/file2',
+            'requestsFromUrl': mocked_urls[1].url,
             'method': 'GET',
         },
     ]
+    for mocked_url in mocked_urls:
+        respx.get(mocked_url.url).mock(return_value=Response(200, text=mocked_url.response_text))
 
-    mocked_http_client = mock.Mock(spec_set=HttpxHttpClient)
-    with mock.patch.object(mocked_http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        request_list = await RequestList.open(
-            request_list_sources_input=request_list_sources_input, http_client=mocked_http_client
-        )
-        generated_requests = []
-        while request := await request_list.fetch_next_request():
-            generated_requests.append(request)
+    request_list = await RequestList.open(request_list_sources_input=request_list_sources_input)
+    generated_requests = []
+    while request := await request_list.fetch_next_request():
+        generated_requests.append(request)
 
     # Check correctly created requests' urls in request list
     assert {generated_request.url for generated_request in generated_requests} == expected_urls
 
 
+@respx.mock
 async def test_request_list_open_from_url_additional_inputs() -> None:
     """Test that all generated request properties are correctly populated from input values."""
-    expected_simple_url = 'https://www.someurl.com'
+    expected_url = 'https://www.someurl.com'
     example_start_url_input: dict[str, Any] = {
         'requestsFromUrl': 'https://crawlee.dev/file.txt',
         'method': 'POST',
@@ -161,17 +140,14 @@ async def test_request_list_open_from_url_additional_inputs() -> None:
         'userData': {'another_key': 'another_value'},
     }
 
-    response_bodies = iter((expected_simple_url,))
-    mocked_http_client = mock.Mock(spec_set=HttpxHttpClient)
-    with mock.patch.object(mocked_http_client, 'send_request', return_value=_create_dummy_response(response_bodies)):
-        request_list = await RequestList.open(
-            request_list_sources_input=[example_start_url_input], http_client=mocked_http_client
-        )
-        request = await request_list.fetch_next_request()
+    respx.get(example_start_url_input['requestsFromUrl']).mock(return_value=Response(200, text=expected_url))
+
+    request_list = await RequestList.open(request_list_sources_input=[example_start_url_input])
+    request = await request_list.fetch_next_request()
 
     # Check all properties correctly created for request
     assert request
-    assert request.url == expected_simple_url
+    assert request.url == expected_url
     assert request.method == example_start_url_input['method']
     assert request.headers.root == example_start_url_input['headers']
     assert request.payload == str(example_start_url_input['payload']).encode('utf-8')
