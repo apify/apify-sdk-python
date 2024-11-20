@@ -43,7 +43,7 @@ def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
     return wrapper
 
 
-def docs_name(symbol_name: str) -> Callable: # noqa: ARG001
+def docs_name(symbol_name: str) -> Callable:  # noqa: ARG001
     """Decorator for renaming symbols in documentation.
 
     This changes the rendered name of the symbol only in the rendered web documentation.
