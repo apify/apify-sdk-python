@@ -28,6 +28,7 @@ module.exports = {
     projectName: 'apify-sdk-python',
     scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
+    githubHost: 'github.com',
     onBrokenLinks:
     /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
     onBrokenMarkdownLinks:
@@ -103,11 +104,20 @@ module.exports = {
                     pythonModulePath: path.join(__dirname, '../src/apify'),
                     moduleShortcutsPath: path.join(__dirname, '/module_shortcuts.json'),
                 },
-                // reexports: [
-                //     {
-                //         url: 'http://localhost:3000/python/api/class/Dataset',
-                //     },
-                // ],
+                reexports: [
+                    {
+                        url: 'https://crawlee.dev/python/api/class/Dataset',
+                        group: 'Classes',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/KeyValueStore',
+                        group: 'Classes',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/RequestQueue',
+                        group: 'Classes',
+                    },
+                ],
             },
         ],
         ...config.plugins,
