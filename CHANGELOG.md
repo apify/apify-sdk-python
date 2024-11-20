@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 2.1.0 - **not yet released**
+
+### 🚀 Features
+
+- Handle request list user input ([#326](https://github.com/apify/apify-sdk-python/pull/326)) ([c14fb9a](https://github.com/apify/apify-sdk-python/commit/c14fb9a9527c8b699e32ed49d39ce0a69447f87c)) by [@Pijukatel](https://github.com/Pijukatel), closes [#310](https://github.com/apify/apify-sdk-python/issues/310)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [2.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v2.0.2) (2024-11-12)
 
 ### 🐛 Bug Fixes
@@ -43,7 +52,7 @@ All notable changes to this project will be documented in this file.
 
 ### Refactor
 
-- Preparation for v2 release ([#210](https://github.com/apify/apify-sdk-python/pull/210)) ([2f9dcc5](https://github.com/apify/apify-sdk-python/commit/2f9dcc559414f31e3f4fc87e72417a36494b9c84)) by [@janbuchar](https://github.com/janbuchar), closes [#135](https://github.com/apify/apify-sdk-python/issues/135), [#137](https://github.com/apify/apify-sdk-python/issues/137), [#138](https://github.com/apify/apify-sdk-python/issues/138), [#147](https://github.com/apify/apify-sdk-python/issues/147), [#149](https://github.com/apify/apify-sdk-python/issues/149), [#237](https://github.com/apify/apify-sdk-python/issues/237)
+- [**breaking**] Preparation for v2 release ([#210](https://github.com/apify/apify-sdk-python/pull/210)) ([2f9dcc5](https://github.com/apify/apify-sdk-python/commit/2f9dcc559414f31e3f4fc87e72417a36494b9c84)) by [@janbuchar](https://github.com/janbuchar), closes [#135](https://github.com/apify/apify-sdk-python/issues/135), [#137](https://github.com/apify/apify-sdk-python/issues/137), [#138](https://github.com/apify/apify-sdk-python/issues/138), [#147](https://github.com/apify/apify-sdk-python/issues/147), [#149](https://github.com/apify/apify-sdk-python/issues/149), [#237](https://github.com/apify/apify-sdk-python/issues/237)
 
 
 ## [1.7.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.2) (2024-07-08)
