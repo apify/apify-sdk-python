@@ -89,6 +89,7 @@ class ProxyInfo(CrawleeProxyInfo):
     This parameter is optional, by default, the proxy uses all available proxy servers from all countries.
     """
 
+
 @docs_group('Classes')
 class ProxyConfiguration(CrawleeProxyConfiguration):
     """Configures a connection to a proxy server with the provided options.

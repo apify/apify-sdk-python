@@ -14,6 +14,7 @@ from apify.apify_storage_client._request_queue_collection_client import RequestQ
 
 from apify._utils import docs_group
 
+
 @docs_group('Classes')
 class ApifyStorageClient(BaseStorageClient):
     """A storage client implementation based on the Apify platform storage."""

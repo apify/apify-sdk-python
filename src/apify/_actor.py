@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
 MainReturnType = TypeVar('MainReturnType')
 
+
 @docs_name('Actor')
 @docs_group('Classes')
 class _ActorType:

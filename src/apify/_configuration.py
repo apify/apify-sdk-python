@@ -13,6 +13,7 @@ from crawlee.configuration import Configuration as CrawleeConfiguration
 
 from apify._utils import docs_group
 
+
 @docs_group('Classes')
 class Configuration(CrawleeConfiguration):
     """A class for specifying the configuration of an Actor.
