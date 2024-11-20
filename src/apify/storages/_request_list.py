@@ -13,6 +13,8 @@ from crawlee._types import HttpMethod
 from crawlee.http_clients import BaseHttpClient, HttpxHttpClient
 from crawlee.storages import RequestList as CrawleeRequestList
 
+from apify._utils import docs_group
+
 URL_NO_COMMAS_REGEX = re.compile(
     r'https?:\/\/(www\.)?([^\W_]|[^\W_][-\w0-9@:%._+~#=]{0,254}[^\W_])\.[a-z]{2,63}(:\d{1,5})?(\/[-\w@:%+.~#?&/=()]*)?'
 )
@@ -36,7 +38,7 @@ class _SimpleUrlInput(_RequestDetails):
 url_input_adapter = TypeAdapter(list[Union[_RequestsFromUrlInput, _SimpleUrlInput]])
 
 
-# @docs_group('Classes')  # Not yet available in crawlee
+@docs_group('Classes')  # Not yet available in crawlee
 class RequestList(CrawleeRequestList):
     """Extends crawlee RequestList.
 
