@@ -19,6 +19,7 @@ from crawlee.events._types import (
     EventSystemInfoData,
 )
 
+from apify._utils import docs_group
 from apify.log import logger
 
 if TYPE_CHECKING:
@@ -30,11 +31,13 @@ if TYPE_CHECKING:
 __all__ = ['EventManager', 'LocalEventManager', 'PlatformEventManager']
 
 
+@docs_group('Data structures')
 class PersistStateEvent(BaseModel):
     name: Literal[Event.PERSIST_STATE]
     data: Annotated[EventPersistStateData, Field(default_factory=lambda: EventPersistStateData(is_migrating=False))]
 
 
+@docs_group('Data structures')
 class SystemInfoEventData(BaseModel):
     mem_avg_bytes: Annotated[float, Field(alias='memAvgBytes')]
     mem_current_bytes: Annotated[float, Field(alias='memCurrentBytes')]
@@ -61,26 +64,31 @@ class SystemInfoEventData(BaseModel):
         )
 
 
+@docs_group('Data structures')
 class SystemInfoEvent(BaseModel):
     name: Literal[Event.SYSTEM_INFO]
     data: SystemInfoEventData
 
 
+@docs_group('Data structures')
 class MigratingEvent(BaseModel):
     name: Literal[Event.MIGRATING]
     data: Annotated[EventMigratingData, Field(default_factory=EventMigratingData)]
 
 
+@docs_group('Data structures')
 class AbortingEvent(BaseModel):
     name: Literal[Event.ABORTING]
     data: Annotated[EventAbortingData, Field(default_factory=EventAbortingData)]
 
 
+@docs_group('Data structures')
 class ExitEvent(BaseModel):
     name: Literal[Event.EXIT]
     data: Annotated[EventExitData, Field(default_factory=EventExitData)]
 
 
+@docs_group('Data structures')
 class EventWithoutData(BaseModel):
     name: Literal[
         Event.SESSION_RETIRED,
@@ -93,11 +101,13 @@ class EventWithoutData(BaseModel):
     data: Any = None
 
 
+@docs_group('Data structures')
 class DeprecatedEvent(BaseModel):
     name: Literal['cpuInfo']
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
 
 
+@docs_group('Data structures')
 class UnknownEvent(BaseModel):
     name: str
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
@@ -125,6 +135,7 @@ event_data_adapter: TypeAdapter[EventMessage | DeprecatedEvent | UnknownEvent] =
 )
 
 
+@docs_group('Classes')
 class PlatformEventManager(EventManager):
     """A class for managing Actor events.
 

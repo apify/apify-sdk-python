@@ -10,7 +10,10 @@ from apify_shared.consts import ActorJobStatus, MetaOrigin, WebhookEventType
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 
+from apify._utils import docs_group
 
+
+@docs_group('Data structures')
 class Webhook(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 
@@ -29,12 +32,14 @@ class Webhook(BaseModel):
     ] = None
 
 
+@docs_group('Data structures')
 class ActorRunMeta(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 
     origin: Annotated[MetaOrigin, Field()]
 
 
+@docs_group('Data structures')
 class ActorRunStats(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 
@@ -55,6 +60,7 @@ class ActorRunStats(BaseModel):
     compute_units: Annotated[float, Field(alias='computeUnits')]
 
 
+@docs_group('Data structures')
 class ActorRunOptions(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 
@@ -64,6 +70,7 @@ class ActorRunOptions(BaseModel):
     disk_mbytes: Annotated[int, Field(alias='diskMbytes')]
 
 
+@docs_group('Data structures')
 class ActorRunUsage(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 
@@ -81,6 +88,7 @@ class ActorRunUsage(BaseModel):
     proxy_serps: Annotated[float | None, Field(alias='PROXY_SERPS')] = None
 
 
+@docs_group('Data structures')
 class ActorRun(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 

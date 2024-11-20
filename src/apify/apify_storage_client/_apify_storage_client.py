@@ -5,6 +5,7 @@ from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.base_storage_client import BaseStorageClient
 
 from apify._configuration import Configuration
+from apify._utils import docs_group
 from apify.apify_storage_client._dataset_client import DatasetClient
 from apify.apify_storage_client._dataset_collection_client import DatasetCollectionClient
 from apify.apify_storage_client._key_value_store_client import KeyValueStoreClient
@@ -13,6 +14,7 @@ from apify.apify_storage_client._request_queue_client import RequestQueueClient
 from apify.apify_storage_client._request_queue_collection_client import RequestQueueCollectionClient
 
 
+@docs_group('Classes')
 class ApifyStorageClient(BaseStorageClient):
     """A storage client implementation based on the Apify platform storage."""
 

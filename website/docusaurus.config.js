@@ -1,7 +1,20 @@
-/* eslint-disable global-require,import/no-extraneous-dependencies */
+const path = require('path');
+
 const { config } = require('@apify/docs-theme');
+
 const { externalLinkProcessor } = require('./tools/utils/externalLink');
-const { groupSort } = require('./transformDocs.js');
+
+const GROUP_ORDER = [
+    'Classes',
+    'Data structures',
+];
+
+const groupSort = (g1, g2) => {
+    if (GROUP_ORDER.includes(g1) && GROUP_ORDER.includes(g2)) {
+        return GROUP_ORDER.indexOf(g1) - GROUP_ORDER.indexOf(g2);
+    }
+    return g1.localeCompare(g2);
+};
 
 const { absoluteUrl } = config;
 
@@ -15,6 +28,7 @@ module.exports = {
     projectName: 'apify-sdk-python',
     scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
+    githubHost: 'github.com',
     onBrokenLinks:
     /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
     onBrokenMarkdownLinks:
@@ -83,10 +97,27 @@ module.exports = {
                 typedocOptions: {
                     excludeExternals: false,
                 },
-                pathToCurrentVersionTypedocJSON: `${__dirname}/api-typedoc-generated.json`,
                 sortSidebar: groupSort,
                 routeBasePath: 'reference',
                 python: true,
+                pythonOptions: {
+                    pythonModulePath: path.join(__dirname, '../src/apify'),
+                    moduleShortcutsPath: path.join(__dirname, '/module_shortcuts.json'),
+                },
+                reexports: [
+                    {
+                        url: 'https://crawlee.dev/python/api/class/Dataset',
+                        group: 'Classes',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/KeyValueStore',
+                        group: 'Classes',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/RequestQueue',
+                        group: 'Classes',
+                    },
+                ],
             },
         ],
         ...config.plugins,
