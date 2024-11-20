@@ -81,10 +81,10 @@ class RequestList(CrawleeRequestList):
         if not http_client:
             http_client = HttpxHttpClient()
 
-        ulr_inputs = url_input_adapter.validate_python(request_list_sources_input)
+        url_inputs = url_input_adapter.validate_python(request_list_sources_input)
 
-        simple_url_inputs = [url_input for url_input in ulr_inputs if type(url_input) is _SimpleUrlInput]
-        remote_url_inputs = [url_input for url_input in ulr_inputs if type(url_input) is _RequestsFromUrlInput]
+        simple_url_inputs = [url_input for url_input in url_inputs if isinstance(url_input, _SimpleUrlInput)]
+        remote_url_inputs = [url_input for url_input in url_inputs if isinstance(url_input, _RequestsFromUrlInput)]
 
         simple_url_requests = RequestList._create_requests_from_input(simple_url_inputs)
         remote_url_requests = await RequestList._fetch_requests_from_url(remote_url_inputs, http_client=http_client)
