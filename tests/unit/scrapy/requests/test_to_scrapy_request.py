@@ -58,7 +58,10 @@ def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
     assert apify_request.method == scrapy_request.method
     assert apify_request.id == scrapy_request.meta.get('apify_request_id')
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
-    assert apify_request.headers.get('authorization') == scrapy_request.headers.get('authorization').decode()
+
+    scrapy_request_headers = scrapy_request.headers.get('authorization')
+    assert scrapy_request_headers is not None
+    assert apify_request.headers.get('authorization') == scrapy_request_headers.decode()
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
@@ -105,7 +108,10 @@ def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
     assert apify_request.method == scrapy_request.method
     assert apify_request.id == scrapy_request.meta.get('apify_request_id')
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
-    assert apify_request.headers.get('authorization') == scrapy_request.headers.get('authorization').decode()
+
+    scrapy_request_headers = scrapy_request.headers.get('authorization')
+    assert scrapy_request_headers is not None
+    assert apify_request.headers.get('authorization') == scrapy_request_headers.decode()
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 

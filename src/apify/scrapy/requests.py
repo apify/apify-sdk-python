@@ -42,8 +42,10 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
     Returns:
         The converted Apify request if the conversion was successful, otherwise None.
     """
-    if not isinstance(cast(Any, scrapy_request), Request):
-        Actor.log.warning('Failed to convert to Apify request: Scrapy request must be a Request instance.')
+    if not isinstance(scrapy_request, Request):
+        Actor.log.warning(  # type: ignore[unreachable]
+            'Failed to convert to Apify request: Scrapy request must be a Request instance.'
+        )
         return None
 
     call_id = crypto_random_object_id(8)
@@ -53,7 +55,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
         if _is_request_produced_by_middleware(scrapy_request):
             unique_key = compute_unique_key(
                 url=scrapy_request.url,
-                method=scrapy_request.method,
+                method=scrapy_request.method,  # type: ignore[arg-type]  # str vs literal
                 payload=scrapy_request.body,
                 use_extended_unique_key=True,
             )
@@ -80,9 +82,9 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
 
         # Convert Scrapy's headers to a HttpHeaders and store them in the apify_request
         if isinstance(scrapy_request.headers, Headers):
-            apify_request.headers = HttpHeaders(scrapy_request.headers.to_unicode_dict())
+            apify_request.headers = HttpHeaders(dict(scrapy_request.headers.to_unicode_dict()))
         else:
-            Actor.log.warning(
+            Actor.log.warning(  # type: ignore[unreachable]
                 f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}'
             )
 
