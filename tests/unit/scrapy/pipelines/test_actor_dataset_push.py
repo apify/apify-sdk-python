@@ -57,7 +57,7 @@ class ItemTestCase:
             expected_exception=None,
         ),
         ItemTestCase(
-            item=None,
+            item=DummyItem(a='exc', b='ept', c='ion'),
             item_dict={},
             expected_exception=TypeError,
         ),

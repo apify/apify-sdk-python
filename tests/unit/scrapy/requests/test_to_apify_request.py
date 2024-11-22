@@ -38,7 +38,7 @@ def test_handles_headers(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    assert apify_request.headers == HttpHeaders(scrapy_request_headers.to_unicode_dict())
+    assert apify_request.headers == HttpHeaders(dict(scrapy_request_headers.to_unicode_dict()))
 
 
 def test_without_id_and_unique_key(spider: Spider) -> None:
@@ -90,5 +90,5 @@ def test_with_id_and_unique_key(spider: Spider) -> None:
 def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
     scrapy_request = 'invalid_request'
 
-    apify_request = to_apify_request(scrapy_request, spider)
+    apify_request = to_apify_request(scrapy_request, spider)  # type: ignore[arg-type]
     assert apify_request is None
