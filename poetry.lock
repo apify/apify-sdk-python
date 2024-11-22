@@ -3208,4 +3208,4 @@ scrapy = ["scrapy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "9e1c07f246f3551a2ebca19251f8c72b1697200ee166f3b28b79eec41ed3db78"
+content-hash = "176f2ad2ef1de113d2afe439f8102d55a6db53cbdaa289a445731d3f21db43c3"
