@@ -57,7 +57,7 @@ class ItemTestCase:
             expected_exception=None,
         ),
         ItemTestCase(
-            item=DummyItem(a='exc', b='ept', c='ion'),
+            item=None,  # type: ignore[arg-type]  # that is the point of this test
             item_dict={},
             expected_exception=TypeError,
         ),
