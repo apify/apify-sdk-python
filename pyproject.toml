@@ -82,8 +82,6 @@ line-length = 120
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN101",   # Missing type annotation for `self` in method
-    "ANN102",   # Missing type annotation for `{name}` in classmethod
     "ANN401",   # Dynamically typed expressions (typing.Any) are disallowed in {filename}
     "ASYNC109", # Async function definition with a `timeout` parameter
     "BLE001",   # Do not catch blind exception
