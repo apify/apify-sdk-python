@@ -7,7 +7,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Protocol, cast
 
 import pytest
 from filelock import FileLock
@@ -20,7 +20,7 @@ from ._utils import generate_unique_resource_name
 from apify._models import ActorRun
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Mapping
+    from collections.abc import AsyncIterator, Awaitable, Coroutine, Mapping
 
     from apify_client.clients.resource_clients import ActorClientAsync
 
