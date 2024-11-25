@@ -70,7 +70,7 @@ pytest-only = "~2.1.0"
 pytest-timeout = "~2.3.0"
 pytest-xdist = "~3.6.0"
 respx = "~0.21.0"
-ruff = "~0.7.0"
+ruff = "~0.8.0"
 setuptools = "~75.6.0"     # setuptools are used by pytest but not explicitly required
 
 [tool.poetry.extras]
@@ -82,8 +82,6 @@ line-length = 120
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN101",   # Missing type annotation for `self` in method
-    "ANN102",   # Missing type annotation for `{name}` in classmethod
     "ANN401",   # Dynamically typed expressions (typing.Any) are disallowed in {filename}
     "ASYNC109", # Async function definition with a `timeout` parameter
     "BLE001",   # Do not catch blind exception
@@ -142,7 +140,10 @@ docstring-quotes = "double"
 inline-quotes = "single"
 
 [tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = ["pydantic.BaseModel", "crawlee.configuration.Configuration"]
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "crawlee.configuration.Configuration",
+]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-ignorelist = ["id"]
@@ -187,7 +188,7 @@ ignore_missing_imports = true
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
-    "assert_never()"
+    "assert_never()",
 ]
 
 [tool.basedpyright]

@@ -13,8 +13,8 @@ __version__ = metadata.version('apify')
 
 __all__ = [
     'Actor',
-    'Event',
     'Configuration',
+    'Event',
     'ProxyConfiguration',
     'ProxyInfo',
     'Request',
