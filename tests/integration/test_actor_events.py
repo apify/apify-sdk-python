@@ -77,6 +77,7 @@ async def test_event_listener_can_be_removed_successfully(
 ) -> None:
     async def main() -> None:
         import os
+        from typing import Any
 
         from apify_shared.consts import ApifyEnvVars
         from crawlee.events._types import Event
@@ -85,7 +86,7 @@ async def test_event_listener_can_be_removed_successfully(
 
         counter = 0
 
-        def count_event(data):  # type: ignore # noqa: ANN202, ANN001
+        def count_event(data: Any) -> None:
             nonlocal counter
             print(data)
             counter += 1
