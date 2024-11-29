@@ -74,12 +74,12 @@ def test_invalid_arguments() -> None:
         (['abc', 'DEF', 'geh$'], 2),
         ([111, 'DEF', 'geh$'], 2),
     ]:
-        with pytest.raises(ValueError, match=re.escape(str(invalid_groups[bad_group_index]))):  # type: ignore
-            ProxyConfiguration(groups=invalid_groups)  # type: ignore
+        with pytest.raises(ValueError, match=re.escape(str(invalid_groups[bad_group_index]))):  # type: ignore[index]
+            ProxyConfiguration(groups=invalid_groups)  # type: ignore[arg-type]
 
     for invalid_country_code in ['CZE', 'aa', 'DDDD', 1111]:
         with pytest.raises(ValueError, match=re.escape(str(invalid_country_code))):
-            ProxyConfiguration(country_code=invalid_country_code)  # type: ignore
+            ProxyConfiguration(country_code=invalid_country_code)  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match='Exactly one of .* must be specified'):
         ProxyConfiguration(
@@ -402,7 +402,7 @@ async def test_initialize_with_valid_configuration(
     assert proxy_configuration._password == DUMMY_PASSWORD
     assert proxy_configuration.is_man_in_the_middle is True
 
-    assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore
+    assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore[attr-defined]
     assert len(route.calls) == 1
 
 
@@ -526,7 +526,7 @@ async def test_initialize_with_non_apify_proxy(
 
     await proxy_configuration.initialize()
 
-    assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore
+    assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
     assert len(route.calls) == 0
 
 

@@ -57,7 +57,7 @@ async def test_basic_proxy_configuration_creation(
     assert proxy_configuration._password == DUMMY_PASSWORD
     assert proxy_configuration._country_code == country_code
 
-    assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore
+    assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore[attr-defined]
     assert len(route.calls) == 1
 
     await Actor.exit()
@@ -137,7 +137,7 @@ async def test_proxy_configuration_with_actor_proxy_input(
         == f'http://groups-{"+".join(groups)},country-{country_code}:{DUMMY_PASSWORD}@proxy.apify.com:8000'
     )
 
-    assert len(patched_apify_client.calls['user']['get']) == 2  # type: ignore
+    assert len(patched_apify_client.calls['user']['get']) == 2  # type: ignore[attr-defined]
     assert len(route.calls) == 2
 
     await Actor.exit()

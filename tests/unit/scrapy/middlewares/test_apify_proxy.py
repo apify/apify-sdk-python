@@ -150,5 +150,5 @@ def test_handles_exceptions(
     dummy_request: Request,
     exception: Exception,
 ) -> None:
-    returned_value = middleware.process_exception(dummy_request, exception, spider)  # type: ignore
+    returned_value = middleware.process_exception(dummy_request, exception, spider)  # type: ignore[func-returns-value]
     assert returned_value is None
