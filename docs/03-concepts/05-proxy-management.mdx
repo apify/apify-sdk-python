@@ -185,9 +185,9 @@ use the [`proxies` argument](https://www.python-httpx.org/advanced/#http-proxyin
 proxy_configuration = await Actor.create_proxy_configuration()
 proxy_url = await proxy_configuration.new_url()
 
-response = httpx.get('http://example.com', proxies=proxy_url)
+response = httpx.get('http://example.com', proxy=proxy_url)
 # --- OR ---
-async with httpx.AsyncClient(proxies=proxy_url) as httpx_client:
+async with httpx.AsyncClient(proxy=proxy_url) as httpx_client:
     response = await httpx_client.get('http://example.com')
 ```
 
