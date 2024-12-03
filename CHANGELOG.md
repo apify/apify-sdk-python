@@ -2,15 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 2.1.0 - **not yet released**
+## [2.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.1.0) (2024-12-03)
 
 ### 🚀 Features
 
 - Handle request list user input ([#326](https://github.com/apify/apify-sdk-python/pull/326)) ([c14fb9a](https://github.com/apify/apify-sdk-python/commit/c14fb9a9527c8b699e32ed49d39ce0a69447f87c)) by [@Pijukatel](https://github.com/Pijukatel), closes [#310](https://github.com/apify/apify-sdk-python/issues/310)
 
+### 🐛 Bug Fixes
 
-<!-- git-cliff-unreleased-end -->
+- Add upper bound of HTTPX version ([#347](https://github.com/apify/apify-sdk-python/pull/347)) ([e86dbce](https://github.com/apify/apify-sdk-python/commit/e86dbce69f6978cf2c15910213655e5d80f62a23)) by [@vdusek](https://github.com/vdusek)
+
+
 ## [2.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v2.0.2) (2024-11-12)
 
 ### 🐛 Bug Fixes
