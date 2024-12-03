@@ -92,7 +92,7 @@ async def main():
     async with Actor:
         proxy_configuration = await Actor.create_proxy_configuration()
         proxy_url = await proxy_configuration.new_url()
-        async with httpx.AsyncClient(proxies=proxy_url) as httpx_client:
+        async with httpx.AsyncClient(proxy=proxy_url) as httpx_client:
             response = httpx_client.get(f'http://example.com'),
             print(response)
 ```

@@ -41,7 +41,6 @@ def reset_default_instances() -> Callable[[], None]:
         from crawlee import service_container
 
         cast(dict, service_container._services).clear()
-
         delattr(apify._actor.Actor, '__wrapped__')
         # TODO: local storage client purge  # noqa: TD003
 
