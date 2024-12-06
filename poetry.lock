@@ -62,13 +62,13 @@ more_itertools = ">=10.0.0"
 
 [[package]]
 name = "apify-shared"
-version = "1.1.2"
+version = "1.2.1"
 description = "Tools and constants shared across Apify projects."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "apify_shared-1.1.2-py3-none-any.whl", hash = "sha256:a422b4cb3ea536257f0c0dd3778b3c22ec6647708d2fc06c97fe0c9fe183c3c9"},
-    {file = "apify_shared-1.1.2.tar.gz", hash = "sha256:3f98f526635c4c3f92c1496916513a1c4013bb47158d7e0f914df8987147366c"},
+    {file = "apify_shared-1.2.1-py3-none-any.whl", hash = "sha256:cee136729c41c215796d8ca9f7b2e5736995d44f9471663d61827d16f592df9b"},
+    {file = "apify_shared-1.2.1.tar.gz", hash = "sha256:986557e2b01c584aa57258fb4af83d32ecb6979c0d804ccbfda7c0e79a2d00b1"},
 ]
 
 [package.extras]
@@ -3529,4 +3529,4 @@ scrapy = ["scrapy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "dd3449989524195813aa229339ebdc3732798bca1e360e8e7b13a1ba1954d2b2"
+content-hash = "fd101911ca38d535954db3fe16589f6c4d81bc30bbf9fa6484c82314bd25998f"
