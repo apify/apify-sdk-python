@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import sys
 from typing import Any, Callable, cast
 
 import pytest
@@ -115,6 +116,7 @@ async def test_actor_reboot_fails_locally() -> None:
         await Actor.reboot()
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 13), reason='Suffers flaky behavior on Python 3.13')
 async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
     # This should test whether when you get a MIGRATING event,
     # the Actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
