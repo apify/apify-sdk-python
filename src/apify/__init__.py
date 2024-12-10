@@ -2,7 +2,15 @@ from importlib import metadata
 
 from apify_shared.consts import WebhookEventType
 from crawlee import Request
-from crawlee.events._types import Event
+from crawlee.events import (
+    Event,
+    EventAbortingData,
+    EventExitData,
+    EventListener,
+    EventMigratingData,
+    EventPersistStateData,
+    EventSystemInfoData,
+)
 
 from apify._actor import Actor
 from apify._configuration import Configuration
@@ -15,6 +23,12 @@ __all__ = [
     'Actor',
     'Configuration',
     'Event',
+    'EventAbortingData',
+    'EventExitData',
+    'EventListener',
+    'EventMigratingData',
+    'EventPersistStateData',
+    'EventSystemInfoData',
     'ProxyConfiguration',
     'ProxyInfo',
     'Request',
