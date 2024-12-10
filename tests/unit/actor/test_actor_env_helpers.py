@@ -9,6 +9,7 @@ from pydantic_core import TzInfo
 
 from apify_shared.consts import (
     BOOL_ENV_VARS,
+    COMMA_SEPARATED_LIST_ENV_VARS,
     DATETIME_ENV_VARS,
     FLOAT_ENV_VARS,
     INTEGER_ENV_VARS,
@@ -108,8 +109,28 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
             continue
 
         string_get_env_var = string_env_var.name.lower()
-        expected_get_env[string_get_env_var] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        expected_value = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        # URLs have to be valid
+        if string_get_env_var.endswith('url'):
+            expected_value = f'http://example.com/{expected_value}'
+        expected_get_env[string_get_env_var] = expected_value
         monkeypatch.setenv(string_env_var, expected_get_env[string_get_env_var])
+
+    for list_env_var in COMMA_SEPARATED_LIST_ENV_VARS:
+        if list_env_var in ignored_env_vars:
+            continue
+
+        available_values = ['val1', 'val2']
+
+        list_get_env_var = list_env_var.name.lower()
+        expected_value_count = random.randint(0, len(available_values))
+        expected_get_env[list_get_env_var] = random.sample(available_values, expected_value_count)
+        monkeypatch.setenv(list_env_var, ','.join(expected_get_env[list_get_env_var]))
+
+        # Test behavior with mising env var in case of empty list
+        if expected_value_count == 0 and random.random() < 0.5:
+            monkeypatch.delenv(list_env_var)
+            expected_get_env[list_get_env_var] = None
 
     # We need this override so that the actor doesn't fail when connecting to the platform events websocket
     monkeypatch.delenv(ActorEnvVars.EVENTS_WEBSOCKET_URL)
