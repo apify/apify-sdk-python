@@ -45,7 +45,7 @@ keywords = [
 python = "^3.9"
 apify-client = ">=1.8.1"
 apify-shared = ">=1.1.2"
-crawlee = "~0.4.0"
+crawlee = { git = "https://github.com/apify/crawlee-python.git", branch = "refactor-service-container" }
 cryptography = ">=42.0.0"
 # TODO: relax the upper bound once the issue is resolved:
 # https://github.com/apify/apify-sdk-python/issues/348
@@ -188,11 +188,7 @@ typeCheckingMode = "standard"
 include = ["src", "tests"]
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "assert_never()",
-]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
 
 [tool.ipdb]
 context = 7
