@@ -45,7 +45,7 @@ keywords = [
 python = "^3.9"
 apify-client = ">=1.8.1"
 apify-shared = ">=1.1.2"
-crawlee = "~0.4.0"
+crawlee = { git = "https://github.com/apify/crawlee-python.git", branch = "improve-event-types" }
 cryptography = ">=42.0.0"
 # TODO: relax the upper bound once the issue is resolved:
 # https://github.com/apify/apify-sdk-python/issues/348

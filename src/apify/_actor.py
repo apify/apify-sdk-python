@@ -4,7 +4,7 @@ import asyncio
 import os
 import sys
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast, overload
 
 from lazy_object_proxy import Proxy
 from pydantic import AliasChoices
@@ -13,7 +13,15 @@ from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee import service_container
-from crawlee.events._types import Event, EventPersistStateData
+from crawlee.events import (
+    Event,
+    EventAbortingData,
+    EventExitData,
+    EventListener,
+    EventMigratingData,
+    EventPersistStateData,
+    EventSystemInfoData,
+)
 
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
@@ -470,7 +478,30 @@ class _ActorType:
         key_value_store = await self.open_key_value_store()
         return await key_value_store.set_value(key, value, content_type=content_type)
 
-    def on(self, event_name: Event, listener: Callable) -> Callable:
+    @overload
+    def on(
+        self, event_name: Literal[Event.PERSIST_STATE], listener: EventListener[EventPersistStateData]
+    ) -> EventListener[EventPersistStateData]: ...
+    @overload
+    def on(
+        self, event_name: Literal[Event.SYSTEM_INFO], listener: EventListener[EventSystemInfoData]
+    ) -> EventListener[EventSystemInfoData]: ...
+    @overload
+    def on(
+        self, event_name: Literal[Event.MIGRATING], listener: EventListener[EventMigratingData]
+    ) -> EventListener[EventMigratingData]: ...
+    @overload
+    def on(
+        self, event_name: Literal[Event.ABORTING], listener: EventListener[EventAbortingData]
+    ) -> EventListener[EventAbortingData]: ...
+    @overload
+    def on(
+        self, event_name: Literal[Event.EXIT], listener: EventListener[EventExitData]
+    ) -> EventListener[EventExitData]: ...
+    @overload
+    def on(self, event_name: Event, listener: EventListener[None]) -> EventListener[Any]: ...
+
+    def on(self, event_name: Event, listener: EventListener[Any]) -> EventListener[Any]:
         """Add an event listener to the Actor's event manager.
 
         The following events can be emitted:
@@ -498,6 +529,19 @@ class _ActorType:
 
         self._event_manager.on(event=event_name, listener=listener)
         return listener
+
+    @overload
+    def off(self, event_name: Literal[Event.PERSIST_STATE], listener: EventListener[EventPersistStateData]) -> None: ...
+    @overload
+    def off(self, event_name: Literal[Event.SYSTEM_INFO], listener: EventListener[EventSystemInfoData]) -> None: ...
+    @overload
+    def off(self, event_name: Literal[Event.MIGRATING], listener: EventListener[EventMigratingData]) -> None: ...
+    @overload
+    def off(self, event_name: Literal[Event.ABORTING], listener: EventListener[EventAbortingData]) -> None: ...
+    @overload
+    def off(self, event_name: Literal[Event.EXIT], listener: EventListener[EventExitData]) -> None: ...
+    @overload
+    def off(self, event_name: Event, listener: EventListener[None]) -> None: ...
 
     def off(self, event_name: Event, listener: Callable | None = None) -> None:
         """Remove a listener, or all listeners, from an Actor event.
