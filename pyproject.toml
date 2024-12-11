@@ -44,7 +44,7 @@ keywords = [
 [tool.poetry.dependencies]
 python = "^3.9"
 apify-client = ">=1.8.1"
-apify-shared = ">=1.1.2"
+apify-shared = ">=1.2.1"
 crawlee = "~0.4.0"
 cryptography = ">=42.0.0"
 # TODO: relax the upper bound once the issue is resolved:
