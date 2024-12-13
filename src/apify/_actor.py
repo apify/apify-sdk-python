@@ -158,6 +158,16 @@ class _ActorType:
         if not self._is_initialized:
             raise RuntimeError('The Actor was not initialized!')
 
+    def _raise_if_cloud_requested_but_not_configured(self, *, force_cloud: bool) -> None:
+        if not force_cloud:
+            return
+
+        if not self.is_at_home() and self.config.token is None:
+            raise RuntimeError(
+                'In order to use the Apify cloud storage from your computer, '
+                'you need to provide an Apify token using the APIFY_TOKEN environment variable.'
+            )
+
     async def init(self) -> None:
         """Initialize the Actor instance.
 
@@ -335,6 +345,7 @@ class _ActorType:
             An instance of the `Dataset` class for the given ID or name.
         """
         self._raise_if_not_initialized()
+        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
 
         return await Dataset.open(
             id=id,
@@ -367,6 +378,7 @@ class _ActorType:
             An instance of the `KeyValueStore` class for the given ID or name.
         """
         self._raise_if_not_initialized()
+        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
 
         return await KeyValueStore.open(
             id=id,
@@ -401,6 +413,7 @@ class _ActorType:
             An instance of the `RequestQueue` class for the given ID or name.
         """
         self._raise_if_not_initialized()
+        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
 
         return await RequestQueue.open(
             id=id,
