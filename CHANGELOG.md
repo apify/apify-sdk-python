@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 
 - Add new config variables to `Actor.config` ([#351](https://github.com/apify/apify-sdk-python/pull/351)) ([7b6478c](https://github.com/apify/apify-sdk-python/commit/7b6478c3fc239b454f733fbd98348dab7b3a1766)) by [@fnesveda](https://github.com/fnesveda)
 
+### 🐛 Bug Fixes
+
+- Better error message when attempting to use force_cloud without an Apify token ([#356](https://github.com/apify/apify-sdk-python/pull/356)) ([33245ce](https://github.com/apify/apify-sdk-python/commit/33245ceddb1fa0ed39548181fb57fb3e6b98f954)) by [@janbuchar](https://github.com/janbuchar)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [2.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.1.0) (2024-12-03)
