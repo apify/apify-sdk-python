@@ -73,18 +73,3 @@ jobs:
       # Publishes the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-  trigger_docker_build:
-    name: Trigger Docker image build
-    needs: [release_metadata, update_changelog]
-    runs-on: ubuntu-latest
-    steps:
-      - # Trigger building the Python Docker images in apify/apify-actor-docker repo
-        name: Trigger Docker image build
-        run: |
-          gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
-            -F event_type=build-python-images \
-            -F client_payload[release_tag]=beta \
-            -F client_payload[apify_version]=${{ needs.release_metadata.outputs.version_number }}
-        env:
-          GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
