@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from apify_shared.utils import ignore_docs
 from crawlee._log_config import CrawleeLogFormatter, configure_logger, get_configured_log_level
-
-if TYPE_CHECKING:
-    from apify import Configuration
 
 # Name of the logger used throughout the library (resolves to 'apify')
 logger_name = __name__.split('.')[0]
@@ -21,11 +17,11 @@ class ActorLogFormatter(CrawleeLogFormatter):  # noqa: D101 (Inherited from pare
     pass
 
 
-def _configure_logging(configuration: Configuration) -> None:
+def _configure_logging() -> None:
     apify_client_logger = logging.getLogger('apify_client')
-    configure_logger(apify_client_logger, configuration, remove_old_handlers=True)
+    configure_logger(apify_client_logger, remove_old_handlers=True)
 
-    level = get_configured_log_level(configuration)
+    level = get_configured_log_level()
 
     # Keep apify_client logger quiet unless debug logging is requested
     if level > logging.DEBUG:
@@ -42,4 +38,4 @@ def _configure_logging(configuration: Configuration) -> None:
 
     # Use configured log level for apify logger
     apify_logger = logging.getLogger('apify')
-    configure_logger(apify_logger, configuration, remove_old_handlers=True)
+    configure_logger(apify_logger, remove_old_handlers=True)
