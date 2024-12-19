@@ -4,10 +4,10 @@ import asyncio
 import os
 import sys
 from datetime import timedelta
-from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 from lazy_object_proxy import Proxy
+from more_itertools import flatten
 from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
@@ -856,10 +856,10 @@ class _ActorType:
         # Typically, crawlers are listening for the MIIGRATING event to stop processing new requests.
         # We can't just emit the events and wait for all listeners to finish,
         # because this method might be called from an event listener itself, and we would deadlock.
-        persist_state_listeners = chain.from_iterable(
+        persist_state_listeners = flatten(
             (self._event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
         )
-        migrating_listeners = chain.from_iterable(
+        migrating_listeners = flatten(
             (self._event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
         )
 
