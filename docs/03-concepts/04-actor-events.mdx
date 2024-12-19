@@ -40,6 +40,8 @@ During its runtime, the Actor receives Actor events sent by the Apify platform o
                 {' '}to another worker server soon.</p>
                 You can use it to persist the state of the Actor so that once it is executed again on the new server,
                 it doesn't have to start over from the beginning.
+                Once you have persisted the state of your Actor, you can call <a href="../../reference/class/Actor#reboot"><code>Actor.reboot()</code></a>
+                to reboot the Actor and trigger the migration immediately, to speed up the process.
             </td>
         </tr>
         <tr>
