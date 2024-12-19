@@ -851,6 +851,9 @@ class _ActorType:
             custom_after_sleep = self._configuration.metamorph_after_sleep
 
         # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
+        # PERSIST_STATE listeners are called to allow the Actor to persist its state before the reboot.
+        # MIGRATING listeners are called to allow the Actor to gracefully stop in-progress tasks before the reboot.
+        # Typically, crawlers are listening for the MIIGRATING event to stop processing new requests.
         # We can't just emit the events and wait for all listeners to finish,
         # because this method might be called from an event listener itself, and we would deadlock.
         persist_state_listeners = chain.from_iterable(
