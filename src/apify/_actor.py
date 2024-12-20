@@ -7,13 +7,14 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 from lazy_object_proxy import Proxy
+from more_itertools import flatten
 from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee import service_container
-from crawlee.events._types import Event, EventPersistStateData
+from crawlee.events._types import Event, EventMigratingData, EventPersistStateData
 
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
@@ -48,6 +49,7 @@ class _ActorType:
     _apify_client: ApifyClientAsync
     _configuration: Configuration
     _is_exiting = False
+    _is_rebooting = False
 
     def __init__(
         self,
@@ -839,12 +841,32 @@ class _ActorType:
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
+        if self._is_rebooting:
+            self.log.debug('Actor is already rebooting, skipping the additional reboot call.')
+            return
+
+        self._is_rebooting = True
+
         if not custom_after_sleep:
             custom_after_sleep = self._configuration.metamorph_after_sleep
 
-        self._event_manager.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
+        # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
+        # PERSIST_STATE listeners are called to allow the Actor to persist its state before the reboot.
+        # MIGRATING listeners are called to allow the Actor to gracefully stop in-progress tasks before the reboot.
+        # Typically, crawlers are listening for the MIIGRATING event to stop processing new requests.
+        # We can't just emit the events and wait for all listeners to finish,
+        # because this method might be called from an event listener itself, and we would deadlock.
+        persist_state_listeners = flatten(
+            (self._event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
+        )
+        migrating_listeners = flatten(
+            (self._event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
+        )
 
-        await self._event_manager.__aexit__(None, None, None)
+        await asyncio.gather(
+            *[listener(EventPersistStateData(is_migrating=True)) for listener in persist_state_listeners],
+            *[listener(EventMigratingData()) for listener in migrating_listeners],
+        )
 
         if not self._configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
