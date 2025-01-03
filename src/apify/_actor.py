@@ -13,8 +13,9 @@ from pydantic import AliasChoices
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
-from crawlee import service_container
+from crawlee import service_locator
 from crawlee.events._types import Event, EventMigratingData, EventPersistStateData
+from crawlee.storage_clients import MemoryStorageClient
 
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
@@ -71,17 +72,22 @@ class _ActorType:
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
-        self._event_manager: EventManager
-        if self._configuration.is_at_home:
-            self._event_manager = PlatformEventManager(
-                config=self._configuration,
-                persist_state_interval=self._configuration.persist_state_interval,
+        # We need to keep both local & cloud storage clients because of the `force_cloud` option.
+        self._local_storage_client = MemoryStorageClient.from_config(config=self.config)
+        self._cloud_storage_client = ApifyStorageClient.from_config(config=self.config)
+
+        # Set the event manager based on whether the Actor is running on the platform or locally.
+        self._event_manager = (
+            PlatformEventManager(
+                config=self.config,
+                persist_state_interval=self.config.persist_state_interval,
             )
-        else:
-            self._event_manager = LocalEventManager(
-                system_info_interval=self._configuration.system_info_interval,
-                persist_state_interval=self._configuration.persist_state_interval,
+            if self.is_at_home()
+            else LocalEventManager(
+                system_info_interval=self.config.system_info_interval,
+                persist_state_interval=self.config.persist_state_interval,
             )
+        )
 
         self._is_initialized = False
 
@@ -94,9 +100,6 @@ class _ActorType:
         When you exit the `async with` block, the `Actor.exit()` method is called, and if any exception happens while
         executing the block code, the `Actor.fail` method is called.
         """
-        if self._configure_logging:
-            _configure_logging(self._configuration)
-
         await self.init()
         return self
 
@@ -184,18 +187,21 @@ class _ActorType:
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
 
-        if self._configuration.token:
-            service_container.set_cloud_storage_client(ApifyStorageClient(configuration=self._configuration))
-
-        if self._configuration.is_at_home:
-            service_container.set_default_storage_client_type('cloud')
-        else:
-            service_container.set_default_storage_client_type('local')
-
-        service_container.set_event_manager(self._event_manager)
-
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
+
+        # Register services in the service locator.
+        if self.is_at_home():
+            service_locator.set_storage_client(self._cloud_storage_client)
+        else:
+            service_locator.set_storage_client(self._local_storage_client)
+
+        service_locator.set_event_manager(self.event_manager)
+        service_locator.set_configuration(self.configuration)
+
+        # The logging configuration has to be called after all service_locator set methods.
+        if self._configure_logging:
+            _configure_logging()
 
         self.log.info('Initializing Actor...')
         self.log.info('System info', extra=get_system_info())
@@ -245,7 +251,6 @@ class _ActorType:
                 await self._event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self._event_manager.__aexit__(None, None, None)
-            cast(dict, service_container._services).clear()  # noqa: SLF001
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -349,11 +354,13 @@ class _ActorType:
         self._raise_if_not_initialized()
         self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
 
+        storage_client = self._cloud_storage_client if force_cloud else service_locator.get_storage_client()
+
         return await Dataset.open(
             id=id,
             name=name,
             configuration=self._configuration,
-            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+            storage_client=storage_client,
         )
 
     async def open_key_value_store(
@@ -381,12 +388,13 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
         self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
+        storage_client = self._cloud_storage_client if force_cloud else service_locator.get_storage_client()
 
         return await KeyValueStore.open(
             id=id,
             name=name,
             configuration=self._configuration,
-            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+            storage_client=storage_client,
         )
 
     async def open_request_queue(
@@ -417,11 +425,13 @@ class _ActorType:
         self._raise_if_not_initialized()
         self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
 
+        storage_client = self._cloud_storage_client if force_cloud else service_locator.get_storage_client()
+
         return await RequestQueue.open(
             id=id,
             name=name,
             configuration=self._configuration,
-            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+            storage_client=storage_client,
         )
 
     async def push_data(self, data: dict | list[dict]) -> None:
@@ -963,7 +973,7 @@ class _ActorType:
         password: str | None = None,
         groups: list[str] | None = None,
         country_code: str | None = None,
-        proxy_urls: list[str] | None = None,
+        proxy_urls: list[str | None] | None = None,
         new_url_function: _NewUrlFunction | None = None,
     ) -> ProxyConfiguration | None:
         """Create a ProxyConfiguration object with the passed proxy configuration.

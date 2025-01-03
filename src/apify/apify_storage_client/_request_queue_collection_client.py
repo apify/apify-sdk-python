@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
-from crawlee.base_storage_client import BaseRequestQueueCollectionClient, RequestQueueListPage, RequestQueueMetadata
+from crawlee.storage_clients._base import BaseRequestQueueCollectionClient
+from crawlee.storage_clients.models import RequestQueueListPage, RequestQueueMetadata
 
 if TYPE_CHECKING:
     from apify_client.clients import RequestQueueCollectionClientAsync

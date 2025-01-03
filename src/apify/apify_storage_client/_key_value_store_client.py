@@ -5,12 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
-from crawlee.base_storage_client import (
-    BaseKeyValueStoreClient,
-    KeyValueStoreListKeysPage,
-    KeyValueStoreMetadata,
-    KeyValueStoreRecord,
-)
+from crawlee.storage_clients._base import BaseKeyValueStoreClient
+from crawlee.storage_clients.models import KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

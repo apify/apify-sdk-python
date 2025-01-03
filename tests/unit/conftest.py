@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import os
 from collections import defaultdict
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Callable, cast, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 import pytest
 
-from apify_client.client import ApifyClientAsync
+from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
+from crawlee import service_locator
 from crawlee.configuration import Configuration as CrawleeConfiguration
-from crawlee.memory_storage_client import MemoryStorageClient
+from crawlee.storage_clients import MemoryStorageClient
+from crawlee.storages import _creation_management
 
 import apify._actor
 
@@ -20,45 +23,66 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def reset_default_instances() -> Callable[[], None]:
-    def reset() -> None:
-        from crawlee.storages._creation_management import (
-            _cache_dataset_by_id,
-            _cache_dataset_by_name,
-            _cache_kvs_by_id,
-            _cache_kvs_by_name,
-            _cache_rq_by_id,
-            _cache_rq_by_name,
-        )
+def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callable[[], None]:
+    """Prepare the testing environment by resetting the global state before each test.
 
-        _cache_dataset_by_id.clear()
-        _cache_dataset_by_name.clear()
-        _cache_kvs_by_id.clear()
-        _cache_kvs_by_name.clear()
-        _cache_rq_by_id.clear()
-        _cache_rq_by_name.clear()
+    This fixture ensures that the global state of the package is reset to a known baseline before each test runs.
+    It also configures a temporary storage directory for test isolation.
 
-        from crawlee import service_container
+    Args:
+        monkeypatch: Test utility provided by pytest for patching.
+        tmp_path: A unique temporary directory path provided by pytest for test isolation.
 
-        cast(dict, service_container._services).clear()
+    Returns:
+        A callable that prepares the test environment.
+    """
+
+    def _prepare_test_env() -> None:
         delattr(apify._actor.Actor, '__wrapped__')
-        # TODO: local storage client purge  # noqa: TD003
 
-    return reset
+        # Set the environment variable for the local storage directory to the temporary path.
+        monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
+
+        # Reset the flags in the service locator to indicate that no services are explicitly set. This ensures
+        # a clean state, as services might have been set during a previous test and not reset properly.
+        service_locator._configuration_was_retrieved = False
+        service_locator._storage_client_was_retrieved = False
+        service_locator._event_manager_was_retrieved = False
+
+        # Reset the services in the service locator.
+        service_locator._configuration = None
+        service_locator._event_manager = None
+        service_locator._storage_client = None
+
+        # Clear creation-related caches to ensure no state is carried over between tests.
+        monkeypatch.setattr(_creation_management, '_cache_dataset_by_id', {})
+        monkeypatch.setattr(_creation_management, '_cache_dataset_by_name', {})
+        monkeypatch.setattr(_creation_management, '_cache_kvs_by_id', {})
+        monkeypatch.setattr(_creation_management, '_cache_kvs_by_name', {})
+        monkeypatch.setattr(_creation_management, '_cache_rq_by_id', {})
+        monkeypatch.setattr(_creation_management, '_cache_rq_by_name', {})
+
+        # Verify that the test environment was set up correctly.
+        assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
+        assert service_locator._configuration_was_retrieved is False
+        assert service_locator._storage_client_was_retrieved is False
+        assert service_locator._event_manager_was_retrieved is False
+
+    return _prepare_test_env
 
 
-# To isolate the tests, we need to reset the used singletons before each test case
-# We also set the MemoryStorageClient to use a temp path
 @pytest.fixture(autouse=True)
-def _reset_and_patch_default_instances(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    reset_default_instances: Callable[[], None],
-) -> None:
-    # This forces the MemoryStorageClient to use tmp_path for its storage dir
-    monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
+def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
+    """Isolate the testing environment by resetting global state before and after each test.
 
-    reset_default_instances()
+    This fixture ensures that each test starts with a clean slate and that any modifications during the test
+    do not affect subsequent tests. It runs automatically for all tests.
+
+    Args:
+        prepare_test_env: Fixture to prepare the environment before each test.
+    """
+
+    prepare_test_env()
 
 
 # This class is used to patch the ApifyClientAsync methods to return a fixed value or be replaced with another method.
@@ -179,4 +203,4 @@ def memory_storage_client() -> MemoryStorageClient:
     configuration.persist_storage = True
     configuration.write_metadata = True
 
-    return MemoryStorageClient(configuration)
+    return MemoryStorageClient.from_config(configuration)

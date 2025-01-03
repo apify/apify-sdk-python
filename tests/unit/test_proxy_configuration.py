@@ -153,7 +153,7 @@ async def test_new_url_with_session_ids() -> None:
 
 
 async def test_rotating_custom_urls() -> None:
-    proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
+    proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 
     assert await proxy_configuration.new_url() == proxy_urls[0]
@@ -166,7 +166,7 @@ async def test_rotating_custom_urls() -> None:
 
 async def test_rotating_custom_urls_with_sessions() -> None:
     sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
-    proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
+    proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 
@@ -239,18 +239,14 @@ async def test_invalid_custom_new_url_function() -> None:
 
 
 async def test_url_reference_not_shared_between_instances() -> None:
-    urls = [
+    proxy_urls: list[str | None] = [
         'http://proxy-example-1.com:8000',
         'http://proxy-example-2.com:8000',
     ]
-    proxy_configuration_1 = ProxyConfiguration(
-        proxy_urls=urls,
-    )
+    proxy_configuration_1 = ProxyConfiguration(proxy_urls=proxy_urls)
 
-    urls.append('http://proxy-example-3.com:8000')
-    proxy_configuration_2 = ProxyConfiguration(
-        proxy_urls=urls,
-    )
+    proxy_urls.append('http://proxy-example-3.com:8000')
+    proxy_configuration_2 = ProxyConfiguration(proxy_urls=proxy_urls)
 
     assert proxy_configuration_1 is not None
     assert proxy_configuration_2 is not None
@@ -296,7 +292,7 @@ async def test_new_proxy_info_basic_construction() -> None:
 
 
 async def test_new_proxy_info_rotating_urls() -> None:
-    proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
+    proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 
     proxy_info = await proxy_configuration.new_proxy_info()
@@ -326,7 +322,7 @@ async def test_new_proxy_info_rotating_urls() -> None:
 
 async def test_new_proxy_info_rotating_urls_with_sessions() -> None:
     sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
-    proxy_urls = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
+    proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
 

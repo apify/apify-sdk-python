@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, TypeAdapter
 from crawlee import Request
 from crawlee._types import HttpMethod
 from crawlee.http_clients import BaseHttpClient, HttpxHttpClient
-from crawlee.storages import RequestList as CrawleeRequestList
+from crawlee.request_loaders import RequestList as CrawleeRequestList
 
 from apify._utils import docs_group
 

@@ -14,20 +14,34 @@ from crawlee._types import HttpMethod
 from apify.storages._request_list import URL_NO_COMMAS_REGEX, RequestList
 
 
-@pytest.mark.parametrize('request_method', get_args(HttpMethod))
 @pytest.mark.parametrize(
-    'optional_input',
-    [
-        {},
-        {
-            'payload': 'some payload',
-            'userData': {'some key': 'some value'},
-            'headers': {'h1': 'v1', 'h2': 'v2'},
-        },
+    argnames='request_method',
+    argvalues=[
+        pytest.param(
+            method,
+            id=str(method),
+        )
+        for method in get_args(HttpMethod)
     ],
-    ids=['minimal', 'all_options'],
 )
-async def test_request_list_open_request_types(request_method: HttpMethod, optional_input: dict[str, Any]) -> None:
+@pytest.mark.parametrize(
+    argnames='optional_input',
+    argvalues=[
+        pytest.param({}, id='minimal'),
+        pytest.param(
+            {
+                'payload': 'some payload',
+                'userData': {'some key': 'some value'},
+                'headers': {'h1': 'v1', 'h2': 'v2'},
+            },
+            id='all_options',
+        ),
+    ],
+)
+async def test_request_list_open_request_types(
+    request_method: HttpMethod,
+    optional_input: dict[str, Any],
+) -> None:
     """Test proper request list generation from both minimal and full inputs for all method types for simple input."""
     minimal_request_dict_input = {
         'url': 'https://www.abc.com',
@@ -37,9 +51,10 @@ async def test_request_list_open_request_types(request_method: HttpMethod, optio
 
     request_list = await RequestList.open(request_list_sources_input=[request_dict_input])
     assert not await request_list.is_empty()
+
     request = await request_list.fetch_next_request()
     assert request is not None
-    assert await request_list.is_empty()
+    assert await request_list.is_empty(), 'Request list should be empty after fetching all requests'
 
     assert request.method == request_dict_input['method']
     assert request.url == request_dict_input['url']
@@ -164,20 +179,21 @@ async def test_request_list_open_name() -> None:
 
 
 @pytest.mark.parametrize(
-    'true_positive',
-    [
-        'http://www.something.com',
-        'https://www.something.net',
-        'http://nowww.cz',
-        'https://with-hypen.com',
-        'http://number1.com',
-        'http://www.number.123.abc',
-        'http://many.dots.com',
-        'http://a.com',
-        'http://www.something.com/somethignelse' 'http://www.something.com/somethignelse.txt',
-        'http://non-english-chars-áíéåü.com',
-        'http://www.port.com:1234',
-        'http://username:password@something.else.com',
+    argnames='true_positive',
+    argvalues=[
+        pytest.param('http://www.something.com', id='standard_http_with_www'),
+        pytest.param('https://www.something.net', id='standard_https_with_www'),
+        pytest.param('http://nowww.cz', id='http_no_www'),
+        pytest.param('https://with-hypen.com', id='https_with_hyphen'),
+        pytest.param('http://number1.com', id='http_with_number_in_domain'),
+        pytest.param('http://www.number.123.abc', id='http_with_subdomains_and_numbers'),
+        pytest.param('http://many.dots.com', id='http_with_multiple_subdomains'),
+        pytest.param('http://a.com', id='http_short_domain'),
+        pytest.param('http://www.something.com/somethignelse', id='http_with_path_no_extension'),
+        pytest.param('http://www.something.com/somethignelse.txt', id='http_with_path_and_extension'),
+        pytest.param('http://non-english-chars-áíéåü.com', id='http_with_non_english_chars'),
+        pytest.param('http://www.port.com:1234', id='http_with_port'),
+        pytest.param('http://username:password@something.else.com', id='http_with_authentication'),
     ],
 )
 def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
@@ -188,14 +204,14 @@ def test_url_no_commas_regex_true_positives(true_positive: str) -> None:
 
 
 @pytest.mark.parametrize(
-    'false_positive',
-    [
-        'http://www.a',
-        'http://a',
-        'http://a.a',
-        'http://123.456',
-        'www.something.com',
-        'http:www.something.com',
+    argnames='false_positive',
+    argvalues=[
+        pytest.param('http://www.a', id='invalid_domain_single_level'),
+        pytest.param('http://a', id='invalid_domain_no_tld'),
+        pytest.param('http://a.a', id='invalid_domain_short_tld'),
+        pytest.param('http://123.456', id='invalid_numeric_domain'),
+        pytest.param('www.something.com', id='missing_protocol'),
+        pytest.param('http:www.something.com', id='missing_slashes'),
     ],
 )
 def test_url_no_commas_regex_false_positives(false_positive: str) -> None:
