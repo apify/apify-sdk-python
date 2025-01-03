@@ -13,7 +13,7 @@ from apify._consts import ENCRYPTED_INPUT_VALUE_PREFIX
 from apify._crypto import public_encrypt
 
 if TYPE_CHECKING:
-    from crawlee.memory_storage_client import MemoryStorageClient
+    from crawlee.storage_clients import MemoryStorageClient
 
 
 # NOTE: We only test the key-value store methods available on Actor class/instance.
