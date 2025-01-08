@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 from typing_extensions import override
 
 from crawlee import Request
-from crawlee.base_storage_client import (
-    BaseRequestQueueClient,
+from crawlee.storage_clients._base import BaseRequestQueueClient
+from crawlee.storage_clients.models import (
     BatchRequestsOperationResponse,
     ProcessedRequest,
     ProlongRequestLockResponse,
@@ -80,10 +80,6 @@ class RequestQueueClient(BaseRequestQueueClient):
                     by_alias=True,
                     exclude={
                         'id',
-                        'json_',
-                        'order_no',
-                        'query_params',
-                        'data',
                     },
                 ),
                 forefront=forefront,
@@ -107,12 +103,6 @@ class RequestQueueClient(BaseRequestQueueClient):
             | await self._client.update_request(
                 request=request.model_dump(
                     by_alias=True,
-                    exclude={
-                        'json_',
-                        'order_no',
-                        'query_params',
-                        'data',
-                    },
                 ),
                 forefront=forefront,
             )
@@ -164,10 +154,6 @@ class RequestQueueClient(BaseRequestQueueClient):
                         by_alias=True,
                         exclude={
                             'id',
-                            'json_',
-                            'order_no',
-                            'query_params',
-                            'data',
                         },
                     )
                     for r in requests
@@ -183,12 +169,6 @@ class RequestQueueClient(BaseRequestQueueClient):
                 requests=[
                     r.model_dump(
                         by_alias=True,
-                        exclude={
-                            'json_',
-                            'order_no',
-                            'query_params',
-                            'data',
-                        },
                     )
                     for r in requests
                 ],

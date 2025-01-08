@@ -35,18 +35,25 @@ async def test_actor_init() -> None:
     assert my_actor._is_initialized is False
 
 
-async def test_double_init_raises_error() -> None:
-    my_actor = _ActorType()
+async def test_double_init_raises_error(prepare_test_env: Callable) -> None:
+    async with Actor:
+        assert Actor._is_initialized
+        with pytest.raises(RuntimeError):
+            await Actor.init()
 
-    await my_actor.init()
-    with pytest.raises(RuntimeError):
-        await my_actor.init()
-    await my_actor.exit()
+    prepare_test_env()
 
-    await Actor.init()
-    with pytest.raises(RuntimeError):
-        await Actor.init()
-    await Actor.exit()
+    async with Actor() as actor:
+        assert actor._is_initialized
+        with pytest.raises(RuntimeError):
+            await actor.init()
+
+    prepare_test_env()
+
+    async with _ActorType() as actor:
+        assert actor._is_initialized
+        with pytest.raises(RuntimeError):
+            await actor.init()
 
 
 async def test_actor_exits_cleanly_with_events(monkeypatch: pytest.MonkeyPatch) -> None:

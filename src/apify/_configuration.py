@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import Annotated, Any
 
 from pydantic import AliasChoices, BeforeValidator, Field
@@ -11,6 +12,8 @@ from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
 from apify._utils import docs_group
+
+logger = getLogger(__name__)
 
 
 def _transform_to_list(value: Any) -> list[str] | None:
@@ -352,6 +355,15 @@ class Configuration(CrawleeConfiguration):
             description='Identifier used for grouping related runs and API calls together',
         ),
     ] = None
+
+    @classmethod
+    def get_global_configuration(cls) -> Configuration:
+        """Retrieve the global instance of the configuration.
+
+        Mostly for the backwards compatibility. It is recommended to use the `service_locator.get_configuration()`
+        instead.
+        """
+        return cls()
 
 
 # Monkey-patch the base class so that it works with the extended configuration
