@@ -72,7 +72,7 @@ class _ActorType:
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
-        # Create the instance of the cloud storage client, the local storage client is obtained
+        # Create an instance of the cloud storage client, the local storage client is obtained
         # from the service locator.
         self._cloud_storage_client = ApifyStorageClient.from_config(config=self._configuration)
 
