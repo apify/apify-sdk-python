@@ -15,7 +15,6 @@ from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
 from crawlee import service_locator
 from crawlee.events._types import Event, EventMigratingData, EventPersistStateData
-from crawlee.storage_clients import MemoryStorageClient
 
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
@@ -35,6 +34,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
+    from crawlee.storage_clients import BaseStorageClient
 
     from apify._models import Webhook
 
@@ -72,8 +72,8 @@ class _ActorType:
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
-        # We need to keep both local & cloud storage clients because of the `force_cloud` option.
-        self._local_storage_client = MemoryStorageClient.from_config(config=self.config)
+        # Create the instance of the cloud storage client, the local storage client is obtained
+        # from the service locator.
         self._cloud_storage_client = ApifyStorageClient.from_config(config=self.config)
 
         # Set the event manager based on whether the Actor is running on the platform or locally.
@@ -159,6 +159,11 @@ class _ActorType:
         """The logging.Logger instance the Actor uses."""
         return logger
 
+    @property
+    def _local_storage_client(self) -> BaseStorageClient:
+        """The local storage client the Actor instance uses."""
+        return service_locator.get_storage_client()
+
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
             raise RuntimeError('The Actor was not initialized!')
@@ -190,11 +195,9 @@ class _ActorType:
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 
-        # Register services in the service locator.
+        # If the Actor is running on the Apify platform, we set the cloud storage client.
         if self.is_at_home():
             service_locator.set_storage_client(self._cloud_storage_client)
-        else:
-            service_locator.set_storage_client(self._local_storage_client)
 
         service_locator.set_event_manager(self.event_manager)
         service_locator.set_configuration(self.configuration)
@@ -354,7 +357,7 @@ class _ActorType:
         self._raise_if_not_initialized()
         self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
 
-        storage_client = self._cloud_storage_client if force_cloud else service_locator.get_storage_client()
+        storage_client = self._cloud_storage_client if force_cloud else self._local_storage_client
 
         return await Dataset.open(
             id=id,
@@ -388,7 +391,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
         self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
-        storage_client = self._cloud_storage_client if force_cloud else service_locator.get_storage_client()
+        storage_client = self._cloud_storage_client if force_cloud else self._local_storage_client
 
         return await KeyValueStore.open(
             id=id,
@@ -425,7 +428,7 @@ class _ActorType:
         self._raise_if_not_initialized()
         self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
 
-        storage_client = self._cloud_storage_client if force_cloud else service_locator.get_storage_client()
+        storage_client = self._cloud_storage_client if force_cloud else self._local_storage_client
 
         return await RequestQueue.open(
             id=id,
