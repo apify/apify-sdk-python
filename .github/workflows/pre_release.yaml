@@ -8,6 +8,9 @@ on:
     tags-ignore:
       - "**" # Ignore all tags to prevent duplicate builds when tags are pushed.
 
+  # Or it can be triggered manually.
+  workflow_dispatch:
+
 jobs:
   release_metadata:
     if: "!startsWith(github.event.head_commit.message, 'docs') && !startsWith(github.event.head_commit.message, 'ci') && startsWith(github.repository, 'apify/')"
@@ -65,7 +68,7 @@ jobs:
     steps:
       - name: Prepare distribution
         uses: apify/workflows/prepare-pypi-distribution@main
-        with: 
+        with:
           package_name: apify
           is_prerelease: "yes"
           version_number: ${{ needs.release_metadata.outputs.version_number }}
