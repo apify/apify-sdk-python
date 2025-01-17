@@ -8,6 +8,9 @@ on:
     tags-ignore:
       - "**" # Ignore all tags to prevent duplicate builds when tags are pushed.
 
+  # Or it can be triggered manually.
+  workflow_dispatch:
+
 jobs:
   release_metadata:
     if: "!startsWith(github.event.head_commit.message, 'docs') && !startsWith(github.event.head_commit.message, 'ci') && startsWith(github.repository, 'apify/')"
@@ -65,7 +68,7 @@ jobs:
     steps:
       - name: Prepare distribution
         uses: apify/workflows/prepare-pypi-distribution@main
-        with: 
+        with:
           package_name: apify
           is_prerelease: "yes"
           version_number: ${{ needs.release_metadata.outputs.version_number }}
@@ -73,18 +76,3 @@ jobs:
       # Publishes the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-  trigger_docker_build:
-    name: Trigger Docker image build
-    needs: [release_metadata, update_changelog]
-    runs-on: ubuntu-latest
-    steps:
-      - # Trigger building the Python Docker images in apify/apify-actor-docker repo
-        name: Trigger Docker image build
-        run: |
-          gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
-            -F event_type=build-python-images \
-            -F client_payload[release_tag]=beta \
-            -F client_payload[apify_version]=${{ needs.release_metadata.outputs.version_number }}
-        env:
-          GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}

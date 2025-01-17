@@ -7,13 +7,15 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorSourceType
+from apify_shared.consts import ActorJobStatus, ActorSourceType, ApifyEnvVars
+from crawlee import service_locator
+from crawlee.storages import _creation_management
 
 import apify._actor
 from ._utils import generate_unique_resource_name
@@ -29,19 +31,67 @@ _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 _SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 
 
-@pytest.fixture(autouse=True)
-def _reset_and_patch_default_instances() -> None:
-    """Reset the used singletons and patch the default storage client with a temporary directory.
+@pytest.fixture
+def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callable[[], None]:
+    """Prepare the testing environment by resetting the global state before each test.
 
-    To isolate the tests, we need to reset the used singletons before each test case. We also patch the default
-    storage client with a tmp_path.
+    This fixture ensures that the global state of the package is reset to a known baseline before each test runs.
+    It also configures a temporary storage directory for test isolation.
+
+    Args:
+        monkeypatch: Test utility provided by pytest for patching.
+        tmp_path: A unique temporary directory path provided by pytest for test isolation.
+
+    Returns:
+        A callable that prepares the test environment.
     """
-    from crawlee import service_container
 
-    cast(dict, service_container._services).clear()
-    delattr(apify._actor.Actor, '__wrapped__')
+    def _prepare_test_env() -> None:
+        delattr(apify._actor.Actor, '__wrapped__')
 
-    # TODO: StorageClientManager local storage client purge  # noqa: TD003
+        # Set the environment variable for the local storage directory to the temporary path.
+        monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
+
+        # Reset the flags in the service locator to indicate that no services are explicitly set. This ensures
+        # a clean state, as services might have been set during a previous test and not reset properly.
+        service_locator._configuration_was_retrieved = False
+        service_locator._storage_client_was_retrieved = False
+        service_locator._event_manager_was_retrieved = False
+
+        # Reset the services in the service locator.
+        service_locator._configuration = None
+        service_locator._event_manager = None
+        service_locator._storage_client = None
+
+        # Clear creation-related caches to ensure no state is carried over between tests.
+        monkeypatch.setattr(_creation_management, '_cache_dataset_by_id', {})
+        monkeypatch.setattr(_creation_management, '_cache_dataset_by_name', {})
+        monkeypatch.setattr(_creation_management, '_cache_kvs_by_id', {})
+        monkeypatch.setattr(_creation_management, '_cache_kvs_by_name', {})
+        monkeypatch.setattr(_creation_management, '_cache_rq_by_id', {})
+        monkeypatch.setattr(_creation_management, '_cache_rq_by_name', {})
+
+        # Verify that the test environment was set up correctly.
+        assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
+        assert service_locator._configuration_was_retrieved is False
+        assert service_locator._storage_client_was_retrieved is False
+        assert service_locator._event_manager_was_retrieved is False
+
+    return _prepare_test_env
+
+
+@pytest.fixture(autouse=True)
+def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
+    """Isolate the testing environment by resetting global state before and after each test.
+
+    This fixture ensures that each test starts with a clean slate and that any modifications during the test
+    do not affect subsequent tests. It runs automatically for all tests.
+
+    Args:
+        prepare_test_env: Fixture to prepare the environment before each test.
+    """
+
+    prepare_test_env()
 
 
 @pytest.fixture

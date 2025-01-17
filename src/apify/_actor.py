@@ -7,12 +7,13 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast, overload
 
 from lazy_object_proxy import Proxy
+from more_itertools import flatten
 from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
-from crawlee import service_container
+from crawlee import service_locator
 from crawlee.events import (
     Event,
     EventAbortingData,
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
+    from crawlee.storage_clients import BaseStorageClient
 
     from apify._models import Webhook
 
@@ -56,6 +58,7 @@ class _ActorType:
     _apify_client: ApifyClientAsync
     _configuration: Configuration
     _is_exiting = False
+    _is_rebooting = False
 
     def __init__(
         self,
@@ -77,17 +80,22 @@ class _ActorType:
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
-        self._event_manager: EventManager
-        if self._configuration.is_at_home:
-            self._event_manager = PlatformEventManager(
+        # Create an instance of the cloud storage client, the local storage client is obtained
+        # from the service locator.
+        self._cloud_storage_client = ApifyStorageClient.from_config(config=self._configuration)
+
+        # Set the event manager based on whether the Actor is running on the platform or locally.
+        self._event_manager = (
+            PlatformEventManager(
                 config=self._configuration,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
-        else:
-            self._event_manager = LocalEventManager(
+            if self.is_at_home()
+            else LocalEventManager(
                 system_info_interval=self._configuration.system_info_interval,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
+        )
 
         self._is_initialized = False
 
@@ -100,9 +108,6 @@ class _ActorType:
         When you exit the `async with` block, the `Actor.exit()` method is called, and if any exception happens while
         executing the block code, the `Actor.fail` method is called.
         """
-        if self._configure_logging:
-            _configure_logging(self._configuration)
-
         await self.init()
         return self
 
@@ -162,9 +167,24 @@ class _ActorType:
         """The logging.Logger instance the Actor uses."""
         return logger
 
+    @property
+    def _local_storage_client(self) -> BaseStorageClient:
+        """The local storage client the Actor instance uses."""
+        return service_locator.get_storage_client()
+
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
             raise RuntimeError('The Actor was not initialized!')
+
+    def _raise_if_cloud_requested_but_not_configured(self, *, force_cloud: bool) -> None:
+        if not force_cloud:
+            return
+
+        if not self.is_at_home() and self.config.token is None:
+            raise RuntimeError(
+                'In order to use the Apify cloud storage from your computer, '
+                'you need to provide an Apify token using the APIFY_TOKEN environment variable.'
+            )
 
     async def init(self) -> None:
         """Initialize the Actor instance.
@@ -180,18 +200,19 @@ class _ActorType:
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
 
-        if self._configuration.token:
-            service_container.set_cloud_storage_client(ApifyStorageClient(configuration=self._configuration))
-
-        if self._configuration.is_at_home:
-            service_container.set_default_storage_client_type('cloud')
-        else:
-            service_container.set_default_storage_client_type('local')
-
-        service_container.set_event_manager(self._event_manager)
-
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
+
+        # If the Actor is running on the Apify platform, we set the cloud storage client.
+        if self.is_at_home():
+            service_locator.set_storage_client(self._cloud_storage_client)
+
+        service_locator.set_event_manager(self.event_manager)
+        service_locator.set_configuration(self.configuration)
+
+        # The logging configuration has to be called after all service_locator set methods.
+        if self._configure_logging:
+            _configure_logging()
 
         self.log.info('Initializing Actor...')
         self.log.info('System info', extra=get_system_info())
@@ -241,7 +262,6 @@ class _ActorType:
                 await self._event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self._event_manager.__aexit__(None, None, None)
-            cast(dict, service_container._services).clear()  # noqa: SLF001
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -343,12 +363,15 @@ class _ActorType:
             An instance of the `Dataset` class for the given ID or name.
         """
         self._raise_if_not_initialized()
+        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
+
+        storage_client = self._cloud_storage_client if force_cloud else self._local_storage_client
 
         return await Dataset.open(
             id=id,
             name=name,
             configuration=self._configuration,
-            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+            storage_client=storage_client,
         )
 
     async def open_key_value_store(
@@ -375,12 +398,14 @@ class _ActorType:
             An instance of the `KeyValueStore` class for the given ID or name.
         """
         self._raise_if_not_initialized()
+        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
+        storage_client = self._cloud_storage_client if force_cloud else self._local_storage_client
 
         return await KeyValueStore.open(
             id=id,
             name=name,
             configuration=self._configuration,
-            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+            storage_client=storage_client,
         )
 
     async def open_request_queue(
@@ -409,12 +434,15 @@ class _ActorType:
             An instance of the `RequestQueue` class for the given ID or name.
         """
         self._raise_if_not_initialized()
+        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
+
+        storage_client = self._cloud_storage_client if force_cloud else self._local_storage_client
 
         return await RequestQueue.open(
             id=id,
             name=name,
             configuration=self._configuration,
-            storage_client=service_container.get_storage_client(client_type='cloud' if force_cloud else None),
+            storage_client=storage_client,
         )
 
     async def push_data(self, data: dict | list[dict]) -> None:
@@ -870,12 +898,32 @@ class _ActorType:
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
+        if self._is_rebooting:
+            self.log.debug('Actor is already rebooting, skipping the additional reboot call.')
+            return
+
+        self._is_rebooting = True
+
         if not custom_after_sleep:
             custom_after_sleep = self._configuration.metamorph_after_sleep
 
-        self._event_manager.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
+        # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
+        # PERSIST_STATE listeners are called to allow the Actor to persist its state before the reboot.
+        # MIGRATING listeners are called to allow the Actor to gracefully stop in-progress tasks before the reboot.
+        # Typically, crawlers are listening for the MIIGRATING event to stop processing new requests.
+        # We can't just emit the events and wait for all listeners to finish,
+        # because this method might be called from an event listener itself, and we would deadlock.
+        persist_state_listeners = flatten(
+            (self._event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
+        )
+        migrating_listeners = flatten(
+            (self._event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
+        )
 
-        await self._event_manager.__aexit__(None, None, None)
+        await asyncio.gather(
+            *[listener(EventPersistStateData(is_migrating=True)) for listener in persist_state_listeners],
+            *[listener(EventMigratingData()) for listener in migrating_listeners],
+        )
 
         if not self._configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
@@ -972,7 +1020,7 @@ class _ActorType:
         password: str | None = None,
         groups: list[str] | None = None,
         country_code: str | None = None,
-        proxy_urls: list[str] | None = None,
+        proxy_urls: list[str | None] | None = None,
         new_url_function: _NewUrlFunction | None = None,
     ) -> ProxyConfiguration | None:
         """Create a ProxyConfiguration object with the passed proxy configuration.

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated
+from logging import getLogger
+from typing import Annotated, Any
 
 from pydantic import AliasChoices, BeforeValidator, Field
 from typing_extensions import deprecated
@@ -11,6 +12,16 @@ from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
 from apify._utils import docs_group
+
+logger = getLogger(__name__)
+
+
+def _transform_to_list(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    if not value:
+        return []
+    return value if isinstance(value, list) else str(value).split(',')
 
 
 @docs_group('Classes')
@@ -30,6 +41,13 @@ class Configuration(CrawleeConfiguration):
                 'apify_act_id',
             ),
             description='ID of the Actor',
+        ),
+    ] = None
+
+    actor_full_name: Annotated[
+        str | None,
+        Field(
+            description='Full name of the Actor',
         ),
     ] = None
 
@@ -65,6 +83,14 @@ class Configuration(CrawleeConfiguration):
             ),
             description='Build number of the Actor build used in the run',
         ),
+    ] = None
+
+    actor_build_tags: Annotated[
+        list[str] | None,
+        Field(
+            description='Build tags of the Actor build used in the run',
+        ),
+        BeforeValidator(_transform_to_list),
     ] = None
 
     actor_task_id: Annotated[
@@ -181,6 +207,15 @@ class Configuration(CrawleeConfiguration):
         Field(
             alias='actor_max_paid_dataset_items',
             description='For paid-per-result Actors, the user-set limit on returned results. Do not exceed this limit',
+        ),
+        BeforeValidator(lambda val: val or None),
+    ] = None
+
+    max_total_charge_usd: Annotated[
+        float | None,
+        Field(
+            alias='actor_max_total_charge_usd',
+            description='For pay-per-event Actors, the user-set limit on total charges. Do not exceed this limit',
         ),
         BeforeValidator(lambda val: val or None),
     ] = None
@@ -320,6 +355,15 @@ class Configuration(CrawleeConfiguration):
             description='Identifier used for grouping related runs and API calls together',
         ),
     ] = None
+
+    @classmethod
+    def get_global_configuration(cls) -> Configuration:
+        """Retrieve the global instance of the configuration.
+
+        Mostly for the backwards compatibility. It is recommended to use the `service_locator.get_configuration()`
+        instead.
+        """
+        return cls()
 
 
 # Monkey-patch the base class so that it works with the extended configuration

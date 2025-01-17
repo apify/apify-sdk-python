@@ -111,9 +111,9 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         password: str | None = None,
         groups: list[str] | None = None,
         country_code: str | None = None,
-        proxy_urls: list[str] | None = None,
+        proxy_urls: list[str | None] | None = None,
         new_url_function: _NewUrlFunction | None = None,
-        tiered_proxy_urls: list[list[str]] | None = None,
+        tiered_proxy_urls: list[list[str | None]] | None = None,
         _actor_config: Configuration | None = None,
         _apify_client: ApifyClientAsync | None = None,
     ) -> None:
@@ -148,7 +148,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                 ' "groups" or "country_code".'
             )
 
-        if proxy_urls and any('apify.com' in url for url in proxy_urls):
+        if proxy_urls and any('apify.com' in (url or '') for url in proxy_urls):
             logger.warning(
                 'Some Apify proxy features may work incorrectly. Please consider setting up Apify properties '
                 'instead of `proxy_urls`.\n'

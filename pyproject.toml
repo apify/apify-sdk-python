@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "apify"
-version = "2.1.0"
+version = "2.2.0"
 description = "Apify SDK for Python"
 authors = ["Apify Technologies s.r.o. <support@apify.com>"]
 license = "Apache-2.0"
@@ -45,32 +45,33 @@ keywords = [
 python = "^3.9"
 apify-client = ">=1.8.1"
 apify-shared = ">=1.1.2"
-crawlee = { git = "https://github.com/apify/crawlee-python.git", branch = "improve-event-types" }
+crawlee = "~0.5.1"
 cryptography = ">=42.0.0"
-# TODO: relax the upper bound once the issue is resolved:
-# https://github.com/apify/apify-sdk-python/issues/348
-httpx = "~0.27.0"
+httpx = ">=0.27.0"
 lazy-object-proxy = ">=1.10.0"
+more_itertools = ">=10.2.0"
 scrapy = { version = ">=2.11.0", optional = true }
 typing-extensions = ">=4.1.0"
+# TODO: Relax the upper bound once the issue is resolved:
+# https://github.com/apify/apify-sdk-python/issues/325
 websockets = ">=10.0 <14.0.0"
 
 [tool.poetry.group.dev.dependencies]
 build = "~1.2.0"
 filelock = "~3.16.0"
 griffe = "~1.5.0"
-mypy = "~1.13.0"
+mypy = "~1.14.0"
 pre-commit = "~4.0.0"
 pydoc-markdown = "~4.8.0"
 pytest = "~8.3.0"
-pytest-asyncio = "~0.24.0"
+pytest-asyncio = "~0.25.0"
 pytest-cov = "~6.0.0"
 pytest-only = "~2.1.0"
 pytest-timeout = "~2.3.0"
 pytest-xdist = "~3.6.0"
-respx = "~0.21.0"
-ruff = "~0.8.0"
-setuptools = "~75.6.0"     # setuptools are used by pytest but not explicitly required
+respx = "~0.22.0"
+ruff = "~0.9.0"
+setuptools = "~75.8.0"     # setuptools are used by pytest but not explicitly required
 
 [tool.poetry.extras]
 scrapy = ["scrapy"]

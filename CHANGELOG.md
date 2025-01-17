@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.2.0) (2025-01-10)
+
+### 🚀 Features
+
+- Add new config variables to `Actor.config` ([#351](https://github.com/apify/apify-sdk-python/pull/351)) ([7b6478c](https://github.com/apify/apify-sdk-python/commit/7b6478c3fc239b454f733fbd98348dab7b3a1766)) by [@fnesveda](https://github.com/fnesveda)
+- Upgrade to Crawlee v0.5 ([#355](https://github.com/apify/apify-sdk-python/pull/355)) ([826f4db](https://github.com/apify/apify-sdk-python/commit/826f4dbcc8cfd693d97e40c17faf91d225d7ffaf)) by [@vdusek](https://github.com/vdusek)
+
+### 🐛 Bug Fixes
+
+- Better error message when attempting to use force_cloud without an Apify token ([#356](https://github.com/apify/apify-sdk-python/pull/356)) ([33245ce](https://github.com/apify/apify-sdk-python/commit/33245ceddb1fa0ed39548181fb57fb3e6b98f954)) by [@janbuchar](https://github.com/janbuchar)
+- Allow calling `Actor.reboot()` from migrating handler, align reboot behavior with JS SDK ([#361](https://github.com/apify/apify-sdk-python/pull/361)) ([7ba0221](https://github.com/apify/apify-sdk-python/commit/7ba022121fe7b65470fec901295f74cebce72610)) by [@fnesveda](https://github.com/fnesveda)
+
+
 ## [2.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.1.0) (2024-12-03)
 
 ### 🚀 Features
