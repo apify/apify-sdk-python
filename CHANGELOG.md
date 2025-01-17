@@ -2,15 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 2.2.1 - **not yet released**
+## [2.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.2.1) (2025-01-17)
 
 ### 🐛 Bug Fixes
 
 - Better event listener type definitions ([#354](https://github.com/apify/apify-sdk-python/pull/354)) ([52a6dee](https://github.com/apify/apify-sdk-python/commit/52a6dee92cc0cc4fa032dfc8c312545bc5e07206)) by [@janbuchar](https://github.com/janbuchar), closes [#344](https://github.com/apify/apify-sdk-python/issues/344)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [2.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.2.0) (2025-01-10)
 
 ### 🚀 Features
