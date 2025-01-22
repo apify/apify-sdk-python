@@ -7,6 +7,8 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './index.module.css';
 
+import HomePageExample from '!!raw-loader!./home_page_example.py';
+
 function Hero() {
     return (
         <header className={clsx('container', styles.heroBanner)}>
@@ -26,8 +28,7 @@ function Hero() {
                         <div className="col">
                             <h2></h2>
                             <h2>
-                                The Apify SDK for Python is the official library for creating Apify Actors in Python.
-                                It provides useful features like Actor lifecycle management, local storage emulation, and Actor event handling.
+                                The Apify SDK for Python is the official library for creating Apify Actors in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor event handling.
                             </h2>
                         </div>
                     </div>
@@ -66,23 +67,11 @@ export default function Home() {
                     <div className="row padding-horiz--md" >
                         <div className="col col--4">
                             <p style={{ lineHeight: '200%' }}>
-                            For example, the Apify SDK makes it easy to read the Actor input with the <code>Actor.get_input()</code> method,
-                            and to save scraped data from your Actors to a dataset
-                                {' '}by simply using the <code>Actor.push_data()</code> method.
+                                For example, the Apify SDK makes it easy to read the Actor input with the <code>Actor.get_input()</code> method, and to save scraped data from your Actors to a dataset by simply using the <code>Actor.push_data()</code> method.
                             </p>
                         </div>
                         <div className="col col--8">
-                            <CodeBlock language='python'>{`from apify import Actor
-from bs4 import BeautifulSoup
-import requests
-
-async def main():
-    async with Actor:
-        actor_input = await Actor.get_input()
-        response = requests.get(actor_input['url'])
-        soup = BeautifulSoup(response.content, 'html.parser')
-        await Actor.push_data({ 'url': actor_input['url'], 'title': soup.title.string })`
-                            }</CodeBlock>
+                            <CodeBlock className="language-python">{HomePageExample}</CodeBlock>
                         </div>
                     </div>
                 </div>

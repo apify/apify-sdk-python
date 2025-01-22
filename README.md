@@ -36,9 +36,10 @@ Below are few examples demonstrating how to use the Apify SDK with some web scra
 This example illustrates how to integrate the Apify SDK with [HTTPX](https://www.python-httpx.org/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/) to scrape data from web pages.
 
 ```python
-from apify import Actor
 from bs4 import BeautifulSoup
 from httpx import AsyncClient
+
+from apify import Actor
 
 
 async def main() -> None:
@@ -84,8 +85,9 @@ async def main() -> None:
 This example demonstrates how to use the Apify SDK alongside `PlaywrightCrawler` from [Crawlee](https://crawlee.dev/python) to perform web scraping.
 
 ```python
-from apify import Actor, Request
-from crawlee.playwright_crawler import PlaywrightCrawler, PlaywrightCrawlingContext
+from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
+
+from apify import Actor
 
 
 async def main() -> None:

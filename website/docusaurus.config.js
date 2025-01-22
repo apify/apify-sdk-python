@@ -117,6 +117,10 @@ module.exports = {
                         url: 'https://crawlee.dev/python/api/class/RequestQueue',
                         group: 'Classes',
                     },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/Request',
+                        group: 'Classes',
+                    },
                 ],
             },
         ],
