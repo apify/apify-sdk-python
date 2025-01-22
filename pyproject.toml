@@ -58,7 +58,7 @@ websockets = ">=10.0 <14.0.0"
 
 [tool.poetry.group.dev.dependencies]
 build = "~1.2.0"
-filelock = "~3.16.0"
+filelock = "~3.17.0"
 griffe = "~1.5.0"
 mypy = "~1.14.0"
 pre-commit = "~4.1.0"
