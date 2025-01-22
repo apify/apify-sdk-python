@@ -183,7 +183,14 @@ warn_unused_ignores = true
 exclude = []
 
 [[tool.mypy.overrides]]
-module = ['scrapy', 'scrapy.*', 'lazy_object_proxy', 'nest_asyncio']
+module = [
+    'bs4',
+    'lazy_object_proxy',
+    'nest_asyncio',
+    'playwright.*',
+    'scrapy.*',
+    'selenium.*',
+]
 ignore_missing_imports = true
 
 [tool.basedpyright]
