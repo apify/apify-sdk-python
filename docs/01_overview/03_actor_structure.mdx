@@ -1,6 +1,6 @@
 ---
+id: actor-structure
 title: Actor structure
-sidebar_label: Actor structure
 ---
 
 import CodeBlock from '@theme/CodeBlock';
@@ -17,7 +17,7 @@ The `.actor/` directory contains the [Actor configuration](https://docs.apify.co
 The Actor's runtime dependencies are specified in the `requirements.txt` file,
 which follows the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
 
-The Actor's source code is in the `src/` folder. This folder contains two important files: `main.py`, which contains the main function of the Actor, and `__main__.py`, which is the entrypoint of the Actor package, setting up the Actor [logger](../concepts/logging) and executing the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+The Actor's source code is in the `src/` folder. This folder contains two important files: `main.py`, which contains the main function of the Actor, and `__main__.py`, which is the entrypoint of the Actor package, setting up the Actor [logger](../concepts/logging) and executing the Actor's main function via [`asyncio.run`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
 
 <Tabs>
     <TabItem value="main.py" label="main.py" default>
