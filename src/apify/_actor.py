@@ -889,7 +889,7 @@ class _ActorType:
         The system stops the current container and starts a new one, with the same run ID and default storages.
 
         Args:
-            event_listeners_timeout: How long should the Actor wait for Actor event listeners to finish before exiting
+            event_listeners_timeout: How long should the Actor wait for Actor event listeners to finish before exiting.
             custom_after_sleep: How long to sleep for after the reboot, to wait for the container to be stopped.
         """
         self._raise_if_not_initialized()
