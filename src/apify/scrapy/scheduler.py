@@ -59,9 +59,7 @@ class ApifyScheduler(BaseScheduler):
             # Use the ApifyStorageClient if the Actor is running on the Apify platform,
             # otherwise use the MemoryStorageClient.
             storage_client = (
-                ApifyStorageClient.from_config(config)
-                if config.is_at_home
-                else MemoryStorageClient.from_config(config)
+                ApifyStorageClient.from_config(config) if config.is_at_home else MemoryStorageClient.from_config(config)
             )
 
             return await RequestQueue.open(storage_client=storage_client)
