@@ -78,11 +78,6 @@ class ApifyHttpProxyMiddleware:
         Raises:
             ValueError: If username and password are not provided in the proxy URL.
         """
-        # Do not use proxy for robots.txt, as it causes 403 Forbidden.
-        if request.url.endswith('/robots.txt'):
-            request.meta.pop('proxy', None)
-            return
-
         Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: request={request}, spider={spider}')
         url = await self._get_new_proxy_url()
 
