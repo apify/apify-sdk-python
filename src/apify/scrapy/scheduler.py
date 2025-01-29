@@ -3,6 +3,8 @@ from __future__ import annotations
 import traceback
 from typing import TYPE_CHECKING
 
+from crawlee.storage_clients import MemoryStorageClient
+
 from apify._configuration import Configuration
 from apify.apify_storage_client import ApifyStorageClient
 
@@ -52,8 +54,17 @@ class ApifyScheduler(BaseScheduler):
         self.spider = spider
 
         async def open_queue() -> RequestQueue:
-            custom_loop_apify_client = ApifyStorageClient(configuration=Configuration.get_global_configuration())
-            return await RequestQueue.open(storage_client=custom_loop_apify_client)
+            config = Configuration.get_global_configuration()
+
+            # Use the ApifyStorageClient if the Actor is running on the Apify platform,
+            # otherwise use the MemoryStorageClient.
+            storage_client = (
+                ApifyStorageClient.from_config(config)
+                if config.is_at_home
+                else MemoryStorageClient.from_config(config)
+            )
+
+            return await RequestQueue.open(storage_client=storage_client)
 
         try:
             self._rq = nested_event_loop.run_until_complete(open_queue())

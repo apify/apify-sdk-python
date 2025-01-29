@@ -62,7 +62,7 @@ class ApifyHttpProxyMiddleware:
         if use_apify_proxy is not True:
             Actor.log.warning(
                 'ApifyHttpProxyMiddleware is not going to be used. Actor input field '
-                '"proxyConfiguration.useApifyProxy" is probably set to False.'
+                '"proxyConfiguration.useApifyProxy" is set to False.'
             )
             raise NotConfigured
 
