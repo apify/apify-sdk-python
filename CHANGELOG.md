@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 2.2.2 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix RQ usage in Scrapy scheduler ([#385](https://github.com/apify/apify-sdk-python/pull/385)) ([3363478](https://github.com/apify/apify-sdk-python/commit/3363478dbf6eb35e45c237546fe0df5c104166f6)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [2.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.2.1) (2025-01-17)
 
 ### 🐛 Bug Fixes
