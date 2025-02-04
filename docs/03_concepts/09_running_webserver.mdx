@@ -1,0 +1,26 @@
+---
+id: running-webserver
+title: Running webserver in your Actor
+---
+
+import CodeBlock from '@theme/CodeBlock';
+
+import WebserverExample from '!!raw-loader!./code/09_webserver.py';
+
+Each Actor run on the Apify platform is assigned a unique hard-to-guess URL (for example `https://8segt5i81sokzm.runs.apify.net`), which enables HTTP access to an optional web server running inside the Actor run's container.
+
+The URL is available in the following places:
+
+- In Apify Console, on the Actor run details page as the **Container URL** field.
+- In the API as the `container_url` property of the [Run object](https://docs.apify.com/api/v2#/reference/actors/run-object/get-run).
+- In the Actor as the `Actor.config.container_url` property.
+
+The web server running inside the container must listen at the port defined by the `Actor.config.container_port` property. When running Actors locally, the port defaults to `4321`, so the web server will be accessible at `http://localhost:4321`.
+
+## Example
+
+The following example demonstrates how to start a simple web server in your Actor,which will respond to every GET request with the number of items that the Actor has processed so far:
+
+<CodeBlock className="language-python">
+    {WebserverExample}
+</CodeBlock>

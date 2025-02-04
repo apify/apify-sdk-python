@@ -1,0 +1,30 @@
+---
+id: beautifulsoup-httpx
+title: Using BeautifulSoup with HTTPX
+---
+
+import CodeBlock from '@theme/CodeBlock';
+
+import BeautifulSoupHttpxExample from '!!raw-loader!./code/01_beautifulsoup_httpx.py';
+
+In this guide, you'll learn how to use the [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) library with the [HTTPX](https://www.python-httpx.org/) library in your Apify Actors.
+
+## Introduction
+
+`BeautifulSoup` is a Python library for extracting data from HTML and XML files. It provides simple methods and Pythonic idioms for navigating, searching, and modifying a website's element tree, enabling efficient data extraction.
+
+`HTTPX` is a modern, high-level HTTP client library for Python. It provides a simple interface for making HTTP requests and supports both synchronous and asynchronous requests.
+
+To create an `Actor` which uses those libraries, start from the [BeautifulSoup & Python](https://apify.com/templates/categories/python) Actor template. This template includes the `BeautifulSoup` and `HTTPX` libraries preinstalled, allowing you to begin development immediately.
+
+## Example Actor
+
+Below is a simple Actor that recursively scrapes titles from all linked websites, up to a specified maximum depth, starting from URLs provided in the Actor input. It uses `HTTPX` for fetching pages and `BeautifulSoup` for parsing their content to extract titles and links to other pages.
+
+<CodeBlock className="language-python">
+    {BeautifulSoupHttpxExample}
+</CodeBlock>
+
+## Conclusion
+
+In this guide, you learned how to use the `BeautifulSoup` with the `HTTPX` in your Apify Actors. By combining these libraries, you can efficiently extract data from HTML or XML files, making it easy to build web scraping tasks in Python. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!

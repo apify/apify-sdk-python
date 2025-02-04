@@ -1,0 +1,84 @@
+---
+id: logging
+title: Logging
+---
+
+import CodeBlock from '@theme/CodeBlock';
+
+import LogConfigExample from '!!raw-loader!./code/10_log_config.py';
+import LoggerUsageExample from '!!raw-loader!./code/10_logger_usage.py';
+
+The Apify SDK is logging useful information through the [`logging`](https://docs.python.org/3/library/logging.html) module from Python's standard library, into the logger with the name `apify`.
+
+## Automatic configuration
+
+When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger,which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../reference/class/ActorLogFormatter).
+
+## Manual configuration
+
+### Configuring the log level
+
+In Python's default behavior, if you don't configure the logger otherwise, only logs with level `WARNING` or higher are printed out to the standard output, without any formatting. To also have logs with `DEBUG` and `INFO` level printed out, you need to call the [`Logger.setLevel`](https://docs.python.org/3/library/logging.html#logging.Logger.setLevel) method on the logger, with the desired minimum level as an argument.
+
+### Configuring the log formatting
+
+By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out,you can use the [`ActorLogFormatter`](../../reference/class/ActorLogFormatter) class from the `apify.log` module.
+
+### Example log configuration
+
+To configure and test the logger, you can use this snippet:
+
+<CodeBlock className="language-python">
+    {LogConfigExample}
+</CodeBlock>
+
+This configuration will cause all levels of messages to be printed to the standard output, with some pretty formatting.
+
+## Logger usage
+
+Here you can see how all the log levels would look like.
+
+You can use the `extra` argument for all log levels, it's not specific to the warning level. When you use `Logger.exception`, there is no need to pass the Exception object to the log manually, it will automatiacally infer it from the current execution context and print the exception details.
+
+<CodeBlock className="language-python">
+    {LoggerUsageExample}
+</CodeBlock>
+
+Result:
+
+<!-- TODO: This is an ugly ugly hack, we should make a component for this in the docs theme -->
+<!-- markdownlint-disable no-inline-html -->
+<style>{`
+.actor-log-block .ansi-blue-fg {
+    color: rgb(0, 160, 228);
+}
+.actor-log-block .ansi-green-fg {
+    color: rgb(0, 162, 82);
+}
+.actor-log-block .ansi-red-fg {
+    color: rgb(219, 45, 32);
+}
+.actor-log-block .ansi-yellow-fg {
+    color: rgb(255, 201, 0);
+}
+.actor-log-block .ansi-bright-black-fg {
+    color: rgb(128, 128, 128);
+}
+[data-theme='dark'] .actor-log-block .ansi-yellow-fg {
+    color: rgb(253, 237, 0);
+}
+
+`}</style>
+<pre className="actor-log-block">
+    <div><span class="ansi-blue-fg">DEBUG</span> This is a debug message</div>
+    <div><span class="ansi-green-fg">INFO </span> This is an info message</div>
+    <div><span class="ansi-yellow-fg">WARN </span> This is a warning message <span class="ansi-bright-black-fg">{`({"reason": "Bad Actor!"})`}</span></div>
+    <div><span class="ansi-red-fg">ERROR</span> This is an error message</div>
+    <div><span class="ansi-red-fg">ERROR</span> This is an exceptional message</div>
+    <div>      Traceback (most recent call last):</div>
+    <div>        File "main.py", line 6, in &lt;module&gt;</div>
+    <div>          raise RuntimeError('Ouch!')</div>
+    <div>      RuntimeError: Ouch!</div>
+</pre>
+
+<!-- markdownlint-enable no-inline-html -->

@@ -127,7 +127,7 @@ class ApifyClientAsyncPatcher:
             # Try to get the return type of the client method using `typing.get_type_hints()`
             client_method_return_type = get_type_hints(client_method)['return']
         except TypeError:
-            # There is a known issue with `typing.get_type_hints()` on Python 3.8 and 3.9. It raises a `TypeError`
+            # There is a known issue with `typing.get_type_hints()` on Python 3.9. It raises a `TypeError`
             # when `|` (Union) is used in the type hint, even with `from __future__ import annotations`. Since we
             # only need the return type, we attempt the following workaround.
 
@@ -140,7 +140,7 @@ class ApifyClientAsyncPatcher:
             # 3. Try to get the return type again using `typing.get_type_hints()`
             client_method_return_type = get_type_hints(client_method_copied)['return']
 
-            # TODO: Remove this fallback once we drop support for Python 3.8 and 3.9
+            # TODO: Remove this fallback once we drop support for Python 3.9
             # https://github.com/apify/apify-sdk-python/issues/151
 
         original_submethod = getattr(client_method_return_type, submethod, None)

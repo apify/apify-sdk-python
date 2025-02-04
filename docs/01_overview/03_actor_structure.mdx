@@ -1,0 +1,35 @@
+---
+id: actor-structure
+title: Actor structure
+---
+
+import CodeBlock from '@theme/CodeBlock';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+import UnderscoreMainExample from '!!raw-loader!./code/actor_structure/main.py';
+import MainExample from '!!raw-loader!./code/actor_structure/__main__.py';
+
+All Python Actor templates follow the same structure.
+
+The `.actor/` directory contains the [Actor configuration](https://docs.apify.com/platform/actors/development/actor-config), such as the Actor's definition and input schema, and the Dockerfile necessary to run the Actor on the Apify platform.
+
+The Actor's runtime dependencies are specified in the `requirements.txt` file,
+which follows the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
+
+The Actor's source code is in the `src/` folder. This folder contains two important files: `main.py`, which contains the main function of the Actor, and `__main__.py`, which is the entrypoint of the Actor package, setting up the Actor [logger](../concepts/logging) and executing the Actor's main function via [`asyncio.run`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+
+<Tabs>
+    <TabItem value="main.py" label="main.py" default>
+        <CodeBlock className="language-python">
+            {MainExample}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="__main__.py" label="__main.py__">
+        <CodeBlock className="language-python">
+            {UnderscoreMainExample}
+        </CodeBlock>
+    </TabItem>
+</Tabs>
+
+If you want to modify the Actor structure, you need to make sure that your Actor is executable as a module, via `python -m src`, as that is the command started by `apify run` in the Apify CLI. We recommend keeping the entrypoint for the Actor in the `src/__main__.py` file.

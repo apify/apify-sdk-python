@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "apify"
-version = "2.2.1"
+version = "2.2.2"
 description = "Apify SDK for Python"
 authors = ["Apify Technologies s.r.o. <support@apify.com>"]
 license = "Apache-2.0"
@@ -78,6 +78,7 @@ scrapy = ["scrapy"]
 
 [tool.ruff]
 line-length = 120
+include = ["src/**/*.py", "tests/**/*.py", "docs/**/*.py", "website/**/*.py"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -128,10 +129,12 @@ indent-style = "space"
     "TRY301",  # Abstract `raise` to an inner function
     "TID252",  # Prefer absolute imports over relative imports from parent modules
 ]
-"**/{docs}/**" = [
-    "D",      # Everything from the pydocstyle
-    "INP001", # File {filename} is part of an implicit namespace package, add an __init__.py
-    "F841",   # Local variable {variable} is assigned to but never used
+"**/{docs,website}/**" = [
+    "D",       # Everything from the pydocstyle
+    "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
+    "F841",    # Local variable {variable} is assigned to but never used
+    "TRY301",  # Abstract `raise` to an inner function
+    "PLW0603", # Using the global statement to update `{name}` is discouraged
 ]
 
 [tool.ruff.lint.flake8-quotes]
@@ -166,7 +169,7 @@ timeout = 1200
 [tool.mypy]
 python_version = "3.9"
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "docs", "website"]
 check_untyped_defs = true
 disallow_incomplete_defs = true
 disallow_untyped_calls = true
@@ -180,13 +183,20 @@ warn_unused_ignores = true
 exclude = []
 
 [[tool.mypy.overrides]]
-module = ['scrapy', 'scrapy.*', 'lazy_object_proxy']
+module = [
+    'bs4',
+    'lazy_object_proxy',
+    'nest_asyncio',
+    'playwright.*',
+    'scrapy.*',
+    'selenium.*',
+]
 ignore_missing_imports = true
 
 [tool.basedpyright]
 pythonVersion = "3.9"
 typeCheckingMode = "standard"
-include = ["src", "tests"]
+include = ["src", "tests", "docs", "website"]
 
 [tool.coverage.report]
 exclude_lines = [
