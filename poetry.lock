@@ -50,19 +50,19 @@ trio = ["trio (>=0.26.1)"]
 
 [[package]]
 name = "apify-client"
-version = "1.8.1"
+version = "1.9.1b1"
 description = "Apify API client for Python"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "apify_client-1.8.1-py3-none-any.whl", hash = "sha256:cfa6df3816c436204e37457fba28981a0ef6a7602cde372463f0f078eee64747"},
-    {file = "apify_client-1.8.1.tar.gz", hash = "sha256:2be1be7879570655bddeebf126833efe94cabb95b3755592845e92c20c70c674"},
+    {file = "apify_client-1.9.1b1-py3-none-any.whl", hash = "sha256:f2bd2962c65cd6f59d40a2aba8c730c9f169dfc3af5ec54a804c6e1665954971"},
+    {file = "apify_client-1.9.1b1.tar.gz", hash = "sha256:17853cc7cc96e65e652f71415003e61b721ebdfa7bd427afb0ab0e315403c78e"},
 ]
 
 [package.dependencies]
 apify-shared = ">=1.1.2"
-httpx = ">=0.25.0"
+httpx = ">=0.25"
 more_itertools = ">=10.0.0"
 
 [[package]]
@@ -3840,4 +3840,4 @@ scrapy = ["scrapy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "62f977f74760954b99f5b55967d4198e2413c496a07d77faac851630c6dc52a0"
+content-hash = "91f873be5e400902e942c572390aba193117bbd1cc6627d07bbc951166577fad"
