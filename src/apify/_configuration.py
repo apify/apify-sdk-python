@@ -220,6 +220,14 @@ class Configuration(CrawleeConfiguration):
         BeforeValidator(lambda val: val or None),
     ] = None
 
+    test_pay_per_event: Annotated[
+        bool,
+        Field(
+            alias='actor_test_pay_per_event',
+            description='Enable pay-per-event functionality for local development',
+        ),
+    ] = False
+
     meta_origin: Annotated[
         str | None,
         Field(
