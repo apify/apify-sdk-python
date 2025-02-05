@@ -231,7 +231,7 @@ class _ActorType:
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
-        sys_exit: Callable = sys.exit,
+        sys_exit: Callable[[int], None] = sys.exit,
     ) -> None:
         """Exit the Actor instance.
 
