@@ -91,4 +91,4 @@ async def test_actor_logs_messages_correctly(
     assert caplog.records[10].message == 'Exiting Actor'
 
     assert caplog.records[11].levelno == logging.DEBUG
-    assert caplog.records[11].message == 'Not calling sys.exit(91) because Actor is running in an unit test'
+    assert caplog.records[11].message == 'Not calling sys_exit(91) because Actor is running in an unit test'

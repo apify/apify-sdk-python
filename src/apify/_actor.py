@@ -231,6 +231,7 @@ class _ActorType:
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
+        sys_exit: Callable = sys.exit,
     ) -> None:
         """Exit the Actor instance.
 
@@ -238,10 +239,11 @@ class _ActorType:
         sends a final `PERSIST_STATE` event, waits for all the event listeners to finish, and stops the event manager.
 
         Args:
-            exit_code: The exit code with which the Actor should fail (defaults to `0`).
+            exit_code: The exit code with which the program should end (defaults to `0`).
             event_listeners_timeout: How long should the Actor wait for Actor event listeners to finish before exiting.
             status_message: The final status message that the Actor should display.
             cleanup_timeout: How long we should wait for event listeners.
+            sys_exit: A function to use to terminate the program (defaults to `sys.exit`)
         """
         self._raise_if_not_initialized()
 
@@ -267,13 +269,13 @@ class _ActorType:
         self._is_initialized = False
 
         if is_running_in_ipython():
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
+            self.log.debug(f'Not calling sys_exit({exit_code}) because Actor is running in IPython')
         elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
+            self.log.debug(f'Not calling sys_exit({exit_code}) because Actor is running in an unit test')
         elif hasattr(asyncio, '_nest_patched'):
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in a nested event loop')
+            self.log.debug(f'Not calling sys_exit({exit_code}) because Actor is running in a nested event loop')
         else:
-            sys.exit(exit_code)
+            sys_exit(exit_code)
 
     async def fail(
         self,
@@ -281,15 +283,17 @@ class _ActorType:
         exit_code: int = 1,
         exception: BaseException | None = None,
         status_message: str | None = None,
+        sys_exit: Callable = sys.exit,
     ) -> None:
         """Fail the Actor instance.
 
         This performs all the same steps as Actor.exit(), but it additionally sets the exit code to `1` (by default).
 
         Args:
-            exit_code: The exit code with which the Actor should fail (defaults to `1`).
+            exit_code: The exit code with which the program should fail (defaults to `1`).
             exception: The exception with which the Actor failed.
             status_message: The final status message that the Actor should display.
+            sys_exit: A function to use to terminate the program (defaults to `sys.exit`)
         """
         self._raise_if_not_initialized()
 
@@ -298,7 +302,7 @@ class _ActorType:
         if exception and not is_running_in_ipython():
             self.log.exception('Actor failed with an exception', exc_info=exception)
 
-        await self.exit(exit_code=exit_code, status_message=status_message)
+        await self.exit(exit_code=exit_code, status_message=status_message, sys_exit=sys_exit)
 
     def new_client(
         self,
