@@ -12,11 +12,10 @@ We recommend you do not modify this file unless you really know what you are doi
 # ruff: noqa: E402, I001
 
 from __future__ import annotations
-import asyncio
 from twisted.internet import asyncioreactor
 
 # Install Twisted's asyncio reactor before importing any other Twisted or Scrapy components.
-asyncioreactor.install(asyncio.get_event_loop())  # type: ignore[no-untyped-call]
+asyncioreactor.install()  # type: ignore[no-untyped-call]
 
 import os
 from apify.scrapy import initialize_logging, run_scrapy_actor

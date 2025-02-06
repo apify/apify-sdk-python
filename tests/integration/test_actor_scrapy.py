@@ -2,21 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pytest
-
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-@pytest.mark.only
 async def test_actor_scrapy_title_spider(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
     actor_source_files = {
-        'requirements.txt': """
-            scrapy ~= 2.12
-        """,
         'src/spiders/title.py': """
             from __future__ import annotations
             from typing import TYPE_CHECKING, Any
@@ -31,6 +25,9 @@ async def test_actor_scrapy_title_spider(
 
             class TitleSpider(Spider):
                 name = 'title_spider'
+
+                # Limit the number of pages to scrape.
+                custom_settings = {'CLOSESPIDER_PAGECOUNT': 10}
 
                 def __init__(
                     self,
@@ -61,7 +58,7 @@ async def test_actor_scrapy_title_spider(
             import scrapy
 
             class TitleItem(scrapy.Item):
-                url = scrapy.Field
+                url = scrapy.Field()
                 title = scrapy.Field()
         """,
         'src/settings.py': """
@@ -107,11 +104,10 @@ async def test_actor_scrapy_title_spider(
         """,
         'src/__main__.py': """
             from __future__ import annotations
-            import asyncio
             from twisted.internet import asyncioreactor
 
             # Install Twisted's asyncio reactor before importing any other Twisted or Scrapy components.
-            asyncioreactor.install(asyncio.get_event_loop())
+            asyncioreactor.install()
 
             import os
             from apify.scrapy import initialize_logging, run_scrapy_actor
@@ -133,5 +129,8 @@ async def test_actor_scrapy_title_spider(
 
     items = await actor.last_run().dataset().list_items()
 
-    assert items.count == 48
-    assert items.items == {'blah'}
+    assert items.count >= 10
+
+    for item in items.items:
+        assert 'url' in item
+        assert 'title' in item
