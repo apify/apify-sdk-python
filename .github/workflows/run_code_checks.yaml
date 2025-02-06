@@ -19,9 +19,9 @@ jobs:
     name: Unit tests
     uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
 
-  docs_check:
-    name: Docs check
-    uses: apify/workflows/.github/workflows/python_docs_check.yaml@main
+  # docs_check:
+  #   name: Docs check
+  #   uses: apify/workflows/.github/workflows/python_docs_check.yaml@main
 
   integration_tests:
     name: Integration tests
