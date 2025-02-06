@@ -35,6 +35,13 @@ from apify.apify_storage_client import ApifyStorageClient
 from apify.log import _configure_logging, logger
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
+try:
+    import scrapy  # noqa: F401
+
+    scrapy_installed = True
+except ImportError:
+    scrapy_installed = False
+
 if TYPE_CHECKING:
     import logging
     from types import TracebackType
@@ -270,8 +277,9 @@ class _ActorType:
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
         elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
-        elif hasattr(asyncio, '_nest_patched'):
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in a nested event loop')
+        elif scrapy_installed:
+            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running with Scrapy')
+            # Otherwise, it will just freeze.
         else:
             sys.exit(exit_code)
 

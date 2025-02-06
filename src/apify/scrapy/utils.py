@@ -20,9 +20,6 @@ except ImportError as exc:
     ) from exc
 
 
-nested_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-
-
 @ignore_docs
 def get_basic_auth_header(username: str, password: str, auth_encoding: str = 'latin-1') -> bytes:
     """Generate a basic authentication header for the given username and password."""

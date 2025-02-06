@@ -1,4 +1,4 @@
-"""This module defines the main entry point for the Apify Actor.
+"""Main entry point for the Apify Actor & Scrapy integration.
 
 This module defines the main coroutine for the Apify Scrapy Actor, executed from the __main__.py file. The coroutine
 processes the Actor's input and executes the Scrapy spider. Additionally, it updates Scrapy project settings by
@@ -18,43 +18,37 @@ Documentation:
 For an in-depth description of the Apify-Scrapy integration process, our Scrapy components, known limitations and
 other stuff, please refer to the following documentation page: https://docs.apify.com/cli/docs/integrating-scrapy.
 """
+# ruff: noqa: I001
 
 from __future__ import annotations
 
-from scrapy.crawler import CrawlerProcess
+from scrapy.crawler import CrawlerRunner
+from scrapy.utils.defer import deferred_to_future
 
-# Import your Scrapy spider here.
-from .spiders.title import TitleSpider as Spider
 from apify import Actor
 from apify.scrapy.utils import apply_apify_settings
 
-# Default input values for local execution using `apify run`.
-LOCAL_DEFAULT_START_URLS = [{'url': 'https://apify.com'}]
+# Import your Scrapy spider here.
+from .spiders.title import TitleSpider as Spider
 
 
 async def main() -> None:
     """Apify Actor main coroutine for executing the Scrapy spider."""
-    # Enter the context of the Actor.
     async with Actor:
-        Actor.log.info('Actor is being executed...')
-
         # Retrieve and process Actor input.
         actor_input = await Actor.get_input() or {}
-        start_urls = actor_input.get('startUrls', LOCAL_DEFAULT_START_URLS)
+        start_urls = [url['url'] for url in actor_input.get('startUrls', [])]
+        allowed_domains = actor_input.get('allowedDomains')
         proxy_config = actor_input.get('proxyConfiguration')
 
-        # Open the default request queue for handling URLs to be processed.
-        request_queue = await Actor.open_request_queue()
-
-        # Enqueue the start URLs.
-        for start_url in start_urls:
-            url = start_url.get('url')
-            await request_queue.add_request(url)
-
-        # Apply Apify settings, it will override the Scrapy project settings.
+        # Apply Apify settings, which will override the Scrapy project settings.
         settings = apply_apify_settings(proxy_config=proxy_config)
 
-        # Execute the spider using Scrapy `CrawlerProcess`.
-        process = CrawlerProcess(settings, install_root_handler=False)
-        process.crawl(Spider)
-        process.start()
+        # Create CrawlerRunner and execute the Scrapy spider.
+        crawler_runner = CrawlerRunner(settings)
+        crawl_deferred = crawler_runner.crawl(
+            Spider,
+            start_urls=start_urls,
+            allowed_domains=allowed_domains,
+        )
+        await deferred_to_future(crawl_deferred)
