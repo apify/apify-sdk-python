@@ -24,6 +24,7 @@ from crawlee.events import (
     EventSystemInfoData,
 )
 
+from apify._charging import ChargeResult, ChargingManager
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -96,6 +97,8 @@ class _ActorType:
                 persist_state_interval=self._configuration.persist_state_interval,
             )
         )
+
+        self._charging_manager = ChargingManager(self._configuration, self._apify_client)
 
         self._is_initialized = False
 
@@ -221,6 +224,10 @@ class _ActorType:
         # https://github.com/apify/apify-sdk-python/issues/146
 
         await self._event_manager.__aenter__()
+        self.log.debug('Event manager initialized')
+
+        await self._charging_manager.init()
+        self.log.debug('Charging manager initialized')
 
         self._is_initialized = True
 
@@ -445,19 +452,45 @@ class _ActorType:
             storage_client=storage_client,
         )
 
-    async def push_data(self, data: dict | list[dict]) -> None:
+    @overload
+    async def push_data(self, data: dict | list[dict]) -> None: ...
+    @overload
+    async def push_data(self, data: dict | list[dict], event_name: str) -> ChargeResult: ...
+    async def push_data(self, data: dict | list[dict], event_name: str | None = None) -> ChargeResult | None:
         """Store an object or a list of objects to the default dataset of the current Actor run.
 
         Args:
             data: The data to push to the default dataset.
+            event_name: If provided, the method will attempt to charge for the event for each pushed item.
         """
         self._raise_if_not_initialized()
 
         if not data:
-            return
+            return None
+
+        data = data if isinstance(data, list) else [data]
+
+        max_charged_count = (
+            self._charging_manager.calculate_max_event_charge_within_limit(event_name)
+            if event_name is not None
+            else None
+        )
 
         dataset = await self.open_dataset()
-        await dataset.push_data(data)
+
+        if max_charged_count is not None and len(data) > max_charged_count:
+            # Push as many items as we can charge for
+            await dataset.push_data(data[:max_charged_count])
+        else:
+            await dataset.push_data(data)
+
+        if event_name:
+            return await self._charging_manager.charge(
+                event_name=event_name,
+                count=min(max_charged_count, len(data)) if max_charged_count is not None else len(data),
+            )
+
+        return None
 
     async def get_input(self) -> Any:
         """Get the Actor input value from the default key-value store associated with the current Actor run."""
@@ -505,6 +538,15 @@ class _ActorType:
 
         key_value_store = await self.open_key_value_store()
         return await key_value_store.set_value(key, value, content_type=content_type)
+
+    def get_charging_manager(self) -> ChargingManager:
+        """Retrieve the charging manager to access granular pricing information."""
+        self._raise_if_not_initialized()
+        return self._charging_manager
+
+    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+        self._raise_if_not_initialized()
+        return await self._charging_manager.charge(event_name, count)
 
     @overload
     def on(
