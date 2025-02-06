@@ -471,7 +471,7 @@ class _ActorType:
         data = data if isinstance(data, list) else [data]
 
         max_charged_count = (
-            self._charging_manager.calculate_max_event_charge_within_limit(event_name)
+            self._charging_manager.calculate_max_event_charge_count_within_limit(event_name)
             if event_name is not None
             else None
         )

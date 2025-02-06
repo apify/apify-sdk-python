@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated
+from decimal import Decimal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
@@ -10,6 +11,9 @@ from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 
 from apify._utils import docs_group
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 
 @docs_group('Data structures')
@@ -67,6 +71,7 @@ class ActorRunOptions(BaseModel):
     timeout: Annotated[timedelta, Field(alias='timeoutSecs')]
     memory_mbytes: Annotated[int, Field(alias='memoryMbytes')]
     disk_mbytes: Annotated[int, Field(alias='diskMbytes')]
+    max_total_charge_usd: Annotated[Decimal | None, Field(alias='maxTotalChargeUsd')] = None
 
 
 @docs_group('Data structures')
@@ -115,3 +120,55 @@ class ActorRun(BaseModel):
     usage: Annotated[ActorRunUsage | None, Field(alias='usage')] = None
     usage_total_usd: Annotated[float | None, Field(alias='usageTotalUsd')] = None
     usage_usd: Annotated[ActorRunUsage | None, Field(alias='usageUsd')] = None
+    pricing_info: Annotated[
+        FreeActorPricingInfo
+        | FlatPricePerMonthActorPricingInfo
+        | PricePerDatasetItemActorPricingInfo
+        | PayPerEventActorPricingInfo
+        | None,
+        Field(alias='pricingInfo', discriminator='pricing_model'),
+    ] = None
+    charged_event_counts: Annotated[
+        dict[str, int] | None,
+        Field(alias='chargedEventCounts'),
+    ] = None
+
+
+class FreeActorPricingInfo(BaseModel):
+    pricing_model: Annotated[Literal['FREE'], Field(alias='pricingModel')]
+
+
+class FlatPricePerMonthActorPricingInfo(BaseModel):
+    pricing_model: Annotated[Literal['FLAT_PRICE_PER_MONTH'], Field(alias='pricingModel')]
+    trial_minutes: Annotated[int | None, Field(alias='trialMinutes')]
+    price_per_unit_usd: Annotated[Decimal, Field(alias='pricePerUnitUsd')]
+
+
+class PricePerDatasetItemActorPricingInfo(BaseModel):
+    pricing_model: Annotated[Literal['PRICE_PER_DATASET_ITEM'], Field(alias='pricingModel')]
+    unit_name: Annotated[str | None, Field(alias='unitName')]
+    price_per_unit_usd: Annotated[Decimal, Field(alias='pricePerUnitUsd')]
+
+
+class ActorChargeEvent(BaseModel):
+    event_price_usd: Annotated[Decimal, Field(alias='eventPriceUsd')]
+    event_title: Annotated[str, Field(alias='eventTitle')]
+    event_description: Annotated[str | None, Field(alias='eventDescription')] = None
+
+
+class PricingPerEvent(BaseModel):
+    actor_charge_events: Annotated[dict[str, ActorChargeEvent], Field(alias='actorChargeEvents')]
+
+
+class PayPerEventActorPricingInfo(BaseModel):
+    pricing_model: Annotated[Literal['PAY_PER_EVENT'], Field(alias='pricingModel')]
+    pricing_per_event: Annotated[PricingPerEvent, Field(alias='pricingPerEvent')]
+    minimal_max_total_charge_usd: Annotated[Decimal | None, Field(alias='minimalMaxTotalChargeUsd')]
+
+
+PricingModel: TypeAlias = Literal[
+    'FREE',
+    'FLAT_PRICE_PER_MONTH',
+    'PRICE_PER_DATASET_ITEM',
+    'PAY_PER_EVENT',
+]

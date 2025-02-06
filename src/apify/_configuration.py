@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 from logging import getLogger
 from typing import Annotated, Any
 
@@ -212,7 +213,7 @@ class Configuration(CrawleeConfiguration):
     ] = None
 
     max_total_charge_usd: Annotated[
-        float | None,
+        Decimal | None,
         Field(
             alias='actor_max_total_charge_usd',
             description='For pay-per-event Actors, the user-set limit on total charges. Do not exceed this limit',
