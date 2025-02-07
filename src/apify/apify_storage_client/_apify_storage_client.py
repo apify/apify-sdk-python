@@ -67,6 +67,6 @@ class ApifyStorageClient(BaseStorageClient):
     async def purge_on_start(self) -> None:
         pass
 
-    @property
-    def rate_limit_errors(self) -> dict[int, int]:
+    @override
+    def get_rate_limit_errors(self) -> dict[int, int]:  # type: ignore[misc]
         return self._apify_client.stats.rate_limit_errors
