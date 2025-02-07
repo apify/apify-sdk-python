@@ -139,7 +139,7 @@ class ChargingManager:
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not configured')
 
-            if event_name is self._pricing_info:
+            if event_name in self._pricing_info:
                 await self._client.run(self._actor_run_id).charge(event_name, charged_count)
             else:
                 logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
@@ -195,7 +195,8 @@ class ChargingManager:
         if not price:
             return None
 
-        return math.floor((self._max_total_charge_usd - self.calculate_total_charged_amount()) / price)
+        result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / price
+        return math.floor(result) if result.is_finite() else None
 
     def get_pricing_info(self) -> ActorPricingInfo:
         if self._charging_state is None:
