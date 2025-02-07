@@ -1,18 +1,8 @@
-FROM apify/actor-python:3.12
+FROM apify/actor-python:3.13
 
-COPY pyproject.toml ./
+COPY requirements.txt ./
 
-RUN echo "Python version:" \
-    && python --version \
-    && echo "Pip version:" \
-    && pip --version \
-    && echo "Installing Poetry:" \
-    && pip install --no-cache-dir poetry~=1.8.0 \
-    && echo "Installing dependencies:" \
-    && poetry config virtualenvs.create false \
-    && poetry install --only main --no-interaction --no-ansi \
-    && rm -rf /tmp/.poetry-cache \
-    && echo "All installed Python packages:" \
+RUN pip install --no-cache-dir --requirement requirements.txt \
     && pip freeze
 
 COPY . ./
