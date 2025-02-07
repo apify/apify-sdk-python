@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Protocol
 import pytest
 from filelock import FileLock
 
-from apify_client import ApifyClientAsync
+from apify_client import ApifyClient, ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType, ApifyEnvVars
 from crawlee import service_locator
 from crawlee.storages import _creation_management
@@ -22,7 +22,8 @@ from ._utils import generate_unique_resource_name
 from apify._models import ActorRun
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Coroutine, Mapping
+    from collections.abc import Awaitable, Coroutine, Iterator, Mapping
+    from decimal import Decimal
 
     from apify_client.clients.resource_clients import ActorClientAsync
 
@@ -94,21 +95,27 @@ def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
     prepare_test_env()
 
 
+@pytest.fixture(scope='session')
+def apify_token() -> str:
+    api_token = os.getenv(_TOKEN_ENV_VAR)
+
+    if not api_token:
+        raise RuntimeError(f'{_TOKEN_ENV_VAR} environment variable is missing, cannot run tests!')
+
+    return api_token
+
+
 @pytest.fixture
-def apify_client_async() -> ApifyClientAsync:
+def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync.
 
     This fixture can't be session-scoped, because then you start getting `RuntimeError: Event loop is closed` errors,
     because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
     but `pytest-asyncio` closes the event loop after each test, and uses a new one for the next test.
     """
-    api_token = os.getenv(_TOKEN_ENV_VAR)
     api_url = os.getenv(_API_URL_ENV_VAR)
 
-    if not api_token:
-        raise RuntimeError(f'{_TOKEN_ENV_VAR} environment variable is missing, cannot run tests!')
-
-    return ApifyClientAsync(api_token, api_url=api_url)
+    return ApifyClientAsync(apify_token, api_url=api_url)
 
 
 @pytest.fixture(scope='session')
@@ -217,17 +224,17 @@ class MakeActorFunction(Protocol):
         """
 
 
-@pytest.fixture
-async def make_actor(
+@pytest.fixture(scope='session')
+def make_actor(
     actor_base_source_files: dict[str, str | bytes],
-    apify_client_async: ApifyClientAsync,
-) -> AsyncIterator[MakeActorFunction]:
+    apify_token: str,
+) -> Iterator[MakeActorFunction]:
     """Fixture for creating temporary Actors for testing purposes.
 
     This returns a function that creates a temporary Actor from the given main function or source files. The Actor
     will be uploaded to the Apify Platform, built there, and after the test finishes, it will be automatically deleted.
     """
-    actor_clients_for_cleanup: list[ActorClientAsync] = []
+    actors_for_cleanup: list[str] = []
 
     async def _make_actor(
         label: str,
@@ -242,6 +249,7 @@ async def make_actor(
         if (main_func and main_py) or (main_func and source_files) or (main_py and source_files):
             raise TypeError('Cannot specify more than one of `main_func`, `main_py` and `source_files` arguments')
 
+        client = ApifyClientAsync(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
         actor_name = generate_unique_resource_name(label)
 
         # Get the source of main_func and convert it into a reasonable main_py file.
@@ -290,7 +298,7 @@ async def make_actor(
             )
 
         print(f'Creating Actor {actor_name}...')
-        created_actor = await apify_client_async.actors().create(
+        created_actor = await client.actors().create(
             name=actor_name,
             default_run_build='latest',
             default_run_memory_mbytes=256,
@@ -305,11 +313,11 @@ async def make_actor(
             ],
         )
 
-        actor_client = apify_client_async.actor(created_actor['id'])
+        actor_client = client.actor(created_actor['id'])
 
         print(f'Building Actor {actor_name}...')
         build_result = await actor_client.build(version_number='0.0')
-        build_client = apify_client_async.build(build_result['id'])
+        build_client = client.build(build_result['id'])
         build_client_result = await build_client.wait_for_finish(wait_secs=600)
 
         assert build_client_result is not None
@@ -317,15 +325,29 @@ async def make_actor(
 
         # We only mark the client for cleanup if the build succeeded, so that if something goes wrong here,
         # you have a chance to check the error.
-        actor_clients_for_cleanup.append(actor_client)
+        actors_for_cleanup.append(created_actor['id'])
 
         return actor_client
 
     yield _make_actor
 
+    client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
+
     # Delete all the generated Actors.
-    for actor_client in actor_clients_for_cleanup:
-        await actor_client.delete()
+    for actor_id in actors_for_cleanup:
+        actor_client = client.actor(actor_id)
+
+        if (actor := actor_client.get()) is not None:
+            actor_client.update(
+                pricing_infos=[
+                    *actor['pricingInfos'],
+                    {
+                        'pricingModel': 'FREE',
+                    },
+                ]
+            )
+
+        actor_client.delete()
 
 
 class RunActorFunction(Protocol):
@@ -336,6 +358,7 @@ class RunActorFunction(Protocol):
         actor: ActorClientAsync,
         *,
         run_input: Any = None,
+        max_total_charge_usd: Decimal | None = None,
     ) -> Coroutine[None, None, ActorRun]:
         """Initiate an Actor run and wait for its completion.
 
@@ -348,21 +371,30 @@ class RunActorFunction(Protocol):
         """
 
 
-@pytest.fixture
-async def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
+@pytest.fixture(scope='session')
+def run_actor(apify_token: str) -> RunActorFunction:
     """Fixture for calling an Actor run and waiting for its completion.
 
     This fixture returns a function that initiates an Actor run with optional run input, waits for its completion,
     and retrieves the final result. It uses the `wait_for_finish` method with a timeout of 10 minutes.
     """
 
-    async def _run_actor(actor: ActorClientAsync, *, run_input: Any = None) -> ActorRun:
-        call_result = await actor.call(run_input=run_input)
+    async def _run_actor(
+        actor: ActorClientAsync,
+        *,
+        run_input: Any = None,
+        max_total_charge_usd: Decimal | None = None,
+    ) -> ActorRun:
+        call_result = await actor.call(
+            run_input=run_input,
+            max_total_charge_usd=max_total_charge_usd,
+        )
 
         assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
         assert 'id' in call_result, 'The result of ActorClientAsync.call() does not contain an ID.'
 
-        run_client = apify_client_async.run(call_result['id'])
+        client = ApifyClientAsync(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
+        run_client = client.run(call_result['id'])
         run_result = await run_client.wait_for_finish(wait_secs=600)
 
         return ActorRun.model_validate(run_result)
