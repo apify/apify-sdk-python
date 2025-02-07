@@ -2,25 +2,19 @@ from __future__ import annotations
 
 import codecs
 import pickle
+from logging import getLogger
 from typing import Any, cast
 
-from apify_shared.utils import ignore_docs
-
-try:
-    from scrapy import Request, Spider
-    from scrapy.http.headers import Headers
-    from scrapy.utils.request import request_from_dict
-except ImportError as exc:
-    raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
-    ) from exc
+from scrapy import Request, Spider
+from scrapy.http.headers import Headers
+from scrapy.utils.request import request_from_dict
 
 from crawlee import Request as CrawleeRequest
 from crawlee._types import HttpHeaders
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee._utils.requests import compute_unique_key, unique_key_to_request_id
 
-from apify import Actor
+logger = getLogger(__name__)
 
 
 def _is_request_produced_by_middleware(scrapy_request: Request) -> bool:
@@ -31,7 +25,6 @@ def _is_request_produced_by_middleware(scrapy_request: Request) -> bool:
     return bool(scrapy_request.meta.get('redirect_times')) or bool(scrapy_request.meta.get('retry_times'))
 
 
-@ignore_docs
 def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest | None:
     """Convert a Scrapy request to an Apify request.
 
@@ -43,13 +36,10 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
         The converted Apify request if the conversion was successful, otherwise None.
     """
     if not isinstance(scrapy_request, Request):
-        Actor.log.warning(  # type: ignore[unreachable]
-            'Failed to convert to Apify request: Scrapy request must be a Request instance.'
-        )
+        logger.warning('Failed to convert to Apify request: Scrapy request must be a Request instance.')  # type: ignore[unreachable]
         return None
 
-    call_id = crypto_random_object_id(8)
-    Actor.log.debug(f'[{call_id}]: to_apify_request was called (scrapy_request={scrapy_request})...')
+    logger.debug(f'to_apify_request was called (scrapy_request={scrapy_request})...')
 
     try:
         if _is_request_produced_by_middleware(scrapy_request):
@@ -84,7 +74,7 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
         if isinstance(scrapy_request.headers, Headers):
             apify_request.headers = HttpHeaders(dict(scrapy_request.headers.to_unicode_dict()))
         else:
-            Actor.log.warning(  # type: ignore[unreachable]
+            logger.warning(  # type: ignore[unreachable]
                 f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}'
             )
 
@@ -97,14 +87,13 @@ def to_apify_request(scrapy_request: Request, spider: Spider) -> CrawleeRequest 
         apify_request.user_data['scrapy_request'] = scrapy_request_dict_encoded
 
     except Exception as exc:
-        Actor.log.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
+        logger.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
         return None
 
-    Actor.log.debug(f'[{call_id}]: scrapy_request was converted to the apify_request={apify_request}')
+    logger.debug(f'scrapy_request was converted to the apify_request={apify_request}')
     return apify_request
 
 
-@ignore_docs
 def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
     """Convert an Apify request to a Scrapy request.
 
@@ -122,15 +111,14 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
     if not isinstance(cast(Any, apify_request), CrawleeRequest):
         raise TypeError('apify_request must be a crawlee.Request instance')
 
-    call_id = crypto_random_object_id(8)
-    Actor.log.debug(f'[{call_id}]: to_scrapy_request was called (apify_request={apify_request})...')
+    logger.debug(f'to_scrapy_request was called (apify_request={apify_request})...')
 
     # If the apify_request comes from the Scrapy
     if 'scrapy_request' in apify_request.user_data:
         # Deserialize the Scrapy Request from the apify_request.
         #   - This process involves decoding the base64-encoded request data and reconstructing
         #     the Scrapy Request object from its dictionary representation.
-        Actor.log.debug(f'[{call_id}]: Restoring the Scrapy Request from the apify_request...')
+        logger.debug('Restoring the Scrapy Request from the apify_request...')
 
         scrapy_request_dict_encoded = apify_request.user_data['scrapy_request']
         if not isinstance(scrapy_request_dict_encoded, str):
@@ -144,7 +132,7 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
         if not isinstance(scrapy_request, Request):
             raise TypeError('scrapy_request must be an instance of the Request class')
 
-        Actor.log.debug(f'[{call_id}]: Scrapy Request successfully reconstructed (scrapy_request={scrapy_request})...')
+        logger.debug(f'Scrapy Request successfully reconstructed (scrapy_request={scrapy_request})...')
 
         # Update the meta field with the meta field from the apify_request
         meta = scrapy_request.meta or {}
@@ -154,7 +142,7 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
 
     # If the apify_request comes directly from the Request Queue, typically start URLs
     else:
-        Actor.log.debug(f'[{call_id}]: gonna create a new Scrapy Request (cannot be restored)')
+        logger.debug('Gonna create a new Scrapy Request (cannot be restored)')
 
         scrapy_request = Request(
             url=apify_request.url,
@@ -173,5 +161,5 @@ def to_scrapy_request(apify_request: CrawleeRequest, spider: Spider) -> Request:
     if apify_request.user_data:
         scrapy_request.meta['userData'] = apify_request.user_data
 
-    Actor.log.debug(f'[{call_id}]: an apify_request was converted to the scrapy_request={scrapy_request}')
+    logger.debug(f'an apify_request was converted to the scrapy_request={scrapy_request}')
     return scrapy_request

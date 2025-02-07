@@ -3,19 +3,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, urlparse
 
-try:
-    if TYPE_CHECKING:
-        from scrapy import Request, Spider
-        from scrapy.crawler import Crawler
-    from scrapy.core.downloader.handlers.http11 import TunnelError
-    from scrapy.exceptions import NotConfigured
-except ImportError as exc:
-    raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
-    ) from exc
+from scrapy.core.downloader.handlers.http11 import TunnelError
+from scrapy.exceptions import NotConfigured
 
 from apify import Actor, ProxyConfiguration
-from apify.scrapy.utils import get_basic_auth_header
+from apify.scrapy import get_basic_auth_header
+
+if TYPE_CHECKING:
+    from scrapy import Request, Spider
+    from scrapy.crawler import Crawler
 
 
 class ApifyHttpProxyMiddleware:

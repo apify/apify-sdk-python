@@ -7,11 +7,11 @@ import CodeBlock from '@theme/CodeBlock';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-import UnderscoreMainExample from '!!raw-loader!./code/_scrapy_project/src/__main__.py';
-import MainExample from '!!raw-loader!./code/_scrapy_project/src/main.py';
-import ItemsExample from '!!raw-loader!./code/_scrapy_project/src/items.py';
-import SettingsExample from '!!raw-loader!./code/_scrapy_project/src/settings.py';
-import TitleSpiderExample from '!!raw-loader!./code/_scrapy_project/src/spiders/title.py';
+import UnderscoreMainExample from '!!raw-loader!./code/scrapy_project/src/__main__.py';
+import MainExample from '!!raw-loader!./code/scrapy_project/src/main.py';
+import ItemsExample from '!!raw-loader!./code/scrapy_project/src/items.py';
+import TitleSpiderExample from '!!raw-loader!./code/scrapy_project/src/spiders/title.py';
+import SettingsExample from '!!raw-loader!./code/scrapy_project/src/settings.py';
 
 [Scrapy](https://scrapy.org/) is an open-source web scraping framework written in Python. It provides a complete set of tools for web scraping, including the ability to define how to extract data from websites, handle pagination and navigation.
 
@@ -68,24 +68,24 @@ Here is an example of a Scrapy Actor that scrapes the titles of web pages and en
             {UnderscoreMainExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="main.py" label="main.py" default>
+    <TabItem value="main.py" label="main.py">
         <CodeBlock className="language-python">
             {MainExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="items.py" label="items.py" default>
+    <TabItem value="items.py" label="items.py">
         <CodeBlock className="language-python">
             {ItemsExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="settings.py" label="settings.py" default>
-        <CodeBlock className="language-python">
-            {SettingsExample}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="spiders/title.py" label="spiders/title.py" default>
+    <TabItem value="spiders/title.py" label="spiders/title.py">
         <CodeBlock className="language-python">
             {TitleSpiderExample}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="settings.py" label="settings.py">
+        <CodeBlock className="language-python">
+            {SettingsExample}
         </CodeBlock>
     </TabItem>
 </Tabs>

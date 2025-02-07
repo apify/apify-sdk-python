@@ -11,9 +11,7 @@ from scrapy import Spider
 from scrapy.core.scheduler import BaseScheduler
 from scrapy.utils.reactor import is_asyncio_reactor_installed
 
-from crawlee._utils.crypto import crypto_random_object_id
-
-from apify import Actor, Configuration
+from apify import Configuration
 from apify.apify_storage_client import ApifyStorageClient
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
 from apify.storages import RequestQueue
@@ -204,18 +202,17 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             True if the request was successfully enqueued, False otherwise.
         """
-        call_id = crypto_random_object_id(8)
-        Actor.log.debug(f'[{call_id}]: ApifyScheduler.enqueue_request was called (scrapy_request={request})...')
+        logger.debug(f'ApifyScheduler.enqueue_request was called (scrapy_request={request})...')
 
         if not isinstance(self.spider, Spider):
             raise TypeError('self.spider must be an instance of the Spider class')
 
         apify_request = to_apify_request(request, spider=self.spider)
         if apify_request is None:
-            Actor.log.error(f'Request {request} could not be converted to Apify request.')
+            logger.error(f'Request {request} could not be converted to Apify request.')
             return False
 
-        Actor.log.debug(f'[{call_id}]: Converted to apify_request: {apify_request}')
+        logger.debug(f'Converted to apify_request: {apify_request}')
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
@@ -225,7 +222,7 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-        Actor.log.debug(f'[{call_id}]: rq.add_request result: {result}')
+        logger.debug(f'rq.add_request result: {result}')
         return bool(result.was_already_present)
 
     def next_request(self) -> Request | None:
@@ -234,8 +231,7 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             The next request, or None if there are no more requests.
         """
-        call_id = crypto_random_object_id(8)
-        Actor.log.debug(f'[{call_id}]: next_request called...')
+        logger.debug('next_request called...')
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
@@ -245,7 +241,7 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-        Actor.log.debug(f'[{call_id}]: Fetched apify_request: {apify_request}')
+        logger.debug(f'Fetched apify_request: {apify_request}')
         if apify_request is None:
             return None
 
@@ -261,5 +257,5 @@ class ApifyScheduler(BaseScheduler):
             raise
 
         scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
-        Actor.log.debug(f'[{call_id}]: Converted to scrapy_request: {scrapy_request}')
+        logger.debug(f'Converted to scrapy_request: {scrapy_request}')
         return scrapy_request

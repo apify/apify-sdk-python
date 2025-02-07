@@ -1,9 +1,3 @@
-"""Logging configuration for Apify Actor & Scrapy integration.
-
-This module configures a custom logging system for Apify Actors and monkey-patches Scrapy's logging
-to use a Apify log formatter and settings.
-"""
-
 from __future__ import annotations
 
 import logging

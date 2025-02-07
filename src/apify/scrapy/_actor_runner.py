@@ -1,9 +1,3 @@
-"""Runner for Apify Actors using Twisted's reactor.
-
-This module provides functions to run your Actor with Scrapy project inside within the Twisted
-reactor by bridging asyncio coroutines with Twisted Deferreds.
-"""
-
 from __future__ import annotations
 
 import asyncio

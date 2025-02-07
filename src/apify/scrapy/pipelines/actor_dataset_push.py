@@ -1,18 +1,16 @@
 from __future__ import annotations
 
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 from itemadapter.adapter import ItemAdapter
 
-try:
-    if TYPE_CHECKING:
-        from scrapy import Item, Spider
-except ImportError as exc:
-    raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
-    ) from exc
-
 from apify import Actor
+
+if TYPE_CHECKING:
+    from scrapy import Item, Spider
+
+logger = getLogger(__name__)
 
 
 class ActorDatasetPushPipeline:
@@ -28,6 +26,6 @@ class ActorDatasetPushPipeline:
     ) -> Item:
         """Pushes the provided Scrapy item to the Actor's default dataset."""
         item_dict = ItemAdapter(item).asdict()
-        Actor.log.debug(f'Pushing item={item_dict} produced by spider={spider} to the dataset.')
+        logger.debug(f'Pushing item={item_dict} produced by spider={spider} to the dataset.')
         await Actor.push_data(item_dict)
         return item
