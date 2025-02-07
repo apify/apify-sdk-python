@@ -3,9 +3,9 @@
     "private": "true",
     "scripts": {
         "clean": "rimraf .docusaurus build",
-        "build": "npm run clean && docusaurus build",
+        "build": "npm run clean && node --max_old_space_size=16000 node_modules/@docusaurus/core/bin/docusaurus.mjs build",
         "start": "npm run clean && docusaurus start",
-        "deploy": "npm run clean && docusaurus deploy",
+        "deploy": "npm run clean && node --max_old_space_size=16000 node_modules/@docusaurus/core/bin/docusaurus.mjs deploy",
         "docusaurus": "docusaurus",
         "publish-gh-pages": "docusaurus-publish",
         "rename-version": "docusaurus rename-version",
