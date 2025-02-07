@@ -140,13 +140,13 @@ class FreeActorPricingInfo(BaseModel):
 
 class FlatPricePerMonthActorPricingInfo(BaseModel):
     pricing_model: Annotated[Literal['FLAT_PRICE_PER_MONTH'], Field(alias='pricingModel')]
-    trial_minutes: Annotated[int | None, Field(alias='trialMinutes')]
+    trial_minutes: Annotated[int | None, Field(alias='trialMinutes')] = None
     price_per_unit_usd: Annotated[Decimal, Field(alias='pricePerUnitUsd')]
 
 
 class PricePerDatasetItemActorPricingInfo(BaseModel):
     pricing_model: Annotated[Literal['PRICE_PER_DATASET_ITEM'], Field(alias='pricingModel')]
-    unit_name: Annotated[str | None, Field(alias='unitName')]
+    unit_name: Annotated[str | None, Field(alias='unitName')] = None
     price_per_unit_usd: Annotated[Decimal, Field(alias='pricePerUnitUsd')]
 
 
@@ -163,7 +163,7 @@ class PricingPerEvent(BaseModel):
 class PayPerEventActorPricingInfo(BaseModel):
     pricing_model: Annotated[Literal['PAY_PER_EVENT'], Field(alias='pricingModel')]
     pricing_per_event: Annotated[PricingPerEvent, Field(alias='pricingPerEvent')]
-    minimal_max_total_charge_usd: Annotated[Decimal | None, Field(alias='minimalMaxTotalChargeUsd')]
+    minimal_max_total_charge_usd: Annotated[Decimal | None, Field(alias='minimalMaxTotalChargeUsd')] = None
 
 
 PricingModel: TypeAlias = Literal[
