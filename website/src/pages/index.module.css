@@ -176,10 +176,6 @@ html[data-theme='dark'] .heroBanner h2 {
     }
 }
 
-.tagline span {
-    color: var(--ifm-color-primary);
-}
-
 .getStarted {
     font-size: 18px;
     line-height: 28px;
