@@ -29,6 +29,9 @@ module.exports = {
     scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
     githubHost: 'github.com',
+    future: {
+        experimental_faster: true,
+    },
     onBrokenLinks:
     /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
     onBrokenMarkdownLinks:
