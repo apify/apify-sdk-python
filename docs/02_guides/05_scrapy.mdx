@@ -10,7 +10,7 @@ import TabItem from '@theme/TabItem';
 import UnderscoreMainExample from '!!raw-loader!./code/scrapy_project/src/__main__.py';
 import MainExample from '!!raw-loader!./code/scrapy_project/src/main.py';
 import ItemsExample from '!!raw-loader!./code/scrapy_project/src/items.py';
-import TitleSpiderExample from '!!raw-loader!./code/scrapy_project/src/spiders/title.py';
+import SpidersExample from '!!raw-loader!./code/scrapy_project/src/spiders.py';
 import SettingsExample from '!!raw-loader!./code/scrapy_project/src/settings.py';
 
 [Scrapy](https://scrapy.org/) is an open-source web scraping framework for Python. It provides tools for defining scrapers, extracting data from web pages, following links, and handling pagination. With the Apify SDK, Scrapy projects can be converted into Apify [Actors](https://docs.apify.com/platform/actors), integrated with Apify [storages](https://docs.apify.com/platform/storage), and executed on the Apify [platform](https://docs.apify.com/platform).
@@ -48,7 +48,7 @@ Additional helper functions in the [`apify.scrapy`](https://github.com/apify/api
 
 ## Create a new Apify-Scrapy project
 
-The simplest way to start using Scrapy in Apify Actors is to use the [Scrapy Actor template](https://apify.com/templates/categories/python). The template provides a pre-configured project structure and setup that includes all necessary components to run Scrapy spiders as Actors and store their output in Apify datasets. If you prefer manual setup, refer to the example Actor section below for configuration details.
+The simplest way to start using Scrapy in Apify Actors is to use the [Scrapy Actor template](https://apify.com/templates/python-scrapy). The template provides a pre-configured project structure and setup that includes all necessary components to run Scrapy spiders as Actors and store their output in Apify datasets. If you prefer manual setup, refer to the example Actor section below for configuration details.
 
 ## Wrapping an existing Scrapy project
 
@@ -80,9 +80,9 @@ The following example demonstrates a Scrapy Actor that scrapes page titles and e
             {ItemsExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="spiders/title.py" label="spiders/title.py">
+    <TabItem value="spiders.py" label="spiders.py">
         <CodeBlock className="language-python">
-            {TitleSpiderExample}
+            {SpidersExample}
         </CodeBlock>
     </TabItem>
     <TabItem value="settings.py" label="settings.py">

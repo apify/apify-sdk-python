@@ -1,5 +1,3 @@
-# ruff: noqa: I001
-
 from __future__ import annotations
 
 from scrapy.crawler import CrawlerRunner
@@ -9,7 +7,7 @@ from apify import Actor
 from apify.scrapy import apply_apify_settings
 
 # Import your Scrapy spider here.
-from .spiders.title import TitleSpider as Spider
+from .spiders import TitleSpider as Spider
 
 
 async def main() -> None:

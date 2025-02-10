@@ -48,12 +48,12 @@ class AsyncThread:
             The result returned by the coroutine.
 
         Raises:
+            RuntimeError: If the event loop is not running.
             TimeoutError: If the coroutine does not complete within the timeout.
             Exception: Any exception raised during coroutine execution.
         """
         if not self._eventloop.is_running():
-            logger.warning('Event loop is not running! Ignoring coroutine execution.')
-            return None
+            raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is not running.')
 
         # Submit the coroutine to the event loop running in the other thread.
         future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
@@ -104,8 +104,6 @@ class AsyncThread:
         """Cancel all pending tasks in the event loop."""
         # Retrieve all tasks for the event loop, excluding the current task.
         tasks = [task for task in asyncio.all_tasks(self._eventloop) if task is not asyncio.current_task()]
-        if not tasks:
-            return
 
         # Cancel each pending task.
         for task in tasks:

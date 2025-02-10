@@ -1,5 +1,3 @@
-# ruff: noqa: TID252, RUF012
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -7,7 +5,7 @@ from urllib.parse import urljoin
 
 from scrapy import Request, Spider
 
-from ..items import TitleItem
+from .items import TitleItem
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -53,7 +51,7 @@ class TitleSpider(Spider):
             response: The web page response.
 
         Yields:
-            Yields scraped TitleItem and Requests for links.
+            Yields scraped `TitleItem` and new `Request` objects for links.
         """
         self.logger.info('TitleSpider is parsing %s...', response)
 

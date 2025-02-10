@@ -349,14 +349,14 @@ class RunActorFunction(Protocol):
 
 
 @pytest.fixture
-async def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
+async def run_actor(apify_client_async: ApifyClientAsync, run_input: Any = None) -> RunActorFunction:
     """Fixture for calling an Actor run and waiting for its completion.
 
     This fixture returns a function that initiates an Actor run with optional run input, waits for its completion,
     and retrieves the final result. It uses the `wait_for_finish` method with a timeout of 10 minutes.
     """
 
-    async def _run_actor(actor: ActorClientAsync, *, run_input: Any = None) -> ActorRun:
+    async def _run_actor(actor: ActorClientAsync, *, run_input: Any = run_input) -> ActorRun:
         call_result = await actor.call(run_input=run_input)
 
         assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'

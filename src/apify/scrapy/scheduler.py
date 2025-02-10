@@ -22,7 +22,7 @@ logger = getLogger(__name__)
 
 
 class ApifyScheduler(BaseScheduler):
-    """A Scrapy scheduler that uses the Apify request queue to manage requests.
+    """A Scrapy scheduler that uses the Apify `RequestQueue` to manage requests.
 
     This scheduler requires the asyncio Twisted reactor to be installed.
     """
