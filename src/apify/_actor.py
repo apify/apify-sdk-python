@@ -4,6 +4,7 @@ import asyncio
 import os
 import sys
 from datetime import timedelta
+from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast, overload
 
 from lazy_object_proxy import Proxy
@@ -266,10 +267,15 @@ class _ActorType:
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
 
+        # Find out if Scrapy is installed.
+        scrapy_installed = find_spec('scrapy') is not None
+
         if is_running_in_ipython():
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
         elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
+        elif scrapy_installed:
+            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in Scrapy')
         else:
             sys.exit(exit_code)
 
