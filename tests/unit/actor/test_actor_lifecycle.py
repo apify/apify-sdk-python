@@ -4,13 +4,15 @@ import asyncio
 import contextlib
 import json
 import sys
+from datetime import datetime, timezone
 from typing import Any, Callable, cast
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import websockets.server
 from lazy_object_proxy import Proxy
 
-from apify_shared.consts import ApifyEnvVars
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee.events._types import Event, EventPersistStateData
 
 import apify._actor
@@ -129,6 +131,7 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
     # the Actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
     monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '500')
     monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, '1')
+    monkeypatch.setenv(ActorEnvVars.RUN_ID, 'asdf')
 
     persist_state_events_data = []
 
@@ -142,6 +145,37 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
     async with websockets.server.serve(handler, host='localhost') as ws_server:
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
         monkeypatch.setenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL, f'ws://localhost:{port}')
+
+        mock_run_client = Mock()
+        mock_run_client.run.return_value.get = AsyncMock(
+            side_effect=lambda: {
+                'id': 'asdf',
+                'actId': 'asdf',
+                'userId': 'adsf',
+                'startedAt': datetime.now(timezone.utc),
+                'status': 'RUNNING',
+                'meta': {'origin': 'DEVELOPMENT'},
+                'stats': {
+                    'inputBodyLen': 99,
+                    'restartCount': 0,
+                    'resurrectCount': 0,
+                    'computeUnits': 1,
+                },
+                'options': {
+                    'build': 'asdf',
+                    'timeoutSecs': 4,
+                    'memoryMbytes': 1024,
+                    'diskMbytes': 1024,
+                },
+                'buildId': 'hjkl',
+                'defaultDatasetId': 'hjkl',
+                'defaultKeyValueStoreId': 'hjkl',
+                'defaultRequestQueueId': 'hjkl',
+                'containerUrl': 'https://hjkl',
+            }
+        )
+
+        monkeypatch.setattr(Actor._charging_manager, '_client', mock_run_client)
 
         async with Actor:
             Actor.on(Event.PERSIST_STATE, log_persist_state)
