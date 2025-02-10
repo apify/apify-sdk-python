@@ -13,12 +13,13 @@ async def test_actor_scrapy_title_spider(
     run_actor: RunActorFunction,
 ) -> None:
     actor_source_files = {
-        'src/spiders.py': read_file('docs/02_guides/code/scrapy_project/src/spiders.py'),
-        'src/items.py': read_file('docs/02_guides/code/scrapy_project/src/items.py'),
-        'src/settings.py': read_file('docs/02_guides/code/scrapy_project/src/settings.py'),
         'src/__init__.py': read_file('docs/02_guides/code/scrapy_project/src/__init__.py'),
-        'src/main.py': read_file('docs/02_guides/code/scrapy_project/src/main.py'),
         'src/__main__.py': read_file('docs/02_guides/code/scrapy_project/src/__main__.py'),
+        'src/items.py': read_file('docs/02_guides/code/scrapy_project/src/items.py'),
+        'src/main.py': read_file('docs/02_guides/code/scrapy_project/src/main.py'),
+        'src/settings.py': read_file('docs/02_guides/code/scrapy_project/src/settings.py'),
+        'src/spiders/__init__.py': read_file('docs/02_guides/code/scrapy_project/src/spiders/__init__.py'),
+        'src/spiders/title.py': read_file('docs/02_guides/code/scrapy_project/src/spiders/title.py'),
     }
 
     actor = await make_actor('actor-scrapy-title-spider', source_files=actor_source_files)

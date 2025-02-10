@@ -10,7 +10,7 @@ import TabItem from '@theme/TabItem';
 import UnderscoreMainExample from '!!raw-loader!./code/scrapy_project/src/__main__.py';
 import MainExample from '!!raw-loader!./code/scrapy_project/src/main.py';
 import ItemsExample from '!!raw-loader!./code/scrapy_project/src/items.py';
-import SpidersExample from '!!raw-loader!./code/scrapy_project/src/spiders.py';
+import SpidersExample from '!!raw-loader!./code/scrapy_project/src/spiders/title.py';
 import SettingsExample from '!!raw-loader!./code/scrapy_project/src/settings.py';
 
 [Scrapy](https://scrapy.org/) is an open-source web scraping framework for Python. It provides tools for defining scrapers, extracting data from web pages, following links, and handling pagination. With the Apify SDK, Scrapy projects can be converted into Apify [Actors](https://docs.apify.com/platform/actors), integrated with Apify [storages](https://docs.apify.com/platform/storage), and executed on the Apify [platform](https://docs.apify.com/platform).
@@ -75,19 +75,19 @@ The following example demonstrates a Scrapy Actor that scrapes page titles and e
             {MainExample}
         </CodeBlock>
     </TabItem>
+    <TabItem value="settings.py" label="settings.py">
+        <CodeBlock className="language-python">
+            {SettingsExample}
+        </CodeBlock>
+    </TabItem>
     <TabItem value="items.py" label="items.py">
         <CodeBlock className="language-python">
             {ItemsExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="spiders.py" label="spiders.py">
+    <TabItem value="spiders/title.py" label="spiders/title.py">
         <CodeBlock className="language-python">
             {SpidersExample}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="settings.py" label="settings.py">
-        <CodeBlock className="language-python">
-            {SettingsExample}
         </CodeBlock>
     </TabItem>
 </Tabs>

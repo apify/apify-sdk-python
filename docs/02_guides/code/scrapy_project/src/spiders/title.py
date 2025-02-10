@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 
 from scrapy import Request, Spider
 
-from .items import TitleItem
+from ..items import TitleItem
 
 if TYPE_CHECKING:
     from collections.abc import Generator

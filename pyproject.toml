@@ -145,6 +145,8 @@ indent-style = "space"
     "I001",  # Import block is un-sorted or un-formatted
     # Class variables are common in Scrapy projects.
     "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+    # Local imports in Scrapy project.
+    "TID252",  # Prefer absolute imports over relative imports from parent modules
 ]
 
 [tool.ruff.lint.flake8-quotes]
