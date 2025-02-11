@@ -1,6 +1,7 @@
 """Scrapy settings module.
 
-This module contains Scrapy settings for the project, defining various configurations and options.
+This module contains Scrapy settings for the project, defining various configurations
+and options.
 
 For more comprehensive details on Scrapy settings, refer to the official documentation:
 http://doc.scrapy.org/en/latest/topics/settings.html

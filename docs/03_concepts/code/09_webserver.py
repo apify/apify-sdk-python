@@ -21,7 +21,9 @@ def run_server() -> None:
     # Start the HTTP server on the provided port,
     # and save a reference to the server.
     global http_server
-    with ThreadingHTTPServer(('', Actor.config.web_server_port), RequestHandler) as server:
+    with ThreadingHTTPServer(
+        ('', Actor.config.web_server_port), RequestHandler
+    ) as server:
         Actor.log.info(f'Server running on {Actor.config.web_server_port}')
         http_server = server
         server.serve_forever()

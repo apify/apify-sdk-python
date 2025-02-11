@@ -19,7 +19,9 @@ async def main() -> None:
         await queue.add_request(Request.from_url('http://example.com/0'), forefront=True)
 
         # If you try to add an existing request again, it will not do anything
-        add_request_info = await queue.add_request(Request.from_url('http://different-example.com/5'))
+        add_request_info = await queue.add_request(
+            Request.from_url('http://different-example.com/5')
+        )
         Actor.log.info(f'Add request info: {add_request_info}')
 
         processed_request = await queue.get_request(add_request_info.id)
@@ -29,8 +31,8 @@ async def main() -> None:
         while not await queue.is_finished():
             # Fetch the next unhandled request in the queue
             request = await queue.fetch_next_request()
-            # This can happen due to the eventual consistency of the underlying request queue storage,
-            # best solution is just to sleep a bit
+            # This can happen due to the eventual consistency of the underlying request
+            # queue storage, best solution is just to sleep a bit.
             if request is None:
                 await asyncio.sleep(1)
                 continue
@@ -45,6 +47,7 @@ async def main() -> None:
                 Actor.log.info('Request successful.')
                 await queue.mark_request_as_handled(request)
             else:
-                # If processing the request was unsuccessful, reclaim it so it can be processed again
+                # If processing the request was unsuccessful, reclaim it so it can be
+                # processed again.
                 Actor.log.warning('Request failed, will retry!')
                 await queue.reclaim_request(request)

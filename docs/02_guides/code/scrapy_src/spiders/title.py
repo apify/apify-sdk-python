@@ -20,7 +20,8 @@ class TitleSpider(Spider):
 
     name = 'title_spider'
 
-    # The `start_urls` specified in this class will be merged with the `start_urls` value from your Actor input
+    # The `start_urls` specified in this class will be merged with the
+    # `start_urls` value from your Actor input
     # when the project is executed using Apify.
     start_urls = ['https://apify.com/']
 

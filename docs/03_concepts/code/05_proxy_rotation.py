@@ -17,7 +17,15 @@ async def main() -> None:
         proxy_url = await proxy_configuration.new_url()  # http://proxy-2.com
         proxy_url = await proxy_configuration.new_url()  # http://proxy-1.com
         proxy_url = await proxy_configuration.new_url()  # http://proxy-2.com
-        proxy_url = await proxy_configuration.new_url(session_id='a')  # http://proxy-1.com
-        proxy_url = await proxy_configuration.new_url(session_id='b')  # http://proxy-2.com
-        proxy_url = await proxy_configuration.new_url(session_id='b')  # http://proxy-2.com
-        proxy_url = await proxy_configuration.new_url(session_id='a')  # http://proxy-1.com
+        proxy_url = await proxy_configuration.new_url(
+            session_id='a'
+        )  # http://proxy-1.com
+        proxy_url = await proxy_configuration.new_url(
+            session_id='b'
+        )  # http://proxy-2.com
+        proxy_url = await proxy_configuration.new_url(
+            session_id='b'
+        )  # http://proxy-2.com
+        proxy_url = await proxy_configuration.new_url(
+            session_id='a'
+        )  # http://proxy-1.com
