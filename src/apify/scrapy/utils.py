@@ -40,10 +40,6 @@ def apply_apify_settings(*, settings: Settings | None = None, proxy_config: dict
     # ensuring it is executed as the final step in the pipeline sequence
     settings['ITEM_PIPELINES']['apify.scrapy.pipelines.ActorDatasetPushPipeline'] = 1000
 
-    # Disable the default AjaxCrawlMiddleware since it can be problematic with Apify. It can return a new request
-    # during process_response, but currently we have no way of detecting it and handling it properly.
-    settings['DOWNLOADER_MIDDLEWARES']['scrapy.downloadermiddlewares.ajaxcrawl.AjaxCrawlMiddleware'] = None
-
     # Replace the default HttpProxyMiddleware with ApifyHttpProxyMiddleware
     settings['DOWNLOADER_MIDDLEWARES']['scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware'] = None
     settings['DOWNLOADER_MIDDLEWARES']['apify.scrapy.middlewares.ApifyHttpProxyMiddleware'] = 750
