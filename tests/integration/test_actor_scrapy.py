@@ -1,25 +1,26 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
-
-from ._utils import read_file
 
 
 async def test_actor_scrapy_title_spider(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
+    base_path = Path('docs/02_guides/code/scrapy_project')
+
     actor_source_files = {
-        'src/__init__.py': read_file('docs/02_guides/code/scrapy_project/src/__init__.py'),
-        'src/__main__.py': read_file('docs/02_guides/code/scrapy_project/src/__main__.py'),
-        'src/items.py': read_file('docs/02_guides/code/scrapy_project/src/items.py'),
-        'src/main.py': read_file('docs/02_guides/code/scrapy_project/src/main.py'),
-        'src/settings.py': read_file('docs/02_guides/code/scrapy_project/src/settings.py'),
-        'src/spiders/__init__.py': read_file('docs/02_guides/code/scrapy_project/src/spiders/__init__.py'),
-        'src/spiders/title.py': read_file('docs/02_guides/code/scrapy_project/src/spiders/title.py'),
+        'src/__init__.py': (base_path / 'src/__init__.py').read_text(),
+        'src/__main__.py': (base_path / 'src/__main__.py').read_text(),
+        'src/items.py': (base_path / 'src/items.py').read_text(),
+        'src/main.py': (base_path / 'src/main.py').read_text(),
+        'src/settings.py': (base_path / 'src/settings.py').read_text(),
+        'src/spiders/__init__.py': (base_path / 'src/spiders/__init__.py').read_text(),
+        'src/spiders/title.py': (base_path / 'src/spiders/title.py').read_text(),
     }
 
     actor = await make_actor(
