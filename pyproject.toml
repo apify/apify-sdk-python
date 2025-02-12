@@ -43,7 +43,7 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-apify-client = ">=1.8.1"
+apify-client = ">=1.9.1"
 apify-shared = ">=1.2.1"
 crawlee = "~0.5.1"
 cryptography = ">=42.0.0"
