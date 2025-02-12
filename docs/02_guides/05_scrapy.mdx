@@ -25,6 +25,8 @@ The Apify SDK provides an Apify-Scrapy integration. The main challenge of this i
 
 In this setup, `apify.scrapy.initialize_logging` configures an Apify log formatter and reconfigures loggers to ensure consistent logging across Scrapy, the Apify SDK, and other libraries. The `apify.scrapy.run_scrapy_actor` bridges asyncio coroutines with Twisted's reactor, enabling the Actor's main coroutine, which contains the Scrapy spider, to be executed.
 
+Make sure the `SCRAPY_SETTINGS_MODULE` environment variable is set to the path of the Scrapy settings module. This variable is also used by the `Actor` class to detect that the project is a Scrapy project, triggering additional actions.
+
 <CodeBlock className="language-python" title="main.py: The Actor main coroutine">
     {MainExample}
 </CodeBlock>
