@@ -55,9 +55,6 @@ MainReturnType = TypeVar('MainReturnType')
 class _ActorType:
     """The class of `Actor`. Only make a new instance if you're absolutely sure you need to."""
 
-    _apify_client: ApifyClientAsync
-    _configuration: Configuration
-    _is_exiting = False
     _is_rebooting = False
 
     def __init__(
@@ -76,6 +73,8 @@ class _ActorType:
                 be created.
             configure_logging: Should the default logging configuration be configured?
         """
+        self._is_exiting = False
+
         self._configuration = configuration or Configuration.get_global_configuration()
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
