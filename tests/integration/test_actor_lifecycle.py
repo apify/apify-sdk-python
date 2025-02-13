@@ -15,7 +15,7 @@ async def test_actor_init_and_double_init_prevention(
     async def main() -> None:
         my_actor = Actor
         await my_actor.init()
-        assert my_actor._is_initialized is True
+        assert my_actor.active is True
         double_init = False
         try:
             await my_actor.init()
@@ -33,7 +33,7 @@ async def test_actor_init_and_double_init_prevention(
             raise
         await my_actor.exit()
         assert double_init is False
-        assert my_actor._is_initialized is False
+        assert my_actor.active is False
 
     actor = await make_actor(label='actor-init', main_func=main)
     run_result = await run_actor(actor)
@@ -49,8 +49,8 @@ async def test_actor_init_correctly_in_async_with_block(
         import apify._actor
 
         async with Actor:
-            assert apify._actor.Actor._is_initialized
-        assert apify._actor.Actor._is_initialized is False
+            assert apify._actor.Actor.active
+        assert apify._actor.Actor.active is False
 
     actor = await make_actor(label='with-actor-init', main_func=main)
     run_result = await run_actor(actor)
