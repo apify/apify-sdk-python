@@ -21,37 +21,37 @@ from apify._actor import _ActorType
 async def test_actor_properly_init_with_async() -> None:
     async with Actor:
         assert cast(Proxy, apify._actor.Actor).__wrapped__ is not None
-        assert cast(Proxy, apify._actor.Actor).__wrapped__._is_initialized
-    assert not cast(Proxy, apify._actor.Actor).__wrapped__._is_initialized
+        assert cast(Proxy, apify._actor.Actor).__wrapped__.active
+    assert not cast(Proxy, apify._actor.Actor).__wrapped__.active
 
 
 async def test_actor_init() -> None:
     my_actor = _ActorType()
 
     await my_actor.init()
-    assert my_actor._is_initialized is True
+    assert my_actor.active is True
 
     await my_actor.exit()
-    assert my_actor._is_initialized is False
+    assert my_actor.active is False
 
 
 async def test_double_init_raises_error(prepare_test_env: Callable) -> None:
     async with Actor:
-        assert Actor._is_initialized
+        assert Actor.active
         with pytest.raises(RuntimeError):
             await Actor.init()
 
     prepare_test_env()
 
     async with Actor() as actor:
-        assert actor._is_initialized
+        assert actor.active
         with pytest.raises(RuntimeError):
             await actor.init()
 
     prepare_test_env()
 
     async with _ActorType() as actor:
-        assert actor._is_initialized
+        assert actor.active
         with pytest.raises(RuntimeError):
             await actor.init()
 
@@ -73,7 +73,7 @@ async def test_actor_exits_cleanly_with_events(monkeypatch: pytest.MonkeyPatch) 
 
     my_actor = _ActorType()
     async with my_actor:
-        assert my_actor._is_initialized
+        assert my_actor.active
         my_actor.on(Event.PERSIST_STATE, on_event(Event.PERSIST_STATE))
         my_actor.on(Event.SYSTEM_INFO, on_event(Event.SYSTEM_INFO))
         await asyncio.sleep(1)
@@ -96,9 +96,9 @@ async def test_exit_without_init_raises_error() -> None:
 
 async def test_actor_fails_cleanly() -> None:
     async with _ActorType() as my_actor:
-        assert my_actor._is_initialized
+        assert my_actor.active
         await my_actor.fail()
-    assert my_actor._is_initialized is False
+    assert my_actor.active is False
 
 
 async def test_actor_handles_failure_gracefully() -> None:
@@ -106,11 +106,11 @@ async def test_actor_handles_failure_gracefully() -> None:
 
     with contextlib.suppress(Exception):
         async with _ActorType() as my_actor:
-            assert my_actor._is_initialized
+            assert my_actor.active
             raise Exception('Failed')  # noqa: TRY002
 
     assert my_actor is not None
-    assert my_actor._is_initialized is False
+    assert my_actor.active is False
 
 
 async def test_fail_without_init_raises_error() -> None:
