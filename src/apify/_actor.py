@@ -200,6 +200,9 @@ class _ActorType:
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
 
+        # Make sure that the currently initialized instance is also available through the global `Actor` proxy
+        cast(Proxy, Actor).__wrapped__ = self
+
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 

@@ -16,6 +16,7 @@ from crawlee.events._types import Event, EventPersistStateData
 import apify._actor
 from apify import Actor
 from apify._actor import _ActorType
+from apify._configuration import Configuration
 
 
 async def test_actor_properly_init_with_async() -> None:
@@ -33,6 +34,13 @@ async def test_actor_init() -> None:
 
     await my_actor.exit()
     assert my_actor._is_initialized is False
+
+
+async def test_actor_global_works() -> None:
+    non_default_configuration = Configuration(actor_full_name='Actor McActorson, esq.')
+
+    async with Actor(configuration=non_default_configuration):
+        assert Actor.configuration is non_default_configuration
 
 
 async def test_double_init_raises_error(prepare_test_env: Callable) -> None:
