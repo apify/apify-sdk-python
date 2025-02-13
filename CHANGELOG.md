@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Fix RQ usage in Scrapy scheduler ([#385](https://github.com/apify/apify-sdk-python/pull/385)) ([3363478](https://github.com/apify/apify-sdk-python/commit/3363478dbf6eb35e45c237546fe0df5c104166f6)) by [@vdusek](https://github.com/vdusek)
+- Make sure that Actor instances with non-default configurations are also accessible through the global Actor proxy after initialization ([#402](https://github.com/apify/apify-sdk-python/pull/402)) ([b956a02](https://github.com/apify/apify-sdk-python/commit/b956a02d0ba59e0cfde489cc13ca92d7f8f8c84f)) by [@janbuchar](https://github.com/janbuchar), closes [#397](https://github.com/apify/apify-sdk-python/issues/397)
 
 
 <!-- git-cliff-unreleased-end -->
