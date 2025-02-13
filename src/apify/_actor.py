@@ -900,11 +900,11 @@ class _ActorType:
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
-        if self._is_rebooting:
+        if _ActorType._is_rebooting:
             self.log.debug('Actor is already rebooting, skipping the additional reboot call.')
             return
 
-        self._is_rebooting = True
+        _ActorType._is_rebooting = True
 
         if not custom_after_sleep:
             custom_after_sleep = self._configuration.metamorph_after_sleep
