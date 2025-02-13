@@ -56,6 +56,7 @@ class _ActorType:
     """The class of `Actor`. Only make a new instance if you're absolutely sure you need to."""
 
     _is_rebooting = False
+    _is_any_instance_initialized = False
 
     def __init__(
         self,
@@ -199,6 +200,9 @@ class _ActorType:
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
 
+        if _ActorType._is_any_instance_initialized:
+            self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care')
+
         # Make sure that the currently initialized instance is also available through the global `Actor` proxy
         cast(Proxy, Actor).__wrapped__ = self
 
@@ -225,6 +229,7 @@ class _ActorType:
         await self._event_manager.__aenter__()
 
         self._is_initialized = True
+        _ActorType._is_any_instance_initialized = True
 
     async def exit(
         self,
