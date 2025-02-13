@@ -270,8 +270,8 @@ class _ActorType:
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
         elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
-        elif hasattr(asyncio, '_nest_patched'):
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in a nested event loop')
+        elif os.getenv('SCRAPY_SETTINGS_MODULE'):
+            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running with Scrapy')
         else:
             sys.exit(exit_code)
 
