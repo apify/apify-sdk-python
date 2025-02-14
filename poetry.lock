@@ -50,14 +50,14 @@ trio = ["trio (>=0.26.1)"]
 
 [[package]]
 name = "apify-client"
-version = "1.9.2b1"
+version = "1.9.2"
 description = "Apify API client for Python"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "apify_client-1.9.2b1-py3-none-any.whl", hash = "sha256:7c7e3db1b062bd17d9634ae4ccb91ac6d79bc1099823a8a2374866e5c26b76d3"},
-    {file = "apify_client-1.9.2b1.tar.gz", hash = "sha256:a7958110be56d643d2ba5ab2e79cd64e3799734a0d3866ebfbd1a785423cfe17"},
+    {file = "apify_client-1.9.2-py3-none-any.whl", hash = "sha256:a441fb59b5ec1c42aead73284c90304029442ddc26e764c151b8dc7f15e38600"},
+    {file = "apify_client-1.9.2.tar.gz", hash = "sha256:af76b78c3153263040615daec0619765e067466bbb82e569afe799ad72c53050"},
 ]
 
 [package.dependencies]
@@ -3792,4 +3792,4 @@ scrapy = ["scrapy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "8348fd67787a1085c2b503b46bc58283a419780d7c956df982bf51a1b8723f02"
+content-hash = "0e390f17a20d24316610ab40008b0806b46a8a4782a8afe5861ad7b4d9254ab1"
