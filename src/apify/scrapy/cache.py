@@ -155,9 +155,10 @@ class ApifyCacheStorage:
 
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:
     """Dump a dictionary to a gzip-compressed byte stream."""
-    with io.BytesIO() as byte_stream, gzip.GzipFile(fileobj=byte_stream, mode='wb', mtime=mtime) as gzip_file:
-        pickle.dump(data, gzip_file, protocol=4)
-    return byte_stream.getvalue()
+    with io.BytesIO() as byte_stream:
+        with gzip.GzipFile(fileobj=byte_stream, mode='wb', mtime=mtime) as gzip_file:
+            pickle.dump(data, gzip_file, protocol=4)
+        return byte_stream.getvalue()
 
 
 def from_gzip(gzip_bytes: bytes) -> dict:
