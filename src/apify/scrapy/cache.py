@@ -40,6 +40,7 @@ class ApifyCacheStorage:
         self._async_thread: AsyncThread | None = None
 
     def open_spider(self, spider: Spider) -> None:
+        """Open the cache storage for a spider."""
         logger.debug('Using Apify key value cache storage', extra={'spider': spider})
         self.spider = spider
         self._fingerprinter = spider.crawler.request_fingerprinter
@@ -57,16 +58,19 @@ class ApifyCacheStorage:
         logger.debug(f"Opening cache storage's {kv_name!r} key value store")
         self._kv = self._async_thread.run_coro(open_kv())
 
-    def close_spider(self, spider: Spider, current_time: int | None = None) -> None:
-        assert self._async_thread is not None, 'Async thread not initialized'
+    def close_spider(self, _: Spider, current_time: int | None = None) -> None:
+        """Close the cache storage for a spider."""
+        if self._async_thread is None:
+            raise ValueError('Async thread not initialized')
 
         logger.info(f'Cleaning up cache items (max {self.expiration_max_items})')
-        if 0 < self.expiration_secs:
+        if self.expiration_secs > 0:
             if current_time is None:
                 current_time = int(time())
 
             async def expire_kv() -> None:
-                assert self._kv is not None, 'Key value store not initialized'
+                if self._kv is None:
+                    raise ValueError('Key value store not initialized')
                 i = 0
                 async for item in self._kv.iterate_keys():
                     value = await self._kv.get_value(item.key)
@@ -97,10 +101,14 @@ class ApifyCacheStorage:
         finally:
             logger.debug('Cache storage closed')
 
-    def retrieve_response(self, spider: Spider, request: Request, current_time: int | None = None) -> Response | None:
-        assert self._async_thread is not None, 'Async thread not initialized'
-        assert self._kv is not None, 'Key value store not initialized'
-        assert self._fingerprinter is not None, 'Request fingerprinter not initialized'
+    def retrieve_response(self, _: Spider, request: Request, current_time: int | None = None) -> Response | None:
+        """Retrieve a response from the cache storage."""
+        if self._async_thread is None:
+            raise ValueError('Async thread not initialized')
+        if self._kv is None:
+            raise ValueError('Key value store not initialized')
+        if self._fingerprinter is None:
+            raise ValueError('Request fingerprinter not initialized')
 
         key = self._fingerprinter.fingerprint(request).hex()
         value = self._async_thread.run_coro(self._kv.get_value(key))
@@ -125,10 +133,14 @@ class ApifyCacheStorage:
         logger.debug('Cache hit', extra={'request': request})
         return respcls(url=url, headers=headers, status=status, body=body)
 
-    def store_response(self, spider: Spider, request: Request, response: Response) -> None:
-        assert self._async_thread is not None, 'Async thread not initialized'
-        assert self._kv is not None, 'Key value store not initialized'
-        assert self._fingerprinter is not None, 'Request fingerprinter not initialized'
+    def store_response(self, _: Spider, request: Request, response: Response) -> None:
+        """Store a response in the cache storage."""
+        if self._async_thread is None:
+            raise ValueError('Async thread not initialized')
+        if self._kv is None:
+            raise ValueError('Key value store not initialized')
+        if self._fingerprinter is None:
+            raise ValueError('Request fingerprinter not initialized')
 
         key = self._fingerprinter.fingerprint(request).hex()
         data = {
@@ -143,20 +155,21 @@ class ApifyCacheStorage:
 
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:
     """Dump a dictionary to a gzip-compressed byte stream."""
-    with io.BytesIO() as byte_stream:
-        with gzip.GzipFile(fileobj=byte_stream, mode='wb', mtime=mtime) as gzip_file:
-            pickle.dump(data, gzip_file, protocol=4)
-        return byte_stream.getvalue()
+    with io.BytesIO() as byte_stream, gzip.GzipFile(fileobj=byte_stream, mode='wb', mtime=mtime) as gzip_file:
+        pickle.dump(data, gzip_file, protocol=4)
+    return byte_stream.getvalue()
 
 
 def from_gzip(gzip_bytes: bytes) -> dict:
     """Load a dictionary from a gzip-compressed byte stream."""
     with io.BytesIO(gzip_bytes) as byte_stream, gzip.GzipFile(fileobj=byte_stream, mode='rb') as gzip_file:
-        return pickle.load(gzip_file)
+        data: dict = pickle.load(gzip_file)
+        return data
 
 
 def read_gzip_time(gzip_bytes: bytes) -> int:
     """Read the modification time from a gzip-compressed byte stream without decompressing the data."""
     header = gzip_bytes[:10]
     header_components = struct.unpack('<HBBI2B', header)
-    return header_components[3]
+    mtime: int = header_components[3]
+    return mtime
