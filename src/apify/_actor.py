@@ -545,6 +545,10 @@ class _ActorType:
         return self._charging_manager
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+        """Charge for a specified number of events - sub-operations of the Actor.
+
+        This is relevant only for the pay-per-event pricing model.
+        """
         self._raise_if_not_initialized()
         return await self._charging_manager.charge(event_name, count)
 

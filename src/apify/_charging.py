@@ -49,6 +49,7 @@ class ChargingManager:
         self._not_ppe_warning_printed = False
 
     async def init(self) -> None:
+        """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
         self._charging_state = {}
 
         if self._is_at_home:
@@ -86,15 +87,21 @@ class ChargingManager:
             self._charging_log_dataset = await Dataset.open(name=self.LOCAL_CHARGING_LOG_DATASET_NAME)
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+        """Charge for a specified number of events - sub-operations of the Actor.
+
+        This is relevant only for the pay-per-event pricing model.
+        """
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
         def calculate_chargeable() -> dict[str, int | None]:
+            """Calculate the maximum number of events of each type that can be charged within the current budget."""
             return {
                 event_name: self.calculate_max_event_charge_count_within_limit(event_name)
                 for event_name in self._pricing_info
             }
 
+        # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
             if not self._not_ppe_warning_printed:
                 logger.warning(
@@ -109,6 +116,8 @@ class ChargingManager:
             )
 
         # START OF CRITICAL SECTION - no awaits here
+
+        # Determine the maximum amount of events that can be charged within the budget
         charged_count = min(count, self.calculate_max_event_charge_count_within_limit(event_name) or count)
 
         if charged_count == 0:
@@ -130,11 +139,14 @@ class ChargingManager:
             ),
         )
 
+        # Update the charging state
         self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
         self._charging_state[event_name].charge_count += charged_count
         self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
 
         # END OF CRITICAL SECTION
+
+        # If running on the platform, call the charge endpoint
         if self._is_at_home:
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not configured')
@@ -144,6 +156,7 @@ class ChargingManager:
             else:
                 logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 
+        # Log the charged operation (if enabled)
         if self._charging_log_dataset:
             await self._charging_log_dataset.push_data(
                 {
@@ -155,6 +168,7 @@ class ChargingManager:
                 }
             )
 
+        # If it is not possible to charge the full amount, log that fact
         if charged_count < count:
             subject = 'instance' if count == 1 else 'instances'
             logger.info(
@@ -171,6 +185,7 @@ class ChargingManager:
         )
 
     def calculate_total_charged_amount(self) -> Decimal:
+        """Calculate the total amount of money charged for pay-per-event events."""
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -180,6 +195,7 @@ class ChargingManager:
         )
 
     def calculate_max_event_charge_count_within_limit(self, event_name: str) -> int | None:
+        """Calculate how many instances of an event can be charged before we reach the configured limit."""
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -199,6 +215,7 @@ class ChargingManager:
         return math.floor(result) if result.is_finite() else None
 
     def get_pricing_info(self) -> ActorPricingInfo:
+        """Retrieve detailed infor about the effective pricing of the current Actor run."""
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
