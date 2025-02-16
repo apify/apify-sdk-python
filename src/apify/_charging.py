@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Union
 from pydantic import TypeAdapter
 
 from apify._models import ActorRun, PricingModel
+from apify._utils import docs_group
 from apify.log import logger
 from apify.storages import Dataset
 
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
 run_validator: TypeAdapter[ActorRun | None] = TypeAdapter(Union[ActorRun, None])
 
 
+@docs_group('Classes')
 class ChargingManager:
     LOCAL_CHARGING_LOG_DATASET_NAME = 'charging_log'
 
@@ -185,7 +187,7 @@ class ChargingManager:
         )
 
     def calculate_total_charged_amount(self) -> Decimal:
-        """Calculate the total amount of money charged for pay-per-event events."""
+        """Calculate the total amount of money charged for pay-per-event events so far."""
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -215,7 +217,10 @@ class ChargingManager:
         return math.floor(result) if result.is_finite() else None
 
     def get_pricing_info(self) -> ActorPricingInfo:
-        """Retrieve detailed infor about the effective pricing of the current Actor run."""
+        """Retrieve detailed information about the effective pricing of the current Actor run.
+
+        This can be used for instance when your code needs to support multiple pricing models in transition periods.
+        """
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -231,11 +236,17 @@ class ChargingManager:
         )
 
 
+@docs_group('Data structures')
 @dataclass(frozen=True)
 class ChargeResult:
     event_charge_limit_reached: bool
+    """If true, no more events of this type can be charged within the limit"""
+
     charged_count: int
+    """Total amount of charged events - may be lower than the requested amount"""
+
     chargeable_within_limit: dict[str, int | None]
+    """How many events of each known type can still be charged within the limit"""
 
 
 @dataclass
