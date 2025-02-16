@@ -249,6 +249,22 @@ class ChargeResult:
     """How many events of each known type can still be charged within the limit"""
 
 
+@docs_group('Data structures')
+@dataclass
+class ActorPricingInfo:
+    pricing_model: PricingModel | None
+    """The currently effective pricing model"""
+
+    max_total_charge_usd: Decimal
+    """A configured limit for the total charged amount - if you exceed it, you won't receive more money than this."""
+
+    is_pay_per_event: bool
+    """A shortcut - true if the Actor runs with the pay-per-event pricing model"""
+
+    per_event_prices: dict[str, Decimal]
+    """Price of every known event type"""
+
+
 @dataclass
 class ChargingStateItem:
     charge_count: int
@@ -259,11 +275,3 @@ class ChargingStateItem:
 class PricingInfoItem:
     price: Decimal
     title: str
-
-
-@dataclass
-class ActorPricingInfo:
-    pricing_model: PricingModel | None
-    max_total_charge_usd: Decimal
-    is_pay_per_event: bool
-    per_event_prices: dict[str, Decimal]
