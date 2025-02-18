@@ -353,7 +353,7 @@ def make_actor(
         if (actor := actor_client.get()) is not None:
             actor_client.update(
                 pricing_infos=[
-                    *actor['pricingInfos'],
+                    *actor.get('pricingInfos', []),
                     {
                         'pricingModel': 'FREE',
                     },
