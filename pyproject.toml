@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "apify"
-version = "2.2.2"
+version = "2.3.0"
 description = "Apify SDK for Python"
 authors = ["Apify Technologies s.r.o. <support@apify.com>"]
 license = "Apache-2.0"
@@ -43,7 +43,7 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-apify-client = ">=1.8.1"
+apify-client = ">=1.9.1"
 apify-shared = ">=1.2.1"
 crawlee = "~0.5.1"
 cryptography = ">=42.0.0"
@@ -135,6 +135,18 @@ indent-style = "space"
     "F841",    # Local variable {variable} is assigned to but never used
     "TRY301",  # Abstract `raise` to an inner function
     "PLW0603", # Using the global statement to update `{name}` is discouraged
+]
+"**/docs/**/scrapy_project/**/__main__.py" = [
+    # Because of asyncioreactor.install() call.
+    "E402", # Module level import not at top of file
+]
+"**/docs/**/scrapy_project/**" = [
+    # Local imports are mixed up with the Apify SDK.
+    "I001",  # Import block is un-sorted or un-formatted
+    # Class variables are common in Scrapy projects.
+    "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+    # Local imports in Scrapy project.
+    "TID252",  # Prefer absolute imports over relative imports from parent modules
 ]
 
 [tool.ruff.lint.flake8-quotes]

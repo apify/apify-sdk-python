@@ -3,19 +3,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, urlparse
 
-try:
-    if TYPE_CHECKING:
-        from scrapy import Request, Spider
-        from scrapy.crawler import Crawler
-    from scrapy.core.downloader.handlers.http11 import TunnelError
-    from scrapy.exceptions import NotConfigured
-except ImportError as exc:
-    raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
-    ) from exc
+from scrapy.core.downloader.handlers.http11 import TunnelError
+from scrapy.exceptions import NotConfigured
 
 from apify import Actor, ProxyConfiguration
-from apify.scrapy.utils import get_basic_auth_header
+from apify.scrapy import get_basic_auth_header
+
+if TYPE_CHECKING:
+    from scrapy import Request, Spider
+    from scrapy.crawler import Crawler
 
 
 class ApifyHttpProxyMiddleware:
@@ -51,7 +47,7 @@ class ApifyHttpProxyMiddleware:
         proxy_settings: dict | None = crawler.settings.get('APIFY_PROXY_SETTINGS')
 
         if proxy_settings is None:
-            Actor.log.warning(
+            Actor.log.info(
                 'ApifyHttpProxyMiddleware is not going to be used. Object "proxyConfiguration" is probably missing '
                 ' in the Actor input.'
             )
@@ -60,7 +56,7 @@ class ApifyHttpProxyMiddleware:
         use_apify_proxy = proxy_settings.get('useApifyProxy', False)
 
         if use_apify_proxy is not True:
-            Actor.log.warning(
+            Actor.log.info(
                 'ApifyHttpProxyMiddleware is not going to be used. Actor input field '
                 '"proxyConfiguration.useApifyProxy" is set to False.'
             )

@@ -1,41 +1,33 @@
 from __future__ import annotations
 
 import traceback
+from logging import getLogger
 from typing import TYPE_CHECKING
 
-from crawlee.storage_clients import MemoryStorageClient
+from scrapy import Spider
+from scrapy.core.scheduler import BaseScheduler
+from scrapy.utils.reactor import is_asyncio_reactor_installed
 
-from apify._configuration import Configuration
+from ._async_thread import AsyncThread
+from .requests import to_apify_request, to_scrapy_request
+from apify import Configuration
 from apify.apify_storage_client import ApifyStorageClient
-
-try:
-    from scrapy import Spider
-    from scrapy.core.scheduler import BaseScheduler
-    from scrapy.utils.reactor import is_asyncio_reactor_installed
-
-    if TYPE_CHECKING:
-        from scrapy.http.request import Request
-except ImportError as exc:
-    raise ImportError(
-        'To use this module, you need to install the "scrapy" extra. Run "pip install apify[scrapy]".',
-    ) from exc
-
-from crawlee._utils.crypto import crypto_random_object_id
-
-from apify import Actor
-from apify.scrapy.requests import to_apify_request, to_scrapy_request
-from apify.scrapy.utils import nested_event_loop
 from apify.storages import RequestQueue
+
+if TYPE_CHECKING:
+    from scrapy.http.request import Request
+    from twisted.internet.defer import Deferred
+
+logger = getLogger(__name__)
 
 
 class ApifyScheduler(BaseScheduler):
-    """A Scrapy scheduler that uses the Apify Request Queue to manage requests.
+    """A Scrapy scheduler that uses the Apify `RequestQueue` to manage requests.
 
     This scheduler requires the asyncio Twisted reactor to be installed.
     """
 
     def __init__(self) -> None:
-        """Create a new instance."""
         if not is_asyncio_reactor_installed():
             raise ValueError(
                 f'{ApifyScheduler.__qualname__} requires the asyncio Twisted reactor. '
@@ -45,7 +37,10 @@ class ApifyScheduler(BaseScheduler):
         self._rq: RequestQueue | None = None
         self.spider: Spider | None = None
 
-    def open(self, spider: Spider) -> None:  # this has to be named "open"
+        # A thread with the asyncio event loop to run coroutines on.
+        self._async_thread = AsyncThread()
+
+    def open(self, spider: Spider) -> Deferred[None] | None:
         """Open the scheduler.
 
         Args:
@@ -53,22 +48,41 @@ class ApifyScheduler(BaseScheduler):
         """
         self.spider = spider
 
-        async def open_queue() -> RequestQueue:
+        async def open_rq() -> RequestQueue:
             config = Configuration.get_global_configuration()
-
-            # Use the ApifyStorageClient if the Actor is running on the Apify platform,
-            # otherwise use the MemoryStorageClient.
-            storage_client = (
-                ApifyStorageClient.from_config(config) if config.is_at_home else MemoryStorageClient.from_config(config)
-            )
-
-            return await RequestQueue.open(storage_client=storage_client)
+            if config.is_at_home:
+                storage_client = ApifyStorageClient.from_config(config)
+                return await RequestQueue.open(storage_client=storage_client)
+            return await RequestQueue.open()
 
         try:
-            self._rq = nested_event_loop.run_until_complete(open_queue())
-        except BaseException:
+            self._rq = self._async_thread.run_coro(open_rq())
+        except Exception:
             traceback.print_exc()
             raise
+
+        return None
+
+    def close(self, reason: str) -> None:
+        """Close the scheduler.
+
+        Shut down the event loop and its thread gracefully.
+
+        Args:
+            reason: The reason for closing the spider.
+        """
+        logger.debug(f'Closing {self.__class__.__name__} due to {reason}...')
+        try:
+            self._async_thread.close()
+
+        except KeyboardInterrupt:
+            logger.warning('Shutdown interrupted by KeyboardInterrupt!')
+
+        except Exception:
+            logger.exception('Exception occurred while shutting down.')
+
+        finally:
+            logger.debug(f'{self.__class__.__name__} closed successfully.')
 
     def has_pending_requests(self) -> bool:
         """Check if the scheduler has any pending requests.
@@ -80,8 +94,8 @@ class ApifyScheduler(BaseScheduler):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
-            is_finished = nested_event_loop.run_until_complete(self._rq.is_finished())
-        except BaseException:
+            is_finished = self._async_thread.run_coro(self._rq.is_finished())
+        except Exception:
             traceback.print_exc()
             raise
 
@@ -98,29 +112,27 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             True if the request was successfully enqueued, False otherwise.
         """
-        call_id = crypto_random_object_id(8)
-        Actor.log.debug(f'[{call_id}]: ApifyScheduler.enqueue_request was called (scrapy_request={request})...')
+        logger.debug(f'ApifyScheduler.enqueue_request was called (scrapy_request={request})...')
 
         if not isinstance(self.spider, Spider):
             raise TypeError('self.spider must be an instance of the Spider class')
 
         apify_request = to_apify_request(request, spider=self.spider)
         if apify_request is None:
-            Actor.log.error(f'Request {request} was not enqueued because it could not be converted to Apify request.')
+            logger.error(f'Request {request} could not be converted to Apify request.')
             return False
 
-        Actor.log.debug(f'[{call_id}]: scrapy_request was transformed to apify_request (apify_request={apify_request})')
-
+        logger.debug(f'Converted to apify_request: {apify_request}')
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         try:
-            result = nested_event_loop.run_until_complete(self._rq.add_request(apify_request))
-        except BaseException:
+            result = self._async_thread.run_coro(self._rq.add_request(apify_request))
+        except Exception:
             traceback.print_exc()
             raise
 
-        Actor.log.debug(f'[{call_id}]: rq.add_request.result={result}...')
+        logger.debug(f'rq.add_request result: {result}')
         return bool(result.was_already_present)
 
     def next_request(self) -> Request | None:
@@ -129,40 +141,31 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             The next request, or None if there are no more requests.
         """
-        call_id = crypto_random_object_id(8)
-        Actor.log.debug(f'[{call_id}]: ApifyScheduler.next_request was called...')
-
+        logger.debug('next_request called...')
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        # Fetch the next request from the Request Queue
         try:
-            apify_request = nested_event_loop.run_until_complete(self._rq.fetch_next_request())
-        except BaseException:
+            apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
+        except Exception:
             traceback.print_exc()
             raise
 
-        Actor.log.debug(
-            f'[{call_id}]: a new apify_request from the scheduler was fetched (apify_request={apify_request})'
-        )
-
+        logger.debug(f'Fetched apify_request: {apify_request}')
         if apify_request is None:
             return None
 
         if not isinstance(self.spider, Spider):
             raise TypeError('self.spider must be an instance of the Spider class')
 
-        # Let the Request Queue know that the request is being handled. Every request should be marked as handled,
-        # retrying is handled by the Scrapy's RetryMiddleware.
+        # Let the request queue know that the request is being handled. Every request should
+        # be marked as handled, retrying is handled by the Scrapy's RetryMiddleware.
         try:
-            nested_event_loop.run_until_complete(self._rq.mark_request_as_handled(apify_request))
-        except BaseException:
+            self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
+        except Exception:
             traceback.print_exc()
             raise
 
         scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
-        Actor.log.debug(
-            f'[{call_id}]: apify_request was transformed to the scrapy_request which is gonna be returned '
-            f'(scrapy_request={scrapy_request})',
-        )
+        logger.debug(f'Converted to scrapy_request: {scrapy_request}')
         return scrapy_request

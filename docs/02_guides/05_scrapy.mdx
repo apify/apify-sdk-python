@@ -7,60 +7,64 @@ import CodeBlock from '@theme/CodeBlock';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-import UnderscoreMainExample from '!!raw-loader!./code/scrapy_src/__main__.py';
-import MainExample from '!!raw-loader!./code/scrapy_src/main.py';
-import ItemsExample from '!!raw-loader!./code/scrapy_src/items.py';
-import SettingsExample from '!!raw-loader!./code/scrapy_src/settings.py';
-import TitleSpiderExample from '!!raw-loader!./code/scrapy_src/spiders/title.py';
+import UnderscoreMainExample from '!!raw-loader!./code/scrapy_project/src/__main__.py';
+import MainExample from '!!raw-loader!./code/scrapy_project/src/main.py';
+import ItemsExample from '!!raw-loader!./code/scrapy_project/src/items.py';
+import SpidersExample from '!!raw-loader!./code/scrapy_project/src/spiders/title.py';
+import SettingsExample from '!!raw-loader!./code/scrapy_project/src/settings.py';
 
-[Scrapy](https://scrapy.org/) is an open-source web scraping framework written in Python. It provides a complete set of tools for web scraping, including the ability to define how to extract data from websites, handle pagination and navigation.
+[Scrapy](https://scrapy.org/) is an open-source web scraping framework for Python. It provides tools for defining scrapers, extracting data from web pages, following links, and handling pagination. With the Apify SDK, Scrapy projects can be converted into Apify [Actors](https://docs.apify.com/platform/actors), integrated with Apify [storages](https://docs.apify.com/platform/storage), and executed on the Apify [platform](https://docs.apify.com/platform).
 
-:::tip
+## Integrating Scrapy with the Apify platform
 
-Our CLI now supports transforming Scrapy projects into Apify Actors with a single command! Check out the [Scrapy migration guide](https://docs.apify.com/cli/docs/integrating-scrapy) for more information.
+The Apify SDK provides an Apify-Scrapy integration. The main challenge of this is to combine two asynchronous frameworks that use different event loop implementations. Scrapy uses [Twisted](https://twisted.org/) for asynchronous execution, while the Apify SDK is based on [asyncio](https://docs.python.org/3/library/asyncio.html). The key thing is to install the Twisted's `asyncioreactor` to run Twisted's asyncio compatible event loop. This allows both Twisted and asyncio to run on a single event loop, enabling a Scrapy spider to run as an Apify Actor with minimal modifications.
 
-:::
+<CodeBlock className="language-python" title="__main.py__: The Actor entry point ">
+    {UnderscoreMainExample}
+</CodeBlock>
 
-Some of the key features of Scrapy for web scraping include:
+In this setup, `apify.scrapy.initialize_logging` configures an Apify log formatter and reconfigures loggers to ensure consistent logging across Scrapy, the Apify SDK, and other libraries. The `apify.scrapy.run_scrapy_actor` bridges asyncio coroutines with Twisted's reactor, enabling the Actor's main coroutine, which contains the Scrapy spider, to be executed.
 
-- **Request and response handling** - Scrapy provides an easy-to-use interface for making HTTP requests and handling responses,
-allowing you to navigate through web pages and extract data.
-- **Robust Spider framework** - Scrapy has a spider framework that allows you to define how to scrape data from websites,
-including how to follow links, how to handle pagination, and how to parse the data.
-- **Built-in data extraction** - Scrapy includes built-in support for data extraction using XPath and CSS selectors,
-allowing you to easily extract data from HTML and XML documents.
-- **Integration with other tool** - Scrapy can be integrated with other Python tools like BeautifulSoup and Selenium for more advanced scraping tasks.
+Make sure the `SCRAPY_SETTINGS_MODULE` environment variable is set to the path of the Scrapy settings module. This variable is also used by the `Actor` class to detect that the project is a Scrapy project, triggering additional actions.
 
-## Using Scrapy template
+<CodeBlock className="language-python" title="main.py: The Actor main coroutine">
+    {MainExample}
+</CodeBlock>
 
-The fastest way to start using Scrapy in Apify Actors is by leveraging the [Scrapy Actor template](https://apify.com/templates/categories/python). This template provides a pre-configured structure and setup necessary to integrate Scrapy into your Actors seamlessly. It includes: setting up the Scrapy settings, `asyncio` reactor, Actor logger, and item pipeline as necessary to make Scrapy spiders run in Actors and save their outputs in Apify datasets.
+Within the Actor's main coroutine, the Actor's input is processed as usual. The function `apify.scrapy.apply_apify_settings` is then used to configure Scrapy settings with Apify-specific components before the spider is executed. The key components and other helper functions are described in the next section.
 
-## Manual setup
+## Key integration components
 
-If you prefer not to use the template, you will need to manually configure several components to integrate Scrapy with the Apify SDK.
+The Apify SDK provides several custom components to support integration with the Apify platform:
 
-### Event loop & reactor
+- [`apify.scrapy.ApifyScheduler`](https://docs.apify.com/sdk/python/reference/class/ApifyScheduler) - Replaces Scrapy's default [scheduler](https://docs.scrapy.org/en/latest/topics/scheduler.html) with one that uses Apify's [request queue](https://docs.apify.com/platform/storage/request-queue) for storing requests. It manages enqueuing, dequeuing, and maintaining the state and priority of requests.
+- [`apify.scrapy.ActorDatasetPushPipeline`](https://docs.apify.com/sdk/python/reference/class/ActorDatasetPushPipeline) - A Scrapy [item pipeline](https://docs.scrapy.org/en/latest/topics/item-pipeline.html) that pushes scraped items to Apify's [dataset](https://docs.apify.com/platform/storage/dataset). When enabled, every item produced by the spider is sent to the dataset.
+- [`apify.scrapy.ApifyHttpProxyMiddleware`](https://docs.apify.com/sdk/python/reference/class/ApifyHttpProxyMiddleware) - A Scrapy [middleware](https://docs.scrapy.org/en/latest/topics/downloader-middleware.html) that manages proxy configurations. This middleware replaces Scrapy's default `HttpProxyMiddleware` to facilitate the use of Apify's proxy service.
 
-The Apify SDK is built on Python's asynchronous [`asyncio`](https://docs.python.org/3/library/asyncio.html) library, whereas Scrapy uses [`twisted`](https://twisted.org/) for its asynchronous operations. To make these two frameworks work together, you need to:
+Additional helper functions in the [`apify.scrapy`](https://github.com/apify/apify-sdk-python/tree/master/src/apify/scrapy) subpackage include:
 
-- Set the [`AsyncioSelectorReactor`](https://docs.scrapy.org/en/latest/topics/asyncio.html#installing-the-asyncio-reactor) in Scrapy's project settings: This reactor is `twisted`'s implementation of the `asyncio` event loop, enabling compatibility between the two libraries.
-- Install [`nest_asyncio`](https://pypi.org/project/nest-asyncio/): The `nest_asyncio` package allows the asyncio event loop to run within an already running loop, which is essential for integration with the Apify SDK.
+- `apply_apify_settings` - Applies Apify-specific components to Scrapy settings.
+- `to_apify_request` and `to_scrapy_request` - Convert between Apify and Scrapy request objects.
+- `initialize_logging` - Configures logging for the Actor environment.
+- `run_scrapy_actor` - Bridges asyncio and Twisted event loops.
 
-By making these adjustments, you can ensure collaboration between `twisted`-based Scrapy and the `asyncio`-based Apify SDK.
+## Create a new Apify-Scrapy project
 
-### Other components
+The simplest way to start using Scrapy in Apify Actors is to use the [Scrapy Actor template](https://apify.com/templates/python-scrapy). The template provides a pre-configured project structure and setup that includes all necessary components to run Scrapy spiders as Actors and store their output in Apify datasets. If you prefer manual setup, refer to the example Actor section below for configuration details.
 
-We also prepared other Scrapy components to work with Apify SDK, they are available in the [`apify/scrapy`](https://github.com/apify/apify-sdk-python/tree/master/src/apify/scrapy) sub-package. These components include:
+## Wrapping an existing Scrapy project
 
-- `ApifyScheduler`: A Scrapy scheduler that uses the Apify Request Queue to manage requests.
-- `ApifyHttpProxyMiddleware`: A Scrapy middleware for working with Apify proxies.
-- `ActorDatasetPushPipeline`: A Scrapy item pipeline that pushes scraped items into the Apify dataset.
+The Apify CLI supports converting an existing Scrapy project into an Apify Actor with a single command. The CLI expects the project to follow the standard Scrapy layout (including a `scrapy.cfg` file in the project root). During the wrapping process, the CLI:
 
-The module contains other helper functions, like `apply_apify_settings` for applying these components to Scrapy settings, and `to_apify_request` and `to_scrapy_request` for converting between Apify and Scrapy request objects.
+- Creates the necessary files and directories for an Apify Actor.
+- Installs the Apify SDK and required dependencies.
+- Updates Scrapy settings to include Apify-specific components.
+
+For further details, see the [Scrapy migration guide](https://docs.apify.com/cli/docs/integrating-scrapy).
 
 ## Example Actor
 
-Here is an example of a Scrapy Actor that scrapes the titles of web pages and enqueues all links found on each page. This example is identical to the one provided in the Apify Actor templates.
+The following example demonstrates a Scrapy Actor that scrapes page titles and enqueues links found on each page. This example aligns with the structure provided in the Apify Actor templates.
 
 <Tabs>
     <TabItem value="__main__.py" label="__main.py__">
@@ -68,29 +72,36 @@ Here is an example of a Scrapy Actor that scrapes the titles of web pages and en
             {UnderscoreMainExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="main.py" label="main.py" default>
+    <TabItem value="main.py" label="main.py">
         <CodeBlock className="language-python">
             {MainExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="items.py" label="items.py" default>
-        <CodeBlock className="language-python">
-            {ItemsExample}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="settings.py" label="settings.py" default>
+    <TabItem value="settings.py" label="settings.py">
         <CodeBlock className="language-python">
             {SettingsExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="spiders/title.py" label="spiders/title.py" default>
+    <TabItem value="items.py" label="items.py">
         <CodeBlock className="language-python">
-            {TitleSpiderExample}
+            {ItemsExample}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="spiders/title.py" label="spiders/title.py">
+        <CodeBlock className="language-python">
+            {SpidersExample}
         </CodeBlock>
     </TabItem>
 </Tabs>
 
 ## Conclusion
 
-In this guide you learned how to use Scrapy in Apify Actors. You can now start building your own web scraping projects
-using Scrapy, the Apify SDK and host them on the Apify platform. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+In this guide you learned how to use Scrapy in Apify Actors. You can now start building your own web scraping projects using Scrapy, the Apify SDK and host them on the Apify platform. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+
+## Additional resources
+
+- [Apify CLI: Integrating Scrapy projects](https://docs.apify.com/cli/docs/integrating-scrapy)
+- [Apify: Run Scrapy spiders on Apify](https://apify.com/run-scrapy-in-cloud)
+- [Apify templates: Pyhon Actor Scrapy template](https://apify.com/templates/python-scrapy)
+- [Apify store: Scrapy Books Example Actor](https://apify.com/vdusek/scrapy-books-example)
+- [Scrapy: Official documentation](https://docs.scrapy.org/)
