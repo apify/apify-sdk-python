@@ -239,30 +239,34 @@ class ChargingManager:
 @docs_group('Data structures')
 @dataclass(frozen=True)
 class ChargeResult:
+    """Result of the `ChargingManager.charge` method."""
+
     event_charge_limit_reached: bool
-    """If true, no more events of this type can be charged within the limit"""
+    """If true, no more events of this type can be charged within the limit."""
 
     charged_count: int
-    """Total amount of charged events - may be lower than the requested amount"""
+    """Total amount of charged events - may be lower than the requested amount."""
 
     chargeable_within_limit: dict[str, int | None]
-    """How many events of each known type can still be charged within the limit"""
+    """How many events of each known type can still be charged within the limit."""
 
 
 @docs_group('Data structures')
 @dataclass
 class ActorPricingInfo:
+    """Result of the `ChargingManager.get_pricing_info` method."""
+
     pricing_model: PricingModel | None
-    """The currently effective pricing model"""
+    """The currently effective pricing model."""
 
     max_total_charge_usd: Decimal
     """A configured limit for the total charged amount - if you exceed it, you won't receive more money than this."""
 
     is_pay_per_event: bool
-    """A shortcut - true if the Actor runs with the pay-per-event pricing model"""
+    """A shortcut - true if the Actor runs with the pay-per-event pricing model."""
 
     per_event_prices: dict[str, Decimal]
-    """Price of every known event type"""
+    """Price of every known event type."""
 
 
 @dataclass
