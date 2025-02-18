@@ -56,10 +56,8 @@ MainReturnType = TypeVar('MainReturnType')
 class _ActorType:
     """The class of `Actor`. Only make a new instance if you're absolutely sure you need to."""
 
-    _apify_client: ApifyClientAsync
-    _configuration: Configuration
-    _is_exiting = False
     _is_rebooting = False
+    _is_any_instance_initialized = False
 
     def __init__(
         self,
@@ -77,6 +75,8 @@ class _ActorType:
                 be created.
             configure_logging: Should the default logging configuration be configured?
         """
+        self._is_exiting = False
+
         self._configuration = configuration or Configuration.get_global_configuration()
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
@@ -203,6 +203,12 @@ class _ActorType:
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
 
+        if _ActorType._is_any_instance_initialized:
+            self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care')
+
+        # Make sure that the currently initialized instance is also available through the global `Actor` proxy
+        cast(Proxy, Actor).__wrapped__ = self
+
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 
@@ -230,6 +236,7 @@ class _ActorType:
         self.log.debug('Charging manager initialized')
 
         self._is_initialized = True
+        _ActorType._is_any_instance_initialized = True
 
     async def exit(
         self,
@@ -277,8 +284,8 @@ class _ActorType:
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
         elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
             self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
-        elif hasattr(asyncio, '_nest_patched'):
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in a nested event loop')
+        elif os.getenv('SCRAPY_SETTINGS_MODULE'):
+            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running with Scrapy')
         else:
             sys.exit(exit_code)
 
@@ -944,11 +951,11 @@ class _ActorType:
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
-        if self._is_rebooting:
+        if _ActorType._is_rebooting:
             self.log.debug('Actor is already rebooting, skipping the additional reboot call.')
             return
 
-        self._is_rebooting = True
+        _ActorType._is_rebooting = True
 
         if not custom_after_sleep:
             custom_after_sleep = self._configuration.metamorph_after_sleep

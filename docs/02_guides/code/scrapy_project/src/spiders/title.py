@@ -1,8 +1,6 @@
-# ruff: noqa: TID252, RUF012
-
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 from scrapy import Request, Spider
@@ -16,19 +14,35 @@ if TYPE_CHECKING:
 
 
 class TitleSpider(Spider):
-    """Scrapes title pages and enqueues all links found on the page."""
+    """A spider that scrapes web pages to extract titles and discover new links.
+
+    This spider retrieves the content of the <title> element from each page and queues
+    any valid hyperlinks for further crawling.
+    """
 
     name = 'title_spider'
 
-    # The `start_urls` specified in this class will be merged with the `start_urls` value from your Actor input
-    # when the project is executed using Apify.
-    start_urls = ['https://apify.com/']
-
-    # Scrape only the pages within the Apify domain.
-    allowed_domains = ['apify.com']
-
     # Limit the number of pages to scrape.
     custom_settings = {'CLOSESPIDER_PAGECOUNT': 10}
+
+    def __init__(
+        self,
+        start_urls: list[str],
+        allowed_domains: list[str],
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """A default costructor.
+
+        Args:
+            start_urls: URLs to start the scraping from.
+            allowed_domains: Domains that the scraper is allowed to crawl.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        super().__init__(*args, **kwargs)
+        self.start_urls = start_urls
+        self.allowed_domains = allowed_domains
 
     def parse(self, response: Response) -> Generator[TitleItem | Request, None, None]:
         """Parse the web page response.
@@ -37,7 +51,7 @@ class TitleSpider(Spider):
             response: The web page response.
 
         Yields:
-            Yields scraped TitleItem and Requests for links.
+            Yields scraped `TitleItem` and new `Request` objects for links.
         """
         self.logger.info('TitleSpider is parsing %s...', response)
 
@@ -46,7 +60,8 @@ class TitleSpider(Spider):
         title = response.css('title::text').extract_first()
         yield TitleItem(url=url, title=title)
 
-        # Extract all links from the page, create Requests out of them, and yield them
+        # Extract all links from the page, create `Request` objects out of them,
+        # and yield them.
         for link_href in response.css('a::attr("href")'):
             link_url = urljoin(response.url, link_href.get())
             if link_url.startswith(('http://', 'https://')):

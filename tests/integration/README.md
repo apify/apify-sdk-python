@@ -94,7 +94,6 @@ async def test_something(
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
     assert output_record is not None
     assert output_record['value'] == expected_output
-
 ```
 
 Or you can pass multiple source files with the `source_files` argument, if you need something really complex:

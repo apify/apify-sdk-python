@@ -42,7 +42,6 @@ def test_updates_downloader_middlewares() -> None:
 
     assert new_settings.get('DOWNLOADER_MIDDLEWARES') == {
         'apify.scrapy.middlewares.ApifyHttpProxyMiddleware': 750,
-        'scrapy.downloadermiddlewares.ajaxcrawl.AjaxCrawlMiddleware': None,
         'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware': 543,
         'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': None,
         'scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware': 123,

@@ -5,7 +5,9 @@ async def main() -> None:
     async with Actor:
         actor_input = await Actor.get_input() or {}
         proxy_settings = actor_input.get('proxySettings')
-        proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input=proxy_settings)
+        proxy_configuration = await Actor.create_proxy_configuration(
+            actor_proxy_input=proxy_settings
+        )
 
         if not proxy_configuration:
             raise RuntimeError('No proxy configuration available.')

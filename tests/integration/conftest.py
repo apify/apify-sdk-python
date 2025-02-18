@@ -205,6 +205,7 @@ class MakeActorFunction(Protocol):
         main_func: Callable | None = None,
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
+        additional_requirements: list[str] | None = None,
     ) -> Awaitable[ActorClientAsync]:
         """Create a temporary Actor from the given main function or source files.
 
@@ -218,6 +219,7 @@ class MakeActorFunction(Protocol):
             main_func: The main function of the Actor.
             main_py: The `src/main.py` file of the Actor.
             source_files: A dictionary of the source files of the Actor.
+            additional_requirements: A list of additional requirements to be added to the `requirements.txt`.
 
         Returns:
             A resource client for the created Actor.
@@ -242,6 +244,7 @@ def make_actor(
         main_func: Callable | None = None,
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
+        additional_requirements: list[str] | None = None,
     ) -> ActorClientAsync:
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')
@@ -277,6 +280,16 @@ def make_actor(
         # argument in it.
         actor_source_files = actor_base_source_files.copy()
         actor_source_files.update(source_files)
+
+        if additional_requirements:
+            # Get the current requirements.txt content (as a string).
+            req_content = actor_source_files.get('requirements.txt', '')
+            if isinstance(req_content, bytes):
+                req_content = req_content.decode('utf-8')
+            # Append the additional requirements, each on a new line.
+            additional_reqs = '\n'.join(additional_requirements)
+            req_content = req_content.strip() + '\n' + additional_reqs + '\n'
+            actor_source_files['requirements.txt'] = req_content
 
         # Reformat the source files in a format that the Apify API understands.
         source_files_for_api = []
