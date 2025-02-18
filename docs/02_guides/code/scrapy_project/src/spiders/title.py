@@ -60,7 +60,8 @@ class TitleSpider(Spider):
         title = response.css('title::text').extract_first()
         yield TitleItem(url=url, title=title)
 
-        # Extract all links from the page, create `Request` objects out of them, and yield them.
+        # Extract all links from the page, create `Request` objects out of them,
+        # and yield them.
         for link_href in response.css('a::attr("href")'):
             link_url = urljoin(response.url, link_href.get())
             if link_url.startswith(('http://', 'https://')):

@@ -25,7 +25,8 @@ async def main() -> None:
 
         # Create a crawler.
         crawler = BeautifulSoupCrawler(
-            # Limit the crawl to max requests. Remove or increase it for crawling all links.
+            # Limit the crawl to max requests.
+            # Remove or increase it for crawling all links.
             max_requests_per_crawl=50,
         )
 
