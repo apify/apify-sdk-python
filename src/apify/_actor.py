@@ -462,13 +462,14 @@ class _ActorType:
     @overload
     async def push_data(self, data: dict | list[dict]) -> None: ...
     @overload
-    async def push_data(self, data: dict | list[dict], event_name: str) -> ChargeResult: ...
-    async def push_data(self, data: dict | list[dict], event_name: str | None = None) -> ChargeResult | None:
+    async def push_data(self, data: dict | list[dict], charged_event_name: str) -> ChargeResult: ...
+    async def push_data(self, data: dict | list[dict], charged_event_name: str | None = None) -> ChargeResult | None:
         """Store an object or a list of objects to the default dataset of the current Actor run.
 
         Args:
             data: The data to push to the default dataset.
-            event_name: If provided, the method will attempt to charge for the event for each pushed item.
+            charged_event_name: If provided and if the Actor uses the pay-per-event pricing model,
+                the method will attempt to charge for the event for each pushed item.
         """
         self._raise_if_not_initialized()
 
@@ -478,8 +479,8 @@ class _ActorType:
         data = data if isinstance(data, list) else [data]
 
         max_charged_count = (
-            self._charging_manager.calculate_max_event_charge_count_within_limit(event_name)
-            if event_name is not None
+            self._charging_manager.calculate_max_event_charge_count_within_limit(charged_event_name)
+            if charged_event_name is not None
             else None
         )
 
@@ -491,9 +492,9 @@ class _ActorType:
         else:
             await dataset.push_data(data)
 
-        if event_name:
+        if charged_event_name:
             return await self._charging_manager.charge(
-                event_name=event_name,
+                event_name=charged_event_name,
                 count=min(max_charged_count, len(data)) if max_charged_count is not None else len(data),
             )
 
