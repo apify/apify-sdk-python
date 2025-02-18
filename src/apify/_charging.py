@@ -55,6 +55,8 @@ class ChargingManager:
         self._charging_state = {}
 
         if self._is_at_home:
+            # Running on the Apify platform - fetch pricing info for the current run.
+
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
 
@@ -82,6 +84,9 @@ class ChargingManager:
                 )
 
         if not self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
+            # We are not running on the Apify platform, but PPE is enabled for testing - open a dataset that
+            # will contain a log of all charge calls for debugging purposes.
+
             if self._purge_charging_log_dataset:
                 dataset = await Dataset.open(name=self.LOCAL_CHARGING_LOG_DATASET_NAME)
                 await dataset.drop()
