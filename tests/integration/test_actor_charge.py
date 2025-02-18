@@ -12,6 +12,8 @@ from apify import Actor
 from apify._models import ActorRun
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from apify_client import ApifyClientAsync
     from apify_client.clients import ActorClientAsync
 
@@ -63,6 +65,13 @@ async def ppe_actor(
     return apify_client_async.actor(ppe_actor_build)
 
 
+def retry_counter(retry_count: int) -> Iterable[tuple[bool, int]]:
+    for retry in range(retry_count - 1):
+        yield False, retry
+
+    yield True, retry_count - 1
+
+
 async def test_actor_charge_basic(
     ppe_actor: ActorClientAsync,
     run_actor: RunActorFunction,
@@ -70,13 +79,19 @@ async def test_actor_charge_basic(
 ) -> None:
     run = await run_actor(ppe_actor)
 
-    # Wait until the platform gets its act together and refetch
-    await asyncio.sleep(6)
-    updated_run = await apify_client_async.run(run.id).get()
-    run = ActorRun.model_validate(updated_run)
+    # Refetch until the platform gets its act together
+    for is_last_attempt, _ in retry_counter(30):
+        await asyncio.sleep(1)
+        updated_run = await apify_client_async.run(run.id).get()
+        run = ActorRun.model_validate(updated_run)
 
-    assert run.status == ActorJobStatus.SUCCEEDED
-    assert run.charged_event_counts == {'foobar': 4}
+        try:
+            assert run.status == ActorJobStatus.SUCCEEDED
+            assert run.charged_event_counts == {'foobar': 4}
+            break
+        except AssertionError:
+            if is_last_attempt:
+                raise
 
 
 async def test_actor_charge_limit(
@@ -86,10 +101,16 @@ async def test_actor_charge_limit(
 ) -> None:
     run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
 
-    # Wait until the platform gets its act together and refetch
-    await asyncio.sleep(6)
-    updated_run = await apify_client_async.run(run.id).get()
-    run = ActorRun.model_validate(updated_run)
+    # Refetch until the platform gets its act together
+    for is_last_attempt, _ in retry_counter(30):
+        await asyncio.sleep(1)
+        updated_run = await apify_client_async.run(run.id).get()
+        run = ActorRun.model_validate(updated_run)
 
-    assert run.status == ActorJobStatus.SUCCEEDED
-    assert run.charged_event_counts == {'foobar': 2}
+        try:
+            assert run.status == ActorJobStatus.SUCCEEDED
+            assert run.charged_event_counts == {'foobar': 2}
+            break
+        except AssertionError:
+            if is_last_attempt:
+                raise
