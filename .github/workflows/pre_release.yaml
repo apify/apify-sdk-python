@@ -22,7 +22,7 @@ jobs:
       changelog: ${{ steps.release_metadata.outputs.changelog }}
       existing_changelog_path: CHANGELOG.md
     steps:
-      - uses: apify/workflows/git-cliff-release@main
+      - uses: apify/workflows/git-cliff-release@switch-to-uv
         id: release_metadata
         name: Prepare release metadata
         with:
@@ -30,25 +30,25 @@ jobs:
 
   lint_check:
     name: Lint check
-    uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
+    uses: apify/workflows/.github/workflows/python_lint_check.yaml@switch-to-uv
 
   type_check:
     name: Type check
-    uses: apify/workflows/.github/workflows/python_type_check.yaml@main
+    uses: apify/workflows/.github/workflows/python_type_check.yaml@switch-to-uv
 
   unit_tests:
     name: Unit tests
-    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
+    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@switch-to-uv
 
   integration_tests:
     name: Integration tests
-    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
+    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@switch-to-uv
     secrets: inherit
 
   update_changelog:
     name: Update changelog
     needs: [release_metadata, lint_check, type_check, unit_tests, integration_tests]
-    uses: apify/workflows/.github/workflows/python_bump_and_update_changelog.yaml@main
+    uses: apify/workflows/.github/workflows/python_bump_and_update_changelog.yaml@switch-to-uv
     with:
       version_number: ${{ needs.release_metadata.outputs.version_number }}
       changelog: ${{ needs.release_metadata.outputs.changelog }}
@@ -67,7 +67,7 @@ jobs:
       url: https://pypi.org/project/apify
     steps:
       - name: Prepare distribution
-        uses: apify/workflows/prepare-pypi-distribution@main
+        uses: apify/workflows/prepare-pypi-distribution@switch-to-uv
         with:
           package_name: apify
           is_prerelease: "yes"

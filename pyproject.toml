@@ -1,15 +1,19 @@
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+#########################
+# PEP 621 configuration #
+#########################
 
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "apify"
 version = "2.3.0"
 description = "Apify SDK for Python"
-authors = ["Apify Technologies s.r.o. <support@apify.com>"]
-license = "Apache-2.0"
+authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
+license = { file = "LICENSE" }
 readme = "README.md"
-packages = [{ include = "apify", from = "src" }]
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -19,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
 ]
 keywords = [
@@ -32,49 +37,57 @@ keywords = [
     "scraper",
     "scraping",
 ]
+dependencies = [
+    "apify-client>=1.9.2",
+    "apify-shared>=1.2.1",
+    "crawlee~=0.5.1",
+    "cryptography>=42.0.0",
+    "httpx>=0.27.0",
+    "lazy-object-proxy>=1.10.0",
+    "more_itertools>=10.2.0",
+    "typing-extensions>=4.1.0",
+    # TODO: Relax the upper bound once the issue is resolved:
+    # https://github.com/apify/apify-sdk-python/issues/325
+    "websockets>=10.0,<14.0.0",
+]
+[project.optional-dependencies]
+dev = [
+    "build~=1.2.0",
+    "filelock~=3.17.0",
+    "griffe~=1.5.0",
+    "mypy~=1.15.0",
+    "pre-commit~=4.1.0",
+    "pydoc-markdown~=4.8.0",
+    "pytest~=8.3.0",
+    "pytest-asyncio~=0.25.0",
+    "pytest-cov~=6.0.0",
+    "pytest-only~=2.1.0",
+    "pytest-timeout~=2.3.0",
+    "pytest-xdist~=3.6.0",
+    "respx~=0.22.0",
+    "ruff~=0.9.0",
+    "setuptools~=75.8.0",     # setuptools are used by pytest but not explicitly required
+]
+scrapy = ["scrapy>=2.11.0"]
 
-[tool.poetry.urls]
-"Homepage" = "https://docs.apify.com/sdk/python/"
-"Apify Homepage" = "https://apify.com"
-"Changelog" = "https://docs.apify.com/sdk/python/docs/changelog"
-"Documentation" = "https://docs.apify.com/sdk/python/"
-"Issue Tracker" = "https://github.com/apify/apify-sdk-python/issues"
-"Repository" = "https://github.com/apify/apify-sdk-python"
+[project.urls]
+homepage = "https://docs.apify.com/sdk/python/"
+apify_homepage = "https://apify.com"
+changelog = "https://docs.apify.com/sdk/python/docs/changelog"
+documentation = "https://docs.apify.com/sdk/python/"
+issue_tracker = "https://github.com/apify/apify-sdk-python/issues"
+repository = "https://github.com/apify/apify-sdk-python"
 
-[tool.poetry.dependencies]
-python = "^3.9"
-apify-client = ">=1.9.2"
-apify-shared = ">=1.2.1"
-crawlee = "~0.5.1"
-cryptography = ">=42.0.0"
-httpx = ">=0.27.0"
-lazy-object-proxy = ">=1.10.0"
-more_itertools = ">=10.2.0"
-scrapy = { version = ">=2.11.0", optional = true }
-typing-extensions = ">=4.1.0"
-# TODO: Relax the upper bound once the issue is resolved:
-# https://github.com/apify/apify-sdk-python/issues/325
-websockets = ">=10.0 <14.0.0"
+#######################
+# Hatch configuration #
+#######################
 
-[tool.poetry.group.dev.dependencies]
-build = "~1.2.0"
-filelock = "~3.17.0"
-griffe = "~1.5.0"
-mypy = "~1.15.0"
-pre-commit = "~4.1.0"
-pydoc-markdown = "~4.8.0"
-pytest = "~8.3.0"
-pytest-asyncio = "~0.25.0"
-pytest-cov = "~6.0.0"
-pytest-only = "~2.1.0"
-pytest-timeout = "~2.3.0"
-pytest-xdist = "~3.6.0"
-respx = "~0.22.0"
-ruff = "~0.9.0"
-setuptools = "~75.8.0"     # setuptools are used by pytest but not explicitly required
+[tool.hatch.build.targets.wheel]
+packages = ["src/apify"]
 
-[tool.poetry.extras]
-scrapy = ["scrapy"]
+######################
+# Ruff configuration #
+######################
 
 [tool.ruff]
 line-length = 120
@@ -142,11 +155,11 @@ indent-style = "space"
 ]
 "**/docs/**/scrapy_project/**" = [
     # Local imports are mixed up with the Apify SDK.
-    "I001",  # Import block is un-sorted or un-formatted
+    "I001", # Import block is un-sorted or un-formatted
     # Class variables are common in Scrapy projects.
-    "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
     # Local imports in Scrapy project.
-    "TID252",  # Prefer absolute imports over relative imports from parent modules
+    "TID252", # Prefer absolute imports over relative imports from parent modules
 ]
 
 [tool.ruff.lint.flake8-quotes]
@@ -172,11 +185,19 @@ known-first-party = ["apify_client", "apify_shared", "crawlee"]
 [tool.ruff.lint.pylint]
 max-branches = 18
 
+########################
+# Pytest configuration #
+########################
+
 [tool.pytest.ini_options]
 addopts = "-ra"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 timeout = 1200
+
+######################
+# Mypy configuration #
+######################
 
 [tool.mypy]
 python_version = "3.9"
@@ -205,17 +226,25 @@ module = [
 ]
 ignore_missing_imports = true
 
+##############################
+# BasedPyright configuration #
+##############################
+
 [tool.basedpyright]
 pythonVersion = "3.9"
 typeCheckingMode = "standard"
 include = ["src", "tests", "docs", "website"]
 
+##########################
+# Coverage configuration #
+##########################
+
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "assert_never()",
-]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
+
+######################
+# Ipdb configuration #
+######################
 
 [tool.ipdb]
 context = 7
