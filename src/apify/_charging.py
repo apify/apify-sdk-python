@@ -4,9 +4,11 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Protocol, Union
 
 from pydantic import TypeAdapter
+
+from apify_shared.utils import ignore_docs
 
 from apify._models import ActorRun, PricingModel
 from apify._utils import docs_group
@@ -14,6 +16,8 @@ from apify.log import logger
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from apify_client import ApifyClientAsync
 
     from apify._configuration import Configuration
@@ -22,8 +26,74 @@ if TYPE_CHECKING:
 run_validator: TypeAdapter[ActorRun | None] = TypeAdapter(Union[ActorRun, None])
 
 
-@docs_group('Classes')
-class ChargingManager:
+@docs_group('Interfaces')
+class ChargingManager(Protocol):
+    """Provides fine-grained access to pay-per-event functionality."""
+
+    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+        """Charge for a specified number of events - sub-operations of the Actor.
+
+        This is relevant only for the pay-per-event pricing model.
+
+        Args:
+            event_name: Name of the event to be charged for.
+            count: Number of events to charge for.
+        """
+
+    def calculate_total_charged_amount(self) -> Decimal:
+        """Calculate the total amount of money charged for pay-per-event events so far."""
+
+    def calculate_max_event_charge_count_within_limit(self, event_name: str) -> int | None:
+        """Calculate how many instances of an event can be charged before we reach the configured limit.
+
+        Args:
+            event_name: Name of the inspected event.
+        """
+
+    def get_pricing_info(self) -> ActorPricingInfo:
+        """Retrieve detailed information about the effective pricing of the current Actor run.
+
+        This can be used for instance when your code needs to support multiple pricing models in transition periods.
+        """
+
+
+@docs_group('Data structures')
+@dataclass(frozen=True)
+class ChargeResult:
+    """Result of the `ChargingManager.charge` method."""
+
+    event_charge_limit_reached: bool
+    """If true, no more events of this type can be charged within the limit."""
+
+    charged_count: int
+    """Total amount of charged events - may be lower than the requested amount."""
+
+    chargeable_within_limit: dict[str, int | None]
+    """How many events of each known type can still be charged within the limit."""
+
+
+@docs_group('Data structures')
+@dataclass
+class ActorPricingInfo:
+    """Result of the `ChargingManager.get_pricing_info` method."""
+
+    pricing_model: PricingModel | None
+    """The currently effective pricing model."""
+
+    max_total_charge_usd: Decimal
+    """A configured limit for the total charged amount - if you exceed it, you won't receive more money than this."""
+
+    is_pay_per_event: bool
+    """A shortcut - true if the Actor runs with the pay-per-event pricing model."""
+
+    per_event_prices: dict[str, Decimal]
+    """Price of every known event type."""
+
+
+@ignore_docs
+class ChargingManagerImplementation(ChargingManager):
+    """Implementation of the `ChargingManager` Protocol - this is only meant to be instantiated internally."""
+
     LOCAL_CHARGING_LOG_DATASET_NAME = 'charging_log'
 
     def __init__(self, configuration: Configuration, client: ApifyClientAsync) -> None:
@@ -50,7 +120,7 @@ class ChargingManager:
 
         self._not_ppe_warning_printed = False
 
-    async def init(self) -> None:
+    async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
         self._charging_state = {}
 
@@ -93,11 +163,15 @@ class ChargingManager:
 
             self._charging_log_dataset = await Dataset.open(name=self.LOCAL_CHARGING_LOG_DATASET_NAME)
 
-    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
-        """Charge for a specified number of events - sub-operations of the Actor.
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_traceback: TracebackType | None,
+    ) -> None:
+        pass
 
-        This is relevant only for the pay-per-event pricing model.
-        """
+    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -192,7 +266,6 @@ class ChargingManager:
         )
 
     def calculate_total_charged_amount(self) -> Decimal:
-        """Calculate the total amount of money charged for pay-per-event events so far."""
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -202,7 +275,6 @@ class ChargingManager:
         )
 
     def calculate_max_event_charge_count_within_limit(self, event_name: str) -> int | None:
-        """Calculate how many instances of an event can be charged before we reach the configured limit."""
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -222,10 +294,6 @@ class ChargingManager:
         return math.floor(result) if result.is_finite() else None
 
     def get_pricing_info(self) -> ActorPricingInfo:
-        """Retrieve detailed information about the effective pricing of the current Actor run.
-
-        This can be used for instance when your code needs to support multiple pricing models in transition periods.
-        """
         if self._charging_state is None:
             raise RuntimeError('Charging manager is not initialized')
 
@@ -239,39 +307,6 @@ class ChargingManager:
                 event_name: pricing_info.price for event_name, pricing_info in self._pricing_info.items()
             },
         )
-
-
-@docs_group('Data structures')
-@dataclass(frozen=True)
-class ChargeResult:
-    """Result of the `ChargingManager.charge` method."""
-
-    event_charge_limit_reached: bool
-    """If true, no more events of this type can be charged within the limit."""
-
-    charged_count: int
-    """Total amount of charged events - may be lower than the requested amount."""
-
-    chargeable_within_limit: dict[str, int | None]
-    """How many events of each known type can still be charged within the limit."""
-
-
-@docs_group('Data structures')
-@dataclass
-class ActorPricingInfo:
-    """Result of the `ChargingManager.get_pricing_info` method."""
-
-    pricing_model: PricingModel | None
-    """The currently effective pricing model."""
-
-    max_total_charge_usd: Decimal
-    """A configured limit for the total charged amount - if you exceed it, you won't receive more money than this."""
-
-    is_pay_per_event: bool
-    """A shortcut - true if the Actor runs with the pay-per-event pricing model."""
-
-    per_event_prices: dict[str, Decimal]
-    """Price of every known event type."""
 
 
 @dataclass

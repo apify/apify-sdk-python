@@ -24,7 +24,7 @@ from crawlee.events import (
     EventSystemInfoData,
 )
 
-from apify._charging import ChargeResult, ChargingManager
+from apify._charging import ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -98,7 +98,7 @@ class _ActorType:
             )
         )
 
-        self._charging_manager = ChargingManager(self._configuration, self._apify_client)
+        self._charging_manager = ChargingManagerImplementation(self._configuration, self._apify_client)
 
         self._is_initialized = False
 
@@ -232,7 +232,7 @@ class _ActorType:
         await self._event_manager.__aenter__()
         self.log.debug('Event manager initialized')
 
-        await self._charging_manager.init()
+        await self._charging_manager.__aenter__()
         self.log.debug('Charging manager initialized')
 
         self._is_initialized = True
@@ -276,6 +276,7 @@ class _ActorType:
                 await self._event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self._event_manager.__aexit__(None, None, None)
+            await self._charging_manager.__aexit__(None, None, None)
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
