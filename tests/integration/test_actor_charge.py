@@ -65,11 +65,11 @@ async def ppe_actor(
     return apify_client_async.actor(ppe_actor_build)
 
 
-def retry_counter(retry_count: int) -> Iterable[tuple[bool, int]]:
-    for retry in range(retry_count - 1):
+def retry_counter(total_attempts: int) -> Iterable[tuple[bool, int]]:
+    for retry in range(total_attempts - 1):
         yield False, retry
 
-    yield True, retry_count - 1
+    yield True, total_attempts - 1
 
 
 async def test_actor_charge_basic(
