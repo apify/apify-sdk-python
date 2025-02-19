@@ -52,6 +52,11 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+scrapy = [
+    { name = "scrapy" },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "build" },
     { name = "filelock" },
@@ -69,39 +74,40 @@ dev = [
     { name = "ruff" },
     { name = "setuptools" },
 ]
-scrapy = [
-    { name = "scrapy" },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "apify-client", specifier = ">=1.9.2" },
     { name = "apify-shared", specifier = ">=1.2.1" },
-    { name = "build", marker = "extra == 'dev'", specifier = "~=1.2.0" },
-    { name = "crawlee", specifier = "~=0.5.1" },
+    { name = "crawlee", specifier = "~=0.5.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
-    { name = "filelock", marker = "extra == 'dev'", specifier = "~=3.17.0" },
-    { name = "griffe", marker = "extra == 'dev'", specifier = "~=1.5.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "lazy-object-proxy", specifier = ">=1.10.0" },
     { name = "more-itertools", specifier = ">=10.2.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = "~=1.15.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = "~=4.1.0" },
-    { name = "pydoc-markdown", marker = "extra == 'dev'", specifier = "~=4.8.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = "~=8.3.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = "~=0.25.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = "~=6.0.0" },
-    { name = "pytest-only", marker = "extra == 'dev'", specifier = "~=2.1.0" },
-    { name = "pytest-timeout", marker = "extra == 'dev'", specifier = "~=2.3.0" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = "~=3.6.0" },
-    { name = "respx", marker = "extra == 'dev'", specifier = "~=0.22.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "~=0.9.0" },
     { name = "scrapy", marker = "extra == 'scrapy'", specifier = ">=2.11.0" },
-    { name = "setuptools", marker = "extra == 'dev'", specifier = "~=75.8.0" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
     { name = "websockets", specifier = ">=10.0,<14.0.0" },
 ]
-provides-extras = ["dev", "scrapy"]
+provides-extras = ["scrapy"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "build", specifier = "~=1.2.0" },
+    { name = "filelock", specifier = "~=3.17.0" },
+    { name = "griffe", specifier = "~=1.5.0" },
+    { name = "mypy", specifier = "~=1.15.0" },
+    { name = "pre-commit", specifier = "~=4.1.0" },
+    { name = "pydoc-markdown", specifier = "~=4.8.0" },
+    { name = "pytest", specifier = "~=8.3.0" },
+    { name = "pytest-asyncio", specifier = "~=0.25.0" },
+    { name = "pytest-cov", specifier = "~=6.0.0" },
+    { name = "pytest-only", specifier = "~=2.1.0" },
+    { name = "pytest-timeout", specifier = "~=2.3.0" },
+    { name = "pytest-xdist", specifier = "~=3.6.0" },
+    { name = "respx", specifier = "~=0.22.0" },
+    { name = "ruff", specifier = "~=0.9.0" },
+    { name = "setuptools", specifier = "~=75.8.0" },
+]
 
 [[package]]
 name = "apify-client"

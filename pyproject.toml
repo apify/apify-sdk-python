@@ -1,7 +1,3 @@
-#########################
-# PEP 621 configuration #
-#########################
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -40,7 +36,7 @@ keywords = [
 dependencies = [
     "apify-client>=1.9.2",
     "apify-shared>=1.2.1",
-    "crawlee~=0.5.1",
+    "crawlee~=0.5.0",
     "cryptography>=42.0.0",
     "httpx>=0.27.0",
     "lazy-object-proxy>=1.10.0",
@@ -50,7 +46,19 @@ dependencies = [
     # https://github.com/apify/apify-sdk-python/issues/325
     "websockets>=10.0,<14.0.0",
 ]
+
 [project.optional-dependencies]
+scrapy = ["scrapy>=2.11.0"]
+
+[project.urls]
+"Homepage" = "https://docs.apify.com/sdk/python/"
+"Apify homepage" = "https://apify.com"
+"Changelog" = "https://docs.apify.com/sdk/python/docs/changelog"
+"Documentation" = "https://docs.apify.com/sdk/python/"
+"Issue tracker" = "https://github.com/apify/apify-sdk-python/issues"
+"Repository" = "https://github.com/apify/apify-sdk-python"
+
+[dependency-groups]
 dev = [
     "build~=1.2.0",
     "filelock~=3.17.0",
@@ -68,26 +76,9 @@ dev = [
     "ruff~=0.9.0",
     "setuptools~=75.8.0",     # setuptools are used by pytest but not explicitly required
 ]
-scrapy = ["scrapy>=2.11.0"]
-
-[project.urls]
-homepage = "https://docs.apify.com/sdk/python/"
-apify_homepage = "https://apify.com"
-changelog = "https://docs.apify.com/sdk/python/docs/changelog"
-documentation = "https://docs.apify.com/sdk/python/"
-issue_tracker = "https://github.com/apify/apify-sdk-python/issues"
-repository = "https://github.com/apify/apify-sdk-python"
-
-#######################
-# Hatch configuration #
-#######################
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/apify"]
-
-######################
-# Ruff configuration #
-######################
 
 [tool.ruff]
 line-length = 120
@@ -185,19 +176,11 @@ known-first-party = ["apify_client", "apify_shared", "crawlee"]
 [tool.ruff.lint.pylint]
 max-branches = 18
 
-########################
-# Pytest configuration #
-########################
-
 [tool.pytest.ini_options]
 addopts = "-ra"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 timeout = 1200
-
-######################
-# Mypy configuration #
-######################
 
 [tool.mypy]
 python_version = "3.9"
@@ -226,25 +209,13 @@ module = [
 ]
 ignore_missing_imports = true
 
-##############################
-# BasedPyright configuration #
-##############################
-
 [tool.basedpyright]
 pythonVersion = "3.9"
 typeCheckingMode = "standard"
 include = ["src", "tests", "docs", "website"]
 
-##########################
-# Coverage configuration #
-##########################
-
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
-
-######################
-# Ipdb configuration #
-######################
 
 [tool.ipdb]
 context = 7
