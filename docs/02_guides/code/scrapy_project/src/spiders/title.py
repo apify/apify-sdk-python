@@ -10,7 +10,7 @@ from ..items import TitleItem
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from scrapy.responsetypes import Response
+    from scrapy.http.response import Response
 
 
 class TitleSpider(Spider):
