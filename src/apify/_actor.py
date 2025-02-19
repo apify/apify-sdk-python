@@ -557,6 +557,10 @@ class _ActorType:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
+
+        Args:
+            event_name: Name of the event to be charged for.
+            count: Number of events to charge for.
         """
         self._raise_if_not_initialized()
         return await self._charging_manager.charge(event_name, count)
