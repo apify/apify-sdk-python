@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Protocol, Union
 from pydantic import TypeAdapter
 
 from apify_shared.utils import ignore_docs
+from crawlee._utils.context import ensure_context
 
 from apify._models import ActorRun, PricingModel
 from apify._utils import docs_group
@@ -115,14 +116,15 @@ class ChargingManagerImplementation(ChargingManager):
         self._client = client
         self._charging_log_dataset: Dataset | None = None
 
-        self._charging_state: dict[str, ChargingStateItem] | None = None
+        self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
 
         self._not_ppe_warning_printed = False
+        self.active = False
 
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
-        self._charging_state = {}
+        self.active = True
 
         if self._is_at_home:
             # Running on the Apify platform - fetch pricing info for the current run.
@@ -169,12 +171,13 @@ class ChargingManagerImplementation(ChargingManager):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        pass
+        if not self.active:
+            raise RuntimeError('Exiting an uninitialized ChargingManager')
 
+        self.active = False
+
+    @ensure_context
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
-        if self._charging_state is None:
-            raise RuntimeError('Charging manager is not initialized')
-
         def calculate_chargeable() -> dict[str, int | None]:
             """Calculate the maximum number of events of each type that can be charged within the current budget."""
             return {
@@ -265,19 +268,15 @@ class ChargingManagerImplementation(ChargingManager):
             chargeable_within_limit=calculate_chargeable(),
         )
 
+    @ensure_context
     def calculate_total_charged_amount(self) -> Decimal:
-        if self._charging_state is None:
-            raise RuntimeError('Charging manager is not initialized')
-
         return sum(
             (item.total_charged_amount for item in self._charging_state.values()),
             start=Decimal(),
         )
 
+    @ensure_context
     def calculate_max_event_charge_count_within_limit(self, event_name: str) -> int | None:
-        if self._charging_state is None:
-            raise RuntimeError('Charging manager is not initialized')
-
         pricing_info = self._pricing_info.get(event_name)
 
         if pricing_info is not None:
@@ -293,10 +292,8 @@ class ChargingManagerImplementation(ChargingManager):
         result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / price
         return math.floor(result) if result.is_finite() else None
 
+    @ensure_context
     def get_pricing_info(self) -> ActorPricingInfo:
-        if self._charging_state is None:
-            raise RuntimeError('Charging manager is not initialized')
-
         return ActorPricingInfo(
             pricing_model=self._pricing_model,
             is_pay_per_event=self._pricing_model == 'PAY_PER_EVENT',
