@@ -7,8 +7,8 @@ from typing_extensions import override
 
 from crawlee.storage_clients._base import KeyValueStoreClient as BaseKeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
-from apify._crypto import (create_hmac_signature)
 
+from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -94,7 +94,8 @@ class KeyValueStoreClient(BaseKeyValueStoreClient):
         public_api_url = self._api_public_base_url
         public_url = f'{public_api_url}/v2/key-value-stores/{self._client.resource_id}/records/{key}'
 
-        if getattr(self.storage_object, 'url_signing_secret_key', None):
-            public_url += f'?signature={create_hmac_signature(self.storage_object.url_signing_secret_key, key)}'
+        url_signing_secret_key = getattr(self.storage_object, 'url_signing_secret_key', None)  # type: ignore[attr-defined]
+        if url_signing_secret_key:
+            public_url += f'?signature={create_hmac_signature(url_signing_secret_key, key)}'
 
         return public_url
