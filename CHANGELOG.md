@@ -2,13 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 2.3.0 - **not yet released**
+## [2.3.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.3.0) (2025-02-19)
 
 ### 🚀 Features
 
 - Add `rate_limit_errors` property for `ApifyStorageClient` ([#387](https://github.com/apify/apify-sdk-python/pull/387)) ([89c230a](https://github.com/apify/apify-sdk-python/commit/89c230a21a1a8698159975f97c73a724b9063278)) by [@Mantisus](https://github.com/Mantisus), closes [#318](https://github.com/apify/apify-sdk-python/issues/318)
 - Unify Apify and Scrapy to use single event loop &amp; remove `nest-asyncio` ([#390](https://github.com/apify/apify-sdk-python/pull/390)) ([96949be](https://github.com/apify/apify-sdk-python/commit/96949be4f7687ac9285992d1fb02ac6172307bdb)) by [@vdusek](https://github.com/vdusek), closes [#148](https://github.com/apify/apify-sdk-python/issues/148), [#176](https://github.com/apify/apify-sdk-python/issues/176), [#392](https://github.com/apify/apify-sdk-python/issues/392)
+- Support pay-per-event via `Actor.charge` ([#393](https://github.com/apify/apify-sdk-python/pull/393)) ([78888c4](https://github.com/apify/apify-sdk-python/commit/78888c4d6258211cdbc5fd5b5cbadbf23c39d818)) by [@janbuchar](https://github.com/janbuchar), closes [#374](https://github.com/apify/apify-sdk-python/issues/374)
 
 ### 🐛 Bug Fixes
 
@@ -16,7 +16,6 @@ All notable changes to this project will be documented in this file.
 - Make sure that Actor instances with non-default configurations are also accessible through the global Actor proxy after initialization ([#402](https://github.com/apify/apify-sdk-python/pull/402)) ([b956a02](https://github.com/apify/apify-sdk-python/commit/b956a02d0ba59e0cfde489cc13ca92d7f8f8c84f)) by [@janbuchar](https://github.com/janbuchar), closes [#397](https://github.com/apify/apify-sdk-python/issues/397)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [2.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.2.1) (2025-01-17)
 
 ### 🐛 Bug Fixes
