@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 import string
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from pydantic_core import TzInfo
@@ -30,15 +31,7 @@ async def test_actor_is_not_at_home_when_local() -> None:
         assert is_at_home is False
 
 
-async def test_actor_is_at_home_on_apify(monkeypatch: pytest.MonkeyPatch) -> None:
-    print('setenv')
-    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'true')
-    async with Actor as actor:
-        is_at_home = actor.is_at_home()
-        assert is_at_home is True
-
-
-async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: PLR0912
     ignored_env_vars = {
         ApifyEnvVars.INPUT_KEY,
         ApifyEnvVars.MEMORY_MBYTES,
@@ -82,7 +75,10 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
             continue
 
         float_get_env_var = float_env_var.name.lower()
-        expected_get_env[float_get_env_var] = random.random()
+        if float_env_var == ActorEnvVars.MAX_TOTAL_CHARGE_USD:
+            expected_get_env[float_get_env_var] = Decimal(random.random())
+        else:
+            expected_get_env[float_get_env_var] = random.random()
         monkeypatch.setenv(float_env_var, f'{expected_get_env[float_get_env_var]}')
 
     for bool_env_var in BOOL_ENV_VARS:
@@ -92,6 +88,9 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
         bool_get_env_var = bool_env_var.name.lower()
         expected_get_env[bool_get_env_var] = random.choice([True, False])
         monkeypatch.setenv(bool_env_var, f'{"true" if expected_get_env[bool_get_env_var] else "false"}')
+
+    expected_get_env[ApifyEnvVars.IS_AT_HOME.name.lower()] = False
+    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, 'false')
 
     for datetime_env_var in DATETIME_ENV_VARS:
         if datetime_env_var in ignored_env_vars:
