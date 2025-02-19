@@ -5,8 +5,10 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
-from crawlee.storage_clients._base import BaseKeyValueStoreClient
+from crawlee.storage_clients._base import KeyValueStoreClient as BaseKeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
+from apify._crypto import (create_hmac_signature)
+
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -90,5 +92,9 @@ class KeyValueStoreClient(BaseKeyValueStoreClient):
             key: The key for which the URL should be generated.
         """
         public_api_url = self._api_public_base_url
+        public_url = f'{public_api_url}/v2/key-value-stores/{self._client.resource_id}/records/{key}'
 
-        return f'{public_api_url}/v2/key-value-stores/{self._client.resource_id}/records/{key}'
+        if getattr(self.storage_object, 'url_signing_secret_key', None):
+            public_url += f'?signature={create_hmac_signature(self.storage_object.url_signing_secret_key, key)}'
+
+        return public_url
