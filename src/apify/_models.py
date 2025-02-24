@@ -46,7 +46,7 @@ class ActorRunMeta(BaseModel):
 class ActorRunStats(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 
-    input_body_len: Annotated[int, Field(alias='inputBodyLen')]
+    input_body_len: Annotated[int | None, Field(alias='inputBodyLen')] = None
     restart_count: Annotated[int, Field(alias='restartCount')]
     resurrect_count: Annotated[int, Field(alias='resurrectCount')]
     mem_avg_bytes: Annotated[float | None, Field(alias='memAvgBytes')] = None
