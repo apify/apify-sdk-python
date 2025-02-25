@@ -25,7 +25,7 @@ jobs:
   release_metadata:
     name: Prepare release metadata
     runs-on: ubuntu-latest
-    outputs: 
+    outputs:
       version_number: ${{ steps.release_metadata.outputs.version_number }}
       tag_name: ${{ steps.release_metadata.outputs.tag_name }}
       changelog: ${{ steps.release_metadata.outputs.changelog }}
@@ -63,7 +63,7 @@ jobs:
     with:
       version_number: ${{ needs.release_metadata.outputs.version_number }}
       changelog: ${{ needs.release_metadata.outputs.changelog }}
-    secrets: 
+    secrets:
       APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
 
   create_github_release:
@@ -94,7 +94,7 @@ jobs:
     steps:
       - name: Prepare distribution
         uses: apify/workflows/prepare-pypi-distribution@main
-        with: 
+        with:
           package_name: apify
           is_prerelease: ""
           version_number: ${{ needs.release_metadata.outputs.version_number }}
