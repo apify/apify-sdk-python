@@ -40,7 +40,7 @@ Each dataset item, key-value store record, or request in a request queue is then
 
 ## Local Actor run with non-local storage
 
-When developing locally, opening any storage will by default use local storage. To change this behavior and to use non-local storage you have to use `force_cloud=True` argument in [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) or [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store). Proper use of this argument allows you to work with both local and non-local storages.
+When developing locally, opening any storage will by default use local storage. To change this behavior and to use non-local storage you have to use `force_cloud=True` argument in [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) or [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store). Proper use of this argument allows you to work with both local and remote storages.
 
 ### Local storage persistence
 
