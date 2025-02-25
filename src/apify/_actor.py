@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
 import sys
 from datetime import timedelta
@@ -49,6 +50,24 @@ if TYPE_CHECKING:
 
 
 MainReturnType = TypeVar('MainReturnType')
+TFun = TypeVar('TFun', bound=Callable[..., Any])
+
+
+def _add_local_storage_error_hint(function: TFun) -> TFun:
+    """This decorator adds a local storage error hint in situation where storage was not found locally."""
+
+    @functools.wraps(function)
+    async def wrapper(
+        self: _ActorType, *, id: str | None = None, name: str | None = None, force_cloud: bool = False
+    ) -> Any:
+        try:
+            return await function(self=self, id=id, name=name, force_cloud=force_cloud)
+        except Exception as e:
+            if not force_cloud:
+                e.args = (f'{e.args[0]} (If you are trying to retrieve a remote storage, use `force_cloud=True`.)',)
+            raise
+
+    return cast(TFun, wrapper)
 
 
 @docs_name('Actor')
@@ -353,6 +372,7 @@ class _ActorType:
             timeout_secs=int(timeout.total_seconds()) if timeout else None,
         )
 
+    @_add_local_storage_error_hint
     async def open_dataset(
         self,
         *,
@@ -389,6 +409,7 @@ class _ActorType:
             storage_client=storage_client,
         )
 
+    @_add_local_storage_error_hint
     async def open_key_value_store(
         self,
         *,
@@ -423,6 +444,7 @@ class _ActorType:
             storage_client=storage_client,
         )
 
+    @_add_local_storage_error_hint
     async def open_request_queue(
         self,
         *,
