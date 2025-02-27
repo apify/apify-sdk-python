@@ -8,6 +8,7 @@ from apify._crypto import (
     _load_public_key,
     create_hmac_signature,
     crypto_random_object_id,
+    encode_base62,
     load_private_key,
     private_decrypt,
     public_encrypt,
@@ -114,7 +115,12 @@ def test_crypto_random_object_id_length_and_charset() -> None:
         assert char in 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 
-# Check if the method is compatible with js version of the same method in:
+@pytest.mark.parametrize(('test_input', 'expected'), [(0, '0'), (10, 'a'), (999999999, '15FTGf')])
+def test_encode_base62(test_input: int, expected: str) -> None:
+    assert encode_base62(test_input) == expected
+
+
+# This test ensures compatibility with the JavaScript version of the same method.
 # https://github.com/apify/apify-shared-js/blob/master/packages/utilities/src/hmac.ts
 def test_create_valid_hmac_signature() -> None:
     # This test uses the same secret key and message as in JS tests.
@@ -127,5 +133,5 @@ def test_create_same_hmac() -> None:
     # This test uses the same secret key and message as in JS tests.
     secret_key = 'hmac-same-secret-key'
     message = 'hmac-same-message-to-be-authenticated'
-    for _ in range(5):
-        assert create_hmac_signature(secret_key, message) == 'FYMcmTIm3idXqleF1Sw5'
+    assert create_hmac_signature(secret_key, message) == 'FYMcmTIm3idXqleF1Sw5'
+    assert create_hmac_signature(secret_key, message) == 'FYMcmTIm3idXqleF1Sw5'

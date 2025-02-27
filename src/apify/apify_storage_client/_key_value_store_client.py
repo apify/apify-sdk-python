@@ -94,7 +94,7 @@ class KeyValueStoreClient(BaseKeyValueStoreClient):
         public_api_url = self._api_public_base_url
         public_url = f'{public_api_url}/v2/key-value-stores/{self._client.resource_id}/records/{key}'
 
-        url_signing_secret_key = getattr(self.storage_object, 'url_signing_secret_key', None)  # type: ignore[attr-defined]
+        url_signing_secret_key = getattr(self.storage_object, 'url_signing_secret_key', None)
         if url_signing_secret_key:
             public_url += f'?signature={create_hmac_signature(url_signing_secret_key, key)}'
 
