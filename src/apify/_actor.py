@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
-    from crawlee.storage_clients import BaseStorageClient
+    from crawlee.storage_clients import StorageClient
 
     from apify._models import Webhook
 
@@ -171,7 +171,7 @@ class _ActorType:
         return logger
 
     @property
-    def _local_storage_client(self) -> BaseStorageClient:
+    def _local_storage_client(self) -> StorageClient:
         """The local storage client the Actor instance uses."""
         return service_locator.get_storage_client()
 

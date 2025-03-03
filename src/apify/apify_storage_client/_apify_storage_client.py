@@ -6,7 +6,7 @@ from typing_extensions import override
 
 from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import crypto_random_object_id
-from crawlee.storage_clients import BaseStorageClient
+from crawlee.storage_clients import StorageClient
 
 from apify._utils import docs_group
 from apify.apify_storage_client._dataset_client import DatasetClient
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 @docs_group('Classes')
-class ApifyStorageClient(BaseStorageClient):
+class ApifyStorageClient(StorageClient):
     """A storage client implementation based on the Apify platform storage."""
 
     def __init__(self, *, configuration: Configuration) -> None:
@@ -68,5 +68,5 @@ class ApifyStorageClient(BaseStorageClient):
         pass
 
     @override
-    def get_rate_limit_errors(self) -> dict[int, int]:  # type: ignore[misc]
+    def get_rate_limit_errors(self) -> dict[int, int]:
         return self._apify_client.stats.rate_limit_errors
