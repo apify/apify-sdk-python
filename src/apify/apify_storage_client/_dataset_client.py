@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
-from crawlee.storage_clients._base import BaseDatasetClient
+from crawlee.storage_clients._base import DatasetClient as BaseDatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
 if TYPE_CHECKING:

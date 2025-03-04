@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, TypeAdapter
 
 from crawlee import Request
 from crawlee._types import HttpMethod
-from crawlee.http_clients import BaseHttpClient, HttpxHttpClient
+from crawlee.http_clients import HttpClient, HttpxHttpClient
 from crawlee.request_loaders import RequestList as CrawleeRequestList
 
 from apify._utils import docs_group
@@ -49,7 +49,7 @@ class RequestList(CrawleeRequestList):
     async def open(
         name: str | None = None,
         request_list_sources_input: list[dict[str, Any]] | None = None,
-        http_client: BaseHttpClient | None = None,
+        http_client: HttpClient | None = None,
     ) -> RequestList:
         """Creates RequestList from Actor input requestListSources.
 
@@ -78,7 +78,7 @@ class RequestList(CrawleeRequestList):
 
     @staticmethod
     async def _create_request_list(
-        name: str | None, request_list_sources_input: list[dict[str, Any]], http_client: BaseHttpClient | None
+        name: str | None, request_list_sources_input: list[dict[str, Any]], http_client: HttpClient | None
     ) -> RequestList:
         if not http_client:
             http_client = HttpxHttpClient()
@@ -108,7 +108,7 @@ class RequestList(CrawleeRequestList):
 
     @staticmethod
     async def _fetch_requests_from_url(
-        remote_url_requests_inputs: list[_RequestsFromUrlInput], http_client: BaseHttpClient
+        remote_url_requests_inputs: list[_RequestsFromUrlInput], http_client: HttpClient
     ) -> list[Request]:
         """Crete list of requests from url.
 
