@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 2.4.0 - **not yet released**
+
+### 🚀 Features
+
+- Update to Crawlee v0.6 ([#420](https://github.com/apify/apify-sdk-python/pull/420)) ([9be4336](https://github.com/apify/apify-sdk-python/commit/9be433667231cc5739861fa693d7a726860d6aca)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [2.3.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.3.1) (2025-02-25)
 
 ### 🐛 Bug Fixes
