@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from contextlib import suppress
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast, overload
 
@@ -64,6 +65,7 @@ class _ActorType:
         configuration: Configuration | None = None,
         *,
         configure_logging: bool = True,
+        call_exit: bool | None = None,
     ) -> None:
         """Create an Actor instance.
 
@@ -74,11 +76,14 @@ class _ActorType:
             configuration: The Actor configuration to be used. If not passed, a new Configuration instance will
                 be created.
             configure_logging: Should the default logging configuration be configured?
+            call_exit: Whether the Actor should call `sys.exit` when the context manager exits. The default is
+                True except for the IPython, Pytest and Scrapy environments.
         """
+        self._call_exit = self._get_default_call_exit() if call_exit is None else call_exit
         self._is_exiting = False
 
-        self._configuration = configuration or Configuration.get_global_configuration()
         self._configure_logging = configure_logging
+        self._configuration = configuration or Configuration.get_global_configuration()
         self._apify_client = self.new_client()
 
         # Create an instance of the cloud storage client, the local storage client is obtained
@@ -141,9 +146,19 @@ class _ActorType:
 
         return super().__repr__()
 
-    def __call__(self, configuration: Configuration | None = None, *, configure_logging: bool = True) -> Self:
+    def __call__(
+        self,
+        configuration: Configuration | None = None,
+        *,
+        configure_logging: bool = True,
+        call_exit: bool | None = None,
+    ) -> Self:
         """Make a new Actor instance with a non-default configuration."""
-        return self.__class__(configuration=configuration, configure_logging=configure_logging)
+        return self.__class__(
+            configuration=configuration,
+            configure_logging=configure_logging,
+            call_exit=call_exit,
+        )
 
     @property
     def apify_client(self) -> ApifyClientAsync:
@@ -281,13 +296,7 @@ class _ActorType:
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
 
-        if is_running_in_ipython():
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
-        elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
-        elif os.getenv('SCRAPY_SETTINGS_MODULE'):
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running with Scrapy')
-        else:
+        if self._call_exit:
             sys.exit(exit_code)
 
     async def fail(
@@ -1127,6 +1136,28 @@ class _ActorType:
         await proxy_configuration.initialize()
 
         return proxy_configuration
+
+    def _get_default_call_exit(self) -> bool:
+        """Returns False for IPython, Pytest, and Scrapy environments, True otherwise."""
+        if is_running_in_ipython():
+            self.log.debug('Actor is running in IPython, setting default call exit to False.')
+            return False
+
+        if os.getenv('PYTEST_CURRENT_TEST'):
+            self.log.debug('Actor is running in Pytest, setting default call exit to False.')
+            return False
+
+        if os.getenv('SCRAPY_SETTINGS_MODULE'):
+            self.log.debug('Actor is running in Scrapy, setting default call exit to False.')
+            return False
+
+        with suppress(ImportError):
+            import scrapy  # noqa: F401
+
+            self.log.debug('Actor is running in Scrapy, setting default call exit to False.')
+            return False
+
+        return True
 
 
 Actor = cast(_ActorType, Proxy(_ActorType))
