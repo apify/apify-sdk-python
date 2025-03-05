@@ -38,6 +38,12 @@ Each storage is then stored in its own folder, named after the storage, or calle
 
 Each dataset item, key-value store record, or request in a request queue is then stored in its own file in the storage folder. Dataset items and request queue requests are always JSON files, and key-value store records can be any file type, based on its content type. For example, the Actor input is typically stored in `storage/key_value_stores/default/INPUT.json`.
 
+## Local Actor run with remote storage
+
+When developing locally, opening any storage will by default use local storage. To change this behavior and to use remote storage you have to use `force_cloud=True` argument in [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) or [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store). Proper use of this argument allows you to work with both local and remote storages.
+
+Calling another remote Actor and accessing its default storage is typical use-case for using `force-cloud=True` argument to open remote Actor's storages.
+
 ### Local storage persistence
 
 By default, the storage contents are persisted across multiple Actor runs. To clean up the Actor storages before the running the Actor, use the `--purge` flag of the [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command of the Apify CLI.

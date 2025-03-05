@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
-from crawlee.storage_clients._base import BaseKeyValueStoreClient
+from crawlee.storage_clients._base import KeyValueStoreClient as BaseKeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
 
 from apify._crypto import create_hmac_signature

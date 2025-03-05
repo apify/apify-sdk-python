@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from contextlib import suppress
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast, overload
 
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
-    from crawlee.storage_clients import BaseStorageClient
+    from crawlee.storage_clients import StorageClient
 
     from apify._models import Webhook
 
@@ -64,6 +65,7 @@ class _ActorType:
         configuration: Configuration | None = None,
         *,
         configure_logging: bool = True,
+        exit_process: bool | None = None,
     ) -> None:
         """Create an Actor instance.
 
@@ -74,7 +76,10 @@ class _ActorType:
             configuration: The Actor configuration to be used. If not passed, a new Configuration instance will
                 be created.
             configure_logging: Should the default logging configuration be configured?
+            exit_process: Whether the Actor should call `sys.exit` when the context manager exits. The default is
+                True except for the IPython, Pytest and Scrapy environments.
         """
+        self._exit_process = self._get_default_exit_process() if exit_process is None else exit_process
         self._is_exiting = False
 
         self._configuration = configuration or Configuration.get_global_configuration()
@@ -141,9 +146,19 @@ class _ActorType:
 
         return super().__repr__()
 
-    def __call__(self, configuration: Configuration | None = None, *, configure_logging: bool = True) -> Self:
+    def __call__(
+        self,
+        configuration: Configuration | None = None,
+        *,
+        configure_logging: bool = True,
+        exit_process: bool | None = None,
+    ) -> Self:
         """Make a new Actor instance with a non-default configuration."""
-        return self.__class__(configuration=configuration, configure_logging=configure_logging)
+        return self.__class__(
+            configuration=configuration,
+            configure_logging=configure_logging,
+            exit_process=exit_process,
+        )
 
     @property
     def apify_client(self) -> ApifyClientAsync:
@@ -171,7 +186,7 @@ class _ActorType:
         return logger
 
     @property
-    def _local_storage_client(self) -> BaseStorageClient:
+    def _local_storage_client(self) -> StorageClient:
         """The local storage client the Actor instance uses."""
         return service_locator.get_storage_client()
 
@@ -281,13 +296,7 @@ class _ActorType:
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
 
-        if is_running_in_ipython():
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in IPython')
-        elif os.getenv('PYTEST_CURRENT_TEST', default=False):  # noqa: PLW1508
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running in an unit test')
-        elif os.getenv('SCRAPY_SETTINGS_MODULE'):
-            self.log.debug(f'Not calling sys.exit({exit_code}) because Actor is running with Scrapy')
-        else:
+        if self._exit_process:
             sys.exit(exit_code)
 
     async def fail(
@@ -1127,6 +1136,26 @@ class _ActorType:
         await proxy_configuration.initialize()
 
         return proxy_configuration
+
+    def _get_default_exit_process(self) -> bool:
+        """Returns False for IPython, Pytest, and Scrapy environments, True otherwise."""
+        if is_running_in_ipython():
+            self.log.debug('Running in IPython, setting default `exit_process` to False.')
+            return False
+
+        # Check if running in Pytest by detecting the relevant environment variable.
+        if os.getenv('PYTEST_CURRENT_TEST'):
+            self.log.debug('Running in Pytest, setting default `exit_process` to False.')
+            return False
+
+        # Check if running in Scrapy by attempting to import it.
+        with suppress(ImportError):
+            import scrapy  # noqa: F401
+
+            self.log.debug('Running in Scrapy, setting default `exit_process` to False.')
+            return False
+
+        return True
 
 
 Actor = cast(_ActorType, Proxy(_ActorType))
