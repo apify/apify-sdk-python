@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Update to Crawlee v0.6 ([#420](https://github.com/apify/apify-sdk-python/pull/420)) ([9be4336](https://github.com/apify/apify-sdk-python/commit/9be433667231cc5739861fa693d7a726860d6aca)) by [@vdusek](https://github.com/vdusek)
+- Add Actor `exit_process` option ([#424](https://github.com/apify/apify-sdk-python/pull/424)) ([994c832](https://github.com/apify/apify-sdk-python/commit/994c8323b994e009db0ccdcb624891a2fef97070)) by [@vdusek](https://github.com/vdusek), closes [#396](https://github.com/apify/apify-sdk-python/issues/396), [#401](https://github.com/apify/apify-sdk-python/issues/401)
 
 
 <!-- git-cliff-unreleased-end -->
