@@ -82,8 +82,8 @@ class _ActorType:
         self._call_exit = self._get_default_call_exit() if call_exit is None else call_exit
         self._is_exiting = False
 
-        self._configure_logging = configure_logging
         self._configuration = configuration or Configuration.get_global_configuration()
+        self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
         # Create an instance of the cloud storage client, the local storage client is obtained
@@ -1151,6 +1151,7 @@ class _ActorType:
             self.log.debug('Actor is running in Scrapy, setting default call exit to False.')
             return False
 
+        # Scrapy setting env var alone may not be sufficient; verify by attempting to import Scrapy.
         with suppress(ImportError):
             import scrapy  # noqa: F401
 
