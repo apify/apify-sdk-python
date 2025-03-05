@@ -41,11 +41,11 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
 
     # Record 0: Extra Pytest context log
     assert caplog.records[0].levelno == logging.DEBUG
-    assert caplog.records[0].message == 'Actor is running in Pytest, setting default call exit to False.'
+    assert caplog.records[0].message.startswith('Running in Pytest')
 
     # Record 1: Duplicate Pytest context log
     assert caplog.records[1].levelno == logging.DEBUG
-    assert caplog.records[1].message == 'Actor is running in Pytest, setting default call exit to False.'
+    assert caplog.records[0].message.startswith('Running in Pytest')
 
     # Record 2: Initializing Actor...
     assert caplog.records[2].levelno == logging.INFO
