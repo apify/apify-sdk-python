@@ -1140,22 +1140,19 @@ class _ActorType:
     def _get_default_call_exit(self) -> bool:
         """Returns False for IPython, Pytest, and Scrapy environments, True otherwise."""
         if is_running_in_ipython():
-            self.log.debug('Actor is running in IPython, setting default call exit to False.')
+            self.log.debug('Running in IPython, setting default `call_exit` to False.')
             return False
 
+        # Check if running in Pytest by detecting the relevant environment variable.
         if os.getenv('PYTEST_CURRENT_TEST'):
-            self.log.debug('Actor is running in Pytest, setting default call exit to False.')
+            self.log.debug('Running in Pytest, setting default `call_exit` to False.')
             return False
 
-        if os.getenv('SCRAPY_SETTINGS_MODULE'):
-            self.log.debug('Actor is running in Scrapy, setting default call exit to False.')
-            return False
-
-        # Scrapy setting env var alone may not be sufficient; verify by attempting to import Scrapy.
+        # Check if running in Scrapy by attempting to import it.
         with suppress(ImportError):
             import scrapy  # noqa: F401
 
-            self.log.debug('Actor is running in Scrapy, setting default call exit to False.')
+            self.log.debug('Running in Scrapy, setting default `call_exit` to False.')
             return False
 
         return True
