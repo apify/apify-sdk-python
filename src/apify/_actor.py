@@ -65,7 +65,7 @@ class _ActorType:
         configuration: Configuration | None = None,
         *,
         configure_logging: bool = True,
-        call_exit: bool | None = None,
+        exit_process: bool | None = None,
     ) -> None:
         """Create an Actor instance.
 
@@ -76,10 +76,10 @@ class _ActorType:
             configuration: The Actor configuration to be used. If not passed, a new Configuration instance will
                 be created.
             configure_logging: Should the default logging configuration be configured?
-            call_exit: Whether the Actor should call `sys.exit` when the context manager exits. The default is
+            exit_process: Whether the Actor should call `sys.exit` when the context manager exits. The default is
                 True except for the IPython, Pytest and Scrapy environments.
         """
-        self._call_exit = self._get_default_call_exit() if call_exit is None else call_exit
+        self._exit_process = self._get_default_exit_process() if exit_process is None else exit_process
         self._is_exiting = False
 
         self._configuration = configuration or Configuration.get_global_configuration()
@@ -151,13 +151,13 @@ class _ActorType:
         configuration: Configuration | None = None,
         *,
         configure_logging: bool = True,
-        call_exit: bool | None = None,
+        exit_process: bool | None = None,
     ) -> Self:
         """Make a new Actor instance with a non-default configuration."""
         return self.__class__(
             configuration=configuration,
             configure_logging=configure_logging,
-            call_exit=call_exit,
+            exit_process=exit_process,
         )
 
     @property
@@ -296,7 +296,7 @@ class _ActorType:
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
 
-        if self._call_exit:
+        if self._exit_process:
             sys.exit(exit_code)
 
     async def fail(
@@ -1137,22 +1137,22 @@ class _ActorType:
 
         return proxy_configuration
 
-    def _get_default_call_exit(self) -> bool:
+    def _get_default_exit_process(self) -> bool:
         """Returns False for IPython, Pytest, and Scrapy environments, True otherwise."""
         if is_running_in_ipython():
-            self.log.debug('Running in IPython, setting default `call_exit` to False.')
+            self.log.debug('Running in IPython, setting default `exit_process` to False.')
             return False
 
         # Check if running in Pytest by detecting the relevant environment variable.
         if os.getenv('PYTEST_CURRENT_TEST'):
-            self.log.debug('Running in Pytest, setting default `call_exit` to False.')
+            self.log.debug('Running in Pytest, setting default `exit_process` to False.')
             return False
 
         # Check if running in Scrapy by attempting to import it.
         with suppress(ImportError):
             import scrapy  # noqa: F401
 
-            self.log.debug('Running in Scrapy, setting default `call_exit` to False.')
+            self.log.debug('Running in Scrapy, setting default `exit_process` to False.')
             return False
 
         return True
