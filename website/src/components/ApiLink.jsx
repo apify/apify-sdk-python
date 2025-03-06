@@ -11,7 +11,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 const ApiLink = ({ to, children }) => {
     return (
-        <Link to={`/api/${to}`}>{children}</Link>
+        <Link to={`/reference/${to}`}>{children}</Link>
     );
 
     // const version = useDocsVersion();
