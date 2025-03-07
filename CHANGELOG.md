@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 2.4.0 - **not yet released**
+## [2.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.4.0) (2025-03-07)
 
 ### 🚀 Features
 
@@ -13,7 +12,6 @@ All notable changes to this project will be documented in this file.
 - Add signing of public URL ([#407](https://github.com/apify/apify-sdk-python/pull/407)) ([a865461](https://github.com/apify/apify-sdk-python/commit/a865461c703aea01d91317f4fdf38c1bedd35f00)) by [@danpoletaev](https://github.com/danpoletaev)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [2.3.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.3.1) (2025-02-25)
 
 ### 🐛 Bug Fixes
