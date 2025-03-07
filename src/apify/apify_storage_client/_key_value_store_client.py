@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
+from yarl import URL
 
 from crawlee.storage_clients._base import KeyValueStoreClient as BaseKeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreListKeysPage, KeyValueStoreMetadata, KeyValueStoreRecord
@@ -91,11 +92,18 @@ class KeyValueStoreClient(BaseKeyValueStoreClient):
         Args:
             key: The key for which the URL should be generated.
         """
-        public_api_url = self._api_public_base_url
-        public_url = f'{public_api_url}/v2/key-value-stores/{self._client.resource_id}/records/{key}'
+        if self._client.resource_id is None:
+            raise ValueError('resource_id cannot be None when generating a public URL')
 
-        url_signing_secret_key = getattr(self.storage_object, 'url_signing_secret_key', None)
-        if url_signing_secret_key:
-            public_url += f'?signature={create_hmac_signature(url_signing_secret_key, key)}'
+        public_url = (
+            URL(self._api_public_base_url) / 'v2' / 'key-value-stores' / self._client.resource_id / 'records' / key
+        )
 
-        return public_url
+        key_value_store = await self.get()
+
+        if key_value_store is not None and isinstance(key_value_store.model_extra, dict):
+            url_signing_secret_key = key_value_store.model_extra.get('urlSigningSecretKey')
+            if url_signing_secret_key:
+                public_url = public_url.with_query(signature=create_hmac_signature(url_signing_secret_key, key))
+
+        return str(public_url)

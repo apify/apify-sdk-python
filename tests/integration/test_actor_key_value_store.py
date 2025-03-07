@@ -6,7 +6,6 @@ from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
-from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
     import pytest
@@ -202,21 +201,24 @@ async def test_generate_public_url_for_kvs_record(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from typing import cast
-
-        from apify.apify_storage_client._key_value_store_client import KeyValueStoreClient
+        from apify._crypto import create_hmac_signature
 
         async with Actor:
             public_api_url = Actor.config.api_public_base_url
             default_store_id = Actor.config.default_key_value_store_id
+            record_key = 'public-record-key'
 
             store = await Actor.open_key_value_store()
-            record_key = 'dummy'
-            record_url = await cast(KeyValueStoreClient, store._resource_client).get_public_url(record_key)
-            url_signing_secret_key = cast(str, getattr(store.storage_object, 'url_signing_secret_key', None))
-            signature = create_hmac_signature(url_signing_secret_key, record_key)
 
+            assert isinstance(store.storage_object.model_extra, dict)
+            url_signing_secret_key = store.storage_object.model_extra.get('urlSigningSecretKey')
             assert url_signing_secret_key is not None
+
+            await store.set_value(record_key, {'exposedData': 'test'}, 'application/json')
+
+            record_url = await store.get_public_url(record_key)
+
+            signature = create_hmac_signature(url_signing_secret_key, record_key)
             assert (
                 record_url
                 == f'{public_api_url}/v2/key-value-stores/{default_store_id}/records/{record_key}?signature={signature}'
