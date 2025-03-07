@@ -27,7 +27,7 @@ If you need finer control over charging, you can access call <ApiLink to="class/
 
 ## Transitioning from a different pricing model
 
-When you plan to start using the pay-per-event pricing model for an Actor that is already monetized with a different pricing model, your source code will need support both pricing models during the transition period enforced by the Apify platform. Arguably the most frequent case is the transition from the pay-per-result model which utilizes the `ACTOR_MAX_PAID_DATASET_ITEMS` environment variable to prevent returning unpaid dataset items. The following is an example how to handle such scenarios. The key part is the <ApiLink to="class/ChargingManager#get_pricing_info">`ChargingManager.get_pricing_info`</ApiLink> method which returns information about the current pricing model.
+When you plan to start using the pay-per-event pricing model for an Actor that is already monetized with a different pricing model, your source code will need support both pricing models during the transition period enforced by the Apify platform. Arguably the most frequent case is the transition from the pay-per-result model which utilizes the `ACTOR_MAX_PAID_DATASET_ITEMS` environment variable to prevent returning unpaid dataset items. The following is an example how to handle such scenarios. The key part is the <ApiLink to="class/ChargingManager#get_pricing_info">`ChargingManager.get_pricing_info()`</ApiLink> method which returns information about the current pricing model.
 
 <CodeBlock language="python">
 {ConditionalActorChargeSource}
