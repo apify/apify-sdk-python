@@ -597,7 +597,7 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "0.6.1"
+version = "0.6.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "browserforge" },
@@ -617,9 +617,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b6/1c/102480fb8460eb317e39b11961fe63422af0df2c70e61c6c2c9f702624c9/crawlee-0.6.1.tar.gz", hash = "sha256:5af9d5ef3eaafdba4cfa73224f09b503302a3b00522288ba4f40a9ad90fdedef", size = 23642433 }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/55/466dca83ccc8eb2769b93d35b1077af62fc8928989efb7f9f08b2a11d139/crawlee-0.6.3.tar.gz", hash = "sha256:d1dfcbbeebaa20ef6a762ad2407f7969ce57fd59f74298b8e2d7e40a1593a199", size = 23646865 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/60/ad20c1b9cd68b52e70ce00008f76660417db2b68e64883d053086a8b3a92/crawlee-0.6.1-py3-none-any.whl", hash = "sha256:49780603b7ac76508a30e1473d5d6cf161e08c63c31855a93e22c8a807e1d9c3", size = 240393 },
+    { url = "https://files.pythonhosted.org/packages/f2/19/4c479175d9c7830b911f81495139f08a75f33a692a490189ab61f6fb73c2/crawlee-0.6.3-py3-none-any.whl", hash = "sha256:11a745c3a858c7098af4046165b6246fd2187f7bdd1180d45ed7b6e8ebc20216", size = 243799 },
 ]
 
 [[package]]
