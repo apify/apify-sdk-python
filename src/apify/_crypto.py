@@ -175,16 +175,16 @@ def encode_base62(num: int) -> str:
 
 @ignore_docs
 def create_hmac_signature(secret_key: str, message: str) -> str:
-    """Generates an HMAC signature and encodes it using Base62. Base62 encoding reduces the signature length.
+    """Generate an HMAC signature and encodes it using Base62. Base62 encoding reduces the signature length.
 
     HMAC signature is truncated to 30 characters to make it shorter.
 
     Args:
-        secret_key (str): Secret key used for signing signatures
-        message (str): Message to be signed
+        secret_key: Secret key used for signing signatures.
+        message: Message to be signed.
 
     Returns:
-        str: Base62 encoded signature
+        Base62 encoded signature.
     """
     signature = hmac.new(secret_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()[:30]
 
