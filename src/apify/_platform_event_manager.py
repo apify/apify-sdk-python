@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-import websockets.client
+import websockets.asyncio.client
 from pydantic import BaseModel, Discriminator, Field, TypeAdapter
 from typing_extensions import Self, Unpack, override
 
@@ -143,7 +143,7 @@ class PlatformEventManager(EventManager):
     but instead use it via the `Actor.on()` and `Actor.off()` methods.
     """
 
-    _platform_events_websocket: websockets.client.WebSocketClientProtocol | None = None
+    _platform_events_websocket: websockets.asyncio.client.ClientConnection | None = None
     _process_platform_messages_task: asyncio.Task | None = None
     _send_system_info_interval_task: asyncio.Task | None = None
     _connected_to_platform_websocket: asyncio.Future = asyncio.Future()
@@ -196,7 +196,7 @@ class PlatformEventManager(EventManager):
 
     async def _process_platform_messages(self, ws_url: str) -> None:
         try:
-            async with websockets.client.connect(ws_url) as websocket:
+            async with websockets.asyncio.client.connect(ws_url) as websocket:
                 self._platform_events_websocket = websocket
                 self._connected_to_platform_websocket.set_result(True)
 

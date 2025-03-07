@@ -42,9 +42,7 @@ dependencies = [
     "lazy-object-proxy>=1.10.0",
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",
-    # TODO: Relax the upper bound once the issue is resolved:
-    # https://github.com/apify/apify-sdk-python/issues/325
-    "websockets>=10.0,<14.0.0",
+    "websockets>=14.0",
 ]
 
 [project.optional-dependencies]

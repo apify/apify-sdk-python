@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 import websockets
-import websockets.server
+import websockets.asyncio.server
 
 from apify_shared.consts import ActorEnvVars
 from crawlee.events._types import Event
@@ -133,16 +133,16 @@ async def test_lifecycle_on_platform_without_websocket(monkeypatch: pytest.Monke
 
 
 async def test_lifecycle_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
-    connected_ws_clients: set[websockets.server.WebSocketServerProtocol] = set()
+    connected_ws_clients: set[websockets.asyncio.server.ServerConnection] = set()
 
-    async def handler(websocket: websockets.server.WebSocketServerProtocol) -> None:
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
         connected_ws_clients.add(websocket)
         try:
             await websocket.wait_closed()
         finally:
             connected_ws_clients.remove(websocket)
 
-    async with websockets.server.serve(handler, host='localhost') as ws_server:
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
         # When you don't specify a port explicitly, the websocket connection is opened on a random free port.
         # We need to find out which port is that.
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
@@ -153,9 +153,9 @@ async def test_lifecycle_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
-    connected_ws_clients: set[websockets.server.WebSocketServerProtocol] = set()
+    connected_ws_clients: set[websockets.asyncio.server.ServerConnection] = set()
 
-    async def handler(websocket: websockets.server.WebSocketServerProtocol) -> None:
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
         connected_ws_clients.add(websocket)
         try:
             await websocket.wait_closed()
@@ -169,7 +169,7 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
 
         websockets.broadcast(connected_ws_clients, json.dumps(message))
 
-    async with websockets.server.serve(handler, host='localhost') as ws_server:
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
         # When you don't specify a port explicitly, the websocket connection is opened on a random free port.
         # We need to find out which port is that.
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
