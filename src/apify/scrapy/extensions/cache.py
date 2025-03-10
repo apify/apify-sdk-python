@@ -32,9 +32,9 @@ class ApifyCacheStorage:
     """
 
     def __init__(self, settings: BaseSettings) -> None:
-        self.expiration_max_items = 100
-        self.expiration_secs: int = settings.getint('HTTPCACHE_EXPIRATION_SECS')
-        self.spider: Spider | None = None
+        self._expiration_max_items = 100
+        self._expiration_secs: int = settings.getint('HTTPCACHE_EXPIRATION_SECS')
+        self._spider: Spider | None = None
         self._kv: KeyValueStore | None = None
         self._fingerprinter: RequestFingerprinterProtocol | None = None
         self._async_thread: AsyncThread | None = None
@@ -42,7 +42,7 @@ class ApifyCacheStorage:
     def open_spider(self, spider: Spider) -> None:
         """Open the cache storage for a spider."""
         logger.debug('Using Apify key value cache storage', extra={'spider': spider})
-        self.spider = spider
+        self._spider = spider
         self._fingerprinter = spider.crawler.request_fingerprinter
         kv_name = f'httpcache-{spider.name}'
 
@@ -63,8 +63,8 @@ class ApifyCacheStorage:
         if self._async_thread is None:
             raise ValueError('Async thread not initialized')
 
-        logger.info(f'Cleaning up cache items (max {self.expiration_max_items})')
-        if self.expiration_secs > 0:
+        logger.info(f'Cleaning up cache items (max {self._expiration_max_items})')
+        if self._expiration_secs > 0:
             if current_time is None:
                 current_time = int(time())
 
@@ -80,12 +80,12 @@ class ApifyCacheStorage:
                         logger.warning(f'Malformed cache item {item.key}: {e}')
                         await self._kv.set_value(item.key, None)
                     else:
-                        if self.expiration_secs < current_time - gzip_time:
+                        if self._expiration_secs < current_time - gzip_time:
                             logger.debug(f'Expired cache item {item.key}')
                             await self._kv.set_value(item.key, None)
                         else:
                             logger.debug(f'Valid cache item {item.key}')
-                    if i == self.expiration_max_items:
+                    if i == self._expiration_max_items:
                         break
                     i += 1
 
@@ -119,7 +119,7 @@ class ApifyCacheStorage:
 
         if current_time is None:
             current_time = int(time())
-        if 0 < self.expiration_secs < current_time - read_gzip_time(value):
+        if 0 < self._expiration_secs < current_time - read_gzip_time(value):
             logger.debug('Cache expired', extra={'request': request})
             return None
 
