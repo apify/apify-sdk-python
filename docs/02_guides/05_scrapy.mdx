@@ -95,6 +95,12 @@ The following example demonstrates a Scrapy Actor that scrapes page titles and e
     </TabItem>
 </Tabs>
 
+## Dealing with ‘imminent migration to another host’
+
+Under some circumstances the platform may decide to [migrate your Actor](https://docs.apify.com/academy/expert-scraping-with-apify/migrations-maintaining-state) from one piece of infrastructure to another while it's in progress. While [Crawlee](https://crawlee.dev/python)-based projects have the ability to pause and resume their work after restart, it may be a challenge to achieve the same with a Scrapy-based project.
+
+As a workaround to this problem (tracked as [apify/actor-templates#303](https://github.com/apify/actor-templates/issues/303)), turn on caching with `HTTPCACHE_ENABLED` and set `HTTPCACHE_EXPIRATION_SECS` to at least a few minutes, a conrete value depending on your use case. If your Actor gets migrated and restarted, the subsequent run will hit the cache, so it'll be fast and won't consume unnecessary resources.
+
 ## Conclusion
 
 In this guide you learned how to use Scrapy in Apify Actors. You can now start building your own web scraping projects using Scrapy, the Apify SDK and host them on the Apify platform. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
