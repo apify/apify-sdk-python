@@ -92,3 +92,12 @@ async def test_get_input_with_encrypted_secrets(
         input = await my_actor.get_input()  # noqa: A001
         assert input['foo'] == input_with_secret['foo']
         assert input['secret'] == secret_string
+
+
+async def test_open_local_non_existent_kvs() -> None:
+    async with Actor as my_actor:
+        with pytest.raises(RuntimeError) as e:
+            await my_actor.open_key_value_store(id='non-existent')
+        assert str(e.value).endswith(
+            'If you are trying to retrieve a remote storage, use `force_cloud=True` argument.)'
+        )

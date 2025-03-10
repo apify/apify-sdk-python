@@ -62,3 +62,12 @@ async def test_push_data_to_dataset() -> None:
 
         list_page = await dataset.get_data(limit=desired_item_count)
         assert {item['id'] for item in list_page.items} == set(range(desired_item_count))
+
+
+async def test_open_local_non_existent_dataset() -> None:
+    async with Actor as my_actor:
+        with pytest.raises(RuntimeError) as e:
+            await my_actor.open_dataset(id='non-existent')
+        assert str(e.value).endswith(
+            'If you are trying to retrieve a remote storage, use `force_cloud=True` argument.)'
+        )
