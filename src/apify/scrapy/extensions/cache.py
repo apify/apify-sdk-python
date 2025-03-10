@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING
 from scrapy.http.headers import Headers
 from scrapy.responsetypes import responsetypes
 
-from .._async_thread import AsyncThread
 from apify import Configuration
 from apify.apify_storage_client import ApifyStorageClient
+from apify.scrapy._async_thread import AsyncThread
 from apify.storages import KeyValueStore
 
 if TYPE_CHECKING:
