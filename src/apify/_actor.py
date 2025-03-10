@@ -65,7 +65,9 @@ def _add_local_storage_error_hint(function: TFun) -> TFun:
             return await function(self=self, id=id, name=name, force_cloud=force_cloud)
         except Exception as e:
             if not force_cloud:
-                e.args = (f'{e.args[0]} (If you are trying to retrieve a remote storage, use `force_cloud=True`.)',)
+                e.args = (
+                    f'{e.args[0]} (If you are trying to retrieve a remote storage, use `force_cloud=True` argument.)',
+                )
             raise
 
     return cast(TFun, wrapper)
