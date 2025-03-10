@@ -7,3 +7,5 @@ SPIDER_MODULES = ['src.spiders']
 TELNETCONSOLE_ENABLED = False
 # Do not change the Twisted reactor unless you really know what you are doing.
 TWISTED_REACTOR = 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'
+HTTPCACHE_ENABLED = True
+HTTPCACHE_EXPIRATION_SECS = 7200
