@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from typing_extensions import override
 
 from crawlee import Request
-from crawlee.storage_clients._base import BaseRequestQueueClient
+from crawlee.storage_clients._base import RequestQueueClient as BaseRequestQueueClient
 from crawlee.storage_clients.models import (
     BatchRequestsOperationResponse,
     ProcessedRequest,

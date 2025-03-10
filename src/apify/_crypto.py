@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
+import string
 from typing import Any
 
 from cryptography.exceptions import InvalidTag as InvalidTagException
@@ -153,3 +156,38 @@ def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input_data: Any) -> An
                 )
 
     return input_data
+
+
+CHARSET = string.digits + string.ascii_letters
+
+
+def encode_base62(num: int) -> str:
+    """Encode the given number to base62."""
+    if num == 0:
+        return CHARSET[0]
+
+    res = ''
+    while num > 0:
+        num, remainder = divmod(num, 62)
+        res = CHARSET[remainder] + res
+    return res
+
+
+@ignore_docs
+def create_hmac_signature(secret_key: str, message: str) -> str:
+    """Generate an HMAC signature and encodes it using Base62. Base62 encoding reduces the signature length.
+
+    HMAC signature is truncated to 30 characters to make it shorter.
+
+    Args:
+        secret_key: Secret key used for signing signatures.
+        message: Message to be signed.
+
+    Returns:
+        Base62 encoded signature.
+    """
+    signature = hmac.new(secret_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()[:30]
+
+    decimal_signature = int(signature, 16)
+
+    return encode_base62(decimal_signature)

@@ -9,7 +9,7 @@ from typing import Any, Callable, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-import websockets.server
+import websockets.asyncio.server
 from lazy_object_proxy import Proxy
 
 from apify_shared.consts import ActorEnvVars, ApifyEnvVars
@@ -139,10 +139,10 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
         nonlocal persist_state_events_data
         persist_state_events_data.append(data)
 
-    async def handler(websocket: websockets.server.WebSocketServerProtocol) -> None:
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
         await websocket.wait_closed()
 
-    async with websockets.server.serve(handler, host='localhost') as ws_server:
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
         monkeypatch.setenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL, f'ws://localhost:{port}')
 
@@ -181,7 +181,7 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
             Actor.on(Event.PERSIST_STATE, log_persist_state)
             await asyncio.sleep(2)
 
-            for socket in ws_server.websockets:
+            for socket in ws_server.connections:
                 await socket.send(
                     json.dumps(
                         {
