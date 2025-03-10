@@ -97,9 +97,9 @@ The following example demonstrates a Scrapy Actor that scrapes page titles and e
 
 ## Dealing with ‘imminent migration to another host’
 
-Under some circumstances the platform may decide to [migrate your Actor](https://docs.apify.com/academy/expert-scraping-with-apify/migrations-maintaining-state) from one piece of infrastructure to another while it's in progress. While [Crawlee](https://crawlee.dev/python)-based projects have the ability to pause and resume their work after restart, it may be a challenge to achieve the same with a Scrapy-based project.
+Under some circumstances, the platform may decide to [migrate your Actor](https://docs.apify.com/academy/expert-scraping-with-apify/migrations-maintaining-state) from one piece of infrastructure to another while it's in progress. While [Crawlee](https://crawlee.dev/python)-based projects can pause and resume their work after a restart, achieving the same with a Scrapy-based project can be challenging.
 
-As a workaround to this problem (tracked as [apify/actor-templates#303](https://github.com/apify/actor-templates/issues/303)), turn on caching with `HTTPCACHE_ENABLED` and set `HTTPCACHE_EXPIRATION_SECS` to at least a few minutes, a conrete value depending on your use case. If your Actor gets migrated and restarted, the subsequent run will hit the cache, so it'll be fast and won't consume unnecessary resources.
+As a workaround for this issue (tracked as [apify/actor-templates#303](https://github.com/apify/actor-templates/issues/303)), turn on caching with `HTTPCACHE_ENABLED` and set `HTTPCACHE_EXPIRATION_SECS` to at least a few minutes—the exact value depends on your use case. If your Actor gets migrated and restarted, the subsequent run will hit the cache, making it fast and avoiding unnecessary resource consumption.
 
 ## Conclusion
 
