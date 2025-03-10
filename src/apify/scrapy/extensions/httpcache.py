@@ -38,7 +38,7 @@ class ApifyCacheStorage:
         self._expiration_max_items = 100
         self._expiration_secs: int = settings.getint('HTTPCACHE_EXPIRATION_SECS')
         self._spider: Spider | None = None
-        self._kv: KeyValueStore | None = None
+        self._kvs: KeyValueStore | None = None
         self._fingerprinter: RequestFingerprinterProtocol | None = None
         self._async_thread: AsyncThread | None = None
 
@@ -47,19 +47,19 @@ class ApifyCacheStorage:
         logger.debug('Using Apify key value cache storage', extra={'spider': spider})
         self._spider = spider
         self._fingerprinter = spider.crawler.request_fingerprinter
-        kv_name = f'httpcache-{spider.name}'
+        kvs_name = f'httpcache-{spider.name}'
 
-        async def open_kv() -> KeyValueStore:
+        async def open_kvs() -> KeyValueStore:
             config = Configuration.get_global_configuration()
             if config.is_at_home:
                 storage_client = ApifyStorageClient.from_config(config)
-                return await KeyValueStore.open(name=kv_name, storage_client=storage_client)
-            return await KeyValueStore.open(name=kv_name)
+                return await KeyValueStore.open(name=kvs_name, storage_client=storage_client)
+            return await KeyValueStore.open(name=kvs_name)
 
         logger.debug("Starting background thread for cache storage's event loop")
         self._async_thread = AsyncThread()
-        logger.debug(f"Opening cache storage's {kv_name!r} key value store")
-        self._kv = self._async_thread.run_coro(open_kv())
+        logger.debug(f"Opening cache storage's {kvs_name!r} key value store")
+        self._kvs = self._async_thread.run_coro(open_kvs())
 
     def close_spider(self, _: Spider, current_time: int | None = None) -> None:
         """Close the cache storage for a spider."""
@@ -71,28 +71,28 @@ class ApifyCacheStorage:
             if current_time is None:
                 current_time = int(time())
 
-            async def expire_kv() -> None:
-                if self._kv is None:
+            async def expire_kvs() -> None:
+                if self._kvs is None:
                     raise ValueError('Key value store not initialized')
                 i = 0
-                async for item in self._kv.iterate_keys():
-                    value = await self._kv.get_value(item.key)
+                async for item in self._kvs.iterate_keys():
+                    value = await self._kvs.get_value(item.key)
                     try:
                         gzip_time = read_gzip_time(value)
                     except Exception as e:
                         logger.warning(f'Malformed cache item {item.key}: {e}')
-                        await self._kv.set_value(item.key, None)
+                        await self._kvs.set_value(item.key, None)
                     else:
                         if self._expiration_secs < current_time - gzip_time:
                             logger.debug(f'Expired cache item {item.key}')
-                            await self._kv.set_value(item.key, None)
+                            await self._kvs.set_value(item.key, None)
                         else:
                             logger.debug(f'Valid cache item {item.key}')
                     if i == self._expiration_max_items:
                         break
                     i += 1
 
-            self._async_thread.run_coro(expire_kv())
+            self._async_thread.run_coro(expire_kvs())
 
         logger.debug('Closing cache storage')
         try:
@@ -108,13 +108,13 @@ class ApifyCacheStorage:
         """Retrieve a response from the cache storage."""
         if self._async_thread is None:
             raise ValueError('Async thread not initialized')
-        if self._kv is None:
+        if self._kvs is None:
             raise ValueError('Key value store not initialized')
         if self._fingerprinter is None:
             raise ValueError('Request fingerprinter not initialized')
 
         key = self._fingerprinter.fingerprint(request).hex()
-        value = self._async_thread.run_coro(self._kv.get_value(key))
+        value = self._async_thread.run_coro(self._kvs.get_value(key))
 
         if value is None:
             logger.debug('Cache miss', extra={'request': request})
@@ -140,7 +140,7 @@ class ApifyCacheStorage:
         """Store a response in the cache storage."""
         if self._async_thread is None:
             raise ValueError('Async thread not initialized')
-        if self._kv is None:
+        if self._kvs is None:
             raise ValueError('Key value store not initialized')
         if self._fingerprinter is None:
             raise ValueError('Request fingerprinter not initialized')
@@ -153,7 +153,7 @@ class ApifyCacheStorage:
             'body': response.body,
         }
         value = to_gzip(data)
-        self._async_thread.run_coro(self._kv.set_value(key, value))
+        self._async_thread.run_coro(self._kvs.set_value(key, value))
 
 
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:
