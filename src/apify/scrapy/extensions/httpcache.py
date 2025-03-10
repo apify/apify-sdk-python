@@ -28,7 +28,10 @@ logger = getLogger(__name__)
 class ApifyCacheStorage:
     """A Scrapy cache storage that uses the Apify `KeyValueStore` to store responses.
 
-    This cache storage requires the asyncio Twisted reactor to be installed.
+    It can be set as a storage for Scrapy's built-in `HttpCacheMiddleware`, which caches
+    responses to requests. See HTTPCache middleware settings (prefixed with `HTTPCACHE_`)
+    in the Scrapy documentation for more information. Requires the asyncio Twisted reactor
+    to be installed.
     """
 
     def __init__(self, settings: BaseSettings) -> None:
