@@ -36,7 +36,7 @@ keywords = [
 dependencies = [
     "apify-client>=1.9.2",
     "apify-shared>=1.3.0",
-    "crawlee~=0.6.0",
+    "crawlee @ git+https://github.com/apify/crawlee-python.git@temporary-browserforge-fix",
     "cryptography>=42.0.0",
     "httpx>=0.27.0",
     "lazy-object-proxy>=1.10.0",
@@ -44,6 +44,10 @@ dependencies = [
     "typing-extensions>=4.1.0",
     "websockets>=14.0",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
 
 [project.optional-dependencies]
 scrapy = ["scrapy>=2.11.0"]
