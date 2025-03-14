@@ -141,7 +141,7 @@ class _ActorType:
                 await self.exit()
 
     def __repr__(self) -> str:
-        if self is cast(Proxy, Actor).__wrapped__:
+        if self is cast('Proxy', Actor).__wrapped__:
             return '<apify.Actor>'
 
         return super().__repr__()
@@ -222,7 +222,7 @@ class _ActorType:
             self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care')
 
         # Make sure that the currently initialized instance is also available through the global `Actor` proxy
-        cast(Proxy, Actor).__wrapped__ = self
+        cast('Proxy', Actor).__wrapped__ = self
 
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
@@ -674,7 +674,7 @@ class _ActorType:
             elif isinstance(field.validation_alias, str):
                 aliases = [field.validation_alias]
             elif isinstance(field.validation_alias, AliasChoices):
-                aliases = cast(list[str], field.validation_alias.choices)
+                aliases = cast('list[str]', field.validation_alias.choices)
             else:
                 aliases = [field_name]
 
@@ -1158,5 +1158,5 @@ class _ActorType:
         return True
 
 
-Actor = cast(_ActorType, Proxy(_ActorType))
+Actor = cast('_ActorType', Proxy(_ActorType))
 """The entry point of the SDK, through which all the Actor operations should be done."""

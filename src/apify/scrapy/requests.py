@@ -93,7 +93,7 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     Returns:
         The converted Scrapy request.
     """
-    if not isinstance(cast(Any, apify_request), ApifyRequest):
+    if not isinstance(cast('Any', apify_request), ApifyRequest):
         raise TypeError('apify_request must be a crawlee.ScrapyRequest instance')
 
     logger.debug(f'to_scrapy_request was called (apify_request={apify_request})...')

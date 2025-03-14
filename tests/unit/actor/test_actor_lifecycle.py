@@ -5,12 +5,11 @@ import contextlib
 import json
 import sys
 from datetime import datetime, timezone
-from typing import Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 import websockets.asyncio.server
-from lazy_object_proxy import Proxy
 
 from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee.events._types import Event, EventPersistStateData
@@ -19,12 +18,15 @@ import apify._actor
 from apify import Actor
 from apify._actor import _ActorType
 
+if TYPE_CHECKING:
+    from lazy_object_proxy import Proxy
+
 
 async def test_actor_properly_init_with_async() -> None:
     async with Actor:
-        assert cast(Proxy, apify._actor.Actor).__wrapped__ is not None
-        assert cast(Proxy, apify._actor.Actor).__wrapped__._is_initialized
-    assert not cast(Proxy, apify._actor.Actor).__wrapped__._is_initialized
+        assert cast('Proxy', apify._actor.Actor).__wrapped__ is not None
+        assert cast('Proxy', apify._actor.Actor).__wrapped__._is_initialized
+    assert not cast('Proxy', apify._actor.Actor).__wrapped__._is_initialized
 
 
 async def test_actor_init() -> None:
