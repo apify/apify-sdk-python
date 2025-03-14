@@ -40,6 +40,7 @@ The Apify SDK provides several custom components to support integration with the
 - [`apify.scrapy.ApifyScheduler`](https://docs.apify.com/sdk/python/reference/class/ApifyScheduler) - Replaces Scrapy's default [scheduler](https://docs.scrapy.org/en/latest/topics/scheduler.html) with one that uses Apify's [request queue](https://docs.apify.com/platform/storage/request-queue) for storing requests. It manages enqueuing, dequeuing, and maintaining the state and priority of requests.
 - [`apify.scrapy.ActorDatasetPushPipeline`](https://docs.apify.com/sdk/python/reference/class/ActorDatasetPushPipeline) - A Scrapy [item pipeline](https://docs.scrapy.org/en/latest/topics/item-pipeline.html) that pushes scraped items to Apify's [dataset](https://docs.apify.com/platform/storage/dataset). When enabled, every item produced by the spider is sent to the dataset.
 - [`apify.scrapy.ApifyHttpProxyMiddleware`](https://docs.apify.com/sdk/python/reference/class/ApifyHttpProxyMiddleware) - A Scrapy [middleware](https://docs.scrapy.org/en/latest/topics/downloader-middleware.html) that manages proxy configurations. This middleware replaces Scrapy's default `HttpProxyMiddleware` to facilitate the use of Apify's proxy service.
+- [`apify.scrapy.extensions.ApifyCacheStorage`](https://docs.apify.com/sdk/python/reference/class/ApifyCacheStorage) - A storage backend for Scrapy's built-in [HTTP cache middleware](https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#module-scrapy.downloadermiddlewares.httpcache). This backend uses Apify's [key-value store](https://docs.apify.com/platform/storage/key-value-store). Make sure to set `HTTPCACHE_ENABLED` and `HTTPCACHE_EXPIRATION_SECS` in your settings, or caching won't work.
 
 Additional helper functions in the [`apify.scrapy`](https://github.com/apify/apify-sdk-python/tree/master/src/apify/scrapy) subpackage include:
 
@@ -93,6 +94,12 @@ The following example demonstrates a Scrapy Actor that scrapes page titles and e
         </CodeBlock>
     </TabItem>
 </Tabs>
+
+## Dealing with ‘imminent migration to another host’
+
+Under some circumstances, the platform may decide to [migrate your Actor](https://docs.apify.com/academy/expert-scraping-with-apify/migrations-maintaining-state) from one piece of infrastructure to another while it's in progress. While [Crawlee](https://crawlee.dev/python)-based projects can pause and resume their work after a restart, achieving the same with a Scrapy-based project can be challenging.
+
+As a workaround for this issue (tracked as [apify/actor-templates#303](https://github.com/apify/actor-templates/issues/303)), turn on caching with `HTTPCACHE_ENABLED` and set `HTTPCACHE_EXPIRATION_SECS` to at least a few minutes—the exact value depends on your use case. If your Actor gets migrated and restarted, the subsequent run will hit the cache, making it fast and avoiding unnecessary resource consumption.
 
 ## Conclusion
 
