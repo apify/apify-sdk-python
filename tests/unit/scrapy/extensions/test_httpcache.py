@@ -1,6 +1,6 @@
 from time import time
 
-from apify.scrapy.extensions.httpcache import from_gzip, read_gzip_time, to_gzip
+from apify.scrapy.extensions._httpcache import from_gzip, read_gzip_time, to_gzip
 
 FIXTURE_DICT = {'name': 'Alice'}
 
