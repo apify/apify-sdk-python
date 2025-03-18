@@ -180,11 +180,33 @@ def read_gzip_time(gzip_bytes: bytes) -> int:
     return mtime
 
 
-def get_kvs_name(spider_name: str) -> str:
-    """Get the key value store name for a spider."""
+def get_kvs_name(spider_name: str, max_length: int = 60) -> str:
+    """Get the key value store name for a spider.
+
+    The key value store name is derived from the spider name by replacing all special characters
+    with hyphens and trimming leading and trailing hyphens. The resulting name is prefixed with
+    'httpcache-' and truncated to the maximum length.
+
+    The documentation
+    [about storages](https://docs.apify.com/platform/storage/usage#named-and-unnamed-storages)
+    mentions that names can be up to 63 characters long, so the default max length is set to 60.
+
+    Such naming isn't unique per spider, but should be sufficiently unique for most use cases.
+    The name of the key value store should indicate to which spider it belongs, e.g. in
+    the listing in the Apify's console.
+
+    Args:
+        spider_name: Value of the Spider instance's name attribute.
+        max_length: Maximum length of the key value store name.
+
+    Returns: Key value store name.
+
+    Raises:
+        ValueError: If the spider name contains only special characters.
+    """
     slug = re.sub(r'[^a-zA-Z0-9-]', '-', spider_name)
     slug = re.sub(r'-+', '-', slug)
     slug = slug.strip('-')
     if not slug:
         raise ValueError(f'Unsupported spider name: {spider_name!r} (slug: {slug!r})')
-    return f'httpcache-{slug}'
+    return f'httpcache-{slug}'[:max_length]

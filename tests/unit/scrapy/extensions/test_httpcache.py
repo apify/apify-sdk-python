@@ -51,6 +51,7 @@ def test_read_gzip_time_non_zero() -> None:
         ('test@spider', 'httpcache-test-spider'),
         ('   test   spider   ', 'httpcache-test-spider'),
         ('testspider.com', 'httpcache-testspider-com'),
+        ('t' * 100, 'httpcache-tttttttttttttttttttttttttttttttttttttttttttttttttt'),
     ],
 )
 def test_get_kvs_name(spider_name: str, expected: str) -> None:
