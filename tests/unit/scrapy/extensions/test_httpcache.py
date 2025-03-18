@@ -1,6 +1,8 @@
 from time import time
 
-from apify.scrapy.extensions._httpcache import from_gzip, read_gzip_time, to_gzip
+import pytest
+
+from apify.scrapy.extensions._httpcache import from_gzip, get_kvs_name, read_gzip_time, to_gzip
 
 FIXTURE_DICT = {'name': 'Alice'}
 
@@ -35,3 +37,34 @@ def test_read_gzip_time_non_zero() -> None:
     data_bytes = to_gzip(FIXTURE_DICT, mtime=current_time)
 
     assert read_gzip_time(data_bytes) == current_time
+
+
+@pytest.mark.parametrize(
+    ('spider_name', 'expected'),
+    [
+        ('test', 'httpcache-test'),
+        ('123', 'httpcache-123'),
+        ('test-spider', 'httpcache-test-spider'),
+        ('test_spider', 'httpcache-test-spider'),
+        ('test spider', 'httpcache-test-spider'),
+        ('test👻spider', 'httpcache-test-spider'),
+        ('test@spider', 'httpcache-test-spider'),
+        ('   test   spider   ', 'httpcache-test-spider'),
+        ('testspider.com', 'httpcache-testspider-com'),
+    ],
+)
+def test_get_kvs_name(spider_name: str, expected: str) -> None:
+    assert get_kvs_name(spider_name) == expected
+
+
+@pytest.mark.parametrize(
+    ('spider_name'),
+    [
+        '',
+        '-',
+        '-@-/-',
+    ],
+)
+def test_get_kvs_name_raises(spider_name: str) -> None:
+    with pytest.raises(ValueError, match='Unsupported spider name'):
+        assert get_kvs_name(spider_name)

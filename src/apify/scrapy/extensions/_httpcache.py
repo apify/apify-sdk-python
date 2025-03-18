@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import io
 import pickle
+import re
 import struct
 from logging import getLogger
 from time import time
@@ -47,7 +48,7 @@ class ApifyCacheStorage:
         logger.debug('Using Apify key value cache storage', extra={'spider': spider})
         self._spider = spider
         self._fingerprinter = spider.crawler.request_fingerprinter
-        kvs_name = f'httpcache-{spider.name}'
+        kvs_name = get_kvs_name(spider.name)
 
         async def open_kvs() -> KeyValueStore:
             config = Configuration.get_global_configuration()
@@ -177,3 +178,13 @@ def read_gzip_time(gzip_bytes: bytes) -> int:
     header_components = struct.unpack('<HBBI2B', header)
     mtime: int = header_components[3]
     return mtime
+
+
+def get_kvs_name(spider_name: str) -> str:
+    """Get the key value store name for a spider."""
+    slug = re.sub(r'[^a-zA-Z0-9-]', '-', spider_name)
+    slug = re.sub(r'-+', '-', slug)
+    slug = slug.strip('-')
+    if not slug:
+        raise ValueError(f'Unsupported spider name: {spider_name!r} (slug: {slug!r})')
+    return f'httpcache-{slug}'
