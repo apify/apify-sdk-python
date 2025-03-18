@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 2.5.0 - **not yet released**
+
+### 🚀 Features
+
+- Implement Scrapy HTTP cache backend  ([#403](https://github.com/apify/apify-sdk-python/pull/403)) ([137e3c8](https://github.com/apify/apify-sdk-python/commit/137e3c8d5c6b28cf6935cfb742b5f072cd2e0a02)) by [@honzajavorek](https://github.com/honzajavorek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [2.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.4.0) (2025-03-07)
 
 ### 🚀 Features
