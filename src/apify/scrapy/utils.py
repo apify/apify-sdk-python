@@ -44,6 +44,9 @@ def apply_apify_settings(*, settings: Settings | None = None, proxy_config: dict
     settings['DOWNLOADER_MIDDLEWARES']['scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware'] = None
     settings['DOWNLOADER_MIDDLEWARES']['apify.scrapy.middlewares.ApifyHttpProxyMiddleware'] = 750
 
+    # Set the default HTTPCache middleware storage backend to ApifyCacheStorage
+    settings['HTTPCACHE_STORAGE'] = 'apify.scrapy.extensions.ApifyCacheStorage'
+
     # Store the proxy configuration
     settings['APIFY_PROXY_SETTINGS'] = proxy_config
 
