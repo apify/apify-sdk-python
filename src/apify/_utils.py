@@ -31,10 +31,16 @@ GroupName = Literal['Classes', 'Abstract classes', 'Interfaces', 'Data structure
 
 
 def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
-    """Decorator to mark symbols for rendering and grouping in documentation.
+    """Mark a symbol for rendering and grouping in documentation.
 
-    This decorator is used purely for documentation purposes and does not alter the behavior
+    This decorator is used solely for documentation purposes and does not modify the behavior
     of the decorated callable.
+
+    Args:
+        group_name: The documentation group to which the symbol belongs.
+
+    Returns:
+        The original callable without modification.
     """
 
     def wrapper(func: Callable) -> Callable:
@@ -44,12 +50,16 @@ def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
 
 
 def docs_name(symbol_name: str) -> Callable:  # noqa: ARG001
-    """Decorator for renaming symbols in documentation.
+    """Rename a symbol for documentation rendering.
 
-    This changes the rendered name of the symbol only in the rendered web documentation.
+    This decorator modifies only the displayed name of the symbol in the generated documentation
+    and does not affect its runtime behavior.
 
-    This decorator is used purely for documentation purposes and does not alter the behavior
-    of the decorated callable.
+    Args:
+        symbol_name: The name to be used in the documentation.
+
+    Returns:
+        The original callable without modification.
     """
 
     def wrapper(func: Callable) -> Callable:

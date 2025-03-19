@@ -51,7 +51,7 @@ class RequestList(CrawleeRequestList):
         request_list_sources_input: list[dict[str, Any]] | None = None,
         http_client: HttpClient | None = None,
     ) -> RequestList:
-        """Creates RequestList from Actor input requestListSources.
+        """Initialize a new instance from request list source input.
 
         Args:
             name: Name of the returned RequestList.
@@ -108,9 +108,10 @@ class RequestList(CrawleeRequestList):
 
     @staticmethod
     async def _fetch_requests_from_url(
-        remote_url_requests_inputs: list[_RequestsFromUrlInput], http_client: HttpClient
+        remote_url_requests_inputs: list[_RequestsFromUrlInput],
+        http_client: HttpClient,
     ) -> list[Request]:
-        """Crete list of requests from url.
+        """Create list of requests from url.
 
         Send GET requests to urls defined in each requests_from_url of remote_url_requests_inputs. Run extracting
         callback on each response body and use URL_NO_COMMAS_REGEX regex to find all links. Create list of Requests from
@@ -119,7 +120,11 @@ class RequestList(CrawleeRequestList):
         created_requests: list[Request] = []
 
         def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
-            """Callback to scrape response body with regexp and create Requests from matches."""
+            """Extract links from response body and use them to create `Request` objects.
+
+            Use the regular expression to find all matching links in the response body, then create `Request`
+            objects from these links and the provided input attributes.
+            """
             matches = re.finditer(URL_NO_COMMAS_REGEX, task.result().read().decode('utf-8'))
             created_requests.extend(
                 [
