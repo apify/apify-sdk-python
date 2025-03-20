@@ -113,7 +113,7 @@ class AsyncThread:
         await asyncio.gather(*tasks, return_exceptions=True)
 
     def _force_exit_event_loop(self) -> None:
-        """Forcefully shut down the event loop and its thread."""
+        """Shut down the event loop and its thread forcefully."""
         try:
             logger.info('Forced shutdown of the event loop and its thread...')
             self._eventloop.call_soon_threadsafe(self._eventloop.stop)

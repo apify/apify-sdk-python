@@ -1138,7 +1138,7 @@ class _ActorType:
         return proxy_configuration
 
     def _get_default_exit_process(self) -> bool:
-        """Returns False for IPython, Pytest, and Scrapy environments, True otherwise."""
+        """Return False for IPython, Pytest, and Scrapy environments, True otherwise."""
         if is_running_in_ipython():
             self.log.debug('Running in IPython, setting default `exit_process` to False.')
             return False
