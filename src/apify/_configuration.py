@@ -370,7 +370,7 @@ class Configuration(CrawleeConfiguration):
         """Retrieve the global instance of the configuration.
 
         Mostly for the backwards compatibility. It is recommended to use the `service_locator.get_configuration()`
-        instead.
+        instead. Dummy change that should not fail in CI.
         """
         return cls()
 
