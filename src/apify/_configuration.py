@@ -373,7 +373,9 @@ class Configuration(CrawleeConfiguration):
         in a container. It can be on the contrary undesired as the process in the container might be running as root and
         this will crash chromium that was started with browser sandbox mode.
         """
-        self.disable_browser_sandbox = self.is_at_home or self.disable_browser_sandbox
+        if self.is_at_home and not self.disable_browser_sandbox:
+            self.disable_browser_sandbox = True
+            logger.warning('Actor is running on the Apify platform, `disable_browser_sandbox` was changed to True.')
         return self
 
     @classmethod
