@@ -48,11 +48,11 @@ class SystemInfoEventData(BaseModel):
     is_cpu_overloaded: Annotated[bool, Field(alias='isCpuOverloaded')]
     created_at: Annotated[datetime, Field(alias='createdAt')]
 
-    def to_crawlee_format(self) -> EventSystemInfoData:
+    def to_crawlee_format(self, dedicated_cpus: float) -> EventSystemInfoData:
         return EventSystemInfoData.model_validate(
             {
                 'cpu_info': {
-                    'used_ratio': self.cpu_current_usage / 100,
+                    'used_ratio': (self.cpu_current_usage / 100) / dedicated_cpus,
                     'created_at': self.created_at,
                 },
                 'memory_info': {
@@ -218,7 +218,7 @@ class PlatformEventManager(EventManager):
                             event=parsed_message.name,
                             event_data=parsed_message.data
                             if not isinstance(parsed_message.data, SystemInfoEventData)
-                            else parsed_message.data.to_crawlee_format(),
+                            else parsed_message.data.to_crawlee_format(self._config.dedicated_cpus or 1),
                         )
 
                         if parsed_message.name == Event.MIGRATING:
