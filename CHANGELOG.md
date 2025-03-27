@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 
 - Implement Scrapy HTTP cache backend  ([#403](https://github.com/apify/apify-sdk-python/pull/403)) ([137e3c8](https://github.com/apify/apify-sdk-python/commit/137e3c8d5c6b28cf6935cfb742b5f072cd2e0a02)) by [@honzajavorek](https://github.com/honzajavorek)
 
+### 🐛 Bug Fixes
+
+- Fix calculation of CPU utilization from SystemInfo events ([#447](https://github.com/apify/apify-sdk-python/pull/447)) ([eb4c8e4](https://github.com/apify/apify-sdk-python/commit/eb4c8e4e498e23f573b9e2d4c7dbd8e2ecc277d9)) by [@janbuchar](https://github.com/janbuchar)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [2.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.4.0) (2025-03-07)
