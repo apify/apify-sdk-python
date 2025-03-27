@@ -41,7 +41,8 @@ async def test_actor_scrapy_title_spider(
 
     items = await actor.last_run().dataset().list_items()
 
-    assert items.count >= 10
+    # CLOSESPIDER_PAGECOUNT is set to 10 in the spider settings.
+    assert items.count >= 9
 
     for item in items.items:
         assert 'url' in item
