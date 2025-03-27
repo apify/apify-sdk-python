@@ -5,8 +5,8 @@ from decimal import Decimal
 from logging import getLogger
 from typing import Annotated, Any
 
-from pydantic import AliasChoices, BeforeValidator, Field
-from typing_extensions import deprecated
+from pydantic import AliasChoices, BeforeValidator, Field, model_validator
+from typing_extensions import Self, deprecated
 
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
@@ -364,6 +364,19 @@ class Configuration(CrawleeConfiguration):
             description='Identifier used for grouping related runs and API calls together',
         ),
     ] = None
+
+    @model_validator(mode='after')
+    def disable_browser_sandbox_on_platform(self) -> Self:
+        """Disable the browser sandbox mode when running on the Apify platform.
+
+        Running in environment where `is_at_home` is True does not benefit from browser sandbox as it is already running
+        in a container. It can be on the contrary undesired as the process in the container might be running as root and
+        this will crash chromium that was started with browser sandbox mode.
+        """
+        if self.is_at_home and not self.disable_browser_sandbox:
+            self.disable_browser_sandbox = True
+            logger.warning('Actor is running on the Apify platform, `disable_browser_sandbox` was changed to True.')
+        return self
 
     @classmethod
     def get_global_configuration(cls) -> Configuration:
