@@ -59,7 +59,7 @@ scrapy = ["scrapy>=2.11.0"]
 [dependency-groups]
 dev = [
     "build~=1.2.0",
-    "griffe~=1.6.0",
+    "griffe~=1.7.0",
     "mypy~=1.15.0",
     "pre-commit~=4.2.0",
     "pydoc-markdown~=4.8.0",
