@@ -331,7 +331,7 @@ class _ActorType:
         api_url: str | None = None,
         max_retries: int | None = None,
         min_delay_between_retries: timedelta | None = None,
-        timeout: timedelta | None = None,
+        timeout: timedelta | None = timedelta(seconds=10),
     ) -> ApifyClientAsync:
         """Return a new instance of the Apify API client.
 
