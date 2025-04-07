@@ -66,7 +66,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apify-client", specifier = ">=1.9.2" },
+    { name = "apify-client", git = "https://github.com/apify/apify-client-python.git?rev=injected-logs" },
     { name = "apify-shared", specifier = ">=1.3.0" },
     { name = "crawlee", specifier = "~=0.6.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
@@ -98,16 +98,12 @@ dev = [
 
 [[package]]
 name = "apify-client"
-version = "1.9.2"
-source = { registry = "https://pypi.org/simple" }
+version = "1.10.0"
+source = { git = "https://github.com/apify/apify-client-python.git?rev=injected-logs#3f6553ee87e315e3817a3f7ea95c57ccfa72579a" }
 dependencies = [
     { name = "apify-shared" },
     { name = "httpx" },
     { name = "more-itertools" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/64/95/5456d114f83749f74969577824abc74fc3ab5e1722acab37f77b0b1800c6/apify_client-1.9.2.tar.gz", hash = "sha256:af76b78c3153263040615daec0619765e067466bbb82e569afe799ad72c53050", size = 46276 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/3d/d71b7c79c8da2ca2ccd2aa43cea0cfb2d17475ea8fafb4e7d7a78b24c02c/apify_client-1.9.2-py3-none-any.whl", hash = "sha256:a441fb59b5ec1c42aead73284c90304029442ddc26e764c151b8dc7f15e38600", size = 72505 },
 ]
 
 [[package]]
