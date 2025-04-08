@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 import pytest
+from uvicorn.config import Config
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
@@ -15,11 +16,15 @@ from crawlee import service_locator
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.storage_clients import MemoryStorageClient
 from crawlee.storages import _creation_management
+from tests.unit.server import TestServer, app, serve_in_thread
 
 import apify._actor
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
+
+    from yarl import URL
 
 
 @pytest.fixture
@@ -205,3 +210,17 @@ def memory_storage_client() -> MemoryStorageClient:
     configuration.write_metadata = True
 
     return MemoryStorageClient.from_config(configuration)
+
+
+@pytest.fixture(scope='session')
+def http_server(unused_tcp_port_factory: Callable[[], int]) -> Iterator[TestServer]:
+    """Create and start an HTTP test server."""
+    config = Config(app=app, lifespan='off', loop='asyncio', port=unused_tcp_port_factory())
+    server = TestServer(config=config)
+    yield from serve_in_thread(server)
+
+
+@pytest.fixture(scope='session')
+def server_url(http_server: TestServer) -> URL:
+    """Provide the base URL of the test server."""
+    return http_server.url

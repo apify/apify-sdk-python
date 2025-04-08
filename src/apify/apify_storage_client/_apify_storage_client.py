@@ -31,7 +31,7 @@ class ApifyStorageClient(StorageClient):
             api_url=configuration.api_base_url,
             max_retries=8,
             min_delay_between_retries_millis=500,
-            timeout_secs=360,
+            timeout_secs=10,
         )
         self._configuration = configuration
 
