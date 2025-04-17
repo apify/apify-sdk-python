@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 2.5.1 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix duplicate logs from apify logger in Scrapy integration ([#457](https://github.com/apify/apify-sdk-python/pull/457)) ([2745ee6](https://github.com/apify/apify-sdk-python/commit/2745ee6529deecb4f2838c764b9bb3fb6606762b)) by [@vdusek](https://github.com/vdusek), closes [#391](https://github.com/apify/apify-sdk-python/issues/391)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [2.5.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.5.0) (2025-03-27)
 
 ### 🚀 Features
