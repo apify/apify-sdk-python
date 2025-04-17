@@ -19,12 +19,8 @@ def _configure_logger(name: str | None, logging_level: str, handler: logging.Han
     logger = logging.getLogger(name)
     logger.handlers.clear()
     logger.setLevel(logging_level)
-
-    if name is None:  # Root logger.
-        logger.addHandler(handler)
-        logger.propagate = False
-    else:
-        logger.propagate = True
+    logger.addHandler(handler)
+    logger.propagate = False
 
 
 def initialize_logging() -> None:
