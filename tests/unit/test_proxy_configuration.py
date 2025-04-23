@@ -432,6 +432,7 @@ async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, 
     assert proxy_configuration.is_man_in_the_middle is False
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_with_manual_password_different_than_user_one(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -488,6 +489,7 @@ async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, re
         await proxy_configuration.initialize()
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_when_status_page_unavailable(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
