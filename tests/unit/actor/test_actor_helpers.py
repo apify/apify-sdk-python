@@ -122,6 +122,7 @@ async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatch
 # NOTE: The following methods are properly tested using integrations tests.
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_metamorph_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('WARNING')
     async with Actor:
@@ -132,6 +133,7 @@ async def test_metamorph_fails_locally(caplog: pytest.LogCaptureFixture) -> None
     assert 'Actor.metamorph() is only supported when running on the Apify platform.' in caplog.records[0].message
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_reboot_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('WARNING')
     async with Actor:
@@ -142,6 +144,7 @@ async def test_reboot_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
     assert 'Actor.reboot() is only supported when running on the Apify platform.' in caplog.records[0].message
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('WARNING')
     async with Actor:
@@ -154,6 +157,7 @@ async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> No
     assert 'Actor.add_webhook() is only supported when running on the Apify platform.' in caplog.records[0].message
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('INFO')
     async with Actor:
@@ -165,6 +169,7 @@ async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> N
     assert '[Status message]: test-status-message' in matching_records[0].message
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_set_terminal_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('INFO')
     async with Actor:

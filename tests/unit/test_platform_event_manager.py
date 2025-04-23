@@ -18,6 +18,7 @@ from apify import Configuration
 from apify._platform_event_manager import PlatformEventManager, SystemInfoEventData
 
 
+@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_lifecycle_local(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger='apify')
     config = Configuration.get_global_configuration()
