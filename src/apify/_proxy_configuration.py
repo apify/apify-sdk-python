@@ -178,7 +178,9 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         self._country_code = country_code
 
     async def initialize(self) -> None:
-        """Load the Apify Proxy password if the API token is provided and check access to Apify Proxy and proxy groups.
+        """Check if using proxy, if so, check the access.
+
+        Load the Apify Proxy password from API (only if not passed to constructor or through env var).
 
         Only called if Apify Proxy configuration is used. Also checks if country has access to Apify Proxy groups
         if the country code is provided.
@@ -187,7 +189,17 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         `ProxyConfiguration` instance instead of calling this manually.
         """
         if self._uses_apify_proxy:
-            await self._maybe_fetch_password()
+            if not self._password:
+                await self._maybe_fetch_password()
+            if not self._password:
+                raise ValueError(
+                    'Apify Proxy password must be provided using the "password" constructor argument '
+                    f'or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable. '
+                    f'You can also provide your Apify token via the "${ApifyEnvVars.TOKEN}" environment variable, '
+                    f'so that the SDK can fetch the proxy password from Apify API, '
+                    f'when not provided through constructor or ${ApifyEnvVars.PROXY_PASSWORD}.'
+                )
+
             await self._check_access()
 
     async def new_proxy_info(
@@ -255,22 +267,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             user_info = await self._apify_client.user().get()
             if user_info:
                 password = user_info['proxy']['password']
-
-                if self._password:
-                    if self._password != password:
-                        logger.warning(
-                            'The Apify Proxy password you provided belongs to a different user than the Apify '
-                            'token you are using. Are you sure this is correct?'
-                        )
-                else:
-                    self._password = password
-
-        if not self._password:
-            raise ValueError(
-                'Apify Proxy password must be provided using the "password" constructor argument '
-                f'or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable. If you add '
-                f'the "{ApifyEnvVars.TOKEN}" environment variable, the password will be automatically inferred.'
-            )
+                self._password = password
 
     async def _check_access(self) -> None:
         proxy_status_url = f'{self._configuration.proxy_status_url}/?format=json'

@@ -432,6 +432,36 @@ async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, 
     assert proxy_configuration.is_man_in_the_middle is False
 
 
+async def test_initialize_prefering_password_from_env_over_calling_api(
+    monkeypatch: pytest.MonkeyPatch,
+    respx_mock: MockRouter,
+    patched_apify_client: ApifyClientAsync,
+) -> None:
+    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
+    monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD.value, DUMMY_PASSWORD)
+
+    respx_mock.get(dummy_proxy_status_url).mock(
+        httpx.Response(
+            200,
+            json={
+                'connected': True,
+                'connectionError': None,
+                'isManInTheMiddle': False,
+            },
+        )
+    )
+
+    proxy_configuration = ProxyConfiguration()
+
+    await proxy_configuration.initialize()
+
+    assert proxy_configuration._password == DUMMY_PASSWORD
+    assert proxy_configuration.is_man_in_the_middle is False
+
+    assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
+
+
 @pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_with_manual_password_different_than_user_one(
     monkeypatch: pytest.MonkeyPatch,
