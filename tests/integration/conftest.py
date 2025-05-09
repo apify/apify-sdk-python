@@ -245,6 +245,7 @@ def make_actor(
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
         additional_requirements: list[str] | None = None,
+        dynamic_code: str = "",
     ) -> ActorClientAsync:
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')
@@ -267,6 +268,7 @@ def make_actor(
                     '',
                     '',
                     '',
+                    dynamic_code,
                     func_source,
                 ]
             )

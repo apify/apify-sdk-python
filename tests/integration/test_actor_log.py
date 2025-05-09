@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from apify import Actor, __version__
+from ._utils import generate_unique_resource_name
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
@@ -90,3 +91,45 @@ async def test_actor_logging(
     assert run_log_lines.pop(0) == "          raise RuntimeError('Dummy RuntimeError')"
     assert run_log_lines.pop(0) == '      RuntimeError: Dummy RuntimeError'
     assert run_log_lines.pop(0) == '[apify] INFO  Exiting Actor ({"exit_code": 91})'
+
+
+async def test_actor_redirected_logs(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Test that one actor that starts another actor can redirect logs correctly."""
+
+    async def main_second() -> None:
+        # Second actor from which we want to redirect logs
+        import logging
+
+        from apify.log import logger
+
+        async with Actor:
+            # Test Actor.log
+            Actor.log.info('Info message')
+            Actor.log.warning('Warning message')
+            Actor.log.error('Error message')
+
+            # Test that exception is logged with the traceback
+            try:
+                raise ValueError('Dummy ValueError')
+            except Exception:
+                Actor.log.exception('Exception message')
+
+            # Test that exception in Actor.main is logged with the traceback
+            raise RuntimeError('Dummy RuntimeError')
+
+    actor_id = (await make_actor(label='actor-log', main_func=main_second))["id"]
+
+    async def main_top() -> None:
+        # Top actor that will start the second actor and will get its redirected logs
+        async with Actor:
+            # Start the second actor
+            run = Actor.start(actor_id)
+            Actor.redirect_log(run["id"])
+
+    actor = await make_actor(label='actor-log', main_func=main_top, dynamic_code= f"actor_id={actor_id}")
+
+    run_result = await run_actor(actor)
+    print("a")

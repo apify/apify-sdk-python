@@ -34,7 +34,7 @@ from apify._platform_event_manager import EventManager, LocalEventManager, Platf
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
 from apify.apify_storage_client import ApifyStorageClient
-from apify.log import _configure_logging, logger
+from apify.log import _configure_logging, logger, create_redirect_logger
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
@@ -837,6 +837,28 @@ class _ActorType:
         )
 
         return ActorRun.model_validate(api_result)
+
+    async def redirect_log(self, run: ActorRun, to_logger: logging.Logger = None, *,
+                           token: str | None = None) -> None:
+        """Redirect the logs of the given Actor run to the specified logger."""
+        client = self.new_client(token=token) if token else self._apify_client
+
+        if not to_logger:
+            actor_name = (await client.actor(run.act_id()).get())["name"]
+            to_logger = create_redirect_logger(f'{actor_name}-{run.id=}')
+
+        asyncio.create_task(self._stream_log(client, run, to_logger))
+        # TODO: Add cleanup, maybe turn this into context manager
+
+
+    @staticmethod
+    async def _stream_log(client: ApifyClientAsync, run: ActorRun, to_logger: logging.Logger) -> None:
+        async with client.log(run.id).stream() as logstream:
+            async for data in logstream.aiter_bytes():
+                log_level = logging.CRITICAL  # The Original log level is not known unless the message is inspected
+                # Adjust the log level in custom logger filter if needed.
+                to_logger.log(level=log_level, msg=data)
+
 
     async def call_task(
         self,
