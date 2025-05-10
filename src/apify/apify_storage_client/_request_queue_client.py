@@ -13,14 +13,9 @@ from apify_client import ApifyClientAsync
 from crawlee import Request
 from crawlee._utils.requests import unique_key_to_request_id
 from crawlee.storage_clients._base import RequestQueueClient
-from crawlee.storage_clients.models import (
-    AddRequestsResponse,
-    CachedRequest,
-    ProcessedRequest,
-    ProlongRequestLockResponse,
-    RequestQueueHead,
-    RequestQueueMetadata,
-)
+from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
+
+from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
