@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 _SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
-
+_DEFAULT_TEST_TIMEOUT = 600
 
 @pytest.fixture
 def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callable[[], None]:
@@ -315,7 +315,7 @@ def make_actor(
             name=actor_name,
             default_run_build='latest',
             default_run_memory_mbytes=256,
-            default_run_timeout_secs=600,
+            default_run_timeout_secs=_DEFAULT_TEST_TIMEOUT,
             versions=[
                 {
                     'versionNumber': '0.0',
@@ -331,7 +331,7 @@ def make_actor(
         print(f'Building Actor {actor_name}...')
         build_result = await actor_client.build(version_number='0.0')
         build_client = client.build(build_result['id'])
-        build_client_result = await build_client.wait_for_finish(wait_secs=600)
+        build_client_result = await build_client.wait_for_finish(wait_secs=_DEFAULT_TEST_TIMEOUT)
 
         assert build_client_result is not None
         assert build_client_result['status'] == ActorJobStatus.SUCCEEDED
@@ -408,7 +408,7 @@ def run_actor(apify_token: str) -> RunActorFunction:
 
         client = ApifyClientAsync(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
         run_client = client.run(call_result['id'])
-        run_result = await run_client.wait_for_finish(wait_secs=600)
+        run_result = await run_client.wait_for_finish(wait_secs=_DEFAULT_TEST_TIMEOUT)
 
         return ActorRun.model_validate(run_result)
 
