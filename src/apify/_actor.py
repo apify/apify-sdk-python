@@ -693,7 +693,7 @@ class _ActorType:
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None = None,
+        timeout: timedelta | None | Literal['RemainingTime'] = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
     ) -> ActorRun:
@@ -711,7 +711,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor.
+                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other actor
+                to the time remaining from this actor timeout.
             wait_for_finish: The maximum number of seconds the server waits for the run to finish. By default,
                 it is 0, the maximum value is 300.
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
@@ -732,17 +733,36 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
+        if timeout == 'RemainingTime':
+            actor_start_timeout = await self._get_remaining_time(client)
+        elif isinstance(timeout, str):
+            raise ValueError(f'`timeout` can be `None`, `RemainingTime` or `timedelta` instance, but is {timeout=}')
+        else:
+            actor_start_timeout = timeout
+
         api_result = await client.actor(actor_id).start(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+            timeout_secs=int(actor_start_timeout.total_seconds()) if actor_start_timeout is not None else None,
             wait_for_finish=wait_for_finish,
             webhooks=serialized_webhooks,
         )
 
         return ActorRun.model_validate(api_result)
+
+    async def _get_remaining_time(self, client: ApifyClientAsync) -> timedelta | None:
+        """Get time remaining from the actor timeout. Returns `None` if not on Apify platform."""
+        if self.is_at_home() and self.configuration.actor_run_id:
+            run_data = await client.run(self.configuration.actor_run_id).get()
+            if run_data is not None and (timeout := run_data.get('options', {}).get('timeoutSecs', None)):
+                runtime = timedelta(seconds=run_data.get('runTimeSecs', None))
+                remaining_time = timeout - runtime
+            return timedelta(seconds=remaining_time)
+
+        self.log.warning('Using `RemainingTime` argument for timeout outside of the Apify platform. Returning `None`')
+        return None
 
     async def abort(
         self,
@@ -787,7 +807,7 @@ class _ActorType:
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None = None,
+        timeout: timedelta | None | Literal['RemainingTime'] = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
     ) -> ActorRun | None:
@@ -805,7 +825,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor.
+                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other actor
+                to the time remaining from this actor timeout.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
@@ -826,12 +847,19 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
+        if timeout == 'RemainingTime':
+            actor_call_timeout = await self._get_remaining_time(client)
+        elif isinstance(timeout, str):
+            raise ValueError(f'`timeout` can be `None`, `RemainingTime` or `timedelta` instance, but is {timeout=}')
+        else:
+            actor_call_timeout = timeout
+
         api_result = await client.actor(actor_id).call(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+            timeout_secs=int(actor_call_timeout.total_seconds()) if actor_call_timeout is not None else None,
             webhooks=serialized_webhooks,
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
