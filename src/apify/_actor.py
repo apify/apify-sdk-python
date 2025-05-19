@@ -734,7 +734,7 @@ class _ActorType:
             serialized_webhooks = None
 
         if timeout == 'RemainingTime':
-            actor_start_timeout = await self._get_remaining_time()
+            actor_start_timeout = self._get_remaining_time()
         elif isinstance(timeout, str):
             raise ValueError(
                 f'`timeout` can be `None`, `RemainingTime` literal or `timedelta` instance, but is {timeout=}'
@@ -754,7 +754,7 @@ class _ActorType:
 
         return ActorRun.model_validate(api_result)
 
-    async def _get_remaining_time(self) -> timedelta | None:
+    def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the actor timeout. Returns `None` if not on an Apify platform."""
         if self.is_at_home() and self.configuration.timeout_at:
             return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
@@ -846,7 +846,7 @@ class _ActorType:
             serialized_webhooks = None
 
         if timeout == 'RemainingTime':
-            actor_call_timeout = await self._get_remaining_time()
+            actor_call_timeout = self._get_remaining_time()
         elif isinstance(timeout, str):
             raise ValueError(
                 f'`timeout` can be `None`, `RemainingTime` literal or `timedelta` instance, but is {timeout=}'
