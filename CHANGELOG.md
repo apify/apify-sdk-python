@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 <!-- git-cliff-unreleased-start -->
 ## 2.5.1 - **not yet released**
 
+### 🚀 Features
+
+- Add `RemainingTime` option for `timeout` argument of `Actor.call` and `Actor.start` ([#473](https://github.com/apify/apify-sdk-python/pull/473)) ([ba7f757](https://github.com/apify/apify-sdk-python/commit/ba7f757a82661a5a181d9bd767950d09557409f9)) by [@Pijukatel](https://github.com/Pijukatel), closes [#472](https://github.com/apify/apify-sdk-python/issues/472)
+
 ### 🐛 Bug Fixes
 
 - Fix duplicate logs from apify logger in Scrapy integration ([#457](https://github.com/apify/apify-sdk-python/pull/457)) ([2745ee6](https://github.com/apify/apify-sdk-python/commit/2745ee6529deecb4f2838c764b9bb3fb6606762b)) by [@vdusek](https://github.com/vdusek), closes [#391](https://github.com/apify/apify-sdk-python/issues/391)
