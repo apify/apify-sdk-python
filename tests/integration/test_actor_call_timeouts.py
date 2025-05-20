@@ -13,12 +13,19 @@ async def test_actor_start_remaining_timeout(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
+    """Test that correct timeout is set when using `RemainingTime` value for the `timeout` argument.
+
+    In this test, one Actor starts itself again and checks that the timeout is correctly set on the second Actor run.
+    Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor start."""
+
     async def main() -> None:
         from datetime import datetime, timezone
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}
             if actor_input.get('called_from_another_actor', False) is True:
+                # If this Actor run was started with a specific argument (the second Actor run), return immediately.
+                # Asserts checking the timeout are in the first Actor run.
                 return
 
             # Start another run of this actor with timeout set to the time remaining in this actor run
@@ -53,15 +60,20 @@ async def test_actor_call_remaining_timeout(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
+    """Test that correct timeout is set when using `RemainingTime` value for the `timeout` argument.
+
+    In this test, one Actor starts itself again and checks that the timeout is correctly set on the second Actor run.
+    Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor call."""
+
     async def main() -> None:
         from datetime import datetime, timezone
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}
             if actor_input.get('called_from_another_actor', False) is True:
+                # If this Actor run was started with a specific argument (the second Actor run), return immediately.
+                # Asserts checking the timeout are in the first Actor run.
                 return
-
-            await asyncio.sleep(1)
 
             # Start another run of this actor with timeout set to the time remaining in this actor run
             other_run_data = await Actor.call(

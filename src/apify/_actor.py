@@ -711,8 +711,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other actor
-                to the time remaining from this actor timeout.
+                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other Actor
+                to the time remaining from this Actor timeout.
             wait_for_finish: The maximum number of seconds the server waits for the run to finish. By default,
                 it is 0, the maximum value is 300.
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
@@ -740,9 +740,7 @@ class _ActorType:
         elif isinstance(timeout, timedelta):
             actor_start_timeout = timeout
         else:
-            raise ValueError(
-                f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.'
-            )
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.')
 
         api_result = await client.actor(actor_id).start(
             run_input=run_input,
@@ -761,7 +759,11 @@ class _ActorType:
         if self.is_at_home() and self.configuration.timeout_at:
             return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
 
-        self.log.warning('Using `RemainingTime` argument for timeout outside of the Apify platform. Returning `None`')
+        self.log.warning(
+            'Returning `None` instead of remaining time. Using `RemainingTime` argument is only possible when the Actor'
+            ' is running on the Apify platform and when the timeout for the Actor run is set. '
+            f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
+        )
         return None
 
     async def abort(
@@ -825,8 +827,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other actor
-                to the time remaining from this actor timeout.
+                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other Actor
+                to the time remaining from this Actor timeout.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
@@ -849,12 +851,12 @@ class _ActorType:
 
         if timeout == 'RemainingTime':
             actor_call_timeout = self._get_remaining_time()
-        elif isinstance(timeout, str):
-            raise ValueError(
-                f'`timeout` can be `None`, `RemainingTime` literal or `timedelta` instance, but is {timeout=}'
-            )
-        else:
+        elif timeout is None:
+            actor_call_timeout = None
+        elif isinstance(timeout, timedelta):
             actor_call_timeout = timeout
+        else:
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.')
 
         api_result = await client.actor(actor_id).call(
             run_input=run_input,
