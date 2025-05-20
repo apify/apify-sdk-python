@@ -735,12 +735,14 @@ class _ActorType:
 
         if timeout == 'RemainingTime':
             actor_start_timeout = self._get_remaining_time()
-        elif isinstance(timeout, str):
-            raise ValueError(
-                f'`timeout` can be `None`, `RemainingTime` literal or `timedelta` instance, but is {timeout=}'
-            )
-        else:
+        elif timeout is None:
+            actor_start_timeout = None
+        elif isinstance(timeout, timedelta):
             actor_start_timeout = timeout
+        else:
+            raise ValueError(
+                f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.'
+            )
 
         api_result = await client.actor(actor_id).start(
             run_input=run_input,
