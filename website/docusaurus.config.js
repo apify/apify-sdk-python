@@ -31,6 +31,7 @@ module.exports = {
     githubHost: 'github.com',
     future: {
         experimental_faster: true,
+        v4: true,
     },
     onBrokenLinks:
     /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
