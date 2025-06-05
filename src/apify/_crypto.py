@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import string
 from typing import Any
 
@@ -154,6 +155,23 @@ def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input_data: Any) -> An
                     encrypted_value,
                     private_key=private_key,
                 )
+        # TODO reuse the decryption logic for string and objects
+        elif isinstance(value, dict) and isinstance(value.get("secret"), str):
+            match = ENCRYPTED_INPUT_VALUE_REGEXP.fullmatch(value["secret"])
+            if match:
+                encrypted_password = match.group(1)
+                encrypted_value = match.group(2)
+                try:
+                    decrypted_json_str = private_decrypt(
+                        encrypted_password,
+                        encrypted_value,
+                        private_key=private_key,
+                    )
+                    input_data[key] = json.loads(decrypted_json_str)
+                except Exception as err:
+                    raise ValueError(
+                        f'The input field "{key}" could not be parsed as JSON after decryption: {err}'
+                    )
 
     return input_data
 
