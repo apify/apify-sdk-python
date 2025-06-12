@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify"
-version = "2.6.0"
+version = "2.6.1"
 description = "Apify SDK for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
