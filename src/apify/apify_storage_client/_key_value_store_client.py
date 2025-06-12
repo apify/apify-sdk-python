@@ -9,12 +9,8 @@ from yarl import URL
 
 from apify_client import ApifyClientAsync
 from crawlee.storage_clients._base import KeyValueStoreClient
-from crawlee.storage_clients.models import (
-    KeyValueStoreListKeysPage,
-    KeyValueStoreMetadata,
-    KeyValueStoreRecord,
-    KeyValueStoreRecordMetadata,
-)
+from crawlee.storage_clients.models import KeyValueStoreMetadata, KeyValueStoreRecord, KeyValueStoreRecordMetadata
+from ._models import KeyValueStoreListKeysPage
 
 from apify._crypto import create_hmac_signature
 
