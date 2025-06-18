@@ -17,7 +17,34 @@ jobs:
 
   unit_tests:
     name: Unit tests
-    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "windows-latest"]
+        python-version: ["3.13.5"]
+    runs-on: ${{ matrix.os }}
+    env:
+      HTTPBIN_URL: ${{ secrets.httpbin_url || 'https://httpbin.org' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv package manager
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: make install-dev
+
+      - name: Run unit tests
+        run: make unit-tests
 
   docs_check:
     name: Docs check
