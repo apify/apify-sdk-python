@@ -88,7 +88,7 @@ class _ActorType:
 
         # Create an instance of the cloud storage client, the local storage client is obtained
         # from the service locator.
-        self._cloud_storage_client = ApifyStorageClient.from_config(config=self._configuration)
+        self._cloud_storage_client = ApifyStorageClient()
 
         # Set the event manager based on whether the Actor is running on the platform or locally.
         self._event_manager = (

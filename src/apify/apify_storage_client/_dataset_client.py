@@ -54,8 +54,8 @@ class ApifyDatasetClient(DatasetClient):
         self._lock = asyncio.Lock()
         """A lock to ensure that only one operation is performed at a time."""
 
-    @override
     @property
+    @override
     def metadata(self) -> DatasetMetadata:
         return self._metadata
 

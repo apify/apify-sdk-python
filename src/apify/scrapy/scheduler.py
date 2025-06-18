@@ -49,10 +49,13 @@ class ApifyScheduler(BaseScheduler):
         self.spider = spider
 
         async def open_rq() -> RequestQueue:
-            config = Configuration.get_global_configuration()
-            if config.is_at_home:
-                storage_client = ApifyStorageClient.from_config(config)
-                return await RequestQueue.open(storage_client=storage_client)
+            configuration = Configuration.get_global_configuration()
+            if configuration.is_at_home:
+                storage_client = ApifyStorageClient()
+                return await RequestQueue.open(
+                    configuration=configuration,
+                    storage_client=storage_client,
+                )
             return await RequestQueue.open()
 
         try:

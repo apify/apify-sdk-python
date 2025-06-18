@@ -51,10 +51,14 @@ class ApifyCacheStorage:
         kvs_name = get_kvs_name(spider.name)
 
         async def open_kvs() -> KeyValueStore:
-            config = Configuration.get_global_configuration()
-            if config.is_at_home:
-                storage_client = ApifyStorageClient.from_config(config)
-                return await KeyValueStore.open(name=kvs_name, storage_client=storage_client)
+            configuration = Configuration.get_global_configuration()
+            if configuration.is_at_home:
+                storage_client = ApifyStorageClient()
+                return await KeyValueStore.open(
+                    name=kvs_name,
+                    configuration=configuration,
+                    storage_client=storage_client,
+                )
             return await KeyValueStore.open(name=kvs_name)
 
         logger.debug("Starting background thread for cache storage's event loop")
