@@ -5,7 +5,7 @@ import contextlib
 import json
 import sys
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import Any, Callable
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -14,19 +14,16 @@ import websockets.asyncio.server
 from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee.events._types import Event, EventPersistStateData
 
-import apify._actor
 from apify import Actor
 from apify._actor import _ActorType
 
-if TYPE_CHECKING:
-    from lazy_object_proxy import Proxy
-
 
 async def test_actor_properly_init_with_async() -> None:
+    assert Actor._singleton_actor is _ActorType
     async with Actor:
-        assert cast('Proxy', apify._actor.Actor).__wrapped__ is not None
-        assert cast('Proxy', apify._actor.Actor).__wrapped__._is_initialized
-    assert not cast('Proxy', apify._actor.Actor).__wrapped__._is_initialized
+        assert isinstance(Actor._singleton_actor,_ActorType)
+        assert Actor._is_initialized
+    assert not Actor._is_initialized
 
 
 async def test_actor_init() -> None:
@@ -94,7 +91,7 @@ async def test_actor_exits_cleanly_with_events(monkeypatch: pytest.MonkeyPatch) 
 
 
 async def test_exit_without_init_raises_error() -> None:
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         await Actor.exit()
 
 
@@ -118,12 +115,12 @@ async def test_actor_handles_failure_gracefully() -> None:
 
 
 async def test_fail_without_init_raises_error() -> None:
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         await Actor.fail()
 
 
 async def test_actor_reboot_fails_locally() -> None:
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         await Actor.reboot()
 
 

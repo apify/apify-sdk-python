@@ -36,7 +36,7 @@ async def test_open_returns_same_references() -> None:
 
 
 async def test_open_throws_without_init() -> None:
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         await Actor.open_key_value_store()
 
 

@@ -72,16 +72,17 @@ async def test_process_item(
 ) -> None:
     dataset = []
 
-    async def mock_push_data(item: dict) -> None:
-        dataset.append(item)
+    async with Actor:
+        async def mock_push_data(item: dict) -> None:
+            dataset.append(item)
 
-    monkeypatch.setattr(Actor, 'push_data', mock_push_data)
+        monkeypatch.setattr(Actor._singleton_actor, 'push_data', mock_push_data)
 
-    if tc.expected_exception:
-        with pytest.raises(tc.expected_exception):
-            await pipeline.process_item(tc.item, spider)
+        if tc.expected_exception:
+            with pytest.raises(tc.expected_exception):
+                await pipeline.process_item(tc.item, spider)
 
-    else:
-        output = await pipeline.process_item(tc.item, spider)
-        assert output == tc.item
-        assert dataset == [tc.item_dict]
+        else:
+            output = await pipeline.process_item(tc.item, spider)
+            assert output == tc.item
+            assert dataset == [tc.item_dict]

@@ -141,7 +141,7 @@ class _ActorType:
                 await self.exit()
 
     def __repr__(self) -> str:
-        if self is cast('Proxy', Actor).__wrapped__:
+        if self is cast('Proxy', Actor)._singleton_actor:
             return '<apify.Actor>'
 
         return super().__repr__()
@@ -221,8 +221,6 @@ class _ActorType:
         if _ActorType._is_any_instance_initialized:
             self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care')
 
-        # Make sure that the currently initialized instance is also available through the global `Actor` proxy
-        cast('Proxy', Actor).__wrapped__ = self
 
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
@@ -1190,5 +1188,53 @@ class _ActorType:
         return True
 
 
-Actor = cast('_ActorType', Proxy(_ActorType))
+class _Actor:
+    """This is not a change proposal, just an exposed explicit form of Actor black magic"""
+
+    def __init__(self):
+        self._singleton_actor : _ActorType | None = None
+
+    def __call__(self,
+        configuration: Configuration | None = None,
+        *,
+        configure_logging: bool = True,
+        exit_process: bool | None = None,
+    ) -> None:
+        """Fake call, but actually an init due to Actor being class and somehow its onw instance as well..."""
+        self._singleton_actor = _ActorType(
+            configuration=configuration,
+            configure_logging=configure_logging,
+            exit_process=exit_process,
+        )
+        return self._singleton_actor
+
+
+    async def __aenter__(self) -> _ActorType:
+        """If called before init, take default Actor"""
+        if self._singleton_actor is _ActorType:
+            # Default init in context manager if init not called yet
+            self._singleton_actor = self._singleton_actor()
+        return await self._singleton_actor.__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self._singleton_actor.__aexit__(exc_type, exc_val, exc_tb)
+
+    def __getattribute__ (self, item) -> Any:
+        # These are the only attributes that are not being automatically called from the self._singleton_actor
+        wrapper_attributes = {'__init__', '__call__', '__aenter__', '__aexit__', '_singleton_actor'}
+
+        if item not in wrapper_attributes:
+            if item in {'init', 'log'}:
+                # Another form of init, for some methods that are allowed to be called even on uninitialized Actor
+                if self._singleton_actor is _ActorType:
+                    self._singleton_actor = self._singleton_actor()
+            return getattr(self._singleton_actor, item)
+        if item == '_singleton_actor' and not object.__getattribute__(self, item):
+            return _ActorType
+
+        return object.__getattribute__(self, item)
+
+
+
+Actor = cast('_ActorType', _Actor())
 """The entry point of the SDK, through which all the Actor operations should be done."""

@@ -8,7 +8,7 @@ from apify import Actor
 
 
 async def test_open_throws_without_init() -> None:
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         await Actor.open_request_queue()
 
 

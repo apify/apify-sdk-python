@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 async def test_throws_error_without_actor_init() -> None:
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         await Actor.open_dataset()
 
 

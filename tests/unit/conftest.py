@@ -16,7 +16,7 @@ from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.storage_clients import MemoryStorageClient
 from crawlee.storages import _creation_management
 
-import apify._actor
+import apify
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,8 +38,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
     """
 
     def _prepare_test_env() -> None:
-        delattr(apify._actor.Actor, '__wrapped__')
-        apify._actor._ActorType._is_any_instance_initialized = False
+        apify.Actor._singleton_actor = None
 
         # Set the environment variable for the local storage directory to the temporary path.
         monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
