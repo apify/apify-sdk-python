@@ -12,9 +12,7 @@ import pytest
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
-from crawlee.configuration import Configuration as CrawleeConfiguration
-from crawlee.storage_clients import MemoryStorageClient
-from crawlee.storages import _creation_management
+from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
 import apify._actor
 
@@ -57,12 +55,15 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         service_locator._storage_client = None
 
         # Clear creation-related caches to ensure no state is carried over between tests.
-        monkeypatch.setattr(_creation_management, '_cache_dataset_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_dataset_by_name', {})
-        monkeypatch.setattr(_creation_management, '_cache_kvs_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_kvs_by_name', {})
-        monkeypatch.setattr(_creation_management, '_cache_rq_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_rq_by_name', {})
+        Dataset._cache_by_id.clear()
+        Dataset._cache_by_name.clear()
+        Dataset._default_instance = None
+        KeyValueStore._cache_by_id.clear()
+        KeyValueStore._cache_by_name.clear()
+        KeyValueStore._default_instance = None
+        RequestQueue._cache_by_id.clear()
+        RequestQueue._cache_by_name.clear()
+        RequestQueue._default_instance = None
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
@@ -197,12 +198,3 @@ class ApifyClientAsyncPatcher:
 @pytest.fixture
 def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAsyncPatcher:
     return ApifyClientAsyncPatcher(monkeypatch)
-
-
-@pytest.fixture
-def memory_storage_client() -> MemoryStorageClient:
-    configuration = CrawleeConfiguration()
-    configuration.persist_storage = True
-    configuration.write_metadata = True
-
-    return MemoryStorageClient.from_config(configuration)

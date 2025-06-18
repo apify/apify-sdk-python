@@ -10,8 +10,8 @@ from yarl import URL
 from apify_client import ApifyClientAsync
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreMetadata, KeyValueStoreRecord, KeyValueStoreRecordMetadata
-from ._models import KeyValueStoreListKeysPage
 
+from ._models import KeyValueStoreListKeysPage
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -56,8 +56,8 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         self._lock = asyncio.Lock()
         """A lock to ensure that only one operation is performed at a time."""
 
-    @override
     @property
+    @override
     def metadata(self) -> KeyValueStoreMetadata:
         return self._metadata
 

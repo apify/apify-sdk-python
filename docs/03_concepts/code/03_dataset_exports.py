@@ -11,14 +11,14 @@ async def main() -> None:
         await dataset.export_to(
             content_type='csv',
             key='data.csv',
-            to_key_value_store_name='my-cool-key-value-store',
+            to_kvs_name='my-cool-key-value-store',
         )
 
         # Export the data as JSON
         await dataset.export_to(
             content_type='json',
             key='data.json',
-            to_key_value_store_name='my-cool-key-value-store',
+            to_kvs_name='my-cool-key-value-store',
         )
 
         # Print the exported records
