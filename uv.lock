@@ -72,7 +72,7 @@ dev = [
 requires-dist = [
     { name = "apify-client", specifier = ">=1.11.0" },
     { name = "apify-shared", specifier = ">=1.3.0" },
-    { name = "crawlee", specifier = "~=0.6.0" },
+    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=new-storage-clients" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "lazy-object-proxy", specifier = "<1.11.0" },
@@ -631,8 +631,8 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "0.6.10"
-source = { registry = "https://pypi.org/simple" }
+version = "0.6.11"
+source = { git = "https://github.com/apify/crawlee-python.git?rev=new-storage-clients#78efb4ddf234e731a1c784a2280a8b1bec812573" }
 dependencies = [
     { name = "apify-fingerprint-datapoints" },
     { name = "browserforge" },
@@ -652,10 +652,6 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ed/93/20033411bffaf199e44b759fc45be45fabc1d8c357bc4d0bb080713724dc/crawlee-0.6.10.tar.gz", hash = "sha256:a06e9aa19611868712df81ca4b7dc482633f921456bf3cf1a5432ce3836fd432", size = 24135107, upload-time = "2025-06-02T12:10:17.67Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/12/2c6c41438f24760ebe044d5e88eebb35c51178de9aec39b695d0845cbff7/crawlee-0.6.10-py3-none-any.whl", hash = "sha256:081565d0a3f11d21798ec11929f4b0c17e3ba7a84f33251c9b6b0e6457d05367", size = 260863, upload-time = "2025-06-02T12:10:14.994Z" },
 ]
 
 [[package]]

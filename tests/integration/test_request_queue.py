@@ -53,7 +53,7 @@ async def test_add_requests_in_batches(
             # I have seen it get stuck on this call
             rq = await Actor.open_request_queue()
             # Add some requests
-            await rq.add_requests_batched([f'https://example.com/{i}' for i in range(desired_request_count)])
+            await rq.add_requests([f'https://example.com/{i}' for i in range(desired_request_count)])
 
             handled_request_count = 0
             while next_request := await rq.fetch_next_request():
@@ -87,7 +87,7 @@ async def test_add_non_unique_requests_in_batch(
             # I have seen it get stuck on this call
             rq = await Actor.open_request_queue()
             # Add some requests
-            await rq.add_requests_batched(
+            await rq.add_requests(
                 [
                     Request.from_url(f'https://example.com/{i}', unique_key=str(i - 1 if i % 4 == 1 else i))
                     for i in range(desired_request_count)
