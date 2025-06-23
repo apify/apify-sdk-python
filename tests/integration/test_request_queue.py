@@ -79,7 +79,7 @@ async def test_add_non_unique_requests_in_batch(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from crawlee import Request
+        from apify import Request
 
         async with Actor:
             desired_request_count = 100

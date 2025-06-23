@@ -37,6 +37,7 @@ source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
     { name = "apify-shared" },
+    { name = "cachetools" },
     { name = "crawlee" },
     { name = "cryptography" },
     { name = "httpx" },
@@ -66,12 +67,14 @@ dev = [
     { name = "respx" },
     { name = "ruff" },
     { name = "setuptools" },
+    { name = "types-cachetools" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "apify-client", specifier = ">=1.11.0" },
     { name = "apify-shared", specifier = ">=1.3.0" },
+    { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=new-storage-clients" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
@@ -98,6 +101,7 @@ dev = [
     { name = "respx", specifier = "~=0.22.0" },
     { name = "ruff", specifier = "~=0.11.0" },
     { name = "setuptools" },
+    { name = "types-cachetools", specifier = ">=6.0.0.20250525" },
 ]
 
 [[package]]
@@ -2301,6 +2305,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e6/4c/6c35c2d97e6292d715bd93953a4a6114fc091492bd58cad1fdaebbc4ee12/typeapi-2.2.4.tar.gz", hash = "sha256:daa80767520c0957a320577e4f729c0ba6921c708def31f4c6fd8d611908fd7b", size = 121923, upload-time = "2025-01-29T11:40:14.68Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b6/33/38da585b06978d262cc2b2b45bc57ee75f0ce5e0b4ef1cab1b86461e9298/typeapi-2.2.4-py3-none-any.whl", hash = "sha256:bd6d5e5907fa47e0303bf254e7cc8712d4be4eb26d7ffaedb67c9e7844c53bb8", size = 26387, upload-time = "2025-01-29T11:40:12.328Z" },
+]
+
+[[package]]
+name = "types-cachetools"
+version = "6.0.0.20250525"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/d0/55ff0eeda141436c1bd2142cd026906870c661b3f7755070d6da7ea7210f/types_cachetools-6.0.0.20250525.tar.gz", hash = "sha256:baf06f234cac3aeb44c07893447ba03ecdb6c0742ba2607e28a35d38e6821b02", size = 8925, upload-time = "2025-05-25T03:13:53.498Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/8c/4ab0a17ece30fe608270b89cf066387051862899fff9f54ab12511fc7fdd/types_cachetools-6.0.0.20250525-py3-none-any.whl", hash = "sha256:1de8f0fe4bdcb187a48d2026c1e3672830f67943ad2bf3486abe031b632f1252", size = 8938, upload-time = "2025-05-25T03:13:52.406Z" },
 ]
 
 [[package]]

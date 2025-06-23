@@ -3,10 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from apify_shared.consts import ApifyEnvVars
-from crawlee import Request
 
 from ._utils import generate_unique_resource_name
-from apify import Actor
+from apify import Actor, Request
 
 if TYPE_CHECKING:
     import pytest

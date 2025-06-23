@@ -11,7 +11,7 @@ from scrapy.utils.reactor import is_asyncio_reactor_installed
 from ._async_thread import AsyncThread
 from .requests import to_apify_request, to_scrapy_request
 from apify import Configuration
-from apify.apify_storage_client import ApifyStorageClient
+from apify.storage_clients import ApifyStorageClient
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:

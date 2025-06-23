@@ -15,7 +15,6 @@ from filelock import FileLock
 from apify_client import ApifyClient, ApifyClientAsync
 from apify_shared.consts import ActorJobStatus, ActorSourceType, ApifyEnvVars
 from crawlee import service_locator
-from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
 import apify._actor
 from ._utils import generate_unique_resource_name
@@ -53,27 +52,15 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         # Set the environment variable for the local storage directory to the temporary path.
         monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
 
-        # Reset the flags in the service locator to indicate that no services are explicitly set. This ensures
-        # a clean state, as services might have been set during a previous test and not reset properly.
-        service_locator._configuration_was_retrieved = False
-        service_locator._storage_client_was_retrieved = False
-        service_locator._event_manager_was_retrieved = False
-
         # Reset the services in the service locator.
         service_locator._configuration = None
         service_locator._event_manager = None
         service_locator._storage_client = None
 
-        # Clear creation-related caches to ensure no state is carried over between tests.
-        Dataset._cache_by_id.clear()
-        Dataset._cache_by_name.clear()
-        Dataset._default_instance = None
-        KeyValueStore._cache_by_id.clear()
-        KeyValueStore._cache_by_name.clear()
-        KeyValueStore._default_instance = None
-        RequestQueue._cache_by_id.clear()
-        RequestQueue._cache_by_name.clear()
-        RequestQueue._default_instance = None
+        # Reset the retrieval flags.
+        service_locator._configuration_was_retrieved = False
+        service_locator._event_manager_was_retrieved = False
+        service_locator._storage_client_was_retrieved = False
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)

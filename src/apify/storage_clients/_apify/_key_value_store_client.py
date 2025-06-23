@@ -19,8 +19,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from apify_client.clients import KeyValueStoreClientAsync
-
-    from apify import Configuration
+    from crawlee.configuration import Configuration
 
 logger = getLogger(__name__)
 
@@ -70,8 +69,13 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         name: str | None,
         configuration: Configuration,
     ) -> ApifyKeyValueStoreClient:
-        token = configuration.token
-        api_url = configuration.api_base_url
+        token = getattr(configuration, 'token', None)
+        if not token:
+            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
+
+        api_url = getattr(configuration, 'api_base_url', None)
+        if not api_url:
+            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
         # Otherwise, create a new one.
         apify_client_async = ApifyClientAsync(
@@ -101,7 +105,8 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
     @override
     async def purge(self) -> None:
-        # TODO: better
+        # TODO: better?
+        # https://github.com/apify/apify-sdk-python/issues/469
         async with self._lock:
             await self._api_client.delete()
 
@@ -147,7 +152,13 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             list_key_page = KeyValueStoreListKeysPage.model_validate(response)
 
             for item in list_key_page.items:
-                yield item
+                # Convert KeyValueStoreKeyInfo to KeyValueStoreRecordMetadata
+                record_metadata = KeyValueStoreRecordMetadata(
+                    key=item.key,
+                    size=item.size,
+                    content_type='application/octet-stream',  # Content type not available from list_keys
+                )
+                yield record_metadata
                 count += 1
 
                 # If we've reached the limit, stop yielding

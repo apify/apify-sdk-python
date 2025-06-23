@@ -8,11 +8,11 @@ from typing import Annotated, Any, Union
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from crawlee import Request
 from crawlee._types import HttpMethod
 from crawlee.http_clients import HttpClient, HttpxHttpClient
 from crawlee.request_loaders import RequestList as CrawleeRequestList
 
+from apify import Request
 from apify._utils import docs_group
 
 URL_NO_COMMAS_REGEX = re.compile(

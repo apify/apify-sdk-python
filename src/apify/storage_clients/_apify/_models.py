@@ -5,8 +5,9 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from crawlee import Request
 from crawlee._utils.docs import docs_group
+
+from apify import Request
 
 
 @docs_group('Data structures')

@@ -14,7 +14,7 @@ class ApifyStorageClient(StorageClient):
     """Apify storage client."""
 
     @override
-    async def open_dataset_client(
+    async def create_dataset_client(
         self,
         *,
         id: str | None = None,
@@ -31,7 +31,7 @@ class ApifyStorageClient(StorageClient):
         return client
 
     @override
-    async def open_key_value_store_client(
+    async def create_kvs_client(
         self,
         *,
         id: str | None = None,
@@ -48,7 +48,7 @@ class ApifyStorageClient(StorageClient):
         return client
 
     @override
-    async def open_request_queue_client(
+    async def create_rq_client(
         self,
         *,
         id: str | None = None,

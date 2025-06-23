@@ -10,19 +10,18 @@ from cachetools import LRUCache
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
-from crawlee import Request
 from crawlee._utils.requests import unique_key_to_request_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
+from apify import Request
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from apify_client.clients import RequestQueueClientAsync
-
-    from apify import Configuration
+    from crawlee.configuration import Configuration
 
 logger = getLogger(__name__)
 
@@ -100,9 +99,13 @@ class ApifyRequestQueueClient(RequestQueueClient):
         name: str | None,
         configuration: Configuration,
     ) -> ApifyRequestQueueClient:
-        # Get API credentials
-        token = configuration.token
-        api_url = configuration.api_base_url
+        token = getattr(configuration, 'token', None)
+        if not token:
+            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
+
+        api_url = getattr(configuration, 'api_base_url', None)
+        if not api_url:
+            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
         # Create a new API client
         apify_client_async = ApifyClientAsync(
@@ -139,7 +142,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
     @override
     async def purge(self) -> None:
-        # TODO: better
+        # TODO: better?
+        # https://github.com/apify/apify-sdk-python/issues/469
         async with self._lock:
             await self._api_client.delete()
 

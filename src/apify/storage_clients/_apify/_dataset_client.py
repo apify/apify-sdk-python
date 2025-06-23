@@ -15,8 +15,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from apify_client.clients import DatasetClientAsync
-
-    from apify import Configuration
+    from crawlee.configuration import Configuration
 
 logger = getLogger(__name__)
 
@@ -68,8 +67,13 @@ class ApifyDatasetClient(DatasetClient):
         name: str | None,
         configuration: Configuration,
     ) -> ApifyDatasetClient:
-        token = configuration.token
-        api_url = configuration.api_base_url
+        token = getattr(configuration, 'token', None)
+        if not token:
+            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
+
+        api_url = getattr(configuration, 'api_base_url', None)
+        if not api_url:
+            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
         # Otherwise, create a new one.
         apify_client_async = ApifyClientAsync(
@@ -100,7 +104,8 @@ class ApifyDatasetClient(DatasetClient):
 
     @override
     async def purge(self) -> None:
-        # TODO: better
+        # TODO: better?
+        # https://github.com/apify/apify-sdk-python/issues/469
         async with self._lock:
             await self._api_client.delete()
 

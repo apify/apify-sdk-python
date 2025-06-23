@@ -10,8 +10,9 @@ from scrapy import Spider
 from scrapy.http.headers import Headers
 from scrapy.utils.request import request_from_dict
 
-from crawlee import Request as ApifyRequest
 from crawlee._types import HttpHeaders
+
+from apify import Request as ApifyRequest
 
 logger = getLogger(__name__)
 
