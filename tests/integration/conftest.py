@@ -56,6 +56,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         service_locator._configuration = None
         service_locator._event_manager = None
         service_locator._storage_client = None
+        service_locator._storage_instance_manager = None
 
         # Reset the retrieval flags.
         service_locator._configuration_was_retrieved = False

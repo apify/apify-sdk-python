@@ -201,11 +201,25 @@ async def test_generate_public_url_for_kvs_record(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
+        import os
+
         from apify._crypto import create_hmac_signature
 
         async with Actor:
             public_api_url = Actor.config.api_public_base_url
-            default_store_id = Actor.config.default_key_value_store_id
+
+            default_kvs_id = (
+                os.environ.get(
+                    'ACTOR_DEFAULT_KEY_VALUE_STORE_ID',
+                    None,
+                )
+                or os.environ.get(
+                    'APIFY_DEFAULT_KEY_VALUE_STORE_ID',
+                    None,
+                )
+                or 'default'
+            )
+
             record_key = 'public-record-key'
 
             kvs = await Actor.open_key_value_store()
@@ -221,7 +235,7 @@ async def test_generate_public_url_for_kvs_record(
             signature = create_hmac_signature(url_signing_secret_key, record_key)
             assert (
                 record_url
-                == f'{public_api_url}/v2/key-value-stores/{default_store_id}/records/{record_key}?signature={signature}'
+                == f'{public_api_url}/v2/key-value-stores/{default_kvs_id}/records/{record_key}?signature={signature}'
             )
 
     actor = await make_actor(label='kvs-get-public-url', main_func=main)

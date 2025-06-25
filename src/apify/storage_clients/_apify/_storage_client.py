@@ -22,13 +22,7 @@ class ApifyStorageClient(StorageClient):
         configuration: Configuration | None = None,
     ) -> ApifyDatasetClient:
         configuration = configuration or Configuration.get_global_configuration()
-        client = await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
-
-        if configuration.purge_on_start:
-            await client.drop()
-            client = await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
-
-        return client
+        return await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
 
     @override
     async def create_kvs_client(
@@ -39,13 +33,7 @@ class ApifyStorageClient(StorageClient):
         configuration: Configuration | None = None,
     ) -> ApifyKeyValueStoreClient:
         configuration = configuration or Configuration.get_global_configuration()
-        client = await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
-
-        if configuration.purge_on_start:
-            await client.drop()
-            client = await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
-
-        return client
+        return await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
 
     @override
     async def create_rq_client(
@@ -56,10 +44,4 @@ class ApifyStorageClient(StorageClient):
         configuration: Configuration | None = None,
     ) -> ApifyRequestQueueClient:
         configuration = configuration or Configuration.get_global_configuration()
-        client = await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
-
-        if configuration.purge_on_start:
-            await client.drop()
-            client = await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
-
-        return client
+        return await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)

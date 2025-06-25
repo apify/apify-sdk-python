@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
@@ -86,11 +87,35 @@ class ApifyDatasetClient(DatasetClient):
 
         apify_datasets_client = apify_client_async.datasets()
 
-        metadata = DatasetMetadata.model_validate(
-            await apify_datasets_client.get_or_create(name=id if id is not None else name),
-        )
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
-        apify_dataset_client = apify_client_async.dataset(dataset_id=metadata.id)
+        # If name is provided, get or create the storage by name.
+        if name is not None and id is None:
+            id = DatasetMetadata.model_validate(
+                await apify_datasets_client.get_or_create(name=name),
+            ).id
+
+        # If both id and name are None, try to get the default storage ID from environment variables.
+        if id is None and name is None:
+            id = os.environ.get(
+                'ACTOR_DEFAULT_DATASET_ID',
+                None,
+            ) or os.environ.get(
+                'APIFY_DEFAULT_DATASET_ID',
+                None,
+            )
+
+        if id is None:
+            raise ValueError(
+                'Either "id" or "name" must be provided, or the storage ID must be set in environment variable.'
+            )
+
+        # Get the client for the specific storage by ID.
+        apify_dataset_client = apify_client_async.dataset(dataset_id=id)
+
+        # Fetch its metadata.
+        metadata = DatasetMetadata.model_validate(await apify_dataset_client.get())
 
         return cls(
             id=metadata.id,

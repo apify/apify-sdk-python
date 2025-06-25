@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
@@ -88,11 +89,35 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         apify_kvss_client = apify_client_async.key_value_stores()
 
-        metadata = KeyValueStoreMetadata.model_validate(
-            await apify_kvss_client.get_or_create(name=id if id is not None else name),
-        )
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
-        apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=metadata.id)
+        # If name is provided, get or create the storage by name.
+        if name is not None and id is None:
+            id = KeyValueStoreMetadata.model_validate(
+                await apify_kvss_client.get_or_create(name=name),
+            ).id
+
+        # If both id and name are None, try to get the default storage ID from environment variables.
+        if id is None and name is None:
+            id = os.environ.get(
+                'ACTOR_DEFAULT_KEY_VALUE_STORE_ID',
+                None,
+            ) or os.environ.get(
+                'APIFY_DEFAULT_KEY_VALUE_STORE_ID',
+                None,
+            )
+
+        if id is None:
+            raise ValueError(
+                'Either "id" or "name" must be provided, or the storage ID must be set in environment variable.'
+            )
+
+        # Get the client for the specific storage by ID.
+        apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+
+        # Fetch its metadata.
+        metadata = KeyValueStoreMetadata.model_validate(await apify_kvs_client.get())
 
         return cls(
             id=metadata.id,

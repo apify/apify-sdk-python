@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
@@ -118,12 +119,35 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         apify_rqs_client = apify_client_async.request_queues()
 
-        # Get or create the request queue
-        metadata = RequestQueueMetadata.model_validate(
-            await apify_rqs_client.get_or_create(name=id if id is not None else name),
-        )
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
-        apify_rq_client = apify_client_async.request_queue(request_queue_id=metadata.id)
+        # If name is provided, get or create the storage by name.
+        if name is not None and id is None:
+            id = RequestQueueMetadata.model_validate(
+                await apify_rqs_client.get_or_create(name=name),
+            ).id
+
+        # If both id and name are None, try to get the default storage ID from environment variables.
+        if id is None and name is None:
+            id = os.environ.get(
+                'ACTOR_DEFAULT_REQUEST_QUEUE_ID',
+                None,
+            ) or os.environ.get(
+                'APIFY_DEFAULT_REQUEST_QUEUE_ID',
+                None,
+            )
+
+        if id is None:
+            raise ValueError(
+                'Either "id" or "name" must be provided, or the storage ID must be set in environment variable.'
+            )
+
+        # Get the client for the specific storage by ID.
+        apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+
+        # Fetch its metadata.
+        metadata = RequestQueueMetadata.model_validate(await apify_rq_client.get())
 
         # Create the client instance
         return cls(
