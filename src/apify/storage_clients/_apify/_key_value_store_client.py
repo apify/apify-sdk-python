@@ -201,9 +201,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
     @override
     async def record_exists(self, key: str) -> bool:
-        raise NotImplementedError(
-            'Checking if a record exists is currently not supported in the Apify storage client. '
-        )
+        return await self._api_client.record_exists(key=key)
 
     async def get_public_url(self, key: str) -> str:
         """Get a URL for the given key that may be used to publicly access the value in the remote key-value store.
