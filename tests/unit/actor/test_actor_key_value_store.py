@@ -10,8 +10,6 @@ from apify._consts import ENCRYPTED_INPUT_VALUE_PREFIX
 from apify._crypto import public_encrypt
 
 
-# NOTE: We only test the key-value store methods available on Actor class/instance.
-# Actual tests for the implementations are in storages/.
 async def test_open_returns_same_references() -> None:
     async with Actor:
         kvs1 = await Actor.open_key_value_store()

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
@@ -99,10 +100,10 @@ class ApifyDatasetClient(DatasetClient):
         # If both id and name are None, try to get the default storage ID from environment variables.
         if id is None and name is None:
             id = os.environ.get(
-                'ACTOR_DEFAULT_DATASET_ID',
+                ActorEnvVars.DEFAULT_DATASET_ID.value,
                 None,
             ) or os.environ.get(
-                'APIFY_DEFAULT_DATASET_ID',
+                ApifyEnvVars.DEFAULT_DATASET_ID.value,
                 None,
             )
 

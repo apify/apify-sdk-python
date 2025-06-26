@@ -9,6 +9,7 @@ from typing_extensions import override
 from yarl import URL
 
 from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreMetadata, KeyValueStoreRecord, KeyValueStoreRecordMetadata
 
@@ -101,10 +102,10 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         # If both id and name are None, try to get the default storage ID from environment variables.
         if id is None and name is None:
             id = os.environ.get(
-                'ACTOR_DEFAULT_KEY_VALUE_STORE_ID',
+                ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID.value,
                 None,
             ) or os.environ.get(
-                'APIFY_DEFAULT_KEY_VALUE_STORE_ID',
+                ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID.value,
                 None,
             )
 

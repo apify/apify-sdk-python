@@ -4,8 +4,6 @@ import pytest
 
 from apify import Actor
 
-# NOTE: We only test the references here. Actual tests for the implementations are in storages/
-
 
 async def test_open_throws_without_init() -> None:
     with pytest.raises(RuntimeError):

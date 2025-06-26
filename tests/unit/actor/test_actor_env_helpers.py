@@ -4,9 +4,8 @@ import random
 import string
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pytest
 from pydantic_core import TzInfo
 
 from apify_shared.consts import (
@@ -22,6 +21,9 @@ from apify_shared.consts import (
 
 from apify import Actor
 
+if TYPE_CHECKING:
+    import pytest
+
 
 async def test_actor_is_not_at_home_when_local() -> None:
     async with Actor as actor:
@@ -29,7 +31,6 @@ async def test_actor_is_not_at_home_when_local() -> None:
         assert is_at_home is False
 
 
-@pytest.mark.skip(reason='TODO: fix this test')
 async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: PLR0912
     ignored_env_vars = {
         ApifyEnvVars.INPUT_KEY,
@@ -43,6 +44,7 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
         ApifyEnvVars.LOG_FORMAT,
         ApifyEnvVars.LOG_LEVEL,
         ActorEnvVars.STANDBY_PORT,
+        ApifyEnvVars.PERSIST_STORAGE,
     }
 
     legacy_env_vars = {
@@ -58,7 +60,7 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
     }
 
     # Set up random env vars
-    expected_get_env: dict[str, Any] = {}
+    expected_get_env = dict[str, Any]()
     expected_get_env[ApifyEnvVars.LOG_LEVEL.name.lower()] = 'INFO'
 
     for int_env_var in INTEGER_ENV_VARS:

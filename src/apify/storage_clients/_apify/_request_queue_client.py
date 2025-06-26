@@ -11,6 +11,7 @@ from cachetools import LRUCache
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
+from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee._utils.requests import unique_key_to_request_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
@@ -131,10 +132,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # If both id and name are None, try to get the default storage ID from environment variables.
         if id is None and name is None:
             id = os.environ.get(
-                'ACTOR_DEFAULT_REQUEST_QUEUE_ID',
+                ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID.value,
                 None,
             ) or os.environ.get(
-                'APIFY_DEFAULT_REQUEST_QUEUE_ID',
+                ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID.value,
                 None,
             )
 

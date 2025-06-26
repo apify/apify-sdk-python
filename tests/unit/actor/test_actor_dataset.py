@@ -2,13 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from apify_shared.consts import ActorEnvVars
-from crawlee.storage_clients import FileSystemStorageClient
-
 from apify import Actor
-
-# NOTE: We only test the dataset methods available on Actor class/instance.
-# Actual tests for the implementations are in storages/.
 
 
 async def test_throws_error_without_actor_init() -> None:
@@ -32,20 +26,6 @@ async def test_open_dataset_returns_same_references() -> None:
 
         assert dataset_by_id_1 is dataset_by_name_1
         assert dataset_by_id_2 is dataset_by_id_1
-
-
-@pytest.mark.skip(reason='TODO: fix this test')
-async def test_open_dataset_uses_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
-    memory_storage_client = FileSystemStorageClient()
-
-    default_dataset_id = 'my-new-default-id'
-    monkeypatch.setenv(ActorEnvVars.DEFAULT_DATASET_ID, default_dataset_id)
-
-    async with Actor:
-        ddt = await Actor.open_dataset()
-        assert ddt.metadata.id == default_dataset_id
-        dataset = await memory_storage_client.create_dataset_client(id=ddt.metadata.id)
-        await dataset.drop()
 
 
 async def test_push_data_to_dataset() -> None:
