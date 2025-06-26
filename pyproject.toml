@@ -37,7 +37,7 @@ dependencies = [
     "apify-client>=1.11.0",
     "apify-shared>=1.3.0",
     "cachetools>=5.5.0",
-    "crawlee@git+https://github.com/apify/crawlee-python.git@new-storage-clients",
+    "crawlee@git+https://github.com/apify/crawlee-python.git@bc50990dd09eb5c2b66783b2fa62a8bc689a7737",
     "cryptography>=42.0.0",
     "httpx>=0.27.0",
     # TODO: ensure compatibility with the latest version of lazy-object-proxy
