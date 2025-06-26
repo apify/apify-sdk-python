@@ -37,10 +37,6 @@ async def test_push_and_verify_data_in_default_dataset(
     assert len(list_page.items) == list_page.count == desired_item_count
 
 
-import pytest
-
-
-@pytest.mark.only
 async def test_push_large_data_chunks_over_9mb(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
