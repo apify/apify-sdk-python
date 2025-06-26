@@ -130,10 +130,10 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
     @override
     async def purge(self) -> None:
-        # TODO: better?
-        # https://github.com/apify/apify-sdk-python/issues/469
-        async with self._lock:
-            await self._api_client.delete()
+        raise NotImplementedError(
+            'Purging key-value stores is not supported in the Apify platform. '
+            'Use the `drop` method to delete the key-value store instead.'
+        )
 
     @override
     async def drop(self) -> None:
