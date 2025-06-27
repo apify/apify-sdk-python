@@ -682,23 +682,7 @@ class _ActorType:
                 config[alias] = getattr(self._configuration, field_name)
 
         env_vars = {env_var.value.lower(): env_var.name.lower() for env_var in [*ActorEnvVars, *ApifyEnvVars]}
-        result = {option_name: config[env_var] for env_var, option_name in env_vars.items() if env_var in config}
-
-        # These environment variables are not part of the Configuration model,
-        # so we need to add them manually to the result dictionary.
-        result[ActorEnvVars.DEFAULT_DATASET_ID.name.lower()] = os.environ.get(
-            ActorEnvVars.DEFAULT_DATASET_ID.value
-        ) or os.environ.get(ApifyEnvVars.DEFAULT_DATASET_ID.value)
-
-        result[ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID.name.lower()] = os.environ.get(
-            ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID.value
-        ) or os.environ.get(ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID.value)
-
-        result[ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID.name.lower()] = os.environ.get(
-            ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID.value
-        ) or os.environ.get(ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID.value)
-
-        return result
+        return {option_name: config[env_var] for env_var, option_name in env_vars.items() if env_var in config}
 
     async def start(
         self,
