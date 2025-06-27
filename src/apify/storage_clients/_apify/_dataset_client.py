@@ -33,6 +33,7 @@ class ApifyDatasetClient(DatasetClient):
         modified_at: datetime,
         item_count: int,
         api_client: DatasetClientAsync,
+        lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
 
@@ -50,7 +51,7 @@ class ApifyDatasetClient(DatasetClient):
         self._api_client = api_client
         """The Apify dataset client for API operations."""
 
-        self._lock = asyncio.Lock()
+        self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
 
     @property
@@ -75,7 +76,10 @@ class ApifyDatasetClient(DatasetClient):
         if not api_url:
             raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
-        # Otherwise, create a new one.
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+
+        # Create Apify client with the provided token and API URL.
         apify_client_async = ApifyClientAsync(
             token=token,
             api_url=api_url,
@@ -83,11 +87,7 @@ class ApifyDatasetClient(DatasetClient):
             min_delay_between_retries_millis=500,
             timeout_secs=360,
         )
-
         apify_datasets_client = apify_client_async.datasets()
-
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
         # If name is provided, get or create the storage by name.
         if name is not None and id is None:
@@ -118,6 +118,7 @@ class ApifyDatasetClient(DatasetClient):
             modified_at=metadata.modified_at,
             item_count=metadata.item_count,
             api_client=apify_dataset_client,
+            lock=asyncio.Lock(),
         )
 
     @override

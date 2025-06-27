@@ -49,6 +49,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         stats: dict,
         total_request_count: int,
         api_client: RequestQueueClientAsync,
+        lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
 
@@ -70,7 +71,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._api_client = api_client
         """The Apify request queue client for API operations."""
 
-        self._lock = asyncio.Lock()
+        self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
 
         self._queue_head = deque[str]()
@@ -107,7 +108,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if not api_url:
             raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
-        # Create a new API client
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+
+        # Create Apify client with the provided token and API URL.
         apify_client_async = ApifyClientAsync(
             token=token,
             api_url=api_url,
@@ -115,11 +119,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             min_delay_between_retries_millis=500,
             timeout_secs=360,
         )
-
         apify_rqs_client = apify_client_async.request_queues()
-
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
         # If name is provided, get or create the storage by name.
         if name is not None and id is None:
@@ -142,7 +142,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Fetch its metadata.
         metadata = RequestQueueMetadata.model_validate(await apify_rq_client.get())
 
-        # Create the client instance
         return cls(
             id=metadata.id,
             name=metadata.name,
@@ -155,6 +154,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             stats=metadata.stats,
             total_request_count=metadata.total_request_count,
             api_client=apify_rq_client,
+            lock=asyncio.Lock(),
         )
 
     @override

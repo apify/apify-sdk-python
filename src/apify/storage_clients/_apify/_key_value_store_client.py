@@ -36,6 +36,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         accessed_at: datetime,
         modified_at: datetime,
         api_client: KeyValueStoreClientAsync,
+        lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
 
@@ -52,7 +53,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         self._api_client = api_client
         """The Apify key-value store client for API operations."""
 
-        self._lock = asyncio.Lock()
+        self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
 
     @property
@@ -77,7 +78,10 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         if not api_url:
             raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
-        # Otherwise, create a new one.
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+
+        # Create Apify client with the provided token and API URL.
         apify_client_async = ApifyClientAsync(
             token=token,
             api_url=api_url,
@@ -85,11 +89,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             min_delay_between_retries_millis=500,
             timeout_secs=360,
         )
-
         apify_kvss_client = apify_client_async.key_value_stores()
-
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
         # If name is provided, get or create the storage by name.
         if name is not None and id is None:
@@ -119,6 +119,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             accessed_at=metadata.accessed_at,
             modified_at=metadata.modified_at,
             api_client=apify_kvs_client,
+            lock=asyncio.Lock(),
         )
 
     @override
