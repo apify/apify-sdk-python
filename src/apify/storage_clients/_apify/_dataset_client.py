@@ -1,0 +1,290 @@
+from __future__ import annotations
+
+import asyncio
+from logging import getLogger
+from typing import TYPE_CHECKING, Any
+
+from typing_extensions import override
+
+from apify_client import ApifyClientAsync
+from crawlee._utils.byte_size import ByteSize
+from crawlee._utils.file import json_dumps
+from crawlee.storage_clients._base import DatasetClient
+from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+    from datetime import datetime
+
+    from apify_client.clients import DatasetClientAsync
+    from crawlee._types import JsonSerializable
+    from crawlee.configuration import Configuration
+
+logger = getLogger(__name__)
+
+
+class ApifyDatasetClient(DatasetClient):
+    """An Apify platform implementation of the dataset client."""
+
+    _MAX_PAYLOAD_SIZE = ByteSize.from_mb(9)
+    """Maximum size for a single payload."""
+
+    _SAFETY_BUFFER_PERCENT = 0.01 / 100  # 0.01%
+    """Percentage buffer to reduce payload limit slightly for safety."""
+
+    _EFFECTIVE_LIMIT_SIZE = _MAX_PAYLOAD_SIZE - (_MAX_PAYLOAD_SIZE * _SAFETY_BUFFER_PERCENT)
+    """Calculated payload limit considering safety buffer."""
+
+    def __init__(
+        self,
+        *,
+        id: str,
+        name: str | None,
+        created_at: datetime,
+        accessed_at: datetime,
+        modified_at: datetime,
+        item_count: int,
+        api_client: DatasetClientAsync,
+        lock: asyncio.Lock,
+    ) -> None:
+        """Initialize a new instance.
+
+        Preferably use the `ApifyDatasetClient.open` class method to create a new instance.
+        """
+        self._metadata = DatasetMetadata(
+            id=id,
+            name=name,
+            created_at=created_at,
+            accessed_at=accessed_at,
+            modified_at=modified_at,
+            item_count=item_count,
+        )
+
+        self._api_client = api_client
+        """The Apify dataset client for API operations."""
+
+        self._lock = lock
+        """A lock to ensure that only one operation is performed at a time."""
+
+    @property
+    @override
+    def metadata(self) -> DatasetMetadata:
+        return self._metadata
+
+    @override
+    @classmethod
+    async def open(
+        cls,
+        *,
+        id: str | None,
+        name: str | None,
+        configuration: Configuration,
+    ) -> ApifyDatasetClient:
+        token = getattr(configuration, 'token', None)
+        if not token:
+            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
+
+        api_url = getattr(configuration, 'api_base_url', None)
+        if not api_url:
+            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
+
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+
+        # Create Apify client with the provided token and API URL.
+        apify_client_async = ApifyClientAsync(
+            token=token,
+            api_url=api_url,
+            max_retries=8,
+            min_delay_between_retries_millis=500,
+            timeout_secs=360,
+        )
+        apify_datasets_client = apify_client_async.datasets()
+
+        # If name is provided, get or create the storage by name.
+        if name is not None and id is None:
+            id = DatasetMetadata.model_validate(
+                await apify_datasets_client.get_or_create(name=name),
+            ).id
+
+        # If both id and name are None, try to get the default storage ID from environment variables.
+        if id is None and name is None:
+            id = getattr(configuration, 'default_dataset_id', None)
+
+        if id is None:
+            raise ValueError(
+                'Either "id" or "name" must be provided, or the storage ID must be set in environment variable.'
+            )
+
+        # Get the client for the specific storage by ID.
+        apify_dataset_client = apify_client_async.dataset(dataset_id=id)
+
+        # Fetch its metadata.
+        metadata = DatasetMetadata.model_validate(await apify_dataset_client.get())
+
+        return cls(
+            id=metadata.id,
+            name=metadata.name,
+            created_at=metadata.created_at,
+            accessed_at=metadata.accessed_at,
+            modified_at=metadata.modified_at,
+            item_count=metadata.item_count,
+            api_client=apify_dataset_client,
+            lock=asyncio.Lock(),
+        )
+
+    @override
+    async def purge(self) -> None:
+        raise NotImplementedError(
+            'Purging datasets is not supported in the Apify platform. '
+            'Use the `drop` method to delete the dataset instead.'
+        )
+
+    @override
+    async def drop(self) -> None:
+        async with self._lock:
+            await self._api_client.delete()
+
+    @override
+    async def push_data(self, data: list[Any] | dict[str, Any]) -> None:
+        async def payloads_generator() -> AsyncIterator[str]:
+            for index, item in enumerate(data):
+                yield await self._check_and_serialize(item, index)
+
+        async with self._lock:
+            # Handle lists
+            if isinstance(data, list):
+                # Invoke client in series to preserve the order of data
+                async for items in self._chunk_by_size(payloads_generator()):
+                    await self._api_client.push_items(items=items)
+
+            # Handle singular items
+            else:
+                items = await self._check_and_serialize(data)
+                await self._api_client.push_items(items=items)
+
+            await self._update_metadata()
+
+    @override
+    async def get_data(
+        self,
+        *,
+        offset: int = 0,
+        limit: int | None = 999_999_999_999,
+        clean: bool = False,
+        desc: bool = False,
+        fields: list[str] | None = None,
+        omit: list[str] | None = None,
+        unwind: str | None = None,
+        skip_empty: bool = False,
+        skip_hidden: bool = False,
+        flatten: list[str] | None = None,
+        view: str | None = None,
+    ) -> DatasetItemsListPage:
+        response = await self._api_client.list_items(
+            offset=offset,
+            limit=limit,
+            clean=clean,
+            desc=desc,
+            fields=fields,
+            omit=omit,
+            unwind=unwind,
+            skip_empty=skip_empty,
+            skip_hidden=skip_hidden,
+            flatten=flatten,
+            view=view,
+        )
+        result = DatasetItemsListPage.model_validate(vars(response))
+        await self._update_metadata()
+        return result
+
+    @override
+    async def iterate_items(
+        self,
+        *,
+        offset: int = 0,
+        limit: int | None = None,
+        clean: bool = False,
+        desc: bool = False,
+        fields: list[str] | None = None,
+        omit: list[str] | None = None,
+        unwind: str | None = None,
+        skip_empty: bool = False,
+        skip_hidden: bool = False,
+    ) -> AsyncIterator[dict]:
+        async for item in self._api_client.iterate_items(
+            offset=offset,
+            limit=limit,
+            clean=clean,
+            desc=desc,
+            fields=fields,
+            omit=omit,
+            unwind=unwind,
+            skip_empty=skip_empty,
+            skip_hidden=skip_hidden,
+        ):
+            yield item
+
+        await self._update_metadata()
+
+    async def _update_metadata(self) -> None:
+        """Update the dataset metadata file with current information."""
+        metadata = await self._api_client.get()
+        self._metadata = DatasetMetadata.model_validate(metadata)
+
+    @classmethod
+    async def _check_and_serialize(cls, item: JsonSerializable, index: int | None = None) -> str:
+        """Serialize a given item to JSON, checks its serializability and size against a limit.
+
+        Args:
+            item: The item to serialize.
+            index: Index of the item, used for error context.
+
+        Returns:
+            Serialized JSON string.
+
+        Raises:
+            ValueError: If item is not JSON serializable or exceeds size limit.
+        """
+        s = ' ' if index is None else f' at index {index} '
+
+        try:
+            payload = await json_dumps(item)
+        except Exception as exc:
+            raise ValueError(f'Data item{s}is not serializable to JSON.') from exc
+
+        payload_size = ByteSize(len(payload.encode('utf-8')))
+        if payload_size > cls._EFFECTIVE_LIMIT_SIZE:
+            raise ValueError(f'Data item{s}is too large (size: {payload_size}, limit: {cls._EFFECTIVE_LIMIT_SIZE})')
+
+        return payload
+
+    async def _chunk_by_size(self, items: AsyncIterator[str]) -> AsyncIterator[str]:
+        """Yield chunks of JSON arrays composed of input strings, respecting a size limit.
+
+        Groups an iterable of JSON string payloads into larger JSON arrays, ensuring the total size
+        of each array does not exceed `EFFECTIVE_LIMIT_SIZE`. Each output is a JSON array string that
+        contains as many payloads as possible without breaching the size threshold, maintaining the
+        order of the original payloads. Assumes individual items are below the size limit.
+
+        Args:
+            items: Iterable of JSON string payloads.
+
+        Yields:
+            Strings representing JSON arrays of payloads, each staying within the size limit.
+        """
+        last_chunk_size = ByteSize(2)  # Add 2 bytes for [] wrapper.
+        current_chunk = []
+
+        async for payload in items:
+            payload_size = ByteSize(len(payload.encode('utf-8')))
+
+            if last_chunk_size + payload_size <= self._EFFECTIVE_LIMIT_SIZE:
+                current_chunk.append(payload)
+                last_chunk_size += payload_size + ByteSize(1)  # Add 1 byte for ',' separator.
+            else:
+                yield f'[{",".join(current_chunk)}]'
+                current_chunk = [payload]
+                last_chunk_size = payload_size + ByteSize(2)  # Add 2 bytes for [] wrapper.
+
+        yield f'[{",".join(current_chunk)}]'

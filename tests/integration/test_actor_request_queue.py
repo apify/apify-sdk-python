@@ -3,10 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from apify_shared.consts import ApifyEnvVars
-from crawlee import Request
 
 from ._utils import generate_unique_resource_name
-from apify import Actor
+from apify import Actor, Request
 
 if TYPE_CHECKING:
     import pytest
@@ -46,8 +45,8 @@ async def test_same_references_in_named_rq(
             rq_by_name_2 = await Actor.open_request_queue(name=rq_name)
             assert rq_by_name_1 is rq_by_name_2
 
-            rq_by_id_1 = await Actor.open_request_queue(id=rq_by_name_1._id)
-            rq_by_id_2 = await Actor.open_request_queue(id=rq_by_name_1._id)
+            rq_by_id_1 = await Actor.open_request_queue(id=rq_by_name_1.metadata.id)
+            rq_by_id_2 = await Actor.open_request_queue(id=rq_by_name_1.metadata.id)
             assert rq_by_id_1 is rq_by_name_1
             assert rq_by_id_2 is rq_by_id_1
 
@@ -70,7 +69,7 @@ async def test_force_cloud(
 
     async with Actor:
         request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        request_queue_id = request_queue._id
+        request_queue_id = request_queue.metadata.id
 
         request_info = await request_queue.add_request(Request.from_url('http://example.com'))
 
