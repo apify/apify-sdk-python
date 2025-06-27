@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
@@ -11,7 +10,6 @@ from cachetools import LRUCache
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee._utils.requests import unique_key_to_request_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
@@ -131,13 +129,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         # If both id and name are None, try to get the default storage ID from environment variables.
         if id is None and name is None:
-            id = os.environ.get(
-                ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID.value,
-                None,
-            ) or os.environ.get(
-                ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID.value,
-                None,
-            )
+            id = getattr(configuration, 'default_request_queue_id', None)
 
         if id is None:
             raise ValueError(

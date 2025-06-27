@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
@@ -9,7 +8,6 @@ from typing_extensions import override
 from yarl import URL
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ApifyEnvVars
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreMetadata, KeyValueStoreRecord, KeyValueStoreRecordMetadata
 
@@ -101,13 +99,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         # If both id and name are None, try to get the default storage ID from environment variables.
         if id is None and name is None:
-            id = os.environ.get(
-                ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID.value,
-                None,
-            ) or os.environ.get(
-                ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID.value,
-                None,
-            )
+            id = getattr(configuration, 'default_key_value_store_id', None)
 
         if id is None:
             raise ValueError(
