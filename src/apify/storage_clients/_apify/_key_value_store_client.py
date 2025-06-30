@@ -16,7 +16,6 @@ from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-    from datetime import datetime
 
     from apify_client.clients import KeyValueStoreClientAsync
     from crawlee.configuration import Configuration
@@ -30,28 +29,22 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
     def __init__(
         self,
         *,
-        id: str,
-        name: str | None,
-        created_at: datetime,
-        accessed_at: datetime,
-        modified_at: datetime,
+        metadata: KeyValueStoreMetadata,
         api_client: KeyValueStoreClientAsync,
+        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
 
         Preferably use the `ApifyKeyValueStoreClient.open` class method to create a new instance.
         """
-        self._metadata = KeyValueStoreMetadata(
-            id=id,
-            name=name,
-            created_at=created_at,
-            accessed_at=accessed_at,
-            modified_at=modified_at,
-        )
+        self._metadata = metadata
 
         self._api_client = api_client
-        """The Apify key-value store client for API operations."""
+        """The Apify KVS client for API operations."""
+
+        self._api_public_base_url = api_public_base_url
+        """The public base URL for accessing the key-value store records."""
 
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
@@ -99,6 +92,13 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         if not api_url:
             raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
+        api_public_base_url = getattr(configuration, 'api_public_base_url', None)
+        if not api_public_base_url:
+            raise ValueError(
+                'Apify storage client requires a valid API public base URL in Configuration '
+                f'(api_public_base_url={api_public_base_url}).'
+            )
+
         if id and name:
             raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
@@ -134,12 +134,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         metadata = KeyValueStoreMetadata.model_validate(await apify_kvs_client.get())
 
         return cls(
-            id=metadata.id,
-            name=metadata.name,
-            created_at=metadata.created_at,
-            accessed_at=metadata.accessed_at,
-            modified_at=metadata.modified_at,
+            metadata=metadata,
             api_client=apify_kvs_client,
+            api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
         )
 
@@ -230,7 +227,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             raise ValueError('resource_id cannot be None when generating a public URL')
 
         public_url = (
-            URL(self._api_client.base_url) / 'v2' / 'key-value-stores' / self._api_client.resource_id / 'records' / key
+            URL(self._api_public_base_url) / 'v2' / 'key-value-stores' / self._api_client.resource_id / 'records' / key
         )
 
         if self.metadata.model_extra is not None:

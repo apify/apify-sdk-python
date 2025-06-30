@@ -217,12 +217,12 @@ async def test_generate_public_url_for_kvs_record(
             await kvs.set_value(record_key, {'exposedData': 'test'}, 'application/json')
 
             record_url = await kvs.get_public_url(record_key)
-
             signature = create_hmac_signature(url_signing_secret_key, record_key)
-            assert (
-                record_url
-                == f'{public_api_url}/v2/key-value-stores/{default_kvs_id}/records/{record_key}?signature={signature}'
+            expected_record_url = (
+                f'{public_api_url}/v2/key-value-stores/{default_kvs_id}/records/{record_key}?signature={signature}'
             )
+
+            assert record_url == expected_record_url
 
     actor = await make_actor(label='kvs-get-public-url', main_func=main)
     run_result = await run_actor(actor)

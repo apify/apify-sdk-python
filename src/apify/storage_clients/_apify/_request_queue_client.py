@@ -38,38 +38,22 @@ class ApifyRequestQueueClient(RequestQueueClient):
     def __init__(
         self,
         *,
-        id: str,
-        name: str | None,
-        created_at: datetime,
-        accessed_at: datetime,
-        modified_at: datetime,
-        had_multiple_clients: bool,
-        handled_request_count: int,
-        pending_request_count: int,
-        stats: dict,
-        total_request_count: int,
+        metadata: RequestQueueMetadata,
         api_client: RequestQueueClientAsync,
+        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
 
         Preferably use the `ApifyRequestQueueClient.open` class method to create a new instance.
         """
-        self._metadata = RequestQueueMetadata(
-            id=id,
-            name=name,
-            created_at=created_at,
-            accessed_at=accessed_at,
-            modified_at=modified_at,
-            had_multiple_clients=had_multiple_clients,
-            handled_request_count=handled_request_count,
-            pending_request_count=pending_request_count,
-            stats=stats,
-            total_request_count=total_request_count,
-        )
+        self._metadata = metadata
 
         self._api_client = api_client
         """The Apify request queue client for API operations."""
+
+        self._api_public_base_url = api_public_base_url
+        """The public base URL for accessing the key-value store records."""
 
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
@@ -130,6 +114,13 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if not api_url:
             raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
+        api_public_base_url = getattr(configuration, 'api_public_base_url', None)
+        if not api_public_base_url:
+            raise ValueError(
+                'Apify storage client requires a valid API public base URL in Configuration '
+                f'(api_public_base_url={api_public_base_url}).'
+            )
+
         if id and name:
             raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
@@ -165,17 +156,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
         metadata = RequestQueueMetadata.model_validate(await apify_rq_client.get())
 
         return cls(
-            id=metadata.id,
-            name=metadata.name,
-            created_at=metadata.created_at,
-            accessed_at=metadata.accessed_at,
-            modified_at=metadata.modified_at,
-            had_multiple_clients=metadata.had_multiple_clients,
-            handled_request_count=metadata.handled_request_count,
-            pending_request_count=metadata.pending_request_count,
-            stats=metadata.stats,
-            total_request_count=metadata.total_request_count,
+            metadata=metadata,
             api_client=apify_rq_client,
+            api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
         )
 

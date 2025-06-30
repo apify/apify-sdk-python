@@ -14,7 +14,6 @@ from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-    from datetime import datetime
 
     from apify_client.clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
@@ -38,30 +37,22 @@ class ApifyDatasetClient(DatasetClient):
     def __init__(
         self,
         *,
-        id: str,
-        name: str | None,
-        created_at: datetime,
-        accessed_at: datetime,
-        modified_at: datetime,
-        item_count: int,
+        metadata: DatasetMetadata,
         api_client: DatasetClientAsync,
+        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
 
         Preferably use the `ApifyDatasetClient.open` class method to create a new instance.
         """
-        self._metadata = DatasetMetadata(
-            id=id,
-            name=name,
-            created_at=created_at,
-            accessed_at=accessed_at,
-            modified_at=modified_at,
-            item_count=item_count,
-        )
+        self._metadata = metadata
 
         self._api_client = api_client
         """The Apify dataset client for API operations."""
+
+        self._api_public_base_url = api_public_base_url
+        """The public base URL for accessing the key-value store records."""
 
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
@@ -109,6 +100,13 @@ class ApifyDatasetClient(DatasetClient):
         if not api_url:
             raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
+        api_public_base_url = getattr(configuration, 'api_public_base_url', None)
+        if not api_public_base_url:
+            raise ValueError(
+                'Apify storage client requires a valid API public base URL in Configuration '
+                f'(api_public_base_url={api_public_base_url}).'
+            )
+
         if id and name:
             raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
@@ -144,13 +142,9 @@ class ApifyDatasetClient(DatasetClient):
         metadata = DatasetMetadata.model_validate(await apify_dataset_client.get())
 
         return cls(
-            id=metadata.id,
-            name=metadata.name,
-            created_at=metadata.created_at,
-            accessed_at=metadata.accessed_at,
-            modified_at=metadata.modified_at,
-            item_count=metadata.item_count,
+            metadata=metadata,
             api_client=apify_dataset_client,
+            api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
         )
 
