@@ -61,7 +61,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
     def metadata(self) -> KeyValueStoreMetadata:
         return self._metadata
 
-    @override
     @classmethod
     async def open(
         cls,
@@ -70,6 +69,28 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         name: str | None,
         configuration: Configuration,
     ) -> ApifyKeyValueStoreClient:
+        """Open an Apify key-value store client.
+
+        This method creates and initializes a new instance of the Apify key-value store client.
+        It handles authentication, storage lookup/creation, and metadata retrieval.
+
+        Args:
+            id: The ID of an existing key-value store to open. If provided, the client will connect to this specific
+                storage. Cannot be used together with `name`.
+            name: The name of a key-value store to get or create. If a storage with this name exists, it will be
+                opened; otherwise, a new one will be created. Cannot be used together with `id`.
+            configuration: The configuration object containing API credentials and settings. Must include a valid
+                `token` and `api_base_url`. May also contain a `default_key_value_store_id` for fallback when
+                neither `id` nor `name` is provided.
+
+        Returns:
+            An instance for the opened or created storage client.
+
+        Raises:
+            ValueError: If the configuration is missing required fields (token, api_base_url), if both `id` and `name`
+                are provided, or if neither `id` nor `name` is provided and no default storage ID is available
+                in the configuration.
+        """
         token = getattr(configuration, 'token', None)
         if not token:
             raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
@@ -201,6 +222,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         Args:
             key: The key for which the URL should be generated.
+
+        Returns:
+            A public URL that can be used to access the value of the given key in the KVS.
         """
         if self._api_client.resource_id is None:
             raise ValueError('resource_id cannot be None when generating a public URL')
@@ -209,11 +233,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             URL(self._api_client.base_url) / 'v2' / 'key-value-stores' / self._api_client.resource_id / 'records' / key
         )
 
-        key_value_store = self.metadata
-
-        if key_value_store and key_value_store.model_extra:
-            url_signing_secret_key = key_value_store.model_extra.get('urlSigningSecretKey')
-            if url_signing_secret_key:
+        if self.metadata.model_extra is not None:
+            url_signing_secret_key = self.metadata.model_extra.get('urlSigningSecretKey')
+            if url_signing_secret_key is not None:
                 public_url = public_url.with_query(signature=create_hmac_signature(url_signing_secret_key, key))
 
         return str(public_url)

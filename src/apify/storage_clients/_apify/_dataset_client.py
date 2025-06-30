@@ -71,7 +71,6 @@ class ApifyDatasetClient(DatasetClient):
     def metadata(self) -> DatasetMetadata:
         return self._metadata
 
-    @override
     @classmethod
     async def open(
         cls,
@@ -80,6 +79,28 @@ class ApifyDatasetClient(DatasetClient):
         name: str | None,
         configuration: Configuration,
     ) -> ApifyDatasetClient:
+        """Open an Apify dataset client.
+
+        This method creates and initializes a new instance of the Apify dataset client.
+        It handles authentication, storage lookup/creation, and metadata retrieval.
+
+        Args:
+            id: The ID of an existing dataset to open. If provided, the client will connect to this specific storage.
+                Cannot be used together with `name`.
+            name: The name of a dataset to get or create. If a storage with this name exists, it will be opened;
+                otherwise, a new one will be created. Cannot be used together with `id`.
+            configuration: The configuration object containing API credentials and settings. Must include a valid
+                `token` and `api_base_url`. May also contain a `default_dataset_id` for fallback when neither
+                `id` nor `name` is provided.
+
+        Returns:
+            An instance for the opened or created storage client.
+
+        Raises:
+            ValueError: If the configuration is missing required fields (token, api_base_url), if both `id` and `name`
+                are provided, or if neither `id` nor `name` is provided and no default storage ID is available in
+                the configuration.
+        """
         token = getattr(configuration, 'token', None)
         if not token:
             raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
