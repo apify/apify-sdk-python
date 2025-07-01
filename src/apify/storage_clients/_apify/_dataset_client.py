@@ -37,7 +37,6 @@ class ApifyDatasetClient(DatasetClient):
     def __init__(
         self,
         *,
-        metadata: DatasetMetadata,
         api_client: DatasetClientAsync,
         api_public_base_url: str,
         lock: asyncio.Lock,
@@ -46,8 +45,6 @@ class ApifyDatasetClient(DatasetClient):
 
         Preferably use the `ApifyDatasetClient.open` class method to create a new instance.
         """
-        self._metadata = metadata
-
         self._api_client = api_client
         """The Apify dataset client for API operations."""
 
@@ -57,10 +54,10 @@ class ApifyDatasetClient(DatasetClient):
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
 
-    @property
     @override
-    def metadata(self) -> DatasetMetadata:
-        return self._metadata
+    async def get_metadata(self) -> DatasetMetadata:
+        metadata = await self._api_client.get()
+        return DatasetMetadata.model_validate(metadata)
 
     @classmethod
     async def open(
@@ -138,11 +135,7 @@ class ApifyDatasetClient(DatasetClient):
         # Get the client for the specific storage by ID.
         apify_dataset_client = apify_client_async.dataset(dataset_id=id)
 
-        # Fetch its metadata.
-        metadata = DatasetMetadata.model_validate(await apify_dataset_client.get())
-
         return cls(
-            metadata=metadata,
             api_client=apify_dataset_client,
             api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
@@ -178,8 +171,6 @@ class ApifyDatasetClient(DatasetClient):
                 items = await self._check_and_serialize(data)
                 await self._api_client.push_items(items=items)
 
-            await self._update_metadata()
-
     @override
     async def get_data(
         self,
@@ -209,9 +200,7 @@ class ApifyDatasetClient(DatasetClient):
             flatten=flatten,
             view=view,
         )
-        result = DatasetItemsListPage.model_validate(vars(response))
-        await self._update_metadata()
-        return result
+        return DatasetItemsListPage.model_validate(vars(response))
 
     @override
     async def iterate_items(
@@ -239,13 +228,6 @@ class ApifyDatasetClient(DatasetClient):
             skip_hidden=skip_hidden,
         ):
             yield item
-
-        await self._update_metadata()
-
-    async def _update_metadata(self) -> None:
-        """Update the dataset metadata file with current information."""
-        metadata = await self._api_client.get()
-        self._metadata = DatasetMetadata.model_validate(metadata)
 
     @classmethod
     async def _check_and_serialize(cls, item: JsonSerializable, index: int | None = None) -> str:

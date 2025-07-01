@@ -21,8 +21,9 @@ async def test_open_returns_same_references() -> None:
         kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
         assert kvs_by_name_1 is kvs_by_name_2
 
-        kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_by_name_1.metadata.id)
-        kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_by_name_1.metadata.id)
+        kvs_1_metadata = await kvs_by_name_1.get_metadata()
+        kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
+        kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
         assert kvs_by_id_1 is kvs_by_name_1
         assert kvs_by_id_2 is kvs_by_id_1
 

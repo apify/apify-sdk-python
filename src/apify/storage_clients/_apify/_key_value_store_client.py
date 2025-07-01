@@ -29,7 +29,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
     def __init__(
         self,
         *,
-        metadata: KeyValueStoreMetadata,
         api_client: KeyValueStoreClientAsync,
         api_public_base_url: str,
         lock: asyncio.Lock,
@@ -38,8 +37,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         Preferably use the `ApifyKeyValueStoreClient.open` class method to create a new instance.
         """
-        self._metadata = metadata
-
         self._api_client = api_client
         """The Apify KVS client for API operations."""
 
@@ -49,10 +46,10 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
 
-    @property
     @override
-    def metadata(self) -> KeyValueStoreMetadata:
-        return self._metadata
+    async def get_metadata(self) -> KeyValueStoreMetadata:
+        metadata = await self._api_client.get()
+        return KeyValueStoreMetadata.model_validate(metadata)
 
     @classmethod
     async def open(
@@ -130,11 +127,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         # Get the client for the specific storage by ID.
         apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
 
-        # Fetch its metadata.
-        metadata = KeyValueStoreMetadata.model_validate(await apify_kvs_client.get())
-
         return cls(
-            metadata=metadata,
             api_client=apify_kvs_client,
             api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
@@ -229,9 +222,10 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         public_url = (
             URL(self._api_public_base_url) / 'v2' / 'key-value-stores' / self._api_client.resource_id / 'records' / key
         )
+        metadata = await self.get_metadata()
 
-        if self.metadata.model_extra is not None:
-            url_signing_secret_key = self.metadata.model_extra.get('urlSigningSecretKey')
+        if metadata.model_extra is not None:
+            url_signing_secret_key = metadata.model_extra.get('urlSigningSecretKey')
             if url_signing_secret_key is not None:
                 public_url = public_url.with_query(signature=create_hmac_signature(url_signing_secret_key, key))
 

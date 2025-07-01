@@ -45,8 +45,9 @@ async def test_same_references_in_named_kvs(
             kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
             assert kvs_by_name_1 is kvs_by_name_2
 
-            kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_by_name_1.metadata.id)
-            kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_by_name_1.metadata.id)
+            kvs_1_metadata = await kvs_by_name_1.get_metadata()
+            kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
+            kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
             assert kvs_by_id_1 is kvs_by_name_1
             assert kvs_by_id_2 is kvs_by_id_1
 
@@ -69,7 +70,7 @@ async def test_force_cloud(
 
     async with Actor:
         key_value_store = await Actor.open_key_value_store(name=key_value_store_name, force_cloud=True)
-        key_value_store_id = key_value_store.metadata.id
+        key_value_store_id = (await key_value_store.get_metadata()).id
 
         await key_value_store.set_value('foo', 'bar')
 
@@ -209,9 +210,10 @@ async def test_generate_public_url_for_kvs_record(
             record_key = 'public-record-key'
 
             kvs = await Actor.open_key_value_store()
-            assert kvs.metadata.model_extra is not None
+            metadata = await kvs.get_metadata()
+            assert metadata.model_extra is not None
 
-            url_signing_secret_key = kvs.metadata.model_extra.get('urlSigningSecretKey')
+            url_signing_secret_key = metadata.model_extra.get('urlSigningSecretKey')
             assert url_signing_secret_key is not None
 
             await kvs.set_value(record_key, {'exposedData': 'test'}, 'application/json')

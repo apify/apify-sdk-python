@@ -70,10 +70,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._should_check_for_forefront_requests = False
         """Whether to check for forefront requests in the next list_head call."""
 
-    @property
     @override
-    def metadata(self) -> RequestQueueMetadata:
-        return self._metadata
+    async def get_metadata(self) -> RequestQueueMetadata:
+        metadata = await self._api_client.get()
+        return RequestQueueMetadata.model_validate(metadata)
 
     @classmethod
     async def open(
