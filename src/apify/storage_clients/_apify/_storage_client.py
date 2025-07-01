@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from typing_extensions import override
 
-from crawlee.configuration import Configuration
 from crawlee.storage_clients._base import StorageClient
 
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
 from ._request_queue_client import ApifyRequestQueueClient
+
+if TYPE_CHECKING:
+    from crawlee.configuration import Configuration
 
 
 class ApifyStorageClient(StorageClient):
@@ -21,8 +25,16 @@ class ApifyStorageClient(StorageClient):
         name: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyDatasetClient:
-        configuration = configuration or Configuration.get_global_configuration()
-        return await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
+        from apify import Configuration as ApifyConfiguration
+
+        configuration = configuration or ApifyConfiguration.get_global_configuration()
+        if isinstance(configuration, ApifyConfiguration):
+            return await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
+
+        raise TypeError(
+            f'Expected "configuration" to be an instance of "apify.Configuration", '
+            f'but got {type(configuration).__name__} instead.'
+        )
 
     @override
     async def create_kvs_client(
@@ -32,8 +44,16 @@ class ApifyStorageClient(StorageClient):
         name: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyKeyValueStoreClient:
-        configuration = configuration or Configuration.get_global_configuration()
-        return await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
+        from apify import Configuration as ApifyConfiguration
+
+        configuration = configuration or ApifyConfiguration.get_global_configuration()
+        if isinstance(configuration, ApifyConfiguration):
+            return await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
+
+        raise TypeError(
+            f'Expected "configuration" to be an instance of "apify.Configuration", '
+            f'but got {type(configuration).__name__} instead.'
+        )
 
     @override
     async def create_rq_client(
@@ -43,5 +63,13 @@ class ApifyStorageClient(StorageClient):
         name: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyRequestQueueClient:
-        configuration = configuration or Configuration.get_global_configuration()
-        return await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
+        from apify import Configuration as ApifyConfiguration
+
+        configuration = configuration or ApifyConfiguration.get_global_configuration()
+        if isinstance(configuration, ApifyConfiguration):
+            return await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
+
+        raise TypeError(
+            f'Expected "configuration" to be an instance of "apify.Configuration", '
+            f'but got {type(configuration).__name__} instead.'
+        )

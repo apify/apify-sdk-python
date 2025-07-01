@@ -17,7 +17,8 @@ if TYPE_CHECKING:
 
     from apify_client.clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
-    from crawlee.configuration import Configuration
+
+    from apify import Configuration
 
 logger = getLogger(__name__)
 
@@ -89,15 +90,15 @@ class ApifyDatasetClient(DatasetClient):
                 are provided, or if neither `id` nor `name` is provided and no default storage ID is available in
                 the configuration.
         """
-        token = getattr(configuration, 'token', None)
+        token = configuration.token
         if not token:
             raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
 
-        api_url = getattr(configuration, 'api_base_url', None)
+        api_url = configuration.api_base_url
         if not api_url:
             raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
 
-        api_public_base_url = getattr(configuration, 'api_public_base_url', None)
+        api_public_base_url = configuration.api_public_base_url
         if not api_public_base_url:
             raise ValueError(
                 'Apify storage client requires a valid API public base URL in Configuration '
