@@ -12,6 +12,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
@@ -51,12 +52,14 @@ dependencies = [
 scrapy = ["scrapy>=2.11.0"]
 
 [project.urls]
-"Homepage" = "https://docs.apify.com/sdk/python/"
-"Apify homepage" = "https://apify.com"
+"Apify Homepage" = "https://apify.com"
 "Changelog" = "https://docs.apify.com/sdk/python/docs/changelog"
-"Documentation" = "https://docs.apify.com/sdk/python/"
-"Issue tracker" = "https://github.com/apify/apify-sdk-python/issues"
-"Repository" = "https://github.com/apify/apify-sdk-python"
+"Discord" = "https://discord.com/invite/jyEM2PRvMU"
+"Documentation" = "https://docs.apify.com/sdk/python/docs/overview/introduction"
+"Homepage" = "https://docs.apify.com/sdk/python/"
+"Issue Tracker" = "https://github.com/apify/apify-sdk-python/issues"
+"Release Notes" = "https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2"
+"Source Code" = "https://github.com/apify/apify-sdk-python"
 
 [dependency-groups]
 dev = [
