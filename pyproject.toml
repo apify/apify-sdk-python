@@ -61,18 +61,19 @@ scrapy = ["scrapy>=2.11.0"]
 [dependency-groups]
 dev = [
     "build~=1.2.0",
+    "dycw-pytest-only>=2.1.1",
     "griffe~=1.7.0",
     "mypy~=1.16.0",
     "pre-commit~=4.2.0",
     "pydoc-markdown~=4.8.0",
     "pytest-asyncio~=1.0.0",
     "pytest-cov~=6.2.0",
-    "pytest-only~=2.1.0",
+    "pytest-timeout>=2.4.0",
     "pytest-xdist~=3.8.0",
     "pytest~=8.4.0",
     "respx~=0.22.0",
     "ruff~=0.11.0",
-    "setuptools",             # setuptools are used by pytest but not explicitly required
+    "setuptools", # setuptools are used by pytest but not explicitly required
 ]
 
 [tool.hatch.build.targets.wheel]
