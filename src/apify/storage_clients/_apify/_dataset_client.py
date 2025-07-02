@@ -29,10 +29,10 @@ class ApifyDatasetClient(DatasetClient):
     _MAX_PAYLOAD_SIZE = ByteSize.from_mb(9)
     """Maximum size for a single payload."""
 
-    _SAFETY_BUFFER_PERCENT = 0.01 / 100  # 0.01%
+    _SAFETY_BUFFER_COEFFICIENT = 0.01 / 100  # 0.01%
     """Percentage buffer to reduce payload limit slightly for safety."""
 
-    _EFFECTIVE_LIMIT_SIZE = _MAX_PAYLOAD_SIZE - (_MAX_PAYLOAD_SIZE * _SAFETY_BUFFER_PERCENT)
+    _EFFECTIVE_LIMIT_SIZE = _MAX_PAYLOAD_SIZE - (_MAX_PAYLOAD_SIZE * _SAFETY_BUFFER_COEFFICIENT)
     """Calculated payload limit considering safety buffer."""
 
     def __init__(
