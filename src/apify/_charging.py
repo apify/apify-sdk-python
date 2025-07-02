@@ -216,9 +216,7 @@ class ChargingManagerImplementation(ChargingManager):
             PricingInfoItem(
                 price=Decimal()
                 if self._is_at_home
-                else Decimal(
-                    '1'
-                ),  # Use a nonzero price for local development so that the maximum budget can be reached,
+                else Decimal(1),  # Use a nonzero price for local development so that the maximum budget can be reached,
                 title=f"Unknown event '{event_name}'",
             ),
         )
@@ -282,7 +280,7 @@ class ChargingManagerImplementation(ChargingManager):
         if pricing_info is not None:
             price = pricing_info.price
         elif not self._is_at_home:
-            price = Decimal('1')  # Use a nonzero price for local development so that the maximum budget can be reached
+            price = Decimal(1)  # Use a nonzero price for local development so that the maximum budget can be reached
         else:
             price = Decimal()
 
