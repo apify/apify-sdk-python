@@ -1187,7 +1187,7 @@ class _ActorType:
 
         # Check if running in Scrapy by attempting to import it.
         with suppress(ImportError):
-            import scrapy  # noqa: F401
+            import scrapy  # noqa: F401 PLC0415
 
             self.log.debug('Running in Scrapy, setting default `exit_process` to False.')
             return False

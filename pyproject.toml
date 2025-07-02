@@ -75,7 +75,7 @@ dev = [
     "pytest-xdist~=3.8.0",
     "pytest~=8.4.0",
     "respx~=0.22.0",
-    "ruff~=0.11.0",
+    "ruff~=0.12.0",
     "setuptools", # setuptools are used by pytest but not explicitly required
 ]
 
@@ -137,6 +137,9 @@ indent-style = "space"
     "T20",     # flake8-print
     "TRY301",  # Abstract `raise` to an inner function
     "TID252",  # Prefer absolute imports over relative imports from parent modules
+]
+"**/{tests}/{integration}/*" = [
+    "PLC0415", # `import` should be at the top-level of a file
 ]
 "**/{docs,website}/**" = [
     "D",       # Everything from the pydocstyle
