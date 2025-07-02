@@ -812,6 +812,7 @@ class _ActorType:
         timeout: timedelta | None | Literal['RemainingTime'] = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
+        logger: logging.Logger | None | Literal['default'] = 'default',
     ) -> ActorRun | None:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -834,6 +835,9 @@ class _ActorType:
                 a webhook set up for the Actor, you do not have to add it again here.
             wait: The maximum number of seconds the server waits for the run to finish. If not provided,
                 waits indefinitely.
+            logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
+                default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
+                will redirect logs to the provided logger.
 
         Returns:
             Info about the started Actor run.
@@ -866,6 +870,7 @@ class _ActorType:
             timeout_secs=int(actor_call_timeout.total_seconds()) if actor_call_timeout is not None else None,
             webhooks=serialized_webhooks,
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            logger=logger,
         )
 
         return ActorRun.model_validate(api_result)

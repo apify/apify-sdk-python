@@ -3,7 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
-## 2.5.1 - **not yet released**
+## 2.6.1 - **not yet released**
+
+### 🚀 Features
+
+- Expose `logger` argument on `Actor.call` to control log redirection from started Actor run ([#487](https://github.com/apify/apify-sdk-python/pull/487)) ([aa6fa47](https://github.com/apify/apify-sdk-python/commit/aa6fa4750ea1bc7909be1191c0d276a2046930c2)) by [@Pijukatel](https://github.com/Pijukatel)
+
+
+<!-- git-cliff-unreleased-end -->
+## [2.6.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.6.0) (2025-06-09)
 
 ### 🚀 Features
 
@@ -15,7 +23,6 @@ All notable changes to this project will be documented in this file.
 - Prefer proxy password from env var  ([#468](https://github.com/apify/apify-sdk-python/pull/468)) ([1c4ad9b](https://github.com/apify/apify-sdk-python/commit/1c4ad9bcfbf6ac404f942d7d2d249b036c2e7f54)) by [@stepskop](https://github.com/stepskop)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [2.5.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.5.0) (2025-03-27)
 
 ### 🚀 Features
