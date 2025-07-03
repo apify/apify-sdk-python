@@ -62,7 +62,7 @@ jobs:
     uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
     secrets: inherit
     with:
-      python-version: '["3.9", "3.13"]'
+      python-versions: '["3.9", "3.13"]'
 
   update_changelog:
     name: Update changelog
