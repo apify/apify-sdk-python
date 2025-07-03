@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Protocol, Union
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import TypeAdapter
 
@@ -23,8 +23,7 @@ if TYPE_CHECKING:
 
     from apify._configuration import Configuration
 
-
-run_validator: TypeAdapter[ActorRun | None] = TypeAdapter(Union[ActorRun, None])
+run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
 
 
 @docs_group('Interfaces')
