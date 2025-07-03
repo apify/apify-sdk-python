@@ -11,10 +11,6 @@ on:
   # Or it can be triggered manually.
   workflow_dispatch:
 
-env:
-  PYTHON_VERSIONS: '["3.9", "3.10", "3.11", "3.12", "3.13"]'
-  PYTHON_VERSIONS_INTEGRATION_TESTS: '["3.9", "3.13"]'
-
 jobs:
   release_metadata:
     if: "!startsWith(github.event.head_commit.message, 'docs') && !startsWith(github.event.head_commit.message, 'ci') && startsWith(github.repository, 'apify/')"
@@ -36,26 +32,26 @@ jobs:
     name: Lint check
     uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
     with:
-      python-version: ${{ env.PYTHON_VERSIONS }}
+      python-version: '["3.9", "3.10", "3.11", "3.12", "3.13"]'
 
   type_check:
     name: Type check
     uses: apify/workflows/.github/workflows/python_type_check.yaml@main
     with:
-      python-version: ${{ env.PYTHON_VERSIONS }}
+      python-version: '["3.9", "3.10", "3.11", "3.12", "3.13"]'
 
   unit_tests:
     name: Unit tests
     uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
     with:
-      python-version: ${{ env.PYTHON_VERSIONS }}
+      python-version: '["3.9", "3.10", "3.11", "3.12", "3.13"]'
 
   integration_tests:
     name: Integration tests
     uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
     secrets: inherit
     with:
-      python-version: ${{ env.PYTHON_VERSIONS_INTEGRATION_TESTS }}
+      python-version: '["3.9", "3.13"]'
 
   update_changelog:
     name: Update changelog
