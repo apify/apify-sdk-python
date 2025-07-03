@@ -25,7 +25,8 @@ class ApifyStorageClient(StorageClient):
         name: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyDatasetClient:
-        from apify import Configuration as ApifyConfiguration
+        # Import here to avoid circular imports.
+        from apify import Configuration as ApifyConfiguration  # noqa: PLC0415
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
@@ -44,7 +45,8 @@ class ApifyStorageClient(StorageClient):
         name: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyKeyValueStoreClient:
-        from apify import Configuration as ApifyConfiguration
+        # Import here to avoid circular imports.
+        from apify import Configuration as ApifyConfiguration  # noqa: PLC0415
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
@@ -63,7 +65,8 @@ class ApifyStorageClient(StorageClient):
         name: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyRequestQueueClient:
-        from apify import Configuration as ApifyConfiguration
+        # Import here to avoid circular imports.
+        from apify import Configuration as ApifyConfiguration  # noqa: PLC0415
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
