@@ -13,7 +13,7 @@ from crawlee._utils.urls import validate_http_url
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 
 @docs_group('Data structures')

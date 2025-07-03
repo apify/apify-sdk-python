@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import websockets.asyncio.client
 from pydantic import BaseModel, Discriminator, Field, TypeAdapter
@@ -113,25 +113,10 @@ class UnknownEvent(BaseModel):
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
 
 
-EventMessage = Union[
-    PersistStateEvent,
-    SystemInfoEvent,
-    MigratingEvent,
-    AbortingEvent,
-    ExitEvent,
-    EventWithoutData,
-]
+EventMessage = PersistStateEvent | SystemInfoEvent | MigratingEvent | AbortingEvent | ExitEvent | EventWithoutData
 
-
-event_data_adapter: TypeAdapter[EventMessage | DeprecatedEvent | UnknownEvent] = TypeAdapter(
-    Union[
-        Annotated[
-            EventMessage,
-            Discriminator('name'),
-        ],
-        DeprecatedEvent,
-        UnknownEvent,
-    ]
+event_data_adapter = TypeAdapter[EventMessage | DeprecatedEvent | UnknownEvent](
+    Annotated[EventMessage, Discriminator('name')] | DeprecatedEvent | UnknownEvent
 )
 
 

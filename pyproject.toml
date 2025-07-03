@@ -9,13 +9,13 @@ description = "Apify SDK for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -52,27 +52,30 @@ dependencies = [
 scrapy = ["scrapy>=2.11.0"]
 
 [project.urls]
-"Homepage" = "https://docs.apify.com/sdk/python/"
-"Apify homepage" = "https://apify.com"
+"Apify Homepage" = "https://apify.com"
 "Changelog" = "https://docs.apify.com/sdk/python/docs/changelog"
-"Documentation" = "https://docs.apify.com/sdk/python/"
-"Issue tracker" = "https://github.com/apify/apify-sdk-python/issues"
-"Repository" = "https://github.com/apify/apify-sdk-python"
+"Discord" = "https://discord.com/invite/jyEM2PRvMU"
+"Documentation" = "https://docs.apify.com/sdk/python/docs/overview/introduction"
+"Homepage" = "https://docs.apify.com/sdk/python/"
+"Issue Tracker" = "https://github.com/apify/apify-sdk-python/issues"
+"Release Notes" = "https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2"
+"Source Code" = "https://github.com/apify/apify-sdk-python"
 
 [dependency-groups]
 dev = [
     "build~=1.2.0",
+    "dycw-pytest-only>=2.1.1",
     "griffe~=1.7.0",
     "mypy~=1.16.0",
     "pre-commit~=4.2.0",
     "pydoc-markdown~=4.8.0",
     "pytest-asyncio~=1.0.0",
     "pytest-cov~=6.2.0",
-    "pytest-only~=2.1.0",
-    "pytest-xdist~=3.7.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist~=3.8.0",
     "pytest~=8.4.0",
     "respx~=0.22.0",
-    "ruff~=0.11.0",
+    "ruff~=0.12.0",
     "setuptools", # setuptools are used by pytest but not explicitly required
     "types-cachetools>=6.0.0.20250525",
 ]
@@ -139,6 +142,9 @@ indent-style = "space"
     "TRY301",  # Abstract `raise` to an inner function
     "TID252",  # Prefer absolute imports over relative imports from parent modules
 ]
+"**/{tests}/{integration}/*" = [
+    "PLC0415", # `import` should be at the top-level of a file
+]
 "**/{docs,website}/**" = [
     "D",       # Everything from the pydocstyle
     "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
@@ -186,7 +192,7 @@ asyncio_mode = "auto"
 timeout = 1200
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 plugins = ["pydantic.mypy"]
 files = ["src", "tests", "docs", "website"]
 check_untyped_defs = true
@@ -213,7 +219,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.basedpyright]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 typeCheckingMode = "standard"
 include = ["src", "tests", "docs", "website"]
 

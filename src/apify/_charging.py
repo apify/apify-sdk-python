@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Protocol, Union
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import TypeAdapter
 
@@ -23,8 +23,7 @@ if TYPE_CHECKING:
 
     from apify._configuration import Configuration
 
-
-run_validator: TypeAdapter[ActorRun | None] = TypeAdapter(Union[ActorRun, None])
+run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
 
 
 @docs_group('Interfaces')
@@ -216,9 +215,7 @@ class ChargingManagerImplementation(ChargingManager):
             PricingInfoItem(
                 price=Decimal()
                 if self._is_at_home
-                else Decimal(
-                    '1'
-                ),  # Use a nonzero price for local development so that the maximum budget can be reached,
+                else Decimal(1),  # Use a nonzero price for local development so that the maximum budget can be reached,
                 title=f"Unknown event '{event_name}'",
             ),
         )
@@ -282,7 +279,7 @@ class ChargingManagerImplementation(ChargingManager):
         if pricing_info is not None:
             price = pricing_info.price
         elif not self._is_at_home:
-            price = Decimal('1')  # Use a nonzero price for local development so that the maximum budget can be reached
+            price = Decimal(1)  # Use a nonzero price for local development so that the maximum budget can be reached
         else:
             price = Decimal()
 

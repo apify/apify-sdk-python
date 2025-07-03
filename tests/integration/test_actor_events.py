@@ -18,10 +18,13 @@ async def test_emit_and_capture_interval_events(
     async def main() -> None:
         import os
         from datetime import datetime
-        from typing import Any, Callable
+        from typing import TYPE_CHECKING, Any
 
         from apify_shared.consts import ActorEventTypes, ApifyEnvVars
         from crawlee.events._types import Event, EventSystemInfoData
+
+        if TYPE_CHECKING:
+            from collections.abc import Callable
 
         os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 

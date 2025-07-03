@@ -5,7 +5,7 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 from lazy_object_proxy import Proxy
 from more_itertools import flatten
@@ -39,6 +39,7 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
+    from collections.abc import Callable
     from types import TracebackType
 
     from typing_extensions import Self
@@ -1187,7 +1188,7 @@ class _ActorType:
 
         # Check if running in Scrapy by attempting to import it.
         with suppress(ImportError):
-            import scrapy  # noqa: F401
+            import scrapy  # noqa: F401 PLC0415
 
             self.log.debug('Running in Scrapy, setting default `exit_process` to False.')
             return False

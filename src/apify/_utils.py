@@ -3,7 +3,10 @@ from __future__ import annotations
 import builtins
 import sys
 from importlib import metadata
-from typing import Callable, Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def get_system_info() -> dict:
