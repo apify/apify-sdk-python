@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 import pytest
@@ -16,6 +16,9 @@ from crawlee.events._types import Event
 
 from apify import Configuration
 from apify._platform_event_manager import PlatformEventManager, SystemInfoEventData
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')

@@ -4,7 +4,7 @@ import asyncio
 import re
 from asyncio import Task
 from functools import partial
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, TypeAdapter
 
@@ -35,7 +35,7 @@ class _SimpleUrlInput(_RequestDetails):
     url: str
 
 
-url_input_adapter = TypeAdapter(list[Union[_RequestsFromUrlInput, _SimpleUrlInput]])
+url_input_adapter = TypeAdapter(list[_RequestsFromUrlInput | _SimpleUrlInput])
 
 
 @docs_group('Classes')
