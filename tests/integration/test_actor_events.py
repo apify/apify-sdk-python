@@ -16,15 +16,14 @@ async def test_emit_and_capture_interval_events(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
+        # TC003 - TYPE_CHECKING section is problematic for our integration tests.
         import os
+        from collections.abc import Callable  # noqa: TC003
         from datetime import datetime
-        from typing import TYPE_CHECKING, Any
+        from typing import Any
 
         from apify_shared.consts import ActorEventTypes, ApifyEnvVars
         from crawlee.events._types import Event, EventSystemInfoData
-
-        if TYPE_CHECKING:
-            from collections.abc import Callable
 
         os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
