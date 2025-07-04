@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import string
 from typing import Any
 
@@ -14,7 +15,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from apify_shared.utils import ignore_docs
 from crawlee._utils.crypto import crypto_random_object_id
 
-from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP
+from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP, ENCRYPTED_STRING_VALUE_PREFIX, ENCRYPTED_JSON_VALUE_PREFIX
 
 ENCRYPTION_KEY_LENGTH = 32
 ENCRYPTION_IV_LENGTH = 16
@@ -147,13 +148,19 @@ def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input_data: Any) -> An
         if isinstance(value, str):
             match = ENCRYPTED_INPUT_VALUE_REGEXP.fullmatch(value)
             if match:
-                encrypted_password = match.group(1)
-                encrypted_value = match.group(2)
-                input_data[key] = private_decrypt(
+                prefix = match.group(1)
+                encrypted_password = match.group(3)
+                encrypted_value = match.group(4)
+                decrypted_value = private_decrypt(
                     encrypted_password,
                     encrypted_value,
                     private_key=private_key,
                 )
+
+                if prefix == ENCRYPTED_STRING_VALUE_PREFIX:
+                    input_data[key] = decrypted_value
+                elif prefix == ENCRYPTED_JSON_VALUE_PREFIX:
+                    input_data[key] = json.loads(decrypted_value)
 
     return input_data
 
