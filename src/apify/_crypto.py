@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from apify_shared.utils import ignore_docs
 from crawlee._utils.crypto import crypto_random_object_id
 
-from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP, ENCRYPTED_STRING_VALUE_PREFIX, ENCRYPTED_JSON_VALUE_PREFIX
+from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP, ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX
 
 ENCRYPTION_KEY_LENGTH = 32
 ENCRYPTION_IV_LENGTH = 16
