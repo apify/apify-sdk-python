@@ -39,9 +39,7 @@ dependencies = [
     "crawlee~=0.6.0",
     "cryptography>=42.0.0",
     "httpx>=0.27.0",
-    # TODO: ensure compatibility with the latest version of lazy-object-proxy
-    # https://github.com/apify/apify-sdk-python/issues/460
-    "lazy-object-proxy<1.11.0",
+    "lazy-object-proxy>=1.11.0",
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",
     "websockets>=14.0",
