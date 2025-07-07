@@ -9,7 +9,7 @@ from apify_shared.utils import json_dumps
 
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 from apify import Actor
-from apify._consts import ENCRYPTED_STRING_VALUE_PREFIX, ENCRYPTED_JSON_VALUE_PREFIX
+from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX
 from apify._crypto import public_encrypt
 
 if TYPE_CHECKING:
@@ -79,9 +79,9 @@ async def test_get_input_with_encrypted_secrets(
     secret_object = {'foo': 'bar', 'baz': 'qux'}
     secret_array = ['foo', 'bar', 'baz']
 
-    # The legacy encryption format uses ENCRYPTED_STRING_VALUE_PREFIX prefix, value in raw string and does not include schemahash.
-    # The new format uses ENCRYPTED_JSON_VALUE_PREFIX prefix, value in JSON format and includes schemahash.
-    # We are testing both formats to ensure backward compatibility.
+    # The legacy encryption format uses ENCRYPTED_STRING_VALUE_PREFIX prefix, value in raw string and does
+    # not include schemahash. The new format uses ENCRYPTED_JSON_VALUE_PREFIX prefix, value in JSON format
+    # and includes schemahash. We are testing both formats to ensure backward compatibility.
 
     encrypted_string_legacy = public_encrypt(secret_string_legacy, public_key=PUBLIC_KEY)
     encrypted_string = public_encrypt(json_dumps(secret_string), public_key=PUBLIC_KEY)
@@ -90,10 +90,26 @@ async def test_get_input_with_encrypted_secrets(
 
     input_with_secret = {
         'foo': 'bar',
-        'secret_string_legacy': f'{ENCRYPTED_STRING_VALUE_PREFIX}:{encrypted_string_legacy["encrypted_password"]}:{encrypted_string_legacy["encrypted_value"]}',
-        'secret_string': f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:{encrypted_string["encrypted_password"]}:{encrypted_string["encrypted_value"]}',
-        'secret_object': f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:{encrypted_object["encrypted_password"]}:{encrypted_object["encrypted_value"]}',
-        'secret_array': f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:{encrypted_array["encrypted_password"]}:{encrypted_array["encrypted_value"]}',
+        'secret_string_legacy': (
+            f'{ENCRYPTED_STRING_VALUE_PREFIX}:'
+            f'{encrypted_string_legacy["encrypted_password"]}:'
+            f'{encrypted_string_legacy["encrypted_value"]}'
+        ),
+        'secret_string': (
+            f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:'
+            f'{encrypted_string["encrypted_password"]}:'
+            f'{encrypted_string["encrypted_value"]}'
+        ),
+        'secret_object': (
+            f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:'
+            f'{encrypted_object["encrypted_password"]}:'
+            f'{encrypted_object["encrypted_value"]}'
+        ),
+        'secret_array': (
+            f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:'
+            f'{encrypted_array["encrypted_password"]}:'
+            f'{encrypted_array["encrypted_value"]}'
+        ),
     }
 
     await memory_storage_client.key_value_stores().get_or_create(id='default')
