@@ -6,7 +6,7 @@ from apify_shared.consts import ApifyEnvVars
 
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 from apify import Actor
-from apify._consts import ENCRYPTED_INPUT_VALUE_PREFIX
+from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX
 from apify._crypto import public_encrypt
 
 
@@ -59,15 +59,49 @@ async def test_get_input_with_encrypted_secrets(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv(ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_PASSPHRASE, PRIVATE_KEY_PASSWORD)
 
     input_key = 'INPUT'
+    secret_string_legacy = 'secret-string'
     secret_string = 'secret-string'
-    encrypted_secret = public_encrypt(secret_string, public_key=PUBLIC_KEY)
+    secret_object = {'foo': 'bar', 'baz': 'qux'}
+    secret_array = ['foo', 'bar', 'baz']
+
+    # The legacy encryption format uses ENCRYPTED_STRING_VALUE_PREFIX prefix, value in raw string and does
+    # not include schemahash. The new format uses ENCRYPTED_JSON_VALUE_PREFIX prefix, value in JSON format
+    # and includes schemahash. We are testing both formats to ensure backward compatibility.
+
+    encrypted_string_legacy = public_encrypt(secret_string_legacy, public_key=PUBLIC_KEY)
+    encrypted_string = public_encrypt(json_dumps(secret_string), public_key=PUBLIC_KEY)
+    encrypted_object = public_encrypt(json_dumps(secret_object), public_key=PUBLIC_KEY)
+    encrypted_array = public_encrypt(json_dumps(secret_array), public_key=PUBLIC_KEY)
+
     input_with_secret = {
         'foo': 'bar',
-        'secret': f'{ENCRYPTED_INPUT_VALUE_PREFIX}:{encrypted_secret["encrypted_password"]}:{encrypted_secret["encrypted_value"]}',  # noqa: E501
+        'secret_string_legacy': (
+            f'{ENCRYPTED_STRING_VALUE_PREFIX}:'
+            f'{encrypted_string_legacy["encrypted_password"]}:'
+            f'{encrypted_string_legacy["encrypted_value"]}'
+        ),
+        'secret_string': (
+            f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:'
+            f'{encrypted_string["encrypted_password"]}:'
+            f'{encrypted_string["encrypted_value"]}'
+        ),
+        'secret_object': (
+            f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:'
+            f'{encrypted_object["encrypted_password"]}:'
+            f'{encrypted_object["encrypted_value"]}'
+        ),
+        'secret_array': (
+            f'{ENCRYPTED_JSON_VALUE_PREFIX}:schemahash:'
+            f'{encrypted_array["encrypted_password"]}:'
+            f'{encrypted_array["encrypted_value"]}'
+        ),
     }
 
     async with Actor as actor:
-        await actor.set_value(key=input_key, value=input_with_secret)
+        await actor.set_value(key=input_key, value=input_with_secret, content_type='application/json')
         actor_input = await actor.get_input()
         assert actor_input['foo'] == input_with_secret['foo']
-        assert actor_input['secret'] == secret_string
+        assert actor_input['secret_string_legacy'] == secret_string_legacy
+        assert actor_input['secret_string'] == secret_string
+        assert actor_input['secret_object'] == secret_object
+        assert actor_input['secret_array'] == secret_array
