@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from apify_shared.consts import ApifyEnvVars
+from crawlee._utils.file import json_dumps
 
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 from apify import Actor
@@ -69,9 +70,9 @@ async def test_get_input_with_encrypted_secrets(monkeypatch: pytest.MonkeyPatch)
     # and includes schemahash. We are testing both formats to ensure backward compatibility.
 
     encrypted_string_legacy = public_encrypt(secret_string_legacy, public_key=PUBLIC_KEY)
-    encrypted_string = public_encrypt(json_dumps(secret_string), public_key=PUBLIC_KEY)
-    encrypted_object = public_encrypt(json_dumps(secret_object), public_key=PUBLIC_KEY)
-    encrypted_array = public_encrypt(json_dumps(secret_array), public_key=PUBLIC_KEY)
+    encrypted_string = public_encrypt(await json_dumps(secret_string), public_key=PUBLIC_KEY)
+    encrypted_object = public_encrypt(await json_dumps(secret_object), public_key=PUBLIC_KEY)
+    encrypted_array = public_encrypt(await json_dumps(secret_array), public_key=PUBLIC_KEY)
 
     input_with_secret = {
         'foo': 'bar',
