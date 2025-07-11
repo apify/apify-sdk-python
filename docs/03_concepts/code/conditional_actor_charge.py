@@ -6,8 +6,8 @@ async def main() -> None:
         # Check the dataset because there might already be items
         # if the run migrated or was restarted
         default_dataset = await Actor.open_dataset()
-        dataset_info = await default_dataset.get_info()
-        charged_items = dataset_info.item_count if dataset_info else 0
+        metadata = await default_dataset.get_metadata()
+        charged_items = metadata.item_count
 
         # highlight-start
         if Actor.get_charging_manager().get_pricing_info().is_pay_per_event:
