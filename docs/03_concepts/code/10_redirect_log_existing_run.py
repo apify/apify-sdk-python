@@ -5,13 +5,20 @@ from apify import Actor
 
 async def main() -> None:
     async with Actor:
-        # With context manager
-        async with await Actor.new_client().run('some_actor_id').get_streamed_log():
+        # Lifecycle of redirected logs is handled by the context manager.
+        async with await Actor.apify_client.run('some_actor_id').get_streamed_log(
+            # Redirect all logs from the start of that run, even the logs from past.
+            from_start=True
+        ):
             await asyncio.sleep(5)
             # Logging will stop out of context
 
-        # With direct call (lifecycle of logging has to be manually handled)
-        streamed_log = await Actor.new_client().run('some_id').get_streamed_log()
+        # Lifecycle of redirected logs can be handled manually.
+        streamed_log = await Actor.apify_client.run('some_id').get_streamed_log(
+            # Do not redirect historical logs from this actor run.
+            # Redirect only new logs from now on.
+            from_start=False
+        )
         streamed_log.start()
         await asyncio.sleep(5)
         await streamed_log.stop()

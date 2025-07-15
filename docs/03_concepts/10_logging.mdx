@@ -87,10 +87,10 @@ Result:
 <!-- markdownlint-enable no-inline-html -->
 
 ## Redirect logs from other actor runs
-In some situations one Actor is going to start one or more other Actors and wait for them to finish and produce some results. In such cases, you might want to redirect the logs and status messages of the started Actors runs back to the parent Actor run, so that you can see the progress of the started Actors in the parent Actor's logs. This guide will show options how to do it.
+In some situations one Actor is going to start one or more other Actors and wait for them to finish and produce some results. In such cases, you might want to redirect the logs and status messages of the started Actors runs back to the parent Actor run, so that you can see the progress of the started Actors' runs in the parent Actor's logs. This guide will show possibilities how to do it.
 
 ### Redirecting logs from `Actor.call`
-Typical use case for log redirection is to call another Actor using the [`Actor.call`](../../reference/class/Actor#call) method. This method has an optional `logger` argument, which is by default set to `default` literal. This means that the logs of the called Actor will be automatically redirected to the parent Actor's logs with default formating and filtering. If you set `logger` argument to `None`, then no log redirection happens. Third option is to pass your own `Logger` instance with the possibility to define own formater, filter and handler.
+Typical use case for log redirection is to call another Actor using the [`Actor.call`](../../reference/class/Actor#call) method. This method has an optional `logger` argument, which is by default set to `default` literal. This means that the logs of the called Actor will be automatically redirected to the parent Actor's logs with default formating and filtering. If you set `logger` argument to `None`, then no log redirection happens. Third option is to pass your own `Logger` instance with the possibility to define own formater, filter and handler. Below you can see those three possible ways of log redirection when starting another Actor run through [`Actor.call`](../../reference/class/Actor#call).
 
 <CodeBlock className="language-python">
     {RedirectLog}
@@ -103,7 +103,10 @@ The log redirection can be deep, meaning that if the other actor also starts ano
 ![Console with redirected logs](/img/guides/redirected_logs_example.png 'Example of console with redirected logs from recursively started actor.')
 
 ### Redirecting logs from already running Actor run
-In some cases you might want to connect to an already running Actor run and redirect its logs to your current Actor run. This can be done using the `ApifyClient` from `apify-client-python` directly.
+In some cases you might want to connect to an already running Actor run and redirect its logs to your current Actor run. This can be done using the [ApifyClient](../../reference/class/Actor#apify_client) and getting the streamed log from a specific Actor run. You can then use it as a context manager and the log redirection will be active in the context, or you can control the log redirection manually by explicitly calling `start` and `stop` methods.
+
+You can further decide whether you want to redirect just new logs of the ongoing Actor run or if you also want to redirect historical logs from that actor run - so all logs it has produced since it was started. Both options are shown in the example code below.
+
 <CodeBlock className="language-python">
     {RedirectLogExistingRun}
 </CodeBlock>
