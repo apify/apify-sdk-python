@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify"
-version = "2.6.1"
+version = "2.7.1"
 description = "Apify SDK for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -66,10 +66,10 @@ dev = [
     "build~=1.2.0",
     "dycw-pytest-only>=2.1.1",
     "griffe~=1.7.0",
-    "mypy~=1.16.0",
+    "mypy~=1.17.0",
     "pre-commit~=4.2.0",
     "pydoc-markdown~=4.8.0",
-    "pytest-asyncio~=1.0.0",
+    "pytest-asyncio~=1.1.0",
     "pytest-cov~=6.2.0",
     "pytest-timeout>=2.4.0",
     "pytest-xdist~=3.8.0",
