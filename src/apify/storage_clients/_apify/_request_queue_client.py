@@ -202,9 +202,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Send requests to API
         response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
 
-        # Update metadata after adding requests
-        await self._update_metadata()
-
         return AddRequestsResponse.model_validate(response)
 
     @override
@@ -218,7 +215,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
             The request or None if not found.
         """
         response = await self._api_client.get_request(request_id)
-        await self._update_metadata()
 
         if response is None:
             return None
@@ -295,9 +291,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 forefront=False,
                 hydrated_request=request,
             )
-
-            # Update metadata after marking request as handled
-            await self._update_metadata()
         except Exception as exc:
             logger.debug(f'Error marking request {request.id} as handled: {exc!s}')
             return None
@@ -346,9 +339,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 await self._delete_request_lock(request.id, forefront=forefront)
             except Exception as err:
                 logger.debug(f'Failed to delete request lock for request {request.id}', exc_info=err)
-
-            # Update metadata after reclaiming request
-            await self._update_metadata()
         except Exception as exc:
             logger.debug(f'Error reclaiming request {request.id}: {exc!s}')
             return None
@@ -648,8 +638,3 @@ class ApifyRequestQueueClient(RequestQueueClient):
             lock_expires_at=None,
             forefront=forefront,
         )
-
-    async def _update_metadata(self) -> None:
-        """Update the request queue metadata with current information."""
-        metadata = await self._api_client.get()
-        self._metadata = RequestQueueMetadata.model_validate(metadata)

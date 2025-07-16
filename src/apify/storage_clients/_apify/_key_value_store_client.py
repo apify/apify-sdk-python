@@ -149,9 +149,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
     @override
     async def get_value(self, key: str) -> KeyValueStoreRecord | None:
         response = await self._api_client.get_record(key)
-        record = KeyValueStoreRecord.model_validate(response) if response else None
-        await self._update_metadata()
-        return record
+        return KeyValueStoreRecord.model_validate(response) if response else None
 
     @override
     async def set_value(self, key: str, value: Any, content_type: str | None = None) -> None:
@@ -161,13 +159,11 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                 value=value,
                 content_type=content_type,
             )
-            await self._update_metadata()
 
     @override
     async def delete_value(self, key: str) -> None:
         async with self._lock:
             await self._api_client.delete_record(key=key)
-            await self._update_metadata()
 
     @override
     async def iterate_keys(
@@ -202,8 +198,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
             exclusive_start_key = list_key_page.next_exclusive_start_key
 
-        await self._update_metadata()
-
     @override
     async def record_exists(self, key: str) -> bool:
         return await self._api_client.record_exists(key=key)
@@ -231,8 +225,3 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                 public_url = public_url.with_query(signature=create_hmac_signature(url_signing_secret_key, key))
 
         return str(public_url)
-
-    async def _update_metadata(self) -> None:
-        """Update the key-value store metadata with current information."""
-        metadata = await self._api_client.get()
-        self._metadata = KeyValueStoreMetadata.model_validate(metadata)
