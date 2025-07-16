@@ -9,9 +9,9 @@ from yarl import URL
 
 from apify_client import ApifyClientAsync
 from crawlee.storage_clients._base import KeyValueStoreClient
-from crawlee.storage_clients.models import KeyValueStoreMetadata, KeyValueStoreRecord, KeyValueStoreRecordMetadata
+from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
 
-from ._models import KeyValueStoreListKeysPage
+from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -48,9 +48,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         """A lock to ensure that only one operation is performed at a time."""
 
     @override
-    async def get_metadata(self) -> KeyValueStoreMetadata:
+    async def get_metadata(self) -> ApifyKeyValueStoreMetadata:
         metadata = await self._api_client.get()
-        return KeyValueStoreMetadata.model_validate(metadata)
+        return ApifyKeyValueStoreMetadata.model_validate(metadata)
 
     @classmethod
     async def open(
@@ -112,7 +112,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         # If name is provided, get or create the storage by name.
         if name is not None and id is None:
-            id = KeyValueStoreMetadata.model_validate(
+            id = ApifyKeyValueStoreMetadata.model_validate(
                 await apify_kvss_client.get_or_create(name=name),
             ).id
 
@@ -219,9 +219,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
         metadata = await self.get_metadata()
 
-        if metadata.model_extra is not None:
-            url_signing_secret_key = metadata.model_extra.get('urlSigningSecretKey')
-            if url_signing_secret_key is not None:
-                public_url = public_url.with_query(signature=create_hmac_signature(url_signing_secret_key, key))
+        if metadata.url_signing_secret_key is not None:
+            public_url = public_url.with_query(signature=create_hmac_signature(metadata.url_signing_secret_key, key))
 
         return str(public_url)

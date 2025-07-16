@@ -6,8 +6,20 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from crawlee._utils.docs import docs_group
+from crawlee.storage_clients.models import KeyValueStoreMetadata
 
 from apify import Request
+
+
+@docs_group('Data structures')
+class ApifyKeyValueStoreMetadata(KeyValueStoreMetadata):
+    """Extended key-value store metadata model for Apify platform.
+
+    Includes additional Apify-specific fields.
+    """
+
+    url_signing_secret_key: Annotated[str | None, Field(alias='urlSigningSecretKey', default=None)]
+    """The secret key used for signing URLs for secure access to key-value store records."""
 
 
 @docs_group('Data structures')
