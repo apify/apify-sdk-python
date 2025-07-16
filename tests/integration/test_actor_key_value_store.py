@@ -203,6 +203,7 @@ async def test_generate_public_url_for_kvs_record(
 ) -> None:
     async def main() -> None:
         from apify._crypto import create_hmac_signature
+        from apify.storage_clients._apify._models import ApifyKeyValueStoreMetadata
 
         async with Actor:
             public_api_url = Actor.config.api_public_base_url
@@ -211,15 +212,14 @@ async def test_generate_public_url_for_kvs_record(
 
             kvs = await Actor.open_key_value_store()
             metadata = await kvs.get_metadata()
-            assert metadata.model_extra is not None
 
-            url_signing_secret_key = metadata.model_extra.get('urlSigningSecretKey')
-            assert url_signing_secret_key is not None
+            assert isinstance(metadata, ApifyKeyValueStoreMetadata)
+            assert metadata.url_signing_secret_key is not None
 
             await kvs.set_value(record_key, {'exposedData': 'test'}, 'application/json')
 
             record_url = await kvs.get_public_url(record_key)
-            signature = create_hmac_signature(url_signing_secret_key, record_key)
+            signature = create_hmac_signature(metadata.url_signing_secret_key, record_key)
             expected_record_url = (
                 f'{public_api_url}/v2/key-value-stores/{default_kvs_id}/records/{record_key}?signature={signature}'
             )
