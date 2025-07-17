@@ -363,6 +363,13 @@ class ApifyRequestQueueClient(RequestQueueClient):
             True if the queue is empty, False otherwise.
         """
         head = await self._list_head(limit=1, lock_time=None)
+
+        # Injected code to verify pre-mature exit hypothesis
+        if len(head.items) == 0:
+            logger.warning(f'I am giving up, but I will sleep for a while before checking again.')
+            await asyncio.sleep(10)
+            head = await self._list_head(limit=1, lock_time=None)
+
         return len(head.items) == 0
 
     async def _ensure_head_is_non_empty(self) -> None:
