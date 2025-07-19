@@ -39,7 +39,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
     def __init__(
         self,
         *,
-        metadata: RequestQueueMetadata,
         api_client: RequestQueueClientAsync,
         api_public_base_url: str,
         lock: asyncio.Lock,
@@ -48,8 +47,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         Preferably use the `ApifyRequestQueueClient.open` class method to create a new instance.
         """
-        self._metadata = metadata
-
         self._api_client = api_client
         """The Apify request queue client for API operations."""
 
@@ -122,9 +119,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 f'(api_public_base_url={api_public_base_url}).'
             )
 
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
-
         # Create Apify client with the provided token and API URL.
         apify_client_async = ApifyClientAsync(
             token=token,
@@ -135,29 +129,42 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
         apify_rqs_client = apify_client_async.request_queues()
 
+        # If both id and name are provided, raise an error.
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+
+        # If id is provided, get the storage by ID.
+        if id and name is None:
+            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+
         # If name is provided, get or create the storage by name.
-        if name is not None and id is None:
+        if name and id is None:
             id = RequestQueueMetadata.model_validate(
                 await apify_rqs_client.get_or_create(name=name),
             ).id
+            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
 
         # If both id and name are None, try to get the default storage ID from environment variables.
         if id is None and name is None:
-            id = getattr(configuration, 'default_request_queue_id', None)
-
-        if id is None:
-            raise ValueError(
-                'Either "id" or "name" must be provided, or the storage ID must be set in environment variable.'
-            )
-
-        # Get the client for the specific storage by ID.
-        apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+            id = configuration.default_request_queue_id
+            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
 
         # Fetch its metadata.
-        metadata = RequestQueueMetadata.model_validate(await apify_rq_client.get())
+        metadata = await apify_rq_client.get()
+
+        # If metadata is None, it means the storage does not exist, so we create it.
+        if metadata is None:
+            id = RequestQueueMetadata.model_validate(
+                await apify_rqs_client.get_or_create(),
+            ).id
+            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+
+        # Verify that the storage exists by fetching its metadata again.
+        metadata = await apify_rq_client.get()
+        if metadata is None:
+            raise ValueError(f'Opening request queue with id={id} and name={name} failed.')
 
         return cls(
-            metadata=metadata,
             api_client=apify_rq_client,
             api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
@@ -353,6 +360,14 @@ class ApifyRequestQueueClient(RequestQueueClient):
             True if the queue is empty, False otherwise.
         """
         head = await self._list_head(limit=1, lock_time=None)
+
+        # This if condition is necessary for proper functioning of the queue.
+        # Investigate why it is needed and if it can be removed.
+        if len(head.items) == 0:
+            logger.warning('I am giving up, but I will sleep for a while before checking again.')
+            await asyncio.sleep(10)
+            head = await self._list_head(limit=1, lock_time=None)
+
         return len(head.items) == 0
 
     async def _ensure_head_is_non_empty(self) -> None:
@@ -477,10 +492,12 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 if cached_request and cached_request.hydrated:
                     items.append(cached_request.hydrated)
 
+            metadata = await self.get_metadata()
+
             return RequestQueueHead(
                 limit=limit,
-                had_multiple_clients=self._metadata.had_multiple_clients,
-                queue_modified_at=self._metadata.modified_at,
+                had_multiple_clients=metadata.had_multiple_clients,
+                queue_modified_at=metadata.modified_at,
                 items=items,
                 queue_has_locked_requests=self._queue_has_locked_requests,
                 lock_time=lock_time,

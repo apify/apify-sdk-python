@@ -25,7 +25,7 @@ def _transform_to_list(value: Any) -> list[str] | None:
     return value if isinstance(value, list) else str(value).split(',')
 
 
-@docs_group('Classes')
+@docs_group('Configuration')
 class Configuration(CrawleeConfiguration):
     """A class for specifying the configuration of an Actor.
 

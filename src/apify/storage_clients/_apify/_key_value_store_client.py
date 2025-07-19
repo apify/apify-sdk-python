@@ -97,9 +97,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                 f'(api_public_base_url={api_public_base_url}).'
             )
 
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
-
         # Create Apify client with the provided token and API URL.
         apify_client_async = ApifyClientAsync(
             token=token,
@@ -110,23 +107,40 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
         apify_kvss_client = apify_client_async.key_value_stores()
 
+        # If both id and name are provided, raise an error.
+        if id and name:
+            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+
+        # If id is provided, get the storage by ID.
+        if id and name is None:
+            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+
         # If name is provided, get or create the storage by name.
-        if name is not None and id is None:
+        if name and id is None:
             id = ApifyKeyValueStoreMetadata.model_validate(
                 await apify_kvss_client.get_or_create(name=name),
             ).id
+            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
 
         # If both id and name are None, try to get the default storage ID from environment variables.
         if id is None and name is None:
-            id = getattr(configuration, 'default_key_value_store_id', None)
+            id = configuration.default_key_value_store_id
+            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
 
-        if id is None:
-            raise ValueError(
-                'Either "id" or "name" must be provided, or the storage ID must be set in environment variable.'
-            )
+        # Fetch its metadata.
+        metadata = await apify_kvs_client.get()
 
-        # Get the client for the specific storage by ID.
-        apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+        # If metadata is None, it means the storage does not exist, so we create it.
+        if metadata is None:
+            id = ApifyKeyValueStoreMetadata.model_validate(
+                await apify_kvss_client.get_or_create(),
+            ).id
+            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+
+        # Verify that the storage exists by fetching its metadata again.
+        metadata = await apify_kvs_client.get()
+        if metadata is None:
+            raise ValueError(f'Opening key-value store with id={id} and name={name} failed.')
 
         return cls(
             api_client=apify_kvs_client,

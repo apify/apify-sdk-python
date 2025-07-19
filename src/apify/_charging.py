@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
 
 
-@docs_group('Interfaces')
+@docs_group('Charging')
 class ChargingManager(Protocol):
     """Provides fine-grained access to pay-per-event functionality."""
 
@@ -57,7 +57,7 @@ class ChargingManager(Protocol):
         """
 
 
-@docs_group('Data structures')
+@docs_group('Charging')
 @dataclass(frozen=True)
 class ChargeResult:
     """Result of the `ChargingManager.charge` method."""
@@ -72,7 +72,7 @@ class ChargeResult:
     """How many events of each known type can still be charged within the limit."""
 
 
-@docs_group('Data structures')
+@docs_group('Charging')
 @dataclass
 class ActorPricingInfo:
     """Result of the `ChargingManager.get_pricing_info` method."""

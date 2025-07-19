@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
-from crawlee._utils.docs import docs_group
 from crawlee.configuration import Configuration
 from crawlee.storage_clients import FileSystemStorageClient
 
@@ -14,7 +13,6 @@ if TYPE_CHECKING:
     from crawlee.storage_clients._file_system import FileSystemKeyValueStoreClient
 
 
-@docs_group('Classes')
 class ApifyFileSystemStorageClient(FileSystemStorageClient):
     """Apify-specific implementation of the file system storage client.
 

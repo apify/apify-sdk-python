@@ -72,7 +72,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=1.12.0" },
     { name = "apify-shared", specifier = ">=1.3.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=0c4cfc9ada06e35f63213e6a937c4e85defcbecf" },
+    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=master" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "lazy-object-proxy", specifier = "<1.11.0" },
@@ -559,7 +559,7 @@ toml = [
 [[package]]
 name = "crawlee"
 version = "0.6.12"
-source = { git = "https://github.com/apify/crawlee-python.git?rev=0c4cfc9ada06e35f63213e6a937c4e85defcbecf#0c4cfc9ada06e35f63213e6a937c4e85defcbecf" }
+source = { git = "https://github.com/apify/crawlee-python.git?rev=master#c56085070a4c56d77ac926f8486c162b69235735" }
 dependencies = [
     { name = "apify-fingerprint-datapoints" },
     { name = "browserforge" },

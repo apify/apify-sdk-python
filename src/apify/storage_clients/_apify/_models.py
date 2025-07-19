@@ -5,13 +5,13 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from crawlee._utils.docs import docs_group
 from crawlee.storage_clients.models import KeyValueStoreMetadata
 
 from apify import Request
+from apify._utils import docs_group
 
 
-@docs_group('Data structures')
+@docs_group('Storage data')
 class ApifyKeyValueStoreMetadata(KeyValueStoreMetadata):
     """Extended key-value store metadata model for Apify platform.
 
@@ -22,7 +22,7 @@ class ApifyKeyValueStoreMetadata(KeyValueStoreMetadata):
     """The secret key used for signing URLs for secure access to key-value store records."""
 
 
-@docs_group('Data structures')
+@docs_group('Storage data')
 class ProlongRequestLockResponse(BaseModel):
     """Response to prolong request lock calls."""
 
@@ -31,7 +31,7 @@ class ProlongRequestLockResponse(BaseModel):
     lock_expires_at: Annotated[datetime, Field(alias='lockExpiresAt')]
 
 
-@docs_group('Data structures')
+@docs_group('Storage data')
 class RequestQueueHead(BaseModel):
     """Model for request queue head.
 
@@ -61,7 +61,10 @@ class RequestQueueHead(BaseModel):
 
 
 class KeyValueStoreKeyInfo(BaseModel):
-    """Model for a key-value store key info."""
+    """Model for a key-value store key info.
+
+    Only internal structure.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -70,7 +73,10 @@ class KeyValueStoreKeyInfo(BaseModel):
 
 
 class KeyValueStoreListKeysPage(BaseModel):
-    """Model for listing keys in the key-value store."""
+    """Model for listing keys in the key-value store.
+
+    Only internal structure.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -83,7 +89,10 @@ class KeyValueStoreListKeysPage(BaseModel):
 
 
 class CachedRequest(BaseModel):
-    """Pydantic model for cached request information."""
+    """Pydantic model for cached request information.
+
+    Only internal structure.
+    """
 
     id: str
     """The ID of the request."""

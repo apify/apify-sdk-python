@@ -31,13 +31,13 @@ if TYPE_CHECKING:
 __all__ = ['EventManager', 'LocalEventManager', 'PlatformEventManager']
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class PersistStateEvent(BaseModel):
     name: Literal[Event.PERSIST_STATE]
     data: Annotated[EventPersistStateData, Field(default_factory=lambda: EventPersistStateData(is_migrating=False))]
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class SystemInfoEventData(BaseModel):
     mem_avg_bytes: Annotated[float, Field(alias='memAvgBytes')]
     mem_current_bytes: Annotated[float, Field(alias='memCurrentBytes')]
@@ -64,31 +64,31 @@ class SystemInfoEventData(BaseModel):
         )
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class SystemInfoEvent(BaseModel):
     name: Literal[Event.SYSTEM_INFO]
     data: SystemInfoEventData
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class MigratingEvent(BaseModel):
     name: Literal[Event.MIGRATING]
     data: Annotated[EventMigratingData, Field(default_factory=EventMigratingData)]
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class AbortingEvent(BaseModel):
     name: Literal[Event.ABORTING]
     data: Annotated[EventAbortingData, Field(default_factory=EventAbortingData)]
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class ExitEvent(BaseModel):
     name: Literal[Event.EXIT]
     data: Annotated[EventExitData, Field(default_factory=EventExitData)]
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class EventWithoutData(BaseModel):
     name: Literal[
         Event.SESSION_RETIRED,
@@ -101,13 +101,13 @@ class EventWithoutData(BaseModel):
     data: Any = None
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class DeprecatedEvent(BaseModel):
     name: Literal['cpuInfo']
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
 
 
-@docs_group('Data structures')
+@docs_group('Event data')
 class UnknownEvent(BaseModel):
     name: str
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
@@ -120,7 +120,7 @@ event_data_adapter = TypeAdapter[EventMessage | DeprecatedEvent | UnknownEvent](
 )
 
 
-@docs_group('Classes')
+@docs_group('Event managers')
 class PlatformEventManager(EventManager):
     """A class for managing Actor events.
 

@@ -9,11 +9,13 @@ from crawlee.storage_clients._base import StorageClient
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
 from ._request_queue_client import ApifyRequestQueueClient
+from apify._utils import docs_group
 
 if TYPE_CHECKING:
     from crawlee.configuration import Configuration
 
 
+@docs_group('Storage clients')
 class ApifyStorageClient(StorageClient):
     """Apify storage client."""
 

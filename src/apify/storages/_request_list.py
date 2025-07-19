@@ -38,7 +38,7 @@ class _SimpleUrlInput(_RequestDetails):
 url_input_adapter = TypeAdapter(list[_RequestsFromUrlInput | _SimpleUrlInput])
 
 
-@docs_group('Classes')
+@docs_group('Storages')
 class RequestList(CrawleeRequestList):
     """Extends crawlee RequestList.
 
