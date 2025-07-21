@@ -86,3 +86,27 @@ async def test_force_cloud(
         assert request_queue_request['url'] == 'http://example.com'
     finally:
         await request_queue_client.delete()
+
+
+async def test_request_queue_is_finished(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert apify_client_async.token is not None
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
+
+    request_queue_name = generate_unique_resource_name('request_queue')
+
+    async with Actor:
+        request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+        await request_queue.add_request(Request.from_url('http://example.com'))
+        assert not await request_queue.is_finished()
+
+        request = await request_queue.fetch_next_request()
+        assert request is not None
+        assert not await request_queue.is_finished(), (
+            'RequestQueue should not be finished unless the request is marked as handled.'
+        )
+
+        await request_queue.mark_request_as_handled(request)
+        assert await request_queue.is_finished()
