@@ -361,14 +361,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """
         head = await self._list_head(limit=1, lock_time=None)
 
-        # This if condition is necessary for proper functioning of the queue.
-        # Investigate why it is needed and if it can be removed.
-        if len(head.items) == 0:
-            logger.warning('I am giving up, but I will sleep for a while before checking again.')
-            await asyncio.sleep(10)
-            head = await self._list_head(limit=1, lock_time=None)
-
-        return len(head.items) == 0
+        return len(head.items) == 0 and not self._queue_has_locked_requests
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
