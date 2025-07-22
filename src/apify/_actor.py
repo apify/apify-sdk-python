@@ -54,7 +54,7 @@ MainReturnType = TypeVar('MainReturnType')
 
 
 @docs_name('Actor')
-@docs_group('Classes')
+@docs_group('Actor')
 class _ActorType:
     """The class of `Actor`. Only make a new instance if you're absolutely sure you need to."""
 

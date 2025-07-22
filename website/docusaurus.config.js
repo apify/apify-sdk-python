@@ -5,8 +5,16 @@ const { config } = require('@apify/docs-theme');
 const { externalLinkProcessor } = require('./tools/utils/externalLink');
 
 const GROUP_ORDER = [
-    'Classes',
-    'Data structures',
+    'Actor',
+    'Charging',
+    'Configuration',
+    'Event managers',
+    'Events',
+    'Event data',
+    'Request loaders',
+    'Storage clients',
+    'Storage data',
+    'Storages',
 ];
 
 const groupSort = (g1, g2) => {
@@ -112,21 +120,132 @@ module.exports = {
                     moduleShortcutsPath: path.join(__dirname, '/module_shortcuts.json'),
                 },
                 reexports: [
+                    // Storages
+                    {
+                        url: 'https://crawlee.dev/python/api/class/Storage',
+                        group: 'Storages',
+                    },
                     {
                         url: 'https://crawlee.dev/python/api/class/Dataset',
-                        group: 'Classes',
+                        group: 'Storages',
                     },
                     {
                         url: 'https://crawlee.dev/python/api/class/KeyValueStore',
-                        group: 'Classes',
+                        group: 'Storages',
                     },
                     {
                         url: 'https://crawlee.dev/python/api/class/RequestQueue',
-                        group: 'Classes',
+                        group: 'Storages',
+                    },
+                    // Storage data
+                    {
+                        url: 'https://crawlee.dev/python/api/class/AddRequestsResponse',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/DatasetItemsListPage',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/DatasetMetadata',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/KeyValueStoreMetadata',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/KeyValueStoreRecord',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/KeyValueStoreRecordMetadata',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/ProcessedRequest',
+                        group: 'Storage data',
                     },
                     {
                         url: 'https://crawlee.dev/python/api/class/Request',
-                        group: 'Classes',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/RequestQueueMetadata',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/StorageMetadata',
+                        group: 'Storage data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/ReqUnprocessedRequestuest',
+                        group: 'Storage data',
+                    },
+                    // Event managers
+                    {
+                        url: 'https://crawlee.dev/python/api/class/EventManager',
+                        group: 'Event managers',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/LocalEventManager',
+                        group: 'Event managers',
+                    },
+                    // Events
+                    {
+                        url: 'https://crawlee.dev/python/api/enum/Event',
+                        group: 'Events',
+                    },
+                    // Event data
+                    {
+                        url: 'https://crawlee.dev/python/api/class/EventAbortingData',
+                        group: 'Event data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/EventExitData',
+                        group: 'Event data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/EventMigratingData',
+                        group: 'Event data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/EventPersistStateData',
+                        group: 'Event data',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/EventSystemInfoData',
+                        group: 'Event data',
+                    },
+                    // Storage clients
+                    {
+                        url: 'https://crawlee.dev/python/api/class/StorageClient',
+                        group: 'Storage clients',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/MemoryStorageClient',
+                        group: 'Storage clients',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/FileSystemStorageClient',
+                        group: 'Storage clients',
+                    },
+                    // Request loaders
+                    {
+                        url: 'https://crawlee.dev/python/api/class/RequestLoader',
+                        group: 'Request loaders',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/RequestManager',
+                        group: 'Request loaders',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/RequestManagerTandem',
+                        group: 'Request loaders',
+                    },
+                    {
+                        url: 'https://crawlee.dev/python/api/class/SitemapRequestLoader',
+                        group: 'Request loaders',
                     },
                 ],
             },

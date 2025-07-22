@@ -69,7 +69,7 @@ def _check(
         raise ValueError(f'{error_str} does not match pattern {pattern.pattern!r}')
 
 
-@docs_group('Classes')
+@docs_group('Configuration')
 @dataclass
 class ProxyInfo(CrawleeProxyInfo):
     """Provides information about a proxy connection that is used for requests."""
@@ -89,7 +89,7 @@ class ProxyInfo(CrawleeProxyInfo):
     """
 
 
-@docs_group('Classes')
+@docs_group('Configuration')
 class ProxyConfiguration(CrawleeProxyConfiguration):
     """Configures a connection to a proxy server with the provided options.
 

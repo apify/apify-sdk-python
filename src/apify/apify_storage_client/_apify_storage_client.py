@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from apify._configuration import Configuration
 
 
-@docs_group('Classes')
+@docs_group('Storage clients')
 class ApifyStorageClient(StorageClient):
     """A storage client implementation based on the Apify platform storage."""
 
