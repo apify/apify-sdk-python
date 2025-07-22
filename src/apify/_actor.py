@@ -13,7 +13,7 @@ from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
-from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from apify_shared.utils import maybe_extract_enum_member_value
 from crawlee import service_locator
 from crawlee.events import (
     Event,
@@ -145,7 +145,6 @@ class _ActorType:
 
         self._is_initialized = False
 
-    @ignore_docs
     async def __aenter__(self) -> Self:
         """Initialize the Actor.
 
@@ -157,7 +156,6 @@ class _ActorType:
         await self.init()
         return self
 
-    @ignore_docs
     async def __aexit__(
         self,
         _exc_type: type[BaseException] | None,

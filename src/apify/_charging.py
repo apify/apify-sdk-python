@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import TypeAdapter
 
-from apify_shared.utils import ignore_docs
 from crawlee._utils.context import ensure_context
 
 from apify._models import ActorRun, PricingModel
@@ -90,7 +89,6 @@ class ActorPricingInfo:
     """Price of every known event type."""
 
 
-@ignore_docs
 class ChargingManagerImplementation(ChargingManager):
     """Implementation of the `ChargingManager` Protocol - this is only meant to be instantiated internally."""
 
