@@ -340,6 +340,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_user_is_paying',
             description='True if the user calling the Actor is paying user',
         ),
+        BeforeValidator(lambda val: False if val == '' else val),
     ] = False
 
     web_server_port: Annotated[
