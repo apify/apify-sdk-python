@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import re
 from asyncio import Task
-from functools import partial
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, TypeAdapter
@@ -121,13 +120,15 @@ class ApifyRequestList(RequestList):
         """
         created_requests: list[Request] = []
 
-        def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
+        async def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
             """Extract links from response body and use them to create `Request` objects.
 
             Use the regular expression to find all matching links in the response body, then create `Request`
             objects from these links and the provided input attributes.
             """
-            matches = re.finditer(URL_NO_COMMAS_REGEX, task.result().read().decode('utf-8'))
+            response = await (task.result()).read()
+            matches = re.finditer(URL_NO_COMMAS_REGEX, response.decode('utf-8'))
+
             created_requests.extend(
                 [
                     Request.from_url(
@@ -150,7 +151,11 @@ class ApifyRequestList(RequestList):
                 )
             )
 
-            get_response_task.add_done_callback(partial(create_requests_from_response, remote_url_requests_input))
+            get_response_task.add_done_callback(
+                lambda task, inp=remote_url_requests_input: asyncio.create_task(  # type: ignore[misc]
+                    create_requests_from_response(inp, task)
+                )
+            )
             remote_url_requests.append(get_response_task)
 
         await asyncio.gather(*remote_url_requests)
