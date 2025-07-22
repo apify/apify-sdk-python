@@ -30,7 +30,19 @@ def is_running_in_ipython() -> bool:
     return getattr(builtins, '__IPYTHON__', False)
 
 
-GroupName = Literal['Classes', 'Abstract classes', 'Interfaces', 'Data structures', 'Errors', 'Functions']
+# The order of the rendered API groups is defined in the website/docusaurus.config.js file.
+GroupName = Literal[
+    'Actor',
+    'Charging',
+    'Configuration',
+    'Event data',
+    'Event managers',
+    'Events',
+    'Request loaders',
+    'Storage clients',
+    'Storage data',
+    'Storages',
+]
 
 
 def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001

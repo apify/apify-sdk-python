@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from apify_shared.utils import ignore_docs
 from crawlee._log_config import CrawleeLogFormatter, configure_logger, get_configured_log_level
 
 # Name of the logger used throughout the library (resolves to 'apify')
@@ -12,7 +11,6 @@ logger_name = __name__.split('.')[0]
 logger = logging.getLogger(logger_name)
 
 
-@ignore_docs
 class ActorLogFormatter(CrawleeLogFormatter):  # noqa: D101 (Inherited from parent class)
     pass
 
