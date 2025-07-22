@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import asyncio
-from crawlee.events._types import Event, EventPersistStateData
+from logging import getLogger
+from typing import TYPE_CHECKING
 
 from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync
 from crawlee import Request, service_locator
+from crawlee.events._types import Event
 from crawlee.storage_clients._memory import MemoryRequestQueueClient
 from crawlee.storage_clients.models import RequestQueueMetadata
 
-from logging import getLogger
-
-from src.apify._configuration import Configuration
+if TYPE_CHECKING:
+    from apify import Configuration
 
 logger = getLogger(__name__)
 
@@ -33,6 +33,7 @@ class HybridRequestQueueClient(MemoryRequestQueueClient):
     If the `HybridRequestQueueClient` is not sufficient for your use case, consider using request queue for adults
     `ApifyRequestQueueClient` instead.
     """
+
     def __init__(
         self,
         *,
@@ -41,7 +42,7 @@ class HybridRequestQueueClient(MemoryRequestQueueClient):
     ) -> None:
         super().__init__(metadata=metadata)
         logger.info(
-            "Using `HybridRequestQueueClient`. Consider using `ApifyRequestQueueClient` for more complex crawlers.")
+            'Using `HybridRequestQueueClient`. Consider using `ApifyRequestQueueClient` for more complex crawlers.')
 
         self._api_client = api_client
         """The Apify request queue client for API operations."""
@@ -124,15 +125,17 @@ class HybridRequestQueueClient(MemoryRequestQueueClient):
             api_client=apify_rq_client,
         )
         await local_rq.from_apify_request_queue()
+        return local_rq
 
 
-    async def from_apify_request_queue(self)->HybridRequestQueueClient:
-        """Should be called when after migration."""
-        requests = []
-        start = ""
+    async def from_apify_request_queue(self)->None:
+        """Load from Apify RQ."""
+        requests = list[Request]()
+        start = ''
 
         while True:
-            raw_request_batch = (await self.apify_rq_client.list_requests(exclusive_start_id=start, limit=10000))["items"]
+            raw_request_batch = (await self._api_client.list_requests(
+                exclusive_start_id=start, limit=10000))['items']
             for raw_request in raw_request_batch:
                 if (request:=Request.model_validate(raw_request)).handled_at:
                     self._handled_requests[request.url]=request
@@ -144,19 +147,11 @@ class HybridRequestQueueClient(MemoryRequestQueueClient):
 
             if len(raw_request_batch) < 10000:
                 break
-            start = requests[-1].start
+            start = requests[-1].url
 
-    async def to_apify_request_queue(self)->HybridRequestQueueClient:
-        """Should be called before migration."""
-        await self.apify_rq_client.batch_add_requests((request.model_dump(by_alias=True, exclude=["id"]) for request in self._pending_requests))
-        await self.apify_rq_client.batch_add_requests((request.model_dump(by_alias=True, exclude=["id"]) for request in self._handled_requests.values()))
-
-
-async def main():
-    rq = await HybridRequestQueueClient.open()
-    await rq.from_apify_request_queue()
-    await rq.to_apify_request_queue()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-
+    async def to_apify_request_queue(self)->None:
+        """Persist to Apify RQ."""
+        await self._api_client.batch_add_requests(
+            [request.model_dump(by_alias=True, exclude={'id'}) for request in self._pending_requests])
+        await self._api_client.batch_add_requests(
+            [request.model_dump(by_alias=True, exclude={'id'}) for request in self._handled_requests.values()])
