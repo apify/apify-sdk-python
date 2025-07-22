@@ -27,7 +27,16 @@ run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
 
 @docs_group('Charging')
 class ChargingManager(Protocol):
-    """Provides fine-grained access to pay-per-event functionality."""
+    """Provides fine-grained access to pay-per-event functionality.
+
+    The ChargingManager allows you to charge for specific events in your Actor when using
+    the pay-per-event pricing model. This enables precise cost control and transparent
+    billing for different operations within your Actor.
+
+    ### References
+
+    - Apify platform documentation: https://docs.apify.com/platform/actors/publishing/monetize
+    """
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
