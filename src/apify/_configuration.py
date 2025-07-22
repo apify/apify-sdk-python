@@ -335,12 +335,12 @@ class Configuration(CrawleeConfiguration):
     ] = None
 
     user_is_paying: Annotated[
-        str | None,
+        bool,
         Field(
             alias='apify_user_is_paying',
-            description='If set to "1", the user calling the Actor is paying user',
+            description='True if the user calling the Actor is paying user',
         ),
-    ] = None
+    ] = False
 
     web_server_port: Annotated[
         int,
