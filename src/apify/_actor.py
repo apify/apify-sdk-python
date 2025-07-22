@@ -30,9 +30,9 @@ from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._models import ActorRun
-from apify._platform_event_manager import EventManager, LocalEventManager, PlatformEventManager
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
+from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
@@ -130,7 +130,7 @@ class _ActorType:
 
         # Set the event manager based on whether the Actor is running on the platform or locally.
         self._event_manager = (
-            PlatformEventManager(
+            ApifyEventManager(
                 config=self._configuration,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
