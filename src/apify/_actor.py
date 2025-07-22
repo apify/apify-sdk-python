@@ -13,7 +13,7 @@ from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
-from apify_shared.utils import ignore_docs, maybe_extract_enum_member_value
+from apify_shared.utils import maybe_extract_enum_member_value
 from crawlee import service_locator
 from crawlee.events import (
     Event,
@@ -56,7 +56,44 @@ MainReturnType = TypeVar('MainReturnType')
 @docs_name('Actor')
 @docs_group('Actor')
 class _ActorType:
-    """The class of `Actor`. Only make a new instance if you're absolutely sure you need to."""
+    """The core class for building Actors on the Apify platform.
+
+    Actors are serverless programs running in the cloud that can perform anything from simple actions
+    (such as filling out a web form or sending an email) to complex operations (such as crawling an
+    entire website or removing duplicates from a large dataset). They are packaged as Docker containers
+    which accept well-defined JSON input, perform an action, and optionally produce well-defined output.
+
+    ### References
+
+    - Apify platform documentation: https://docs.apify.com/platform/actors
+    - Actor whitepaper: https://whitepaper.actor/
+
+    ### Usage
+
+    ```python
+    import asyncio
+
+    import httpx
+    from apify import Actor
+    from bs4 import BeautifulSoup
+
+
+    async def main() -> None:
+        async with Actor:
+            actor_input = await Actor.get_input()
+            async with httpx.AsyncClient() as client:
+                response = await client.get(actor_input['url'])
+            soup = BeautifulSoup(response.content, 'html.parser')
+            data = {
+                'url': actor_input['url'],
+                'title': soup.title.string if soup.title else None,
+            }
+            await Actor.push_data(data)
+
+    if __name__ == '__main__':
+        asyncio.run(main())
+    ```
+    """
 
     _is_rebooting = False
     _is_any_instance_initialized = False
@@ -108,7 +145,6 @@ class _ActorType:
 
         self._is_initialized = False
 
-    @ignore_docs
     async def __aenter__(self) -> Self:
         """Initialize the Actor.
 
@@ -120,7 +156,6 @@ class _ActorType:
         await self.init()
         return self
 
-    @ignore_docs
     async def __aexit__(
         self,
         _exc_type: type[BaseException] | None,

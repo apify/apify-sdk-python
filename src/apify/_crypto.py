@@ -12,7 +12,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from apify_shared.utils import ignore_docs
 from crawlee._utils.crypto import crypto_random_object_id
 
 from apify._consts import ENCRYPTED_INPUT_VALUE_REGEXP, ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX
@@ -22,7 +21,6 @@ ENCRYPTION_IV_LENGTH = 16
 ENCRYPTION_AUTH_TAG_LENGTH = 16
 
 
-@ignore_docs
 def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     """Encrypts the given value using AES cipher and the password for encryption using the public key.
 
@@ -66,7 +64,6 @@ def public_encrypt(value: str, *, public_key: rsa.RSAPublicKey) -> dict:
     }
 
 
-@ignore_docs
 def private_decrypt(
     encrypted_password: str,
     encrypted_value: str,
@@ -118,7 +115,6 @@ def private_decrypt(
     return decipher_bytes.decode('utf-8')
 
 
-@ignore_docs
 def load_private_key(private_key_file_base64: str, private_key_password: str) -> rsa.RSAPrivateKey:
     private_key = serialization.load_pem_private_key(
         base64.b64decode(private_key_file_base64.encode('utf-8')),
@@ -138,7 +134,6 @@ def _load_public_key(public_key_file_base64: str) -> rsa.RSAPublicKey:
     return public_key
 
 
-@ignore_docs
 def decrypt_input_secrets(private_key: rsa.RSAPrivateKey, input_data: Any) -> Any:
     """Decrypt input secrets."""
     if not isinstance(input_data, dict):
@@ -180,7 +175,6 @@ def encode_base62(num: int) -> str:
     return res
 
 
-@ignore_docs
 def create_hmac_signature(secret_key: str, message: str) -> str:
     """Generate an HMAC signature and encodes it using Base62. Base62 encoding reduces the signature length.
 

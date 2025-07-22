@@ -27,14 +27,7 @@ if TYPE_CHECKING:
 
     from apify._configuration import Configuration
 
-
 __all__ = ['EventManager', 'LocalEventManager', 'PlatformEventManager']
-
-
-@docs_group('Event data')
-class PersistStateEvent(BaseModel):
-    name: Literal[Event.PERSIST_STATE]
-    data: Annotated[EventPersistStateData, Field(default_factory=lambda: EventPersistStateData(is_migrating=False))]
 
 
 @docs_group('Event data')
@@ -64,31 +57,37 @@ class SystemInfoEventData(BaseModel):
         )
 
 
-@docs_group('Event data')
+@docs_group('Events')
+class PersistStateEvent(BaseModel):
+    name: Literal[Event.PERSIST_STATE]
+    data: Annotated[EventPersistStateData, Field(default_factory=lambda: EventPersistStateData(is_migrating=False))]
+
+
+@docs_group('Events')
 class SystemInfoEvent(BaseModel):
     name: Literal[Event.SYSTEM_INFO]
     data: SystemInfoEventData
 
 
-@docs_group('Event data')
+@docs_group('Events')
 class MigratingEvent(BaseModel):
     name: Literal[Event.MIGRATING]
     data: Annotated[EventMigratingData, Field(default_factory=EventMigratingData)]
 
 
-@docs_group('Event data')
+@docs_group('Events')
 class AbortingEvent(BaseModel):
     name: Literal[Event.ABORTING]
     data: Annotated[EventAbortingData, Field(default_factory=EventAbortingData)]
 
 
-@docs_group('Event data')
+@docs_group('Events')
 class ExitEvent(BaseModel):
     name: Literal[Event.EXIT]
     data: Annotated[EventExitData, Field(default_factory=EventExitData)]
 
 
-@docs_group('Event data')
+@docs_group('Events')
 class EventWithoutData(BaseModel):
     name: Literal[
         Event.SESSION_RETIRED,
@@ -101,13 +100,13 @@ class EventWithoutData(BaseModel):
     data: Any = None
 
 
-@docs_group('Event data')
+@docs_group('Events')
 class DeprecatedEvent(BaseModel):
     name: Literal['cpuInfo']
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
 
 
-@docs_group('Event data')
+@docs_group('Events')
 class UnknownEvent(BaseModel):
     name: str
     data: Annotated[dict[str, Any], Field(default_factory=dict)]

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from typing import TypeAlias
 
 
-@docs_group('Other')
+@docs_group('Actor')
 class Webhook(BaseModel):
     __model_config__ = ConfigDict(populate_by_name=True)
 

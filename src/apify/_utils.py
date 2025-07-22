@@ -30,17 +30,18 @@ def is_running_in_ipython() -> bool:
     return getattr(builtins, '__IPYTHON__', False)
 
 
-# The order of the rendered API groups is defined in the docusaurus-plugin-typedoc-api.
+# The order of the rendered API groups is defined in the website/docusaurus.config.js file.
 GroupName = Literal[
     'Actor',
     'Charging',
     'Configuration',
-    'Event managers',
     'Event data',
+    'Event managers',
+    'Events',
+    'Request loaders',
     'Storage clients',
     'Storage data',
     'Storages',
-    'Other',
 ]
 
 
