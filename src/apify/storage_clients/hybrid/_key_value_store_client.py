@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 from apify_client import ApifyClientAsync
 from apify_client.clients import RequestQueueClientAsync
 from crawlee import Request, service_locator
-from crawlee.events._types import Event
 from crawlee.storage_clients._memory import MemoryRequestQueueClient
 from crawlee.storage_clients.models import RequestQueueMetadata
+from apify_shared.consts import ActorEventTypes
 
 if TYPE_CHECKING:
     from apify import Configuration
@@ -49,7 +49,8 @@ class HybridRequestQueueClient(MemoryRequestQueueClient):
 
         # Register persistence listener
         event_manager = service_locator.get_event_manager()
-        event_manager.on(event=Event.PERSIST_STATE, listener=self.to_apify_request_queue)
+        event_manager.on(event=ActorEventTypes.ABORTING, listener=self.to_apify_request_queue)
+        event_manager.on(event=ActorEventTypes.MIGRATING, listener=self.to_apify_request_queue)
 
     @classmethod
     async def open(
@@ -149,9 +150,13 @@ class HybridRequestQueueClient(MemoryRequestQueueClient):
                 break
             start = requests[-1].url
 
-    async def to_apify_request_queue(self)->None:
+
+    async def to_apify_request_queue(self, *args, **kwargs)->None:
         """Persist to Apify RQ."""
+        logger.info(f'Persisting RequestQueue to Apify platform.')
+
         await self._api_client.batch_add_requests(
             [request.model_dump(by_alias=True, exclude={'id'}) for request in self._pending_requests])
         await self._api_client.batch_add_requests(
             [request.model_dump(by_alias=True, exclude={'id'}) for request in self._handled_requests.values()])
+
