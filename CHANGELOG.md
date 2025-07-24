@@ -2,15 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
+## [2.7.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.1) (2025-07-24)
 
-## 2.7.1 - **not yet released**
+### 🚀 Features
 
-### 🐛 Bug Fixes
+- **crypto:** Decrypt secret objects (#482) ([4d62f46](https://github.com/apify/apify-sdk-python/commit/4d62f466b1d4d717fdb0ebacfeb30df49aa6d742))
 
-- Add back support for Python 3.9.
 
-<!-- git-cliff-unreleased-end -->
 
 ## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
 
