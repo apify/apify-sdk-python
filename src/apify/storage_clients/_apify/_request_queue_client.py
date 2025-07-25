@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
@@ -40,7 +39,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self,
         *,
         api_client: RequestQueueClientAsync,
-        lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
 
@@ -49,14 +47,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._api_client = api_client
         """The Apify request queue client for API operations."""
 
-        self._lock = lock
-        """A lock to ensure that only one operation is performed at a time."""
-
         self._queue_head = deque[str]()
         """A deque to store request IDs in the queue head."""
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=self._MAX_CACHED_REQUESTS)
-        """A cache to store request objects."""
+        """A cache to store request objects. Request ID is used as the cache key."""
 
         self._queue_has_locked_requests: bool | None = None
         """Whether the queue has requests locked by another client."""
@@ -162,7 +157,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         return cls(
             api_client=apify_rq_client,
-            lock=asyncio.Lock(),
         )
 
     @override
@@ -174,8 +168,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
     @override
     async def drop(self) -> None:
-        async with self._lock:
-            await self._api_client.delete()
+        await self._api_client.delete()
 
     @override
     async def add_batch_of_requests(
@@ -632,7 +625,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """Cache a request for future use.
 
         Args:
-            cache_key: The key to use for caching the request.
+            cache_key: The key to use for caching the request. It should be request ID.
             processed_request: The processed request information.
             forefront: Whether the request was added to the forefront of the queue.
             hydrated_request: The hydrated request object, if available.
