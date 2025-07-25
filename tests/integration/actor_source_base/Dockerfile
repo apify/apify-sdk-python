@@ -12,4 +12,4 @@ RUN echo "Python version:" \
  && echo "All installed Python packages:" \
  && pip freeze
 
-CMD ["python3", "-m", "src"]
+CMD ["sh", "-c", "python test_server.py & python -m src"]
