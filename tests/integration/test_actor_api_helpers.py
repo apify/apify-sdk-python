@@ -400,12 +400,12 @@ async def test_actor_adds_webhook_and_receives_event(
         async with Actor:
 
             class WebhookHandler(BaseHTTPRequestHandler):
-                def do_GET(self) -> None:  # noqa: N802
+                def do_GET(self) -> None:
                     self.send_response(200)
                     self.end_headers()
                     self.wfile.write(bytes('Hello, world!', encoding='utf-8'))
 
-                def do_POST(self) -> None:  # noqa: N802
+                def do_POST(self) -> None:
                     nonlocal webhook_body
                     content_length = self.headers.get('content-length')
                     length = int(content_length) if content_length else 0
