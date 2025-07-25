@@ -40,7 +40,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self,
         *,
         api_client: RequestQueueClientAsync,
-        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
@@ -49,9 +48,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """
         self._api_client = api_client
         """The Apify request queue client for API operations."""
-
-        self._api_public_base_url = api_public_base_url
-        """The public base URL for accessing the key-value store records."""
 
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
@@ -166,7 +162,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         return cls(
             api_client=apify_rq_client,
-            api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
         )
 
@@ -198,13 +193,14 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             Response containing information about the added requests.
         """
-        # Prepare requests for API by converting to dictionaries
-        requests_dict = [request.model_dump(by_alias=True) for request in requests]
-
-        # Remove 'id' fields from requests as the API doesn't accept them
-        for request_dict in requests_dict:
-            if 'id' in request_dict:
-                del request_dict['id']
+        # Prepare requests for API by converting to dictionaries.
+        requests_dict = [
+            request.model_dump(
+                by_alias=True,
+                exclude={'id'},  # Exclude ID fields from requests since the API doesn't accept them.
+            )
+            for request in requests
+        ]
 
         # Send requests to API
         response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
