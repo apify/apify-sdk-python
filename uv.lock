@@ -33,6 +33,7 @@ source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
     { name = "apify-shared" },
+    { name = "cachetools" },
     { name = "crawlee" },
     { name = "cryptography" },
     { name = "httpx" },
@@ -63,13 +64,15 @@ dev = [
     { name = "respx" },
     { name = "ruff" },
     { name = "setuptools" },
+    { name = "types-cachetools" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "apify-client", specifier = ">=1.11.0" },
+    { name = "apify-client", specifier = ">=1.12.0" },
     { name = "apify-shared", specifier = ">=1.3.0" },
-    { name = "crawlee", specifier = "~=0.6.0" },
+    { name = "cachetools", specifier = ">=5.5.0" },
+    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=master" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "lazy-object-proxy", specifier = "<1.11.0" },
@@ -96,6 +99,7 @@ dev = [
     { name = "respx", specifier = "~=0.22.0" },
     { name = "ruff", specifier = "~=0.12.0" },
     { name = "setuptools" },
+    { name = "types-cachetools", specifier = ">=6.0.0.20250525" },
 ]
 
 [[package]]
@@ -554,14 +558,13 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "0.6.11"
-source = { registry = "https://pypi.org/simple" }
+version = "0.6.12"
+source = { git = "https://github.com/apify/crawlee-python.git?rev=master#c56085070a4c56d77ac926f8486c162b69235735" }
 dependencies = [
     { name = "apify-fingerprint-datapoints" },
     { name = "browserforge" },
     { name = "cachetools" },
     { name = "colorama" },
-    { name = "eval-type-backport" },
     { name = "httpx", extra = ["brotli", "http2", "zstd"] },
     { name = "more-itertools" },
     { name = "protego" },
@@ -574,10 +577,6 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/61/76d4c43a244bcea123500989a03729ab999054a1d57ebfa85cb66fb86cb7/crawlee-0.6.11.tar.gz", hash = "sha256:746c59b726cce728d7d703e9d2e737ed5f9b2ea8409d3c5b4de0d728af7c0249", size = 24144865, upload-time = "2025-06-23T08:49:53.162Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/8c/9f6cdcc80acca132721331cd07ebe19b6a6509e792eb8f04f9a519c525f3/crawlee-0.6.11-py3-none-any.whl", hash = "sha256:899ae74f891ad87c7c0fc9ae6f448be7f1163f54cda5ec4b9b2e080a0758f6c2", size = 263313, upload-time = "2025-06-23T08:49:51.057Z" },
 ]
 
 [[package]]
@@ -750,15 +749,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b9/71/0c544627c131eee64e41653bf35ebbf02a5aa2318b69c2f9d9415b8005f5/dycw_pytest_only-2.1.1.tar.gz", hash = "sha256:b3c7dce202ee3fac6c83a47d7b9b581737d83db89aab4c624102def18edd00d5", size = 5054, upload-time = "2025-06-03T01:04:47.751Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/1a/25272fafd13c92a2e3b8e351127410b9ea5557324bfea3552388d65797fc/dycw_pytest_only-2.1.1-py3-none-any.whl", hash = "sha256:ea8fe48878dd95ad0ca804e549225cf3b7a1928eb188c22a284c1d17b48a7b89", size = 2413, upload-time = "2025-06-03T01:04:46.585Z" },
-]
-
-[[package]]
-name = "eval-type-backport"
-version = "0.2.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/30/ea/8b0ac4469d4c347c6a385ff09dc3c048c2d021696664e26c7ee6791631b5/eval_type_backport-0.2.2.tar.gz", hash = "sha256:f0576b4cf01ebb5bd358d02314d31846af5e07678387486e2c798af0e7d849c1", size = 9079, upload-time = "2024-12-21T20:09:46.005Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/31/55cd413eaccd39125368be33c46de24a1f639f2e12349b0361b4678f3915/eval_type_backport-0.2.2-py3-none-any.whl", hash = "sha256:cb6ad7c393517f476f96d456d0412ea80f0a8cf96f6892834cd9340149111b0a", size = 5830, upload-time = "2024-12-21T20:09:44.175Z" },
 ]
 
 [[package]]
@@ -2131,6 +2121,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e6/4c/6c35c2d97e6292d715bd93953a4a6114fc091492bd58cad1fdaebbc4ee12/typeapi-2.2.4.tar.gz", hash = "sha256:daa80767520c0957a320577e4f729c0ba6921c708def31f4c6fd8d611908fd7b", size = 121923, upload-time = "2025-01-29T11:40:14.68Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b6/33/38da585b06978d262cc2b2b45bc57ee75f0ce5e0b4ef1cab1b86461e9298/typeapi-2.2.4-py3-none-any.whl", hash = "sha256:bd6d5e5907fa47e0303bf254e7cc8712d4be4eb26d7ffaedb67c9e7844c53bb8", size = 26387, upload-time = "2025-01-29T11:40:12.328Z" },
+]
+
+[[package]]
+name = "types-cachetools"
+version = "6.0.0.20250525"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/d0/55ff0eeda141436c1bd2142cd026906870c661b3f7755070d6da7ea7210f/types_cachetools-6.0.0.20250525.tar.gz", hash = "sha256:baf06f234cac3aeb44c07893447ba03ecdb6c0742ba2607e28a35d38e6821b02", size = 8925, upload-time = "2025-05-25T03:13:53.498Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/8c/4ab0a17ece30fe608270b89cf066387051862899fff9f54ab12511fc7fdd/types_cachetools-6.0.0.20250525-py3-none-any.whl", hash = "sha256:1de8f0fe4bdcb187a48d2026c1e3672830f67943ad2bf3486abe031b632f1252", size = 8938, upload-time = "2025-05-25T03:13:52.406Z" },
 ]
 
 [[package]]
