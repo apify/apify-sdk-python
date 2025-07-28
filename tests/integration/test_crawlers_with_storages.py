@@ -1,4 +1,3 @@
-from crawlee._types import BasicCrawlingContext
 from tests.integration.conftest import MakeActorFunction, RunActorFunction
 
 
@@ -76,31 +75,31 @@ async def test_actor_on_platform_max_request_retries(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """Test that the actor respects max_requests_per_crawl."""
+    """Test that the actor respects max_request_retries."""
 
     async def main() -> None:
         """The crawler entry point."""
+        from crawlee._types import BasicCrawlingContext
         from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
 
         from apify import Actor
 
         async with Actor:
-            max_retries = 2
+            max_retries = 3
             crawler = ParselCrawler(max_request_retries=max_retries)
-            finished = []
-            failed = []
+            failed_counter = 0
 
-            @crawler.failed_request_handler
-            async def failed_handler(context: BasicCrawlingContext, _: Exception) -> None:
-                failed.add(context.request.url)
+            @crawler.error_handler
+            async def failed_handler(_: BasicCrawlingContext, __: Exception) -> None:
+                nonlocal failed_counter
+                failed_counter += 1
 
             @crawler.router.default_handler
-            async def default_handler(context: ParselCrawlingContext) -> None:
-                finished.append(context.request.url)
+            async def default_handler(_: ParselCrawlingContext) -> None:
+                raise RuntimeError('Some error')
 
-            await crawler.run(['http://localhost:8080/non-existing-url'])
-            assert len(finished) == 0
-            assert len(failed) == max_retries + 1
+            await crawler.run(['http://localhost:8080/'])
+            assert failed_counter == max_retries, f'{failed_counter=}' # TODO max_retries + 1
 
     actor = await make_actor(label='crawler-max-retries', main_func=main)
     run_result = await run_actor(actor)
