@@ -1028,11 +1028,9 @@ async def test_rq_isolation(
     """Test that different request queues are properly isolated."""
 
     async def main() -> None:
-        from crawlee._utils.crypto import crypto_random_object_id
-
         async with Actor:
             # Get the unique actor name for creating unique queue names
-            actor_name = f'python-sdk-tests-actor-generated-{crypto_random_object_id(8)}'
+            actor_name = Actor.configuration.actor_id
 
             # Open multiple queues with unique names
             rq1 = await Actor.open_request_queue(name=f'{actor_name}-rq-1')
