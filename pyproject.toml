@@ -65,7 +65,7 @@ scrapy = ["scrapy>=2.11.0"]
 dev = [
     "build~=1.2.0",
     "dycw-pytest-only>=2.1.1",
-    "griffe~=1.7.0",
+    "griffe~=1.8.0",
     "mypy~=1.17.0",
     "pre-commit~=4.2.0",
     "pydoc-markdown~=4.8.0",

@@ -38,7 +38,16 @@ module.exports = {
     favicon: 'img/favicon.ico',
     githubHost: 'github.com',
     future: {
-        experimental_faster: true,
+        experimental_faster: {
+            // ssgWorkerThreads: true,
+            swcJsLoader: true,
+            swcJsMinimizer: true,
+            swcHtmlMinimizer: true,
+            lightningCssMinimizer: true,
+            rspackBundler: true,
+            mdxCrossCompilerCache: true,
+            rspackPersistentCache: true,
+        },
         v4: {
             removeLegacyPostBuildHeadAttribute: true,
             useCssCascadeLayers: false, // this breaks styles on homepage and link colors everywhere
