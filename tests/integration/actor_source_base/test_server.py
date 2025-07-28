@@ -13,6 +13,7 @@ http://localhost:8080/10, http://localhost:8080/11, ..., http://localhost:8080/1
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
+from socket import socket
 from typing import Any
 
 from uvicorn import Config
@@ -72,8 +73,10 @@ class TestServer(Server):
         protocol = 'https' if self.config.is_ssl else 'http'
         return URL(f'{protocol}://{self.config.host}:{self.config.port}/')
 
-    async def serve(self) -> None:
+    async def serve(self, sockets: list[socket] | None = None) -> None:
         """Run the server."""
+        if sockets:
+            raise RuntimeError('Simple TestServer does not support custom sockets')
         self.restart_requested = asyncio.Event()
 
         loop = asyncio.get_event_loop()

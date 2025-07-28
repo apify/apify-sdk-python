@@ -1,4 +1,9 @@
-from tests.integration.conftest import MakeActorFunction, RunActorFunction
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .conftest import MakeActorFunction, RunActorFunction
 
 
 async def test_actor_on_platform_max_crawl_depth(
@@ -79,8 +84,7 @@ async def test_actor_on_platform_max_request_retries(
 
     async def main() -> None:
         """The crawler entry point."""
-        from crawlee._types import BasicCrawlingContext
-        from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
+        from crawlee.crawlers import BasicCrawlingContext, ParselCrawler, ParselCrawlingContext
 
         from apify import Actor
 
@@ -99,7 +103,8 @@ async def test_actor_on_platform_max_request_retries(
                 raise RuntimeError('Some error')
 
             await crawler.run(['http://localhost:8080/'])
-            assert failed_counter == max_retries, f'{failed_counter=}' # TODO max_retries + 1
+            # https://github.com/apify/crawlee-python/issues/1326 , should be max_retries + 1
+            assert failed_counter == max_retries, f'{failed_counter=}'
 
     actor = await make_actor(label='crawler-max-retries', main_func=main)
     run_result = await run_actor(actor)
