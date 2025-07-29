@@ -2,17 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.1) (2025-07-24)
+
+### 🐛 Bug Fixes
+
+- Add back support for Python 3.9.
+
+
 ## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
 
 ### 🚀 Features
 
 - Expose `logger` argument on `Actor.call` to control log redirection from started Actor run ([#487](https://github.com/apify/apify-sdk-python/pull/487)) ([aa6fa47](https://github.com/apify/apify-sdk-python/commit/aa6fa4750ea1bc7909be1191c0d276a2046930c2)) by [@Pijukatel](https://github.com/Pijukatel)
 - **crypto:** Decrypt secret objects ([#482](https://github.com/apify/apify-sdk-python/pull/482)) ([ce9daf7](https://github.com/apify/apify-sdk-python/commit/ce9daf7381212b8dc194e8a643e5ca0dedbc0078)) by [@MFori](https://github.com/MFori)
-
-### 🐛 Bug Fixes
-
-- Sync `@docusaurus` theme version [internal] ([#500](https://github.com/apify/apify-sdk-python/pull/500)) ([a7485e7](https://github.com/apify/apify-sdk-python/commit/a7485e7d2276fde464ce862573d5b95e7d4d836a)) by [@katzino](https://github.com/katzino)
-- Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
 
 
 ## [2.6.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.6.0) (2025-06-09)
@@ -143,33 +145,210 @@ All notable changes to this project will be documented in this file.
 
 - [**breaking**] Preparation for v2 release ([#210](https://github.com/apify/apify-sdk-python/pull/210)) ([2f9dcc5](https://github.com/apify/apify-sdk-python/commit/2f9dcc559414f31e3f4fc87e72417a36494b9c84)) by [@janbuchar](https://github.com/janbuchar), closes [#135](https://github.com/apify/apify-sdk-python/issues/135), [#137](https://github.com/apify/apify-sdk-python/issues/137), [#138](https://github.com/apify/apify-sdk-python/issues/138), [#147](https://github.com/apify/apify-sdk-python/issues/147), [#149](https://github.com/apify/apify-sdk-python/issues/149), [#237](https://github.com/apify/apify-sdk-python/issues/237)
 
+### Chore
 
-## [1.7.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.2) (2024-07-08)
-
-### 🚀 Features
-
-- Add actor standby port ([#220](https://github.com/apify/apify-sdk-python/pull/220)) ([6d0d87d](https://github.com/apify/apify-sdk-python/commit/6d0d87dcaedaf42d8eeb7d23c56f6b102434cbcb)) by [@jirimoravcik](https://github.com/jirimoravcik)
+- [**breaking**] Drop support for Python 3.8
 
 
-## [1.7.1](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.1) (2024-05-23)
+## [1.7.2](../../releases/tag/v1.7.2) - 2024-07-08
+
+- Add Actor Standby port
+
+
+## [1.7.1](../../releases/tag/v1.7.1) - 2024-05-23
 
 ### 🐛 Bug Fixes
 
-- Set a timeout for Actor cleanup ([#206](https://github.com/apify/apify-sdk-python/pull/206)) ([cfed57d](https://github.com/apify/apify-sdk-python/commit/cfed57d6cff4fd15fe4b25578573190d53b9942c)) by [@janbuchar](https://github.com/janbuchar), closes [#200](https://github.com/apify/apify-sdk-python/issues/200)
+- Set a timeout for Actor cleanup
 
 
-## [1.1.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.2) (2023-08-02)
-
-### 🚀 Features
-
-- Use Actor env vars ([#105](https://github.com/apify/apify-sdk-python/pull/105)) ([f0ba351](https://github.com/apify/apify-sdk-python/commit/f0ba35103eb9efbf39ea394d390430c849bf127c)) by [@jirimoravcik](https://github.com/jirimoravcik)
-
-
-## [1.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.0) (2023-05-23)
+## [1.7.0](../../releases/tag/v1.7.0) - 2024-03-12
 
 ### 🚀 Features
 
-- Use test user token from organisation secrets ([#90](https://github.com/apify/apify-sdk-python/pull/90)) ([7826a38](https://github.com/apify/apify-sdk-python/commit/7826a382d7a3c0a1531b3a7bb73369e2801e6fa0)) by [@drobnikj](https://github.com/drobnikj)
+- Add a new way of generating the `uniqueKey` field of the request, aligning it with the Crawlee.
+
+### 🐛 Bug Fixes
+
+- Improve error handling for `to_apify_request` serialization failures
+- Scrapy's `Request.dont_filter` works.
+
+
+## [1.6.0](../../releases/tag/v1.6.0) - 2024-02-23
+
+### 🐛 Bug Fixes
+
+- Update of Scrapy integration, fixes in `ApifyScheduler`, `to_apify_request` and `apply_apify_settings`.
+
+### Chore
+
+- Remove `ApifyRetryMiddleware` and stay with the Scrapy's default one
+
+
+## [1.5.5](../../releases/tag/v1.5.5) - 2024-02-01
+
+### 🐛 Bug Fixes
+
+- Fix conversion of `headers` fields in Apify <--> Scrapy request translation
+
+
+## [1.5.4](../../releases/tag/v1.5.4) - 2024-01-24
+
+### 🐛 Bug Fixes
+
+- Fix conversion of `userData` and `headers` fields in Apify <--> Scrapy request translation
+
+
+## [1.5.3](../../releases/tag/v1.5.3) - 2024-01-23
+
+### 🚀 Features
+
+- Add `apply_apify_settings` function to Scrapy subpackage
+
+
+## [1.5.2](../../releases/tag/v1.5.2) - 2024-01-19
+
+### 🐛 Bug Fixes
+
+- Add missing import check to `ApifyHttpProxyMiddleware`
+
+### Chore
+
+- Create a new subpackage for Scrapy pipelines
+- Remove some noqas thanks to the new Ruff release
+- Replace relative imports with absolute imports
+- Replace asserts with custom checks in Scrapy subpackage
+
+
+## [1.5.1](../../releases/tag/v1.5.1) - 2024-01-10
+
+### Chore
+
+- Allowed running integration tests from PRs from forks, after maintainer approval
+- Do not close `nested_event_loop` in the `Scheduler.__del__`
+
+
+## [1.5.0](../../releases/tag/v1.5.0) - 2024-01-03
+
+### 🚀 Features
+
+- Add `ApifyHttpProxyMiddleware`
+
+
+## [1.4.1](../../releases/tag/v1.4.1) - 2023-12-21
+
+### 🐛 Bug Fixes
+
+- Resolve issue in `ApifyRetryMiddleware.process_exception()`, where requests were getting stuck in the request queue
+
+### Chore
+
+- Fix type hint problems for resource clients
+
+
+## [1.4.0](../../releases/tag/v1.4.0) - 2023-12-05
+
+### Chore
+
+- Migrate from Autopep8 and Flake8 to Ruff
+
+
+## [1.3.0](../../releases/tag/v1.3.0) - 2023-11-15
+
+### 🚀 Features
+
+- Add `scrapy` extra
+
+
+## [1.2.0](../../releases/tag/v1.2.0) - 2023-10-23
+
+### 🚀 Features
+
+- Add support for Python 3.12
+
+### Chore
+
+- Fix lint error (E721) in unit tests (for instance checks use `isinstance()`)
+
+
+## [1.1.5](../../releases/tag/v1.1.5) - 2023-10-03
+
+### 🚀 Features
+
+- Update the Apify log formatter to contain an option for adding the logger name
+
+### Chore
+
+- Rewrite documentation publication to use Docusaurus
+- Remove PR Toolkit workflow
+
+
+## [1.1.4](../../releases/tag/v1.1.4) - 2023-09-06
+
+### 🐛 Bug Fixes
+
+- Resolve issue with querying request queue head multiple times in parallel
+
+### Chore
+
+- Fix integration tests for Actor logger
+- Remove `pytest-randomly` Pytest plugin
+- Unpin `apify-client` and `apify-shared` to improve compatibility with their newer versions
+
+
+## [1.1.3](../../releases/tag/v1.1.3) - 2023-08-25
+
+### Chore
+
+- Unify indentation in configuration files
+- Update the `Actor.reboot` method to use the new reboot endpoint
+
+
+## [1.1.2](../../releases/tag/v1.1.2) - 2023-08-02
+
+### Chore
+
+- Start importing general constants and utilities from the `apify-shared` library
+- Simplify code via `flake8-simplify`
+- Start using environment variables with prefix `ACTOR_` instead of some with prefix `APIFY_`
+- Pin `apify-client` and `apify-shared` to prevent their implicit updates from breaking SDK
+
+
+## [1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
+
+### 🐛 Bug Fixes
+
+- Relax dependency requirements to improve compatibility with other libraries
+
+
+## [1.1.0](../../releases/tag/v1.1.0) - 2023-05-23
+
+### 🚀 Features
+
+- Add option to add event handlers which accept no arguments
+- Add support for `is_terminal` flag in status message update
+- Add option to set status message along with `Actor.exit()`
+
+### 🐛 Bug Fixes
+
+- Start enforcing local storage to always use the UTF-8 encoding
+- Fix saving key-value store values to local storage with the right extension for a given content type
+
+### Chore
+
+- Switch from `setup.py` to `pyproject.toml` for specifying project setup
+
+
+## [1.0.0](../../releases/tag/v1.0.0) - 2023-03-13
+
+### 🐛 Bug Fixes
+
+- Fix `RequestQueue` not loading requests from an existing queue properly
+
+### Chore
+
+- Update to `apify-client` 1.0.0
+- Start triggering base Docker image builds when releasing a new version
 
 
 ## [0.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v0.2.0) (2023-03-06)
