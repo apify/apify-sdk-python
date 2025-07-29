@@ -6,6 +6,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Final
 
 from cachetools import LRUCache
+from crawlee.storage_clients._base._request_queue_client_cached import RequestQueueClientCached
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class ApifyRequestQueueClient(RequestQueueClient):
+class ApifyRequestQueueClient(RequestQueueClientCached):
     """An Apify platform implementation of the request queue client."""
 
     _DEFAULT_LOCK_TIME: Final[timedelta] = timedelta(minutes=3)
