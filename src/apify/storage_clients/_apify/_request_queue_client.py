@@ -215,7 +215,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if response is None:
             return None
 
-        return Request.model_validate(**response)
+        return Request.model_validate(response)
 
     @override
     async def fetch_next_request(self) -> Request | None:
@@ -252,6 +252,15 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.handled_at is not None:
             logger.debug(
                 'Request fetched from the beginning of queue was already handled',
+                extra={'nextRequestId': next_request_id},
+            )
+            return None
+
+        # Use get request to ensure we have the full request object.
+        request = await self.get_request(request.id)
+        if request is None:
+            logger.debug(
+                'Request fetched from the beginning of queue was not found in the RQ',
                 extra={'nextRequestId': next_request_id},
             )
             return None
