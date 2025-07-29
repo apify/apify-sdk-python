@@ -39,7 +39,6 @@ dependencies = [
     { name = "lazy-object-proxy" },
     { name = "more-itertools" },
     { name = "typing-extensions" },
-    { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
 ]
 
@@ -64,6 +63,7 @@ dev = [
     { name = "respx" },
     { name = "ruff" },
     { name = "setuptools" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
@@ -77,7 +77,6 @@ requires-dist = [
     { name = "more-itertools", specifier = ">=10.2.0" },
     { name = "scrapy", marker = "extra == 'scrapy'", specifier = ">=2.11.0" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = "~=0.35.0" },
     { name = "websockets", specifier = ">=14.0" },
 ]
 provides-extras = ["scrapy"]
@@ -98,6 +97,7 @@ dev = [
     { name = "respx", specifier = "~=0.22.0" },
     { name = "ruff", specifier = "~=0.12.0" },
     { name = "setuptools" },
+    { name = "uvicorn", extras = ["standard"], specifier = "~=0.35.0" },
 ]
 
 [[package]]

@@ -44,7 +44,6 @@ dependencies = [
     "lazy-object-proxy<1.11.0",
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",
-    "uvicorn[standard]~=0.35.0",
     "websockets>=14.0",
 ]
 
@@ -77,6 +76,7 @@ dev = [
     "respx~=0.22.0",
     "ruff~=0.12.0",
     "setuptools", # setuptools are used by pytest but not explicitly required
+    "uvicorn[standard]~=0.35.0",
 ]
 
 [tool.hatch.build.targets.wheel]
