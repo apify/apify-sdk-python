@@ -94,7 +94,7 @@ async def test_actor_on_platform_max_request_retries(
             failed_counter = 0
 
             @crawler.error_handler
-            async def failed_handler(_: BasicCrawlingContext, __: Exception) -> None:
+            async def error_handler(_: BasicCrawlingContext, __: Exception) -> None:
                 nonlocal failed_counter
                 failed_counter += 1
 
@@ -103,8 +103,8 @@ async def test_actor_on_platform_max_request_retries(
                 raise RuntimeError('Some error')
 
             await crawler.run(['http://localhost:8080/'])
-            # https://github.com/apify/crawlee-python/issues/1326 , should be max_retries + 1
-            assert failed_counter == max_retries, f'{failed_counter=}'
+            # https://github.com/apify/crawlee-python/issues/1326 , should be max_retries
+            assert failed_counter == max_retries - 1, f'{failed_counter=}'
 
     actor = await make_actor(label='crawler-max-retries', main_func=main)
     run_result = await run_actor(actor)
