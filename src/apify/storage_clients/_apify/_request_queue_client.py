@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class ApifyRequestQueueClient(RequestQueueClient):
+class ApifyRequestQueueClient(RequestQueueClientCached):
     """An Apify platform implementation of the request queue client."""
 
     _DEFAULT_LOCK_TIME: Final[timedelta] = timedelta(minutes=3)
