@@ -104,8 +104,9 @@ async def test_same_references_in_named_dataset(
             dataset_by_name_2 = await Actor.open_dataset(name=dataset_name)
             assert dataset_by_name_1 is dataset_by_name_2
 
-            dataset_by_id_1 = await Actor.open_dataset(id=dataset_by_name_1._id)
-            dataset_by_id_2 = await Actor.open_dataset(id=dataset_by_name_1._id)
+            dataset_1_metadata = await dataset_by_name_1.get_metadata()
+            dataset_by_id_1 = await Actor.open_dataset(id=dataset_1_metadata.id)
+            dataset_by_id_2 = await Actor.open_dataset(id=dataset_1_metadata.id)
             assert dataset_by_id_1 is dataset_by_name_1
             assert dataset_by_id_2 is dataset_by_id_1
 
@@ -129,7 +130,7 @@ async def test_force_cloud(
 
     async with Actor:
         dataset = await Actor.open_dataset(name=dataset_name, force_cloud=True)
-        dataset_id = dataset._id
+        dataset_id = (await dataset.get_metadata()).id
 
         await dataset.push_data(dataset_item)
 

@@ -11,7 +11,8 @@ from httpx import Response
 from crawlee._request import UserData
 from crawlee._types import HttpMethod
 
-from apify.storages._request_list import URL_NO_COMMAS_REGEX, RequestList
+from apify.request_loaders import ApifyRequestList
+from apify.request_loaders._apify_request_list import URL_NO_COMMAS_REGEX
 
 
 @pytest.mark.parametrize(
@@ -49,7 +50,7 @@ async def test_request_list_open_request_types(
     }
     request_dict_input = {**minimal_request_dict_input, **optional_input}
 
-    request_list = await RequestList.open(request_list_sources_input=[request_dict_input])
+    request_list = await ApifyRequestList.open(request_list_sources_input=[request_dict_input])
     assert not await request_list.is_empty()
 
     request = await request_list.fetch_next_request()
@@ -90,7 +91,7 @@ async def test_request_list_open_from_url_correctly_send_requests() -> None:
 
     routes = [respx.get(entry['requestsFromUrl']) for entry in request_list_sources_input]
 
-    await RequestList.open(request_list_sources_input=request_list_sources_input)
+    await ApifyRequestList.open(request_list_sources_input=request_list_sources_input)
 
     for route in routes:
         assert route.called
@@ -134,7 +135,7 @@ async def test_request_list_open_from_url() -> None:
     for mocked_url in mocked_urls:
         respx.get(mocked_url.url).mock(return_value=Response(200, text=mocked_url.response_text))
 
-    request_list = await RequestList.open(request_list_sources_input=request_list_sources_input)
+    request_list = await ApifyRequestList.open(request_list_sources_input=request_list_sources_input)
     generated_requests = []
     while request := await request_list.fetch_next_request():
         generated_requests.append(request)
@@ -157,7 +158,7 @@ async def test_request_list_open_from_url_additional_inputs() -> None:
 
     respx.get(example_start_url_input['requestsFromUrl']).mock(return_value=Response(200, text=expected_url))
 
-    request_list = await RequestList.open(request_list_sources_input=[example_start_url_input])
+    request_list = await ApifyRequestList.open(request_list_sources_input=[example_start_url_input])
     request = await request_list.fetch_next_request()
 
     # Check all properties correctly created for request
@@ -174,7 +175,7 @@ async def test_request_list_open_from_url_additional_inputs() -> None:
 
 async def test_request_list_open_name() -> None:
     name = 'some_name'
-    request_list = await RequestList.open(name=name)
+    request_list = await ApifyRequestList.open(name=name)
     assert request_list.name == name
 
 
