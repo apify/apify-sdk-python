@@ -1,3 +1,4 @@
 # The test fixture will put the Apify SDK wheel path on the next line
 APIFY_SDK_WHEEL_PLACEHOLDER
 uvicorn[standard]~=0.35.0
+crawlee[parsel]~=0.6.0
