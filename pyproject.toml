@@ -36,7 +36,7 @@ keywords = [
 dependencies = [
     "apify-client<2.0.0",
     "apify-shared<2.0.0",
-    "crawlee[parsel]~=0.6.0",
+    "crawlee~=0.6.0",
     "cryptography>=42.0.0",
     "httpx>=0.27.0",
     # TODO: ensure compatibility with the latest version of lazy-object-proxy
@@ -63,6 +63,7 @@ scrapy = ["scrapy>=2.11.0"]
 [dependency-groups]
 dev = [
     "build~=1.2.0",
+    "crawlee[parsel]~=0.6.0",
     "dycw-pytest-only>=2.1.1",
     "griffe~=1.9.0",
     "mypy~=1.17.0",

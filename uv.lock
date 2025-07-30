@@ -33,7 +33,7 @@ source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
     { name = "apify-shared" },
-    { name = "crawlee", extra = ["parsel"] },
+    { name = "crawlee" },
     { name = "cryptography" },
     { name = "httpx" },
     { name = "lazy-object-proxy" },
@@ -50,6 +50,7 @@ scrapy = [
 [package.dev-dependencies]
 dev = [
     { name = "build" },
+    { name = "crawlee", extra = ["parsel"] },
     { name = "dycw-pytest-only" },
     { name = "griffe" },
     { name = "mypy" },
@@ -70,7 +71,7 @@ dev = [
 requires-dist = [
     { name = "apify-client", specifier = "<2.0.0" },
     { name = "apify-shared", specifier = "<2.0.0" },
-    { name = "crawlee", extras = ["parsel"], specifier = "~=0.6.0" },
+    { name = "crawlee", specifier = "~=0.6.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "lazy-object-proxy", specifier = "<1.11.0" },
@@ -84,6 +85,7 @@ provides-extras = ["scrapy"]
 [package.metadata.requires-dev]
 dev = [
     { name = "build", specifier = "~=1.2.0" },
+    { name = "crawlee", extras = ["parsel"], specifier = "~=0.6.0" },
     { name = "dycw-pytest-only", specifier = ">=2.1.1" },
     { name = "griffe", specifier = "~=1.9.0" },
     { name = "mypy", specifier = "~=1.17.0" },
