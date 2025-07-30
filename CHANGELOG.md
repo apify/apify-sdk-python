@@ -2,25 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 2.7.1 - **not yet released**
+## [2.7.2](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.2) (2025-07-30)
 
 ### 🐛 Bug Fixes
 
-- Restrict apify-shared and apify-client versions ([#523](https://github.com/apify/apify-sdk-python/pull/523)) ([b3ae5a9](https://github.com/apify/apify-sdk-python/commit/b3ae5a972a65454a4998eda59c9fcc3f6b7e8579)) by [@vdusek](https://github.com/vdusek)
-
-
-<!-- git-cliff-unreleased-end -->
-## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
-
-### 🚀 Features
-
-- **crypto:** Decrypt secret objects ([#482](https://github.com/apify/apify-sdk-python/pull/482)) ([ce9daf7](https://github.com/apify/apify-sdk-python/commit/ce9daf7381212b8dc194e8a643e5ca0dedbc0078)) by [@MFori](https://github.com/MFori)
-
-### 🐛 Bug Fixes
-
-- Sync `@docusaurus` theme version [internal] ([#500](https://github.com/apify/apify-sdk-python/pull/500)) ([a7485e7](https://github.com/apify/apify-sdk-python/commit/a7485e7d2276fde464ce862573d5b95e7d4d836a)) by [@katzino](https://github.com/katzino)
-- Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
+- Restrict apify-shared and apify-client versions ([#523](https://github.com/apify/apify-sdk-python/pull/523)) ([581ebae](https://github.com/apify/apify-sdk-python/commit/581ebae5752a984a34cbabc02c49945ae392db00)) by [@vdusek](https://github.com/vdusek)
 
 
 ## [2.7.1](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.1) (2025-07-24)
