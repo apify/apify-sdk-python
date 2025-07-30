@@ -6,12 +6,7 @@ on:
   # step required for PRs from forks. This prevents their potential exposure.
   pull_request:
 
-  # Pushing to the master branch triggers code checks
-  push:
-    branches:
-      - master
-    tags-ignore:
-      - "**" # Ignore all tags to prevent duplicate checks when tags are pushed.
+  # Trigger for pushing to the master branch is handled by the pre-release workflow.
 
   # It should also be possible to trigger checks manually
   workflow_dispatch:
