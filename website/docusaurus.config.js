@@ -36,9 +36,7 @@ module.exports = {
     projectName: 'apify-sdk-python',
     scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
-        scripts: [
-        ...config.scripts ?? [],
-    ],
+    scripts: [...(config.scripts ?? [])],
     githubHost: 'github.com',
     future: {
         experimental_faster: {
@@ -274,6 +272,6 @@ module.exports = {
     },
     staticDirectories: ['node_modules/@apify/docs-theme/static', 'static'],
     customFields: {
-        ...config.customFields ?? [],
+        ...(config.customFields ?? []),
     },
 };
