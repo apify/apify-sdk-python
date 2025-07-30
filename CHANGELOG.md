@@ -150,19 +150,19 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Drop support for Python 3.8
 
 
-## [1.7.2](../../releases/tag/v1.7.2) - 2024-07-08
+## [1.7.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.2) (2024-07-08)
 
 - Add Actor Standby port
 
 
-## [1.7.1](../../releases/tag/v1.7.1) - 2024-05-23
+## [1.7.1](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.1) (2024-05-23)
 
 ### 🐛 Bug Fixes
 
 - Set a timeout for Actor cleanup
 
 
-## [1.7.0](../../releases/tag/v1.7.0) - 2024-03-12
+## [1.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.7.0) (2024-03-12)
 
 ### 🚀 Features
 
@@ -174,7 +174,7 @@ All notable changes to this project will be documented in this file.
 - Scrapy's `Request.dont_filter` works.
 
 
-## [1.6.0](../../releases/tag/v1.6.0) - 2024-02-23
+## [1.6.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.6.0) (2024-02-23)
 
 ### 🐛 Bug Fixes
 
@@ -185,28 +185,28 @@ All notable changes to this project will be documented in this file.
 - Remove `ApifyRetryMiddleware` and stay with the Scrapy's default one
 
 
-## [1.5.5](../../releases/tag/v1.5.5) - 2024-02-01
+## [1.5.5](https://github.com/apify/apify-sdk-python/releases/tag/v1.5.5) (2024-02-01)
 
 ### 🐛 Bug Fixes
 
 - Fix conversion of `headers` fields in Apify <--> Scrapy request translation
 
 
-## [1.5.4](../../releases/tag/v1.5.4) - 2024-01-24
+## [1.5.4](https://github.com/apify/apify-sdk-python/releases/tag/v1.5.4) (2024-01-24)
 
 ### 🐛 Bug Fixes
 
 - Fix conversion of `userData` and `headers` fields in Apify <--> Scrapy request translation
 
 
-## [1.5.3](../../releases/tag/v1.5.3) - 2024-01-23
+## [1.5.3](https://github.com/apify/apify-sdk-python/releases/tag/v1.5.3) (2024-01-23)
 
 ### 🚀 Features
 
 - Add `apply_apify_settings` function to Scrapy subpackage
 
 
-## [1.5.2](../../releases/tag/v1.5.2) - 2024-01-19
+## [1.5.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.5.2) (2024-01-19)
 
 ### 🐛 Bug Fixes
 
@@ -220,7 +220,7 @@ All notable changes to this project will be documented in this file.
 - Replace asserts with custom checks in Scrapy subpackage
 
 
-## [1.5.1](../../releases/tag/v1.5.1) - 2024-01-10
+## [1.5.1](https://github.com/apify/apify-sdk-python/releases/tag/v1.5.1) (2024-01-10)
 
 ### Chore
 
@@ -228,14 +228,14 @@ All notable changes to this project will be documented in this file.
 - Do not close `nested_event_loop` in the `Scheduler.__del__`
 
 
-## [1.5.0](../../releases/tag/v1.5.0) - 2024-01-03
+## [1.5.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.5.0) (2024-01-03)
 
 ### 🚀 Features
 
 - Add `ApifyHttpProxyMiddleware`
 
 
-## [1.4.1](../../releases/tag/v1.4.1) - 2023-12-21
+## [1.4.1](https://github.com/apify/apify-sdk-python/releases/tag/v1.4.1) (2023-12-21)
 
 ### 🐛 Bug Fixes
 
@@ -246,21 +246,21 @@ All notable changes to this project will be documented in this file.
 - Fix type hint problems for resource clients
 
 
-## [1.4.0](../../releases/tag/v1.4.0) - 2023-12-05
+## [1.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.4.0) (2023-12-05)
 
 ### Chore
 
 - Migrate from Autopep8 and Flake8 to Ruff
 
 
-## [1.3.0](../../releases/tag/v1.3.0) - 2023-11-15
+## [1.3.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.3.0) (2023-11-15)
 
 ### 🚀 Features
 
 - Add `scrapy` extra
 
 
-## [1.2.0](../../releases/tag/v1.2.0) - 2023-10-23
+## [1.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.2.0) (2023-10-23)
 
 ### 🚀 Features
 
@@ -271,7 +271,7 @@ All notable changes to this project will be documented in this file.
 - Fix lint error (E721) in unit tests (for instance checks use `isinstance()`)
 
 
-## [1.1.5](../../releases/tag/v1.1.5) - 2023-10-03
+## [1.1.5](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.5) (2023-10-03)
 
 ### 🚀 Features
 
@@ -283,7 +283,7 @@ All notable changes to this project will be documented in this file.
 - Remove PR Toolkit workflow
 
 
-## [1.1.4](../../releases/tag/v1.1.4) - 2023-09-06
+## [1.1.4](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.4) (2023-09-06)
 
 ### 🐛 Bug Fixes
 
@@ -296,7 +296,7 @@ All notable changes to this project will be documented in this file.
 - Unpin `apify-client` and `apify-shared` to improve compatibility with their newer versions
 
 
-## [1.1.3](../../releases/tag/v1.1.3) - 2023-08-25
+## [1.1.3](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.3) (2023-08-25)
 
 ### Chore
 
@@ -304,7 +304,7 @@ All notable changes to this project will be documented in this file.
 - Update the `Actor.reboot` method to use the new reboot endpoint
 
 
-## [1.1.2](../../releases/tag/v1.1.2) - 2023-08-02
+## [1.1.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.2) (2023-08-02)
 
 ### Chore
 
@@ -314,14 +314,14 @@ All notable changes to this project will be documented in this file.
 - Pin `apify-client` and `apify-shared` to prevent their implicit updates from breaking SDK
 
 
-## [1.1.1](../../releases/tag/v1.1.1) - 2023-05-23
+## [1.1.1](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.1) (2023-05-23)
 
 ### 🐛 Bug Fixes
 
 - Relax dependency requirements to improve compatibility with other libraries
 
 
-## [1.1.0](../../releases/tag/v1.1.0) - 2023-05-23
+## [1.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.0) (2023-05-23)
 
 ### 🚀 Features
 
@@ -339,7 +339,7 @@ All notable changes to this project will be documented in this file.
 - Switch from `setup.py` to `pyproject.toml` for specifying project setup
 
 
-## [1.0.0](../../releases/tag/v1.0.0) - 2023-03-13
+## [1.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.0.0) (2023-03-13)
 
 ### 🐛 Bug Fixes
 

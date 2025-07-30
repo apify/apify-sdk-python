@@ -126,3 +126,26 @@ async def test_something(
 
     assert actor_run.status == 'SUCCEEDED'
 ```
+
+### Asserts
+
+Since test Actors are not executed as standard pytest tests, we don't get introspection of assertion expressions. In case of failure, only a bare `AssertionError` is shown, without the left and right values. This means, we must include explicit assertion messages to aid potential debugging.
+
+```python
+async def test_add_and_fetch_requests(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Test basic functionality of adding and fetching requests."""
+
+    async def main() -> None:
+        async with Actor:
+            rq = await Actor.open_request_queue()
+            await rq.add_request(f'https://apify.com/')
+            assert is_finished is False, f'is_finished={is_finished}'
+
+    actor = await make_actor(label='rq-test', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+```
