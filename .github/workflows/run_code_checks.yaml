@@ -6,6 +6,11 @@ on:
   # step required for PRs from forks. This prevents their potential exposure.
   pull_request:
 
+  # Trigger for pushing to the master branch is handled by the pre-release workflow.
+
+  # It should also be possible to trigger checks manually
+  workflow_dispatch:
+
 jobs:
   lint_check:
     name: Lint check
