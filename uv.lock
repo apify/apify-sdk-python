@@ -28,7 +28,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "2.7.1"
+version = "2.7.3"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
@@ -124,11 +124,11 @@ wheels = [
 
 [[package]]
 name = "apify-shared"
-version = "1.4.1"
+version = "1.4.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b2/a6/c8e2fa0b3bdc479d3ecde778e2381af199f910cf7c8baa3c207bcfe26e47/apify_shared-1.4.1.tar.gz", hash = "sha256:16e617c840fd27bf38d980f079c0b867c7378f68c7006b3d5a7d530d43930507", size = 13871, upload-time = "2025-04-28T12:20:01.113Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/90/8c124864a372693a86c26efc38de27440a03bc69a18055399041dd18fa24/apify_shared-1.4.2.tar.gz", hash = "sha256:7190f2b7557b50b40acb32a1fcc783ea8a0fa58bf3cf33fc03e23de49f318b45", size = 13889, upload-time = "2025-08-01T07:38:54.625Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/f3/3446c8a7986fdc087024d4e174e4b3f587097a9b28f6f8e8c788199225b2/apify_shared-1.4.1-py3-none-any.whl", hash = "sha256:abac5712b6e8eb96693204cbb2702905e1971d9084b1716e7337852b5005290e", size = 12706, upload-time = "2025-04-28T12:19:59.792Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/d6/e3864ffe8886713aa5306d38b0e90237085d4951699a4be39adbcc4194e5/apify_shared-1.4.2-py3-none-any.whl", hash = "sha256:1958b843c4e16af0804b3f6ba886264091b54c15bf524606fafb55d20ed08fff", size = 12725, upload-time = "2025-08-01T07:38:53.556Z" },
 ]
 
 [[package]]
