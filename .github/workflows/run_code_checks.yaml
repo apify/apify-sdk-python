@@ -36,7 +36,6 @@ jobs:
 
   integration_tests:
     name: Integration tests
-    needs: [lint_check, type_check, unit_tests]
     uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
     secrets: inherit
     with:

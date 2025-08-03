@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field, TypeAdapter
 
 from crawlee._types import HttpMethod
-from crawlee.http_clients import HttpClient, HttpxHttpClient
+from crawlee.http_clients import HttpClient, ImpitHttpClient
 from crawlee.request_loaders import RequestList
 
 from apify import Request
@@ -80,7 +80,7 @@ class ApifyRequestList(RequestList):
         name: str | None, request_list_sources_input: list[dict[str, Any]], http_client: HttpClient | None
     ) -> ApifyRequestList:
         if not http_client:
-            http_client = HttpxHttpClient()
+            http_client = ImpitHttpClient()
 
         url_inputs = url_input_adapter.validate_python(request_list_sources_input)
 
