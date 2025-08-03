@@ -39,6 +39,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self,
         *,
         api_client: RequestQueueClientAsync,
+        id: str,
+        name: str | None,
+        total_request_count: int,
+        handled_request_count: int,
     ) -> None:
         """Initialize a new instance.
 
@@ -46,6 +50,12 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """
         self._api_client = api_client
         """The Apify request queue client for API operations."""
+
+        self._id = id
+        """The ID of the request queue."""
+
+        self._name = name
+        """The name of the request queue."""
 
         self._queue_head = deque[str]()
         """A deque to store request IDs in the queue head."""
@@ -59,10 +69,38 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._should_check_for_forefront_requests = False
         """Whether to check for forefront requests in the next list_head call."""
 
+        self._had_multiple_clients = False
+        """Whether the request queue has been accessed by multiple clients."""
+
+        self._initial_total_count = total_request_count
+        """The initial total request count (from the API) when the queue was opened."""
+
+        self._initial_handled_count = handled_request_count
+        """The initial handled request count (from the API) when the queue was opened."""
+
+        self._assumed_total_count = 0
+        """The number of requests we assume are in the queue (tracked manually for this instance)."""
+
+        self._assumed_handled_count = 0
+        """The number of requests we assume have been handled (tracked manually for this instance)."""
+
     @override
     async def get_metadata(self) -> RequestQueueMetadata:
-        metadata = await self._api_client.get()
-        return RequestQueueMetadata.model_validate(metadata)
+        total_count = self._initial_total_count + self._assumed_total_count
+        handled_count = self._initial_handled_count + self._assumed_handled_count
+        pending_count = total_count - handled_count
+
+        return RequestQueueMetadata(
+            id=self._id,
+            name=self._name,
+            total_request_count=total_count,
+            handled_request_count=handled_count,
+            pending_request_count=pending_count,
+            created_at=datetime.now(timezone.utc),
+            modified_at=datetime.now(timezone.utc),
+            accessed_at=datetime.now(timezone.utc),
+            had_multiple_clients=self._had_multiple_clients,
+        )
 
     @classmethod
     async def open(
@@ -136,6 +174,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
             apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
 
         # If both id and name are None, try to get the default storage ID from environment variables.
+        # The default storage ID environment variable is set by the Apify platform. It also contains
+        # a new storage ID after Actor's reboot or migration.
         if id is None and name is None:
             id = configuration.default_request_queue_id
             apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
@@ -155,8 +195,20 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if metadata is None:
             raise ValueError(f'Opening request queue with id={id} and name={name} failed.')
 
+        metadata_model = RequestQueueMetadata.model_validate(
+            await apify_rqs_client.get_or_create(),
+        )
+
+        # Ensure we have a valid ID.
+        if id is None:
+            raise ValueError('Request queue ID cannot be None.')
+
         return cls(
             api_client=apify_rq_client,
+            id=id,
+            name=name,
+            total_request_count=metadata_model.total_request_count,
+            handled_request_count=metadata_model.handled_request_count,
         )
 
     @override
@@ -195,10 +247,19 @@ class ApifyRequestQueueClient(RequestQueueClient):
             for request in requests
         ]
 
-        # Send requests to API
+        # Send requests to API.
         response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
 
-        return AddRequestsResponse.model_validate(response)
+        # Update assumed total count for newly added requests.
+        api_response = AddRequestsResponse.model_validate(response)
+        new_request_count = 0
+        for processed_request in api_response.processed_requests:
+            if not processed_request.was_already_present and not processed_request.was_already_handled:
+                new_request_count += 1
+
+        self._assumed_total_count += new_request_count
+
+        return api_response
 
     @override
     async def get_request(self, request_id: str) -> Request | None:
@@ -288,6 +349,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
             processed_request = await self._update_request(request)
             processed_request.unique_key = request.unique_key
 
+            # Update assumed handled count if this wasn't already handled
+            if not processed_request.was_already_handled:
+                self._assumed_handled_count += 1
+
             # Update the cache with the handled request
             cache_key = unique_key_to_request_id(request.unique_key)
             self._cache_request(
@@ -320,10 +385,20 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             Information about the queue operation. `None` if the given request was not in progress.
         """
+        # Check if the request was marked as handled and clear it. When reclaiming,
+        # we want to put the request back for processing.
+        if request.was_already_handled:
+            request.handled_at = None
+
         try:
-            # Update the request in the API
+            # Update the request in the API.
             processed_request = await self._update_request(request, forefront=forefront)
             processed_request.unique_key = request.unique_key
+
+            # If the request was previously handled, decrement our handled count since
+            # we're putting it back for processing.
+            if request.was_already_handled and not processed_request.was_already_handled:
+                self._assumed_handled_count -= 1
 
             # Update the cache
             cache_key = unique_key_to_request_id(request.unique_key)

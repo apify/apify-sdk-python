@@ -131,6 +131,8 @@ class ApifyDatasetClient(DatasetClient):
             apify_dataset_client = apify_client_async.dataset(dataset_id=id)
 
         # If both id and name are None, try to get the default storage ID from environment variables.
+        # The default storage ID environment variable is set by the Apify platform. It also contains
+        # a new storage ID after Actor's reboot or migration.
         if id is None and name is None:
             id = configuration.default_dataset_id
             apify_dataset_client = apify_client_async.dataset(dataset_id=id)
