@@ -110,3 +110,42 @@ async def test_request_queue_is_finished(
 
         await request_queue.mark_request_as_handled(request)
         assert await request_queue.is_finished()
+
+
+async def test_request_queue_deduplication(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Test that the deduplication works correctly. Try to add 2 same requests, but it should call API just once.
+
+    This tests internal optimization that changes no behavior for the user.
+    The functions input/output behave the same way,it only uses less amount of API calls.
+    """
+
+    async def main() -> None:
+        import asyncio
+
+        from apify import Actor, Request
+
+        async with Actor:
+            request = Request.from_url('http://example.com')
+            rq = await Actor.open_request_queue(name='test-deduplication', force_cloud=True)
+
+            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+            stats_before = (await Actor.apify_client.request_queue(request_queue_id=rq.id).get()).get('stats', {})
+            Actor.log.info(stats_before)
+
+            # Add same request twice
+            await rq.add_request(request)
+            await rq.add_request(request)
+
+            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+            stats_after = (await Actor.apify_client.request_queue(request_queue_id=rq.id).get()).get('stats', {})
+            Actor.log.info(stats_after)
+
+            assert (stats_after['writeCount'] - stats_before['writeCount']) ==  1
+
+    actor = await make_actor(label='rq-deduplication', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
