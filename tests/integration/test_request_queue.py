@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from apify import Actor
 
 if TYPE_CHECKING:
@@ -742,6 +744,9 @@ async def test_mixed_string_and_request_objects(
     assert run_result.status == 'SUCCEEDED'
 
 
+@pytest.mark.skip(
+    reason='The Apify RQ client is not resilient to concurrent processing, making this test flaky. See issue #529.'
+)
 async def test_concurrent_processing_simulation(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,

@@ -36,6 +36,7 @@ module.exports = {
     projectName: 'apify-sdk-python',
     scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
+    scripts: [...(config.scripts ?? [])],
     githubHost: 'github.com',
     future: {
         experimental_faster: {
@@ -270,4 +271,7 @@ module.exports = {
         image: 'https://docs.apify.com/sdk/python/img/docs-og.png',
     },
     staticDirectories: ['node_modules/@apify/docs-theme/static', 'static'],
+    customFields: {
+        ...(config.customFields ?? []),
+    },
 };
