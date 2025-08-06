@@ -11,13 +11,17 @@ from typing_extensions import override
 from apify_client import ApifyClientAsync
 from crawlee._utils.requests import unique_key_to_request_id
 from crawlee.storage_clients._base import RequestQueueClient
-from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
+from crawlee.storage_clients.models import (
+    AddRequestsResponse,
+    ProcessedRequest,
+    RequestQueueMetadata,
+)
 
 from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
 from apify import Request
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Coroutine, Sequence, Callable
 
     from apify_client.clients import RequestQueueClientAsync
 
@@ -25,6 +29,19 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+
+from typing import Protocol, Sequence
+from crawlee.storage_clients.models import AddRequestsResponse
+from apify import Request
+
+class AddBatchOfRequestsProtocol(Protocol):
+    async def __call__(_self,
+        self: RequestQueueClient,
+        requests: Sequence[Request],
+        *,
+        forefront: bool = False,
+    ) -> AddRequestsResponse:
+        ...
 
 class ApifyRequestQueueClient(RequestQueueClient):
     """An Apify platform implementation of the request queue client."""
@@ -222,7 +239,78 @@ class ApifyRequestQueueClient(RequestQueueClient):
     async def drop(self) -> None:
         await self._api_client.delete()
 
+    @staticmethod
+    def with_add_request_cache(
+        is_in_cache: Callable[[RequestQueueClient, Request], Coroutine[None, None, bool]],
+        add_to_cache: Callable[[RequestQueueClient, ProcessedRequest], Coroutine[None, None, None]],
+    ) -> Callable[[RequestQueueClient, Sequence[Request], bool], Coroutine[None, None, AddRequestsResponse]]:
+        """Parametrized decorator to cache the result of the `add_request` method.
+
+        Args:
+            is_in_cache: Function to check if the request is already in the cache.
+            add_to_cache: Function to add the request to the cache.
+        """
+
+        def create_wrapped_add_batch_of_requests(
+            add_batch_of_requests: AddBatchOfRequestsProtocol,
+        ) -> AddBatchOfRequestsProtocol:
+            async def wrapped_add_batch_of_requests(
+                _self: RequestQueueClient, requests: Sequence[Request], *, forefront: bool = False
+            ) -> AddRequestsResponse:
+                new_requests: list[Request] = []
+                already_present_requests: list[ProcessedRequest] = []
+                for request in requests:
+                    if await is_in_cache(_self, request):
+                        # We are no sure if it was already handled at this point,
+                        # and it is not worth calling API for it.
+                        already_present_requests.append(ProcessedRequest.model_validate(
+                            {
+                                'id': request.id,
+                                'uniqueKey': request.unique_key,
+                                'wasAlreadyPresent': True,
+                                'wasAlreadyHandled': request.was_already_handled,
+                            }
+                        ))
+
+                    else:
+                        new_requests.append(request)
+                logger.info(
+                    f'Add new requests: {len(new_requests)}, already present requests: {len(already_present_requests)}'
+                )
+                if new_requests:
+                    # Send requests to API.
+                    logger.info(f'self._api_client.batch_add_requests, {len(new_requests)=}')
+                    # Original call
+                    response = await add_batch_of_requests(_self, requests=new_requests, forefront=forefront)
+
+                    # Add new requests to the cache.
+                    for processed_request in response.processed_requests:
+                        await add_to_cache(_self, processed_request)
+                    # Add the locally known already present processed requests based on the local cache.
+                    response.processed_requests.extend(already_present_requests)
+                else:
+                    response = AddRequestsResponse.model_validate(
+                        {'unprocessedRequests': [], 'processedRequests': already_present_requests}
+                    )
+
+                return response
+
+            return wrapped_add_batch_of_requests
+
+        return create_wrapped_add_batch_of_requests
+
+    async def _is_in_cache(self, request: Request) -> bool:
+        return self._requests_cache.get(request.id)
+
+    async def _add_to_cache(self, processed_request: ProcessedRequest) -> None:
+        self._cache_request(
+            cache_key=unique_key_to_request_id(processed_request.unique_key),
+            processed_request=processed_request,
+            forefront=False,
+        )
+
     @override
+    #@with_add_request_cache(_is_in_cache, _add_to_cache)
     async def add_batch_of_requests(
         self,
         requests: Sequence[Request],
@@ -238,49 +326,17 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             Response containing information about the added requests.
         """
-        # Do not try to add previously added requests to avoid pointless expensive calls to API
-        new_requests: list[Request] = []
-        already_present_requests: list[ProcessedRequest] = []
-        for request in requests:
-            if self._requests_cache.get(request.id):
-                # We are no sure if it was already handled at this point, and it is not worth calling API for it.
-                already_present_requests.append(
-                    {
-                        'id': request.id,
-                        'uniqueKey': request.unique_key,
-                        'wasAlreadyPresent': True,
-                        'wasAlreadyHandled': request.was_already_handled,
-                    }
-                )
+        # Prepare requests for API by converting to dictionaries.
+        requests_dict = [
+            request.model_dump(
+                by_alias=True,
+                exclude={'id'},  # Exclude ID fields from requests since the API doesn't accept them.
+            )
+            for request in requests
+        ]
 
-            else:
-                new_requests.append(request)
-        logger.info(f'Add new requests: {len(new_requests)}, already present requests: {len(already_present_requests)}')
-        if new_requests:
-            # Prepare requests for API by converting to dictionaries.
-            requests_dict = [
-                request.model_dump(
-                    by_alias=True,
-                    exclude={'id'},  # Exclude ID fields from requests since the API doesn't accept them.
-                )
-                for request in new_requests
-            ]
-
-            # Send requests to API.
-            logger.info(f'self._api_client.batch_add_requests, {len(new_requests)=}')
-            response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
-            # Add new requests to the cache.
-            for processed_request_raw in response['processedRequests']:
-                processed_request = ProcessedRequest.model_validate(processed_request_raw)
-                self._cache_request(
-                    unique_key_to_request_id(processed_request.unique_key),
-                    processed_request,
-                    forefront=False,
-                )
-            # Add the locally known already present processed requests based on the local cache.
-            response['processedRequests'].extend(already_present_requests)
-        else:
-            response = {'unprocessedRequests': [], 'processedRequests': already_present_requests}
+        # Send requests to API.
+        response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
 
         # Update assumed total count for newly added requests.
         api_response = AddRequestsResponse.model_validate(response)
