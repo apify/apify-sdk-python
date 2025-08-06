@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -11,7 +12,10 @@ from apify_shared.consts import ApifyEnvVars
 from apify import Actor
 
 if TYPE_CHECKING:
-    from respx import MockRouter
+    from collections.abc import Iterator
+
+    from pytest_httpserver import HTTPServer
+    from werkzeug import Request, Response
 
     from ..conftest import ApifyClientAsyncPatcher
 
@@ -24,25 +28,43 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
     return ApifyClientAsync()
 
 
+@pytest.fixture
+def patched_httpx_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch httpx client to avoid actual network calls."""
+
+    class ProxylessAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            kwargs.pop('proxy', None)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', ProxylessAsyncClient)
+    yield
+    monkeypatch.undo()
+
+
+@pytest.mark.usefixtures('patched_httpx_client')
 async def test_basic_proxy_configuration_creation(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    route = respx_mock.get(dummy_proxy_status_url)
-    route.mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': True,
-            },
-        )
+    call_mock = Mock()
+
+    def request_handler(request: Request, response: Response) -> Response:
+        call_mock(request.url)
+        return response
+
+    httpserver.expect_oneshot_request('/').with_post_hook(request_handler).respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': True,
+        },
+        status=200,
     )
 
     groups = ['GROUP1', 'GROUP2']
@@ -58,32 +80,36 @@ async def test_basic_proxy_configuration_creation(
     assert proxy_configuration._country_code == country_code
 
     assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore[attr-defined]
-    assert len(route.calls) == 1
+    assert call_mock.call_count == 1
 
     await Actor.exit()
 
 
+@pytest.mark.usefixtures('patched_httpx_client')
 async def test_proxy_configuration_with_actor_proxy_input(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     dummy_proxy_url = 'http://dummy-proxy.com:8000'
 
     monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    route = respx_mock.get(dummy_proxy_status_url)
-    route.mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': True,
-            },
-        )
+    call_mock = Mock()
+
+    def request_handler(request: Request, response: Response) -> Response:
+        call_mock(request.url)
+        return response
+
+    httpserver.expect_request('/').with_post_hook(request_handler).respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': True,
+        },
+        status=200,
     )
 
     await Actor.init()
@@ -138,6 +164,6 @@ async def test_proxy_configuration_with_actor_proxy_input(
     )
 
     assert len(patched_apify_client.calls['user']['get']) == 2  # type: ignore[attr-defined]
-    assert len(route.calls) == 2
+    assert call_mock.call_count == 2
 
     await Actor.exit()

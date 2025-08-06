@@ -6,6 +6,7 @@ import asyncio
 import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -16,7 +17,10 @@ from apify_shared.consts import ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, is_url
 
 if TYPE_CHECKING:
-    from respx import MockRouter
+    from collections.abc import Iterator
+
+    from pytest_httpserver import HTTPServer
+    from werkzeug import Request, Response
 
     from .conftest import ApifyClientAsyncPatcher
 
@@ -35,6 +39,20 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
         },
     )
     return ApifyClientAsync()
+
+
+@pytest.fixture
+def patched_httpx_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch httpx client to avoid actual network calls."""
+
+    class ProxylessAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            kwargs.pop('proxy', None)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', ProxylessAsyncClient)
+    yield
+    monkeypatch.undo()
 
 
 def test_basic_constructor() -> None:
@@ -370,25 +388,29 @@ async def test_new_proxy_info_rotating_urls_with_sessions() -> None:
     assert proxy_info.url == proxy_urls[0]
 
 
+@pytest.mark.usefixtures('patched_httpx_client')
 async def test_initialize_with_valid_configuration(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    route = respx_mock.get(dummy_proxy_status_url)
-    route.mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': True,
-            },
-        )
+    call_mock = Mock()
+
+    def request_handler(request: Request, response: Response) -> Response:
+        call_mock(request.url)
+        return response
+
+    httpserver.expect_oneshot_request('/').with_post_hook(request_handler).respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': True,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
@@ -399,7 +421,7 @@ async def test_initialize_with_valid_configuration(
     assert proxy_configuration.is_man_in_the_middle is True
 
     assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore[attr-defined]
-    assert len(route.calls) == 1
+    assert call_mock.call_count == 1
 
 
 async def test_initialize_without_password_or_token() -> None:
@@ -409,19 +431,18 @@ async def test_initialize_without_password_or_token() -> None:
         await proxy_configuration.initialize()
 
 
-async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, respx_mock: MockRouter) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+@pytest.mark.usefixtures('patched_httpx_client')
+async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': False,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': False,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
@@ -432,24 +453,23 @@ async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, 
     assert proxy_configuration.is_man_in_the_middle is False
 
 
+@pytest.mark.usefixtures('patched_httpx_client')
 async def test_initialize_prefering_password_from_env_over_calling_api(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
     monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD.value, DUMMY_PASSWORD)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': False,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': False,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration()
@@ -462,28 +482,27 @@ async def test_initialize_prefering_password_from_env_over_calling_api(
     assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
 
 
+@pytest.mark.usefixtures('patched_httpx_client')
 @pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_with_manual_password_different_than_user_one(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     different_dummy_password = 'DIFFERENT_DUMMY_PASSWORD'
     monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
     monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD.value, different_dummy_password)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': True,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': True,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
@@ -498,19 +517,18 @@ async def test_initialize_with_manual_password_different_than_user_one(
     assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
 
 
-async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, respx_mock: MockRouter) -> None:
+@pytest.mark.usefixtures('patched_httpx_client')
+async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
     dummy_connection_error = 'DUMMY_CONNECTION_ERROR'
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': False,
-                'connectionError': dummy_connection_error,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': False,
+            'connectionError': dummy_connection_error,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
@@ -521,14 +539,12 @@ async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, re
 
 @pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_when_status_page_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    respx_mock: MockRouter,
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, httpserver: HTTPServer
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    respx_mock.get(dummy_proxy_status_url).mock(httpx.Response(500))
+    httpserver.expect_oneshot_request('/').respond_with_data(status=500)
 
     proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
 
@@ -541,21 +557,26 @@ async def test_initialize_when_status_page_unavailable(
 
 async def test_initialize_with_non_apify_proxy(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    route = respx_mock.get(dummy_proxy_status_url)
-    route.mock(httpx.Response(200))
+    call_mock = Mock()
+
+    def request_handler(request: Request, response: Response) -> Response:
+        call_mock(request.url)
+        return response
+
+    httpserver.expect_oneshot_request('/').with_post_hook(request_handler).respond_with_data(status=200)
 
     proxy_configuration = ProxyConfiguration(proxy_urls=['http://dummy-proxy.com:8000'])
 
     await proxy_configuration.initialize()
 
     assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
-    assert len(route.calls) == 0
+    assert call_mock.call_count == 0
 
 
 def test_is_url_validation() -> None:
