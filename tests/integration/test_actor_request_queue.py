@@ -129,10 +129,15 @@ async def test_request_queue_deduplication(
 
         async with Actor:
             request = Request.from_url('http://example.com')
-            rq = await Actor.open_request_queue(name='test-deduplication', force_cloud=True)
+            rq = await Actor.open_request_queue()
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
-            stats_before = (await Actor.apify_client.request_queue(request_queue_id=rq.id).get()).get('stats', {})
+
+            # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
+            rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
+            _rq = await rq_client.get()
+            assert _rq
+            stats_before = _rq.get('stats', {})
             Actor.log.info(stats_before)
 
             # Add same request twice
@@ -140,7 +145,9 @@ async def test_request_queue_deduplication(
             await rq.add_request(request)
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
-            stats_after = (await Actor.apify_client.request_queue(request_queue_id=rq.id).get()).get('stats', {})
+            _rq = await rq_client.get()
+            assert _rq
+            stats_after = _rq.get('stats', {})
             Actor.log.info(stats_after)
 
             assert (stats_after['writeCount'] - stats_before['writeCount']) == 1

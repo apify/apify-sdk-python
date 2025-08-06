@@ -240,7 +240,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """
         # Do not try to add previously added requests to avoid pointless expensive calls to API
         new_requests: list[Request] = []
-        already_present_requests: list[ProcessedRequest] = []
+        already_present_requests: list[dict[str, str | bool]] = []
         for request in requests:
             if self._requests_cache.get(request.id):
                 # We are no sure if it was already handled at this point, and it is not worth calling API for it.
