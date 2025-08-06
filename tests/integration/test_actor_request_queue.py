@@ -143,7 +143,7 @@ async def test_request_queue_deduplication(
             stats_after = (await Actor.apify_client.request_queue(request_queue_id=rq.id).get()).get('stats', {})
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) ==  1
+            assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)

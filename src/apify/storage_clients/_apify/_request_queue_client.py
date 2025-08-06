@@ -255,7 +255,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
             else:
                 new_requests.append(request)
-
+        logger.info(f'Add new requests: {len(new_requests)}, already present requests: {len(already_present_requests)}')
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
             requests_dict = [
@@ -267,6 +267,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             ]
 
             # Send requests to API.
+            logger.info(f'self._api_client.batch_add_requests, {len(new_requests)=}')
             response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
             # Add new requests to the cache.
             for processed_request_raw in response['processedRequests']:
@@ -302,6 +303,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The request or None if not found.
         """
+        logger.info(f'self._api_client.get_request, {request_id=}')
         response = await self._api_client.get_request(request_id)
 
         if response is None:
@@ -553,6 +555,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The updated request
         """
+        logger.info(f'self._api_client.update_request, {len(request.id)=}')
         response = await self._api_client.update_request(
             request=request.model_dump(by_alias=True),
             forefront=forefront,
@@ -604,6 +607,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         lock_time = lock_time or self._DEFAULT_LOCK_TIME
         lock_secs = int(lock_time.total_seconds())
 
+        logger.info('self._api_client.list_and_lock_head')
         response = await self._api_client.list_and_lock_head(
             lock_secs=lock_secs,
             limit=limit,
@@ -685,6 +689,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             A response containing the time at which the lock will expire.
         """
+        logger.info(f'self._api_client.prolong_request_lock, {request_id=}')
         response = await self._api_client.prolong_request_lock(
             request_id=request_id,
             forefront=forefront,
@@ -716,6 +721,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             forefront: Whether to put the request in the beginning or the end of the queue after the lock is deleted.
         """
         try:
+            logger.info(f'self._api_client.delete_request_lock, {request_id=}')
             await self._api_client.delete_request_lock(
                 request_id=request_id,
                 forefront=forefront,
