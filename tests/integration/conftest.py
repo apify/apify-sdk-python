@@ -96,6 +96,10 @@ def apify_token() -> str:
     return api_token
 
 
+@pytest.fixture(autouse=True)
+def set_token(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
 @pytest.fixture
 def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync.

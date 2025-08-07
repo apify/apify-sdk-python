@@ -9,6 +9,7 @@ from cachetools import LRUCache
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
+from crawlee._utils.crypto import crypto_random_object_id
 from crawlee._utils.requests import unique_key_to_request_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
@@ -158,27 +159,32 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
         apify_rqs_client = apify_client_async.request_queues()
 
-        # If both id and name are provided, raise an error.
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+        match (id, name):
+            case (None, None):
+                # If both id and name are None, try to get the default storage ID from environment variables.
+                # The default storage ID environment variable is set by the Apify platform. It also contains
+                # a new storage ID after Actor's reboot or migration.
+                id = configuration.default_request_queue_id
+            case (None, name):
+                # If name is provided, get or create the storage by name.
+                id = RequestQueueMetadata.model_validate(
+                    await apify_rqs_client.get_or_create(name=name),
+                ).id
+            case (_, None):
+                pass
+            case (_, _):
+                # If both id and name are provided, raise an error.
+                raise ValueError('Only one of "id" or "name" can be specified, not both.')
+        assert id
 
-        # If id is provided, get the storage by ID.
-        if id and name is None:
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+        # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
+        # It should persist across migrated Actor runs on the Apify platform.
+        _api_max_client_key_length = 32
+        client_key = (configuration.actor_run_id or crypto_random_object_id(
+            length=_api_max_client_key_length)
+                      )[:_api_max_client_key_length]
 
-        # If name is provided, get or create the storage by name.
-        if name and id is None:
-            id = RequestQueueMetadata.model_validate(
-                await apify_rqs_client.get_or_create(name=name),
-            ).id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
-
-        # If both id and name are None, try to get the default storage ID from environment variables.
-        # The default storage ID environment variable is set by the Apify platform. It also contains
-        # a new storage ID after Actor's reboot or migration.
-        if id is None and name is None:
-            id = configuration.default_request_queue_id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+        apify_rq_client = apify_client_async.request_queue(request_queue_id=id, client_key=client_key)
 
         # Fetch its metadata.
         metadata = await apify_rq_client.get()
@@ -188,7 +194,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             id = RequestQueueMetadata.model_validate(
                 await apify_rqs_client.get_or_create(),
             ).id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+            apify_rq_client = apify_client_async.request_queue(request_queue_id=id, client_key=client_key)
 
         # Verify that the storage exists by fetching its metadata again.
         metadata = await apify_rq_client.get()

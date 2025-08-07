@@ -2,14 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apify_shared.consts import ApifyEnvVars
-
 from ._utils import generate_unique_resource_name
 from apify import Actor, Request
 
 if TYPE_CHECKING:
-    import pytest
-
     from apify_client import ApifyClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
@@ -61,11 +57,7 @@ async def test_same_references_in_named_rq(
 
 async def test_force_cloud(
     apify_client_async: ApifyClientAsync,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert apify_client_async.token is not None
-    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
-
     request_queue_name = generate_unique_resource_name('request_queue')
 
     async with Actor:
@@ -88,13 +80,7 @@ async def test_force_cloud(
         await request_queue_client.delete()
 
 
-async def test_request_queue_is_finished(
-    apify_client_async: ApifyClientAsync,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    assert apify_client_async.token is not None
-    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
-
+async def test_request_queue_is_finished() -> None:
     request_queue_name = generate_unique_resource_name('request_queue')
 
     async with Actor:
@@ -110,3 +96,89 @@ async def test_request_queue_is_finished(
 
         await request_queue.mark_request_as_handled(request)
         assert await request_queue.is_finished()
+
+
+async def test_request_queue_had_multiple_clients_local(
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """`RequestQueue` clients created with different `client_key` should appear as distinct clients."""
+    request_queue_name = generate_unique_resource_name('request_queue')
+
+    async with Actor:
+        rq_1 = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+        await rq_1.fetch_next_request()
+
+        # Accessed with client created explicitly with `client_key=None` should appear as distinct client
+        api_client=apify_client_async.request_queue(
+                request_queue_id=rq_1.id, client_key=None)
+        await api_client.list_head()
+
+        # Check that it is correctly in the RequestQueueClient metadata
+        assert (await rq_1.get_metadata()).had_multiple_clients is True # Currently broken
+        # Check that it is correctly in the API, TODO: This should be teste on different level, but it is not working now
+        assert ((await rq_1._client._api_client.list_head())['hadMultipleClients']) is True
+
+
+async def test_request_queue_not_had_multiple_clients_local() -> None:
+    """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
+    request_queue_name = generate_unique_resource_name('request_queue')
+
+    async with Actor:
+        rq_1 = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+        # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
+        await rq_1.fetch_next_request()
+        await rq_1.fetch_next_request()
+
+        # Check that it is correctly in the RequestQueueClient metadata
+        assert (await rq_1.get_metadata()).had_multiple_clients is False
+        # Check that it is correctly in the API, TODO: This should be teste on different level, but it is not working now
+        assert ((await rq_1._client._api_client.list_head())['hadMultipleClients']) is False
+
+async def test_request_queue_had_multiple_clients_platform(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    async def main() -> None:
+        """`RequestQueue` clients created with different `client_key` should appear as distinct clients."""
+        from apify_client import ApifyClientAsync
+        async with Actor:
+            rq_1 = await Actor.open_request_queue()
+            await rq_1.fetch_next_request()
+
+            # Accessed with client created explicitly with `client_key=None` should appear as distinct client
+            api_client=ApifyClientAsync(token=Actor.configuration.token).request_queue(
+                request_queue_id=rq_1.id, client_key=None)
+            await api_client.list_head()
+
+            # Check that it is correctly in the RequestQueueClient metadata
+            assert (await rq_1.get_metadata()).had_multiple_clients is True # Currently broken
+            # Check that it is correctly in the API, TODO: This should be teste on different level, but it is not working now
+            assert ((await rq_1._client._api_client.list_head())['hadMultipleClients']) is True
+
+    actor = await make_actor(label='rq-same-ref-default', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+
+
+async def test_request_queue_not_had_multiple_clients_platform(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    async def main() -> None:
+        """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
+        async with Actor:
+            rq_1 = await Actor.open_request_queue()
+            # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
+            await rq_1.fetch_next_request()
+            await rq_1.fetch_next_request()
+
+            # Check that it is correctly in the RequestQueueClient metadata
+            assert (await rq_1.get_metadata()).had_multiple_clients is False
+            # Check that it is correctly in the API, TODO: This should be teste on different level, but it is not working now
+            assert ((await rq_1._client._api_client.list_head())['hadMultipleClients']) is False
+
+    actor = await make_actor(label='rq-same-ref-default', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
