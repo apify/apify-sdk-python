@@ -8,7 +8,6 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
-import httpx
 import pytest
 
 from apify_client import ApifyClientAsync
@@ -17,8 +16,6 @@ from apify_shared.consts import ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, is_url
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from pytest_httpserver import HTTPServer
     from werkzeug import Request, Response
 
@@ -39,20 +36,6 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
         },
     )
     return ApifyClientAsync()
-
-
-@pytest.fixture
-def patched_httpx_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Patch httpx client to avoid actual network calls."""
-
-    class ProxylessAsyncClient(httpx.AsyncClient):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            kwargs.pop('proxy', None)
-            super().__init__(*args, **kwargs)
-
-    monkeypatch.setattr(httpx, 'AsyncClient', ProxylessAsyncClient)
-    yield
-    monkeypatch.undo()
 
 
 def test_basic_constructor() -> None:

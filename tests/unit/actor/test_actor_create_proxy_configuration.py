@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
-import httpx
 import pytest
 
 from apify_client import ApifyClientAsync
@@ -12,8 +11,6 @@ from apify_shared.consts import ApifyEnvVars
 from apify import Actor
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from pytest_httpserver import HTTPServer
     from werkzeug import Request, Response
 
@@ -26,20 +23,6 @@ DUMMY_PASSWORD = 'DUMMY_PASSWORD'
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
     apify_client_async_patcher.patch('user', 'get', return_value={'proxy': {'password': DUMMY_PASSWORD}})
     return ApifyClientAsync()
-
-
-@pytest.fixture
-def patched_httpx_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Patch httpx client to avoid actual network calls."""
-
-    class ProxylessAsyncClient(httpx.AsyncClient):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            kwargs.pop('proxy', None)
-            super().__init__(*args, **kwargs)
-
-    monkeypatch.setattr(httpx, 'AsyncClient', ProxylessAsyncClient)
-    yield
-    monkeypatch.undo()
 
 
 @pytest.mark.usefixtures('patched_httpx_client')
