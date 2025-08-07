@@ -239,8 +239,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
             Response containing information about the added requests.
         """
         # Do not try to add previously added requests to avoid pointless expensive calls to API
+
         new_requests: list[Request] = []
         already_present_requests: list[dict[str, str | bool]] = []
+
         for request in requests:
             if self._requests_cache.get(request.id):
                 # We are no sure if it was already handled at this point, and it is not worth calling API for it.
@@ -254,12 +256,22 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 )
 
             else:
+                # Add new request to the cache.
+                processed_request = ProcessedRequest.model_validate(
+                    {
+                        'id': request.id,
+                        'uniqueKey': request.unique_key,
+                        'wasAlreadyPresent': True,
+                        'wasAlreadyHandled': request.was_already_handled,
+                    }
+                )
+                self._cache_request(
+                    unique_key_to_request_id(request.unique_key),
+                    processed_request,
+                    forefront=False,
+                )
                 new_requests.append(request)
 
-        logger.debug(
-            f'Adding new requests: {len(new_requests)}, '
-            f'skipping already present requests: {len(already_present_requests)}'
-        )
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
             requests_dict = [
@@ -272,18 +284,15 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
             # Send requests to API.
             response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
-            # Add new requests to the cache.
-            for processed_request_raw in response['processedRequests']:
-                processed_request = ProcessedRequest.model_validate(processed_request_raw)
-                self._cache_request(
-                    unique_key_to_request_id(processed_request.unique_key),
-                    processed_request,
-                    forefront=False,
-                )
             # Add the locally known already present processed requests based on the local cache.
             response['processedRequests'].extend(already_present_requests)
         else:
             response = {'unprocessedRequests': [], 'processedRequests': already_present_requests}
+
+        logger.debug(
+            f'Added new requests: {len(new_requests)}, '
+            f'skipped already present requests: {len(already_present_requests)}'
+        )
 
         # Update assumed total count for newly added requests.
         api_response = AddRequestsResponse.model_validate(response)
