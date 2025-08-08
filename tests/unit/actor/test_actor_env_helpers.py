@@ -45,6 +45,7 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
         ApifyEnvVars.LOG_LEVEL,
         ApifyEnvVars.USER_IS_PAYING,
         ActorEnvVars.STANDBY_PORT,
+        ApifyEnvVars.PERSIST_STORAGE,
     }
 
     legacy_env_vars = {
@@ -60,7 +61,7 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
     }
 
     # Set up random env vars
-    expected_get_env: dict[str, Any] = {}
+    expected_get_env = dict[str, Any]()
     expected_get_env[ApifyEnvVars.LOG_LEVEL.name.lower()] = 'INFO'
 
     for int_env_var in INTEGER_ENV_VARS:
