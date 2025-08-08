@@ -43,6 +43,7 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
         ApifyEnvVars.SDK_LATEST_VERSION,
         ApifyEnvVars.LOG_FORMAT,
         ApifyEnvVars.LOG_LEVEL,
+        ApifyEnvVars.USER_IS_PAYING,
         ActorEnvVars.STANDBY_PORT,
     }
 
