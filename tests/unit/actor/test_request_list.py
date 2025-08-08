@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, get_args
+from typing import TYPE_CHECKING, Any, get_args
+from unittest.mock import Mock
 
 import pytest
-import respx
-from httpx import Response
+from yarl import URL
 
 from crawlee._request import UserData
 from crawlee._types import HttpMethod
 
 from apify.request_loaders import ApifyRequestList
 from apify.request_loaders._apify_request_list import URL_NO_COMMAS_REGEX
+
+if TYPE_CHECKING:
+    from pytest_httpserver import HTTPServer
+    from werkzeug import Request, Response
 
 
 @pytest.mark.parametrize(
@@ -68,20 +72,19 @@ async def test_request_list_open_request_types(
     assert request.headers.root == optional_input.get('headers', {})
 
 
-@respx.mock
-async def test_request_list_open_from_url_correctly_send_requests() -> None:
+async def test_request_list_open_from_url_correctly_send_requests(httpserver: HTTPServer) -> None:
     """Test that requests are sent to expected urls."""
     request_list_sources_input: list[dict[str, Any]] = [
         {
-            'requestsFromUrl': 'https://abc.dev/file.txt',
+            'requestsFromUrl': httpserver.url_for('/file.txt'),
             'method': 'GET',
         },
         {
-            'requestsFromUrl': 'https://www.abc.dev/file2',
+            'requestsFromUrl': httpserver.url_for('/file2'),
             'method': 'PUT',
         },
         {
-            'requestsFromUrl': 'https://www.something.som',
+            'requestsFromUrl': httpserver.url_for('/something'),
             'method': 'POST',
             'headers': {'key': 'value'},
             'payload': 'some_payload',
@@ -89,16 +92,28 @@ async def test_request_list_open_from_url_correctly_send_requests() -> None:
         },
     ]
 
-    routes = [respx.get(entry['requestsFromUrl']) for entry in request_list_sources_input]
+    routes: dict[str, Mock] = {}
+
+    def request_handler(request: Request, response: Response) -> Response:
+        routes[request.url]()
+        return response
+
+    for entry in request_list_sources_input:
+        path = str(URL(entry['requestsFromUrl']).path)
+        httpserver.expect_oneshot_request(path).with_post_hook(request_handler).respond_with_data(status=200)
+        routes[entry['requestsFromUrl']] = Mock()
 
     await ApifyRequestList.open(request_list_sources_input=request_list_sources_input)
 
-    for route in routes:
-        assert route.called
+    assert len(routes) == len(request_list_sources_input)
+
+    for entity in request_list_sources_input:
+        entity_url = entity['requestsFromUrl']
+        assert entity_url in routes
+        assert routes[entity_url].called
 
 
-@respx.mock
-async def test_request_list_open_from_url() -> None:
+async def test_request_list_open_from_url(httpserver: HTTPServer) -> None:
     """Test that create_request_list is correctly reading urls from remote url sources and also from simple input."""
     expected_simple_url = 'https://www.someurl.com'
     expected_remote_urls_1 = {'http://www.something.com', 'https://www.somethingelse.com', 'http://www.bla.net'}
@@ -112,11 +127,11 @@ async def test_request_list_open_from_url() -> None:
 
     mocked_urls = (
         MockedUrlInfo(
-            'https://abc.dev/file.txt',
+            httpserver.url_for('/file.txt'),
             'blablabla{} more blablabla{} , even more blablabla. {} '.format(*expected_remote_urls_1),
         ),
         MockedUrlInfo(
-            'https://www.abc.dev/file2',
+            httpserver.url_for('/file2'),
             'some stuff{} more stuff{} www.false_positive.com'.format(*expected_remote_urls_2),
         ),
     )
@@ -133,7 +148,8 @@ async def test_request_list_open_from_url() -> None:
         },
     ]
     for mocked_url in mocked_urls:
-        respx.get(mocked_url.url).mock(return_value=Response(200, text=mocked_url.response_text))
+        path = str(URL(mocked_url.url).path)
+        httpserver.expect_oneshot_request(path).respond_with_data(status=200, response_data=mocked_url.response_text)
 
     request_list = await ApifyRequestList.open(request_list_sources_input=request_list_sources_input)
     generated_requests = []
@@ -144,23 +160,20 @@ async def test_request_list_open_from_url() -> None:
     assert {generated_request.url for generated_request in generated_requests} == expected_urls
 
 
-@respx.mock
-async def test_request_list_open_from_url_additional_inputs() -> None:
+async def test_request_list_open_from_url_additional_inputs(httpserver: HTTPServer) -> None:
     """Test that all generated request properties are correctly populated from input values."""
     expected_url = 'https://www.someurl.com'
     example_start_url_input: dict[str, Any] = {
-        'requestsFromUrl': 'https://crawlee.dev/file.txt',
+        'requestsFromUrl': httpserver.url_for('/file.txt'),
         'method': 'POST',
         'headers': {'key': 'value'},
         'payload': 'some_payload',
         'userData': {'another_key': 'another_value'},
     }
-
-    respx.get(example_start_url_input['requestsFromUrl']).mock(return_value=Response(200, text=expected_url))
+    httpserver.expect_oneshot_request('/file.txt').respond_with_data(status=200, response_data=expected_url)
 
     request_list = await ApifyRequestList.open(request_list_sources_input=[example_start_url_input])
     request = await request_list.fetch_next_request()
-
     # Check all properties correctly created for request
     assert request
     assert request.url == expected_url

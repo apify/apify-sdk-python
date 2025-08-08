@@ -34,9 +34,8 @@ module.exports = {
     trailingSlash: false,
     organizationName: 'apify',
     projectName: 'apify-sdk-python',
-    scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
-    scripts: [...(config.scripts ?? [])],
+    scripts: ['/js/custom.js', ...(config.scripts ?? [])],
     githubHost: 'github.com',
     future: {
         experimental_faster: {
@@ -258,6 +257,19 @@ module.exports = {
                         group: 'Request loaders',
                     },
                 ],
+            },
+        ],
+        [
+            '@signalwire/docusaurus-plugin-llms-txt',
+            {
+                content: {
+                    includeVersionedDocs: false,
+                    enableLlmsFullTxt: true,
+                    includeBlog: true,
+                    includeGeneratedIndex: false,
+                    includePages: true,
+                    relativePaths: false,
+                },
             },
         ],
         ...config.plugins,
