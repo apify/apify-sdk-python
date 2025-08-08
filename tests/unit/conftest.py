@@ -4,9 +4,12 @@ import asyncio
 import inspect
 import os
 from collections import defaultdict
+from logging import getLogger
 from typing import TYPE_CHECKING, Any, get_type_hints
 
+import httpx
 import pytest
+from pytest_httpserver import HTTPServer
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
@@ -18,7 +21,7 @@ from crawlee.storages import _creation_management
 import apify._actor
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
 
@@ -187,3 +190,37 @@ def memory_storage_client() -> MemoryStorageClient:
     configuration.write_metadata = True
 
     return MemoryStorageClient.from_config(configuration)
+
+
+@pytest.fixture(scope='session')
+def make_httpserver() -> Iterator[HTTPServer]:
+    werkzeug_logger = getLogger('werkzeug')
+    werkzeug_logger.disabled = True
+
+    server = HTTPServer(threaded=True, host='127.0.0.1')
+    server.start()
+    yield server
+    server.clear()  # type: ignore[no-untyped-call]
+    if server.is_running():
+        server.stop()  # type: ignore[no-untyped-call]
+
+
+@pytest.fixture
+def httpserver(make_httpserver: HTTPServer) -> Iterator[HTTPServer]:
+    server = make_httpserver
+    yield server
+    server.clear()  # type: ignore[no-untyped-call]
+
+
+@pytest.fixture
+def patched_httpx_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch httpx client to drop proxy settings."""
+
+    class ProxylessAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            kwargs.pop('proxy', None)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', ProxylessAsyncClient)
+    yield
+    monkeypatch.undo()
