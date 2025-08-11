@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.3](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.3) (2025-08-11)
+
+### 🐛 Bug Fixes
+
+- Expose `APIFY_USER_IS_PAYING` env var to the configuration (#507) ([0de022c](https://github.com/apify/apify-sdk-python/commit/0de022c3435f24c821053c771e7b659433e3fb6e))
+
+
 ## [2.7.2](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.2) (2025-07-30)
 
 ### 🐛 Bug Fixes
