@@ -563,7 +563,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 queue_has_locked_requests=self._queue_has_locked_requests,
                 lock_time=lock_time,
             )
+
+        leftover_buffer = list[str]()
         if self._should_check_for_forefront_requests:
+            leftover_buffer = list(self._queue_head)
+            self._queue_head.clear()
             self._should_check_for_forefront_requests = False
 
         # Otherwise fetch from API
@@ -578,9 +582,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Update the queue head cache
         self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
 
-        # Iterate over new requests and push them to the front of the queue.
-        # Since we push to the front of the queue, we have to iterate in reverse order to preserve the intended order.
-        for request_data in reversed(response.get('items', [])):
+        for request_data in response.get('items', []):
             request = Request.model_validate(request_data)
 
             # Skip requests without ID or unique key
@@ -606,8 +608,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 hydrated_request=request,
             )
 
-            # All new requests are added to the forefront, existing leftover locked requests kept in the end.
-            self._queue_head.appendleft(request.id)
+            self._queue_head.append(request.id)
+
+        for leftover_request_id in leftover_buffer:
+            # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
+            self._queue_head.append(leftover_request_id)
 
         return RequestQueueHead.model_validate(response)
 
