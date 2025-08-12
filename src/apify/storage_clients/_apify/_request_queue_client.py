@@ -294,7 +294,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The request or `None` if there are no more pending requests.
         """
-        # Ensure the queue head has requests if available
+        # Ensure the queue head has requests if available. Fetching the head with lock to prevent race conditions.
         async with self._fetch_lock:
             await self._ensure_head_is_non_empty()
 
@@ -304,7 +304,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
             # Get the next request ID from the queue head
             next_request_id = self._queue_head.popleft()
-            request = await self._get_or_hydrate_request(next_request_id)
+
+        request = await self._get_or_hydrate_request(next_request_id)
 
         # Handle potential inconsistency where request might not be in the main table yet
         if request is None:
