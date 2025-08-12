@@ -544,6 +544,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """
         # Return from cache if available and we're not checking for new forefront requests
         if self._queue_head and not self._should_check_for_forefront_requests:
+            logger.debug(f'Using cached queue head with {len(self._queue_head)} requests, {call_time}')
             # Create a list of requests from the cached queue head
             items = []
             for request_id in list(self._queue_head)[:limit]:
