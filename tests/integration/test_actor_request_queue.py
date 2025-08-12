@@ -98,15 +98,40 @@ async def test_request_queue_is_finished(
     request_queue_name = generate_unique_resource_name('request_queue')
 
     async with Actor:
-        request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        await request_queue.add_request(Request.from_url('http://example.com'))
-        assert not await request_queue.is_finished()
+        try:
+            request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+            await request_queue.add_request(Request.from_url('http://example.com'))
+            assert not await request_queue.is_finished()
 
-        request = await request_queue.fetch_next_request()
-        assert request is not None
-        assert not await request_queue.is_finished(), (
-            'RequestQueue should not be finished unless the request is marked as handled.'
-        )
+            request = await request_queue.fetch_next_request()
+            assert request is not None
+            assert not await request_queue.is_finished(), (
+                'RequestQueue should not be finished unless the request is marked as handled.'
+            )
 
-        await request_queue.mark_request_as_handled(request)
-        assert await request_queue.is_finished()
+            await request_queue.mark_request_as_handled(request)
+            assert await request_queue.is_finished()
+        finally:
+            await request_queue.drop()
+
+
+async def test_same_request_fetched_twice(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch):
+    """Test that the same request can be fetched twice from the request queue."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
+
+    request_queue_name = generate_unique_resource_name('request_queue')
+    async with Actor:
+        try:
+            request_queue = await Actor.open_request_queue(name='same-request-fetch', force_cloud=request_queue_name)
+
+            request = Request.from_url('http://example.com')
+            await request_queue.add_request(request)
+
+            fetched_request_1 = await request_queue.fetch_next_request()
+            assert fetched_request_1 is not None
+            assert fetched_request_1.url == 'http://example.com'
+            await request_queue.reclaim_request(fetched_request_1)
+        finally:
+            await request_queue.drop()

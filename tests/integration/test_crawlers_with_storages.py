@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
@@ -76,7 +78,8 @@ async def test_actor_on_platform_max_requests_per_crawl(
     assert run_result.status == 'SUCCEEDED'
 
 
-async def test_actor_on_platform_max_request_retries(
+@pytest.mark.parametrize('_', range(10))
+async def test_actor_on_platform_max_request_retries(_,
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
@@ -84,11 +87,14 @@ async def test_actor_on_platform_max_request_retries(
 
     async def main() -> None:
         """The crawler entry point."""
+        import logging
+
         from crawlee.crawlers import BasicCrawlingContext, ParselCrawler, ParselCrawlingContext
 
         from apify import Actor
 
         async with Actor:
+            logging.getLogger('apify.storage_clients._apify._request_queue_client').setLevel(logging.DEBUG)
             max_retries = 3
             crawler = ParselCrawler(max_request_retries=max_retries)
             failed_counter = 0
