@@ -86,7 +86,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """The number of requests we assume have been handled (tracked manually for this instance)."""
 
         self._fetch_lock = asyncio.Lock()
-        """Fetch lock to minimize race conditions when communicationg with API."""
+        """Fetch lock to minimize race conditions when communicating with API."""
 
     @override
     async def get_metadata(self) -> RequestQueueMetadata:
@@ -397,6 +397,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.was_already_handled:
             request.handled_at = None
 
+        # Reclaim with lock to prevent race conditions that could lead to double processing of the same request.
         async with self._fetch_lock:
             try:
                 # Update the request in the API.
@@ -439,6 +440,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             True if the queue is empty, False otherwise.
         """
+        # Check _list_head and self._queue_has_locked_requests with lock to make sure they are consistent.
+        # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         async with self._fetch_lock:
             head = await self._list_head(limit=1, lock_time=None)
             return len(head.items) == 0 and not self._queue_has_locked_requests
