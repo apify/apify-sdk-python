@@ -64,7 +64,7 @@ async def test_add_requests_in_batches(
             Actor.log.info('Request queue opened')
 
             # Add some requests
-            await rq.add_requests_batched([f'https://example.com/{i}' for i in range(desired_request_count)])
+            await rq.add_requests([f'https://example.com/{i}' for i in range(desired_request_count)])
             total_count = await rq.get_total_count()
             Actor.log.info(f'Added {desired_request_count} requests in batch, total in queue: {total_count}')
 
@@ -111,7 +111,7 @@ async def test_add_non_unique_requests_in_batch(
                 Request.from_url(f'https://example.com/{i}', unique_key=str(i - 1 if i % 4 == 1 else i))
                 for i in range(desired_request_count)
             ]
-            await rq.add_requests_batched(requests_to_add)
+            await rq.add_requests(requests_to_add)
             total_count = await rq.get_total_count()
             Actor.log.info(
                 f'Added {desired_request_count} requests with duplicate unique keys, total in queue: {total_count}'
@@ -454,7 +454,7 @@ async def test_metadata_tracking(
             assert initial_handled == 0, f'initial_handled={initial_handled}'
 
             # Add requests
-            await rq.add_requests_batched([f'https://example.com/{i}' for i in range(5)])
+            await rq.add_requests([f'https://example.com/{i}' for i in range(5)])
             Actor.log.info('Added 5 requests in batch')
 
             # Check counts after adding
@@ -500,7 +500,7 @@ async def test_batch_operations_performance(
             Actor.log.info(f'Prepared {len(batch_requests)} requests for batch add')
 
             # Add in batch
-            await rq.add_requests_batched(batch_requests)
+            await rq.add_requests(batch_requests)
             Actor.log.info('Batch add completed')
 
             # Verify all requests were added
@@ -617,7 +617,7 @@ async def test_empty_rq_behavior(
             assert request is None, f'request={request}'
 
             # Check metadata for empty queue
-            metadata = await rq.get_info()
+            metadata = await rq.get_metadata()
             assert metadata is not None, f'metadata={metadata}'
             Actor.log.info(
                 f'Empty queue metadata - Total: {metadata.total_request_count}, '
@@ -653,7 +653,7 @@ async def test_large_batch_operations(
             Actor.log.info(f'Created batch of {len(large_batch)} requests')
 
             # Add in batch
-            await rq.add_requests_batched(large_batch, batch_size=100, wait_for_all_requests_to_be_added=True)
+            await rq.add_requests(large_batch, batch_size=100, wait_for_all_requests_to_be_added=True)
             Actor.log.info('Large batch add completed')
 
             # Verify all requests were added
@@ -712,7 +712,7 @@ async def test_mixed_string_and_request_objects(
                 Request.from_url('https://example.com/mixed2', method='POST'),
                 'https://example.com/mixed3',
             ]
-            await rq.add_requests_batched(mixed_batch)
+            await rq.add_requests(mixed_batch)
             Actor.log.info('Added mixed batch of strings and Request objects')
 
             total_count = await rq.get_total_count()
@@ -851,7 +851,7 @@ async def test_persistence_across_operations(
 
             # Add initial batch
             initial_requests = [f'https://example.com/persist/{i}' for i in range(10)]
-            await rq.add_requests_batched(initial_requests, wait_for_all_requests_to_be_added=True)
+            await rq.add_requests(initial_requests, wait_for_all_requests_to_be_added=True)
             Actor.log.info(f'Added initial batch of {len(initial_requests)} requests')
 
             initial_total = await rq.get_total_count()
@@ -871,7 +871,7 @@ async def test_persistence_across_operations(
 
             # Add more requests
             additional_requests = [f'https://example.com/additional/{i}' for i in range(5)]
-            await rq.add_requests_batched(additional_requests, wait_for_all_requests_to_be_added=True)
+            await rq.add_requests(additional_requests, wait_for_all_requests_to_be_added=True)
             Actor.log.info(f'Added additional batch of {len(additional_requests)} requests')
 
             # Check final state

@@ -3,16 +3,15 @@ from __future__ import annotations
 import asyncio
 import re
 from asyncio import Task
-from functools import partial
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from crawlee import Request
 from crawlee._types import HttpMethod
-from crawlee.http_clients import HttpClient, HttpxHttpClient
-from crawlee.request_loaders import RequestList as CrawleeRequestList
+from crawlee.http_clients import HttpClient, ImpitHttpClient
+from crawlee.request_loaders import RequestList
 
+from apify import Request
 from apify._utils import docs_group
 
 URL_NO_COMMAS_REGEX = re.compile(
@@ -39,7 +38,7 @@ url_input_adapter = TypeAdapter(list[_RequestsFromUrlInput | _SimpleUrlInput])
 
 
 @docs_group('Request loaders')
-class RequestList(CrawleeRequestList):
+class ApifyRequestList(RequestList):
     """Extends crawlee RequestList.
 
     Method open is used to create RequestList from actor's requestListSources input.
@@ -50,7 +49,7 @@ class RequestList(CrawleeRequestList):
         name: str | None = None,
         request_list_sources_input: list[dict[str, Any]] | None = None,
         http_client: HttpClient | None = None,
-    ) -> RequestList:
+    ) -> ApifyRequestList:
         """Initialize a new instance from request list source input.
 
         Args:
@@ -74,24 +73,26 @@ class RequestList(CrawleeRequestList):
         ```
         """
         request_list_sources_input = request_list_sources_input or []
-        return await RequestList._create_request_list(name, request_list_sources_input, http_client)
+        return await ApifyRequestList._create_request_list(name, request_list_sources_input, http_client)
 
     @staticmethod
     async def _create_request_list(
         name: str | None, request_list_sources_input: list[dict[str, Any]], http_client: HttpClient | None
-    ) -> RequestList:
+    ) -> ApifyRequestList:
         if not http_client:
-            http_client = HttpxHttpClient()
+            http_client = ImpitHttpClient()
 
         url_inputs = url_input_adapter.validate_python(request_list_sources_input)
 
         simple_url_inputs = [url_input for url_input in url_inputs if isinstance(url_input, _SimpleUrlInput)]
         remote_url_inputs = [url_input for url_input in url_inputs if isinstance(url_input, _RequestsFromUrlInput)]
 
-        simple_url_requests = RequestList._create_requests_from_input(simple_url_inputs)
-        remote_url_requests = await RequestList._fetch_requests_from_url(remote_url_inputs, http_client=http_client)
+        simple_url_requests = ApifyRequestList._create_requests_from_input(simple_url_inputs)
+        remote_url_requests = await ApifyRequestList._fetch_requests_from_url(
+            remote_url_inputs, http_client=http_client
+        )
 
-        return RequestList(name=name, requests=simple_url_requests + remote_url_requests)
+        return ApifyRequestList(name=name, requests=simple_url_requests + remote_url_requests)
 
     @staticmethod
     def _create_requests_from_input(simple_url_inputs: list[_SimpleUrlInput]) -> list[Request]:
@@ -119,13 +120,15 @@ class RequestList(CrawleeRequestList):
         """
         created_requests: list[Request] = []
 
-        def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
+        async def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
             """Extract links from response body and use them to create `Request` objects.
 
             Use the regular expression to find all matching links in the response body, then create `Request`
             objects from these links and the provided input attributes.
             """
-            matches = re.finditer(URL_NO_COMMAS_REGEX, task.result().read().decode('utf-8'))
+            response = await (task.result()).read()
+            matches = re.finditer(URL_NO_COMMAS_REGEX, response.decode('utf-8'))
+
             created_requests.extend(
                 [
                     Request.from_url(
@@ -148,7 +151,11 @@ class RequestList(CrawleeRequestList):
                 )
             )
 
-            get_response_task.add_done_callback(partial(create_requests_from_response, remote_url_requests_input))
+            get_response_task.add_done_callback(
+                lambda task, inp=remote_url_requests_input: asyncio.create_task(  # type: ignore[misc]
+                    create_requests_from_response(inp, task)
+                )
+            )
             remote_url_requests.append(get_response_task)
 
         await asyncio.gather(*remote_url_requests)

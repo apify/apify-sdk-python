@@ -45,8 +45,9 @@ async def test_same_references_in_named_kvs(
             kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
             assert kvs_by_name_1 is kvs_by_name_2
 
-            kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_by_name_1._id)
-            kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_by_name_1._id)
+            kvs_1_metadata = await kvs_by_name_1.get_metadata()
+            kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
+            kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
             assert kvs_by_id_1 is kvs_by_name_1
             assert kvs_by_id_2 is kvs_by_id_1
 
@@ -69,7 +70,7 @@ async def test_force_cloud(
 
     async with Actor:
         key_value_store = await Actor.open_key_value_store(name=key_value_store_name, force_cloud=True)
-        key_value_store_id = key_value_store._id
+        key_value_store_id = (await key_value_store.get_metadata()).id
 
         await key_value_store.set_value('foo', 'bar')
 
@@ -202,27 +203,28 @@ async def test_generate_public_url_for_kvs_record(
 ) -> None:
     async def main() -> None:
         from apify._crypto import create_hmac_signature
+        from apify.storage_clients._apify._models import ApifyKeyValueStoreMetadata
 
         async with Actor:
             public_api_url = Actor.config.api_public_base_url
-            default_store_id = Actor.config.default_key_value_store_id
+            default_kvs_id = Actor.config.default_key_value_store_id
             record_key = 'public-record-key'
 
-            store = await Actor.open_key_value_store()
+            kvs = await Actor.open_key_value_store()
+            metadata = await kvs.get_metadata()
 
-            assert isinstance(store.storage_object.model_extra, dict)
-            url_signing_secret_key = store.storage_object.model_extra.get('urlSigningSecretKey')
-            assert url_signing_secret_key is not None
+            assert isinstance(metadata, ApifyKeyValueStoreMetadata)
+            assert metadata.url_signing_secret_key is not None
 
-            await store.set_value(record_key, {'exposedData': 'test'}, 'application/json')
+            await kvs.set_value(record_key, {'exposedData': 'test'}, 'application/json')
 
-            record_url = await store.get_public_url(record_key)
-
-            signature = create_hmac_signature(url_signing_secret_key, record_key)
-            assert (
-                record_url
-                == f'{public_api_url}/v2/key-value-stores/{default_store_id}/records/{record_key}?signature={signature}'
+            record_url = await kvs.get_public_url(record_key)
+            signature = create_hmac_signature(metadata.url_signing_secret_key, record_key)
+            expected_record_url = (
+                f'{public_api_url}/v2/key-value-stores/{default_kvs_id}/records/{record_key}?signature={signature}'
             )
+
+            assert record_url == expected_record_url
 
     actor = await make_actor(label='kvs-get-public-url', main_func=main)
     run_result = await run_actor(actor)

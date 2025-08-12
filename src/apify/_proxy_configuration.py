@@ -20,7 +20,8 @@ from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
-    from crawlee import Request
+
+    from apify import Request
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')

@@ -11,7 +11,8 @@ from yarl import URL
 from crawlee._request import UserData
 from crawlee._types import HttpMethod
 
-from apify.storages._request_list import URL_NO_COMMAS_REGEX, RequestList
+from apify.request_loaders import ApifyRequestList
+from apify.request_loaders._apify_request_list import URL_NO_COMMAS_REGEX
 
 if TYPE_CHECKING:
     from pytest_httpserver import HTTPServer
@@ -53,7 +54,7 @@ async def test_request_list_open_request_types(
     }
     request_dict_input = {**minimal_request_dict_input, **optional_input}
 
-    request_list = await RequestList.open(request_list_sources_input=[request_dict_input])
+    request_list = await ApifyRequestList.open(request_list_sources_input=[request_dict_input])
     assert not await request_list.is_empty()
 
     request = await request_list.fetch_next_request()
@@ -102,7 +103,7 @@ async def test_request_list_open_from_url_correctly_send_requests(httpserver: HT
         httpserver.expect_oneshot_request(path).with_post_hook(request_handler).respond_with_data(status=200)
         routes[entry['requestsFromUrl']] = Mock()
 
-    await RequestList.open(request_list_sources_input=request_list_sources_input)
+    await ApifyRequestList.open(request_list_sources_input=request_list_sources_input)
 
     assert len(routes) == len(request_list_sources_input)
 
@@ -150,7 +151,7 @@ async def test_request_list_open_from_url(httpserver: HTTPServer) -> None:
         path = str(URL(mocked_url.url).path)
         httpserver.expect_oneshot_request(path).respond_with_data(status=200, response_data=mocked_url.response_text)
 
-    request_list = await RequestList.open(request_list_sources_input=request_list_sources_input)
+    request_list = await ApifyRequestList.open(request_list_sources_input=request_list_sources_input)
     generated_requests = []
     while request := await request_list.fetch_next_request():
         generated_requests.append(request)
@@ -171,7 +172,7 @@ async def test_request_list_open_from_url_additional_inputs(httpserver: HTTPServ
     }
     httpserver.expect_oneshot_request('/file.txt').respond_with_data(status=200, response_data=expected_url)
 
-    request_list = await RequestList.open(request_list_sources_input=[example_start_url_input])
+    request_list = await ApifyRequestList.open(request_list_sources_input=[example_start_url_input])
     request = await request_list.fetch_next_request()
     # Check all properties correctly created for request
     assert request
@@ -187,7 +188,7 @@ async def test_request_list_open_from_url_additional_inputs(httpserver: HTTPServ
 
 async def test_request_list_open_name() -> None:
     name = 'some_name'
-    request_list = await RequestList.open(name=name)
+    request_list = await ApifyRequestList.open(name=name)
     assert request_list.name == name
 
 

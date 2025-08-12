@@ -3,10 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from apify_shared.consts import ApifyEnvVars
-from crawlee import Request
 
 from ._utils import generate_unique_resource_name
-from apify import Actor
+from apify import Actor, Request
 
 if TYPE_CHECKING:
     import pytest
@@ -46,8 +45,9 @@ async def test_same_references_in_named_rq(
             rq_by_name_2 = await Actor.open_request_queue(name=rq_name)
             assert rq_by_name_1 is rq_by_name_2
 
-            rq_by_id_1 = await Actor.open_request_queue(id=rq_by_name_1._id)
-            rq_by_id_2 = await Actor.open_request_queue(id=rq_by_name_1._id)
+            rq_1_metadata = await rq_by_name_1.get_metadata()
+            rq_by_id_1 = await Actor.open_request_queue(id=rq_1_metadata.id)
+            rq_by_id_2 = await Actor.open_request_queue(id=rq_1_metadata.id)
             assert rq_by_id_1 is rq_by_name_1
             assert rq_by_id_2 is rq_by_id_1
 
@@ -70,7 +70,7 @@ async def test_force_cloud(
 
     async with Actor:
         request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        request_queue_id = request_queue._id
+        request_queue_id = (await request_queue.get_metadata()).id
 
         request_info = await request_queue.add_request(Request.from_url('http://example.com'))
 
@@ -86,3 +86,30 @@ async def test_force_cloud(
         assert request_queue_request['url'] == 'http://example.com'
     finally:
         await request_queue_client.delete()
+
+
+async def test_request_queue_is_finished(
+    apify_client_async: ApifyClientAsync,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert apify_client_async.token is not None
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
+
+    request_queue_name = generate_unique_resource_name('request_queue')
+
+    async with Actor:
+        try:
+            request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+            await request_queue.add_request(Request.from_url('http://example.com'))
+            assert not await request_queue.is_finished()
+
+            request = await request_queue.fetch_next_request()
+            assert request is not None
+            assert not await request_queue.is_finished(), (
+                'RequestQueue should not be finished unless the request is marked as handled.'
+            )
+
+            await request_queue.mark_request_as_handled(request)
+            assert await request_queue.is_finished()
+        finally:
+            await request_queue.drop()

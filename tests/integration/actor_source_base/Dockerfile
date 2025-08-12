@@ -3,6 +3,10 @@ FROM apify/actor-python:BASE_IMAGE_VERSION_PLACEHOLDER
 
 COPY . ./
 
+RUN apt-get update && apt-get install -y \
+    git \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN echo "Python version:" \
  && python --version \
  && echo "Pip version:" \

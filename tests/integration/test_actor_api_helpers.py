@@ -46,9 +46,6 @@ async def test_actor_retrieves_env_vars(
             assert len(env_dict.get('actor_id', '')) == 17
             assert len(env_dict.get('actor_run_id', '')) == 17
             assert len(env_dict.get('user_id', '')) == 17
-            assert len(env_dict.get('default_dataset_id', '')) == 17
-            assert len(env_dict.get('default_key_value_store_id', '')) == 17
-            assert len(env_dict.get('default_request_queue_id', '')) == 17
 
     actor = await make_actor(label='get-env', main_func=main)
     run_result = await run_actor(actor)

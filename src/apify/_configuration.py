@@ -140,6 +140,39 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = None
 
+    default_dataset_id: Annotated[
+        str,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_default_dataset_id',
+                'apify_default_dataset_id',
+            ),
+            description='Default dataset ID used by the Apify storage client when no ID or name is provided.',
+        ),
+    ] = 'default'
+
+    default_key_value_store_id: Annotated[
+        str,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_default_key_value_store_id',
+                'apify_default_key_value_store_id',
+            ),
+            description='Default key-value store ID for the Apify storage client when no ID or name is provided.',
+        ),
+    ] = 'default'
+
+    default_request_queue_id: Annotated[
+        str,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_default_request_queue_id',
+                'apify_default_request_queue_id',
+            ),
+            description='Default request queue ID for the Apify storage client when no ID or name is provided.',
+        ),
+    ] = 'default'
+
     disable_outdated_warning: Annotated[
         bool,
         Field(

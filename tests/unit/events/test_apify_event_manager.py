@@ -15,7 +15,8 @@ from apify_shared.consts import ActorEnvVars
 from crawlee.events._types import Event
 
 from apify import Configuration
-from apify._platform_event_manager import PlatformEventManager, SystemInfoEventData
+from apify.events import ApifyEventManager
+from apify.events._types import SystemInfoEventData
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,7 +27,7 @@ async def test_lifecycle_local(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger='apify')
     config = Configuration.get_global_configuration()
 
-    async with PlatformEventManager(config):
+    async with ApifyEventManager(config):
         pass
 
     assert len(caplog.records) == 1
@@ -40,7 +41,7 @@ async def test_lifecycle_local(caplog: pytest.LogCaptureFixture) -> None:
 async def test_event_handling_local() -> None:
     config = Configuration.get_global_configuration()
 
-    async with PlatformEventManager(config) as event_manager:
+    async with ApifyEventManager(config) as event_manager:
         event_calls = defaultdict(list)
 
         def on_event(event: Event, id: int | None = None) -> Callable:
@@ -110,7 +111,7 @@ async def test_event_async_handling_local() -> None:
     dummy_system_info = Mock()
     config = Configuration.get_global_configuration()
 
-    async with PlatformEventManager(config) as event_manager:
+    async with ApifyEventManager(config) as event_manager:
         event_calls = []
 
         async def event_handler(data: Any) -> None:
@@ -129,7 +130,7 @@ async def test_event_async_handling_local() -> None:
 
 async def test_lifecycle_on_platform_without_websocket(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
-    event_manager = PlatformEventManager(Configuration.get_global_configuration())
+    event_manager = ApifyEventManager(Configuration.get_global_configuration())
 
     with pytest.raises(RuntimeError, match='Error connecting to platform events websocket!'):
         async with event_manager:
@@ -152,7 +153,7 @@ async def test_lifecycle_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
         monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
-        async with PlatformEventManager(Configuration.get_global_configuration()):
+        async with ApifyEventManager(Configuration.get_global_configuration()):
             assert len(connected_ws_clients) == 1
 
 
@@ -191,7 +192,7 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
         }
         SystemInfoEventData.model_validate(dummy_system_info)
 
-        async with PlatformEventManager(Configuration.get_global_configuration()) as event_manager:
+        async with ApifyEventManager(Configuration.get_global_configuration()) as event_manager:
             event_calls = []
 
             def listener(data: Any) -> None:
