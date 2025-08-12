@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pytest
-
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
@@ -78,7 +76,6 @@ async def test_actor_on_platform_max_requests_per_crawl(
     assert run_result.status == 'SUCCEEDED'
 
 
-@pytest.mark.skip(reason='https://github.com/apify/apify-sdk-python/issues/540')
 async def test_actor_on_platform_max_request_retries(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
