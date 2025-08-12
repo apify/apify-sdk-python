@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-COUNTER = iter(range(10000))
 
 class ApifyRequestQueueClient(RequestQueueClient):
     """An Apify platform implementation of the request queue client."""
@@ -295,25 +294,18 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The request or `None` if there are no more pending requests.
         """
-        call_time = next(COUNTER)
         # Ensure the queue head has requests if available. Fetching the head with lock to prevent race conditions.
-        logger.debug(f'Before _fetch_lock, {call_time}')
         async with self._fetch_lock:
-            logger.debug(f'Fetching, {call_time}')
             await self._ensure_head_is_non_empty()
 
             # If queue head is empty after ensuring, there are no requests
             if not self._queue_head:
-                logger.debug(f'Empty, {call_time}')
                 return None
 
             # Get the next request ID from the queue head
             next_request_id = self._queue_head.popleft()
-            logger.debug(f'New request, {call_time}')
 
-        logger.debug(f'Before hydrate, {call_time}')
         request = await self._get_or_hydrate_request(next_request_id)
-        logger.debug(f'After hydrate, {call_time}')
 
         # Handle potential inconsistency where request might not be in the main table yet
         if request is None:
@@ -331,16 +323,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
             )
             return None
 
-        # Use get request to ensure we have the full request object.
-        #request = await self.get_request(request.id) This seems redundant
-        if request is None:
-            logger.debug(
-                'Request fetched from the beginning of queue was not found in the RQ',
-                extra={'nextRequestId': next_request_id},
-            )
-            return None
-
-        logger.debug(f'{request.retry_count=}, {call_time}')
         return request
 
     @override
@@ -403,16 +385,13 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """
         # Check if the request was marked as handled and clear it. When reclaiming,
         # we want to put the request back for processing.
-        call_time = next(COUNTER)
         if request.was_already_handled:
             request.handled_at = None
 
         async with self._fetch_lock:
             try:
                 # Update the request in the API.
-                logger.debug(f'Before _update_request reclaiming, {call_time}')
                 processed_request = await self._update_request(request, forefront=forefront)
-                logger.debug(f'After _update_request reclaiming, {call_time}')
                 processed_request.unique_key = request.unique_key
 
                 # If the request was previously handled, decrement our handled count since
@@ -435,9 +414,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
                 # Try to release the lock on the request
                 try:
-                    logger.debug(f'Before _delete_request_lock reclaiming, {call_time}')
                     await self._delete_request_lock(request.id, forefront=forefront)
-                    logger.debug(f'After _delete_request_lock reclaiming, {call_time}')
                 except Exception as err:
                     logger.debug(f'Failed to delete request lock for request {request.id}', exc_info=err)
             except Exception as exc:
@@ -453,13 +430,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             True if the queue is empty, False otherwise.
         """
-        call_time = next(COUNTER)
-        logger.debug(f'Before _list_head is_empty, {call_time}')
         async with self._fetch_lock:
-            logger.debug(f'During _list_head is_empty, {call_time}')
             head = await self._list_head(limit=1, lock_time=None)
-            logger.debug(f'After _list_head is_empty, {call_time}')
-            logger.debug(f'Finish _list_head is_empty, {call_time}')
             return len(head.items) == 0 and not self._queue_has_locked_requests
 
     async def _ensure_head_is_non_empty(self) -> None:
@@ -571,10 +543,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             A collection of requests from the beginning of the queue.
         """
         # Return from cache if available and we're not checking for new forefront requests
-        call_time = next(COUNTER)
         if self._queue_head and not self._should_check_for_forefront_requests:
-            logger.debug(f'Using cached queue head with {len(self._queue_head)} requests, {call_time}')
-
             # Create a list of requests from the cached queue head
             items = []
             for request_id in list(self._queue_head)[:limit]:
@@ -592,7 +561,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 queue_has_locked_requests=self._queue_has_locked_requests,
                 lock_time=lock_time,
             )
-        logger.debug(f'Updating cached queue head with {len(self._queue_head)} requests, {call_time}')
         leftover_buffer = list[str]()
         if self._should_check_for_forefront_requests:
             leftover_buffer = list(self._queue_head)
@@ -636,14 +604,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 ),
                 hydrated_request=request,
             )
-            logger.debug(f'Adding to head, {call_time}')
             self._queue_head.append(request.id)
-        logger.debug(f'Cached queue head with {len(self._queue_head)} requests, {call_time}')
 
         for leftover_request_id in leftover_buffer:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_request_id)
-        logger.debug(f'Cached queue head with {len(self._queue_head)} requests, {call_time}')
         return RequestQueueHead.model_validate(response)
 
     async def _prolong_request_lock(
