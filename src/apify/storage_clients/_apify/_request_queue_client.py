@@ -323,6 +323,15 @@ class ApifyRequestQueueClient(RequestQueueClient):
             )
             return None
 
+        # Use get request to ensure we have the full request object.
+        request = await self.get_request(request.id)
+        if request is None:
+            logger.debug(
+                'Request fetched from the beginning of queue was not found in the RQ',
+                extra={'nextRequestId': next_request_id},
+            )
+            return None
+
         return request
 
     @override
