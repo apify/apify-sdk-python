@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
@@ -83,6 +84,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         self._assumed_handled_count = 0
         """The number of requests we assume have been handled (tracked manually for this instance)."""
+
+        self._fetch_lock = asyncio.Lock()
+        """Fetch lock to minimize race conditions when communicationg with API."""
 
     @override
     async def get_metadata(self) -> RequestQueueMetadata:
@@ -291,15 +295,16 @@ class ApifyRequestQueueClient(RequestQueueClient):
             The request or `None` if there are no more pending requests.
         """
         # Ensure the queue head has requests if available
-        await self._ensure_head_is_non_empty()
+        async with self._fetch_lock:
+            await self._ensure_head_is_non_empty()
 
-        # If queue head is empty after ensuring, there are no requests
-        if not self._queue_head:
-            return None
+            # If queue head is empty after ensuring, there are no requests
+            if not self._queue_head:
+                return None
 
-        # Get the next request ID from the queue head
-        next_request_id = self._queue_head.popleft()
-        request = await self._get_or_hydrate_request(next_request_id)
+            # Get the next request ID from the queue head
+            next_request_id = self._queue_head.popleft()
+            request = await self._get_or_hydrate_request(next_request_id)
 
         # Handle potential inconsistency where request might not be in the main table yet
         if request is None:
@@ -344,6 +349,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
 
+        if cached_request := self._requests_cache[request.id]:
+            cached_request.was_already_handled = request.was_already_handled
         try:
             # Update the request in the API
             processed_request = await self._update_request(request)
