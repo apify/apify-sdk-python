@@ -289,11 +289,17 @@ class ApifyRequestQueueClient(RequestQueueClient):
             response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
             # Add the locally known already present processed requests based on the local cache.
             response['processedRequests'].extend(already_present_requests)
+
+            # Remove unprocessed requests from the cache
+            for unprocessed in response['unprocessedRequests']:
+                self._requests_cache.pop(unique_key_to_request_id(unprocessed['uniqueKey']), None)
+
         else:
             response = {'unprocessedRequests': [], 'processedRequests': already_present_requests}
 
         logger.debug(
-            f'Added new requests: {len(new_requests)}, '
+            f'Tried to add new requests: {len(new_requests)}, '
+            f'succeeded to add new requests: {len(response["processedRequests"])}, '
             f'skipped already present requests: {len(already_present_requests)}'
         )
 

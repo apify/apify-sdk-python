@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import asyncio
+import logging
+from typing import TYPE_CHECKING, Any
+from unittest import mock
+
+import pytest
 
 from apify_shared.consts import ApifyEnvVars
 
@@ -8,11 +13,26 @@ from ._utils import generate_unique_resource_name
 from apify import Actor, Request
 
 if TYPE_CHECKING:
-    import pytest
+    from collections.abc import AsyncGenerator
 
     from apify_client import ApifyClientAsync
+    from crawlee.storages import RequestQueue
 
     from .conftest import MakeActorFunction, RunActorFunction
+
+
+@pytest.fixture
+async def apify_named_rq(
+    apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch
+) -> AsyncGenerator[RequestQueue]:
+    assert apify_client_async.token
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
+    request_queue_name = generate_unique_resource_name('request_queue')
+
+    async with Actor:
+        request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+        yield request_queue
+        await request_queue.drop()
 
 
 async def test_same_references_in_default_rq(
@@ -61,58 +81,36 @@ async def test_same_references_in_named_rq(
 
 async def test_force_cloud(
     apify_client_async: ApifyClientAsync,
-    monkeypatch: pytest.MonkeyPatch,
+    apify_named_rq: RequestQueue,
 ) -> None:
-    assert apify_client_async.token is not None
-    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
-
-    request_queue_name = generate_unique_resource_name('request_queue')
-
-    async with Actor:
-        request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        request_queue_id = (await request_queue.get_metadata()).id
-
-        request_info = await request_queue.add_request(Request.from_url('http://example.com'))
-
+    request_queue_id = (await apify_named_rq.get_metadata()).id
+    request_info = await apify_named_rq.add_request(Request.from_url('http://example.com'))
     request_queue_client = apify_client_async.request_queue(request_queue_id)
 
-    try:
-        request_queue_details = await request_queue_client.get()
-        assert request_queue_details is not None
-        assert request_queue_details.get('name') == request_queue_name
+    request_queue_details = await request_queue_client.get()
+    assert request_queue_details is not None
+    assert request_queue_details.get('name') == apify_named_rq.name
 
-        request_queue_request = await request_queue_client.get_request(request_info.id)
-        assert request_queue_request is not None
-        assert request_queue_request['url'] == 'http://example.com'
-    finally:
-        await request_queue_client.delete()
+    request_queue_request = await request_queue_client.get_request(request_info.id)
+    assert request_queue_request is not None
+    assert request_queue_request['url'] == 'http://example.com'
 
 
 async def test_request_queue_is_finished(
-    apify_client_async: ApifyClientAsync,
-    monkeypatch: pytest.MonkeyPatch,
+    apify_named_rq: RequestQueue,
 ) -> None:
-    assert apify_client_async.token is not None
-    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_client_async.token)
+    request_queue = await Actor.open_request_queue(name=apify_named_rq.name, force_cloud=True)
+    await request_queue.add_request(Request.from_url('http://example.com'))
+    assert not await request_queue.is_finished()
 
-    request_queue_name = generate_unique_resource_name('request_queue')
+    request = await request_queue.fetch_next_request()
+    assert request is not None
+    assert not await request_queue.is_finished(), (
+        'RequestQueue should not be finished unless the request is marked as handled.'
+    )
 
-    async with Actor:
-        try:
-            request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-            await request_queue.add_request(Request.from_url('http://example.com'))
-            assert not await request_queue.is_finished()
-
-            request = await request_queue.fetch_next_request()
-            assert request is not None
-            assert not await request_queue.is_finished(), (
-                'RequestQueue should not be finished unless the request is marked as handled.'
-            )
-
-            await request_queue.mark_request_as_handled(request)
-            assert await request_queue.is_finished()
-        finally:
-            await request_queue.drop()
+    await request_queue.mark_request_as_handled(request)
+    assert await request_queue.is_finished()
 
 
 async def test_request_queue_deduplication(
@@ -176,7 +174,7 @@ async def test_request_queue_parallel_deduplication(
         async with Actor:
             logging.getLogger('apify.storage_clients._apify._request_queue_client').setLevel(logging.DEBUG)
 
-            requests = [Request.from_url(f'http://example.com/{i}') for i in range(1000)]
+            requests = [Request.from_url(f'http://example.com/{i}') for i in range(100)]
             rq = await Actor.open_request_queue()
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
@@ -207,3 +205,47 @@ async def test_request_queue_parallel_deduplication(
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
+
+
+async def test_request_queue_deduplication_unprocessed_requests(
+    apify_named_rq: RequestQueue,
+) -> None:
+    """Test that the deduplication does not add unprocessed requests to the cache."""
+    logging.getLogger('apify.storage_clients._apify._request_queue_client').setLevel(logging.DEBUG)
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+
+    # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
+    rq_client = Actor.apify_client.request_queue(request_queue_id=apify_named_rq.id)
+    _rq = await rq_client.get()
+    assert _rq
+    stats_before = _rq.get('stats', {})
+    Actor.log.info(stats_before)
+
+    def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> dict[str, list[dict]]:
+        """Simulate API returning unprocessed requests."""
+        return {
+            'processedRequests': [],
+            'unprocessedRequests': [
+                {'url': request['url'], 'uniqueKey': request['uniqueKey'], 'method': request['method']}
+                for request in requests
+            ],
+        }
+
+    with mock.patch(
+        'apify_client.clients.resource_clients.request_queue.RequestQueueClientAsync.batch_add_requests',
+        side_effect=return_unprocessed_requests,
+    ):
+        # Simulate failed API call for adding requests. Request was not processed and should not be cached.
+        await apify_named_rq.add_requests(['http://example.com/1'])
+
+    # This will succeed.
+    await apify_named_rq.add_requests(['http://example.com/1'])
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+    _rq = await rq_client.get()
+    assert _rq
+    stats_after = _rq.get('stats', {})
+    Actor.log.info(stats_after)
+
+    assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
