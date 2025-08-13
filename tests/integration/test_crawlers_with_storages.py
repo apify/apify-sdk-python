@@ -84,6 +84,7 @@ async def test_actor_on_platform_max_request_retries(
 
     async def main() -> None:
         """The crawler entry point."""
+
         from crawlee.crawlers import BasicCrawlingContext, ParselCrawler, ParselCrawlingContext
 
         from apify import Actor

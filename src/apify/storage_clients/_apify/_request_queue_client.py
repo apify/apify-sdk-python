@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
@@ -83,6 +84,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         self._assumed_handled_count = 0
         """The number of requests we assume have been handled (tracked manually for this instance)."""
+
+        self._fetch_lock = asyncio.Lock()
+        """Fetch lock to minimize race conditions when communicating with API."""
 
     @override
     async def get_metadata(self) -> RequestQueueMetadata:
@@ -268,7 +272,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 self._cache_request(
                     unique_key_to_request_id(request.unique_key),
                     processed_request,
-                    forefront=False,
                 )
                 new_requests.append(request)
 
@@ -334,15 +337,17 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The request or `None` if there are no more pending requests.
         """
-        # Ensure the queue head has requests if available
-        await self._ensure_head_is_non_empty()
+        # Ensure the queue head has requests if available. Fetching the head with lock to prevent race conditions.
+        async with self._fetch_lock:
+            await self._ensure_head_is_non_empty()
 
-        # If queue head is empty after ensuring, there are no requests
-        if not self._queue_head:
-            return None
+            # If queue head is empty after ensuring, there are no requests
+            if not self._queue_head:
+                return None
 
-        # Get the next request ID from the queue head
-        next_request_id = self._queue_head.popleft()
+            # Get the next request ID from the queue head
+            next_request_id = self._queue_head.popleft()
+
         request = await self._get_or_hydrate_request(next_request_id)
 
         # Handle potential inconsistency where request might not be in the main table yet
@@ -388,6 +393,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
 
+        if cached_request := self._requests_cache[request.id]:
+            cached_request.was_already_handled = request.was_already_handled
         try:
             # Update the request in the API
             processed_request = await self._update_request(request)
@@ -402,7 +409,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
             self._cache_request(
                 cache_key,
                 processed_request,
-                forefront=False,
                 hydrated_request=request,
             )
         except Exception as exc:
@@ -434,40 +440,41 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.was_already_handled:
             request.handled_at = None
 
-        try:
-            # Update the request in the API.
-            processed_request = await self._update_request(request, forefront=forefront)
-            processed_request.unique_key = request.unique_key
-
-            # If the request was previously handled, decrement our handled count since
-            # we're putting it back for processing.
-            if request.was_already_handled and not processed_request.was_already_handled:
-                self._assumed_handled_count -= 1
-
-            # Update the cache
-            cache_key = unique_key_to_request_id(request.unique_key)
-            self._cache_request(
-                cache_key,
-                processed_request,
-                forefront=forefront,
-                hydrated_request=request,
-            )
-
-            # If we're adding to the forefront, we need to check for forefront requests
-            # in the next list_head call
-            if forefront:
-                self._should_check_for_forefront_requests = True
-
-            # Try to release the lock on the request
+        # Reclaim with lock to prevent race conditions that could lead to double processing of the same request.
+        async with self._fetch_lock:
             try:
-                await self._delete_request_lock(request.id, forefront=forefront)
-            except Exception as err:
-                logger.debug(f'Failed to delete request lock for request {request.id}', exc_info=err)
-        except Exception as exc:
-            logger.debug(f'Error reclaiming request {request.id}: {exc!s}')
-            return None
-        else:
-            return processed_request
+                # Update the request in the API.
+                processed_request = await self._update_request(request, forefront=forefront)
+                processed_request.unique_key = request.unique_key
+
+                # If the request was previously handled, decrement our handled count since
+                # we're putting it back for processing.
+                if request.was_already_handled and not processed_request.was_already_handled:
+                    self._assumed_handled_count -= 1
+
+                # Update the cache
+                cache_key = unique_key_to_request_id(request.unique_key)
+                self._cache_request(
+                    cache_key,
+                    processed_request,
+                    hydrated_request=request,
+                )
+
+                # If we're adding to the forefront, we need to check for forefront requests
+                # in the next list_head call
+                if forefront:
+                    self._should_check_for_forefront_requests = True
+
+                # Try to release the lock on the request
+                try:
+                    await self._delete_request_lock(request.id, forefront=forefront)
+                except Exception as err:
+                    logger.debug(f'Failed to delete request lock for request {request.id}', exc_info=err)
+            except Exception as exc:
+                logger.debug(f'Error reclaiming request {request.id}: {exc!s}')
+                return None
+            else:
+                return processed_request
 
     @override
     async def is_empty(self) -> bool:
@@ -476,9 +483,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             True if the queue is empty, False otherwise.
         """
-        head = await self._list_head(limit=1, lock_time=None)
-
-        return len(head.items) == 0 and not self._queue_has_locked_requests
+        # Check _list_head and self._queue_has_locked_requests with lock to make sure they are consistent.
+        # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
+        async with self._fetch_lock:
+            head = await self._list_head(limit=1, lock_time=None)
+            return len(head.items) == 0 and not self._queue_has_locked_requests
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
@@ -507,9 +516,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 # Try to prolong the lock if it's expired
                 try:
                     lock_secs = int(self._DEFAULT_LOCK_TIME.total_seconds())
-                    response = await self._prolong_request_lock(
-                        request_id, forefront=cached_entry.forefront, lock_secs=lock_secs
-                    )
+                    response = await self._prolong_request_lock(request_id, lock_secs=lock_secs)
                     cached_entry.lock_expires_at = response.lock_expires_at
                 except Exception:
                     # If prolonging the lock fails, we lost the request
@@ -522,7 +529,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         try:
             # Try to acquire or prolong the lock
             lock_secs = int(self._DEFAULT_LOCK_TIME.total_seconds())
-            await self._prolong_request_lock(request_id, forefront=False, lock_secs=lock_secs)
+            await self._prolong_request_lock(request_id, lock_secs=lock_secs)
 
             # Fetch the request data
             request = await self.get_request(request_id)
@@ -542,7 +549,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                     was_already_present=True,
                     was_already_handled=request.handled_at is not None,
                 ),
-                forefront=False,
                 hydrated_request=request,
             )
         except Exception as exc:
@@ -594,7 +600,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Return from cache if available and we're not checking for new forefront requests
         if self._queue_head and not self._should_check_for_forefront_requests:
             logger.debug(f'Using cached queue head with {len(self._queue_head)} requests')
-
             # Create a list of requests from the cached queue head
             items = []
             for request_id in list(self._queue_head)[:limit]:
@@ -612,6 +617,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 queue_has_locked_requests=self._queue_has_locked_requests,
                 lock_time=lock_time,
             )
+        leftover_buffer = list[str]()
+        if self._should_check_for_forefront_requests:
+            leftover_buffer = list(self._queue_head)
+            self._queue_head.clear()
+            self._should_check_for_forefront_requests = False
 
         # Otherwise fetch from API
         lock_time = lock_time or self._DEFAULT_LOCK_TIME
@@ -624,15 +634,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         # Update the queue head cache
         self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
-
-        # Clear current queue head if we're checking for forefront requests
-        if self._should_check_for_forefront_requests:
-            self._queue_head.clear()
-            self._should_check_for_forefront_requests = False
-
-        # Process and cache the requests
-        head_id_buffer = list[str]()
-        forefront_head_id_buffer = list[str]()
 
         for request_data in response.get('items', []):
             request = Request.model_validate(request_data)
@@ -648,51 +649,34 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 )
                 continue
 
-            # Check if this request was already cached and if it was added to forefront
-            cache_key = unique_key_to_request_id(request.unique_key)
-            cached_request = self._requests_cache.get(cache_key)
-            forefront = cached_request.forefront if cached_request else False
-
-            # Add to appropriate buffer based on forefront flag
-            if forefront:
-                forefront_head_id_buffer.insert(0, request.id)
-            else:
-                head_id_buffer.append(request.id)
-
             # Cache the request
             self._cache_request(
-                cache_key,
+                unique_key_to_request_id(request.unique_key),
                 ProcessedRequest(
                     id=request.id,
                     unique_key=request.unique_key,
                     was_already_present=True,
                     was_already_handled=False,
                 ),
-                forefront=forefront,
                 hydrated_request=request,
             )
+            self._queue_head.append(request.id)
 
-        # Update the queue head deque
-        for request_id in head_id_buffer:
-            self._queue_head.append(request_id)
-
-        for request_id in forefront_head_id_buffer:
-            self._queue_head.appendleft(request_id)
-
+        for leftover_request_id in leftover_buffer:
+            # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
+            self._queue_head.append(leftover_request_id)
         return RequestQueueHead.model_validate(response)
 
     async def _prolong_request_lock(
         self,
         request_id: str,
         *,
-        forefront: bool = False,
         lock_secs: int,
     ) -> ProlongRequestLockResponse:
         """Prolong the lock on a specific request in the queue.
 
         Args:
             request_id: The identifier of the request whose lock is to be prolonged.
-            forefront: Whether to put the request in the beginning or the end of the queue after lock expires.
             lock_secs: The additional amount of time, in seconds, that the request will remain locked.
 
         Returns:
@@ -700,7 +684,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """
         response = await self._api_client.prolong_request_lock(
             request_id=request_id,
-            forefront=forefront,
+            # All requests reaching this code were the tip of the queue at the moment when they were fetched,
+            # so if their lock expires, they should be put back to the forefront as their handling is long overdue.
+            forefront=True,
             lock_secs=lock_secs,
         )
 
@@ -747,7 +733,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         cache_key: str,
         processed_request: ProcessedRequest,
         *,
-        forefront: bool,
         hydrated_request: Request | None = None,
     ) -> None:
         """Cache a request for future use.
@@ -763,5 +748,4 @@ class ApifyRequestQueueClient(RequestQueueClient):
             was_already_handled=processed_request.was_already_handled,
             hydrated=hydrated_request,
             lock_expires_at=None,
-            forefront=forefront,
         )

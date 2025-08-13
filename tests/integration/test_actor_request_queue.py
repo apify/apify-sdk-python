@@ -98,18 +98,21 @@ async def test_request_queue_is_finished(
     request_queue_name = generate_unique_resource_name('request_queue')
 
     async with Actor:
-        request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        await request_queue.add_request(Request.from_url('http://example.com'))
-        assert not await request_queue.is_finished()
+        try:
+            request_queue = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+            await request_queue.add_request(Request.from_url('http://example.com'))
+            assert not await request_queue.is_finished()
 
-        request = await request_queue.fetch_next_request()
-        assert request is not None
-        assert not await request_queue.is_finished(), (
-            'RequestQueue should not be finished unless the request is marked as handled.'
-        )
+            request = await request_queue.fetch_next_request()
+            assert request is not None
+            assert not await request_queue.is_finished(), (
+                'RequestQueue should not be finished unless the request is marked as handled.'
+            )
 
-        await request_queue.mark_request_as_handled(request)
-        assert await request_queue.is_finished()
+            await request_queue.mark_request_as_handled(request)
+            assert await request_queue.is_finished()
+        finally:
+            await request_queue.drop()
 
 
 async def test_request_queue_deduplication(

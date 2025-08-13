@@ -105,6 +105,3 @@ class CachedRequest(BaseModel):
 
     lock_expires_at: datetime | None = None
     """The expiration time of the lock on the request."""
-
-    forefront: bool = False
-    """Whether the request was added to the forefront of the queue."""

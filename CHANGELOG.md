@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Restrict apify-shared and apify-client versions ([#523](https://github.com/apify/apify-sdk-python/pull/523)) ([b3ae5a9](https://github.com/apify/apify-sdk-python/commit/b3ae5a972a65454a4998eda59c9fcc3f6b7e8579)) by [@vdusek](https://github.com/vdusek)
+- Expose `APIFY_USER_IS_PAYING` env var to the configuration ([#507](https://github.com/apify/apify-sdk-python/pull/507)) ([0801e54](https://github.com/apify/apify-sdk-python/commit/0801e54887317c1280cc6828ecd3f2cc53287e76)) by [@stepskop](https://github.com/stepskop)
+
+### Refactor
+
+- [**breaking**] Adapt to the Crawlee v1.0 ([#470](https://github.com/apify/apify-sdk-python/pull/470)) ([f7e3320](https://github.com/apify/apify-sdk-python/commit/f7e33206cf3e4767faacbdc43511b45b6785f929)) by [@vdusek](https://github.com/vdusek), closes [#469](https://github.com/apify/apify-sdk-python/issues/469), [#540](https://github.com/apify/apify-sdk-python/issues/540)
 
 
 <!-- git-cliff-unreleased-end -->
@@ -33,6 +38,13 @@ All notable changes to this project will be documented in this file.
 
 - Sync `@docusaurus` theme version [internal] ([#500](https://github.com/apify/apify-sdk-python/pull/500)) ([a7485e7](https://github.com/apify/apify-sdk-python/commit/a7485e7d2276fde464ce862573d5b95e7d4d836a)) by [@katzino](https://github.com/katzino)
 - Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
+
+
+## [2.7.3](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.3) (2025-08-11)
+
+### 🐛 Bug Fixes
+
+- Expose `APIFY_USER_IS_PAYING` env var to the configuration (#507) ([0de022c](https://github.com/apify/apify-sdk-python/commit/0de022c3435f24c821053c771e7b659433e3fb6e))
 
 
 ## [2.7.2](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.2) (2025-07-30)
