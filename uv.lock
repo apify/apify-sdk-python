@@ -28,7 +28,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "2.7.4"
+version = "2.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
@@ -74,7 +74,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "apify-client", specifier = "<2.0.0" },
-    { name = "apify-shared", specifier = "<2.0.0" },
+    { name = "apify-shared", specifier = "<2.0.1" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=master" },
     { name = "cryptography", specifier = ">=42.0.0" },
@@ -127,11 +127,11 @@ wheels = [
 
 [[package]]
 name = "apify-shared"
-version = "1.4.2"
+version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/50/90/8c124864a372693a86c26efc38de27440a03bc69a18055399041dd18fa24/apify_shared-1.4.2.tar.gz", hash = "sha256:7190f2b7557b50b40acb32a1fcc783ea8a0fa58bf3cf33fc03e23de49f318b45", size = 13889, upload-time = "2025-08-01T07:38:54.625Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/3e/96de53973fa0704d9b99339fad1838b53d9340870bafc7a9a9f41a7d266f/apify_shared-1.5.0.tar.gz", hash = "sha256:1cba58f0144127f7b52cced426a6527e9722620e9fd1c4ddb6f9c8ce16db0ef1", size = 14639, upload-time = "2025-08-05T11:10:20.617Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/d6/e3864ffe8886713aa5306d38b0e90237085d4951699a4be39adbcc4194e5/apify_shared-1.4.2-py3-none-any.whl", hash = "sha256:1958b843c4e16af0804b3f6ba886264091b54c15bf524606fafb55d20ed08fff", size = 12725, upload-time = "2025-08-01T07:38:53.556Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/87/fe6b3e7eec76e083ce54bb1b4a19b7dd8f6d3441a3a05e053af6607fcda4/apify_shared-1.5.0-py3-none-any.whl", hash = "sha256:46409a75140d25f3487da87adbf446390214e08cda79c2938aaee085e8f7f9dd", size = 13467, upload-time = "2025-08-05T11:10:19.187Z" },
 ]
 
 [[package]]
