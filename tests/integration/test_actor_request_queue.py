@@ -117,8 +117,10 @@ async def test_request_queue_deduplication(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """Test that the deduplication works correctly. Try to add 2 same requests, but it should call API just once.
+    """Test that the deduplication works correctly. Try to add 2 similar requests, but it should call API just once.
 
+    Deduplication works based on the request's `unique_key` only. To include more attributes in the unique key the
+    `use_extended_unique_key=True` argument of `Request.from_url` method can be used.
     This tests internal optimization that changes no behavior for the user.
     The functions input/output behave the same way,it only uses less amount of API calls.
     """
@@ -129,7 +131,8 @@ async def test_request_queue_deduplication(
         from apify import Actor, Request
 
         async with Actor:
-            request = Request.from_url('http://example.com')
+            request1 = Request.from_url('http://example.com', method='POST')
+            request2 = Request.from_url('http://example.com', method='GET')
             rq = await Actor.open_request_queue()
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
@@ -142,8 +145,8 @@ async def test_request_queue_deduplication(
             Actor.log.info(stats_before)
 
             # Add same request twice
-            await rq.add_request(request)
-            await rq.add_request(request)
+            await rq.add_request(request1)
+            await rq.add_request(request2)
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
             _rq = await rq_client.get()
@@ -152,6 +155,55 @@ async def test_request_queue_deduplication(
             Actor.log.info(stats_after)
 
             assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+
+    actor = await make_actor(label='rq-deduplication', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+
+
+async def test_request_queue_deduplication_use_extended_unique_key(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Test that the deduplication works correctly. Try to add 2 similar requests and it should call API just twice.
+
+    Deduplication works based on the request's `unique_key` only. To include more attributes in the unique key the
+    `use_extended_unique_key=True` argument of `Request.from_url` method can be used.
+    This tests internal optimization that changes no behavior for the user.
+    The functions input/output behave the same way,it only uses less amount of API calls.
+    """
+
+    async def main() -> None:
+        import asyncio
+
+        from apify import Actor, Request
+
+        async with Actor:
+            request1 = Request.from_url('http://example.com', method='POST', use_extended_unique_key=True)
+            request2 = Request.from_url('http://example.com', method='GET', use_extended_unique_key=True)
+            rq = await Actor.open_request_queue()
+
+            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+
+            # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
+            rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
+            _rq = await rq_client.get()
+            assert _rq
+            stats_before = _rq.get('stats', {})
+            Actor.log.info(stats_before)
+
+            # Add same request twice
+            await rq.add_request(request1)
+            await rq.add_request(request2)
+
+            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+            _rq = await rq_client.get()
+            assert _rq
+            stats_after = _rq.get('stats', {})
+            Actor.log.info(stats_after)
+
+            assert (stats_after['writeCount'] - stats_before['writeCount']) == 2
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
