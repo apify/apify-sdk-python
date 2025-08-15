@@ -148,7 +148,7 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
 
     async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
-        monkeypatch.setenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL, f'ws://localhost:{port}')
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
         mock_run_client = Mock()
         mock_run_client.run.return_value.get = AsyncMock(
