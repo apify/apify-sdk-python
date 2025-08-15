@@ -163,7 +163,13 @@ async def test_request_queue_parallel_deduplication(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """Test that the deduplication works correctly even with parallel attempts to add same links."""
+    """Test that the deduplication works correctly even with parallel attempts to add same links.
+
+    The test is set up in a way for workers to have some requests that were already added to the queue and some new
+    requests. The function must correctly deduplicate the requests and add only new requests. For example:
+    First worker adding 10 new requests,
+    second worker adding 10 new requests and 10 known requests,
+    third worker adding 10 new requests and 20 known requests and so on"""
 
     async def main() -> None:
         import asyncio
@@ -171,10 +177,14 @@ async def test_request_queue_parallel_deduplication(
 
         from apify import Actor, Request
 
+        worker_count = 10
+        max_requests = 100
+        batch_size = iter(range(10, max_requests + 1, int(max_requests / worker_count)))
+
         async with Actor:
             logging.getLogger('apify.storage_clients._apify._request_queue_client').setLevel(logging.DEBUG)
 
-            requests = [Request.from_url(f'http://example.com/{i}') for i in range(100)]
+            requests = [Request.from_url(f'http://example.com/{i}') for i in range(max_requests)]
             rq = await Actor.open_request_queue()
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
@@ -186,11 +196,12 @@ async def test_request_queue_parallel_deduplication(
             stats_before = _rq.get('stats', {})
             Actor.log.info(stats_before)
 
-            # Add same requests in 10 parallel workers
+            # Add batches of some new and some already present requests in workers
             async def add_requests_worker() -> None:
-                await rq.add_requests(requests)
+                await rq.add_requests(requests[: next(batch_size)])
 
-            add_requests_workers = [asyncio.create_task(add_requests_worker()) for _ in range(10)]
+            # Start all workers
+            add_requests_workers = [asyncio.create_task(add_requests_worker()) for _ in range(worker_count)]
             await asyncio.gather(*add_requests_workers)
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated

@@ -249,7 +249,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         for request in requests:
             if self._requests_cache.get(request.id):
-                # We are no sure if it was already handled at this point, and it is not worth calling API for it.
+                # We are not sure if it was already handled at this point, and it is not worth calling API for it.
+                # It could have been handled by another client in the meantime, so cached information about
+                # `request.was_already_handled` is not reliable.
                 already_present_requests.append(
                     {
                         'id': request.id,
@@ -299,7 +301,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         logger.debug(
             f'Tried to add new requests: {len(new_requests)}, '
-            f'succeeded to add new requests: {len(response["processedRequests"])}, '
+            f'succeeded to add new requests: {len(response["processedRequests"]) - len(already_present_requests)}, '
             f'skipped already present requests: {len(already_present_requests)}'
         )
 
