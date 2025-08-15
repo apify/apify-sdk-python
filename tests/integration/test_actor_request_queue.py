@@ -273,7 +273,12 @@ async def test_request_queue_parallel_deduplication(
 async def test_request_queue_deduplication_unprocessed_requests(
     apify_named_rq: RequestQueue,
 ) -> None:
-    """Test that the deduplication does not add unprocessed requests to the cache."""
+    """Test that the deduplication does not add unprocessed requests to the cache.
+
+    In this test the first call is "hardcoded" to fail, even on all retries, so it never even sends the API request and
+    thus has no chance of increasing the `writeCount`. The second call can increase the `writeCount` only if it is not
+    cached, as cached requests do not make the call (tested in other tests). So this means the `unprocessedRequests`
+    request was intentionally not cached."""
     logging.getLogger('apify.storage_clients._apify._request_queue_client').setLevel(logging.DEBUG)
 
     await asyncio.sleep(10)  # Wait to be sure that metadata are updated
