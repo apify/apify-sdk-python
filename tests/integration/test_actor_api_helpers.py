@@ -40,11 +40,12 @@ async def test_actor_retrieves_env_vars(
 
             assert env_dict.get('is_at_home') is True
             assert env_dict.get('token') is not None
-            assert env_dict.get('actor_events_ws_url') is not None
+            assert env_dict.get('events_websocket_url') is not None
             assert env_dict.get('input_key') is not None
 
-            assert len(env_dict.get('actor_id', '')) == 17
-            assert len(env_dict.get('actor_run_id', '')) == 17
+            assert len(env_dict.get('id', '')) == 17
+            assert len(env_dict.get('build_id', '')) == 17
+            assert len(env_dict.get('run_id', '')) == 17
             assert len(env_dict.get('user_id', '')) == 17
 
     actor = await make_actor(label='get-env', main_func=main)

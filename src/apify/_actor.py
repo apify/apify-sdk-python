@@ -13,7 +13,6 @@ from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
-from apify_shared.utils import maybe_extract_enum_member_value
 from crawlee import service_locator
 from crawlee.events import (
     Event,
@@ -31,7 +30,7 @@ from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._models import ActorRun
 from apify._proxy_configuration import ProxyConfiguration
-from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
+from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython, maybe_extract_enum_member_value
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient

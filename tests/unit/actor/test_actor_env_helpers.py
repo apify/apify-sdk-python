@@ -31,32 +31,13 @@ async def test_actor_is_not_at_home_when_local() -> None:
         assert is_at_home is False
 
 
-async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: PLR0912
+async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     ignored_env_vars = {
-        ApifyEnvVars.INPUT_KEY,
-        ApifyEnvVars.MEMORY_MBYTES,
-        ApifyEnvVars.STARTED_AT,
-        ApifyEnvVars.TIMEOUT_AT,
-        ApifyEnvVars.DEFAULT_DATASET_ID,
-        ApifyEnvVars.DEFAULT_KEY_VALUE_STORE_ID,
-        ApifyEnvVars.DEFAULT_REQUEST_QUEUE_ID,
         ApifyEnvVars.SDK_LATEST_VERSION,
         ApifyEnvVars.LOG_FORMAT,
         ApifyEnvVars.LOG_LEVEL,
         ActorEnvVars.STANDBY_PORT,
         ApifyEnvVars.PERSIST_STORAGE,
-    }
-
-    legacy_env_vars = {
-        ApifyEnvVars.ACT_ID: ActorEnvVars.ID,
-        ApifyEnvVars.ACT_RUN_ID: ActorEnvVars.RUN_ID,
-        ApifyEnvVars.ACTOR_ID: ActorEnvVars.ID,
-        ApifyEnvVars.ACTOR_BUILD_ID: ActorEnvVars.BUILD_ID,
-        ApifyEnvVars.ACTOR_BUILD_NUMBER: ActorEnvVars.BUILD_NUMBER,
-        ApifyEnvVars.ACTOR_RUN_ID: ActorEnvVars.RUN_ID,
-        ApifyEnvVars.ACTOR_TASK_ID: ActorEnvVars.TASK_ID,
-        ApifyEnvVars.CONTAINER_URL: ActorEnvVars.WEB_SERVER_URL,
-        ApifyEnvVars.CONTAINER_PORT: ActorEnvVars.WEB_SERVER_PORT,
     }
 
     # Set up random env vars
@@ -134,9 +115,7 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
 
     # We need this override so that the actor doesn't fail when connecting to the platform events websocket
     monkeypatch.delenv(ActorEnvVars.EVENTS_WEBSOCKET_URL)
-    monkeypatch.delenv(ApifyEnvVars.ACTOR_EVENTS_WS_URL)
     expected_get_env[ActorEnvVars.EVENTS_WEBSOCKET_URL.name.lower()] = None
-    expected_get_env[ApifyEnvVars.ACTOR_EVENTS_WS_URL.name.lower()] = None
 
     # Adjust expectations for timedelta fields
     for env_name, env_value in expected_get_env.items():
@@ -147,10 +126,6 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
     expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()] = float(
         expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()]
     )
-
-    # Update expectations for legacy configuration
-    for old_name, new_name in legacy_env_vars.items():
-        expected_get_env[old_name.name.lower()] = expected_get_env[new_name.name.lower()]
 
     await Actor.init()
     assert Actor.get_env() == expected_get_env
