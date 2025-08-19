@@ -68,52 +68,31 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._fetch_lock = asyncio.Lock()
         """Fetch lock to minimize race conditions when communicating with API."""
 
-    @override
-    async def get_metadata(self) -> RequestQueueMetadata:
-        """Get metadata about the request queue."""
+    async def _get_metadata(self) -> RequestQueueMetadata:
+        """Try to get cached metadata first. If multiple clients, fuse with global metadata."""
         if self._metadata.had_multiple_clients:
-            # Enhanced from API (can be delayed few seconds)
-            response = await self._api_client.get()
-            if response is None:
-                raise ValueError('Failed to fetch request queue metadata from the API.')
-            return RequestQueueMetadata(
-                id=response['id'],
-                name=response['name'],
-                total_request_count=max(response['totalRequestCount'], self._metadata.total_request_count),
-                handled_request_count=max(response['handledRequestCount'], self._metadata.handled_request_count),
-                pending_request_count=response['pendingRequestCount'],
-                created_at=response['createdAt'],
-                modified_at=max(response['modifiedAt'], self._metadata.modified_at),
-                accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
-                had_multiple_clients=response['hadMultipleClients'],
-            )
-           # Update local estimation?
+            return await self.get_metadata()
         # Get local estimation (will not include changes done bo another client)
         return self._metadata
-
 
     @override
     async def get_metadata(self) -> RequestQueueMetadata:
         """Get metadata about the request queue."""
-        if self._metadata.had_multiple_clients:
-            # Enhanced from API (can be delayed few seconds)
-            response = await self._api_client.get()
-            if response is None:
-                raise ValueError('Failed to fetch request queue metadata from the API.')
-            return RequestQueueMetadata(
-                id=response['id'],
-                name=response['name'],
-                total_request_count=max(response['totalRequestCount'], self._metadata.total_request_count),
-                handled_request_count=max(response['handledRequestCount'], self._metadata.handled_request_count),
-                pending_request_count=response['pendingRequestCount'],
-                created_at=response['createdAt'],
-                modified_at=max(response['modifiedAt'], self._metadata.modified_at),
-                accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
-                had_multiple_clients=response['hadMultipleClients'],
-            )
-           # Update local estimation?
-        # Get local estimation (will not include changes done bo another client)
-        return self._metadata
+        response = await self._api_client.get()
+        if response is None:
+            raise ValueError('Failed to fetch request queue metadata from the API.')
+        # Enhance API response by local estimations (API can be delayed few seconds, while local estimation not.)
+        return RequestQueueMetadata(
+            id=response['id'],
+            name=response['name'],
+            total_request_count=max(response['totalRequestCount'], self._metadata.total_request_count),
+            handled_request_count=max(response['handledRequestCount'], self._metadata.handled_request_count),
+            pending_request_count=response['pendingRequestCount'],
+            created_at=min(response['createdAt'], self._metadata.created_at),
+            modified_at=max(response['modifiedAt'], self._metadata.modified_at),
+            accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
+            had_multiple_clients=response['hadMultipleClients'] or self._metadata.had_multiple_clients,
+        )
 
     @classmethod
     async def open(
@@ -570,7 +549,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 if cached_request and cached_request.hydrated:
                     items.append(cached_request.hydrated)
 
-            metadata = await self.get_metadata()
+            metadata = await self._get_metadata()
 
             return RequestQueueHead(
                 limit=limit,

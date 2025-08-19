@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
-
-from crawlee.storages import RequestQueue
 
 from ._utils import generate_unique_resource_name
 from apify import Actor, Request
-from apify.storage_clients import ApifyStorageClient
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
+    from crawlee.storages import RequestQueue
 
     from .conftest import MakeActorFunction, RunActorFunction
 
@@ -103,57 +102,83 @@ async def test_request_queue_is_finished() -> None:
         finally:
             await request_queue.drop()
 
-# TODO, add more metadata tests
 
-async def test_request_queue_had_multiple_clients_localaaaa(
+async def test_request_queue_enhanced_metadata(
+    request_queue_force_cloud: RequestQueue,
     apify_client_async: ApifyClientAsync,
 ) -> None:
-    """`RequestQueue` clients created with different `client_key` should appear as distinct clients."""
-    #request_queue_name = generate_unique_resource_name('request_queue')
-    rq_client = await ApifyStorageClient().create_rq_client(name=None, id=None)
-    client_metadata = await rq_client.get_metadata()
-    rq = RequestQueue(name=client_metadata.name, id=client_metadata.id, client=rq_client)
-    await rq.fetch_next_request()
-    await rq.fetch_next_request()
+    """Test metadata tracking.
 
-    # Check that it is correctly in the RequestQueueClient metadata
-    assert (await rq.get_metadata()).had_multiple_clients is False
+    Multiple clients scenarios are not guaranteed to give correct results without delay. But at least multiple clients,
+    single producer, should be reliable on the producer side."""
+
+    for i in range(1, 10):
+        await request_queue_force_cloud.add_request(Request.from_url(f'http://example.com/{i}'))
+        # Reliable information as the API response is enhanced with local metadata estimation.
+        assert (await request_queue_force_cloud.get_metadata()).total_request_count == i
+
+    # Accessed with client created explicitly with `client_key=None` should appear as distinct client
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id, client_key=None)
+    await api_client.list_head()
+
+    # The presence of another non-producing client should not affect the metadata
+    for i in range(10, 20):
+        await request_queue_force_cloud.add_request(Request.from_url(f'http://example.com/{i}'))
+        # Reliable information as the API response is enhanced with local metadata estimation.
+        assert (await request_queue_force_cloud.get_metadata()).total_request_count == i
+
+
+async def test_request_queue_metadata_another_client(
+    request_queue_force_cloud: RequestQueue,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test metadata tracking. The delayed metadata should be reliable even when changed by another client."""
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id, client_key=None)
+    await api_client.add_request(Request.from_url('http://example.com/1').model_dump(by_alias=True, exclude={'id'}))
+
+    # Wait to be sure that the API has updated the global metadata
+    await asyncio.sleep(10)
+
+    assert (await request_queue_force_cloud.get_metadata()).total_request_count == 1
+
 
 async def test_request_queue_had_multiple_clients_local(
+    request_queue_force_cloud: RequestQueue,
     apify_client_async: ApifyClientAsync,
 ) -> None:
-    """`RequestQueue` clients created with different `client_key` should appear as distinct clients."""
-    request_queue_name = generate_unique_resource_name('request_queue')
+    """Test that `RequestQueue` correctly detects multiple clients.
 
-    async with Actor:
-        rq_1 = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        await rq_1.fetch_next_request()
+    Clients created with different `client_key` should appear as distinct clients."""
+    await request_queue_force_cloud.fetch_next_request()
 
-        # Accessed with client created explicitly with `client_key=None` should appear as distinct client
-        api_client = apify_client_async.request_queue(request_queue_id=rq_1.id, client_key=None)
-        await api_client.list_head()
+    # Accessed with client created explicitly with `client_key=None` should appear as distinct client
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id, client_key=None)
+    await api_client.list_head()
 
-        # Check that it is correctly in the RequestQueueClient metadata
-        assert (await rq_1.get_metadata()).had_multiple_clients is True  # Currently broken
-        # Check that it is correctly in the API
-        assert ((await api_client.get())['hadMultipleClients']) is True
+    # Check that it is correctly in the RequestQueueClient metadata
+    assert (await request_queue_force_cloud.get_metadata()).had_multiple_clients is True
+    # Check that it is correctly in the API
+    api_response = await api_client.get()
+    assert api_response
+    assert api_response['hadMultipleClients'] is True
 
 
-async def test_request_queue_not_had_multiple_clients_local(apify_client_async: ApifyClientAsync,) -> None:
+async def test_request_queue_not_had_multiple_clients_local(
+    request_queue_force_cloud: RequestQueue, apify_client_async: ApifyClientAsync
+) -> None:
     """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
-    request_queue_name = generate_unique_resource_name('request_queue')
 
-    async with Actor:
-        rq_1 = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
-        await rq_1.fetch_next_request()
-        await rq_1.fetch_next_request()
+    # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
+    await request_queue_force_cloud.fetch_next_request()
+    await request_queue_force_cloud.fetch_next_request()
 
-        # Check that it is correctly in the RequestQueueClient metadata
-        assert (await rq_1.get_metadata()).had_multiple_clients is False
-        # Check that it is correctly in the API
-        api_client = apify_client_async.request_queue(request_queue_id=rq_1.id)
-        assert ((await api_client.get())['hadMultipleClients']) is False
+    # Check that it is correctly in the RequestQueueClient metadata
+    assert (await request_queue_force_cloud.get_metadata()).had_multiple_clients is False
+    # Check that it is correctly in the API
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id)
+    api_response = await api_client.get()
+    assert api_response
+    assert api_response['hadMultipleClients'] is False
 
 
 async def test_request_queue_had_multiple_clients_platform(
@@ -175,11 +200,9 @@ async def test_request_queue_had_multiple_clients_platform(
             await api_client.list_head()
 
             # Check that it is correctly in the RequestQueueClient metadata
-            assert (await rq_1.get_metadata()).had_multiple_clients is True  # Currently broken
-            # Check that it is correctly in the API
-            assert ((await rq_1._client._api_client.get())['hadMultipleClients']) is True
+            assert (await rq_1.get_metadata()).had_multiple_clients is True
 
-    actor = await make_actor(label='rq-same-ref-default', main_func=main)
+    actor = await make_actor(label='rq-had-multiple-clients', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
@@ -199,10 +222,8 @@ async def test_request_queue_not_had_multiple_clients_platform(
 
             # Check that it is correctly in the RequestQueueClient metadata
             assert (await rq_1.get_metadata()).had_multiple_clients is False
-            # Check that it is correctly in the API
-            assert ((await rq_1._client._api_client.get())['hadMultipleClients']) is False
 
-    actor = await make_actor(label='rq-same-ref-default', main_func=main)
+    actor = await make_actor(label='rq-not-had-multiple-clients', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
