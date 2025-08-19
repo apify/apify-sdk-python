@@ -242,20 +242,77 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             Response containing information about the added requests.
         """
-        # Prepare requests for API by converting to dictionaries.
-        requests_dict = [
-            request.model_dump(
-                by_alias=True,
-                exclude={'id'},  # Exclude ID fields from requests since the API doesn't accept them.
-            )
-            for request in requests
-        ]
+        # Do not try to add previously added requests to avoid pointless expensive calls to API
 
-        # Send requests to API.
-        response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+        new_requests: list[Request] = []
+        already_present_requests: list[ProcessedRequest] = []
+
+        for request in requests:
+            if self._requests_cache.get(request.id):
+                # We are not sure if it was already handled at this point, and it is not worth calling API for it.
+                # It could have been handled by another client in the meantime, so cached information about
+                # `request.was_already_handled` is not reliable.
+                already_present_requests.append(
+                    ProcessedRequest.model_validate(
+                        {
+                            'id': request.id,
+                            'uniqueKey': request.unique_key,
+                            'wasAlreadyPresent': True,
+                            'wasAlreadyHandled': request.was_already_handled,
+                        }
+                    )
+                )
+
+            else:
+                # Add new request to the cache.
+                processed_request = ProcessedRequest.model_validate(
+                    {
+                        'id': request.id,
+                        'uniqueKey': request.unique_key,
+                        'wasAlreadyPresent': True,
+                        'wasAlreadyHandled': request.was_already_handled,
+                    }
+                )
+                self._cache_request(
+                    unique_key_to_request_id(request.unique_key),
+                    processed_request,
+                )
+                new_requests.append(request)
+
+        if new_requests:
+            # Prepare requests for API by converting to dictionaries.
+            requests_dict = [
+                request.model_dump(
+                    by_alias=True,
+                    exclude={'id'},  # Exclude ID fields from requests since the API doesn't accept them.
+                )
+                for request in new_requests
+            ]
+
+            # Send requests to API.
+            api_response = AddRequestsResponse.model_validate(
+                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+            )
+
+            # Add the locally known already present processed requests based on the local cache.
+            api_response.processed_requests.extend(already_present_requests)
+
+            # Remove unprocessed requests from the cache
+            for unprocessed_request in api_response.unprocessed_requests:
+                self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
+
+        else:
+            api_response = AddRequestsResponse.model_validate(
+                {'unprocessedRequests': [], 'processedRequests': already_present_requests}
+            )
+
+        logger.debug(
+            f'Tried to add new requests: {len(new_requests)}, '
+            f'succeeded to add new requests: {len(api_response.processed_requests) - len(already_present_requests)}, '
+            f'skipped already present requests: {len(already_present_requests)}'
+        )
 
         # Update assumed total count for newly added requests.
-        api_response = AddRequestsResponse.model_validate(response)
         new_request_count = 0
         for processed_request in api_response.processed_requests:
             if not processed_request.was_already_present and not processed_request.was_already_handled:
