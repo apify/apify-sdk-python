@@ -66,7 +66,6 @@ def test_with_id_and_unique_key(spider: Spider) -> None:
         url='https://example.com',
         method='GET',
         meta={
-            'apify_request_id': 'abc123',
             'apify_request_unique_key': 'https://example.com',
             'userData': {'some_user_data': 'hello'},
         },
@@ -77,7 +76,6 @@ def test_with_id_and_unique_key(spider: Spider) -> None:
 
     assert apify_request.url == 'https://example.com'
     assert apify_request.method == 'GET'
-    assert apify_request.id == 'abc123'
     assert apify_request.unique_key == 'https://example.com'
 
     user_data = apify_request.user_data
