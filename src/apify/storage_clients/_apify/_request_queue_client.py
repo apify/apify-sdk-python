@@ -157,11 +157,12 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 # a new storage ID after Actor's reboot or migration.
                 id = configuration.default_request_queue_id
             case (None, name):
-                # If name is provided, get or create the storage by name.
+                # If only name is provided, get or create the storage by name.
                 id = RequestQueueMetadata.model_validate(
                     await apify_rqs_client.get_or_create(name=name),
                 ).id
             case (_, None):
+                # If only id is provided, use it.
                 pass
             case (_, _):
                 # If both id and name are provided, raise an error.
@@ -170,7 +171,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             raise RuntimeError('Unreachable code')
 
         # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
-        # It should persist across migrated Actor runs on the Apify platform.
+        # It should persist across migrated or resurrected Actor runs on the Apify platform.
         _api_max_client_key_length = 32
         client_key = (configuration.actor_run_id or crypto_random_object_id(length=_api_max_client_key_length))[
             :_api_max_client_key_length
