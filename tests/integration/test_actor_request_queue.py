@@ -242,16 +242,12 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
     async def main() -> None:
         async with Actor:
             rq_1 = await Actor.open_request_queue()
-            Actor.log.info(f'Used client key = {rq_1._client._api_client.client_key}, request queue ID = {rq_1.id}')
-            metadata = await rq_1.get_metadata()
-            Actor.log.info(metadata)
-
-            assert metadata.had_multiple_clients is False, 'Not accessed yet, should be False'
+            assert (await rq_1.get_metadata()).had_multiple_clients is False, 'Not accessed yet, should be False'
 
             await rq_1.fetch_next_request()
 
             assert (await rq_1.get_metadata()).had_multiple_clients is False, (
-                'Accessed with same client, should be False'
+                'Accessed with the same client, should be False'
             )
 
     actor = await make_actor(label='rq-multiple-clients-resurrection', main_func=main)
