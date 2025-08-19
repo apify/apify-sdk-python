@@ -250,7 +250,7 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
                 'Accessed with the same client, should be False'
             )
 
-    actor = await make_actor(label='rq-multiple-clients-resurrection', main_func=main)
+    actor = await make_actor(label='rq-clients-resurrection', main_func=main)
     run_result = await run_actor(actor)
     assert run_result.status == 'SUCCEEDED'
 
