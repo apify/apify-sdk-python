@@ -34,7 +34,7 @@ keywords = [
     "scraping",
 ]
 dependencies = [
-    "apify-client@git+https://github.com/apify/apify-client-python.git@remove-request-id",
+    "apify-client>=2.0.0,<3.0.0",
     "apify-shared>=2.0.0,<3.0.0",
     "crawlee@git+https://github.com/apify/crawlee-python.git@remove-request-id",
     "cachetools>=5.5.0",
