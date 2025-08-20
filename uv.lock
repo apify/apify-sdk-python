@@ -113,7 +113,7 @@ dev = [
 [[package]]
 name = "apify-client"
 version = "2.0.1"
-source = { git = "https://github.com/apify/apify-client-python.git?rev=remove-request-id#2ebd75c406e8836a27558b3cb3050868bb0471c4" }
+source = { git = "https://github.com/apify/apify-client-python.git?rev=remove-request-id#3729faca3e55db9858b89edb1d9730aa11039979" }
 dependencies = [
     { name = "apify-shared" },
     { name = "colorama" },
@@ -474,7 +474,7 @@ toml = [
 [[package]]
 name = "crawlee"
 version = "0.6.13"
-source = { git = "https://github.com/apify/crawlee-python.git?rev=remove-request-id#2d1f9e642167f4949f17cb7e0d1a7f5656d8aff7" }
+source = { git = "https://github.com/apify/crawlee-python.git?rev=remove-request-id#10c0d7d06c780c13fdb9307db666ca110220b568" }
 dependencies = [
     { name = "cachetools" },
     { name = "colorama" },
