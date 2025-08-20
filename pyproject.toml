@@ -68,7 +68,7 @@ dev = [
     "crawlee[parsel]",
     "dycw-pytest-only~=2.1.0",
     "griffe~=1.12.0",
-    "httpx~=0.27.0", # httpx is used im docs
+    "httpx~=0.27.0", # httpx is used in docs
     "mypy~=1.17.0",
     "pre-commit~=4.3.0",
     "pydoc-markdown~=4.8.0",
