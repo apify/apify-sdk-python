@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import re
 from dataclasses import dataclass, field
 from re import Pattern
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlparse
 
-import httpx
+import impit
+from yarl import URL
 
 from apify_shared.consts import ApifyEnvVars
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
@@ -231,7 +233,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             return None
 
         if self._uses_apify_proxy:
-            parsed_url = httpx.URL(proxy_info.url)
+            parsed_url = URL(proxy_info.url)
             username = self._get_username(session_id)
 
             return ProxyInfo(
@@ -275,11 +277,11 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             return
 
         status = None
-        async with httpx.AsyncClient(proxy=proxy_info.url, timeout=10) as client:
+        async with impit.AsyncClient(proxy=proxy_info.url, timeout=10) as client:
             for _ in range(2):
                 try:
                     response = await client.get(proxy_status_url)
-                    status = response.json()
+                    status = json.loads(response.text)
                     break
                 except Exception:  # noqa: S110
                     # retry on connection errors

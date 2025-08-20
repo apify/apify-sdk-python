@@ -7,7 +7,7 @@ from collections import defaultdict
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, get_type_hints
 
-import httpx
+import impit
 import pytest
 from pytest_httpserver import HTTPServer
 
@@ -193,14 +193,15 @@ def httpserver(make_httpserver: HTTPServer) -> Iterator[HTTPServer]:
 
 
 @pytest.fixture
-def patched_httpx_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Patch httpx client to drop proxy settings."""
+def patched_impit_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch impit client to drop proxy settings."""
 
-    class ProxylessAsyncClient(httpx.AsyncClient):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            kwargs.pop('proxy', None)
-            super().__init__(*args, **kwargs)
+    original_async_client = impit.AsyncClient
 
-    monkeypatch.setattr(httpx, 'AsyncClient', ProxylessAsyncClient)
+    def proxyless_async_client(*args: Any, **kwargs: Any) -> impit.AsyncClient:
+        kwargs.pop('proxy', None)
+        return original_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(impit, 'AsyncClient', proxyless_async_client)
     yield
     monkeypatch.undo()

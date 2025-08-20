@@ -27,13 +27,6 @@ def _configure_logging() -> None:
     else:
         apify_client_logger.setLevel(level)
 
-    # Silence HTTPX logger unless debug logging is requested
-    httpx_logger = logging.getLogger('httpx')
-    if level > logging.DEBUG:
-        httpx_logger.setLevel(logging.WARNING)
-    else:
-        httpx_logger.setLevel(level)
-
     # Use configured log level for apify logger
     apify_logger = logging.getLogger('apify')
     configure_logger(apify_logger, remove_old_handlers=True)
