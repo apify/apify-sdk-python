@@ -130,7 +130,7 @@ class _ActorType:
         # Set the event manager based on whether the Actor is running on the platform or locally.
         self._event_manager = (
             ApifyEventManager(
-                config=self._configuration,
+                configuration=self._configuration,
                 persist_state_interval=self._configuration.persist_state_interval,
             )
             if self.is_at_home()
