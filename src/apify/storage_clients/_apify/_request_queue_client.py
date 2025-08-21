@@ -585,8 +585,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The updated request
         """
+        request_dict = request.model_dump(by_alias=True)
+        request_dict['id'] = unique_key_to_request_id(request.unique_key)
         response = await self._api_client.update_request(
-            request=request.model_dump(by_alias=True),
+            request=request_dict,
             forefront=forefront,
         )
 
