@@ -377,7 +377,7 @@ async def test_new_proxy_info_rotating_urls_with_sessions() -> None:
     assert proxy_info.url == proxy_urls[0]
 
 
-@pytest.mark.usefixtures('patched_httpx_client')
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_with_valid_configuration(
     monkeypatch: pytest.MonkeyPatch,
     httpserver: HTTPServer,
@@ -420,7 +420,7 @@ async def test_initialize_without_password_or_token() -> None:
         await proxy_configuration.initialize()
 
 
-@pytest.mark.usefixtures('patched_httpx_client')
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
     dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
@@ -442,7 +442,7 @@ async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, 
     assert proxy_configuration.is_man_in_the_middle is False
 
 
-@pytest.mark.usefixtures('patched_httpx_client')
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_prefering_password_from_env_over_calling_api(
     monkeypatch: pytest.MonkeyPatch,
     httpserver: HTTPServer,
@@ -471,7 +471,7 @@ async def test_initialize_prefering_password_from_env_over_calling_api(
     assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
 
 
-@pytest.mark.usefixtures('patched_httpx_client')
+@pytest.mark.usefixtures('patched_impit_client')
 @pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_with_manual_password_different_than_user_one(
     monkeypatch: pytest.MonkeyPatch,
@@ -506,7 +506,7 @@ async def test_initialize_with_manual_password_different_than_user_one(
     assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
 
 
-@pytest.mark.usefixtures('patched_httpx_client')
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
     dummy_connection_error = 'DUMMY_CONNECTION_ERROR'
     dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')

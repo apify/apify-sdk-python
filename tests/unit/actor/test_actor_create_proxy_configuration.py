@@ -25,7 +25,7 @@ def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) ->
     return ApifyClientAsync()
 
 
-@pytest.mark.usefixtures('patched_httpx_client')
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_basic_proxy_configuration_creation(
     monkeypatch: pytest.MonkeyPatch,
     httpserver: HTTPServer,
@@ -68,7 +68,7 @@ async def test_basic_proxy_configuration_creation(
     await Actor.exit()
 
 
-@pytest.mark.usefixtures('patched_httpx_client')
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_proxy_configuration_with_actor_proxy_input(
     monkeypatch: pytest.MonkeyPatch,
     httpserver: HTTPServer,
