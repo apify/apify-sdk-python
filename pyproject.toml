@@ -36,7 +36,7 @@ keywords = [
 dependencies = [
     "apify-client>=2.0.0,<3.0.0",
     "apify-shared>=2.0.0,<3.0.0",
-    "crawlee@git+https://github.com/apify/crawlee-python.git@remove-request-id",
+    "crawlee@git+https://github.com/apify/crawlee-python.git@master",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
     "httpx>=0.27.0",
