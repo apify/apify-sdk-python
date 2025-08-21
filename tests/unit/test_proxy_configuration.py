@@ -75,11 +75,17 @@ def test_invalid_arguments() -> None:
         (['abc', 'DEF', 'geh$'], 2),
         ([111, 'DEF', 'geh$'], 2),
     ]:
-        with pytest.raises(ValueError, match=re.escape(str(invalid_groups[bad_group_index]))):  # type: ignore[index]
+        bad_group = str(invalid_groups[bad_group_index])  # type: ignore[index]
+
+        # Match the actual error message pattern that includes the value and argument name
+        match_pattern = f'Value {re.escape(bad_group)} of argument groups does not match pattern'
+
+        with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(groups=invalid_groups)  # type: ignore[arg-type]
 
     for invalid_country_code in ['CZE', 'aa', 'DDDD', 1111]:
-        with pytest.raises(ValueError, match=re.escape(str(invalid_country_code))):
+        match_pattern = f'Value {re.escape(str(invalid_country_code))} of argument country_code does not match pattern'
+        with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(country_code=invalid_country_code)  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match='Exactly one of .* must be specified'):
