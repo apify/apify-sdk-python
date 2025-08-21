@@ -46,7 +46,7 @@ dependencies = [
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",
     "websockets>=14.0",
-    "yarl~=1.20.0",
+    "yarl>=1.18.0",
 ]
 
 [project.optional-dependencies]
@@ -68,7 +68,6 @@ dev = [
     "crawlee[parsel]",
     "dycw-pytest-only~=2.1.0",
     "griffe~=1.12.0",
-    "httpx~=0.27.0", # httpx is used in docs
     "mypy~=1.17.0",
     "pre-commit~=4.3.0",
     "pydoc-markdown~=4.8.0",
@@ -214,12 +213,12 @@ exclude = []
 
 [[tool.mypy.overrides]]
 module = [
-    'bs4',
-    'lazy_object_proxy',
-    'nest_asyncio',
-    'playwright.*',
-    'scrapy.*',
-    'selenium.*',
+    'bs4', # Documentation
+    'httpx', # Documentation
+    'lazy_object_proxy', # Untyped and stubs not available
+    'playwright.*', # Documentation
+    'scrapy.*', # Untyped and stubs not available
+    'selenium.*', # Documentation
 ]
 ignore_missing_imports = true
 
