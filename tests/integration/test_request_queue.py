@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
 
+from crawlee import Request
+
 from apify import Actor
 
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+    from crawlee.storages import RequestQueue
+
     from .conftest import MakeActorFunction, RunActorFunction
 
 
@@ -1195,3 +1201,83 @@ async def test_operations_performance_pattern(
     actor = await make_actor(label='rq-performance-pattern-test', main_func=main)
     run_result = await run_actor(actor)
     assert run_result.status == 'SUCCEEDED'
+
+
+async def test_request_queue_enhanced_metadata(
+    request_queue_force_cloud: RequestQueue,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test metadata tracking.
+
+    Multiple clients scenarios are not guaranteed to give correct results without delay. But at least multiple clients,
+    single producer, should be reliable on the producer side."""
+
+    for i in range(1, 10):
+        await request_queue_force_cloud.add_request(Request.from_url(f'http://example.com/{i}'))
+        # Reliable information as the API response is enhanced with local metadata estimation.
+        assert (await request_queue_force_cloud.get_metadata()).total_request_count == i
+
+    # Accessed with client created explicitly with `client_key=None` should appear as distinct client
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id, client_key=None)
+    await api_client.list_head()
+
+    # The presence of another non-producing client should not affect the metadata
+    for i in range(10, 20):
+        await request_queue_force_cloud.add_request(Request.from_url(f'http://example.com/{i}'))
+        # Reliable information as the API response is enhanced with local metadata estimation.
+        assert (await request_queue_force_cloud.get_metadata()).total_request_count == i
+
+
+async def test_request_queue_metadata_another_client(
+    request_queue_force_cloud: RequestQueue,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test metadata tracking. The delayed metadata should be reliable even when changed by another client."""
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id, client_key=None)
+    await api_client.add_request(Request.from_url('http://example.com/1').model_dump(by_alias=True, exclude={'id'}))
+
+    # Wait to be sure that the API has updated the global metadata
+    await asyncio.sleep(10)
+
+    assert (await request_queue_force_cloud.get_metadata()).total_request_count == 1
+
+
+async def test_request_queue_had_multiple_clients(
+    request_queue_force_cloud: RequestQueue,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test that `RequestQueue` correctly detects multiple clients.
+
+    Clients created with different `client_key` should appear as distinct clients."""
+    await request_queue_force_cloud.fetch_next_request()
+
+    # Accessed with client created explicitly with `client_key=None` should appear as distinct client
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id, client_key=None)
+    await api_client.list_head()
+
+    # Check that it is correctly in the RequestQueueClient metadata
+    assert (await request_queue_force_cloud.get_metadata()).had_multiple_clients is True
+
+    # Check that it is correctly in the API
+    api_response = await api_client.get()
+    assert api_response
+    assert api_response['hadMultipleClients'] is True
+
+
+async def test_request_queue_not_had_multiple_clients(
+    request_queue_force_cloud: RequestQueue, apify_client_async: ApifyClientAsync
+) -> None:
+    """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
+
+    # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
+    await request_queue_force_cloud.fetch_next_request()
+    await request_queue_force_cloud.fetch_next_request()
+
+    # Check that it is correctly in the RequestQueueClient metadata
+    assert (await request_queue_force_cloud.get_metadata()).had_multiple_clients is False
+
+    # Check that it is correctly in the API
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id)
+    api_response = await api_client.get()
+    assert api_response
+    assert api_response['hadMultipleClients'] is False

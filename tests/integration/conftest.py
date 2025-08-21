@@ -98,11 +98,6 @@ def apify_token() -> str:
     return api_token
 
 
-@pytest.fixture(autouse=True)
-def set_token(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
-
-
 @pytest.fixture
 def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync.
@@ -117,9 +112,10 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
 
 
 @pytest.fixture
-async def request_queue_force_cloud() -> AsyncGenerator[RequestQueue]:
+async def request_queue_force_cloud(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[RequestQueue]:
     """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
     request_queue_name = generate_unique_resource_name('request_queue')
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
     async with Actor:
         rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)

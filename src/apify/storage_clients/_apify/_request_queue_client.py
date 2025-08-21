@@ -69,7 +69,12 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """Fetch lock to minimize race conditions when communicating with API."""
 
     async def _get_metadata(self) -> RequestQueueMetadata:
-        """Try to get cached metadata first. If multiple clients, fuse with global metadata."""
+        """Try to get cached metadata first. If multiple clients, fuse with global metadata.
+
+        This method is used internally to avoid unnecessary API call unless needed (multiple clients).
+        Local estimation of metadata is without delay, unlike metadata from API. In situation where there is only one
+        client, it is the better choice.
+        """
         if self._metadata.had_multiple_clients:
             return await self.get_metadata()
         # Get local estimation (will not include changes done bo another client)
