@@ -539,7 +539,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """Get a request by unique key, either from cache or by fetching from API.
 
         Args:
-            unique_key: Unique keu of the request to get.
+            unique_key: Unique key of the request to get.
 
         Returns:
             The request if found and valid, otherwise None.
