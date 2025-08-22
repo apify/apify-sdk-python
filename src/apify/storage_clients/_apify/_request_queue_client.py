@@ -7,9 +7,10 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from logging import getLogger
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Annotated, Final
 
 from cachetools import LRUCache
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
@@ -50,6 +51,30 @@ def unique_key_to_request_id(unique_key: str, *, request_id_length: int = 15) ->
 
     # Truncate the key to the desired length
     return url_safe_key[:request_id_length]
+
+
+class ApifyRequestQueueMetadata(RequestQueueMetadata):
+    stats: Annotated[RequestQueueStats, Field(alias='stats', default_factory=RequestQueueStats)]
+    """Additional optional statistics about the request queue."""
+
+
+class RequestQueueStats(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    delete_count: Annotated[int, Field(alias='deleteCount', default=0)]
+    """"The number of request queue deletes."""
+
+    head_item_read_count: Annotated[int, Field(alias='headItemReadCount', default=0)]
+    """The number of request queue head reads."""
+
+    read_count: Annotated[int, Field(alias='readCount', default=0)]
+    """The number of request queue reads."""
+
+    storage_bytes: Annotated[int, Field(alias='storageBytes', default=0)]
+    """Storage size in Bytes."""
+
+    write_count: Annotated[int, Field(alias='writeCount', default=0)]
+    """The number of request queue writes."""
 
 
 class ApifyRequestQueueClient(RequestQueueClient):
@@ -114,12 +139,12 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """Fetch lock to minimize race conditions when communicating with API."""
 
     @override
-    async def get_metadata(self) -> RequestQueueMetadata:
+    async def get_metadata(self) -> ApifyRequestQueueMetadata:
         total_count = self._initial_total_count + self._assumed_total_count
         handled_count = self._initial_handled_count + self._assumed_handled_count
         pending_count = total_count - handled_count
 
-        return RequestQueueMetadata(
+        return ApifyRequestQueueMetadata(
             id=self._id,
             name=self._name,
             total_request_count=total_count,
@@ -129,6 +154,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             modified_at=datetime.now(timezone.utc),
             accessed_at=datetime.now(timezone.utc),
             had_multiple_clients=self._had_multiple_clients,
+            stats=RequestQueueStats.model_validate({}),  # Just placeholder for example
         )
 
     @classmethod

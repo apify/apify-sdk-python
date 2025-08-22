@@ -26,3 +26,20 @@ async def test_open_returns_same_references() -> None:
         rq_by_id_2 = await Actor.open_key_value_store(id=rq_1_metadata.id)
         assert rq_by_id_1 is rq_by_name_1
         assert rq_by_id_2 is rq_by_id_1
+
+
+async def test_force_cloud_true_stats() -> None:
+    async with Actor:
+        rq = await Actor.open_request_queue(force_cloud=True)
+        metadata = await rq.get_metadata()
+
+        assert metadata.stats
+
+
+async def test_force_cloud_false_stats() -> None:
+    async with Actor:
+        rq = await Actor.open_request_queue(force_cloud=False)
+        metadata = await rq.get_metadata()
+
+        with pytest.raises(AttributeError):
+            assert metadata.stats  # type:ignore[attr-defined] # Mypy is correct, double-check at runtime

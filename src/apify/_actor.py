@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from crawlee.storage_clients import StorageClient
 
     from apify._models import Webhook
+    from apify.storage_clients._apify.apify_request_queue import ApifyRequestQueue
 
 
 MainReturnType = TypeVar('MainReturnType')
@@ -466,6 +467,26 @@ class _ActorType:
             configuration=self._configuration,
             storage_client=storage_client,
         )
+
+    @overload
+    async def open_request_queue(
+        self,
+        *,
+        id: str | None = None,
+        name: str | None = None,
+        force_cloud: Literal[True] = True,
+    ) -> ApifyRequestQueue:
+        pass
+
+    @overload
+    async def open_request_queue(
+        self,
+        *,
+        id: str | None = None,
+        name: str | None = None,
+        force_cloud: Literal[False] = False,
+    ) -> RequestQueue:
+        pass
 
     async def open_request_queue(
         self,
