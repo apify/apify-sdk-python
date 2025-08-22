@@ -20,12 +20,9 @@ async def main() -> None:
 
         # If you try to add an existing request again, it will not do anything
         add_request_info = await queue.add_request(
-            Request.from_url('http://different-example.com/5')
+            Request.from_url('http://example.com/5')
         )
         Actor.log.info(f'Add request info: {add_request_info}')
-
-        processed_request = await queue.get_request(add_request_info.id)
-        Actor.log.info(f'Processed request: {processed_request}')
 
         # Finally, process the queue until all requests are handled
         while not await queue.is_finished():

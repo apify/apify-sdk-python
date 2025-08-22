@@ -84,8 +84,10 @@ async def test_force_cloud(
     apify_client_async: ApifyClientAsync,
     apify_named_rq: RequestQueue,
 ) -> None:
+    request_queue_id = (await apify_named_rq.get_metadata()).id
     request_info = await apify_named_rq.add_request(Request.from_url('http://example.com'))
-    request_queue_client = apify_client_async.request_queue(apify_named_rq.id)
+    assert request_info.id is not None
+    request_queue_client = apify_client_async.request_queue(request_queue_id)
 
     request_queue_details = await request_queue_client.get()
     assert request_queue_details is not None

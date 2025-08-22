@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import re
+from base64 import b64encode
 from collections import deque
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from logging import getLogger
 from typing import TYPE_CHECKING, Final
 
@@ -11,7 +14,6 @@ from typing_extensions import override
 
 from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import crypto_random_object_id
-from crawlee._utils.requests import unique_key_to_request_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
@@ -54,10 +56,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         """Additional data related to the RequestQueue."""
 
         self._queue_head = deque[str]()
-        """A deque to store request IDs in the queue head."""
+        """A deque to store request unique keys in the queue head."""
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=self._MAX_CACHED_REQUESTS)
-        """A cache to store request objects. Request ID is used as the cache key."""
+        """A cache to store request objects. Request unique key is used as the cache key."""
 
         self._queue_has_locked_requests: bool | None = None
         """Whether the queue has requests locked by another client."""
@@ -239,14 +241,13 @@ class ApifyRequestQueueClient(RequestQueueClient):
         already_present_requests: list[ProcessedRequest] = []
 
         for request in requests:
-            if self._requests_cache.get(request.id):
+            if self._requests_cache.get(request.unique_key):
                 # We are not sure if it was already handled at this point, and it is not worth calling API for it.
                 # It could have been handled by another client in the meantime, so cached information about
                 # `request.was_already_handled` is not reliable.
                 already_present_requests.append(
                     ProcessedRequest.model_validate(
                         {
-                            'id': request.id,
                             'uniqueKey': request.unique_key,
                             'wasAlreadyPresent': True,
                             'wasAlreadyHandled': request.was_already_handled,
@@ -258,14 +259,13 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 # Add new request to the cache.
                 processed_request = ProcessedRequest.model_validate(
                     {
-                        'id': request.id,
                         'uniqueKey': request.unique_key,
                         'wasAlreadyPresent': True,
                         'wasAlreadyHandled': request.was_already_handled,
                     }
                 )
                 self._cache_request(
-                    unique_key_to_request_id(request.unique_key),
+                    request.unique_key,
                     processed_request,
                 )
                 new_requests.append(request)
@@ -290,7 +290,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
             # Remove unprocessed requests from the cache
             for unprocessed_request in api_response.unprocessed_requests:
-                self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
+                self._requests_cache.pop(unprocessed_request.unique_key, None)
 
         else:
             api_response = AddRequestsResponse.model_validate(
@@ -314,16 +314,16 @@ class ApifyRequestQueueClient(RequestQueueClient):
         return api_response
 
     @override
-    async def get_request(self, request_id: str) -> Request | None:
-        """Get a request by ID.
+    async def get_request(self, unique_key: str) -> Request | None:
+        """Get a request by unique key.
 
         Args:
-            request_id: The ID of the request to get.
+            unique_key: Unique key of the request to get.
 
         Returns:
             The request or None if not found.
         """
-        response = await self._api_client.get_request(request_id)
+        response = await self._api_client.get_request(unique_key_to_request_id(unique_key))
 
         if response is None:
             return None
@@ -351,15 +351,15 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 return None
 
             # Get the next request ID from the queue head
-            next_request_id = self._queue_head.popleft()
+            next_unique_key = self._queue_head.popleft()
 
-        request = await self._get_or_hydrate_request(next_request_id)
+        request = await self._get_or_hydrate_request(next_unique_key)
 
         # Handle potential inconsistency where request might not be in the main table yet
         if request is None:
             logger.debug(
                 'Cannot find a request from the beginning of queue, will be retried later',
-                extra={'nextRequestId': next_request_id},
+                extra={'nextRequestUniqueKey': next_unique_key},
             )
             return None
 
@@ -367,16 +367,16 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.handled_at is not None:
             logger.debug(
                 'Request fetched from the beginning of queue was already handled',
-                extra={'nextRequestId': next_request_id},
+                extra={'nextRequestUniqueKey': next_unique_key},
             )
             return None
 
         # Use get request to ensure we have the full request object.
-        request = await self.get_request(request.id)
+        request = await self.get_request(request.unique_key)
         if request is None:
             logger.debug(
                 'Request fetched from the beginning of queue was not found in the RQ',
-                extra={'nextRequestId': next_request_id},
+                extra={'nextRequestUniqueKey': next_unique_key},
             )
             return None
 
@@ -398,7 +398,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
 
-        if cached_request := self._requests_cache[request.id]:
+        if cached_request := self._requests_cache[request.unique_key]:
             cached_request.was_already_handled = request.was_already_handled
         try:
             # Update the request in the API
@@ -410,14 +410,14 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 self._metadata.handled_request_count += 1
 
             # Update the cache with the handled request
-            cache_key = unique_key_to_request_id(request.unique_key)
+            cache_key = request.unique_key
             self._cache_request(
                 cache_key,
                 processed_request,
                 hydrated_request=request,
             )
         except Exception as exc:
-            logger.debug(f'Error marking request {request.id} as handled: {exc!s}')
+            logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
             return None
         else:
             return processed_request
@@ -458,7 +458,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                     self._metadata.handled_request_count -= 1
 
                 # Update the cache
-                cache_key = unique_key_to_request_id(request.unique_key)
+                cache_key = request.unique_key
                 self._cache_request(
                     cache_key,
                     processed_request,
@@ -472,11 +472,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
                 # Try to release the lock on the request
                 try:
-                    await self._delete_request_lock(request.id, forefront=forefront)
+                    await self._delete_request_lock(request.unique_key, forefront=forefront)
                 except Exception as err:
-                    logger.debug(f'Failed to delete request lock for request {request.id}', exc_info=err)
+                    logger.debug(f'Failed to delete request lock for request {request.unique_key}', exc_info=err)
             except Exception as exc:
-                logger.debug(f'Error reclaiming request {request.id}: {exc!s}')
+                logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
                 return None
             else:
                 return processed_request
@@ -503,17 +503,17 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Fetch requests from the API and populate the queue head
         await self._list_head(lock_time=self._DEFAULT_LOCK_TIME)
 
-    async def _get_or_hydrate_request(self, request_id: str) -> Request | None:
-        """Get a request by ID, either from cache or by fetching from API.
+    async def _get_or_hydrate_request(self, unique_key: str) -> Request | None:
+        """Get a request by unique key, either from cache or by fetching from API.
 
         Args:
-            request_id: The ID of the request to get.
+            unique_key: Unique keu of the request to get.
 
         Returns:
             The request if found and valid, otherwise None.
         """
         # First check if the request is in our cache
-        cached_entry = self._requests_cache.get(request_id)
+        cached_entry = self._requests_cache.get(unique_key)
 
         if cached_entry and cached_entry.hydrated:
             # If we have the request hydrated in cache, check if lock is expired
@@ -521,11 +521,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 # Try to prolong the lock if it's expired
                 try:
                     lock_secs = int(self._DEFAULT_LOCK_TIME.total_seconds())
-                    response = await self._prolong_request_lock(request_id, lock_secs=lock_secs)
+                    response = await self._prolong_request_lock(unique_key, lock_secs=lock_secs)
                     cached_entry.lock_expires_at = response.lock_expires_at
                 except Exception:
                     # If prolonging the lock fails, we lost the request
-                    logger.debug(f'Failed to prolong lock for request {request_id}, returning None')
+                    logger.debug(f'Failed to prolong lock for request {unique_key}, returning None')
                     return None
 
             return cached_entry.hydrated
@@ -534,22 +534,21 @@ class ApifyRequestQueueClient(RequestQueueClient):
         try:
             # Try to acquire or prolong the lock
             lock_secs = int(self._DEFAULT_LOCK_TIME.total_seconds())
-            await self._prolong_request_lock(request_id, lock_secs=lock_secs)
+            await self._prolong_request_lock(unique_key, lock_secs=lock_secs)
 
             # Fetch the request data
-            request = await self.get_request(request_id)
+            request = await self.get_request(unique_key)
 
             # If request is not found, release lock and return None
             if not request:
-                await self._delete_request_lock(request_id)
+                await self._delete_request_lock(unique_key)
                 return None
 
             # Update cache with hydrated request
-            cache_key = unique_key_to_request_id(request.unique_key)
+            cache_key = request.unique_key
             self._cache_request(
                 cache_key,
                 ProcessedRequest(
-                    id=request_id,
                     unique_key=request.unique_key,
                     was_already_present=True,
                     was_already_handled=request.handled_at is not None,
@@ -557,7 +556,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 hydrated_request=request,
             )
         except Exception as exc:
-            logger.debug(f'Error fetching or locking request {request_id}: {exc!s}')
+            logger.debug(f'Error fetching or locking request {unique_key}: {exc!s}')
             return None
         else:
             return request
@@ -577,13 +576,15 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The updated request
         """
+        request_dict = request.model_dump(by_alias=True)
+        request_dict['id'] = unique_key_to_request_id(request.unique_key)
         response = await self._api_client.update_request(
-            request=request.model_dump(by_alias=True),
+            request=request_dict,
             forefront=forefront,
         )
 
         return ProcessedRequest.model_validate(
-            {'id': request.id, 'uniqueKey': request.unique_key} | response,
+            {'uniqueKey': request.unique_key} | response,
         )
 
     async def _list_head(
@@ -607,8 +608,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
             logger.debug(f'Using cached queue head with {len(self._queue_head)} requests')
             # Create a list of requests from the cached queue head
             items = []
-            for request_id in list(self._queue_head)[:limit]:
-                cached_request = self._requests_cache.get(request_id)
+            for unique_key in list(self._queue_head)[:limit]:
+                cached_request = self._requests_cache.get(unique_key)
                 if cached_request and cached_request.hydrated:
                     items.append(cached_request.hydrated)
 
@@ -646,11 +647,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
             request = Request.model_validate(request_data)
 
             # Skip requests without ID or unique key
-            if not request.id or not request.unique_key:
+            if not request.unique_key:
                 logger.debug(
                     'Skipping request from queue head, missing ID or unique key',
                     extra={
-                        'id': request.id,
                         'unique_key': request.unique_key,
                     },
                 )
@@ -658,39 +658,38 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
             # Cache the request
             self._cache_request(
-                unique_key_to_request_id(request.unique_key),
+                request.unique_key,
                 ProcessedRequest(
-                    id=request.id,
                     unique_key=request.unique_key,
                     was_already_present=True,
                     was_already_handled=False,
                 ),
                 hydrated_request=request,
             )
-            self._queue_head.append(request.id)
+            self._queue_head.append(request.unique_key)
 
-        for leftover_request_id in leftover_buffer:
+        for leftover_unique_key in leftover_buffer:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
-            self._queue_head.append(leftover_request_id)
+            self._queue_head.append(leftover_unique_key)
         return RequestQueueHead.model_validate(response)
 
     async def _prolong_request_lock(
         self,
-        request_id: str,
+        unique_key: str,
         *,
         lock_secs: int,
     ) -> ProlongRequestLockResponse:
         """Prolong the lock on a specific request in the queue.
 
         Args:
-            request_id: The identifier of the request whose lock is to be prolonged.
+            unique_key: Unique key of the request whose lock is to be prolonged.
             lock_secs: The additional amount of time, in seconds, that the request will remain locked.
 
         Returns:
             A response containing the time at which the lock will expire.
         """
         response = await self._api_client.prolong_request_lock(
-            request_id=request_id,
+            request_id=unique_key_to_request_id(unique_key),
             # All requests reaching this code were the tip of the queue at the moment when they were fetched,
             # so if their lock expires, they should be put back to the forefront as their handling is long overdue.
             forefront=True,
@@ -703,7 +702,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         # Update the cache with the new lock expiration
         for cached_request in self._requests_cache.values():
-            if cached_request.id == request_id:
+            if cached_request.unique_key == unique_key:
                 cached_request.lock_expires_at = result.lock_expires_at
                 break
 
@@ -711,29 +710,29 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
     async def _delete_request_lock(
         self,
-        request_id: str,
+        unique_key: str,
         *,
         forefront: bool = False,
     ) -> None:
         """Delete the lock on a specific request in the queue.
 
         Args:
-            request_id: ID of the request to delete the lock.
+            unique_key: Unique key of the request to delete the lock.
             forefront: Whether to put the request in the beginning or the end of the queue after the lock is deleted.
         """
         try:
             await self._api_client.delete_request_lock(
-                request_id=request_id,
+                request_id=unique_key_to_request_id(unique_key),
                 forefront=forefront,
             )
 
             # Update the cache to remove the lock
             for cached_request in self._requests_cache.values():
-                if cached_request.id == request_id:
+                if cached_request.unique_key == unique_key:
                     cached_request.lock_expires_at = None
                     break
         except Exception as err:
-            logger.debug(f'Failed to delete request lock for request {request_id}', exc_info=err)
+            logger.debug(f'Failed to delete request lock for request {unique_key}', exc_info=err)
 
     def _cache_request(
         self,
@@ -751,8 +750,31 @@ class ApifyRequestQueueClient(RequestQueueClient):
             hydrated_request: The hydrated request object, if available.
         """
         self._requests_cache[cache_key] = CachedRequest(
-            id=processed_request.id,
+            unique_key=processed_request.unique_key,
             was_already_handled=processed_request.was_already_handled,
             hydrated=hydrated_request,
             lock_expires_at=None,
         )
+
+
+def unique_key_to_request_id(unique_key: str, *, request_id_length: int = 15) -> str:
+    """Generate a deterministic request ID based on a unique key.
+
+    Args:
+        unique_key: The unique key to convert into a request ID.
+        request_id_length: The length of the request ID.
+
+    Returns:
+        A URL-safe, truncated request ID based on the unique key.
+    """
+    # Encode the unique key and compute its SHA-256 hash
+    hashed_key = sha256(unique_key.encode('utf-8')).digest()
+
+    # Encode the hash in base64 and decode it to get a string
+    base64_encoded = b64encode(hashed_key).decode('utf-8')
+
+    # Remove characters that are not URL-safe ('+', '/', or '=')
+    url_safe_key = re.sub(r'(\+|\/|=)', '', base64_encoded)
+
+    # Truncate the key to the desired length
+    return url_safe_key[:request_id_length]

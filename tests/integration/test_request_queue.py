@@ -405,38 +405,35 @@ async def test_complex_request_objects(
     assert run_result.status == 'SUCCEEDED'
 
 
-async def test_get_request_by_id(
+async def test_get_request_by_unique_key(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """Test retrieving specific requests by their ID."""
+    """Test retrieving specific requests by their unique_key."""
 
     async def main() -> None:
         async with Actor:
             rq = await Actor.open_request_queue()
             Actor.log.info('Request queue opened')
 
-            # Add a request and get its ID
+            # Add a request and get its unique_key
             add_result = await rq.add_request('https://example.com/test')
-            request_id = add_result.id
-            Actor.log.info(f'Request added with ID: {request_id}')
+            request_unique_key = add_result.unique_key
+            Actor.log.info(f'Request added with unique_key: {request_unique_key}')
 
-            # Retrieve the request by ID
-            retrieved_request = await rq.get_request(request_id)
+            # Retrieve the request by unique_key
+            retrieved_request = await rq.get_request(request_unique_key)
             assert retrieved_request is not None, f'retrieved_request={retrieved_request}'
             assert retrieved_request.url == 'https://example.com/test', f'retrieved_request.url={retrieved_request.url}'
-            assert retrieved_request.id == request_id, (
-                f'retrieved_request.id={retrieved_request.id}',
-                f'request_id={request_id}',
-            )
-            Actor.log.info('Request retrieved successfully by ID')
+            assert retrieved_request.unique_key == request_unique_key, (f'{request_unique_key=}',)
+            Actor.log.info('Request retrieved successfully by unique_key')
 
-            # Test with non-existent ID
-            non_existent_request = await rq.get_request('non-existent-id')
+            # Test with non-existent unique_key
+            non_existent_request = await rq.get_request('non-existent-unique_key')
             assert non_existent_request is None, f'non_existent_request={non_existent_request}'
-            Actor.log.info('Non-existent ID correctly returned None')
+            Actor.log.info('Non-existent unique_key correctly returned None')
 
-    actor = await make_actor(label='rq-get-by-id-test', main_func=main)
+    actor = await make_actor(label='rq-get-by-unique-key-test', main_func=main)
     run_result = await run_actor(actor)
     assert run_result.status == 'SUCCEEDED'
 
