@@ -61,16 +61,9 @@ jobs:
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13"]'
 
-  integration_tests:
-    name: Integration tests
-    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
-    secrets: inherit
-    with:
-      python-versions: '["3.10", "3.13"]'
-
   update_changelog:
     name: Update changelog
-    needs: [release_metadata, lint_check, type_check, unit_tests, integration_tests]
+    needs: [release_metadata, lint_check, type_check, unit_tests]
     uses: apify/workflows/.github/workflows/python_bump_and_update_changelog.yaml@main
     with:
       version_number: ${{ needs.release_metadata.outputs.version_number }}

@@ -98,14 +98,9 @@ def apify_token() -> str:
     return api_token
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def apify_client_async(apify_token: str) -> ApifyClientAsync:
-    """Create an instance of the ApifyClientAsync.
-
-    This fixture can't be session-scoped, because then you start getting `RuntimeError: Event loop is closed` errors,
-    because `httpx.AsyncClient` in `ApifyClientAsync` tries to reuse the same event loop across requests,
-    but `pytest-asyncio` closes the event loop after each test, and uses a new one for the next test.
-    """
+    """Create an instance of the ApifyClientAsync."""
     api_url = os.getenv(_API_URL_ENV_VAR)
 
     return ApifyClientAsync(apify_token, api_url=api_url)

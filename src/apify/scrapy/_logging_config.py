@@ -10,7 +10,7 @@ from apify.log import ActorLogFormatter
 
 # Define logger names.
 _PRIMARY_LOGGERS = ['apify', 'apify_client', 'scrapy']
-_SUPPLEMENTAL_LOGGERS = ['filelock', 'hpack', 'httpcore', 'httpx', 'protego', 'twisted']
+_SUPPLEMENTAL_LOGGERS = ['filelock', 'hpack', 'httpcore', 'protego', 'twisted']
 _ALL_LOGGERS = _PRIMARY_LOGGERS + _SUPPLEMENTAL_LOGGERS
 
 
@@ -36,9 +36,6 @@ def initialize_logging() -> None:
     # Configure the root logger and all other defined loggers.
     for logger_name in [None, *_ALL_LOGGERS]:
         _configure_logger(logger_name, logging_level, handler)
-
-    # Set the 'httpx' logger to a less verbose level.
-    logging.getLogger('httpx').setLevel('WARNING')
 
     # Monkey-patch Scrapy's logging configuration to re-apply our settings.
     original_configure_logging = scrapy_logging.configure_logging

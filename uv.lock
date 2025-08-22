@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 
 [[package]]
@@ -36,11 +36,12 @@ dependencies = [
     { name = "cachetools" },
     { name = "crawlee" },
     { name = "cryptography" },
-    { name = "httpx" },
+    { name = "impit" },
     { name = "lazy-object-proxy" },
     { name = "more-itertools" },
     { name = "typing-extensions" },
     { name = "websockets" },
+    { name = "yarl" },
 ]
 
 [package.optional-dependencies]
@@ -68,7 +69,6 @@ dev = [
     { name = "types-cachetools" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "werkzeug" },
-    { name = "yarl" },
 ]
 
 [package.metadata]
@@ -76,14 +76,15 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.0.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=master" },
+    { name = "crawlee", specifier = "==1.0.0rc1" },
     { name = "cryptography", specifier = ">=42.0.0" },
-    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "impit", specifier = ">=0.5.3" },
     { name = "lazy-object-proxy", specifier = "<1.11.0" },
     { name = "more-itertools", specifier = ">=10.2.0" },
     { name = "scrapy", marker = "extra == 'scrapy'", specifier = ">=2.11.0" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
     { name = "websockets", specifier = ">=14.0" },
+    { name = "yarl", specifier = ">=1.18.0" },
 ]
 provides-extras = ["scrapy"]
 
@@ -107,7 +108,6 @@ dev = [
     { name = "types-cachetools", specifier = "~=6.0.0.20250525" },
     { name = "uvicorn", extras = ["standard"] },
     { name = "werkzeug", specifier = "~=3.1.0" },
-    { name = "yarl", specifier = "~=1.20.0" },
 ]
 
 [[package]]
@@ -477,8 +477,8 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "0.6.13"
-source = { git = "https://github.com/apify/crawlee-python.git?rev=master#0650b7e097751b0cf6b190ef4c25b05e44169389" }
+version = "1.0.0rc1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
     { name = "colorama" },
@@ -492,6 +492,10 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/1d/31d7710b54c78d12cdc359f8f30478714768cfdab669f4464a8632bb5db6/crawlee-1.0.0rc1.tar.gz", hash = "sha256:bf644826a030fb01c1c525d7da1a73f4ce3fb89671eca9544aa0fccc5e9eaaa6", size = 24822393, upload-time = "2025-08-22T06:46:29.831Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/68/fcb616bd86782c1445ad8b6d3b5ec40ce970adcda755deb5cc9347ba9fb0/crawlee-1.0.0rc1-py3-none-any.whl", hash = "sha256:748e54aea1884b2cc49e4cebbfb1842159dd2b93ae17284cd947fa8a066d137f", size = 274346, upload-time = "2025-08-22T06:46:27.035Z" },
 ]
 
 [package.optional-dependencies]
@@ -723,19 +727,6 @@ wheels = [
 ]
 
 [[package]]
-name = "httpcore"
-version = "1.0.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "certifi" },
-    { name = "h11" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484, upload-time = "2025-04-24T22:06:22.219Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784, upload-time = "2025-04-24T22:06:20.566Z" },
-]
-
-[[package]]
 name = "httptools"
 version = "0.6.4"
 source = { registry = "https://pypi.org/simple" }
@@ -769,21 +760,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/0a/0d4df132bfca1507114198b766f1737d57580c9ad1cf93c1ff673e3387be/httptools-0.6.4-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:342dd6946aa6bda4b8f18c734576106b8a31f2fe31492881a9a160ec84ff4bd5", size = 448858, upload-time = "2024-10-16T19:44:43.959Z" },
     { url = "https://files.pythonhosted.org/packages/1e/6a/787004fdef2cabea27bad1073bf6a33f2437b4dbd3b6fb4a9d71172b1c7c/httptools-0.6.4-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:4b36913ba52008249223042dca46e69967985fb4051951f94357ea681e1f5dc0", size = 452042, upload-time = "2024-10-16T19:44:45.071Z" },
     { url = "https://files.pythonhosted.org/packages/4d/dc/7decab5c404d1d2cdc1bb330b1bf70e83d6af0396fd4fc76fc60c0d522bf/httptools-0.6.4-cp313-cp313-win_amd64.whl", hash = "sha256:28908df1b9bb8187393d5b5db91435ccc9c8e891657f9cbb42a2541b44c82fc8", size = 87682, upload-time = "2024-10-16T19:44:46.46Z" },
-]
-
-[[package]]
-name = "httpx"
-version = "0.28.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "certifi" },
-    { name = "httpcore" },
-    { name = "idna" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
 ]
 
 [[package]]
