@@ -28,7 +28,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "3.0.0rc1"
+version = "2.7.4"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
