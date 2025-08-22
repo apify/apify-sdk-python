@@ -1,6 +1,6 @@
 ---
-id: upgrading-to-v2
-title: Upgrading to v2
+id: upgrading-to-v3
+title: Upgrading to v3
 ---
 
 This page summarizes the breaking changes between Apify Python SDK v2.x and v3.0.
