@@ -70,7 +70,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._fetch_lock = asyncio.Lock()
         """Fetch lock to minimize race conditions when communicating with API."""
 
-    async def _get_metadata(self) -> RequestQueueMetadata:
+    async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.
 
         This method is used internally to avoid unnecessary API call unless needed (multiple clients).
@@ -84,7 +84,12 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
     @override
     async def get_metadata(self) -> RequestQueueMetadata:
-        """Get metadata about the request queue."""
+        """Get metadata about the request queue.
+
+        Returns:
+            Metadata from the API, merged with local estimation, because in some cases, the data from the API can
+            be delayed.
+        """
         response = await self._api_client.get()
         if response is None:
             raise ValueError('Failed to fetch request queue metadata from the API.')
@@ -613,7 +618,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 if cached_request and cached_request.hydrated:
                     items.append(cached_request.hydrated)
 
-            metadata = await self._get_metadata()
+            metadata = await self._get_metadata_estimate()
 
             return RequestQueueHead(
                 limit=limit,
