@@ -42,7 +42,7 @@ dependencies = [
     # TODO: ensure compatibility with the latest version of lazy-object-proxy
     # https://github.com/apify/apify-sdk-python/issues/460
     "impit>=0.5.3",
-    "lazy-object-proxy<1.11.0",
+    "lazy-object-proxy<1.12.1",
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",
     "websockets>=14.0",
