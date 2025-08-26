@@ -11,6 +11,7 @@ from apify_shared.consts import ApifyEnvVars
 
 from ._utils import generate_unique_resource_name
 from apify import Actor, Request
+from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -100,18 +101,17 @@ async def test_force_cloud(
 async def test_request_queue_is_finished(
     apify_named_rq: RequestQueue,
 ) -> None:
-    request_queue = await Actor.open_request_queue(name=apify_named_rq.name, force_cloud=True)
-    await request_queue.add_request(Request.from_url('http://example.com'))
-    assert not await request_queue.is_finished()
+    await apify_named_rq.add_request(Request.from_url('http://example.com'))
+    assert not await apify_named_rq.is_finished()
 
-    request = await request_queue.fetch_next_request()
+    request = await apify_named_rq.fetch_next_request()
     assert request is not None
-    assert not await request_queue.is_finished(), (
+    assert not await apify_named_rq.is_finished(), (
         'RequestQueue should not be finished unless the request is marked as handled.'
     )
 
-    await request_queue.mark_request_as_handled(request)
-    assert await request_queue.is_finished()
+    await apify_named_rq.mark_request_as_handled(request)
+    assert await apify_named_rq.is_finished()
 
 
 async def test_request_queue_deduplication(
@@ -318,3 +318,83 @@ async def test_request_queue_deduplication_unprocessed_requests(
     Actor.log.info(stats_after)
 
     assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+
+
+async def test_request_queue_had_multiple_clients_platform(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Test that `RequestQueue` clients created with different `client_key` appear as distinct clients."""
+
+    async def main() -> None:
+        from apify_client import ApifyClientAsync
+
+        async with Actor:
+            rq_1 = await Actor.open_request_queue()
+            await rq_1.fetch_next_request()
+
+            # Accessed with client created explicitly with `client_key=None` should appear as distinct client
+            api_client = ApifyClientAsync(token=Actor.configuration.token).request_queue(
+                request_queue_id=rq_1.id, client_key=None
+            )
+            await api_client.list_head()
+
+            assert (await rq_1.get_metadata()).had_multiple_clients is True
+
+    actor = await make_actor(label='rq-had-multiple-clients', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+
+
+async def test_request_queue_not_had_multiple_clients_platform(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
+
+    async def main() -> None:
+        async with Actor:
+            rq_1 = await Actor.open_request_queue()
+            # Two calls to API to create situation where unset `client_key` can cause `had_multiple_clients` to True
+            await rq_1.fetch_next_request()
+            await rq_1.fetch_next_request()
+
+            assert (await rq_1.get_metadata()).had_multiple_clients is False
+
+    actor = await make_actor(label='rq-not-had-multiple-clients', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+
+
+async def test_request_queue_not_had_multiple_clients_platform_resurrection(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test `RequestQueue` created from Actor does not act as multiple clients even after resurrection."""
+
+    async def main() -> None:
+        async with Actor:
+            rq_1 = await Actor.open_request_queue()
+            assert (await rq_1.get_metadata()).had_multiple_clients is False, 'Not accessed yet, should be False'
+
+            await rq_1.fetch_next_request()
+
+            assert (await rq_1.get_metadata()).had_multiple_clients is False, (
+                'Accessed with the same client, should be False'
+            )
+
+    actor = await make_actor(label='rq-clients-resurrection', main_func=main)
+    run_result = await run_actor(actor)
+    assert run_result.status == 'SUCCEEDED'
+
+    # Resurrect the run, the RequestQueue should still use same client key and thus not have multiple clients.
+    run_client = apify_client_async.run(run_id=run_result.id)
+    # Redirect logs even from the resurrected run
+    streamed_log = await run_client.get_streamed_log(from_start=False)
+    await run_client.resurrect()
+    async with streamed_log:
+        run_result = ActorRun.model_validate(await run_client.wait_for_finish(wait_secs=600))
+        assert run_result.status == 'SUCCEEDED'
