@@ -3,8 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
-
-## 2.7.4 - **not yet released**
+## 2.7.1 - **not yet released**
 
 ### 🚀 Features
 
@@ -15,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Restrict apify-shared and apify-client versions ([#523](https://github.com/apify/apify-sdk-python/pull/523)) ([b3ae5a9](https://github.com/apify/apify-sdk-python/commit/b3ae5a972a65454a4998eda59c9fcc3f6b7e8579)) by [@vdusek](https://github.com/vdusek)
 - Expose `APIFY_USER_IS_PAYING` env var to the configuration ([#507](https://github.com/apify/apify-sdk-python/pull/507)) ([0801e54](https://github.com/apify/apify-sdk-python/commit/0801e54887317c1280cc6828ecd3f2cc53287e76)) by [@stepskop](https://github.com/stepskop)
 - Resolve DeprecationWarning in ApifyEventManager ([#555](https://github.com/apify/apify-sdk-python/pull/555)) ([0c5111d](https://github.com/apify/apify-sdk-python/commit/0c5111dafe19796ec1fb9652a44c031bed9758df)) by [@vdusek](https://github.com/vdusek), closes [#343](https://github.com/apify/apify-sdk-python/issues/343)
+- Use same `client_key` for `Actor` created `request_queue` and improve its metadata estimation ([#552](https://github.com/apify/apify-sdk-python/pull/552)) ([7e4e5da](https://github.com/apify/apify-sdk-python/commit/7e4e5da81dd87e84ebeef2bd336c6c1d422cb9a7)) by [@Pijukatel](https://github.com/Pijukatel), closes [#536](https://github.com/apify/apify-sdk-python/issues/536)
 
 ### Chore
 
@@ -26,7 +26,20 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Replace `httpx` with `impit` ([#560](https://github.com/apify/apify-sdk-python/pull/560)) ([cca3869](https://github.com/apify/apify-sdk-python/commit/cca3869e85968865e56aafcdcb36fbccba27aef0)) by [@Mantisus](https://github.com/Mantisus), closes [#558](https://github.com/apify/apify-sdk-python/issues/558)
 - [**breaking**] Remove `Request.id` field ([#553](https://github.com/apify/apify-sdk-python/pull/553)) ([445ab5d](https://github.com/apify/apify-sdk-python/commit/445ab5d752b785fc2018b35c8adbe779253d7acd)) by [@Pijukatel](https://github.com/Pijukatel)
 
+
 <!-- git-cliff-unreleased-end -->
+## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
+
+### 🚀 Features
+
+- **crypto:** Decrypt secret objects ([#482](https://github.com/apify/apify-sdk-python/pull/482)) ([ce9daf7](https://github.com/apify/apify-sdk-python/commit/ce9daf7381212b8dc194e8a643e5ca0dedbc0078)) by [@MFori](https://github.com/MFori)
+
+### 🐛 Bug Fixes
+
+- Sync `@docusaurus` theme version [internal] ([#500](https://github.com/apify/apify-sdk-python/pull/500)) ([a7485e7](https://github.com/apify/apify-sdk-python/commit/a7485e7d2276fde464ce862573d5b95e7d4d836a)) by [@katzino](https://github.com/katzino)
+- Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
+
+
 
 ## [2.7.3](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.3) (2025-08-11)
 
