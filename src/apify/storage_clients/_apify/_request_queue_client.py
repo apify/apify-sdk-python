@@ -17,7 +17,7 @@ from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
-from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
+from ._models import CachedRequest, RequestQueueHead
 from apify import Request
 
 if TYPE_CHECKING:
@@ -498,11 +498,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 if forefront:
                     self._should_check_for_forefront_requests = True
 
-                # Try to release the lock on the request
-                try:
-                    await self._delete_request_lock(request.unique_key, forefront=forefront)
-                except Exception as err:
-                    logger.debug(f'Failed to delete request lock for request {request.unique_key}', exc_info=err)
             except Exception as exc:
                 logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
                 return None
@@ -516,10 +511,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             True if the queue is empty, False otherwise.
         """
-        # Check _list_head and self._queue_has_locked_requests with lock to make sure they are consistent.
+        # Check _list_head.
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         async with self._fetch_lock:
-            head = await self._list_head(limit=1, lock_time=None)
+            head = await self._list_head(limit=1)
             return len(head.items) == 0 and not self._queue_has_locked_requests
 
     async def _ensure_head_is_non_empty(self) -> None:
@@ -529,7 +524,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             return
 
         # Fetch requests from the API and populate the queue head
-        await self._list_head(lock_time=self._DEFAULT_LOCK_TIME)
+        await self._list_head()
 
     async def _get_or_hydrate_request(self, unique_key: str) -> Request | None:
         """Get a request by unique key, either from cache or by fetching from API.
@@ -544,32 +539,16 @@ class ApifyRequestQueueClient(RequestQueueClient):
         cached_entry = self._requests_cache.get(unique_key)
 
         if cached_entry and cached_entry.hydrated:
-            # If we have the request hydrated in cache, check if lock is expired
-            if cached_entry.lock_expires_at and cached_entry.lock_expires_at < datetime.now(tz=timezone.utc):
-                # Try to prolong the lock if it's expired
-                try:
-                    lock_secs = int(self._DEFAULT_LOCK_TIME.total_seconds())
-                    response = await self._prolong_request_lock(unique_key, lock_secs=lock_secs)
-                    cached_entry.lock_expires_at = response.lock_expires_at
-                except Exception:
-                    # If prolonging the lock fails, we lost the request
-                    logger.debug(f'Failed to prolong lock for request {unique_key}, returning None')
-                    return None
-
+            # If we have the request hydrated in cache, return it
             return cached_entry.hydrated
 
         # If not in cache or not hydrated, fetch the request
         try:
-            # Try to acquire or prolong the lock
-            lock_secs = int(self._DEFAULT_LOCK_TIME.total_seconds())
-            await self._prolong_request_lock(unique_key, lock_secs=lock_secs)
-
             # Fetch the request data
             request = await self.get_request(unique_key)
 
-            # If request is not found, release lock and return None
+            # If request is not found and return None
             if not request:
-                await self._delete_request_lock(unique_key)
                 return None
 
             # Update cache with hydrated request
@@ -584,7 +563,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 hydrated_request=request,
             )
         except Exception as exc:
-            logger.debug(f'Error fetching or locking request {unique_key}: {exc!s}')
+            logger.debug(f'Error fetching request {unique_key}: {exc!s}')
             return None
         else:
             return request
@@ -618,14 +597,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
     async def _list_head(
         self,
         *,
-        lock_time: timedelta | None = None,
         limit: int = 25,
     ) -> RequestQueueHead:
         """Retrieve requests from the beginning of the queue.
 
         Args:
-            lock_time: Duration for which to lock the retrieved requests.
-                If None, requests will not be locked.
             limit: Maximum number of requests to retrieve.
 
         Returns:
@@ -648,8 +624,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 had_multiple_clients=metadata.had_multiple_clients,
                 queue_modified_at=metadata.modified_at,
                 items=items,
+                lock_time=None,
                 queue_has_locked_requests=self._queue_has_locked_requests,
-                lock_time=lock_time,
             )
         leftover_buffer = list[str]()
         if self._should_check_for_forefront_requests:
@@ -658,11 +634,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             self._should_check_for_forefront_requests = False
 
         # Otherwise fetch from API
-        lock_time = lock_time or self._DEFAULT_LOCK_TIME
-        lock_secs = int(lock_time.total_seconds())
-
-        response = await self._api_client.list_and_lock_head(
-            lock_secs=lock_secs,
+        response = await self._api_client.list_head(
             limit=limit,
         )
 
@@ -700,67 +672,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_unique_key)
         return RequestQueueHead.model_validate(response)
-
-    async def _prolong_request_lock(
-        self,
-        unique_key: str,
-        *,
-        lock_secs: int,
-    ) -> ProlongRequestLockResponse:
-        """Prolong the lock on a specific request in the queue.
-
-        Args:
-            unique_key: Unique key of the request whose lock is to be prolonged.
-            lock_secs: The additional amount of time, in seconds, that the request will remain locked.
-
-        Returns:
-            A response containing the time at which the lock will expire.
-        """
-        response = await self._api_client.prolong_request_lock(
-            request_id=unique_key_to_request_id(unique_key),
-            # All requests reaching this code were the tip of the queue at the moment when they were fetched,
-            # so if their lock expires, they should be put back to the forefront as their handling is long overdue.
-            forefront=True,
-            lock_secs=lock_secs,
-        )
-
-        result = ProlongRequestLockResponse(
-            lock_expires_at=datetime.fromisoformat(response['lockExpiresAt'].replace('Z', '+00:00'))
-        )
-
-        # Update the cache with the new lock expiration
-        for cached_request in self._requests_cache.values():
-            if cached_request.unique_key == unique_key:
-                cached_request.lock_expires_at = result.lock_expires_at
-                break
-
-        return result
-
-    async def _delete_request_lock(
-        self,
-        unique_key: str,
-        *,
-        forefront: bool = False,
-    ) -> None:
-        """Delete the lock on a specific request in the queue.
-
-        Args:
-            unique_key: Unique key of the request to delete the lock.
-            forefront: Whether to put the request in the beginning or the end of the queue after the lock is deleted.
-        """
-        try:
-            await self._api_client.delete_request_lock(
-                request_id=unique_key_to_request_id(unique_key),
-                forefront=forefront,
-            )
-
-            # Update the cache to remove the lock
-            for cached_request in self._requests_cache.values():
-                if cached_request.unique_key == unique_key:
-                    cached_request.lock_expires_at = None
-                    break
-        except Exception as err:
-            logger.debug(f'Failed to delete request lock for request {unique_key}', exc_info=err)
 
     def _cache_request(
         self,
