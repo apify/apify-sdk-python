@@ -152,8 +152,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             modified_at=max(response['modifiedAt'], self._metadata.modified_at),
             accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
             had_multiple_clients=response['hadMultipleClients'] or self._metadata.had_multiple_clients,
-            stats=RequestQueueStats.model_validate({}),
-            # TODO: update after https://github.com/apify/apify-sdk-python/pull/552
+            stats=RequestQueueStats.model_validate(response['stats'], by_alias=True),
         )
 
     @classmethod
