@@ -4,7 +4,7 @@ import asyncio
 import re
 from base64 import b64encode
 from collections import deque
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from hashlib import sha256
 from logging import getLogger
 from typing import TYPE_CHECKING, Final
@@ -61,21 +61,24 @@ class ApifyRequestQueueClient(RequestQueueClient):
     - Multiple producers can put requests to the queue, but their forefront requests are not guaranteed to be handled
       sooner. (Explanation below)
     - This client always consumes first own requests and only if no local requests exists it tries to get requests from
-      the global queue.
+      the global queue. ???
+    - Requests are only added to the queue, never deleted. (Marking as handled is ok.)
 
     If the constraints are not met, the client might work in an unpredictable way.
 
     Optimization notes:
     - The client aggressively caches requests to avoid unnecessary API calls.
-    - The client adds requests to the global queue if they are handled.
+    - The client adds requests to the global queue if they are handled. (Potential optimization, but problematic,
+     probably not worth it)
     - The client adds unhandled requests to the global queue only if local cache size reaches some threshold or based on
       external callback. (To prevent double API call per request - adding request to the global queue and marking it as
-      handled. The client tries to do that in one step if possible.)
+      handled. The client tries to do that in one step if possible.) (Potential optimization, but problematic,
+       probably not worth it)
     - The client tracks own forefront (priority requests), that does not have to be in sync with the global forefront.
     """
 
-    _DEFAULT_LOCK_TIME: Final[timedelta] = timedelta(minutes=3)
-    """The default lock time for requests in the queue."""
+    _MAX_HEAD_ITEMS: Final[int] = 200
+    """The maximum head items read count limited by API."""
 
     _MAX_CACHED_REQUESTS: Final[int] = 1_000_000
     """Maximum number of requests that can be cached."""
@@ -102,8 +105,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._head_requests: deque[str] = deque()
         """Ordered unique keys of requests that that represents queue head."""
 
-        self._requests_on_platform: set[str] = set()
-        """Set of requests unique keys that are already present on the platform. To enable local deduplication."""
+        self._requests_already_handled: set[str] = set()
+        """Local estimation of requests unique keys that are already present and handled on the platform.
+
+        (Could be persisted to optimize migrations)
+        To enhance local deduplication and track handled requests to reduce amount of API calls."""
 
         self._requests_in_progress: set[str] = set()
         """Set of requests unique keys that are being processed locally.
@@ -279,12 +285,27 @@ class ApifyRequestQueueClient(RequestQueueClient):
             Response containing information about the added requests.
         """
         # Do not try to add previously added requests to avoid pointless expensive calls to API
+        # Check if request is known to be already handled (it has to be present as well.)
+        # Check if request is known to be already present, but unhandled
+        # Push to the platform. Probably not there, or we are not aware of it
+        # (added by another producer or before migration).
+
 
         new_requests: list[ProcessedRequest] = []
         already_present_requests: list[ProcessedRequest] = []
 
         for request in requests:
-            if self._requests_cache.get(request.unique_key):
+            if request.unique_key in self._requests_already_handled:
+                already_present_requests.append(
+                    ProcessedRequest.model_validate(
+                        {
+                            'uniqueKey': request.unique_key,
+                            'wasAlreadyPresent': True,
+                            'wasAlreadyHandled': True,
+                        }
+                    )
+                )
+            elif self._requests_cache.get(request.unique_key):
                 already_present_requests.append(
                     ProcessedRequest.model_validate(
                         {
@@ -294,7 +315,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
                         }
                     )
                 )
-
             else:
                 new_requests.append(
                     ProcessedRequest.model_validate(
@@ -314,14 +334,38 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 else:
                     self._head_requests.appendleft(request.unique_key)
 
+        if new_requests:
+            # Prepare requests for API by converting to dictionaries.
+            requests_dict = [
+                request.model_dump(
+                    by_alias=True,
+                )
+                for request in new_requests
+            ]
 
-        api_response = AddRequestsResponse.model_validate(
-            {'unprocessedRequests': [], 'processedRequests': already_present_requests+new_requests}
-        )
+            # Send requests to API.
+            api_response = AddRequestsResponse.model_validate(
+                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+            )
+            # Add the locally known already present processed requests based on the local cache.
+            api_response.processed_requests.extend(already_present_requests)
+            # Remove unprocessed requests from the cache
+            for unprocessed_request in api_response.unprocessed_requests:
+                self._requests_cache.pop(unprocessed_request.unique_key, None)
+
+        else:
+            api_response = AddRequestsResponse.model_validate(
+                {'unprocessedRequests': [], 'processedRequests': already_present_requests}
+            )
 
 
         # Update assumed total count for newly added requests.
-        self._metadata.total_request_count += len(new_requests)
+        new_request_count = 0
+        for processed_request in api_response.processed_requests:
+            if not processed_request.was_already_present and not processed_request.was_already_handled:
+                new_request_count += 1
+        self._metadata.total_request_count += new_request_count
+
         return api_response
 
     @override
@@ -361,7 +405,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
             while self._head_requests:
                 request_unique_key = self._head_requests.pop()
-                if request_unique_key not in self._requests_in_progress:
+                if (
+                        request_unique_key not in self._requests_in_progress and
+                        request_unique_key not in self._requests_already_handled
+                ):
                     self._requests_in_progress.add(request_unique_key)
                     return await self.get_request(request_unique_key)
             # No request locally and the ones returned from the platform are already in progress.
@@ -369,21 +416,39 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
-        if not self._head_requests:
-            response = await self._api_client.list_and_lock_head(limit=25,
-                                                                 lock_secs=int(self._DEFAULT_LOCK_TIME.total_seconds()))
-            # Update the queue head cache
-            self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
-            # Check if there is another client working with the RequestQueue
-            self._metadata.had_multiple_clients = response.get('hadMultipleClients', False)
-            if modified_at:=  response.get('queueModifiedAt'):
-                self._metadata.modified_at = max(self._metadata.modified_at, modified_at)
+        if len(self._head_requests)<=1:
+            await self._list_head()
 
-            for request_data in response.get('items', []):
-                request = Request.model_validate(request_data)
+
+    async def _list_head(self) -> None:
+        desired_new_head_items = 100
+        # The head will contain in progress requests as well, so we need to fetch more, to get some new ones.
+        requested_head_items = max(self._MAX_HEAD_ITEMS, desired_new_head_items + len(self._requests_in_progress))
+        response = await self._api_client.list_head(limit=requested_head_items)
+
+        # Update metadata
+        self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
+        # Check if there is another client working with the RequestQueue
+        self._metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        # Should warn once? This might be outside expected context if the other consumers consumes at the same time
+
+        if modified_at := response.get('queueModifiedAt'):
+            self._metadata.modified_at = max(self._metadata.modified_at, modified_at)
+
+        # Update the cached data
+        for request_data in response.get('items', []):
+            request = Request.model_validate(request_data)
+
+            if request.unique_key in self._requests_in_progress:
+                # Ignore requests that are already in progress, we will not process them again.
+                continue
+            if request.was_already_handled:
+                # Do not cache fully handled requests, we do not need them. Just cache their unique_key.
+                self._requests_already_handled.add(request.unique_key)
+            else:
                 self._requests_cache[request.unique_key] = request
-                self._head_requests.append(request.unique_key)
-                self._requests_on_platform.add(request.unique_key)
+                # Add new requests to the end of the head
+                self._head_requests.appendleft(request.unique_key)
 
 
     @override
@@ -406,21 +471,24 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         if cached_request := self._requests_cache[request.unique_key]:
             cached_request.handled_at = request.handled_at
-        try:
-            # Update the request in the API
-            # Works as upsert - adds the request if it does not exist yet. (Local request that was handled before adding
-            # to the queue.)
-            processed_request = await self._update_request(request)
-            # Remove request from cache. It will no longer bee needed.
-            self._requests_cache.pop(request.unique_key)
-            self._requests_in_progress.discard(request.unique_key)
-            self._requests_on_platform.add(request.unique_key)
 
-        except Exception as exc:
-            logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
-            return None
-        else:
-            return processed_request
+        async with self._fetch_lock:
+            try:
+                # Update the request in the API
+                # Works as upsert - adds the request if it does not exist yet. (Local request that was handled before
+                # adding to the queue.)
+                processed_request = await self._update_request(request)
+                # Remove request from cache. It will most likely not be needed.
+                self._requests_cache.pop(request.unique_key)
+                self._requests_in_progress.discard(request.unique_key)
+                # Remember that we handled this request, to optimize local deduplication.
+                self._requests_already_handled.add(request.unique_key)
+
+            except Exception as exc:
+                logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
+                return None
+            else:
+                return processed_request
 
     @override
     async def reclaim_request(
@@ -448,10 +516,17 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Reclaim with lock to prevent race conditions that could lead to double processing of the same request.
         async with self._fetch_lock:
             try:
-                # Update the request in the API.
+                # Make sure request is in the local cache. We might need it.
                 self._requests_cache[request.unique_key] = request
+
+                # No longer in progress
                 self._requests_in_progress.discard(request.unique_key)
-                self._head_requests.append(request.unique_key)
+                # No longer handled
+                self._requests_already_handled.discard(request.unique_key)
+
+                if forefront:
+                    # Append to top of the local head estimation
+                    self._head_requests.append(request.unique_key)
 
                 processed_request = await self._update_request(request, forefront=forefront)
                 processed_request.unique_key = request.unique_key
