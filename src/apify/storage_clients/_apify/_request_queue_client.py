@@ -291,7 +291,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # (added by another producer or before migration).
 
 
-        new_requests: list[ProcessedRequest] = []
+        new_requests: list[Request] = []
         already_present_requests: list[ProcessedRequest] = []
 
         for request in requests:
@@ -316,15 +316,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                     )
                 )
             else:
-                new_requests.append(
-                    ProcessedRequest.model_validate(
-                        {
-                            'uniqueKey': request.unique_key,
-                            'wasAlreadyPresent': False,
-                            'wasAlreadyHandled': request.was_already_handled,
-                        }
-                    )
-                )
+                new_requests.append(request)
 
 
                 # Update local caches
@@ -400,19 +392,18 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             The request or `None` if there are no more pending requests.
         """
-        async with self._fetch_lock:
-            await self._ensure_head_is_non_empty()
+        await self._ensure_head_is_non_empty()
 
-            while self._head_requests:
-                request_unique_key = self._head_requests.pop()
-                if (
-                        request_unique_key not in self._requests_in_progress and
-                        request_unique_key not in self._requests_already_handled
-                ):
-                    self._requests_in_progress.add(request_unique_key)
-                    return await self.get_request(request_unique_key)
-            # No request locally and the ones returned from the platform are already in progress.
-            return None
+        while self._head_requests:
+            request_unique_key = self._head_requests.pop()
+            if (
+                    request_unique_key not in self._requests_in_progress and
+                    request_unique_key not in self._requests_already_handled
+            ):
+                self._requests_in_progress.add(request_unique_key)
+                return await self.get_request(request_unique_key)
+        # No request locally and the ones returned from the platform are already in progress.
+        return None
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
@@ -427,7 +418,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         response = await self._api_client.list_head(limit=requested_head_items)
 
         # Update metadata
-        self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
         # Check if there is another client working with the RequestQueue
         self._metadata.had_multiple_clients = response.get('hadMultipleClients', False)
         # Should warn once? This might be outside expected context if the other consumers consumes at the same time
@@ -472,23 +462,22 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if cached_request := self._requests_cache[request.unique_key]:
             cached_request.handled_at = request.handled_at
 
-        async with self._fetch_lock:
-            try:
-                # Update the request in the API
-                # Works as upsert - adds the request if it does not exist yet. (Local request that was handled before
-                # adding to the queue.)
-                processed_request = await self._update_request(request)
-                # Remove request from cache. It will most likely not be needed.
-                self._requests_cache.pop(request.unique_key)
-                self._requests_in_progress.discard(request.unique_key)
-                # Remember that we handled this request, to optimize local deduplication.
-                self._requests_already_handled.add(request.unique_key)
+        try:
+            # Update the request in the API
+            # Works as upsert - adds the request if it does not exist yet. (Local request that was handled before
+            # adding to the queue.)
+            processed_request = await self._update_request(request)
+            # Remember that we handled this request, to optimize local deduplication.
+            self._requests_already_handled.add(request.unique_key)
+            # Remove request from cache. It will most likely not be needed.
+            self._requests_cache.pop(request.unique_key)
+            self._requests_in_progress.discard(request.unique_key)
 
-            except Exception as exc:
-                logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
-                return None
-            else:
-                return processed_request
+        except Exception as exc:
+            logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
+            return None
+        else:
+            return processed_request
 
     @override
     async def reclaim_request(
@@ -513,33 +502,31 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if request.was_already_handled:
             request.handled_at = None
 
-        # Reclaim with lock to prevent race conditions that could lead to double processing of the same request.
-        async with self._fetch_lock:
-            try:
-                # Make sure request is in the local cache. We might need it.
-                self._requests_cache[request.unique_key] = request
+        try:
+            # Make sure request is in the local cache. We might need it.
+            self._requests_cache[request.unique_key] = request
 
-                # No longer in progress
-                self._requests_in_progress.discard(request.unique_key)
-                # No longer handled
-                self._requests_already_handled.discard(request.unique_key)
+            # No longer in progress
+            self._requests_in_progress.discard(request.unique_key)
+            # No longer handled
+            self._requests_already_handled.discard(request.unique_key)
 
-                if forefront:
-                    # Append to top of the local head estimation
-                    self._head_requests.append(request.unique_key)
+            if forefront:
+                # Append to top of the local head estimation
+                self._head_requests.append(request.unique_key)
 
-                processed_request = await self._update_request(request, forefront=forefront)
-                processed_request.unique_key = request.unique_key
-                # If the request was previously handled, decrement our handled count since
-                # we're putting it back for processing.
-                if request.was_already_handled and not processed_request.was_already_handled:
-                    self._metadata.handled_request_count -= 1
+            processed_request = await self._update_request(request, forefront=forefront)
+            processed_request.unique_key = request.unique_key
+            # If the request was previously handled, decrement our handled count since
+            # we're putting it back for processing.
+            if request.was_already_handled and not processed_request.was_already_handled:
+                self._metadata.handled_request_count -= 1
 
-            except Exception as exc:
-                logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
-                return None
-            else:
-                return processed_request
+        except Exception as exc:
+            logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
+            return None
+        else:
+            return processed_request
 
     @override
     async def is_empty(self) -> bool:
@@ -549,9 +536,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
             True if the queue is empty, False otherwise.
         """
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
-        async with self._fetch_lock:
-            await self._ensure_head_is_non_empty()
-            return not self._head_requests and not self._queue_has_locked_requests and not self._requests_in_progress
+        await self._ensure_head_is_non_empty()
+        return not self._head_requests and not self._requests_in_progress
 
     async def _update_request(
         self,
