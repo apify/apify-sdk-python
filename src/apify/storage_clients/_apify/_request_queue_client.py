@@ -7,13 +7,14 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from logging import getLogger
-from typing import TYPE_CHECKING, Final, Annotated
+from typing import TYPE_CHECKING, Annotated, Final
 
 from cachetools import LRUCache
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
+from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
@@ -71,6 +72,7 @@ class RequestQueueStats(BaseModel):
     write_count: Annotated[int, Field(alias='writeCount', default=0)]
     """The number of request queue writes."""
 
+
 class ApifyRequestQueueMetadata(RequestQueueMetadata):
     stats: Annotated[RequestQueueStats, Field(alias='stats', default_factory=RequestQueueStats)]
     """Additional optional statistics about the request queue."""
@@ -89,10 +91,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self,
         *,
         api_client: RequestQueueClientAsync,
-        id: str,
-        name: str | None,
-        total_request_count: int,
-        handled_request_count: int,
+        metadata: RequestQueueMetadata,
     ) -> None:
         """Initialize a new instance.
 
@@ -101,11 +100,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._api_client = api_client
         """The Apify request queue client for API operations."""
 
-        self._id = id
-        """The ID of the request queue."""
-
-        self._name = name
-        """The name of the request queue."""
+        self._metadata = metadata
+        """Additional data related to the RequestQueue."""
 
         self._queue_head = deque[str]()
         """A deque to store request unique keys in the queue head."""
@@ -119,41 +115,45 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._should_check_for_forefront_requests = False
         """Whether to check for forefront requests in the next list_head call."""
 
-        self._had_multiple_clients = False
-        """Whether the request queue has been accessed by multiple clients."""
-
-        self._initial_total_count = total_request_count
-        """The initial total request count (from the API) when the queue was opened."""
-
-        self._initial_handled_count = handled_request_count
-        """The initial handled request count (from the API) when the queue was opened."""
-
-        self._assumed_total_count = 0
-        """The number of requests we assume are in the queue (tracked manually for this instance)."""
-
-        self._assumed_handled_count = 0
-        """The number of requests we assume have been handled (tracked manually for this instance)."""
-
         self._fetch_lock = asyncio.Lock()
         """Fetch lock to minimize race conditions when communicating with API."""
 
+    async def _get_metadata_estimate(self) -> RequestQueueMetadata:
+        """Try to get cached metadata first. If multiple clients, fuse with global metadata.
+
+        This method is used internally to avoid unnecessary API call unless needed (multiple clients).
+        Local estimation of metadata is without delay, unlike metadata from API. In situation where there is only one
+        client, it is the better choice.
+        """
+        if self._metadata.had_multiple_clients:
+            return await self.get_metadata()
+        # Get local estimation (will not include changes done bo another client)
+        return self._metadata
+
     @override
     async def get_metadata(self) -> ApifyRequestQueueMetadata:
-        total_count = self._initial_total_count + self._assumed_total_count
-        handled_count = self._initial_handled_count + self._assumed_handled_count
-        pending_count = total_count - handled_count
+        """Get metadata about the request queue.
 
+        Returns:
+            Metadata from the API, merged with local estimation, because in some cases, the data from the API can
+            be delayed.
+        """
+        response = await self._api_client.get()
+        if response is None:
+            raise ValueError('Failed to fetch request queue metadata from the API.')
+        # Enhance API response by local estimations (API can be delayed few seconds, while local estimation not.)
         return ApifyRequestQueueMetadata(
-            id=self._id,
-            name=self._name,
-            total_request_count=total_count,
-            handled_request_count=handled_count,
-            pending_request_count=pending_count,
-            created_at=datetime.now(timezone.utc),
-            modified_at=datetime.now(timezone.utc),
-            accessed_at=datetime.now(timezone.utc),
-            had_multiple_clients=self._had_multiple_clients,
-            stats=RequestQueueStats.model_validate({}) # TODO: update after https://github.com/apify/apify-sdk-python/pull/552
+            id=response['id'],
+            name=response['name'],
+            total_request_count=max(response['totalRequestCount'], self._metadata.total_request_count),
+            handled_request_count=max(response['handledRequestCount'], self._metadata.handled_request_count),
+            pending_request_count=response['pendingRequestCount'],
+            created_at=min(response['createdAt'], self._metadata.created_at),
+            modified_at=max(response['modifiedAt'], self._metadata.modified_at),
+            accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
+            had_multiple_clients=response['hadMultipleClients'] or self._metadata.had_multiple_clients,
+            stats=RequestQueueStats.model_validate({}),
+            # TODO: update after https://github.com/apify/apify-sdk-python/pull/552
         )
 
     @classmethod
@@ -212,27 +212,34 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
         apify_rqs_client = apify_client_async.request_queues()
 
-        # If both id and name are provided, raise an error.
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+        match (id, name):
+            case (None, None):
+                # If both id and name are None, try to get the default storage ID from environment variables.
+                # The default storage ID environment variable is set by the Apify platform. It also contains
+                # a new storage ID after Actor's reboot or migration.
+                id = configuration.default_request_queue_id
+            case (None, name):
+                # If only name is provided, get or create the storage by name.
+                id = RequestQueueMetadata.model_validate(
+                    await apify_rqs_client.get_or_create(name=name),
+                ).id
+            case (_, None):
+                # If only id is provided, use it.
+                pass
+            case (_, _):
+                # If both id and name are provided, raise an error.
+                raise ValueError('Only one of "id" or "name" can be specified, not both.')
+        if id is None:
+            raise RuntimeError('Unreachable code')
 
-        # If id is provided, get the storage by ID.
-        if id and name is None:
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+        # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
+        # It should persist across migrated or resurrected Actor runs on the Apify platform.
+        _api_max_client_key_length = 32
+        client_key = (configuration.actor_run_id or crypto_random_object_id(length=_api_max_client_key_length))[
+            :_api_max_client_key_length
+        ]
 
-        # If name is provided, get or create the storage by name.
-        if name and id is None:
-            id = RequestQueueMetadata.model_validate(
-                await apify_rqs_client.get_or_create(name=name),
-            ).id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
-
-        # If both id and name are None, try to get the default storage ID from environment variables.
-        # The default storage ID environment variable is set by the Apify platform. It also contains
-        # a new storage ID after Actor's reboot or migration.
-        if id is None and name is None:
-            id = configuration.default_request_queue_id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+        apify_rq_client = apify_client_async.request_queue(request_queue_id=id, client_key=client_key)
 
         # Fetch its metadata.
         metadata = await apify_rq_client.get()
@@ -242,27 +249,18 @@ class ApifyRequestQueueClient(RequestQueueClient):
             id = RequestQueueMetadata.model_validate(
                 await apify_rqs_client.get_or_create(),
             ).id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id)
+            apify_rq_client = apify_client_async.request_queue(request_queue_id=id, client_key=client_key)
 
         # Verify that the storage exists by fetching its metadata again.
         metadata = await apify_rq_client.get()
         if metadata is None:
             raise ValueError(f'Opening request queue with id={id} and name={name} failed.')
 
-        metadata_model = RequestQueueMetadata.model_validate(
-            await apify_rqs_client.get_or_create(),
-        )
-
-        # Ensure we have a valid ID.
-        if id is None:
-            raise ValueError('Request queue ID cannot be None.')
+        metadata_model = RequestQueueMetadata.model_validate(metadata)
 
         return cls(
             api_client=apify_rq_client,
-            id=id,
-            name=name,
-            total_request_count=metadata_model.total_request_count,
-            handled_request_count=metadata_model.handled_request_count,
+            metadata=metadata_model,
         )
 
     @override
@@ -366,7 +364,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             if not processed_request.was_already_present and not processed_request.was_already_handled:
                 new_request_count += 1
 
-        self._assumed_total_count += new_request_count
+        self._metadata.total_request_count += new_request_count
 
         return api_response
 
@@ -464,7 +462,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
             # Update assumed handled count if this wasn't already handled
             if not processed_request.was_already_handled:
-                self._assumed_handled_count += 1
+                self._metadata.handled_request_count += 1
 
             # Update the cache with the handled request
             cache_key = request.unique_key
@@ -512,7 +510,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 # If the request was previously handled, decrement our handled count since
                 # we're putting it back for processing.
                 if request.was_already_handled and not processed_request.was_already_handled:
-                    self._assumed_handled_count -= 1
+                    self._metadata.handled_request_count -= 1
 
                 # Update the cache
                 cache_key = request.unique_key
@@ -670,7 +668,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 if cached_request and cached_request.hydrated:
                     items.append(cached_request.hydrated)
 
-            metadata = await self.get_metadata()
+            metadata = await self._get_metadata_estimate()
 
             return RequestQueueHead(
                 limit=limit,
@@ -697,6 +695,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         # Update the queue head cache
         self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
+        # Check if there is another client working with the RequestQueue
+        self._metadata.had_multiple_clients = response.get('hadMultipleClients', False)
 
         for request_data in response.get('items', []):
             request = Request.model_validate(request_data)

@@ -21,7 +21,7 @@
         "lint:code:fix": "eslint . --fix"
     },
     "dependencies": {
-        "@apify/docs-theme": "^1.0.185",
+        "@apify/docs-theme": "^1.0.203",
         "@apify/docusaurus-plugin-typedoc-api": "^4.4.6",
         "@docusaurus/core": "^3.8.1",
         "@docusaurus/faster": "^3.8.1",

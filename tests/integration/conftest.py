@@ -18,13 +18,15 @@ from crawlee import service_locator
 
 import apify._actor
 from ._utils import generate_unique_resource_name
+from apify import Actor
 from apify._models import ActorRun
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Coroutine, Iterator, Mapping
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterator, Mapping
     from decimal import Decimal
 
     from apify_client.clients.resource_clients import ActorClientAsync
+    from crawlee.storages import RequestQueue
 
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
@@ -102,6 +104,18 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
     api_url = os.getenv(_API_URL_ENV_VAR)
 
     return ApifyClientAsync(apify_token, api_url=api_url)
+
+
+@pytest.fixture
+async def request_queue_force_cloud(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[RequestQueue]:
+    """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
+    request_queue_name = generate_unique_resource_name('request_queue')
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    async with Actor:
+        rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+        yield rq
+        await rq.drop()
 
 
 @pytest.fixture(scope='session')
