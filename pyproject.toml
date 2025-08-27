@@ -79,7 +79,7 @@ dev = [
     "pytest~=8.4.0",
     "ruff~=0.12.0",
     "setuptools", # setuptools are used by pytest but not explicitly required
-    "types-cachetools~=6.1.0.20250717",
+    "types-cachetools~=6.2.0.20250827",
     "uvicorn[standard]",
     "werkzeug~=3.1.0", # Werkzeug is used by httpserver
 ]
