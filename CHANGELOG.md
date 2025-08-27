@@ -40,6 +40,18 @@ All notable changes to this project will be documented in this file.
 - Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
 
 
+## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
+
+### 🚀 Features
+
+- **crypto:** Decrypt secret objects ([#482](https://github.com/apify/apify-sdk-python/pull/482)) ([ce9daf7](https://github.com/apify/apify-sdk-python/commit/ce9daf7381212b8dc194e8a643e5ca0dedbc0078)) by [@MFori](https://github.com/MFori)
+
+### 🐛 Bug Fixes
+
+- Sync `@docusaurus` theme version [internal] ([#500](https://github.com/apify/apify-sdk-python/pull/500)) ([a7485e7](https://github.com/apify/apify-sdk-python/commit/a7485e7d2276fde464ce862573d5b95e7d4d836a)) by [@katzino](https://github.com/katzino)
+- Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
+
+
 
 ## [2.7.3](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.3) (2025-08-11)
 
