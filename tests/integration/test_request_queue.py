@@ -4,10 +4,12 @@ import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
+from apify_shared.consts import ApifyEnvVars
 
 from crawlee import Request
 
 from apify import Actor
+from ._utils import generate_unique_resource_name
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -1057,6 +1059,34 @@ async def test_request_queue_not_had_multiple_clients(
     """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
 
     # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
+    await request_queue_force_cloud.fetch_next_request()
+    await request_queue_force_cloud.fetch_next_request()
+
+    # Check that it is correctly in the RequestQueueClient metadata
+    assert (await request_queue_force_cloud.get_metadata()).had_multiple_clients is False
+
+    # Check that it is correctly in the API
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id)
+    api_response = await api_client.get()
+    assert api_response
+    assert api_response['hadMultipleClients'] is False
+
+
+async def test_cache_initialization(
+    apify_token: str, monkeypatch: pytest.MonkeyPatch, apify_client_async: ApifyClientAsync
+) -> None:
+    """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
+
+    """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
+    request_queue_name = generate_unique_resource_name('request_queue')
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    async with Actor:
+        rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+        yield rq
+        await rq.drop()
+
+
     await request_queue_force_cloud.fetch_next_request()
     await request_queue_force_cloud.fetch_next_request()
 

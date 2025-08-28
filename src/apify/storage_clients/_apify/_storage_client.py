@@ -8,6 +8,7 @@ from crawlee.storage_clients._base import StorageClient
 
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
+from ._request_queue_client_full import ApifyRequestQueueClientFull
 from ._request_queue_client_simple import ApifyRequestQueueClientSimple
 from apify._utils import docs_group
 
@@ -20,6 +21,17 @@ if TYPE_CHECKING:
 @docs_group('Storage clients')
 class ApifyStorageClient(StorageClient):
     """Apify storage client."""
+
+    def __init__(self, simple_request_queue: bool = True) -> None:
+        """Initialize the Apify storage client.
+
+        Args:
+            simple_request_queue: If True, the `create_rq_client` will always return `ApifyRequestQueueClientSimple`,
+                if false it will return `ApifyRequestQueueClientFull`. Simple client is suitable for single consumer
+                scenarios and makes less API calls. Full client is suitable for multiple consumers scenarios at the
+                cost of higher API usage
+        """
+        self._simple_request_queue = simple_request_queue
 
     @override
     async def create_dataset_client(
@@ -74,7 +86,10 @@ class ApifyStorageClient(StorageClient):
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyRequestQueueClientSimple.open(id=id, name=name, configuration=configuration)
+            if not self._simple_request_queue:
+                return await ApifyRequestQueueClientSimple.open(id=id, name=name, configuration=configuration)
+            else:
+                return await ApifyRequestQueueClientFull.open(id=id, name=name, configuration=configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
