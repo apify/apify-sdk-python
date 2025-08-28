@@ -32,6 +32,7 @@ class ApifyRequestQueueClientSimple(ApifyRequestQueueClient):
     - Multiple producers can put requests to the queue, but their forefront requests are not guaranteed to be handled
       so quickly as this client does not aggressively fetch the forefront and relies on local head estimation.
     - Requests are only added to the queue, never deleted. (Marking as handled is ok.)
+    - Other producers can add new requests, but not modify existing ones (otherwise caching can miss the updates)
 
     If the constraints are not met, the client might work in an unpredictable way.
     """
@@ -247,7 +248,13 @@ class ApifyRequestQueueClientSimple(ApifyRequestQueueClient):
                 # Do not cache fully handled requests, we do not need them. Just cache their unique_key.
                 self._requests_already_handled.add(request.unique_key)
             else:
-                self._requests_cache[request.unique_key] = request
+                # Only fetch the request if we do not know it yet.
+                if request.unique_key not in self._requests_cache:
+                    request = Request.model_validate(
+                        await self._api_client.get_request(unique_key_to_request_id(request.unique_key))
+                    )
+                    self._requests_cache[request.unique_key] = request
+
                 # Add new requests to the end of the head, unless already present in head
                 if request.unique_key not in self._head_requests:
                     self._head_requests.appendleft(request.unique_key)

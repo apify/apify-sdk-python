@@ -41,35 +41,6 @@ async def test_actor_on_platform_max_crawl_depth(
     assert run_result.status == 'SUCCEEDED'
 
 
-async def test_actor_on_platform_max_crawl_depth(
-) -> None:
-    """Test that the actor respects max_crawl_depth."""
-
-    """The crawler entry point."""
-    import re
-
-    from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
-
-    from apify import Actor
-
-    async with Actor:
-        rq= await Actor.open_request_queue(force_cloud=True)
-        crawler = ParselCrawler(max_crawl_depth=2, request_manager=rq)
-        finished = []
-        enqueue_pattern = re.compile(r'http://localhost:8080/2+$')
-
-        @crawler.router.default_handler
-        async def default_handler(context: ParselCrawlingContext) -> None:
-            """Default request handler."""
-            context.log.info(f'Processing {context.request.url} ...')
-            await context.enqueue_links(include=[enqueue_pattern])
-            finished.append(context.request.url)
-
-        await crawler.run(['http://localhost:8080/'])
-        assert finished == ['http://localhost:8080/', 'http://localhost:8080/2', 'http://localhost:8080/22']
-
-
-
 async def test_actor_on_platform_max_requests_per_crawl(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
