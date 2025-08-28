@@ -75,7 +75,7 @@ class RequestQueueStats(BaseModel):
 
 class ApifyRequestQueueMetadata(RequestQueueMetadata):
     stats: Annotated[RequestQueueStats, Field(alias='stats', default_factory=RequestQueueStats)]
-    """Additional optional statistics about the request queue."""
+    """Additional statistics about the request queue."""
 
 
 class ApifyRequestQueueClient(RequestQueueClient):
