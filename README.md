@@ -1,5 +1,6 @@
+<h1 align=center>Apify SDK for Python</h1>
+
 <p align=center>
-    <h1>Apify SDK for Python</h1>
     <a href="https://badge.fury.io/py/apify" rel="nofollow">
         <img src="https://badge.fury.io/py/apify.svg" alt="PyPI version" style="max-width: 100%;">
     </a>
