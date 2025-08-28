@@ -1287,8 +1287,6 @@ async def test_request_queue_has_stats(request_queue_force_cloud: RequestQueue) 
     add_request_count = 3
     read_request_count = 2
 
-    # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
-
     await request_queue_force_cloud.add_requests(
         [Request.from_url(f'http://example.com/{i}') for i in range(add_request_count)]
     )
@@ -1303,4 +1301,4 @@ async def test_request_queue_has_stats(request_queue_force_cloud: RequestQueue) 
     assert hasattr(metadata, 'stats')
     apify_metadata = cast('ApifyRequestQueueMetadata', metadata)
     assert apify_metadata.stats.read_count == read_request_count
-    assert apify_metadata.stats.write_count == add_request_count  # Added one request
+    assert apify_metadata.stats.write_count == add_request_count
