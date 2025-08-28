@@ -1,4 +1,19 @@
-# Apify SDK for Python
+<h1 align=center>Apify SDK for Python</h1>
+
+<p align=center>
+    <a href="https://badge.fury.io/py/apify" rel="nofollow">
+        <img src="https://badge.fury.io/py/apify.svg" alt="PyPI version" style="max-width: 100%;">
+    </a>
+    <a href="https://pypi.org/project/apify/" rel="nofollow">
+        <img src="https://img.shields.io/pypi/dm/apify" alt="PyPI - Downloads" style="max-width: 100%;">
+    </a>
+    <a href="https://pypi.org/project/apify/" rel="nofollow">
+        <img src="https://img.shields.io/pypi/pyversions/apify" alt="PyPI - Python Version" style="max-width: 100%;">
+    </a>
+    <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow">
+        <img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on discord" style="max-width: 100%;">
+    </a>
+</p>
 
 The Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors)
 in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor
