@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 
 [[package]]
@@ -28,7 +28,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "2.7.4"
+version = "2.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
@@ -93,7 +93,7 @@ dev = [
     { name = "build", specifier = "~=1.3.0" },
     { name = "crawlee", extras = ["parsel"] },
     { name = "dycw-pytest-only", specifier = "~=2.1.0" },
-    { name = "griffe", specifier = "~=1.12.0" },
+    { name = "griffe", specifier = "~=1.13.0" },
     { name = "mypy", specifier = "~=1.17.0" },
     { name = "pre-commit", specifier = "~=4.3.0" },
     { name = "pydoc-markdown", specifier = "~=4.8.0" },
@@ -105,7 +105,7 @@ dev = [
     { name = "pytest-xdist", specifier = "~=3.8.0" },
     { name = "ruff", specifier = "~=0.12.0" },
     { name = "setuptools" },
-    { name = "types-cachetools", specifier = "~=6.1.0.20250717" },
+    { name = "types-cachetools", specifier = "~=6.2.0.20250827" },
     { name = "uvicorn", extras = ["standard"] },
     { name = "werkzeug", specifier = "~=3.1.0" },
 ]
@@ -707,14 +707,14 @@ wheels = [
 
 [[package]]
 name = "griffe"
-version = "1.12.1"
+version = "1.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/ca/29f36e00c74844ae50d139cf5a8b1751887b2f4d5023af65d460268ad7aa/griffe-1.12.1.tar.gz", hash = "sha256:29f5a6114c0aeda7d9c86a570f736883f8a2c5b38b57323d56b3d1c000565567", size = 411863, upload-time = "2025-08-14T21:08:15.38Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/b5/23b91f22b7b3a7f8f62223f6664946271c0f5cb4179605a3e6bbae863920/griffe-1.13.0.tar.gz", hash = "sha256:246ea436a5e78f7fbf5f24ca8a727bb4d2a4b442a2959052eea3d0bfe9a076e0", size = 412759, upload-time = "2025-08-26T13:27:11.422Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/f2/4fab6c3e5bcaf38a44cc8a974d2752eaad4c129e45d6533d926a30edd133/griffe-1.12.1-py3-none-any.whl", hash = "sha256:2d7c12334de00089c31905424a00abcfd931b45b8b516967f224133903d302cc", size = 138940, upload-time = "2025-08-14T21:08:13.382Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/8c/b7cfdd8dfe48f6b09f7353323732e1a290c388bd14f216947928dc85f904/griffe-1.13.0-py3-none-any.whl", hash = "sha256:470fde5b735625ac0a36296cd194617f039e9e83e301fcbd493e2b58382d0559", size = 139365, upload-time = "2025-08-26T13:27:09.882Z" },
 ]
 
 [[package]]
@@ -2042,11 +2042,11 @@ wheels = [
 
 [[package]]
 name = "types-cachetools"
-version = "6.1.0.20250717"
+version = "6.2.0.20250827"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/14/e98ea3b3fda81787659268bbf09dec56961c39db060fdca74cb521df0515/types_cachetools-6.1.0.20250717.tar.gz", hash = "sha256:4acc8e25de9f5f84dd176ea81dcffa7cb24393869bb2e59e692dfd0139a1e66f", size = 9105, upload-time = "2025-07-17T03:20:48.482Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/31/f2/e14f51330093fd640fd11663863dc7dd80e5894ef9d2eb39325cc61ba3cf/types_cachetools-6.2.0.20250827.tar.gz", hash = "sha256:f27febfd1b5e517e3cb1ca6daf38ad6ddb4eeb1e29bdbd81a082971ba30c0d8e", size = 9128, upload-time = "2025-08-27T02:56:50.593Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/bb/554208964e901e9e1992a7ea0bcab1590a4b2e94d20a9e6200826110ec89/types_cachetools-6.1.0.20250717-py3-none-any.whl", hash = "sha256:bba4b8d42262460d24e570097d2d9040e60311934603caa642efd971f3658ed0", size = 8940, upload-time = "2025-07-17T03:20:47.375Z" },
+    { url = "https://files.pythonhosted.org/packages/80/9c/be9d24c246ff825385b4a139409ae7e2d36ea2294f12681951a6b9f905f7/types_cachetools-6.2.0.20250827-py3-none-any.whl", hash = "sha256:96ae5abcb5ea1e1f1faf811a2ff8b2ce7e6d820fc42c4fcb4b332b2da485de16", size = 8940, upload-time = "2025-08-27T02:56:49.645Z" },
 ]
 
 [[package]]
