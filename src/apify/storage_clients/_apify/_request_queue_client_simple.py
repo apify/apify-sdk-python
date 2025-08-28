@@ -248,8 +248,9 @@ class ApifyRequestQueueClientSimple(ApifyRequestQueueClient):
                 self._requests_already_handled.add(request.unique_key)
             else:
                 self._requests_cache[request.unique_key] = request
-                # Add new requests to the end of the head
-                self._head_requests.appendleft(request.unique_key)
+                # Add new requests to the end of the head, unless already present in head
+                if request.unique_key not in self._head_requests:
+                    self._head_requests.appendleft(request.unique_key)
 
     @override
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
@@ -269,7 +270,7 @@ class ApifyRequestQueueClientSimple(ApifyRequestQueueClient):
             request.handled_at = datetime.now(tz=timezone.utc)
             self._metadata.handled_request_count += 1
 
-        if cached_request := self._requests_cache[request.unique_key]:
+        if cached_request := self._requests_cache.get(request.unique_key):
             cached_request.handled_at = request.handled_at
 
         try:
