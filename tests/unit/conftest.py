@@ -51,16 +51,8 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         service_locator._storage_client = None
         service_locator._storage_instance_manager = None
 
-        # Reset the retrieval flags.
-        service_locator._configuration_was_retrieved = False
-        service_locator._event_manager_was_retrieved = False
-        service_locator._storage_client_was_retrieved = False
-
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
-        assert service_locator._configuration_was_retrieved is False
-        assert service_locator._storage_client_was_retrieved is False
-        assert service_locator._event_manager_was_retrieved is False
 
     return _prepare_test_env
 

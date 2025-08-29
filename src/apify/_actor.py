@@ -429,7 +429,6 @@ class _ActorType:
         return await Dataset.open(
             id=id,
             name=name,
-            configuration=self._configuration,
             storage_client=storage_client,
         )
 
@@ -463,7 +462,6 @@ class _ActorType:
         return await KeyValueStore.open(
             id=id,
             name=name,
-            configuration=self._configuration,
             storage_client=storage_client,
         )
 
@@ -500,7 +498,6 @@ class _ActorType:
         return await RequestQueue.open(
             id=id,
             name=name,
-            configuration=self._configuration,
             storage_client=storage_client,
         )
 

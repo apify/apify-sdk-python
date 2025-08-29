@@ -56,7 +56,6 @@ class ApifyCacheStorage:
                 storage_client = ApifyStorageClient()
                 return await KeyValueStore.open(
                     name=kvs_name,
-                    configuration=configuration,
                     storage_client=storage_client,
                 )
             return await KeyValueStore.open(name=kvs_name)

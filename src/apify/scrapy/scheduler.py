@@ -53,7 +53,6 @@ class ApifyScheduler(BaseScheduler):
             if configuration.is_at_home:
                 storage_client = ApifyStorageClient()
                 return await RequestQueue.open(
-                    configuration=configuration,
                     storage_client=storage_client,
                 )
             return await RequestQueue.open()
