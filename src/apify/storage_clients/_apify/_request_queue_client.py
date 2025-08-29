@@ -7,9 +7,10 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from logging import getLogger
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Annotated, Final
 
 from cachetools import LRUCache
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import override
 
 from apify_client import ApifyClientAsync
@@ -51,6 +52,30 @@ def unique_key_to_request_id(unique_key: str, *, request_id_length: int = 15) ->
 
     # Truncate the key to the desired length
     return url_safe_key[:request_id_length]
+
+
+class RequestQueueStats(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    delete_count: Annotated[int, Field(alias='deleteCount', default=0)]
+    """"The number of request queue deletes."""
+
+    head_item_read_count: Annotated[int, Field(alias='headItemReadCount', default=0)]
+    """The number of request queue head reads."""
+
+    read_count: Annotated[int, Field(alias='readCount', default=0)]
+    """The number of request queue reads."""
+
+    storage_bytes: Annotated[int, Field(alias='storageBytes', default=0)]
+    """Storage size in Bytes."""
+
+    write_count: Annotated[int, Field(alias='writeCount', default=0)]
+    """The number of request queue writes."""
+
+
+class ApifyRequestQueueMetadata(RequestQueueMetadata):
+    stats: Annotated[RequestQueueStats, Field(alias='stats', default_factory=RequestQueueStats)]
+    """Additional statistics about the request queue."""
 
 
 class ApifyRequestQueueClient(RequestQueueClient):
@@ -106,7 +131,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         return self._metadata
 
     @override
-    async def get_metadata(self) -> RequestQueueMetadata:
+    async def get_metadata(self) -> ApifyRequestQueueMetadata:
         """Get metadata about the request queue.
 
         Returns:
@@ -117,7 +142,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if response is None:
             raise ValueError('Failed to fetch request queue metadata from the API.')
         # Enhance API response by local estimations (API can be delayed few seconds, while local estimation not.)
-        return RequestQueueMetadata(
+        return ApifyRequestQueueMetadata(
             id=response['id'],
             name=response['name'],
             total_request_count=max(response['totalRequestCount'], self._metadata.total_request_count),
@@ -127,6 +152,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             modified_at=max(response['modifiedAt'], self._metadata.modified_at),
             accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
             had_multiple_clients=response['hadMultipleClients'] or self._metadata.had_multiple_clients,
+            stats=RequestQueueStats.model_validate(response['stats'], by_alias=True),
         )
 
     @classmethod
