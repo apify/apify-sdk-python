@@ -136,3 +136,26 @@ async def test_crawler_global_configuration() -> None:
 
     assert service_locator.get_configuration() is config_global
     assert crawler_1._service_locator.get_configuration() is config_global
+
+
+async def test_storage_retrieved_is_different_with_different_config() -> None:
+    """Test that retrieving storage depends on used configuration."""
+    config_actor = ApifyConfiguration()
+    apify_crawler_1 = ApifyConfiguration()
+
+    async with Actor(configuration=config_actor):
+        actor_kvs = await Actor.open_key_value_store()
+        crawler_1 = BasicCrawler(configuration=apify_crawler_1)
+        crawler_kvs = await crawler_1.get_key_value_store()
+
+    assert actor_kvs is not crawler_kvs
+
+
+async def test_storage_retrieved_is_same_with_same_config() -> None:
+    """Test that retrieving storage is same if same configuration is used."""
+    async with Actor():
+        actor_kvs = await Actor.open_key_value_store()
+        crawler_1 = BasicCrawler()
+        crawler_kvs = await crawler_1.get_key_value_store()
+
+    assert actor_kvs is crawler_kvs

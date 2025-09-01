@@ -9,6 +9,7 @@ from crawlee.storage_clients._base import StorageClient
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
 from ._request_queue_client import ApifyRequestQueueClient
+from apify._configuration import service_locator
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
@@ -18,6 +19,15 @@ if TYPE_CHECKING:
 @docs_group('Storage clients')
 class ApifyStorageClient(StorageClient):
     """Apify storage client."""
+
+    def __init__(self, configuration: Configuration | None = None) -> None:
+        """Initialize the file system storage client.
+
+        Args:
+            configuration: Optional configuration instance to use with the storage client.
+                If not provided, the global configuration will be used.
+        """
+        self._configuration = configuration or service_locator.get_configuration()
 
     @override
     async def create_dataset_client(
@@ -30,13 +40,12 @@ class ApifyStorageClient(StorageClient):
         # Import here to avoid circular imports.
         from apify import Configuration as ApifyConfiguration  # noqa: PLC0415
 
-        configuration = configuration or ApifyConfiguration.get_global_configuration()
-        if isinstance(configuration, ApifyConfiguration):
-            return await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
+        if isinstance(self._configuration, ApifyConfiguration):
+            return await ApifyDatasetClient.open(id=id, name=name, configuration=self._configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
-            f'but got {type(configuration).__name__} instead.'
+            f'but got {type(self._configuration).__name__} instead.'
         )
 
     @override
@@ -50,13 +59,12 @@ class ApifyStorageClient(StorageClient):
         # Import here to avoid circular imports.
         from apify import Configuration as ApifyConfiguration  # noqa: PLC0415
 
-        configuration = configuration or ApifyConfiguration.get_global_configuration()
-        if isinstance(configuration, ApifyConfiguration):
-            return await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
+        if isinstance(self._configuration, ApifyConfiguration):
+            return await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=self._configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
-            f'but got {type(configuration).__name__} instead.'
+            f'but got {type(self._configuration).__name__} instead.'
         )
 
     @override
@@ -70,11 +78,15 @@ class ApifyStorageClient(StorageClient):
         # Import here to avoid circular imports.
         from apify import Configuration as ApifyConfiguration  # noqa: PLC0415
 
-        configuration = configuration or ApifyConfiguration.get_global_configuration()
-        if isinstance(configuration, ApifyConfiguration):
-            return await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
+        if isinstance(self._configuration, ApifyConfiguration):
+            return await ApifyRequestQueueClient.open(id=id, name=name, configuration=self._configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
-            f'but got {type(configuration).__name__} instead.'
+            f'but got {type(self._configuration).__name__} instead.'
         )
+
+    @override
+    def create_client(self, configuration: Configuration) -> ApifyStorageClient:
+        """Create a storage client from an existing storage client potentially just replacing the configuration."""
+        return ApifyStorageClient(configuration)
