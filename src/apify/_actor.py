@@ -128,10 +128,6 @@ class _ActorType:
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
-        # Create an instance of the cloud storage client, the local storage client is obtained
-        # from the service locator.
-        self._cloud_storage_client = ApifyStorageClient()
-
         # Set the event manager based on whether the Actor is running on the platform or locally.
         self._event_manager = (
             ApifyEventManager(
@@ -281,6 +277,10 @@ class _ActorType:
 
         if _ActorType._is_any_instance_initialized:
             self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care')
+
+        # Create an instance of the cloud storage client, the local storage client is obtained
+        # from the service locator
+        self._cloud_storage_client = ApifyStorageClient(configuration=self.configuration)
 
         # Make sure that the currently initialized instance is also available through the global `Actor` proxy
         cast('Proxy', Actor).__wrapped__ = self

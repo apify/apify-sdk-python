@@ -445,17 +445,17 @@ class ApifyServiceLocator(ServiceLocator):
             return self._configuration
 
         stored_configuration = super().get_configuration()
+        apify_configuration = Configuration()
 
         # Ensure the returned configuration is of type Apify Configuration.
         # Most likely crawlee configuration was already set. Create Apify configuration from it.
-        # Env vars will have lower priority than the stored configuration.
-        model_dump = stored_configuration.model_dump()
-        # The configuration will read env variables first and overridden with stored_configuration
-        _config = Configuration()
-        for key in model_dump:
-            if model_dump[key]:
-                setattr(_config, key, model_dump[key])
-        return _config
+        # Due to known Pydantic issue https://github.com/pydantic/pydantic/issues/9516, creating new instance of
+        # Configuration from existing one in situation where environment can have some fields set by alias is very
+        # unpredictable. Use the stable workaround.
+        for name in stored_configuration.model_fields:
+            setattr(apify_configuration, name, getattr(stored_configuration, name))
+
+        return apify_configuration
 
 
 # Ensure that ApifyServiceLocator is used to make sure Apify Configuration is used.
