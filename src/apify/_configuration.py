@@ -9,6 +9,8 @@ from typing import Annotated, Any
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import Self, deprecated
 
+import crawlee
+from crawlee._service_locator import ServiceLocator
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
@@ -429,8 +431,25 @@ class Configuration(CrawleeConfiguration):
         Mostly for the backwards compatibility. It is recommended to use the `service_locator.get_configuration()`
         instead.
         """
-        return cls()
+        return service_locator.get_configuration()
 
 
-# Monkey-patch the base class so that it works with the extended configuration
-CrawleeConfiguration.get_global_configuration = Configuration.get_global_configuration  # type: ignore[method-assign]
+class ApifyServiceLocator(ServiceLocator):
+    """Same as ServiceLocator from Crawlee, but it always returns Apify Configuration."""
+
+    def get_configuration(self) -> Configuration:
+        # ApifyServiceLocator can store any children of Crawlee Configuration, but in Apify context it is desired to
+        # return Apify Configuration.
+        stored_configuration = super().get_configuration()
+        # Ensure the returned configuration is of type Apify Configuration.
+        model_dump = stored_configuration.model_dump()
+        # The configuration will read env variables first and overridden with stored_configuration
+        _config = Configuration()
+        for key in model_dump:
+            setattr(_config, key, model_dump[key])
+        return _config
+
+
+# Ensure that ApifyServiceLocator is used to make sure Apify Configuration is used.
+service_locator = ApifyServiceLocator()
+crawlee.service_locator = service_locator

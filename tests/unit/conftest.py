@@ -13,9 +13,9 @@ from pytest_httpserver import HTTPServer
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
-from crawlee import service_locator
 
 import apify._actor
+from apify._configuration import service_locator
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

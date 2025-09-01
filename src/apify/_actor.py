@@ -13,7 +13,6 @@ from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
-from crawlee import service_locator
 from crawlee.events import (
     Event,
     EventAbortingData,
@@ -25,7 +24,7 @@ from crawlee.events import (
 )
 
 from apify._charging import ChargeResult, ChargingManager, ChargingManagerImplementation
-from apify._configuration import Configuration
+from apify._configuration import Configuration, service_locator
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._models import ActorRun
@@ -119,7 +118,9 @@ class _ActorType:
         self._exit_process = self._get_default_exit_process() if exit_process is None else exit_process
         self._is_exiting = False
 
-        self._configuration = configuration or Configuration.get_global_configuration()
+        if configuration:
+            service_locator.set_configuration(configuration)
+        self._configuration = service_locator.get_configuration()
         self._configure_logging = configure_logging
         self._apify_client = self.new_client()
 
