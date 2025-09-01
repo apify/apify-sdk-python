@@ -440,13 +440,21 @@ class ApifyServiceLocator(ServiceLocator):
     def get_configuration(self) -> Configuration:
         # ApifyServiceLocator can store any children of Crawlee Configuration, but in Apify context it is desired to
         # return Apify Configuration.
+        if isinstance(self._configuration, Configuration):
+            # If Apify configuration was already stored in service locator, return it.
+            return self._configuration
+
         stored_configuration = super().get_configuration()
+
         # Ensure the returned configuration is of type Apify Configuration.
+        # Most likely crawlee configuration was already set. Create Apify configuration from it.
+        # Env vars will have lower priority than the stored configuration.
         model_dump = stored_configuration.model_dump()
         # The configuration will read env variables first and overridden with stored_configuration
         _config = Configuration()
         for key in model_dump:
-            setattr(_config, key, model_dump[key])
+            if model_dump[key]:
+                setattr(_config, key, model_dump[key])
         return _config
 
 
