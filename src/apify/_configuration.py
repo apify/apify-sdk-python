@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+import traceback
+import types
 from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import Self, deprecated
 
+import crawlee
+from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
 from apify._utils import docs_group
+
+if TYPE_CHECKING:
+    from crawlee._service_locator import ServiceLocator
 
 logger = getLogger(__name__)
 
@@ -417,6 +424,7 @@ class Configuration(CrawleeConfiguration):
         """
         if self.is_at_home and not self.disable_browser_sandbox:
             self.disable_browser_sandbox = True
+            logger.info('Stack trace:\n%s', ''.join(traceback.format_stack()))
             logger.warning('Actor is running on the Apify platform, `disable_browser_sandbox` was changed to True.')
         return self
 
@@ -427,8 +435,35 @@ class Configuration(CrawleeConfiguration):
         Mostly for the backwards compatibility. It is recommended to use the `service_locator.get_configuration()`
         instead.
         """
-        return cls()
+        return cast('Configuration', service_locator.get_configuration())
 
 
-# Monkey-patch the base class so that it works with the extended configuration
-CrawleeConfiguration.get_global_configuration = Configuration.get_global_configuration  # type: ignore[method-assign]
+def _patch_service_locator() -> None:
+    """Patch the Crawlee ServiceLocator to ensure that Apify Configuration is always returned."""
+    old_get_configuration = crawlee.service_locator.get_configuration
+
+    def get_configuration(self: ServiceLocator) -> Configuration:
+        # ApifyServiceLocator can store any children of Crawlee Configuration, but in Apify context it is desired to
+        # return Apify Configuration.
+        if isinstance(self._configuration, Configuration):
+            # If Apify configuration was already stored in service locator, return it.
+            return self._configuration
+
+        stored_configuration = old_get_configuration()
+        apify_configuration = Configuration()
+
+        # Ensure the returned configuration is of type Apify Configuration.
+        # Most likely crawlee configuration was already set. Create Apify configuration from it.
+        # Due to known Pydantic issue https://github.com/pydantic/pydantic/issues/9516, creating new instance of
+        # Configuration from existing one in situation where environment can have some fields set by alias is very
+        # unpredictable. Use the stable workaround.
+        for name in stored_configuration.model_fields:
+            setattr(apify_configuration, name, getattr(stored_configuration, name))
+
+        return apify_configuration
+
+    crawlee.service_locator.get_configuration = types.MethodType(get_configuration, crawlee.service_locator)
+
+
+# Ensure that ApifyServiceLocator is used to make sure Apify Configuration is used.
+_patch_service_locator()
