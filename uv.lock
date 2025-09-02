@@ -76,7 +76,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.0.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=storage-clients-and-configurations" },
+    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=storage-clients-and-configurations-2" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.5.3" },
     { name = "lazy-object-proxy", specifier = "<1.11.0" },
@@ -478,7 +478,7 @@ toml = [
 [[package]]
 name = "crawlee"
 version = "0.6.13"
-source = { git = "https://github.com/apify/crawlee-python.git?rev=storage-clients-and-configurations#430f2ad7e7d266ad35abe97b64a9709d81aab7f1" }
+source = { git = "https://github.com/apify/crawlee-python.git?rev=storage-clients-and-configurations-2#a1746f37014f9caccb8f2dbdeacf1e62244e1f09" }
 dependencies = [
     { name = "cachetools" },
     { name = "colorama" },

@@ -1,12 +1,14 @@
+from pathlib import Path
+
 import pytest
 
+from crawlee import service_locator
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.crawlers import BasicCrawler
 from crawlee.errors import ServiceConflictError
 
 from apify import Actor
 from apify import Configuration as ApifyConfiguration
-from apify._configuration import service_locator
 
 
 @pytest.mark.parametrize(
@@ -105,9 +107,9 @@ async def test_crawler_implicit_configuration() -> None:
     """Test that crawler and Actor use implicit service_locator based configuration unless explicit configuration
     was passed to them."""
     async with Actor():
-        crawler_1 = BasicCrawler()
+        crawler = BasicCrawler()
 
-    assert service_locator.get_configuration() is crawler_1._service_locator.get_configuration()
+    assert service_locator.get_configuration() is crawler._service_locator.get_configuration()
 
 
 async def test_crawlers_own_configuration() -> None:
@@ -132,30 +134,54 @@ async def test_crawler_global_configuration() -> None:
     service_locator.set_configuration(config_global)
 
     async with Actor():
-        crawler_1 = BasicCrawler()
+        crawler = BasicCrawler()
 
     assert service_locator.get_configuration() is config_global
-    assert crawler_1._service_locator.get_configuration() is config_global
+    assert crawler._service_locator.get_configuration() is config_global
 
 
-async def test_storage_retrieved_is_different_with_different_config() -> None:
+async def test_storage_retrieved_is_different_with_different_config(tmp_path: Path) -> None:
     """Test that retrieving storage depends on used configuration."""
+    dir_1 = tmp_path / 'dir_1'
+    dir_2 = tmp_path / 'dir_2'
     config_actor = ApifyConfiguration()
-    apify_crawler_1 = ApifyConfiguration()
+    config_actor.storage_dir = str(dir_1)
+    apify_crawler = ApifyConfiguration()
+    apify_crawler.storage_dir = str(dir_2)
 
     async with Actor(configuration=config_actor):
         actor_kvs = await Actor.open_key_value_store()
-        crawler_1 = BasicCrawler(configuration=apify_crawler_1)
-        crawler_kvs = await crawler_1.get_key_value_store()
+        crawler = BasicCrawler(configuration=apify_crawler)
+        crawler_kvs = await crawler.get_key_value_store()
 
     assert actor_kvs is not crawler_kvs
+
+
+async def test_storage_retrieved_is_same_with_equivalent_config() -> None:
+    """Test that retrieving storage depends on used configuration. If two same configuration(even if they are different
+    instances) are used it returns same storage."""
+    config_actor = ApifyConfiguration()
+    apify_crawler = ApifyConfiguration()
+
+    async with Actor(configuration=config_actor):
+        actor_kvs = await Actor.open_key_value_store()
+        crawler = BasicCrawler(configuration=apify_crawler)
+        crawler_kvs = await crawler.get_key_value_store()
+
+    assert actor_kvs is crawler_kvs
 
 
 async def test_storage_retrieved_is_same_with_same_config() -> None:
     """Test that retrieving storage is same if same configuration is used."""
     async with Actor():
         actor_kvs = await Actor.open_key_value_store()
-        crawler_1 = BasicCrawler()
-        crawler_kvs = await crawler_1.get_key_value_store()
+        crawler = BasicCrawler()
+        crawler_kvs = await crawler.get_key_value_store()
 
     assert actor_kvs is crawler_kvs
+
+
+async def test_crawler_uses_apify_config() -> None:
+    """Test that crawler is using ApifyConfiguration in SDK context."""
+    crawler = BasicCrawler()
+    assert isinstance(crawler._service_locator.get_configuration(), ApifyConfiguration)
