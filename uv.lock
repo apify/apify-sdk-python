@@ -478,7 +478,7 @@ toml = [
 [[package]]
 name = "crawlee"
 version = "0.6.13"
-source = { git = "https://github.com/apify/crawlee-python.git?rev=storage-clients-and-configurations-2#a1746f37014f9caccb8f2dbdeacf1e62244e1f09" }
+source = { git = "https://github.com/apify/crawlee-python.git?rev=storage-clients-and-configurations-2#07ffa190661b026d3fa077aea8e1bc745c48aea9" }
 dependencies = [
     { name = "cachetools" },
     { name = "colorama" },
