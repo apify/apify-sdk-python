@@ -1,3 +1,4 @@
+import asyncio
 from urllib.parse import urljoin
 
 from playwright.async_api import async_playwright
@@ -90,3 +91,7 @@ async def main() -> None:
                     await page.close()
                     # Mark the request as handled to ensure it is not processed again.
                     await request_queue.mark_request_as_handled(request)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

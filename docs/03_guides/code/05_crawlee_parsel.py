@@ -1,6 +1,35 @@
+import asyncio
+
 from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
 
 from apify import Actor
+
+# Create a crawler.
+crawler = ParselCrawler(
+    # Limit the crawl to max requests. Remove or increase it for crawling all links.
+    max_requests_per_crawl=50,
+)
+
+
+# Define a request handler, which will be called for every request.
+@crawler.router.default_handler
+async def request_handler(context: ParselCrawlingContext) -> None:
+    Actor.log.info(f'Scraping {context.request.url}...')
+
+    # Extract the desired data.
+    data = {
+        'url': context.request.url,
+        'title': context.selector.xpath('//title/text()').get(),
+        'h1s': context.selector.xpath('//h1/text()').getall(),
+        'h2s': context.selector.xpath('//h2/text()').getall(),
+        'h3s': context.selector.xpath('//h3/text()').getall(),
+    }
+
+    # Store the extracted data to the default dataset.
+    await context.push_data(data)
+
+    # Enqueue additional links found on the current page.
+    await context.enqueue_links(strategy='same-domain')
 
 
 async def main() -> None:
@@ -10,10 +39,7 @@ async def main() -> None:
         actor_input = await Actor.get_input() or {}
         start_urls = [
             url.get('url')
-            for url in actor_input.get(
-                'start_urls',
-                [{'url': 'https://apify.com'}],
-            )
+            for url in actor_input.get('start_urls', [{'url': 'https://apify.com'}])
         ]
 
         # Exit if no start URLs are provided.
@@ -21,33 +47,9 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Create a crawler.
-        crawler = ParselCrawler(
-            # Limit the crawl to max requests.
-            # Remove or increase it for crawling all links.
-            max_requests_per_crawl=50,
-        )
-
-        # Define a request handler, which will be called for every request.
-        @crawler.router.default_handler
-        async def request_handler(context: ParselCrawlingContext) -> None:
-            url = context.request.url
-            Actor.log.info(f'Scraping {url}...')
-
-            # Extract the desired data.
-            data = {
-                'url': context.request.url,
-                'title': context.selector.xpath('//title/text()').get(),
-                'h1s': context.selector.xpath('//h1/text()').getall(),
-                'h2s': context.selector.xpath('//h2/text()').getall(),
-                'h3s': context.selector.xpath('//h3/text()').getall(),
-            }
-
-            # Store the extracted data to the default dataset.
-            await context.push_data(data)
-
-            # Enqueue additional links found on the current page.
-            await context.enqueue_links()
-
         # Run the crawler with the starting requests.
         await crawler.run(start_urls)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

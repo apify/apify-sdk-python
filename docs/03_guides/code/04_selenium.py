@@ -100,3 +100,7 @@ async def main() -> None:
                 await request_queue.mark_request_as_handled(request)
 
         driver.quit()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
