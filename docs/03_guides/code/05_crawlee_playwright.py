@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from crawlee.crawlers import BeautifulSoupCrawler, BeautifulSoupCrawlingContext
+from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
 
 from apify import Actor
 
@@ -24,25 +22,38 @@ async def main() -> None:
             await Actor.exit()
 
         # Create a crawler.
-        crawler = BeautifulSoupCrawler(
+        crawler = PlaywrightCrawler(
             # Limit the crawl to max requests.
             # Remove or increase it for crawling all links.
             max_requests_per_crawl=50,
+            headless=True,
+            browser_launch_options={
+                'args': ['--disable-gpu'],
+            },
         )
 
         # Define a request handler, which will be called for every request.
         @crawler.router.default_handler
-        async def request_handler(context: BeautifulSoupCrawlingContext) -> None:
+        async def request_handler(context: PlaywrightCrawlingContext) -> None:
             url = context.request.url
             Actor.log.info(f'Scraping {url}...')
 
             # Extract the desired data.
             data = {
                 'url': context.request.url,
-                'title': context.soup.title.string if context.soup.title else None,
-                'h1s': [h1.text for h1 in context.soup.find_all('h1')],
-                'h2s': [h2.text for h2 in context.soup.find_all('h2')],
-                'h3s': [h3.text for h3 in context.soup.find_all('h3')],
+                'title': await context.page.title(),
+                'h1s': [
+                    await h1.text_content()
+                    for h1 in await context.page.locator('h1').all()
+                ],
+                'h2s': [
+                    await h2.text_content()
+                    for h2 in await context.page.locator('h2').all()
+                ],
+                'h3s': [
+                    await h3.text_content()
+                    for h3 in await context.page.locator('h3').all()
+                ],
             }
 
             # Store the extracted data to the default dataset.

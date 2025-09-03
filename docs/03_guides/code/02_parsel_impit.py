@@ -1,7 +1,7 @@
 from urllib.parse import urljoin
 
-import httpx
-from bs4 import BeautifulSoup
+import impit
+import parsel
 
 from apify import Actor, Request
 
@@ -29,30 +29,31 @@ async def main() -> None:
             new_request = Request.from_url(url, user_data={'depth': 0})
             await request_queue.add_request(new_request)
 
-        # Create an HTTPX client to fetch the HTML content of the URLs.
-        async with httpx.AsyncClient() as client:
+        # Create an Impit client to fetch the HTML content of the URLs.
+        async with impit.AsyncClient() as client:
             # Process the URLs from the request queue.
             while request := await request_queue.fetch_next_request():
                 url = request.url
 
                 if not isinstance(request.user_data['depth'], (str, int)):
-                    raise TypeError('Request.depth is an enexpected type.')
+                    raise TypeError('Request.depth is an unexpected type.')
 
                 depth = int(request.user_data['depth'])
                 Actor.log.info(f'Scraping {url} (depth={depth}) ...')
 
                 try:
-                    # Fetch the HTTP response from the specified URL using HTTPX.
-                    response = await client.get(url, follow_redirects=True)
+                    # Fetch the HTTP response from the specified URL using Impit.
+                    response = await client.get(url)
 
-                    # Parse the HTML content using Beautiful Soup.
-                    soup = BeautifulSoup(response.content, 'html.parser')
+                    # Parse the HTML content using Parsel Selector.
+                    selector = parsel.Selector(text=response.text)
 
                     # If the current depth is less than max_depth, find nested links
                     # and enqueue them.
                     if depth < max_depth:
-                        for link in soup.find_all('a'):
-                            link_href = link.get('href')
+                        # Extract all links using CSS selector
+                        links = selector.css('a::attr(href)').getall()
+                        for link_href in links:
                             link_url = urljoin(url, link_href)
 
                             if link_url.startswith(('http://', 'https://')):
@@ -63,13 +64,18 @@ async def main() -> None:
                                 )
                                 await request_queue.add_request(new_request)
 
-                    # Extract the desired data.
+                    # Extract the desired data using Parsel selectors.
+                    title = selector.css('title::text').get()
+                    h1s = selector.css('h1::text').getall()
+                    h2s = selector.css('h2::text').getall()
+                    h3s = selector.css('h3::text').getall()
+
                     data = {
                         'url': url,
-                        'title': soup.title.string if soup.title else None,
-                        'h1s': [h1.text for h1 in soup.find_all('h1')],
-                        'h2s': [h2.text for h2 in soup.find_all('h2')],
-                        'h3s': [h3.text for h3 in soup.find_all('h3')],
+                        'title': title,
+                        'h1s': h1s,
+                        'h2s': h2s,
+                        'h3s': h3s,
                     }
 
                     # Store the extracted data to the default dataset.
@@ -80,4 +86,4 @@ async def main() -> None:
 
                 finally:
                     # Mark the request as handled to ensure it is not processed again.
-                    await request_queue.mark_request_as_handled(new_request)
+                    await request_queue.mark_request_as_handled(request)

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from urllib.parse import urljoin
 
 from playwright.async_api import async_playwright
