@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
 
 from apify import Actor
