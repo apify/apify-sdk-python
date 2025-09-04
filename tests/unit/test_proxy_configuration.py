@@ -472,10 +472,8 @@ async def test_initialize_prefering_password_from_env_over_calling_api(
 
 
 @pytest.mark.usefixtures('patched_impit_client')
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_with_manual_password_different_than_user_one(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
     httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
@@ -501,10 +499,6 @@ async def test_initialize_with_manual_password_different_than_user_one(
     assert proxy_configuration._password == different_dummy_password
     assert proxy_configuration.is_man_in_the_middle is True
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'WARNING'
-    assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
-
 
 @pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
@@ -526,7 +520,6 @@ async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, ht
         await proxy_configuration.initialize()
 
 
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_when_status_page_unavailable(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, httpserver: HTTPServer
 ) -> None:
