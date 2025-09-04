@@ -64,6 +64,16 @@ class ChargingManager(Protocol):
         This can be used for instance when your code needs to support multiple pricing models in transition periods.
         """
 
+    def get_charged_event_count(self, event_name: str) -> int:
+        """Get the number of events with the given name that were charged so far.
+
+        Args:
+            event_name: Name of the inspected event.
+        """
+
+    def get_max_total_charge_usd(self) -> Decimal:
+        """Get the configured maximum total charge for this Actor run."""
+
 
 @docs_group('Charging')
 @dataclass(frozen=True)
@@ -308,6 +318,15 @@ class ChargingManagerImplementation(ChargingManager):
                 event_name: pricing_info.price for event_name, pricing_info in self._pricing_info.items()
             },
         )
+
+    @ensure_context
+    def get_charged_event_count(self, event_name: str) -> int:
+        item = self._charging_state.get(event_name)
+        return item.charge_count if item is not None else 0
+
+    @ensure_context
+    def get_max_total_charge_usd(self) -> Decimal:
+        return self._max_total_charge_usd
 
 
 @dataclass
