@@ -36,12 +36,12 @@ keywords = [
 dependencies = [
     "apify-client>=2.0.0,<3.0.0",
     "apify-shared>=2.0.0,<3.0.0",
-    "crawlee==1.0.0rc1",
+    "crawlee==1.0.0rc2",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
+    "impit>=0.6.1",
     # TODO: ensure compatibility with the latest version of lazy-object-proxy
     # https://github.com/apify/apify-sdk-python/issues/460
-    "impit>=0.5.3",
     "lazy-object-proxy<1.11.0",
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",
