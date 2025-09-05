@@ -16,10 +16,31 @@ from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
+import apify.log
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
+    from logging import Logger
     from pathlib import Path
+
+
+@pytest.fixture
+def _patch_propagate_logger(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch enabling `propagate` for the crawlee logger.
+
+    This is necessary for tests requiring log interception using `caplog`.
+    """
+
+    original_configure_logger = apify.log.configure_logger
+
+    def propagate_logger(logger: Logger, **kwargs: Any) -> None:
+        original_configure_logger(logger, **kwargs)
+        logger.propagate = True
+
+    monkeypatch.setattr('crawlee._log_config.configure_logger', propagate_logger)
+    monkeypatch.setattr(apify.log, 'configure_logger', propagate_logger)
+    yield
+    monkeypatch.undo()
 
 
 @pytest.fixture
@@ -66,7 +87,10 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
 
 
 @pytest.fixture(autouse=True)
-def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
+def _isolate_test_environment(
+    prepare_test_env: Callable[[], None],
+    _patch_propagate_logger: None,
+) -> None:
     """Isolate the testing environment by resetting global state before and after each test.
 
     This fixture ensures that each test starts with a clean slate and that any modifications during the test

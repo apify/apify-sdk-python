@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import contextlib
 import logging
-
-import pytest
+from typing import TYPE_CHECKING
 
 from apify import Actor
 from apify.log import logger
 
+if TYPE_CHECKING:
+    import pytest
 
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
+
 async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger='apify')
 
