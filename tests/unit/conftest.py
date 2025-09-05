@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def patch_propagate_logger(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def _patch_propagate_logger(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Patch enabling `propagate` for the crawlee logger.
 
     This is necessary for tests requiring log interception using `caplog`.
@@ -89,7 +89,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
 @pytest.fixture(autouse=True)
 def _isolate_test_environment(
     prepare_test_env: Callable[[], None],
-    patch_propagate_logger: None,  # noqa: ARG001
+    _patch_propagate_logger: None,
 ) -> None:
     """Isolate the testing environment by resetting global state before and after each test.
 
