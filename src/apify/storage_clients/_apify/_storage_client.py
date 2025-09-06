@@ -8,11 +8,13 @@ from crawlee.storage_clients._base import StorageClient
 
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
-from ._request_queue_client import ApifyRequestQueueClient
+from ._request_queue_client_simple import ApifyRequestQueueClientSimple
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
     from crawlee.configuration import Configuration
+
+    from ._request_queue_client import ApifyRequestQueueClient
 
 
 @docs_group('Storage clients')
@@ -72,7 +74,7 @@ class ApifyStorageClient(StorageClient):
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
+            return await ApifyRequestQueueClientSimple.open(id=id, name=name, configuration=configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
