@@ -150,6 +150,9 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
         monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
+        # Make sure there is a charging manager that can be mocked
+        Actor._get_charging_manager_implementation()
+
         mock_run_client = Mock()
         mock_run_client.run.return_value.get = AsyncMock(
             side_effect=lambda: {

@@ -539,9 +539,9 @@ async def test_initialize_when_status_page_unavailable(
 
     await proxy_configuration.initialize()
 
-    assert len(caplog.records) == 1
+    assert len(caplog.records) == 2
     assert caplog.records[0].levelname == 'WARNING'
-    assert 'Apify Proxy access check timed out' in caplog.records[0].message
+    assert 'Apify Proxy access check timed out' in caplog.records[1].message
 
 
 async def test_initialize_with_non_apify_proxy(
