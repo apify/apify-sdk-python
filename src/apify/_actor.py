@@ -127,22 +127,12 @@ class _ActorType:
 
         self._configuration = configuration
         self._configure_logging = configure_logging
-        self._apify_client = self.new_client()
+        self._apify_client: ApifyClientAsync | None = None
 
         # Set the event manager based on whether the Actor is running on the platform or locally.
-        self._event_manager = (
-            ApifyEventManager(
-                configuration=self.config,
-                persist_state_interval=self.config.persist_state_interval,
-            )
-            if self.is_at_home()
-            else LocalEventManager(
-                system_info_interval=self.config.system_info_interval,
-                persist_state_interval=self.config.persist_state_interval,
-            )
-        )
+        self._event_manager: EventManager | None = None
 
-        self._charging_manager = ChargingManagerImplementation(self.config, self._apify_client)
+        self._charging_manager: ChargingManagerImplementation | None = None
 
         self._is_initialized = False
 
@@ -200,6 +190,8 @@ class _ActorType:
     @property
     def apify_client(self) -> ApifyClientAsync:
         """The ApifyClientAsync instance the Actor instance uses."""
+        if not self._apify_client:
+            self._apify_client = self.new_client()
         return self._apify_client
 
     @property
@@ -212,15 +204,26 @@ class _ActorType:
         """The Configuration instance the Actor instance uses."""
         if self._configuration:
             return self._configuration
-        self.log.debug(
-            'Implicit configuration used.'
-            "It's recommended to explicitly set the configuration to avoid unexpected behavior."
+        raise RuntimeError(
+            'Use of implicit configuration before entering Actor context is no longer allowed.'
+            'Either pass explicit configuration or enter the Actor context.'
         )
-        return Configuration()
 
     @property
     def event_manager(self) -> EventManager:
         """The EventManager instance the Actor instance uses."""
+        if not self._event_manager:
+            self._event_manager = (
+                ApifyEventManager(
+                    configuration=self.config,
+                    persist_state_interval=self.config.persist_state_interval,
+                )
+                if self.is_at_home()
+                else LocalEventManager(
+                    system_info_interval=self.config.system_info_interval,
+                    persist_state_interval=self.config.persist_state_interval,
+                )
+            )
         return self._event_manager
 
     @property
@@ -305,10 +308,10 @@ class _ActorType:
         # TODO: Print outdated SDK version warning (we need a new env var for this)
         # https://github.com/apify/apify-sdk-python/issues/146
 
-        await self._event_manager.__aenter__()
+        await self.event_manager.__aenter__()
         self.log.debug('Event manager initialized')
 
-        await self._charging_manager.__aenter__()
+        await self._get_charging_manager_implementation().__aenter__()
         self.log.debug('Charging manager initialized')
 
         self._is_initialized = True
@@ -349,10 +352,10 @@ class _ActorType:
             await asyncio.sleep(0.1)
 
             if event_listeners_timeout:
-                await self._event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
+                await self.event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
-            await self._event_manager.__aexit__(None, None, None)
-            await self._charging_manager.__aexit__(None, None, None)
+            await self.event_manager.__aexit__(None, None, None)
+            await self._get_charging_manager_implementation().__aexit__(None, None, None)
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -547,7 +550,9 @@ class _ActorType:
         data = data if isinstance(data, list) else [data]
 
         max_charged_count = (
-            self._charging_manager.calculate_max_event_charge_count_within_limit(charged_event_name)
+            self._get_charging_manager_implementation().calculate_max_event_charge_count_within_limit(
+                charged_event_name
+            )
             if charged_event_name is not None
             else None
         )
@@ -561,7 +566,7 @@ class _ActorType:
             await dataset.push_data(data)
 
         if charged_event_name:
-            return await self._charging_manager.charge(
+            return await self.get_charging_manager().charge(
                 event_name=charged_event_name,
                 count=min(max_charged_count, len(data)) if max_charged_count is not None else len(data),
             )
@@ -617,7 +622,12 @@ class _ActorType:
 
     def get_charging_manager(self) -> ChargingManager:
         """Retrieve the charging manager to access granular pricing information."""
+        return self._get_charging_manager_implementation()
+
+    def _get_charging_manager_implementation(self) -> ChargingManagerImplementation:
         self._raise_if_not_initialized()
+        if not self._charging_manager:
+            self._charging_manager = ChargingManagerImplementation(self.config, self.apify_client)
         return self._charging_manager
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
@@ -630,7 +640,7 @@ class _ActorType:
             count: Number of events to charge for.
         """
         self._raise_if_not_initialized()
-        return await self._charging_manager.charge(event_name, count)
+        return await self.get_charging_manager().charge(event_name, count)
 
     @overload
     def on(
@@ -681,7 +691,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        self._event_manager.on(event=event_name, listener=listener)
+        self.event_manager.on(event=event_name, listener=listener)
         return listener
 
     @overload
@@ -707,7 +717,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        self._event_manager.off(event=event_name, listener=listener)
+        self.event_manager.off(event=event_name, listener=listener)
 
     def is_at_home(self) -> bool:
         """Return `True` when the Actor is running on the Apify platform, and `False` otherwise (e.g. local run)."""
@@ -782,7 +792,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        client = self.new_client(token=token) if token else self._apify_client
+        client = self.new_client(token=token) if token else self.apify_client
 
         if webhooks:
             serialized_webhooks = [
@@ -849,7 +859,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        client = self.new_client(token=token) if token else self._apify_client
+        client = self.new_client(token=token) if token else self.apify_client
 
         if status_message:
             await client.run(run_id).update(status_message=status_message)
@@ -902,7 +912,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        client = self.new_client(token=token) if token else self._apify_client
+        client = self.new_client(token=token) if token else self.apify_client
 
         if webhooks:
             serialized_webhooks = [
@@ -974,7 +984,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
 
-        client = self.new_client(token=token) if token else self._apify_client
+        client = self.new_client(token=token) if token else self.apify_client
 
         if webhooks:
             serialized_webhooks = [
@@ -1031,7 +1041,7 @@ class _ActorType:
         if not self.config.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self._apify_client.run(self.config.actor_run_id).metamorph(
+        await self.apify_client.run(self.config.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
             target_actor_build=target_actor_build,
@@ -1077,10 +1087,10 @@ class _ActorType:
         # We can't just emit the events and wait for all listeners to finish,
         # because this method might be called from an event listener itself, and we would deadlock.
         persist_state_listeners = flatten(
-            (self._event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
+            (self.event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
         )
         migrating_listeners = flatten(
-            (self._event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
+            (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
         )
 
         await asyncio.gather(
@@ -1091,7 +1101,7 @@ class _ActorType:
         if not self.config.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self._apify_client.run(self.config.actor_run_id).reboot()
+        await self.apify_client.run(self.config.actor_run_id).reboot()
 
         if custom_after_sleep:
             await asyncio.sleep(custom_after_sleep.total_seconds())
@@ -1133,7 +1143,7 @@ class _ActorType:
         if not self.config.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self._apify_client.webhooks().create(
+        await self.apify_client.webhooks().create(
             actor_run_id=self.config.actor_run_id,
             event_types=webhook.event_types,
             request_url=webhook.request_url,
@@ -1169,7 +1179,7 @@ class _ActorType:
         if not self.config.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        api_result = await self._apify_client.run(self.config.actor_run_id).update(
+        api_result = await self.apify_client.run(self.config.actor_run_id).update(
             status_message=status_message, is_status_message_terminal=is_terminal
         )
 
