@@ -267,10 +267,10 @@ class _ActorType:
         else:
             try:
                 # Set implicit default Apify configuration, unless configuration was already set.
-                service_locator.set_configuration(self.configuration)
+                service_locator.set_configuration(Configuration())
             except ServiceConflictError:
                 self.log.info(
-                    'Configuration in service locator was set explicitly before Actor. '
+                    'Configuration in service locator was set explicitly before Actor.init was called.'
                     'Using the existing configuration.'
                 )
             # Use the configuration from the service locator
@@ -622,10 +622,10 @@ class _ActorType:
 
     def get_charging_manager(self) -> ChargingManager:
         """Retrieve the charging manager to access granular pricing information."""
+        self._raise_if_not_initialized()
         return self._get_charging_manager_implementation()
 
     def _get_charging_manager_implementation(self) -> ChargingManagerImplementation:
-        self._raise_if_not_initialized()
         if not self._charging_manager:
             self._charging_manager = ChargingManagerImplementation(self.config, self.apify_client)
         return self._charging_manager

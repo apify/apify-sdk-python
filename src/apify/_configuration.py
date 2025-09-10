@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import traceback
 from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
@@ -419,7 +418,6 @@ class Configuration(CrawleeConfiguration):
         """
         if self.is_at_home and not self.disable_browser_sandbox:
             self.disable_browser_sandbox = True
-            logger.info('Stack trace:\n%s', ''.join(traceback.format_stack()))
             logger.warning('Actor is running on the Apify platform, `disable_browser_sandbox` was changed to True.')
         return self
 
