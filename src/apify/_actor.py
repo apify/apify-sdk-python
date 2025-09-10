@@ -271,7 +271,7 @@ class _ActorType:
                     'Using the existing configuration.'
                 )
             # Use the configuration from the service locator
-            self._configuration = service_locator.get_configuration()
+            self._configuration = Configuration.get_global_configuration()
 
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
