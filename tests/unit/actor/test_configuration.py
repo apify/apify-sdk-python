@@ -32,13 +32,13 @@ def test_disable_browser_sandbox(
 
 
 def test_apify_configuration_is_always_used() -> None:
-    """Set Crawlee Configuration in service_locator and verify that Apify Configuration is returned."""
+    """Set Crawlee Configuration in Actor and verify that Apify Configuration is used."""
     max_used_cpu_ratio = 0.123456  # Some unique value to verify configuration
+
     service_locator.set_configuration(CrawleeConfiguration(max_used_cpu_ratio=max_used_cpu_ratio))
 
-    returned_config = service_locator.get_configuration()
-    assert returned_config.max_used_cpu_ratio == max_used_cpu_ratio
-    assert isinstance(returned_config, ApifyConfiguration)
+    assert Actor.config.max_used_cpu_ratio == max_used_cpu_ratio
+    assert isinstance(Actor.config, ApifyConfiguration)
 
 
 async def test_existing_apify_config_respected_by_actor() -> None:
@@ -61,11 +61,10 @@ async def test_existing_crawlee_config_respected_by_actor() -> None:
     async with Actor:
         pass
 
-    returned_config = service_locator.get_configuration()
-    assert returned_config is not crawlee_config
-    assert isinstance(returned_config, ApifyConfiguration)
-    # Make sure the Crawlee Configuration was used to create returned Apify Configuration
-    assert returned_config.max_used_cpu_ratio == max_used_cpu_ratio
+    assert Actor.config is not crawlee_config
+    assert isinstance(Actor.config, ApifyConfiguration)
+    # Make sure the Crawlee Configuration was used to create ApifyConfiguration in Actor
+    assert Actor.config.max_used_cpu_ratio == max_used_cpu_ratio
 
 
 async def test_existing_apify_config_throws_error_when_set_in_actor() -> None:
@@ -109,7 +108,7 @@ async def test_crawler_implicit_configuration() -> None:
     async with Actor():
         crawler = BasicCrawler()
 
-    assert service_locator.get_configuration() is crawler._service_locator.get_configuration()
+    assert Actor.config is service_locator.get_configuration() is crawler._service_locator.get_configuration()
 
 
 async def test_crawlers_own_configuration() -> None:
@@ -128,7 +127,7 @@ async def test_crawlers_own_configuration() -> None:
 
 
 async def test_crawler_global_configuration() -> None:
-    """Test that crawler and Actor use explicit service_locator based configuration unless explicit configuration
+    """Test that crawler and Actor use service_locator based configuration unless explicit configuration
     was passed to them."""
     config_global = ApifyConfiguration()
     service_locator.set_configuration(config_global)
@@ -140,18 +139,24 @@ async def test_crawler_global_configuration() -> None:
     assert crawler._service_locator.get_configuration() is config_global
 
 
+async def test_crawler_uses_implicit_apify_config() -> None:
+    """Test that Actor is using implicit ApifyConfiguration in Actor context."""
+    async with Actor:
+        assert isinstance(Actor.config, ApifyConfiguration)
+
+
 async def test_storage_retrieved_is_different_with_different_config(tmp_path: Path) -> None:
     """Test that retrieving storage depends on used configuration."""
     dir_1 = tmp_path / 'dir_1'
     dir_2 = tmp_path / 'dir_2'
     config_actor = ApifyConfiguration()
     config_actor.storage_dir = str(dir_1)
-    apify_crawler = ApifyConfiguration()
-    apify_crawler.storage_dir = str(dir_2)
+    config_crawler = ApifyConfiguration()
+    config_crawler.storage_dir = str(dir_2)
 
     async with Actor(configuration=config_actor):
         actor_kvs = await Actor.open_key_value_store()
-        crawler = BasicCrawler(configuration=apify_crawler)
+        crawler = BasicCrawler(configuration=config_crawler)
         crawler_kvs = await crawler.get_key_value_store()
 
     assert actor_kvs is not crawler_kvs
@@ -179,9 +184,3 @@ async def test_storage_retrieved_is_same_with_same_config() -> None:
         crawler_kvs = await crawler.get_key_value_store()
 
     assert actor_kvs is crawler_kvs
-
-
-async def test_crawler_uses_apify_config() -> None:
-    """Test that crawler is using ApifyConfiguration in SDK context."""
-    crawler = BasicCrawler()
-    assert isinstance(crawler._service_locator.get_configuration(), ApifyConfiguration)

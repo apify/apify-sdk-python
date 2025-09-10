@@ -204,10 +204,27 @@ class _ActorType:
         """The Configuration instance the Actor instance uses."""
         if self._configuration:
             return self._configuration
-        raise RuntimeError(
-            'Use of implicit configuration before entering Actor context is no longer allowed.'
-            'Either pass explicit configuration or enter the Actor context.'
-        )
+
+        return self._finalize_implicit_configuration()
+
+    def _finalize_implicit_configuration(self) -> Configuration:
+        """Set implicit configuration in the actor and return it.
+
+        Changing Actor or service_locator configuration after this method was run is not possible.
+        """
+        try:
+            # Set implicit default Apify configuration, unless configuration was already set.
+            implicit_configuration = Configuration()
+            service_locator.set_configuration(Configuration())
+            self._configuration = implicit_configuration
+        except ServiceConflictError:
+            self.log.info(
+                'Configuration in service locator was set explicitly before Actor.init was called.'
+                'Using the existing configuration as implicit configuration for the Actor.'
+            )
+        # Use the configuration from the service locator
+        self._configuration = Configuration.get_global_configuration()
+        return self.configuration
 
     @property
     def event_manager(self) -> EventManager:
