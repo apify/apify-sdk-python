@@ -282,16 +282,7 @@ class _ActorType:
             # Set explicitly the configuration in the service locator
             service_locator.set_configuration(self.configuration)
         else:
-            try:
-                # Set implicit default Apify configuration, unless configuration was already set.
-                service_locator.set_configuration(Configuration())
-            except ServiceConflictError:
-                self.log.info(
-                    'Configuration in service locator was set explicitly before Actor.init was called.'
-                    'Using the existing configuration.'
-                )
-            # Use the configuration from the service locator
-            self._configuration = Configuration.get_global_configuration()
+            self._finalize_implicit_configuration()
 
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
