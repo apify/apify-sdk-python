@@ -10,6 +10,7 @@ from crawlee.errors import ServiceConflictError
 
 from apify import Actor
 from apify import Configuration as ApifyConfiguration
+from apify.storage_clients._file_system import ApifyFileSystemStorageClient
 
 
 @pytest.mark.parametrize(
@@ -107,9 +108,20 @@ async def test_crawler_implicit_configuration() -> None:
     """Test that crawler and Actor use implicit service_locator based configuration unless explicit configuration
     was passed to them."""
     async with Actor():
+        assert Actor.config is service_locator.get_configuration()
         crawler = BasicCrawler()
 
-    assert Actor.config is service_locator.get_configuration() is crawler._service_locator.get_configuration()
+    assert Actor.config is service_locator.get_configuration()
+    assert Actor.config is crawler._service_locator.get_configuration()
+
+
+async def test_crawler_implicit_local_storage() -> None:
+    """Test that crawler and Actor use implicit ApifyFileSystemStorageClient."""
+    async with Actor():
+        crawler = BasicCrawler()
+
+    assert isinstance(service_locator.get_storage_client(), ApifyFileSystemStorageClient)
+    assert isinstance(crawler._service_locator.get_storage_client(), ApifyFileSystemStorageClient)
 
 
 async def test_crawlers_own_configuration(tmp_path: Path) -> None:
