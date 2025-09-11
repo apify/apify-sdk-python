@@ -51,7 +51,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         try:
             f = await asyncio.to_thread(path.open)
             input_data = json.load(f)
-            await self.set_value(key=path.stem, value=input_data)
-            await asyncio.to_thread(path.unlink, missing_ok=True)
         finally:
-            await asyncio.to_thread(f.close)
+            f.close()
+        await asyncio.to_thread(path.unlink, missing_ok=True)
+        await self.set_value(key=path.stem, value=input_data)
