@@ -130,7 +130,7 @@ async def test_lifecycle_on_platform_without_websocket(monkeypatch: pytest.Monke
     monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
     event_manager = ApifyEventManager(Configuration.get_global_configuration())
 
-    with pytest.raises(RuntimeError, match='Error connecting to platform events websocket!'):
+    with pytest.raises(RuntimeError, match=r'Error connecting to platform events websocket!'):
         async with event_manager:
             pass
 

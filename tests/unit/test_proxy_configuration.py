@@ -88,19 +88,19 @@ def test_invalid_arguments() -> None:
         with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(country_code=invalid_country_code)  # type: ignore[arg-type]
 
-    with pytest.raises(ValueError, match='Exactly one of .* must be specified'):
+    with pytest.raises(ValueError, match=r'Exactly one of .* must be specified'):
         ProxyConfiguration(
             proxy_urls=['http://proxy.com:1111'],
             new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222',
         )
 
-    with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
+    with pytest.raises(ValueError, match=r'Cannot combine custom proxies with Apify Proxy'):
         ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], groups=['GROUP1'])
 
     with pytest.raises(ValueError, match=re.escape('bad-url')):
         ProxyConfiguration(proxy_urls=['bad-url'])
 
-    with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
+    with pytest.raises(ValueError, match=r'Cannot combine custom proxies with Apify Proxy'):
         ProxyConfiguration(
             new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222', groups=['GROUP1']
         )
@@ -241,7 +241,7 @@ async def test_invalid_custom_new_url_function() -> None:
 
     proxy_configuration = ProxyConfiguration(new_url_function=custom_new_url_function)
 
-    with pytest.raises(ValueError, match='The provided "new_url_function" did not return a valid URL'):
+    with pytest.raises(ValueError, match=r'The provided "new_url_function" did not return a valid URL'):
         await proxy_configuration.new_url()
 
 
@@ -416,7 +416,7 @@ async def test_initialize_with_valid_configuration(
 async def test_initialize_without_password_or_token() -> None:
     proxy_configuration = ProxyConfiguration()
 
-    with pytest.raises(ValueError, match='Apify Proxy password must be provided'):
+    with pytest.raises(ValueError, match=r'Apify Proxy password must be provided'):
         await proxy_configuration.initialize()
 
 
@@ -472,10 +472,8 @@ async def test_initialize_prefering_password_from_env_over_calling_api(
 
 
 @pytest.mark.usefixtures('patched_impit_client')
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_with_manual_password_different_than_user_one(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
     httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
@@ -501,10 +499,6 @@ async def test_initialize_with_manual_password_different_than_user_one(
     assert proxy_configuration._password == different_dummy_password
     assert proxy_configuration.is_man_in_the_middle is True
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'WARNING'
-    assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
-
 
 @pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
@@ -526,7 +520,6 @@ async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, ht
         await proxy_configuration.initialize()
 
 
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_when_status_page_unavailable(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, httpserver: HTTPServer
 ) -> None:
