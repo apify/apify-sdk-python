@@ -1,4 +1,6 @@
 import asyncio
+import json
+from pathlib import Path
 
 from typing_extensions import override
 
@@ -23,9 +25,15 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         the `INPUT.json` file. It also updates the metadata to reflect that the store has been purged.
         """
         kvs_input_key = Configuration.get_global_configuration().input_key
+
+        # First try to find the alternative format of the input file and process it if it exists.
+        for file_path in self.path_to_kvs.glob('*'):
+            if file_path.name == f'{kvs_input_key}.json':
+                await self._process_input_json(file_path)
+
         async with self._lock:
             for file_path in self.path_to_kvs.glob('*'):
-                if file_path.name in {METADATA_FILENAME, f'{kvs_input_key}.json'}:
+                if file_path.name in {METADATA_FILENAME, kvs_input_key, f'{kvs_input_key}.{METADATA_FILENAME}'}:
                     continue
                 if file_path.is_file():
                     await asyncio.to_thread(file_path.unlink, missing_ok=True)
@@ -34,3 +42,16 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
                 update_accessed_at=True,
                 update_modified_at=True,
             )
+
+    async def _process_input_json(self, path: Path) -> None:
+        """Process simple input json file to format expected by the FileSystemKeyValueStoreClient.
+
+        For example: INPUT.json -> INPUT, INPUT.json.metadata
+        """
+        try:
+            f = await asyncio.to_thread(path.open)
+            input_data = json.load(f)
+            await self.set_value(key=path.stem, value=input_data)
+            await asyncio.to_thread(path.unlink, missing_ok=True)
+        finally:
+            await asyncio.to_thread(f.close)
