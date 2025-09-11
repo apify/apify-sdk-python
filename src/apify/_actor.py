@@ -301,7 +301,7 @@ class _ActorType:
 
         # Create an instance of the cloud storage client, the local storage client is obtained
         # from the service locator
-        self._cloud_storage_client = ApifyStorageClient(configuration=self.configuration)
+        self._cloud_storage_client = ApifyStorageClient()
 
         # Make sure that the currently initialized instance is also available through the global `Actor` proxy
         cast('Proxy', Actor).__wrapped__ = self

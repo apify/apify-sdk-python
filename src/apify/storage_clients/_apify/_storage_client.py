@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
-from crawlee import service_locator
 from crawlee.storage_clients._base import StorageClient
 
 from ._dataset_client import ApifyDatasetClient
@@ -19,15 +18,6 @@ if TYPE_CHECKING:
 @docs_group('Storage clients')
 class ApifyStorageClient(StorageClient):
     """Apify storage client."""
-
-    def __init__(self, configuration: Configuration | None = None) -> None:
-        """Initialize the file system storage client.
-
-        Args:
-            configuration: Optional configuration instance to use with the storage client.
-                If not provided, the global configuration will be used.
-        """
-        self._configuration = configuration or service_locator.get_configuration()
 
     @override
     async def create_dataset_client(
