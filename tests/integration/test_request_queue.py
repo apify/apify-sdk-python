@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import pytest
+
 from apify_shared.consts import ApifyEnvVars
+from crawlee import Request, service_locator
 
-from crawlee import Request
-
-from apify import Actor
 from ._utils import generate_unique_resource_name
+from apify import Actor
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -1072,29 +1073,47 @@ async def test_request_queue_not_had_multiple_clients(
     assert api_response['hadMultipleClients'] is False
 
 
-async def test_cache_initialization(
-    apify_token: str, monkeypatch: pytest.MonkeyPatch, apify_client_async: ApifyClientAsync
-) -> None:
-    """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
+async def test_cache_initialization(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that Apify based `RequestQueue` initializes cache correctly to reduce unnecessary API calls."""
 
-    """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
+    # Create an instance of the Apify request queue on the platform and drop it when the test is finished.
     request_queue_name = generate_unique_resource_name('request_queue')
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
+    requests = [Request.from_url(f'http://example.com/{i}', handled_at=datetime.now(timezone.utc)) for i in range(10)]
+
     async with Actor:
         rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
-        yield rq
-        await rq.drop()
+        try:
+            await rq.add_requests(requests)
 
+            # Check that it is correctly in the API
+            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
 
-    await request_queue_force_cloud.fetch_next_request()
-    await request_queue_force_cloud.fetch_next_request()
+            # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
+            rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
+            _rq = await rq_client.get()
+            assert _rq
+            stats_before = _rq.get('stats', {})
+            Actor.log.info(stats_before)
 
-    # Check that it is correctly in the RequestQueueClient metadata
-    assert (await request_queue_force_cloud.get_metadata()).had_multiple_clients is False
+            # Clear service locator cache to simulate creating RQ instance from scratch
+            service_locator.storage_instance_manager.clear_cache()
 
-    # Check that it is correctly in the API
-    api_client = apify_client_async.request_queue(request_queue_id=request_queue_force_cloud.id)
-    api_response = await api_client.get()
-    assert api_response
-    assert api_response['hadMultipleClients'] is False
+            # Try to enqueue same requests again. It should be deduplicated from local cache created on initialization
+            rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+            await rq.add_requests(requests)
+
+            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+            _rq = await rq_client.get()
+            assert _rq
+            stats_after = _rq.get('stats', {})
+            Actor.log.info(stats_after)
+
+            # Cache was actually initialized, readCount increased
+            assert (stats_after['readCount'] - stats_before['readCount']) == len(requests)
+            # Deduplication happened locally, writeCount should be the same
+            assert stats_after['writeCount'] == stats_before['writeCount']
+
+        finally:
+            await rq.drop()

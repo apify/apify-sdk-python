@@ -388,6 +388,9 @@ class ApifyRequestQueueClientSimple(ApifyRequestQueueClient):
 
         This is mainly done to improve local deduplication capability. List request can return up to 10k requests, but
         their order is implementation detail and does not respect head order or insertion order.
+
+        Deduplication on platform is expensive, it takes 1 API call per request and 1 write operation per request.
+        Local deduplication is cheaper, it takes 1 API call for whole cache and 1 read operation per request.
         """
         response = await self._api_client.list_requests(limit=10_000)
         for request_data in response.get('items', []):

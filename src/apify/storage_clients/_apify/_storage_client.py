@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class ApifyStorageClient(StorageClient):
     """Apify storage client."""
 
-    def __init__(self, simple_request_queue: bool = True) -> None:
+    def __init__(self, *, simple_request_queue: bool = True) -> None:
         """Initialize the Apify storage client.
 
         Args:
@@ -86,10 +86,9 @@ class ApifyStorageClient(StorageClient):
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            if not self._simple_request_queue:
+            if self._simple_request_queue:
                 return await ApifyRequestQueueClientSimple.open(id=id, name=name, configuration=configuration)
-            else:
-                return await ApifyRequestQueueClientFull.open(id=id, name=name, configuration=configuration)
+            return await ApifyRequestQueueClientFull.open(id=id, name=name, configuration=configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
