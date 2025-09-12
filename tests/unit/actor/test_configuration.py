@@ -197,11 +197,11 @@ async def test_storage_retrieved_is_same_with_equivalent_config() -> None:
     """Test that retrieving storage depends on used configuration. If two equivalent configuration(even if they are
     different instances) are used it returns same storage."""
     config_actor = ApifyConfiguration()
-    apify_crawler = ApifyConfiguration()
+    config_crawler = ApifyConfiguration()
 
     async with Actor(configuration=config_actor):
         actor_kvs = await Actor.open_key_value_store()
-        crawler = BasicCrawler(configuration=apify_crawler)
+        crawler = BasicCrawler(configuration=config_crawler)
         crawler_kvs = await crawler.get_key_value_store()
 
     assert actor_kvs is crawler_kvs

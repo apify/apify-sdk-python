@@ -5,6 +5,7 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 from lazy_object_proxy import Proxy
@@ -340,7 +341,7 @@ class _ActorType:
         await self.event_manager.__aenter__()
         self.log.debug('Event manager initialized')
 
-        await self._get_charging_manager_implementation().__aenter__()
+        await self._get_charging_manager_implementation.__aenter__()
         self.log.debug('Charging manager initialized')
 
         self._is_initialized = True
@@ -384,7 +385,7 @@ class _ActorType:
                 await self.event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self.event_manager.__aexit__(None, None, None)
-            await self._get_charging_manager_implementation().__aexit__(None, None, None)
+            await self._get_charging_manager_implementation.__aexit__(None, None, None)
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -579,9 +580,7 @@ class _ActorType:
         data = data if isinstance(data, list) else [data]
 
         max_charged_count = (
-            self._get_charging_manager_implementation().calculate_max_event_charge_count_within_limit(
-                charged_event_name
-            )
+            self.get_charging_manager().calculate_max_event_charge_count_within_limit(charged_event_name)
             if charged_event_name is not None
             else None
         )
@@ -652,12 +651,11 @@ class _ActorType:
     def get_charging_manager(self) -> ChargingManager:
         """Retrieve the charging manager to access granular pricing information."""
         self._raise_if_not_initialized()
-        return self._get_charging_manager_implementation()
+        return self._get_charging_manager_implementation
 
+    @cached_property
     def _get_charging_manager_implementation(self) -> ChargingManagerImplementation:
-        if not self._charging_manager:
-            self._charging_manager = ChargingManagerImplementation(self.config, self.apify_client)
-        return self._charging_manager
+        return ChargingManagerImplementation(self.config, self.apify_client)
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
