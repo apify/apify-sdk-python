@@ -325,7 +325,9 @@ class _ActorType:
         # If the Actor is running on the Apify platform, we set the cloud storage client.
         if self.is_at_home():
             service_locator.set_storage_client(self._cloud_storage_client)
-        self._finalize_implicit_local_storage_client()
+            self._local_storage_client = self._cloud_storage_client
+        else:
+            self._finalize_implicit_local_storage_client()
         service_locator.set_event_manager(self.event_manager)
 
         # The logging configuration has to be called after all service_locator set methods.
