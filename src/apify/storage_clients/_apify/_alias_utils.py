@@ -34,7 +34,8 @@ async def resolve_alias_to_id(
     default_kvs_client = await _get_default_kvs_client(configuration)
 
     # Create the key for this alias
-    alias_key = f'alias:{storage_type}:{alias}'
+    alias_key = f'alias-{storage_type}-{alias}'
+    logger.info(f'Looking for alias mapping with key: {alias_key}')
 
     # Try to get the stored ID for this alias
     try:
@@ -42,11 +43,12 @@ async def resolve_alias_to_id(
         if record and record.get('value'):
             storage_id = record['value']
             if isinstance(storage_id, str):
-                logger.debug(f'Found existing alias mapping: {alias} -> {storage_id}')
+                logger.info(f'Found existing alias mapping: {alias} -> {storage_id}')
                 return storage_id
-    except Exception:
+        logger.info(f'No existing alias mapping found for {alias} (record: {record})')
+    except Exception as e:
         # If there's any error accessing the record, treat it as not found
-        logger.debug(f'No existing alias mapping found for {alias}')
+        logger.info(f'Error accessing alias mapping for {alias}: {e}')
 
     return None
 async def store_alias_mapping(
@@ -66,12 +68,12 @@ async def store_alias_mapping(
     # Get the default key-value store to store alias mappings
     default_kvs_client = await _get_default_kvs_client(configuration)
 
-    # Create the key for this alias
+    # Create the key for this alias (must match the format in resolve_alias_to_id)
     alias_key = f'alias-{storage_type}-{alias}'
 
     # Store the mapping
     await default_kvs_client.set_record(alias_key, {'value': storage_id})
-    logger.debug(f'Stored alias mapping: {alias} -> {storage_id}')
+    logger.info(f'Stored alias mapping: {alias} -> {storage_id} with key: {alias_key}')
 
 
 async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
