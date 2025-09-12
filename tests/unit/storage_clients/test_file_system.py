@@ -75,7 +75,6 @@ async def test_pre_existing_input_used_by_actor(tmp_path: Path) -> None:
     path_to_input.mkdir(parents=True)
     (path_to_input / f'{configuration.input_key}.json').write_text(json.dumps(pre_existing_input))
 
-    # Remove this line after https://github.com/apify/apify-sdk-python/pull/576
     service_locator.set_storage_client(ApifyFileSystemStorageClient())
 
     async with Actor():
