@@ -67,7 +67,7 @@ async def store_alias_mapping(
     default_kvs_client = await _get_default_kvs_client(configuration)
 
     # Create the key for this alias
-    alias_key = f'alias:{storage_type}:{alias}'
+    alias_key = f'alias-{storage_type}-{alias}'
 
     # Store the mapping
     await default_kvs_client.set_record(alias_key, {'value': storage_id})
