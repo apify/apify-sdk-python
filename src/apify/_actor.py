@@ -25,6 +25,7 @@ from crawlee.events import (
     EventPersistStateData,
     EventSystemInfoData,
 )
+from crawlee.storage_clients import FileSystemStorageClient
 
 from apify._charging import ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
@@ -244,7 +245,13 @@ class _ActorType:
                 'Storage client in service locator was set explicitly before Actor.init was called.'
                 'Using the existing storage client as implicit storage client for the Actor.'
             )
+
         self._local_storage_client = service_locator.get_storage_client()
+        if type(self._local_storage_client) is FileSystemStorageClient:
+            self.log.warning(
+                'Using `FileSystemStorageClient` in Actor context is not recommended and can lead to '
+                'problems with reading the input file. Use `ApifyFileSystemStorageClient` instead.'
+            )
         return self._local_storage_client
 
     @property

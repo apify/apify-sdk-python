@@ -7,6 +7,7 @@ from crawlee._types import BasicCrawlingContext
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.crawlers import BasicCrawler
 from crawlee.errors import ServiceConflictError
+from crawlee.storage_clients import FileSystemStorageClient
 
 from apify import Actor
 from apify import Configuration as ApifyConfiguration
@@ -215,3 +216,15 @@ async def test_storage_retrieved_is_same_with_same_config() -> None:
         crawler_kvs = await crawler.get_key_value_store()
 
     assert actor_kvs is crawler_kvs
+
+
+async def test_file_system_storage_client_warning(caplog: pytest.LogCaptureFixture) -> None:
+    service_locator.set_storage_client(FileSystemStorageClient())
+    caplog.set_level('WARNING')
+    async with Actor():
+        ...
+
+    assert (
+        'Using `FileSystemStorageClient` in Actor context is not recommended and can lead to problems with reading '
+        'the input file. Use `ApifyFileSystemStorageClient` instead.'
+    ) in caplog.messages
