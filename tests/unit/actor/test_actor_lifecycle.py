@@ -6,6 +6,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
+from unittest import mock
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -150,9 +151,6 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
         port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
         monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
-        # Make sure there is a charging manager that can be mocked
-        Actor._get_charging_manager_implementation()
-
         mock_run_client = Mock()
         mock_run_client.run.return_value.get = AsyncMock(
             side_effect=lambda: {
@@ -182,25 +180,24 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
             }
         )
 
-        monkeypatch.setattr(Actor._charging_manager, '_client', mock_run_client)
+        with mock.patch.object(Actor, 'new_client', return_value=mock_run_client):
+            async with Actor:
+                Actor.on(Event.PERSIST_STATE, log_persist_state)
+                await asyncio.sleep(2)
 
-        async with Actor:
-            Actor.on(Event.PERSIST_STATE, log_persist_state)
-            await asyncio.sleep(2)
-
-            for socket in ws_server.connections:
-                await socket.send(
-                    json.dumps(
-                        {
-                            'name': 'migrating',
-                            'data': {
-                                'isMigrating': True,
-                            },
-                        }
+                for socket in ws_server.connections:
+                    await socket.send(
+                        json.dumps(
+                            {
+                                'name': 'migrating',
+                                'data': {
+                                    'isMigrating': True,
+                                },
+                            }
+                        )
                     )
-                )
 
-            await asyncio.sleep(1)
+                await asyncio.sleep(1)
 
     assert len(persist_state_events_data) >= 3
 
