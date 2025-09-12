@@ -41,10 +41,13 @@ async def resolve_alias_to_id(
     try:
         record = await default_kvs_client.get_record(alias_key)
         if record and record.get('value'):
-            storage_id = record['value']
-            if isinstance(storage_id, str):
-                logger.info(f'Found existing alias mapping: {alias} -> {storage_id}')
-                return storage_id
+            # The record structure is: {'value': {'value': 'storage_id'}}
+            value_data = record['value']
+            if isinstance(value_data, dict) and 'value' in value_data:
+                storage_id = value_data['value']
+                if isinstance(storage_id, str):
+                    logger.info(f'Found existing alias mapping: {alias} -> {storage_id}')
+                    return storage_id
         logger.info(f'No existing alias mapping found for {alias} (record: {record})')
     except Exception as e:
         # If there's any error accessing the record, treat it as not found
