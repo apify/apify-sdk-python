@@ -22,6 +22,7 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
     kvs_storage_client = await ApifyFileSystemKeyValueStoreClient.open(
         id=None,
         name='test-kvs',
+        alias=None,
         configuration=configuration,
     )
 
