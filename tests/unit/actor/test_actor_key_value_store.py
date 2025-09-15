@@ -106,14 +106,3 @@ async def test_get_input_with_encrypted_secrets(monkeypatch: pytest.MonkeyPatch)
         assert actor_input['secret_string'] == secret_string
         assert actor_input['secret_object'] == secret_object
         assert actor_input['secret_array'] == secret_array
-
-
-async def test_get_public_url() -> None:
-    test_key = 'test_key'
-
-    async with Actor:
-        kvs = await Actor.open_key_value_store(force_cloud=True)
-        public_url = await kvs.get_public_url(test_key)
-        assert public_url.startswith(
-            f'https://api.apify.com/v2/key-value-stores/{kvs.id}/records/{test_key}?signature='
-        )

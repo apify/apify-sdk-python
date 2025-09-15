@@ -230,3 +230,15 @@ async def test_generate_public_url_for_kvs_record(
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
+
+
+async def test_get_public_url(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    test_key = 'test_key'
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store(force_cloud=True)
+        public_url = await kvs.get_public_url(test_key)
+        assert public_url.startswith(
+            f'https://api.apify.com/v2/key-value-stores/{kvs.id}/records/{test_key}?signature='
+        )
