@@ -201,7 +201,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         public_url = (
             URL(self._api_client.root_client.public_base_url)
-            / 'v2'
             / 'key-value-stores'
             / self._api_client.resource_id
             / 'records'
