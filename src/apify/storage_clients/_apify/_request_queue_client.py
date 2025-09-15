@@ -193,6 +193,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
         apify_rqs_client = apify_client_async.request_queues()
 
+        # Normalize 'default' alias to None
+        alias = None if alias == 'default' else alias
+
         # Handle alias resolution
         if alias:
             # Try to resolve alias to existing storage ID

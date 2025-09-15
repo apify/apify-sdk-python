@@ -115,6 +115,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
         apify_kvss_client = apify_client_async.key_value_stores()
 
+        # Normalize 'default' alias to None
+        alias = None if alias == 'default' else alias
+
         # Handle alias resolution
         if alias:
             # Try to resolve alias to existing storage ID
