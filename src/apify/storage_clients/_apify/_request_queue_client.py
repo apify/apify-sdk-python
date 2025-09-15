@@ -18,6 +18,7 @@ from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
+from ._utils import resolve_alias_to_id, store_alias_mapping
 from apify import Request
 
 if TYPE_CHECKING:
@@ -135,6 +136,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         *,
         id: str | None,
         name: str | None,
+        alias: str | None,
         configuration: Configuration,
     ) -> ApifyRequestQueueClient:
         """Open an Apify request queue client.
@@ -145,21 +147,27 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         Args:
             id: The ID of an existing request queue to open. If provided, the client will connect to this specific
-                storage. Cannot be used together with `name`.
+                storage. Cannot be used together with `name` or `alias`.
             name: The name of a request queue to get or create. If a storage with this name exists, it will be opened;
-                otherwise, a new one will be created. Cannot be used together with `id`.
+                otherwise, a new one will be created. Cannot be used together with `id` or `alias`.
+            alias: The alias of a request queue for unnamed storages. If a storage with this alias exists, it will
+                be opened; otherwise, a new one will be created and the alias will be saved. Cannot be used together
+                with `id` or `name`.
             configuration: The configuration object containing API credentials and settings. Must include a valid
                 `token` and `api_base_url`. May also contain a `default_request_queue_id` for fallback when neither
-                `id` nor `name` is provided.
+                `id`, `name`, nor `alias` is provided.
 
         Returns:
             An instance for the opened or created storage client.
 
         Raises:
-            ValueError: If the configuration is missing required fields (token, api_base_url), if both `id` and `name`
-                are provided, or if neither `id` nor `name` is provided and no default storage ID is available
+            ValueError: If the configuration is missing required fields (token, api_base_url), if more than one of
+                `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
+        if sum(1 for param in [id, name, alias] if param is not None) > 1:
+            raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
+
         token = configuration.token
         if not token:
             raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
@@ -185,25 +193,29 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
         apify_rqs_client = apify_client_async.request_queues()
 
-        match (id, name):
-            case (None, None):
-                # If both id and name are None, try to get the default storage ID from environment variables.
-                # The default storage ID environment variable is set by the Apify platform. It also contains
-                # a new storage ID after Actor's reboot or migration.
-                id = configuration.default_request_queue_id
-            case (None, name):
-                # If only name is provided, get or create the storage by name.
-                id = RequestQueueMetadata.model_validate(
-                    await apify_rqs_client.get_or_create(name=name),
-                ).id
-            case (_, None):
-                # If only id is provided, use it.
-                pass
-            case (_, _):
-                # If both id and name are provided, raise an error.
-                raise ValueError('Only one of "id" or "name" can be specified, not both.')
-        if id is None:
-            raise RuntimeError('Unreachable code')
+        # Handle alias resolution
+        if alias:
+            # Try to resolve alias to existing storage ID
+            resolved_id = await resolve_alias_to_id(alias, 'request_queue', configuration)
+            if resolved_id:
+                id = resolved_id
+            else:
+                # Create a new storage and store the alias mapping
+                new_storage_metadata = RequestQueueMetadata.model_validate(
+                    await apify_rqs_client.get_or_create(),
+                )
+                id = new_storage_metadata.id
+                await store_alias_mapping(alias, 'request_queue', id, configuration)
+
+        # If name is provided, get or create the storage by name.
+        elif name:
+            id = RequestQueueMetadata.model_validate(
+                await apify_rqs_client.get_or_create(name=name),
+            ).id
+
+        # If none are provided, try to get the default storage ID from environment variables.
+        elif id is None:
+            id = configuration.default_request_queue_id
 
         # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
         # It should persist across migrated or resurrected Actor runs on the Apify platform.
@@ -227,7 +239,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Verify that the storage exists by fetching its metadata again.
         metadata = await apify_rq_client.get()
         if metadata is None:
-            raise ValueError(f'Opening request queue with id={id} and name={name} failed.')
+            raise ValueError(f'Opening request queue with id={id}, name={name}, and alias={alias} failed.')
 
         metadata_model = RequestQueueMetadata.model_validate(metadata)
 

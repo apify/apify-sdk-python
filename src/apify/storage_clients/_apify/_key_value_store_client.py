@@ -12,6 +12,7 @@ from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
+from ._utils import resolve_alias_to_id, store_alias_mapping
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -58,6 +59,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         *,
         id: str | None,
         name: str | None,
+        alias: str | None,
         configuration: Configuration,
     ) -> ApifyKeyValueStoreClient:
         """Open an Apify key-value store client.
@@ -67,21 +69,27 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         Args:
             id: The ID of an existing key-value store to open. If provided, the client will connect to this specific
-                storage. Cannot be used together with `name`.
+                storage. Cannot be used together with `name` or `alias`.
             name: The name of a key-value store to get or create. If a storage with this name exists, it will be
-                opened; otherwise, a new one will be created. Cannot be used together with `id`.
+                opened; otherwise, a new one will be created. Cannot be used together with `id` or `alias`.
+            alias: The alias of a key-value store for unnamed storages. If a storage with this alias exists, it will
+                be opened; otherwise, a new one will be created and the alias will be saved. Cannot be used together
+                with `id` or `name`.
             configuration: The configuration object containing API credentials and settings. Must include a valid
                 `token` and `api_base_url`. May also contain a `default_key_value_store_id` for fallback when
-                neither `id` nor `name` is provided.
+                neither `id`, `name`, nor `alias` is provided.
 
         Returns:
             An instance for the opened or created storage client.
 
         Raises:
-            ValueError: If the configuration is missing required fields (token, api_base_url), if both `id` and `name`
-                are provided, or if neither `id` nor `name` is provided and no default storage ID is available
+            ValueError: If the configuration is missing required fields (token, api_base_url), if more than one of
+                `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
+        if sum(1 for param in [id, name, alias] if param is not None) > 1:
+            raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
+
         token = configuration.token
         if not token:
             raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
@@ -107,27 +115,32 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
         apify_kvss_client = apify_client_async.key_value_stores()
 
-        # If both id and name are provided, raise an error.
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
-
-        # If id is provided, get the storage by ID.
-        if id and name is None:
-            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+        # Handle alias resolution
+        if alias:
+            # Try to resolve alias to existing storage ID
+            resolved_id = await resolve_alias_to_id(alias, 'key_value_store', configuration)
+            if resolved_id:
+                id = resolved_id
+            else:
+                # Create a new storage and store the alias mapping
+                new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
+                    await apify_kvss_client.get_or_create(),
+                )
+                id = new_storage_metadata.id
+                await store_alias_mapping(alias, 'key_value_store', id, configuration)
 
         # If name is provided, get or create the storage by name.
-        if name and id is None:
+        elif name:
             id = ApifyKeyValueStoreMetadata.model_validate(
                 await apify_kvss_client.get_or_create(name=name),
             ).id
-            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
 
-        # If both id and name are None, try to get the default storage ID from environment variables.
-        # The default storage ID environment variable is set by the Apify platform. It also contains
-        # a new storage ID after Actor's reboot or migration.
-        if id is None and name is None:
+        # If none are provided, try to get the default storage ID from environment variables.
+        elif id is None:
             id = configuration.default_key_value_store_id
-            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+
+        # Now create the client for the determined ID
+        apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
 
         # Fetch its metadata.
         metadata = await apify_kvs_client.get()
@@ -142,7 +155,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         # Verify that the storage exists by fetching its metadata again.
         metadata = await apify_kvs_client.get()
         if metadata is None:
-            raise ValueError(f'Opening key-value store with id={id} and name={name} failed.')
+            raise ValueError(f'Opening key-value store with id={id}, name={name}, and alias={alias} failed.')
 
         return cls(
             api_client=apify_kvs_client,

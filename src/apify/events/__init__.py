@@ -1,5 +1,5 @@
-from crawlee.events import EventManager, LocalEventManager
+from crawlee.events import Event, EventManager, LocalEventManager
 
 from ._apify_event_manager import ApifyEventManager
 
-__all__ = ['ApifyEventManager', 'EventManager', 'LocalEventManager']
+__all__ = ['ApifyEventManager', 'Event', 'EventManager', 'LocalEventManager']
