@@ -66,7 +66,7 @@ dev = [
     "crawlee[parsel]",
     "dycw-pytest-only~=2.1.0",
     "griffe",
-    "mypy~=1.17.0",
+    "mypy~=1.18.1",
     "pre-commit~=4.3.0",
     "pydoc-markdown~=4.8.0",
     "pytest-asyncio~=1.2.0",
