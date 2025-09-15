@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Any
 from typing_extensions import override
 from yarl import URL
 
-from apify_client import ApifyClientAsync
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
+from ._utils import create_apify_client, resolve_storage_id
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -31,7 +31,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         self,
         *,
         api_client: KeyValueStoreClientAsync,
-        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
@@ -40,9 +39,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         """
         self._api_client = api_client
         """The Apify KVS client for API operations."""
-
-        self._api_public_base_url = api_public_base_url
-        """The public base URL for accessing the key-value store records."""
 
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
@@ -82,55 +78,29 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                 are provided, or if neither `id` nor `name` is provided and no default storage ID is available
                 in the configuration.
         """
-        token = configuration.token
-        if not token:
-            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
-
-        api_url = configuration.api_base_url
-        if not api_url:
-            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-        api_public_base_url = configuration.api_public_base_url
-        if not api_public_base_url:
-            raise ValueError(
-                'Apify storage client requires a valid API public base URL in Configuration '
-                f'(api_public_base_url={api_public_base_url}).'
-            )
-
-        # Create Apify client with the provided token and API URL.
-        apify_client_async = ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
-        )
+        apify_client_async = create_apify_client(configuration=configuration)
         apify_kvss_client = apify_client_async.key_value_stores()
 
         # If both id and name are provided, raise an error.
         if id and name:
             raise ValueError('Only one of "id" or "name" can be specified, not both.')
 
-        # If id is provided, get the storage by ID.
-        if id and name is None:
-            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
-
-        # If name is provided, get or create the storage by name.
-        if name and id is None:
-            id = ApifyKeyValueStoreMetadata.model_validate(
+        async def id_getter() -> str:
+            return ApifyKeyValueStoreMetadata.model_validate(
                 await apify_kvss_client.get_or_create(name=name),
             ).id
-            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
 
-        # If both id and name are None, try to get the default storage ID from environment variables.
-        # The default storage ID environment variable is set by the Apify platform. It also contains
-        # a new storage ID after Actor's reboot or migration.
-        if id is None and name is None:
-            id = configuration.default_key_value_store_id
-            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+        def client_creator(id: str) -> KeyValueStoreClientAsync:
+            return apify_client_async.key_value_store(key_value_store_id=id)
 
-        # Fetch its metadata.
-        metadata = await apify_kvs_client.get()
+        id = await resolve_storage_id(
+            id, name, default_id=configuration.default_key_value_store_id, id_getter=id_getter()
+        )
+        # Create the resource client
+        apify_rq_client = client_creator(id=id)
+
+        # Verify that the storage exists by fetching its metadata.
+        metadata = await apify_rq_client.get()
 
         # If metadata is None, it means the storage does not exist, so we create it.
         if metadata is None:
@@ -146,7 +116,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         return cls(
             api_client=apify_kvs_client,
-            api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
         )
 
@@ -231,7 +200,12 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             raise ValueError('resource_id cannot be None when generating a public URL')
 
         public_url = (
-            URL(self._api_public_base_url) / 'v2' / 'key-value-stores' / self._api_client.resource_id / 'records' / key
+            URL(self._api_client.root_client.public_base_url)
+            / 'v2'
+            / 'key-value-stores'
+            / self._api_client.resource_id
+            / 'records'
+            / key
         )
         metadata = await self.get_metadata()
 
