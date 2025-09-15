@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
-from apify_client import ApifyClientAsync
 from crawlee._utils.byte_size import ByteSize
 from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
+
+from apify.storage_clients._apify._utils import create_apify_client, resolve_storage_id
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -39,7 +40,6 @@ class ApifyDatasetClient(DatasetClient):
         self,
         *,
         api_client: DatasetClientAsync,
-        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
@@ -48,9 +48,6 @@ class ApifyDatasetClient(DatasetClient):
         """
         self._api_client = api_client
         """The Apify dataset client for API operations."""
-
-        self._api_public_base_url = api_public_base_url
-        """The public base URL for accessing the key-value store records."""
 
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
@@ -90,52 +87,16 @@ class ApifyDatasetClient(DatasetClient):
                 are provided, or if neither `id` nor `name` is provided and no default storage ID is available in
                 the configuration.
         """
-        token = configuration.token
-        if not token:
-            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
-
-        api_url = configuration.api_base_url
-        if not api_url:
-            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-        api_public_base_url = configuration.api_public_base_url
-        if not api_public_base_url:
-            raise ValueError(
-                'Apify storage client requires a valid API public base URL in Configuration '
-                f'(api_public_base_url={api_public_base_url}).'
-            )
-
-        # Create Apify client with the provided token and API URL.
-        apify_client_async = ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
-        )
+        apify_client_async = create_apify_client(configuration=configuration)
         apify_datasets_client = apify_client_async.datasets()
 
-        # If both id and name are provided, raise an error.
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
-
-        # If id is provided, get the storage by ID.
-        if id and name is None:
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
-
-        # If name is provided, get or create the storage by name.
-        if name and id is None:
-            id = DatasetMetadata.model_validate(
+        async def id_getter() -> str:
+            return DatasetMetadata.model_validate(
                 await apify_datasets_client.get_or_create(name=name),
             ).id
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
 
-        # If both id and name are None, try to get the default storage ID from environment variables.
-        # The default storage ID environment variable is set by the Apify platform. It also contains
-        # a new storage ID after Actor's reboot or migration.
-        if id is None and name is None:
-            id = configuration.default_dataset_id
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
+        id = await resolve_storage_id(id, name, default_id=configuration.default_dataset_id, id_getter=id_getter())
+        apify_dataset_client = apify_client_async.dataset(dataset_id=id)
 
         # Fetch its metadata.
         metadata = await apify_dataset_client.get()
@@ -154,7 +115,6 @@ class ApifyDatasetClient(DatasetClient):
 
         return cls(
             api_client=apify_dataset_client,
-            api_public_base_url=api_public_base_url,
             lock=asyncio.Lock(),
         )
 

@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, Final
 from cachetools import LRUCache
 from typing_extensions import override
 
-from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
+from ._utils import create_apify_client, resolve_storage_id
 from apify import Request
 
 if TYPE_CHECKING:
@@ -66,6 +66,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self,
         *,
         api_client: RequestQueueClientAsync,
+        lock: asyncio.Lock,
         metadata: RequestQueueMetadata,
     ) -> None:
         """Initialize a new instance.
@@ -90,7 +91,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._should_check_for_forefront_requests = False
         """Whether to check for forefront requests in the next list_head call."""
 
-        self._fetch_lock = asyncio.Lock()
+        self._fetch_lock = lock
         """Fetch lock to minimize race conditions when communicating with API."""
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
@@ -160,51 +161,17 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 are provided, or if neither `id` nor `name` is provided and no default storage ID is available
                 in the configuration.
         """
-        token = configuration.token
-        if not token:
-            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
-
-        api_url = configuration.api_base_url
-        if not api_url:
-            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-        api_public_base_url = configuration.api_public_base_url
-        if not api_public_base_url:
-            raise ValueError(
-                'Apify storage client requires a valid API public base URL in Configuration '
-                f'(api_public_base_url={api_public_base_url}).'
-            )
-
-        # Create Apify client with the provided token and API URL.
-        apify_client_async = ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
-        )
+        apify_client_async = create_apify_client(configuration=configuration)
         apify_rqs_client = apify_client_async.request_queues()
 
-        match (id, name):
-            case (None, None):
-                # If both id and name are None, try to get the default storage ID from environment variables.
-                # The default storage ID environment variable is set by the Apify platform. It also contains
-                # a new storage ID after Actor's reboot or migration.
-                id = configuration.default_request_queue_id
-            case (None, name):
-                # If only name is provided, get or create the storage by name.
-                id = RequestQueueMetadata.model_validate(
-                    await apify_rqs_client.get_or_create(name=name),
-                ).id
-            case (_, None):
-                # If only id is provided, use it.
-                pass
-            case (_, _):
-                # If both id and name are provided, raise an error.
-                raise ValueError('Only one of "id" or "name" can be specified, not both.')
-        if id is None:
-            raise RuntimeError('Unreachable code')
+        async def id_getter() -> str:
+            return RequestQueueMetadata.model_validate(await apify_rqs_client.get_or_create(name=name)).id
 
+        id = await resolve_storage_id(
+            id, name, default_id=configuration.default_request_queue_id, id_getter=id_getter()
+        )
+
+        # Create the resource client
         # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
         # It should persist across migrated or resurrected Actor runs on the Apify platform.
         _api_max_client_key_length = 32
@@ -233,6 +200,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         return cls(
             api_client=apify_rq_client,
+            lock=asyncio.Lock(),
             metadata=metadata_model,
         )
 
