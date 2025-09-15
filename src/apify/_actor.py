@@ -413,8 +413,11 @@ class _ActorType:
 
         Args:
             id: The ID of the dataset to open. If provided, searches for existing dataset by ID.
-            name: The name of the dataset for named storages. Mutually exclusive with alias.
-            alias: The alias of the dataset for unnamed storages. Mutually exclusive with name.
+                Mutually exclusive with name and alias.
+            name: The name of the dataset to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the dataset to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             force_cloud: If set to `True` then the Apify cloud storage is always used. This way it is possible
                 to combine local and cloud storage.
 
@@ -449,8 +452,11 @@ class _ActorType:
 
         Args:
             id: The ID of the KVS to open. If provided, searches for existing KVS by ID.
-            name: The name of the KVS for named storages. Mutually exclusive with alias.
-            alias: The alias of the KVS for unnamed storages. Mutually exclusive with name.
+                Mutually exclusive with name and alias.
+            name: The name of the KVS to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the KVS to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             force_cloud: If set to `True` then the Apify cloud storage is always used. This way it is possible
                 to combine local and cloud storage.
 
@@ -485,9 +491,12 @@ class _ActorType:
         crawling orders.
 
         Args:
-            id: The ID of the request queue to open. If provided, searches for existing request queue by ID.
-            name: The name of the request queue for named storages. Mutually exclusive with alias.
-            alias: The alias of the request queue for unnamed storages. Mutually exclusive with name.
+            id: The ID of the RQ to open. If provided, searches for existing RQ by ID.
+                Mutually exclusive with name and alias.
+            name: The name of the RQ to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the RQ to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             force_cloud: If set to `True` then the Apify cloud storage is always used. This way it is possible
                 to combine local and cloud storage.
 

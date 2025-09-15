@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from apify_client import ApifyClientAsync
 
@@ -15,7 +15,7 @@ logger = getLogger(__name__)
 
 async def resolve_alias_to_id(
     alias: str,
-    storage_type: str,
+    storage_type: Literal['dataset', 'kvs', 'rq'],
     configuration: Configuration,
 ) -> str | None:
     """Resolve a storage alias to its corresponding storage ID.
@@ -52,7 +52,7 @@ async def resolve_alias_to_id(
 
 async def store_alias_mapping(
     alias: str,
-    storage_type: str,
+    storage_type: Literal['dataset', 'kvs', 'rq'],
     storage_id: str,
     configuration: Configuration,
 ) -> None:

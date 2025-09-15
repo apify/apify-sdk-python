@@ -77,13 +77,12 @@ class ApifyDatasetClient(DatasetClient):
         It handles authentication, storage lookup/creation, and metadata retrieval.
 
         Args:
-            id: The ID of an existing dataset to open. If provided, the client will connect to this specific storage.
-                Cannot be used together with `name` or `alias`.
-            name: The name of a dataset to get or create. If a storage with this name exists, it will be opened;
-                otherwise, a new one will be created. Cannot be used together with `id` or `alias`.
-            alias: The alias of a dataset for unnamed storages. If a storage with this alias exists, it will be
-                opened; otherwise, a new one will be created and the alias will be saved. Cannot be used together
-                with `id` or `name`.
+            id: The ID of the dataset to open. If provided, searches for existing dataset by ID.
+                Mutually exclusive with name and alias.
+            name: The name of the dataset to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the dataset to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             configuration: The configuration object containing API credentials and settings. Must include a valid
                 `token` and `api_base_url`. May also contain a `default_dataset_id` for fallback when neither
                 `id`, `name`, nor `alias` is provided.

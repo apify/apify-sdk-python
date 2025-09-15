@@ -405,6 +405,7 @@ async def test_rq_defaults(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
+        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:
@@ -445,6 +446,7 @@ async def test_rq_aliases(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
+        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:

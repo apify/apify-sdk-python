@@ -68,13 +68,12 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         It handles authentication, storage lookup/creation, and metadata retrieval.
 
         Args:
-            id: The ID of an existing key-value store to open. If provided, the client will connect to this specific
-                storage. Cannot be used together with `name` or `alias`.
-            name: The name of a key-value store to get or create. If a storage with this name exists, it will be
-                opened; otherwise, a new one will be created. Cannot be used together with `id` or `alias`.
-            alias: The alias of a key-value store for unnamed storages. If a storage with this alias exists, it will
-                be opened; otherwise, a new one will be created and the alias will be saved. Cannot be used together
-                with `id` or `name`.
+            id: The ID of the KVS to open. If provided, searches for existing KVS by ID.
+                Mutually exclusive with name and alias.
+            name: The name of the KVS to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the KVS to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             configuration: The configuration object containing API credentials and settings. Must include a valid
                 `token` and `api_base_url`. May also contain a `default_key_value_store_id` for fallback when
                 neither `id`, `name`, nor `alias` is provided.
@@ -121,7 +120,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         # Handle alias resolution
         if alias:
             # Try to resolve alias to existing storage ID
-            resolved_id = await resolve_alias_to_id(alias, 'key_value_store', configuration)
+            resolved_id = await resolve_alias_to_id(alias, 'kvs', configuration)
             if resolved_id:
                 id = resolved_id
             else:
@@ -130,7 +129,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                     await apify_kvss_client.get_or_create(),
                 )
                 id = new_storage_metadata.id
-                await store_alias_mapping(alias, 'key_value_store', id, configuration)
+                await store_alias_mapping(alias, 'kvs', id, configuration)
 
         # If name is provided, get or create the storage by name.
         elif name:
