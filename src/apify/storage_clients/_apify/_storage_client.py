@@ -30,7 +30,7 @@ class ApifyStorageClient(StorageClient):
     @override
     def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if isinstance(configuration, ApifyConfiguration):
-            return f'{configuration.api_base_url},{configuration.token}'
+            return f'{configuration.api_base_url};{configuration.token}'
         raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
 
     @override

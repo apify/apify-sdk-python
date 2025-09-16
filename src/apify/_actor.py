@@ -9,6 +9,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 from lazy_object_proxy import Proxy
+from lazy_object_proxy.utils import await_
 from more_itertools import flatten
 from pydantic import AliasChoices
 
@@ -346,6 +347,13 @@ class _ActorType:
 
         # TODO: Print outdated SDK version warning (we need a new env var for this)
         # https://github.com/apify/apify-sdk-python/issues/146
+
+        # Find and import NDU storages
+        await self._load_alias_cache_from_kvs(
+            kvs=await self.open_key_value_store(),
+            decryption_key=self.configuration.token
+        )
+
 
         await self.event_manager.__aenter__()
         self.log.debug('Event manager initialized')
