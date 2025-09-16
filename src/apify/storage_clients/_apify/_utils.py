@@ -38,6 +38,10 @@ async def resolve_alias_to_id(
     try:
         record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
 
+        # get_record can return {key: ..., value: ..., content_type: ...}
+        if isinstance(record, dict) and 'value' in record:
+            record = record['value']
+
         # Extract the actual data from the KVS record
         if isinstance(record, dict) and alias_key in record:
             storage_id = record[alias_key]
@@ -71,6 +75,10 @@ async def store_alias_mapping(
 
     try:
         record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
+
+        # get_record can return {key: ..., value: ..., content_type: ...}
+        if isinstance(record, dict) and 'value' in record:
+            record = record['value']
 
         # Update or create the record with the new alias mapping
         if isinstance(record, dict):
