@@ -25,6 +25,7 @@ class ApifyStorageClient(StorageClient):
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyDatasetClient:
         # Import here to avoid circular imports.
@@ -32,7 +33,7 @@ class ApifyStorageClient(StorageClient):
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
+            return await ApifyDatasetClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
@@ -45,6 +46,7 @@ class ApifyStorageClient(StorageClient):
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyKeyValueStoreClient:
         # Import here to avoid circular imports.
@@ -52,7 +54,7 @@ class ApifyStorageClient(StorageClient):
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
+            return await ApifyKeyValueStoreClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
@@ -65,6 +67,7 @@ class ApifyStorageClient(StorageClient):
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
         configuration: Configuration | None = None,
     ) -> ApifyRequestQueueClient:
         # Import here to avoid circular imports.
@@ -72,7 +75,7 @@ class ApifyStorageClient(StorageClient):
 
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
+            return await ApifyRequestQueueClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(
             f'Expected "configuration" to be an instance of "apify.Configuration", '
