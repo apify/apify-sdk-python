@@ -12,6 +12,8 @@ from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
+from ._utils import resolve_alias_to_id, store_alias_mapping
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -66,6 +68,7 @@ class ApifyDatasetClient(DatasetClient):
         *,
         id: str | None,
         name: str | None,
+        alias: str | None,
         configuration: Configuration,
     ) -> ApifyDatasetClient:
         """Open an Apify dataset client.
@@ -74,22 +77,27 @@ class ApifyDatasetClient(DatasetClient):
         It handles authentication, storage lookup/creation, and metadata retrieval.
 
         Args:
-            id: The ID of an existing dataset to open. If provided, the client will connect to this specific storage.
-                Cannot be used together with `name`.
-            name: The name of a dataset to get or create. If a storage with this name exists, it will be opened;
-                otherwise, a new one will be created. Cannot be used together with `id`.
+            id: The ID of the dataset to open. If provided, searches for existing dataset by ID.
+                Mutually exclusive with name and alias.
+            name: The name of the dataset to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the dataset to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             configuration: The configuration object containing API credentials and settings. Must include a valid
                 `token` and `api_base_url`. May also contain a `default_dataset_id` for fallback when neither
-                `id` nor `name` is provided.
+                `id`, `name`, nor `alias` is provided.
 
         Returns:
             An instance for the opened or created storage client.
 
         Raises:
-            ValueError: If the configuration is missing required fields (token, api_base_url), if both `id` and `name`
-                are provided, or if neither `id` nor `name` is provided and no default storage ID is available in
-                the configuration.
+            ValueError: If the configuration is missing required fields (token, api_base_url), if more than one of
+                `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
+                in the configuration.
         """
+        if sum(1 for param in [id, name, alias] if param is not None) > 1:
+            raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
+
         token = configuration.token
         if not token:
             raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
@@ -115,27 +123,35 @@ class ApifyDatasetClient(DatasetClient):
         )
         apify_datasets_client = apify_client_async.datasets()
 
-        # If both id and name are provided, raise an error.
-        if id and name:
-            raise ValueError('Only one of "id" or "name" can be specified, not both.')
+        # Normalize 'default' alias to None
+        alias = None if alias == 'default' else alias
 
-        # If id is provided, get the storage by ID.
-        if id and name is None:
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
+        # Handle alias resolution
+        if alias:
+            # Try to resolve alias to existing storage ID
+            resolved_id = await resolve_alias_to_id(alias, 'dataset', configuration)
+            if resolved_id:
+                id = resolved_id
+            else:
+                # Create a new storage and store the alias mapping
+                new_storage_metadata = DatasetMetadata.model_validate(
+                    await apify_datasets_client.get_or_create(),
+                )
+                id = new_storage_metadata.id
+                await store_alias_mapping(alias, 'dataset', id, configuration)
 
         # If name is provided, get or create the storage by name.
-        if name and id is None:
+        elif name:
             id = DatasetMetadata.model_validate(
                 await apify_datasets_client.get_or_create(name=name),
             ).id
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
 
-        # If both id and name are None, try to get the default storage ID from environment variables.
-        # The default storage ID environment variable is set by the Apify platform. It also contains
-        # a new storage ID after Actor's reboot or migration.
-        if id is None and name is None:
+        # If none are provided, try to get the default storage ID from environment variables.
+        elif id is None:
             id = configuration.default_dataset_id
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
+
+        # Now create the client for the determined ID
+        apify_dataset_client = apify_client_async.dataset(dataset_id=id)
 
         # Fetch its metadata.
         metadata = await apify_dataset_client.get()
@@ -150,7 +166,7 @@ class ApifyDatasetClient(DatasetClient):
         # Verify that the storage exists by fetching its metadata again.
         metadata = await apify_dataset_client.get()
         if metadata is None:
-            raise ValueError(f'Opening dataset with id={id} and name={name} failed.')
+            raise ValueError(f'Opening dataset with id={id}, name={name}, and alias={alias} failed.')
 
         return cls(
             api_client=apify_dataset_client,

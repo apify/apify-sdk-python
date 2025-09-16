@@ -469,6 +469,7 @@ class _ActorType:
         self,
         *,
         id: str | None = None,
+        alias: str | None = None,
         name: str | None = None,
         force_cloud: bool = False,
     ) -> Dataset:
@@ -479,10 +480,12 @@ class _ActorType:
         the Apify cloud.
 
         Args:
-            id: ID of the dataset to be opened. If neither `id` nor `name` are provided, the method returns
-                the default dataset associated with the Actor run.
-            name: Name of the dataset to be opened. If neither `id` nor `name` are provided, the method returns
-                the default dataset associated with the Actor run.
+            id: The ID of the dataset to open. If provided, searches for existing dataset by ID.
+                Mutually exclusive with name and alias.
+            name: The name of the dataset to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the dataset to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             force_cloud: If set to `True` then the Apify cloud storage is always used. This way it is possible
                 to combine local and cloud storage.
 
@@ -496,6 +499,7 @@ class _ActorType:
 
         return await Dataset.open(
             id=id,
+            alias=alias,
             name=name,
             storage_client=storage_client,
         )
@@ -504,6 +508,7 @@ class _ActorType:
         self,
         *,
         id: str | None = None,
+        alias: str | None = None,
         name: str | None = None,
         force_cloud: bool = False,
     ) -> KeyValueStore:
@@ -513,10 +518,12 @@ class _ActorType:
         and retrieved using a unique key. The actual data is stored either on a local filesystem or in the Apify cloud.
 
         Args:
-            id: ID of the key-value store to be opened. If neither `id` nor `name` are provided, the method returns
-                the default key-value store associated with the Actor run.
-            name: Name of the key-value store to be opened. If neither `id` nor `name` are provided, the method
-                returns the default key-value store associated with the Actor run.
+            id: The ID of the KVS to open. If provided, searches for existing KVS by ID.
+                Mutually exclusive with name and alias.
+            name: The name of the KVS to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the KVS to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             force_cloud: If set to `True` then the Apify cloud storage is always used. This way it is possible
                 to combine local and cloud storage.
 
@@ -529,6 +536,7 @@ class _ActorType:
 
         return await KeyValueStore.open(
             id=id,
+            alias=alias,
             name=name,
             storage_client=storage_client,
         )
@@ -537,6 +545,7 @@ class _ActorType:
         self,
         *,
         id: str | None = None,
+        alias: str | None = None,
         name: str | None = None,
         force_cloud: bool = False,
     ) -> RequestQueue:
@@ -548,10 +557,12 @@ class _ActorType:
         crawling orders.
 
         Args:
-            id: ID of the request queue to be opened. If neither `id` nor `name` are provided, the method returns
-                the default request queue associated with the Actor run.
-            name: Name of the request queue to be opened. If neither `id` nor `name` are provided, the method returns
-                the default request queue associated with the Actor run.
+            id: The ID of the RQ to open. If provided, searches for existing RQ by ID.
+                Mutually exclusive with name and alias.
+            name: The name of the RQ to open (global scope, persists across runs).
+                Mutually exclusive with id and alias.
+            alias: The alias of the RQ to open (run scope, creates unnamed storage).
+                Mutually exclusive with id and name.
             force_cloud: If set to `True` then the Apify cloud storage is always used. This way it is possible
                 to combine local and cloud storage.
 
@@ -565,6 +576,7 @@ class _ActorType:
 
         return await RequestQueue.open(
             id=id,
+            alias=alias,
             name=name,
             storage_client=storage_client,
         )

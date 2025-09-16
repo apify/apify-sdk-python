@@ -44,7 +44,7 @@ class ApifyStorageClient(StorageClient):
     ) -> ApifyDatasetClient:
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyDatasetClient.open(id=id, name=name, configuration=configuration)
+            return await ApifyDatasetClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
 
@@ -59,7 +59,7 @@ class ApifyStorageClient(StorageClient):
     ) -> ApifyKeyValueStoreClient:
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
+            return await ApifyKeyValueStoreClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
 
@@ -74,6 +74,6 @@ class ApifyStorageClient(StorageClient):
     ) -> ApifyRequestQueueClient:
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyRequestQueueClient.open(id=id, name=name, configuration=configuration)
+            return await ApifyRequestQueueClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
