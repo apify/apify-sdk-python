@@ -78,7 +78,7 @@ requires-dist = [
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", specifier = "==0.6.13b37" },
     { name = "cryptography", specifier = ">=42.0.0" },
-    { name = "impit", specifier = ">=0.5.3" },
+    { name = "impit", specifier = ">=0.6.1" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
     { name = "more-itertools", specifier = ">=10.2.0" },
     { name = "scrapy", marker = "extra == 'scrapy'", specifier = ">=2.11.0" },
