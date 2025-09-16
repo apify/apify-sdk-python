@@ -39,7 +39,7 @@ dependencies = [
     "crawlee==0.6.13b37",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
-    "impit>=0.5.3",
+    "impit>=0.6.1",
     "lazy-object-proxy>=1.11.0",
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",
