@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+_ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
+
 
 async def resolve_alias_to_id(
     alias: str,
@@ -30,22 +32,20 @@ async def resolve_alias_to_id(
     """
     default_kvs_client = await _get_default_kvs_client(configuration)
 
-    # Create the key for this alias
+    # Create the dictionary key for this alias.
     alias_key = f'alias-{storage_type}-{alias}'
 
-    # Try to get the stored ID for this alias
     try:
-        record = await default_kvs_client.get_record(alias_key)
-        if record and record.get('value'):
-            # The record structure is: {'value': {'value': 'storage_id'}}
-            value_data = record['value']
-            if isinstance(value_data, dict) and 'value' in value_data:
-                storage_id = value_data['value']
-                if isinstance(storage_id, str):
-                    return storage_id
-    except Exception as e:
-        # If there's any error accessing the record, treat it as not found
-        logger.warning(f'Error accessing alias mapping for {alias}: {e}')
+        record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
+
+        # Extract the actual data from the KVS record
+        if isinstance(record, dict) and alias_key in record:
+            storage_id = record[alias_key]
+            return str(storage_id)
+
+    except Exception as exc:
+        # If there's any error accessing the record, treat it as not found.
+        logger.warning(f'Error accessing alias mapping for {alias}: {exc}')
 
     return None
 
@@ -66,11 +66,22 @@ async def store_alias_mapping(
     """
     default_kvs_client = await _get_default_kvs_client(configuration)
 
-    # Create the key for this alias (must match the format in resolve_alias_to_id)
+    # Create the dictionary key for this alias.
     alias_key = f'alias-{storage_type}-{alias}'
 
-    # Store the mapping
-    await default_kvs_client.set_record(alias_key, {'value': storage_id})
+    try:
+        record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
+
+        # Update or create the record with the new alias mapping
+        if isinstance(record, dict):
+            record[alias_key] = storage_id
+        else:
+            record = {alias_key: storage_id}
+
+        # Store the mapping back in the KVS.
+        await default_kvs_client.set_record(_ALIAS_MAPPING_KEY, record)
+    except Exception as exc:
+        logger.warning(f'Error accessing alias mapping for {alias}: {exc}')
 
 
 async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
