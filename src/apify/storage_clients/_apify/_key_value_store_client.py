@@ -13,7 +13,7 @@ from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRec
 from crawlee.storages import KeyValueStore
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
-from ._utils import _Alias
+from ._utils import Alias
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -119,14 +119,19 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         alias = None if alias == 'default' else alias
 
         if alias:
-            # Create a new storage and store the alias mapping
-            new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
-                await apify_kvss_client.get_or_create(),
-            )
-            id = new_storage_metadata.id
-            await _Alias(
-                storage_type=KeyValueStore, alias=alias, token=token, api_url=api_url
-            ).store_mapping_to_apify_kvs(storage_id=id)
+            # Check if there is pre-existing alias mapping in the default KVS.
+            async with Alias(storage_type=KeyValueStore, alias=alias, configuration=configuration) as _alias:
+                id = await _alias.resolve_id()
+
+                # There was no pre-existing alias in the mapping.
+                # Create a new unnamed storage and store the mapping.
+                if id is None:
+                    # Create a new storage and store the alias mapping
+                    new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
+                        await apify_kvss_client.get_or_create(),
+                    )
+                    id = new_storage_metadata.id
+                    await _alias.store_mapping(storage_id=id)
 
         # If name is provided, get or create the storage by name.
         elif name:

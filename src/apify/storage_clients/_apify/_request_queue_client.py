@@ -19,7 +19,7 @@ from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest
 from crawlee.storages import RequestQueue
 
 from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
-from ._utils import _Alias
+from ._utils import Alias
 from apify import Request
 
 if TYPE_CHECKING:
@@ -194,14 +194,18 @@ class ApifyRequestQueueClient(RequestQueueClient):
         apify_rqs_client = apify_client_async.request_queues()
 
         if alias:
-            # Create a new storage and store the alias mapping
-            new_storage_metadata = RequestQueueMetadata.model_validate(
-                await apify_rqs_client.get_or_create(),
-            )
-            id = new_storage_metadata.id
-            await _Alias(
-                storage_type=RequestQueue, alias=alias, token=token, api_url=api_url
-            ).store_mapping_to_apify_kvs(storage_id=id)
+            # Check if there is pre-existing alias mapping in the default KVS.
+            async with Alias(storage_type=RequestQueue, alias=alias, configuration=configuration) as _alias:
+                id = await _alias.resolve_id()
+
+                # There was no pre-existing alias in the mapping.
+                # Create a new unnamed storage and store the mapping.
+                if id is None:
+                    new_storage_metadata = RequestQueueMetadata.model_validate(
+                        await apify_rqs_client.get_or_create(),
+                    )
+                    id = new_storage_metadata.id
+                    await _alias.store_mapping(storage_id=id)
 
         # If name is provided, get or create the storage by name.
         elif name:
