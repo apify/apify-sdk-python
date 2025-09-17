@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from asyncio import Lock
 from typing import TYPE_CHECKING
 
@@ -118,6 +119,14 @@ class ApifyStorageClient(StorageClient):
         This method is called once to populate storage_instance_manager alias related cache. All existing alias
         storages are saved in storage_instance_manager cache. If the alias storage is not there, it does not exist yet.
         """
+        if not Configuration.get_global_configuration().is_at_home:
+            logging.getLogger(__name__).warning(
+                'Alias storage limited retention is only supported on Apify platform. '
+                'No pre-existing storages are imported.'
+            )
+            cls._alias_storages_initialized = True
+            return
+
         async with cls.get_alias_init_lock():
             if cls._alias_storages_initialized:
                 return

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -89,6 +90,12 @@ class _Alias:
         return Fernet(base64.urlsafe_b64encode(token_32))
 
     async def store_mapping_to_apify_kvs(self, storage_id: str) -> None:
+        if not Configuration.get_global_configuration().is_at_home:
+            logging.getLogger(__name__).warning(
+                'Alias storage limited retention is only supported on Apify platform. Storage is not exported.'
+            )
+            return
+
         default_kvs_client = await self.get_default_kvs_client()
         await default_kvs_client.get()
 
@@ -117,7 +124,7 @@ class _Alias:
         # Create Apify client with the provided token and API URL
 
         configuration = Configuration.get_global_configuration()
-        if configuration.is_at_home:
+        if not configuration.is_at_home:
             raise NotImplementedError('Alias storages are only supported on Apify platform at the moment.')
 
         apify_client_async = ApifyClientAsync(
