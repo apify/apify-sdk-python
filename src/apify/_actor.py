@@ -197,7 +197,7 @@ class _ActorType:
 
     @property
     def configuration(self) -> Configuration:
-        """The Configuration instance the Actor instance uses."""
+        """The Configuration instance the Actor instance uses. Deprecated."""
         return self.config
 
     @property
@@ -225,7 +225,7 @@ class _ActorType:
             )
         # Use the configuration from the service locator
         self._configuration = Configuration.get_global_configuration()
-        return self.configuration
+        return self.config
 
     def _finalize_implicit_local_storage_client(self) -> StorageClient:
         """Set implicit local storage client in the actor and return it.
@@ -304,7 +304,7 @@ class _ActorType:
         """
         if self._configuration:
             # Set explicitly the configuration in the service locator
-            service_locator.set_configuration(self.configuration)
+            service_locator.set_configuration(self.config)
         else:
             self._finalize_implicit_configuration()
 
@@ -496,6 +496,7 @@ class _ActorType:
             id=id,
             alias=alias,
             name=name,
+            configuration=self.config,
             storage_client=storage_client,
         )
 
@@ -533,6 +534,7 @@ class _ActorType:
             id=id,
             alias=alias,
             name=name,
+            configuration=self.config,
             storage_client=storage_client,
         )
 
@@ -573,6 +575,7 @@ class _ActorType:
             id=id,
             alias=alias,
             name=name,
+            configuration=self.config,
             storage_client=storage_client,
         )
 
@@ -867,13 +870,13 @@ class _ActorType:
 
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the actor timeout. Returns `None` if not on an Apify platform."""
-        if self.is_at_home() and self.configuration.timeout_at:
-            return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
+        if self.is_at_home() and self.config.timeout_at:
+            return self.config.timeout_at - datetime.now(tz=timezone.utc)
 
         self.log.warning(
             'Returning `None` instead of remaining time. Using `RemainingTime` argument is only possible when the Actor'
             ' is running on the Apify platform and when the timeout for the Actor run is set. '
-            f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
+            f'{self.is_at_home()=}, {self.config.timeout_at=}'
         )
         return None
 

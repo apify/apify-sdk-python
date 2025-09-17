@@ -30,7 +30,7 @@ async def test_actor_start_remaining_timeout(
 
             # Start another run of this actor with timeout set to the time remaining in this actor run
             other_run_data = await Actor.call(
-                actor_id=Actor.configuration.actor_id or '',
+                actor_id=Actor.config.actor_id or '',
                 run_input={'called_from_another_actor': True},
                 timeout='RemainingTime',
             )
@@ -39,13 +39,13 @@ async def test_actor_start_remaining_timeout(
                 # To make sure that the actor is started
                 await asyncio.sleep(5)
                 assert other_run_data.options is not None
-                assert Actor.configuration.timeout_at is not None
-                assert Actor.configuration.started_at is not None
+                assert Actor.config.timeout_at is not None
+                assert Actor.config.started_at is not None
 
-                remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=timezone.utc)
+                remaining_time_after_actor_start = Actor.config.timeout_at - datetime.now(tz=timezone.utc)
 
                 assert other_run_data.options.timeout > remaining_time_after_actor_start
-                assert other_run_data.options.timeout < Actor.configuration.timeout_at - Actor.configuration.started_at
+                assert other_run_data.options.timeout < Actor.config.timeout_at - Actor.config.started_at
             finally:
                 # Make sure the other actor run is aborted
                 await Actor.apify_client.run(other_run_data.id).abort()
@@ -77,7 +77,7 @@ async def test_actor_call_remaining_timeout(
 
             # Start another run of this actor with timeout set to the time remaining in this actor run
             other_run_data = await Actor.call(
-                actor_id=Actor.configuration.actor_id or '',
+                actor_id=Actor.config.actor_id or '',
                 run_input={'called_from_another_actor': True},
                 timeout='RemainingTime',
             )
@@ -88,13 +88,13 @@ async def test_actor_call_remaining_timeout(
                 await asyncio.sleep(5)
 
                 assert other_run_data.options is not None
-                assert Actor.configuration.timeout_at is not None
-                assert Actor.configuration.started_at is not None
+                assert Actor.config.timeout_at is not None
+                assert Actor.config.started_at is not None
 
-                remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=timezone.utc)
+                remaining_time_after_actor_start = Actor.config.timeout_at - datetime.now(tz=timezone.utc)
 
                 assert other_run_data.options.timeout > remaining_time_after_actor_start
-                assert other_run_data.options.timeout < Actor.configuration.timeout_at - Actor.configuration.started_at
+                assert other_run_data.options.timeout < Actor.config.timeout_at - Actor.config.started_at
             finally:
                 # Make sure the other actor run is aborted
                 await Actor.apify_client.run(other_run_data.id).abort()

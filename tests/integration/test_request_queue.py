@@ -1038,7 +1038,7 @@ async def test_rq_isolation(
     async def main() -> None:
         async with Actor:
             # Get the unique actor name for creating unique queue names
-            actor_name = Actor.configuration.actor_id
+            actor_name = Actor.config.actor_id
 
             # Open multiple queues with unique names
             rq1 = await Actor.open_request_queue(name=f'{actor_name}-rq-1')

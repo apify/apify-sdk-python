@@ -16,4 +16,4 @@ async def test_actor_global_works() -> None:
     non_default_configuration = Configuration(actor_full_name='Actor McActorson, esq.')
 
     async with Actor(configuration=non_default_configuration):
-        assert Actor.configuration is non_default_configuration
+        assert Actor.config is non_default_configuration
