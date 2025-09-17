@@ -10,9 +10,10 @@ from yarl import URL
 from apify_client import ApifyClientAsync
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
+from crawlee.storages import KeyValueStore
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
-from ._utils import resolve_alias_to_id, store_alias_mapping
+from ._utils import _Alias
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -117,19 +118,15 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         # Normalize 'default' alias to None
         alias = None if alias == 'default' else alias
 
-        # Handle alias resolution
         if alias:
-            # Try to resolve alias to existing storage ID
-            resolved_id = await resolve_alias_to_id(alias, 'kvs', configuration)
-            if resolved_id:
-                id = resolved_id
-            else:
-                # Create a new storage and store the alias mapping
-                new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
-                    await apify_kvss_client.get_or_create(),
-                )
-                id = new_storage_metadata.id
-                await store_alias_mapping(alias, 'kvs', id, configuration)
+            # Create a new storage and store the alias mapping
+            new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
+                await apify_kvss_client.get_or_create(),
+            )
+            id = new_storage_metadata.id
+            await _Alias(
+                storage_type=KeyValueStore, alias=alias, token=token, api_url=api_url
+            ).store_mapping_to_apify_kvs(storage_id=id)
 
         # If name is provided, get or create the storage by name.
         elif name:

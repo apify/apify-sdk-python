@@ -1,117 +1,121 @@
 from __future__ import annotations
 
+import base64
 from logging import getLogger
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
+
+from cryptography.fernet import Fernet
 
 from apify_client import ApifyClientAsync
+from crawlee.storages import Dataset, KeyValueStore, RequestQueue
+
+from apify._configuration import Configuration
 
 if TYPE_CHECKING:
     from apify_client.clients import KeyValueStoreClientAsync
 
-    from apify import Configuration
 
 logger = getLogger(__name__)
 
 _ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
+_StorageT = type[Dataset | KeyValueStore | RequestQueue]
 
 
-async def resolve_alias_to_id(
-    alias: str,
-    storage_type: Literal['dataset', 'kvs', 'rq'],
-    configuration: Configuration,
-) -> str | None:
-    """Resolve a storage alias to its corresponding storage ID.
+class _Alias:
+    """Class representing an alias for a storage.
 
-    Args:
-        alias: The alias to resolve.
-        storage_type: Type of storage ('dataset', 'key_value_store', or 'request_queue').
-        configuration: The configuration object containing API credentials.
-
-    Returns:
-        The storage ID if found, None if the alias doesn't exist.
+    It includes helper methods for serialization/deserialization and storing to default kvs.
     """
-    default_kvs_client = await _get_default_kvs_client(configuration)
 
-    # Create the dictionary key for this alias.
-    alias_key = f'alias-{storage_type}-{alias}'
+    ALIAS_SEPARATOR = ','
+    ADDITIONAL_CACHE_KEY_SEPARATOR = ';'
 
-    try:
-        record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
+    def __init__(self, storage_type: _StorageT, alias: str, token: str, api_url: str) -> None:
+        self.storage_type = storage_type
+        self.alias = alias
+        self.api_url = api_url
+        # Token used to access the storage
+        self.token = token
 
-        # get_record can return {key: ..., value: ..., content_type: ...}
-        if isinstance(record, dict) and 'value' in record:
-            record = record['value']
+    @classmethod
+    def get_additional_cache_key(cls, api_url: str, token: str) -> str:
+        encryption_key = Configuration.get_global_configuration().token
+        if encryption_key is not None:
+            encrypted_token = cls._create_fernet(encryption_key).encrypt(token.encode()).decode()
+            return cls.ADDITIONAL_CACHE_KEY_SEPARATOR.join([api_url, encrypted_token])
+        raise ValueError('Configuration.token not set.')
 
-        # Extract the actual data from the KVS record
-        if isinstance(record, dict) and alias_key in record:
-            storage_id = record[alias_key]
-            return str(storage_id)
+    @property
+    def additional_cache_key(self) -> str:
+        return self.get_additional_cache_key(self.api_url, self.token)
 
-    except Exception as exc:
-        # If there's any error accessing the record, treat it as not found.
-        logger.warning(f'Error accessing alias mapping for {alias}: {exc}')
+    @classmethod
+    def from_exported_string(cls, alias_as_string: str) -> _Alias:
+        storage_map: dict[str, _StorageT] = {
+            'Dataset': Dataset,
+            'KeyValueStore': KeyValueStore,
+            'RequestQueue': RequestQueue,
+        }
+        _, storage_class_name, alias, encrypted_additional_cache_key = alias_as_string.split(cls.ALIAS_SEPARATOR)
+        api_url, encrypted_token = encrypted_additional_cache_key.split(cls.ADDITIONAL_CACHE_KEY_SEPARATOR)
 
-    return None
-
-
-async def store_alias_mapping(
-    alias: str,
-    storage_type: Literal['dataset', 'kvs', 'rq'],
-    storage_id: str,
-    configuration: Configuration,
-) -> None:
-    """Store a mapping from alias to storage ID in the default key-value store.
-
-    Args:
-        alias: The alias to store.
-        storage_type: Type of storage ('dataset', 'key_value_store', or 'request_queue').
-        storage_id: The storage ID to map the alias to.
-        configuration: The configuration object containing API credentials.
-    """
-    default_kvs_client = await _get_default_kvs_client(configuration)
-
-    # Create the dictionary key for this alias.
-    alias_key = f'alias-{storage_type}-{alias}'
-
-    try:
-        record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
-
-        # get_record can return {key: ..., value: ..., content_type: ...}
-        if isinstance(record, dict) and 'value' in record:
-            record = record['value']
-
-        # Update or create the record with the new alias mapping
-        if isinstance(record, dict):
-            record[alias_key] = storage_id
+        decryption_key = Configuration.get_global_configuration().token
+        if decryption_key is not None:
+            token = cls._create_fernet(decryption_key).decrypt(encrypted_token).decode()
         else:
-            record = {alias_key: storage_id}
+            raise ValueError('Configuration.token not set.')
 
-        # Store the mapping back in the KVS.
-        await default_kvs_client.set_record(_ALIAS_MAPPING_KEY, record)
-    except Exception as exc:
-        logger.warning(f'Error accessing alias mapping for {alias}: {exc}')
+        return cls(storage_type=storage_map[storage_class_name], alias=alias, api_url=api_url, token=token)
 
+    def __str__(self) -> str:
+        return self.ALIAS_SEPARATOR.join([self.storage_type.__name__, self.alias, self.additional_cache_key])
 
-async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
-    """Get a client for the default key-value store."""
-    token = configuration.token
-    if not token:
-        raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
+    @staticmethod
+    def _create_fernet(token: str) -> Fernet:
+        """Create Fernet for encryption based on the token."""
+        # Make sure the token is of a size 32 by combination of padding and cutting
+        token_length = 32
+        padding = 'a'
+        token_32 = ((token.rjust(token_length, padding))[-token_length:]).encode()
+        return Fernet(base64.urlsafe_b64encode(token_32))
 
-    api_url = configuration.api_base_url
-    if not api_url:
-        raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
+    async def store_mapping_to_apify_kvs(self, storage_id: str) -> None:
+        default_kvs_client = await self.get_default_kvs_client()
+        await default_kvs_client.get()
 
-    # Create Apify client with the provided token and API URL
-    apify_client_async = ApifyClientAsync(
-        token=token,
-        api_url=api_url,
-        max_retries=8,
-        min_delay_between_retries_millis=500,
-        timeout_secs=360,
-    )
+        try:
+            record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
 
-    # Get the default key-value store ID from configuration
-    default_kvs_id = configuration.default_key_value_store_id
+            # get_record can return {key: ..., value: ..., content_type: ...}
+            if isinstance(record, dict) and 'value' in record:
+                record = record['value']
 
-    return apify_client_async.key_value_store(key_value_store_id=default_kvs_id)
+            # Update or create the record with the new alias mapping
+            if isinstance(record, dict):
+                record[str(self)] = storage_id
+            else:
+                record = {str(self): storage_id}
+
+            # Store the mapping back in the KVS.
+            await default_kvs_client.set_record(_ALIAS_MAPPING_KEY, record)
+        except Exception as exc:
+            logger.warning(f'Error accessing alias mapping for {self.alias}: {exc}')
+
+    @staticmethod
+    async def get_default_kvs_client() -> KeyValueStoreClientAsync:
+        """Get a client for the default key-value store."""
+        # Create Apify client with the provided token and API URL
+
+        configuration = Configuration.get_global_configuration()
+        if configuration.is_at_home:
+            raise NotImplementedError('Alias storages are only supported on Apify platform at the moment.')
+
+        apify_client_async = ApifyClientAsync(
+            token=configuration.token,
+            api_url=configuration.api_base_url,
+            max_retries=8,
+            min_delay_between_retries_millis=500,
+            timeout_secs=360,
+        )
+
+        return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
