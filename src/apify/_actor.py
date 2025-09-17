@@ -133,9 +133,6 @@ class _ActorType:
         self._apify_client: ApifyClientAsync | None = None
         self._local_storage_client: StorageClient | None = None
 
-        # Set the event manager based on whether the Actor is running on the platform or locally.
-        self._event_manager: EventManager | None = None
-
         self._charging_manager: ChargingManagerImplementation | None = None
 
         self._is_initialized = False
@@ -212,7 +209,7 @@ class _ActorType:
         return self._finalize_implicit_configuration()
 
     def _finalize_implicit_configuration(self) -> Configuration:
-        """Set implicit configuration in the actor and return it.
+        """Set implicit configuration in the Actor and return it.
 
         Changing Actor or service_locator configuration after this method was run is not possible.
         """
@@ -254,22 +251,20 @@ class _ActorType:
             )
         return self._local_storage_client
 
-    @property
+    @cached_property
     def event_manager(self) -> EventManager:
         """The EventManager instance the Actor instance uses."""
-        if not self._event_manager:
-            self._event_manager = (
-                ApifyEventManager(
-                    configuration=self.config,
-                    persist_state_interval=self.config.persist_state_interval,
-                )
-                if self.is_at_home()
-                else LocalEventManager(
-                    system_info_interval=self.config.system_info_interval,
-                    persist_state_interval=self.config.persist_state_interval,
-                )
+        return (
+            ApifyEventManager(
+                configuration=self.config,
+                persist_state_interval=self.config.persist_state_interval,
             )
-        return self._event_manager
+            if self.is_at_home()
+            else LocalEventManager(
+                system_info_interval=self.config.system_info_interval,
+                persist_state_interval=self.config.persist_state_interval,
+            )
+        )
 
     @property
     def log(self) -> logging.Logger:
@@ -350,7 +345,7 @@ class _ActorType:
         await self.event_manager.__aenter__()
         self.log.debug('Event manager initialized')
 
-        await self._get_charging_manager_implementation.__aenter__()
+        await self.charging_manager_implementation.__aenter__()
         self.log.debug('Charging manager initialized')
 
         self._is_initialized = True
@@ -394,7 +389,7 @@ class _ActorType:
                 await self.event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self.event_manager.__aexit__(None, None, None)
-            await self._get_charging_manager_implementation.__aexit__(None, None, None)
+            await self.charging_manager_implementation.__aexit__(None, None, None)
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -672,10 +667,10 @@ class _ActorType:
     def get_charging_manager(self) -> ChargingManager:
         """Retrieve the charging manager to access granular pricing information."""
         self._raise_if_not_initialized()
-        return self._get_charging_manager_implementation
+        return self.charging_manager_implementation
 
     @cached_property
-    def _get_charging_manager_implementation(self) -> ChargingManagerImplementation:
+    def charging_manager_implementation(self) -> ChargingManagerImplementation:
         return ChargingManagerImplementation(self.config, self.apify_client)
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
