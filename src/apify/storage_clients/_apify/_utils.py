@@ -40,6 +40,17 @@ class _Alias:
 
     @classmethod
     def get_additional_cache_key(cls, api_url: str, token: str, *, encrypted: bool = False) -> str:
+        """Return additional cache key.
+
+        Args:
+            api_url: Api url used to open the storage.
+            token: Token used to open the storage.
+            encrypted: Whether the token should be encrypted in the cache key.
+
+        Returns:
+            Serialized additional cache key string.
+
+        """
         if not encrypted:
             return cls.ADDITIONAL_CACHE_KEY_SEPARATOR.join([api_url, token])
 
@@ -51,10 +62,12 @@ class _Alias:
 
     @property
     def additional_cache_key(self) -> str:
+        """Serialized unencrypted additional cache key string."""
         return self.get_additional_cache_key(self.api_url, self.token, encrypted=False)
 
     @classmethod
     def from_exported_string(cls, alias_as_string: str) -> _Alias:
+        """Create _Alias from previously serialized _Alias."""
         storage_map: dict[str, _StorageT] = {
             'Dataset': Dataset,
             'KeyValueStore': KeyValueStore,
@@ -90,6 +103,7 @@ class _Alias:
         return Fernet(base64.urlsafe_b64encode(token_32))
 
     async def store_mapping_to_apify_kvs(self, storage_id: str) -> None:
+        """Add _Alias and related storage id to the mapping in default kvs."""
         if not Configuration.get_global_configuration().is_at_home:
             logging.getLogger(__name__).warning(
                 'Alias storage limited retention is only supported on Apify platform. Storage is not exported.'
