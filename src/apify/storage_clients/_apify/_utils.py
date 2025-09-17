@@ -38,7 +38,10 @@ class _Alias:
         self.token = token
 
     @classmethod
-    def get_additional_cache_key(cls, api_url: str, token: str) -> str:
+    def get_additional_cache_key(cls, api_url: str, token: str, *, encrypted: bool = False) -> str:
+        if not encrypted:
+            return cls.ADDITIONAL_CACHE_KEY_SEPARATOR.join([api_url, token])
+
         encryption_key = Configuration.get_global_configuration().token
         if encryption_key is not None:
             encrypted_token = cls._create_fernet(encryption_key).encrypt(token.encode()).decode()
@@ -47,7 +50,7 @@ class _Alias:
 
     @property
     def additional_cache_key(self) -> str:
-        return self.get_additional_cache_key(self.api_url, self.token)
+        return self.get_additional_cache_key(self.api_url, self.token, encrypted=False)
 
     @classmethod
     def from_exported_string(cls, alias_as_string: str) -> _Alias:
@@ -67,8 +70,14 @@ class _Alias:
 
         return cls(storage_type=storage_map[storage_class_name], alias=alias, api_url=api_url, token=token)
 
-    def __str__(self) -> str:
-        return self.ALIAS_SEPARATOR.join([self.storage_type.__name__, self.alias, self.additional_cache_key])
+    def get_storage_key(self) -> str:
+        return self.ALIAS_SEPARATOR.join(
+            [
+                self.storage_type.__name__,
+                self.alias,
+                self.get_additional_cache_key(api_url=self.api_url, token=self.token, encrypted=True),
+            ]
+        )
 
     @staticmethod
     def _create_fernet(token: str) -> Fernet:
@@ -91,10 +100,11 @@ class _Alias:
                 record = record['value']
 
             # Update or create the record with the new alias mapping
+
             if isinstance(record, dict):
-                record[str(self)] = storage_id
+                record[self.get_storage_key()] = storage_id
             else:
-                record = {str(self): storage_id}
+                record = {self.get_storage_key(): storage_id}
 
             # Store the mapping back in the KVS.
             await default_kvs_client.set_record(_ALIAS_MAPPING_KEY, record)
