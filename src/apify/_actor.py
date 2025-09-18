@@ -221,7 +221,7 @@ class _ActorType:
         return self.configuration
 
     def _finalize_implicit_local_storage_client(self) -> StorageClient:
-        """Set implicit local storage client in the actor and return it.
+        """Set implicit local storage client in the Actor and return it.
 
         Changing Actor or service_locator storage client after this method was run is not possible.
         """
@@ -863,7 +863,7 @@ class _ActorType:
         return ActorRun.model_validate(api_result)
 
     def _get_remaining_time(self) -> timedelta | None:
-        """Get time remaining from the actor timeout. Returns `None` if not on an Apify platform."""
+        """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
         if self.is_at_home() and self.configuration.timeout_at:
             return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
 
@@ -1077,7 +1077,7 @@ class _ActorType:
         if not custom_after_sleep:
             custom_after_sleep = self.configuration.metamorph_after_sleep
 
-        # If is_at_home() is True, config.actor_run_id is always set
+        # If is_at_home() is True, configuration.actor_run_id is always set
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
@@ -1229,7 +1229,7 @@ class _ActorType:
         self,
         *,
         actor_proxy_input: dict
-        | None = None,  # this is the raw proxy input from the actor run input, it is not spread or snake_cased in here
+        | None = None,  # this is the raw proxy input from the Actor run input, it is not spread or snake_cased in here
         password: str | None = None,
         groups: list[str] | None = None,
         country_code: str | None = None,

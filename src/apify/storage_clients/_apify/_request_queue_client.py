@@ -19,7 +19,7 @@ from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest
 from crawlee.storages import RequestQueue
 
 from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
-from ._utils import Alias
+from ._utils import AliasResolver
 from apify import Request
 
 if TYPE_CHECKING:
@@ -195,7 +195,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
 
         if alias:
             # Check if there is pre-existing alias mapping in the default KVS.
-            async with Alias(storage_type=RequestQueue, alias=alias, configuration=configuration) as _alias:
+            async with AliasResolver(storage_type=RequestQueue, alias=alias, configuration=configuration) as _alias:
                 id = await _alias.resolve_id()
 
                 # There was no pre-existing alias in the mapping.

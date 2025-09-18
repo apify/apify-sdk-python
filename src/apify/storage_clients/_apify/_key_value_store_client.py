@@ -13,7 +13,7 @@ from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRec
 from crawlee.storages import KeyValueStore
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
-from ._utils import Alias
+from ._utils import AliasResolver
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -120,7 +120,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         if alias:
             # Check if there is pre-existing alias mapping in the default KVS.
-            async with Alias(storage_type=KeyValueStore, alias=alias, configuration=configuration) as _alias:
+            async with AliasResolver(storage_type=KeyValueStore, alias=alias, configuration=configuration) as _alias:
                 id = await _alias.resolve_id()
 
                 # There was no pre-existing alias in the mapping.

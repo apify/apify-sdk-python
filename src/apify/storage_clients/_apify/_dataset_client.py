@@ -13,7 +13,7 @@ from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 from crawlee.storages import Dataset
 
-from apify.storage_clients._apify._utils import Alias
+from ._utils import AliasResolver
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -129,7 +129,7 @@ class ApifyDatasetClient(DatasetClient):
 
         if alias:
             # Check if there is pre-existing alias mapping in the default KVS.
-            async with Alias(storage_type=Dataset, alias=alias, configuration=configuration) as _alias:
+            async with AliasResolver(storage_type=Dataset, alias=alias, configuration=configuration) as _alias:
                 id = await _alias.resolve_id()
 
                 # There was no pre-existing alias in the mapping.

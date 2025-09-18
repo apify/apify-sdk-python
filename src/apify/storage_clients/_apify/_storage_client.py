@@ -9,7 +9,7 @@ from crawlee.storage_clients._base import StorageClient
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
 from ._request_queue_client import ApifyRequestQueueClient
-from ._utils import Alias
+from ._utils import hash_api_base_url_and_token
 from apify._configuration import Configuration as ApifyConfiguration
 from apify._utils import docs_group
 
@@ -31,7 +31,7 @@ class ApifyStorageClient(StorageClient):
     @override
     def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if isinstance(configuration, ApifyConfiguration):
-            return Alias.get_additional_cache_key(configuration)
+            return hash_api_base_url_and_token(configuration)
 
         config_class = type(configuration)
         raise TypeError(
