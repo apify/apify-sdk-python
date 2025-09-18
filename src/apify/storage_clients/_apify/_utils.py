@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import compute_short_hash
-from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
 from apify._configuration import Configuration
 
@@ -15,12 +14,10 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from apify_client.clients import KeyValueStoreClientAsync
+    from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
 
 logger = getLogger(__name__)
-
-
-_StorageT = type[Dataset | KeyValueStore | RequestQueue]
 
 
 class Alias:
@@ -40,7 +37,9 @@ class Alias:
     ALIAS_STORAGE_KEY_SEPARATOR = ','
     ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
 
-    def __init__(self, storage_type: _StorageT, alias: str, configuration: Configuration) -> None:
+    def __init__(
+        self, storage_type: type[Dataset | KeyValueStore | RequestQueue], alias: str, configuration: Configuration
+    ) -> None:
         self.storage_type = storage_type
         self.alias = alias
         self.additional_cache_key = self.get_additional_cache_key(configuration)
