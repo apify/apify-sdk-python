@@ -193,6 +193,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
         apify_rqs_client = apify_client_async.request_queues()
 
+        # Normalize 'default' alias to None
+        alias = None if alias == 'default' else alias
+
         if alias:
             # Check if there is pre-existing alias mapping in the default KVS.
             async with AliasResolver(storage_type=RequestQueue, alias=alias, configuration=configuration) as _alias:
