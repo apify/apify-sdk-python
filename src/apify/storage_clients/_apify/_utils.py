@@ -6,6 +6,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar
 
 from apify_client import ApifyClientAsync
+from crawlee._utils.crypto import compute_short_hash
 from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
 from apify._configuration import Configuration
@@ -25,7 +26,10 @@ _StorageT = type[Dataset | KeyValueStore | RequestQueue]
 class Alias:
     """Class for handling aliases.
 
-    It includes helper methods for serialization/deserialization and initialization from kvs.
+    The purpose of this is class is to ensure that alias storages are created with correct id. This is achieved by using
+    default kvs as a storage for global mapping of aliases to storage ids. Same mapping is also kept in memory to avoid
+    unnecessary calls to API and also have limited support of alias storages when not running on Apify platform. When on
+     Apify platform, the storages created with alias are accessible by the same alias even after migration or reboot.
     """
 
     _alias_map: ClassVar[dict[str, str]] = {}
@@ -33,7 +37,7 @@ class Alias:
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
-    ALIAS_STORAGE_KEY_SEPARATOR = '|'
+    ALIAS_STORAGE_KEY_SEPARATOR = ','
     ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
 
     def __init__(self, storage_type: _StorageT, alias: str, configuration: Configuration) -> None:
@@ -55,12 +59,24 @@ class Alias:
 
     @classmethod
     async def _get_alias_init_lock(cls) -> Lock:
+        """Get lock for controlling the creation of the alias storages.
+
+        The lock is shared for all instances of the Alias class.
+        It is created in async method to ensure that some event loop is already running.
+        """
         if cls._alias_init_lock is None:
             cls._alias_init_lock = Lock()
         return cls._alias_init_lock
 
     @classmethod
     async def get_alias_map(cls) -> dict[str, str]:
+        """Get the aliases and storage ids mapping from the default kvs.
+
+        Mapping is loaded from kvs only once and is shared for all instances of the Alias class.
+
+        Returns:
+            Map of aliases and storage ids.
+        """
         if not cls._alias_map:
             default_kvs_client = await get_default_kvs_client()
 
@@ -79,13 +95,17 @@ class Alias:
 
     @classmethod
     def get_additional_cache_key(cls, configuration: Configuration) -> str:
-        """Get additional cache key based on api_url and token."""
-        if configuration.api_base_url is None or configuration.token is None:
-            raise ValueError("'Configuration.api_base_url' and 'Configuration.token' must be set.")
-        return str((configuration.api_base_url, configuration.token))
+        """Get additional cache key based on configuration.
+
+        Use only api_public_base_url and token as the relevant for differentiating storages.
+        """
+        if configuration.api_public_base_url is None or configuration.token is None:
+            raise ValueError("'Configuration.api_public_base_url' and 'Configuration.token' must be set.")
+        return compute_short_hash(f'{configuration.api_public_base_url}{configuration.token}'.encode())
 
     @property
     def storage_key(self) -> str:
+        """Get a unique storage key used for storing the alias in the mapping."""
         return self.ALIAS_STORAGE_KEY_SEPARATOR.join(
             [
                 self.storage_type.__name__,
@@ -95,11 +115,19 @@ class Alias:
         )
 
     async def resolve_id(self) -> str | None:
+        """Get id of the aliased storage.
+
+        Either locate the id in the in-memory mapping or create the new storage.
+
+        Returns:
+            Storage id if it exists, None otherwise.
+        """
         return (await self.get_alias_map()).get(self.storage_key, None)
 
     async def store_mapping(self, storage_id: str) -> None:
-        """Add alias and related storage id to the mapping in default kvs."""
-        self._alias_map[self.storage_key] = storage_id
+        """Add alias and related storage id to the mapping in default kvs and local in-memory mapping."""
+        # Update in-memory mapping
+        (await self.get_alias_map())[self.storage_key] = storage_id
         if not Configuration.get_global_configuration().is_at_home:
             logging.getLogger(__name__).warning(
                 'Alias storage limited retention is only supported on Apify platform. Storage is not exported.'
@@ -117,7 +145,6 @@ class Alias:
                 record = record['value']
 
             # Update or create the record with the new alias mapping
-
             if isinstance(record, dict):
                 record[self.storage_key] = storage_id
             else:
@@ -126,7 +153,7 @@ class Alias:
             # Store the mapping back in the KVS.
             await default_kvs_client.set_record(self.ALIAS_MAPPING_KEY, record)
         except Exception as exc:
-            logger.warning(f'Error accessing alias mapping for {self.alias}: {exc}')
+            logger.warning(f'Error storing alias mapping for {self.alias}: {exc}')
 
 
 async def get_default_kvs_client() -> KeyValueStoreClientAsync:

@@ -31,10 +31,12 @@ class ApifyStorageClient(StorageClient):
     @override
     def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if isinstance(configuration, ApifyConfiguration):
-            if configuration.api_base_url is None or configuration.token is None:
-                raise ValueError("'Configuration.api_base_url' and 'Configuration.token' must be set.")
             return Alias.get_additional_cache_key(configuration)
-        raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
+
+        config_class = type(configuration)
+        raise TypeError(
+            self._lsp_violation_error_message_template.format(f'{config_class.__module__}.{config_class.__name__}')
+        )
 
     @override
     async def create_dataset_client(

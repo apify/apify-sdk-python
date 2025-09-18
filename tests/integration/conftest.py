@@ -20,6 +20,7 @@ import apify._actor
 from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify._models import ActorRun
+from apify.storage_clients._apify._utils import Alias
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterator, Mapping
@@ -59,6 +60,10 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         service_locator._event_manager = None
         service_locator._storage_client = None
         service_locator.storage_instance_manager.clear_cache()
+
+        # Reset the Alias class state.
+        Alias._alias_map = {}
+        Alias._alias_init_lock = None
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)

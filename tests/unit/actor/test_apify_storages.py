@@ -24,7 +24,8 @@ from apify.storage_clients._apify import ApifyDatasetClient, ApifyKeyValueStoreC
 async def test_get_additional_cache_key(
     storage: Storage, _storage_client: ApifyDatasetClient | ApifyKeyValueStoreClient | ApifyRequestQueueClient
 ) -> None:
-    """Test that Storages based on `ApifyStorageClient` include `token` and `api_base_url` in additional cache key."""
+    """Test that Storages based on `ApifyStorageClient` include `token` and `api_public_base_url` in
+    additional cache key."""
 
     def create_metadata(id: str) -> StorageMetadata:
         now = datetime.now(tz=timezone.utc)
@@ -36,10 +37,10 @@ async def test_get_additional_cache_key(
 
     config_1 = Configuration(token='a')
     config_2 = Configuration(token='b')
-    config_3 = Configuration(token='a', api_base_url='https://super_custom_api.com')
+    config_3 = Configuration(token='a', api_public_base_url='https://super_custom_api.com')
 
     config_4 = Configuration(token='a')
-    config_5 = Configuration(token='a', api_base_url='https://super_custom_api.com')
+    config_5 = Configuration(token='a', api_public_base_url='https://super_custom_api.com')
 
     mocked_client = AsyncMock(spec=type[_storage_client])
     mocked_client.get_metadata = AsyncMock(side_effect=lambda: create_metadata(next(storage_ids)))
