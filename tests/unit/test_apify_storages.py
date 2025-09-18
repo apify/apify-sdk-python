@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock
 import pytest
 
 from crawlee.storage_clients.models import StorageMetadata
-from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 from crawlee.storages._base import Storage
 
 from apify import Configuration
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify import ApifyDatasetClient, ApifyKeyValueStoreClient, ApifyRequestQueueClient
+from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 
 @pytest.mark.parametrize(
