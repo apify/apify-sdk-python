@@ -133,8 +133,6 @@ class _ActorType:
         self._apify_client: ApifyClientAsync | None = None
         self._local_storage_client: StorageClient | None = None
 
-        self._charging_manager: ChargingManagerImplementation | None = None
-
         self._is_initialized = False
 
     async def __aenter__(self) -> Self:
