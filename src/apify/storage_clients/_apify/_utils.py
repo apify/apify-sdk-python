@@ -92,17 +92,6 @@ class AliasResolver:
 
         return cls._alias_map
 
-    @property
-    def _storage_key(self) -> str:
-        """Get a unique storage key used for storing the alias in the mapping."""
-        return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
-            [
-                self._storage_type.__name__,
-                self._alias,
-                self._additional_cache_key,
-            ]
-        )
-
     async def resolve_id(self) -> str | None:
         """Get id of the aliased storage.
 
@@ -143,6 +132,17 @@ class AliasResolver:
             await default_kvs_client.set_record(self._ALIAS_MAPPING_KEY, record)
         except Exception as exc:
             logger.warning(f'Error storing alias mapping for {self._alias}: {exc}')
+
+    @property
+    def _storage_key(self) -> str:
+        """Get a unique storage key used for storing the alias in the mapping."""
+        return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
+            [
+                self._storage_type.__name__,
+                self._alias,
+                self._additional_cache_key,
+            ]
+        )
 
 
 async def _get_default_kvs_client() -> KeyValueStoreClientAsync:
