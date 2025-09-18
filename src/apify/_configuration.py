@@ -434,6 +434,12 @@ class Configuration(CrawleeConfiguration):
             # If Apify configuration was already stored in service locator, return it.
             return global_configuration
 
+        logger.warning(
+            'Non Apify Configration is set in the `service_locator` in the SDK context. '
+            'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
+            'service_locator.set_configuration'
+        )
+
         return cls.from_configuration(global_configuration)
 
     @classmethod

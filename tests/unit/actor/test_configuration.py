@@ -34,16 +34,6 @@ def test_disable_browser_sandbox(
     )
 
 
-def test_apify_configuration_is_always_used() -> None:
-    """Set Crawlee Configuration in Actor and verify that Apify Configuration is used."""
-    max_used_cpu_ratio = 0.123456  # Some unique value to verify configuration
-
-    service_locator.set_configuration(CrawleeConfiguration(max_used_cpu_ratio=max_used_cpu_ratio))
-
-    assert Actor.configuration.max_used_cpu_ratio == max_used_cpu_ratio
-    assert isinstance(Actor.configuration, ApifyConfiguration)
-
-
 async def test_existing_apify_config_respected_by_actor() -> None:
     """Set Apify Configuration in service_locator and verify that Actor respects it."""
     max_used_cpu_ratio = 0.123456  # Some unique value to verify configuration
@@ -237,6 +227,21 @@ async def test_storages_retrieved_is_same_with_same_config() -> None:
     assert actor_kvs is crawler_kvs
     assert actor_dataset is crawler_dataset
     assert actor_rq is crawler_rq
+
+
+def test_apify_configuration_is_always_used(caplog: pytest.LogCaptureFixture) -> None:
+    """Set Crawlee Configuration in Actor and verify that Apify Configuration is used with warning."""
+    max_used_cpu_ratio = 0.123456  # Some unique value to verify configuration
+
+    service_locator.set_configuration(CrawleeConfiguration(max_used_cpu_ratio=max_used_cpu_ratio))
+
+    assert Actor.configuration.max_used_cpu_ratio == max_used_cpu_ratio
+    assert isinstance(Actor.configuration, ApifyConfiguration)
+    assert (
+        'Non Apify Configration is set in the `service_locator` in the SDK context. '
+        'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
+        'service_locator.set_configuration'
+    ) in caplog.messages
 
 
 async def test_file_system_storage_client_warning(caplog: pytest.LogCaptureFixture) -> None:
