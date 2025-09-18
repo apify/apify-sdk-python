@@ -12,8 +12,8 @@ Support for Python 3.9 has been dropped. The Apify Python SDK v3.x now requires 
 ## Actor initialization and ServiceLocator changes
 
 `Actor` initialization and global `service_locator` services setup is more strict and predictable.
-- Services in `Actor` can't be changed after calling `Actor.init`, entering the `async with Actor` context manager or after requesting them from the `Actor`
-- Services in `Actor` can be different from services in Crawler
+- Services in `Actor` can't be changed after calling `Actor.init`, entering the `async with Actor` context manager or after requesting them from the `Actor`.
+- Services in `Actor` can be different from services in Crawler.
 
 
 **Now (v3.0):**

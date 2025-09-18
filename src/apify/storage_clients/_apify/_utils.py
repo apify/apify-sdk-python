@@ -34,15 +34,15 @@ class Alias:
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
-    ALIAS_STORAGE_KEY_SEPARATOR = ','
-    ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
+    _ALIAS_STORAGE_KEY_SEPARATOR = ','
+    _ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
 
     def __init__(
         self, storage_type: type[Dataset | KeyValueStore | RequestQueue], alias: str, configuration: Configuration
     ) -> None:
-        self.storage_type = storage_type
-        self.alias = alias
-        self.additional_cache_key = self.get_additional_cache_key(configuration)
+        self._storage_type = storage_type
+        self._alias = alias
+        self._additional_cache_key = self.get_additional_cache_key(configuration)
 
     async def __aenter__(self) -> Alias:
         """Context manager to prevent race condition in alias creation."""
@@ -155,7 +155,7 @@ class Alias:
             logger.warning(f'Error storing alias mapping for {self.alias}: {exc}')
 
 
-async def get_default_kvs_client() -> KeyValueStoreClientAsync:
+async def _get_default_kvs_client() -> KeyValueStoreClientAsync:
     """Get a client for the default key-value store."""
     configuration = Configuration.get_global_configuration()
 
