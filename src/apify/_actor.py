@@ -193,19 +193,12 @@ class _ActorType:
             self._apify_client = self.new_client()
         return self._apify_client
 
-    @property
+    @cached_property
     def configuration(self) -> Configuration:
         """The Configuration instance the Actor instance uses."""
         if self._configuration:
             return self._configuration
 
-        return self._finalize_implicit_configuration()
-
-    def _finalize_implicit_configuration(self) -> Configuration:
-        """Set implicit configuration in the Actor and return it.
-
-        Changing Actor or service_locator configuration after this method was run is not possible.
-        """
         try:
             # Set implicit default Apify configuration, unless configuration was already set.
             implicit_configuration = Configuration()
@@ -216,34 +209,10 @@ class _ActorType:
                 'Configuration in service locator was set explicitly before Actor.init was called.'
                 'Using the existing configuration as implicit configuration for the Actor.'
             )
+
         # Use the configuration from the service locator
         self._configuration = Configuration.get_global_configuration()
-        return self.configuration
-
-    def _finalize_implicit_local_storage_client(self) -> StorageClient:
-        """Set implicit local storage client in the Actor and return it.
-
-        Changing Actor or service_locator storage client after this method was run is not possible.
-        """
-        try:
-            # Set implicit default local storage client, unless local storage client was already set.
-            implicit_storage_client = ApifyFileSystemStorageClient()
-            service_locator.set_storage_client(implicit_storage_client)
-            self._local_storage_client = implicit_storage_client
-        except ServiceConflictError:
-            self.log.debug(
-                'Storage client in service locator was set explicitly before Actor.init was called.'
-                'Using the existing storage client as implicit storage client for the Actor.'
-            )
-
-        self._local_storage_client = service_locator.get_storage_client()
-        if type(self._local_storage_client) is FileSystemStorageClient:
-            self.log.warning(
-                f'Using {FileSystemStorageClient.__module__}.{FileSystemStorageClient.__name__} in Actor context is not'
-                f' recommended and can lead to problems with reading the input file. Use '
-                f'`apify.storage_clients.FileSystemStorageClient` instead.'
-            )
-        return self._local_storage_client
+        return self._configuration
 
     @cached_property
     def event_manager(self) -> EventManager:
@@ -269,7 +238,27 @@ class _ActorType:
         """Get the local storage client the Actor instance uses."""
         if self._local_storage_client:
             return self._local_storage_client
-        return self._finalize_implicit_local_storage_client()
+
+        try:
+            # Set implicit default local storage client, unless local storage client was already set.
+            implicit_storage_client = ApifyFileSystemStorageClient()
+            service_locator.set_storage_client(implicit_storage_client)
+            self._local_storage_client = implicit_storage_client
+        except ServiceConflictError:
+            self.log.debug(
+                'Storage client in service locator was set explicitly before Actor.init was called.'
+                'Using the existing storage client as implicit storage client for the Actor.'
+            )
+
+        self._local_storage_client = service_locator.get_storage_client()
+        if type(self._local_storage_client) is FileSystemStorageClient:
+            self.log.warning(
+                f'Using {FileSystemStorageClient.__module__}.{FileSystemStorageClient.__name__} in Actor context is not'
+                f' recommended and can lead to problems with reading the input file. Use '
+                f'`apify.storage_clients.FileSystemStorageClient` instead.'
+            )
+
+        return self._local_storage_client
 
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
@@ -300,7 +289,8 @@ class _ActorType:
             # Set explicitly the configuration in the service locator
             service_locator.set_configuration(self.configuration)
         else:
-            self._finalize_implicit_configuration()
+            # Ensure that the configuration (cached property) is set
+            _ = self.configuration
 
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
@@ -323,7 +313,8 @@ class _ActorType:
             service_locator.set_storage_client(self._cloud_storage_client)
             self._local_storage_client = self._cloud_storage_client
         else:
-            self._finalize_implicit_local_storage_client()
+            self._get_local_storage_client()
+
         service_locator.set_event_manager(self.event_manager)
 
         # The logging configuration has to be called after all service_locator set methods.
@@ -522,6 +513,7 @@ class _ActorType:
         """
         self._raise_if_not_initialized()
         self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
+
         storage_client = self._cloud_storage_client if force_cloud else self._get_local_storage_client()
 
         return await KeyValueStore.open(
