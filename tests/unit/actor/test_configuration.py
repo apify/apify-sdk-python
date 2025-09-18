@@ -11,7 +11,7 @@ from crawlee.storage_clients import FileSystemStorageClient
 
 from apify import Actor
 from apify import Configuration as ApifyConfiguration
-from apify.storage_clients._file_system import ApifyFileSystemStorageClient
+from apify.storage_clients import FileSystemStorageClient as ApifyFileSystemStorageClient
 
 
 @pytest.mark.parametrize(
@@ -177,7 +177,7 @@ async def test_crawler_uses_implicit_apify_config() -> None:
         assert isinstance(Actor.configuration, ApifyConfiguration)
 
 
-async def test_storage_retrieved_is_different_with_different_config(tmp_path: Path) -> None:
+async def test_storages_retrieved_is_different_with_different_config(tmp_path: Path) -> None:
     """Test that retrieving storage depends on used configuration."""
     dir_1 = tmp_path / 'dir_1'
     dir_2 = tmp_path / 'dir_2'
@@ -188,13 +188,20 @@ async def test_storage_retrieved_is_different_with_different_config(tmp_path: Pa
 
     async with Actor(configuration=config_actor):
         actor_kvs = await Actor.open_key_value_store()
+        actor_dataset = await Actor.open_dataset()
+        actor_rq = await Actor.open_request_queue()
+
         crawler = BasicCrawler(configuration=config_crawler)
         crawler_kvs = await crawler.get_key_value_store()
+        crawler_dataset = await crawler.get_dataset()
+        crawler_rq = await crawler.get_request_manager()
 
     assert actor_kvs is not crawler_kvs
+    assert actor_dataset is not crawler_dataset
+    assert actor_rq is not crawler_rq
 
 
-async def test_storage_retrieved_is_same_with_equivalent_config() -> None:
+async def test_storages_retrieved_is_same_with_equivalent_config() -> None:
     """Test that retrieving storage depends on used configuration. If two equivalent configuration(even if they are
     different instances) are used it returns same storage."""
     config_actor = ApifyConfiguration()
@@ -202,20 +209,34 @@ async def test_storage_retrieved_is_same_with_equivalent_config() -> None:
 
     async with Actor(configuration=config_actor):
         actor_kvs = await Actor.open_key_value_store()
+        actor_dataset = await Actor.open_dataset()
+        actor_rq = await Actor.open_request_queue()
+
         crawler = BasicCrawler(configuration=config_crawler)
         crawler_kvs = await crawler.get_key_value_store()
+        crawler_dataset = await crawler.get_dataset()
+        crawler_rq = await crawler.get_request_manager()
 
     assert actor_kvs is crawler_kvs
+    assert actor_dataset is crawler_dataset
+    assert actor_rq is crawler_rq
 
 
-async def test_storage_retrieved_is_same_with_same_config() -> None:
+async def test_storages_retrieved_is_same_with_same_config() -> None:
     """Test that retrieving storage is same if same configuration is used."""
     async with Actor():
         actor_kvs = await Actor.open_key_value_store()
+        actor_dataset = await Actor.open_dataset()
+        actor_rq = await Actor.open_request_queue()
+
         crawler = BasicCrawler()
         crawler_kvs = await crawler.get_key_value_store()
+        crawler_dataset = await crawler.get_dataset()
+        crawler_rq = await crawler.get_request_manager()
 
     assert actor_kvs is crawler_kvs
+    assert actor_dataset is crawler_dataset
+    assert actor_rq is crawler_rq
 
 
 async def test_file_system_storage_client_warning(caplog: pytest.LogCaptureFixture) -> None:
@@ -225,6 +246,7 @@ async def test_file_system_storage_client_warning(caplog: pytest.LogCaptureFixtu
         ...
 
     assert (
-        'Using `FileSystemStorageClient` in Actor context is not recommended and can lead to problems with reading '
-        'the input file. Use `ApifyFileSystemStorageClient` instead.'
+        'Using crawlee.storage_clients._file_system._storage_client.FileSystemStorageClient in Actor context is not '
+        'recommended and can lead to problems with reading the input file. Use '
+        '`apify.storage_clients.FileSystemStorageClient` instead.'
     ) in caplog.messages

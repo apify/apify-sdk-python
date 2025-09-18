@@ -241,8 +241,9 @@ class _ActorType:
         self._local_storage_client = service_locator.get_storage_client()
         if type(self._local_storage_client) is FileSystemStorageClient:
             self.log.warning(
-                'Using `FileSystemStorageClient` in Actor context is not recommended and can lead to '
-                'problems with reading the input file. Use `ApifyFileSystemStorageClient` instead.'
+                f'Using {FileSystemStorageClient.__module__}.{FileSystemStorageClient.__name__} in Actor context is not'
+                f' recommended and can lead to problems with reading the input file. Use '
+                f'`apify.storage_clients.FileSystemStorageClient` instead.'
             )
         return self._local_storage_client
 
