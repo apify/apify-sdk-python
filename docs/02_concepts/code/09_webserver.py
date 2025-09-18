@@ -22,9 +22,9 @@ def run_server() -> None:
     # and save a reference to the server.
     global http_server
     with ThreadingHTTPServer(
-        ('', Actor.config.web_server_port), RequestHandler
+        ('', Actor.configuration.web_server_port), RequestHandler
     ) as server:
-        Actor.log.info(f'Server running on {Actor.config.web_server_port}')
+        Actor.log.info(f'Server running on {Actor.configuration.web_server_port}')
         http_server = server
         server.serve_forever()
 

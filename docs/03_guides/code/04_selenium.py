@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 from urllib.parse import urljoin
 
@@ -43,7 +41,7 @@ async def main() -> None:
         Actor.log.info('Launching Chrome WebDriver...')
         chrome_options = ChromeOptions()
 
-        if Actor.config.headless:
+        if Actor.configuration.headless:
             chrome_options.add_argument('--headless')
 
         chrome_options.add_argument('--no-sandbox')
@@ -102,3 +100,7 @@ async def main() -> None:
                 await request_queue.mark_request_as_handled(request)
 
         driver.quit()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

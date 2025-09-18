@@ -11,7 +11,7 @@ async def test_actor_scrapy_title_spider(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    base_path = Path('docs/02_guides/code/scrapy_project')
+    base_path = Path('docs/03_guides/code/scrapy_project')
 
     actor_source_files = {
         'src/__init__.py': (base_path / 'src/__init__.py').read_text(),

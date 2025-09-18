@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Final
 from cachetools import LRUCache
 from typing_extensions import override
 
-from apify_client import ApifyClientAsync
-from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from . import ApifyRequestQueueClient
@@ -23,7 +21,6 @@ if TYPE_CHECKING:
 
     from apify_client.clients import RequestQueueClientAsync
 
-    from apify import Configuration
 
 logger = getLogger(__name__)
 
@@ -102,113 +99,6 @@ class ApifyRequestQueueClientFull(ApifyRequestQueueClient):
             modified_at=max(response['modifiedAt'], self._metadata.modified_at),
             accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
             had_multiple_clients=response['hadMultipleClients'] or self._metadata.had_multiple_clients,
-        )
-
-    @classmethod
-    async def open(
-        cls,
-        *,
-        id: str | None,
-        name: str | None,
-        configuration: Configuration,
-    ) -> ApifyRequestQueueClient:
-        """Open an Apify request queue client.
-
-        This method creates and initializes a new instance of the Apify request queue client. It handles
-        authentication, storage lookup/creation, and metadata retrieval, and sets up internal caching and queue
-        management structures.
-
-        Args:
-            id: The ID of an existing request queue to open. If provided, the client will connect to this specific
-                storage. Cannot be used together with `name`.
-            name: The name of a request queue to get or create. If a storage with this name exists, it will be opened;
-                otherwise, a new one will be created. Cannot be used together with `id`.
-            configuration: The configuration object containing API credentials and settings. Must include a valid
-                `token` and `api_base_url`. May also contain a `default_request_queue_id` for fallback when neither
-                `id` nor `name` is provided.
-
-        Returns:
-            An instance for the opened or created storage client.
-
-        Raises:
-            ValueError: If the configuration is missing required fields (token, api_base_url), if both `id` and `name`
-                are provided, or if neither `id` nor `name` is provided and no default storage ID is available
-                in the configuration.
-        """
-        token = configuration.token
-        if not token:
-            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
-
-        api_url = configuration.api_base_url
-        if not api_url:
-            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-        api_public_base_url = configuration.api_public_base_url
-        if not api_public_base_url:
-            raise ValueError(
-                'Apify storage client requires a valid API public base URL in Configuration '
-                f'(api_public_base_url={api_public_base_url}).'
-            )
-
-        # Create Apify client with the provided token and API URL.
-        apify_client_async = ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
-        )
-        apify_rqs_client = apify_client_async.request_queues()
-
-        match (id, name):
-            case (None, None):
-                # If both id and name are None, try to get the default storage ID from environment variables.
-                # The default storage ID environment variable is set by the Apify platform. It also contains
-                # a new storage ID after Actor's reboot or migration.
-                id = configuration.default_request_queue_id
-            case (None, name):
-                # If only name is provided, get or create the storage by name.
-                id = RequestQueueMetadata.model_validate(
-                    await apify_rqs_client.get_or_create(name=name),
-                ).id
-            case (_, None):
-                # If only id is provided, use it.
-                pass
-            case (_, _):
-                # If both id and name are provided, raise an error.
-                raise ValueError('Only one of "id" or "name" can be specified, not both.')
-        if id is None:
-            raise RuntimeError('Unreachable code')
-
-        # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
-        # It should persist across migrated or resurrected Actor runs on the Apify platform.
-        _api_max_client_key_length = 32
-        client_key = (configuration.actor_run_id or crypto_random_object_id(length=_api_max_client_key_length))[
-            :_api_max_client_key_length
-        ]
-
-        apify_rq_client = apify_client_async.request_queue(request_queue_id=id, client_key=client_key)
-
-        # Fetch its metadata.
-        metadata = await apify_rq_client.get()
-
-        # If metadata is None, it means the storage does not exist, so we create it.
-        if metadata is None:
-            id = RequestQueueMetadata.model_validate(
-                await apify_rqs_client.get_or_create(),
-            ).id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id, client_key=client_key)
-
-        # Verify that the storage exists by fetching its metadata again.
-        metadata = await apify_rq_client.get()
-        if metadata is None:
-            raise ValueError(f'Opening request queue with id={id} and name={name} failed.')
-
-        metadata_model = RequestQueueMetadata.model_validate(metadata)
-
-        return cls(
-            api_client=apify_rq_client,
-            metadata=metadata_model,
         )
 
     @override
