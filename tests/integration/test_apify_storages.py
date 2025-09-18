@@ -10,7 +10,7 @@ from apify.storage_clients import ApifyStorageClient
 
 
 @pytest.mark.parametrize(
-    'storage',
+    'storage_type',
     [Dataset, KeyValueStore, RequestQueue],
 )
 async def test_alias_concurrent_creation_local(
