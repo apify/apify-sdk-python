@@ -206,8 +206,8 @@ async def test_generate_public_url_for_kvs_record(
         from apify.storage_clients._apify._models import ApifyKeyValueStoreMetadata
 
         async with Actor:
-            public_api_url = Actor.config.api_public_base_url
-            default_kvs_id = Actor.config.default_key_value_store_id
+            public_api_url = Actor.configuration.api_public_base_url
+            default_kvs_id = Actor.configuration.default_key_value_store_id
             record_key = 'public-record-key'
 
             kvs = await Actor.open_key_value_store()

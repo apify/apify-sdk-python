@@ -1,117 +1,167 @@
 from __future__ import annotations
 
+import logging
+from asyncio import Lock
 from logging import getLogger
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar
 
 from apify_client import ApifyClientAsync
+from crawlee._utils.crypto import compute_short_hash
+
+from apify._configuration import Configuration
 
 if TYPE_CHECKING:
-    from apify_client.clients import KeyValueStoreClientAsync
+    from types import TracebackType
 
-    from apify import Configuration
+    from apify_client.clients import KeyValueStoreClientAsync
+    from crawlee.storages import Dataset, KeyValueStore, RequestQueue
+
 
 logger = getLogger(__name__)
 
-_ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
 
+class AliasResolver:
+    """Class for handling aliases.
 
-async def resolve_alias_to_id(
-    alias: str,
-    storage_type: Literal['dataset', 'kvs', 'rq'],
-    configuration: Configuration,
-) -> str | None:
-    """Resolve a storage alias to its corresponding storage ID.
-
-    Args:
-        alias: The alias to resolve.
-        storage_type: Type of storage ('dataset', 'key_value_store', or 'request_queue').
-        configuration: The configuration object containing API credentials.
-
-    Returns:
-        The storage ID if found, None if the alias doesn't exist.
+    The purpose of this is class is to ensure that alias storages are created with correct id. This is achieved by using
+    default kvs as a storage for global mapping of aliases to storage ids. Same mapping is also kept in memory to avoid
+    unnecessary calls to API and also have limited support of alias storages when not running on Apify platform. When on
+     Apify platform, the storages created with alias are accessible by the same alias even after migration or reboot.
     """
-    default_kvs_client = await _get_default_kvs_client(configuration)
 
-    # Create the dictionary key for this alias.
-    alias_key = f'alias-{storage_type}-{alias}'
+    _alias_map: ClassVar[dict[str, str]] = {}
+    """Map containing pre-existing alias storages and their ids. Global for all instances."""
+    _alias_init_lock: Lock | None = None
+    """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
-    try:
-        record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
+    _ALIAS_STORAGE_KEY_SEPARATOR = ','
+    _ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
 
-        # get_record can return {key: ..., value: ..., content_type: ...}
-        if isinstance(record, dict) and 'value' in record:
-            record = record['value']
+    def __init__(
+        self, storage_type: type[Dataset | KeyValueStore | RequestQueue], alias: str, configuration: Configuration
+    ) -> None:
+        self._storage_type = storage_type
+        self._alias = alias
+        self._additional_cache_key = hash_api_base_url_and_token(configuration)
 
-        # Extract the actual data from the KVS record
-        if isinstance(record, dict) and alias_key in record:
-            storage_id = record[alias_key]
-            return str(storage_id)
+    async def __aenter__(self) -> AliasResolver:
+        """Context manager to prevent race condition in alias creation."""
+        lock = await self._get_alias_init_lock()
+        await lock.acquire()
+        return self
 
-    except Exception as exc:
-        # If there's any error accessing the record, treat it as not found.
-        logger.warning(f'Error accessing alias mapping for {alias}: {exc}')
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_traceback: TracebackType | None
+    ) -> None:
+        lock = await self._get_alias_init_lock()
+        lock.release()
 
-    return None
+    @classmethod
+    async def _get_alias_init_lock(cls) -> Lock:
+        """Get lock for controlling the creation of the alias storages.
+
+        The lock is shared for all instances of the AliasResolver class.
+        It is created in async method to ensure that some event loop is already running.
+        """
+        if cls._alias_init_lock is None:
+            cls._alias_init_lock = Lock()
+        return cls._alias_init_lock
+
+    @classmethod
+    async def _get_alias_map(cls) -> dict[str, str]:
+        """Get the aliases and storage ids mapping from the default kvs.
+
+        Mapping is loaded from kvs only once and is shared for all instances of the AliasResolver class.
+
+        Returns:
+            Map of aliases and storage ids.
+        """
+        if not cls._alias_map:
+            default_kvs_client = await _get_default_kvs_client()
+
+            record = await default_kvs_client.get_record(cls._ALIAS_MAPPING_KEY)
+
+            # get_record can return {key: ..., value: ..., content_type: ...}
+            if isinstance(record, dict):
+                if 'value' in record and isinstance(record['value'], dict):
+                    cls._alias_map = record['value']
+                else:
+                    cls._alias_map = record
+            else:
+                cls._alias_map = dict[str, str]()
+
+        return cls._alias_map
+
+    async def resolve_id(self) -> str | None:
+        """Get id of the aliased storage.
+
+        Either locate the id in the in-memory mapping or create the new storage.
+
+        Returns:
+            Storage id if it exists, None otherwise.
+        """
+        return (await self._get_alias_map()).get(self._storage_key, None)
+
+    async def store_mapping(self, storage_id: str) -> None:
+        """Add alias and related storage id to the mapping in default kvs and local in-memory mapping."""
+        # Update in-memory mapping
+        (await self._get_alias_map())[self._storage_key] = storage_id
+        if not Configuration.get_global_configuration().is_at_home:
+            logging.getLogger(__name__).warning(
+                'AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
+            )
+            return
+
+        default_kvs_client = await _get_default_kvs_client()
+        await default_kvs_client.get()
+
+        try:
+            record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
+
+            # get_record can return {key: ..., value: ..., content_type: ...}
+            if isinstance(record, dict) and 'value' in record:
+                record = record['value']
+
+            # Update or create the record with the new alias mapping
+            if isinstance(record, dict):
+                record[self._storage_key] = storage_id
+            else:
+                record = {self._storage_key: storage_id}
+
+            # Store the mapping back in the KVS.
+            await default_kvs_client.set_record(self._ALIAS_MAPPING_KEY, record)
+        except Exception as exc:
+            logger.warning(f'Error storing alias mapping for {self._alias}: {exc}')
+
+    @property
+    def _storage_key(self) -> str:
+        """Get a unique storage key used for storing the alias in the mapping."""
+        return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
+            [
+                self._storage_type.__name__,
+                self._alias,
+                self._additional_cache_key,
+            ]
+        )
 
 
-async def store_alias_mapping(
-    alias: str,
-    storage_type: Literal['dataset', 'kvs', 'rq'],
-    storage_id: str,
-    configuration: Configuration,
-) -> None:
-    """Store a mapping from alias to storage ID in the default key-value store.
-
-    Args:
-        alias: The alias to store.
-        storage_type: Type of storage ('dataset', 'key_value_store', or 'request_queue').
-        storage_id: The storage ID to map the alias to.
-        configuration: The configuration object containing API credentials.
-    """
-    default_kvs_client = await _get_default_kvs_client(configuration)
-
-    # Create the dictionary key for this alias.
-    alias_key = f'alias-{storage_type}-{alias}'
-
-    try:
-        record = await default_kvs_client.get_record(_ALIAS_MAPPING_KEY)
-
-        # get_record can return {key: ..., value: ..., content_type: ...}
-        if isinstance(record, dict) and 'value' in record:
-            record = record['value']
-
-        # Update or create the record with the new alias mapping
-        if isinstance(record, dict):
-            record[alias_key] = storage_id
-        else:
-            record = {alias_key: storage_id}
-
-        # Store the mapping back in the KVS.
-        await default_kvs_client.set_record(_ALIAS_MAPPING_KEY, record)
-    except Exception as exc:
-        logger.warning(f'Error accessing alias mapping for {alias}: {exc}')
-
-
-async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
+async def _get_default_kvs_client() -> KeyValueStoreClientAsync:
     """Get a client for the default key-value store."""
-    token = configuration.token
-    if not token:
-        raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
+    configuration = Configuration.get_global_configuration()
 
-    api_url = configuration.api_base_url
-    if not api_url:
-        raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-    # Create Apify client with the provided token and API URL
     apify_client_async = ApifyClientAsync(
-        token=token,
-        api_url=api_url,
+        token=configuration.token,
+        api_url=configuration.api_base_url,
         max_retries=8,
         min_delay_between_retries_millis=500,
         timeout_secs=360,
     )
 
-    # Get the default key-value store ID from configuration
-    default_kvs_id = configuration.default_key_value_store_id
+    return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
 
-    return apify_client_async.key_value_store(key_value_store_id=default_kvs_id)
+
+def hash_api_base_url_and_token(configuration: Configuration) -> str:
+    """Hash configuration.api_public_base_url and configuration.token in deterministic way."""
+    if configuration.api_public_base_url is None or configuration.token is None:
+        raise ValueError("'Configuration.api_public_base_url' and 'Configuration.token' must be set.")
+    return compute_short_hash(f'{configuration.api_public_base_url}{configuration.token}'.encode())

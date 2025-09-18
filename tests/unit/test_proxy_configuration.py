@@ -523,6 +523,7 @@ async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, ht
 async def test_initialize_when_status_page_unavailable(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, httpserver: HTTPServer
 ) -> None:
+    caplog.set_level('WARNING')
     dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
@@ -532,9 +533,10 @@ async def test_initialize_when_status_page_unavailable(
 
     await proxy_configuration.initialize()
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'WARNING'
-    assert 'Apify Proxy access check timed out' in caplog.records[0].message
+    assert (
+        'Apify Proxy access check timed out. Watch out for errors with status code 407. If you see some, it most likely'
+        ' means you do not have access to either all or some of the proxies you are trying to use.'
+    ) in caplog.messages
 
 
 async def test_initialize_with_non_apify_proxy(

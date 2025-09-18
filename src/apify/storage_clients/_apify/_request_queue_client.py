@@ -16,9 +16,10 @@ from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
+from crawlee.storages import RequestQueue
 
 from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
-from ._utils import resolve_alias_to_id, store_alias_mapping
+from ._utils import AliasResolver
 from apify import Request
 
 if TYPE_CHECKING:
@@ -195,19 +196,19 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Normalize 'default' alias to None
         alias = None if alias == 'default' else alias
 
-        # Handle alias resolution
         if alias:
-            # Try to resolve alias to existing storage ID
-            resolved_id = await resolve_alias_to_id(alias, 'rq', configuration)
-            if resolved_id:
-                id = resolved_id
-            else:
-                # Create a new storage and store the alias mapping
-                new_storage_metadata = RequestQueueMetadata.model_validate(
-                    await apify_rqs_client.get_or_create(),
-                )
-                id = new_storage_metadata.id
-                await store_alias_mapping(alias, 'rq', id, configuration)
+            # Check if there is pre-existing alias mapping in the default KVS.
+            async with AliasResolver(storage_type=RequestQueue, alias=alias, configuration=configuration) as _alias:
+                id = await _alias.resolve_id()
+
+                # There was no pre-existing alias in the mapping.
+                # Create a new unnamed storage and store the mapping.
+                if id is None:
+                    new_storage_metadata = RequestQueueMetadata.model_validate(
+                        await apify_rqs_client.get_or_create(),
+                    )
+                    id = new_storage_metadata.id
+                    await _alias.store_mapping(storage_id=id)
 
         # If name is provided, get or create the storage by name.
         elif name:

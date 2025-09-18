@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import Self, deprecated
 
+from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
@@ -424,11 +425,41 @@ class Configuration(CrawleeConfiguration):
     def get_global_configuration(cls) -> Configuration:
         """Retrieve the global instance of the configuration.
 
-        Mostly for the backwards compatibility. It is recommended to use the `service_locator.get_configuration()`
-        instead.
+        This method ensures that ApifyConfigration is returned, even if CrawleeConfiguration was set in the
+        service locator.
         """
-        return cls()
+        global_configuration = service_locator.get_configuration()
 
+        if isinstance(global_configuration, Configuration):
+            # If Apify configuration was already stored in service locator, return it.
+            return global_configuration
 
-# Monkey-patch the base class so that it works with the extended configuration
-CrawleeConfiguration.get_global_configuration = Configuration.get_global_configuration  # type: ignore[method-assign]
+        logger.warning(
+            'Non Apify Configration is set in the `service_locator` in the SDK context. '
+            'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
+            'service_locator.set_configuration'
+        )
+
+        return cls.from_configuration(global_configuration)
+
+    @classmethod
+    def from_configuration(cls, configuration: CrawleeConfiguration) -> Configuration:
+        """Create Apify Configuration from existing Crawlee Configuration.
+
+        Args:
+            configuration: The existing Crawlee Configuration.
+
+        Returns:
+            The created Apify Configuration.
+        """
+        apify_configuration = cls()
+
+        # Ensure the returned configuration is of type Apify Configuration.
+        # Most likely crawlee configuration was already set. Create Apify configuration from it.
+        # Due to known Pydantic issue https://github.com/pydantic/pydantic/issues/9516, creating new instance of
+        # Configuration from existing one in situation where environment can have some fields set by alias is very
+        # unpredictable. Use the stable workaround.
+        for name in configuration.model_fields:
+            setattr(apify_configuration, name, getattr(configuration, name))
+
+        return apify_configuration

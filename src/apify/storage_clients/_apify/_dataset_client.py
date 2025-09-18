@@ -11,8 +11,9 @@ from crawlee._utils.byte_size import ByteSize
 from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
+from crawlee.storages import Dataset
 
-from ._utils import resolve_alias_to_id, store_alias_mapping
+from ._utils import AliasResolver
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -126,19 +127,19 @@ class ApifyDatasetClient(DatasetClient):
         # Normalize 'default' alias to None
         alias = None if alias == 'default' else alias
 
-        # Handle alias resolution
         if alias:
-            # Try to resolve alias to existing storage ID
-            resolved_id = await resolve_alias_to_id(alias, 'dataset', configuration)
-            if resolved_id:
-                id = resolved_id
-            else:
-                # Create a new storage and store the alias mapping
-                new_storage_metadata = DatasetMetadata.model_validate(
-                    await apify_datasets_client.get_or_create(),
-                )
-                id = new_storage_metadata.id
-                await store_alias_mapping(alias, 'dataset', id, configuration)
+            # Check if there is pre-existing alias mapping in the default KVS.
+            async with AliasResolver(storage_type=Dataset, alias=alias, configuration=configuration) as _alias:
+                id = await _alias.resolve_id()
+
+                # There was no pre-existing alias in the mapping.
+                # Create a new unnamed storage and store the mapping.
+                if id is None:
+                    new_storage_metadata = DatasetMetadata.model_validate(
+                        await apify_datasets_client.get_or_create(),
+                    )
+                    id = new_storage_metadata.id
+                    await _alias.store_mapping(storage_id=id)
 
         # If name is provided, get or create the storage by name.
         elif name:

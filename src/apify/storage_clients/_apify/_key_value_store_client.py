@@ -10,9 +10,10 @@ from yarl import URL
 from apify_client import ApifyClientAsync
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
+from crawlee.storages import KeyValueStore
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
-from ._utils import resolve_alias_to_id, store_alias_mapping
+from ._utils import AliasResolver
 from apify._crypto import create_hmac_signature
 
 if TYPE_CHECKING:
@@ -117,19 +118,20 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         # Normalize 'default' alias to None
         alias = None if alias == 'default' else alias
 
-        # Handle alias resolution
         if alias:
-            # Try to resolve alias to existing storage ID
-            resolved_id = await resolve_alias_to_id(alias, 'kvs', configuration)
-            if resolved_id:
-                id = resolved_id
-            else:
-                # Create a new storage and store the alias mapping
-                new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
-                    await apify_kvss_client.get_or_create(),
-                )
-                id = new_storage_metadata.id
-                await store_alias_mapping(alias, 'kvs', id, configuration)
+            # Check if there is pre-existing alias mapping in the default KVS.
+            async with AliasResolver(storage_type=KeyValueStore, alias=alias, configuration=configuration) as _alias:
+                id = await _alias.resolve_id()
+
+                # There was no pre-existing alias in the mapping.
+                # Create a new unnamed storage and store the mapping.
+                if id is None:
+                    # Create a new storage and store the alias mapping
+                    new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
+                        await apify_kvss_client.get_or_create(),
+                    )
+                    id = new_storage_metadata.id
+                    await _alias.store_mapping(storage_id=id)
 
         # If name is provided, get or create the storage by name.
         elif name:

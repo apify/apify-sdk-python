@@ -24,9 +24,8 @@ if TYPE_CHECKING:
 
 async def test_lifecycle_local(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger='apify')
-    config = Configuration.get_global_configuration()
 
-    async with ApifyEventManager(config):
+    async with ApifyEventManager(Configuration()):
         pass
 
     assert len(caplog.records) == 1

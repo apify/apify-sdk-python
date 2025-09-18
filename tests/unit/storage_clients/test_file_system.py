@@ -4,11 +4,10 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
-from crawlee import service_locator
 from crawlee._consts import METADATA_FILENAME
 
 from apify import Actor, Configuration
-from apify.storage_clients._file_system import ApifyFileSystemKeyValueStoreClient, ApifyFileSystemStorageClient
+from apify.storage_clients._file_system import ApifyFileSystemKeyValueStoreClient
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -75,9 +74,6 @@ async def test_pre_existing_input_used_by_actor(tmp_path: Path) -> None:
     path_to_input = tmp_path / 'key_value_stores' / 'default'
     path_to_input.mkdir(parents=True)
     (path_to_input / f'{configuration.input_key}.json').write_text(json.dumps(pre_existing_input))
-
-    # Remove this line after https://github.com/apify/apify-sdk-python/pull/576
-    service_locator.set_storage_client(ApifyFileSystemStorageClient())
 
     async with Actor():
         assert pre_existing_input == await Actor.get_input()

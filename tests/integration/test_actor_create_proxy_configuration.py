@@ -40,7 +40,10 @@ async def test_create_proxy_configuration_with_groups_and_country(
     async def main() -> None:
         await Actor.init()
 
-        proxy_url_suffix = f'{Actor.config.proxy_password}@{Actor.config.proxy_hostname}:{Actor.config.proxy_port}'
+        proxy_url_suffix = (
+            f'{Actor.configuration.proxy_password}@{Actor.configuration.proxy_hostname}:'
+            f'{Actor.configuration.proxy_port}'
+        )
         proxy_configuration = await Actor.create_proxy_configuration(actor_proxy_input={'useApifyProxy': True})
 
         assert proxy_configuration is not None

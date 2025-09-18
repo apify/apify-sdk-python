@@ -17,6 +17,7 @@ from crawlee import service_locator
 
 import apify._actor
 import apify.log
+from apify.storage_clients._apify._utils import AliasResolver
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -70,18 +71,14 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         service_locator._configuration = None
         service_locator._event_manager = None
         service_locator._storage_client = None
-        service_locator._storage_instance_manager = None
+        service_locator.storage_instance_manager.clear_cache()
 
-        # Reset the retrieval flags.
-        service_locator._configuration_was_retrieved = False
-        service_locator._event_manager_was_retrieved = False
-        service_locator._storage_client_was_retrieved = False
+        # Reset the AliasResolver class state.
+        AliasResolver._alias_map = {}
+        AliasResolver._alias_init_lock = None
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
-        assert service_locator._configuration_was_retrieved is False
-        assert service_locator._storage_client_was_retrieved is False
-        assert service_locator._event_manager_was_retrieved is False
 
     return _prepare_test_env
 
