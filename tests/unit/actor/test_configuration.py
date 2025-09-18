@@ -40,8 +40,8 @@ def test_apify_configuration_is_always_used() -> None:
 
     service_locator.set_configuration(CrawleeConfiguration(max_used_cpu_ratio=max_used_cpu_ratio))
 
-    assert Actor.config.max_used_cpu_ratio == max_used_cpu_ratio
-    assert isinstance(Actor.config, ApifyConfiguration)
+    assert Actor.configuration.max_used_cpu_ratio == max_used_cpu_ratio
+    assert isinstance(Actor.configuration, ApifyConfiguration)
 
 
 async def test_existing_apify_config_respected_by_actor() -> None:
@@ -64,10 +64,10 @@ async def test_existing_crawlee_config_respected_by_actor() -> None:
     async with Actor:
         pass
 
-    assert Actor.config is not crawlee_config
-    assert isinstance(Actor.config, ApifyConfiguration)
+    assert Actor.configuration is not crawlee_config
+    assert isinstance(Actor.configuration, ApifyConfiguration)
     # Make sure the Crawlee Configuration was used to create ApifyConfiguration in Actor
-    assert Actor.config.max_used_cpu_ratio == max_used_cpu_ratio
+    assert Actor.configuration.max_used_cpu_ratio == max_used_cpu_ratio
 
 
 async def test_existing_apify_config_throws_error_when_set_in_actor() -> None:
@@ -109,11 +109,11 @@ async def test_crawler_implicit_configuration() -> None:
     """Test that crawler and Actor use implicit service_locator based configuration unless explicit configuration
     was passed to them."""
     async with Actor():
-        assert Actor.config is service_locator.get_configuration()
+        assert Actor.configuration is service_locator.get_configuration()
         crawler = BasicCrawler()
 
-    assert Actor.config is service_locator.get_configuration()
-    assert Actor.config is crawler._service_locator.get_configuration()
+    assert Actor.configuration is service_locator.get_configuration()
+    assert Actor.configuration is crawler._service_locator.get_configuration()
 
 
 async def test_crawler_implicit_local_storage() -> None:
@@ -174,7 +174,7 @@ async def test_crawler_global_configuration() -> None:
 async def test_crawler_uses_implicit_apify_config() -> None:
     """Test that Actor is using implicit ApifyConfiguration in Actor context."""
     async with Actor:
-        assert isinstance(Actor.config, ApifyConfiguration)
+        assert isinstance(Actor.configuration, ApifyConfiguration)
 
 
 async def test_storage_retrieved_is_different_with_different_config(tmp_path: Path) -> None:

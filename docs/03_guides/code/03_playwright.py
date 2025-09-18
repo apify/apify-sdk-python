@@ -40,7 +40,7 @@ async def main() -> None:
         async with async_playwright() as playwright:
             # Configure the browser to launch in headless mode as per Actor configuration.
             browser = await playwright.chromium.launch(
-                headless=Actor.config.headless,
+                headless=Actor.configuration.headless,
                 args=['--disable-gpu'],
             )
             context = await browser.new_context()

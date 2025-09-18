@@ -7,7 +7,7 @@ async def main() -> None:
         webhook = Webhook(
             event_types=['ACTOR.RUN.FAILED'],
             request_url='https://example.com/run-failed',
-            idempotency_key=Actor.config.actor_run_id,
+            idempotency_key=Actor.configuration.actor_run_id,
         )
 
         # Add the webhook to the Actor.

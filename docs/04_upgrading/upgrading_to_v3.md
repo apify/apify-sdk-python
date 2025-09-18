@@ -15,11 +15,12 @@ Support for Python 3.9 has been dropped. The Apify Python SDK v3.x now requires 
 - Services in `Actor` can't be changed after calling `Actor.init`, entering the `async with Actor` context manager or after requesting them from the `Actor`
 - Services in `Actor` can be different from services in Crawler
 
+
 **Now (v3.0):**
 
 ```python
 from crawlee.crawlers import BasicCrawler
-from crawlee.storage_clients import MemoryStorageClient, FileSystemStorageClient
+from crawlee.storage_clients import MemoryStorageClient
 from crawlee.configuration import Configuration
 from crawlee.events import LocalEventManager
 from apify import Actor
@@ -40,6 +41,9 @@ async def main():
             storage_client=custom_storage_client,
         )
 ```
+
+## Removed Actor.config property
+- `Actor.config` property has been removed. Use `Actor.configuration` instead.
 
 ## Storages
 

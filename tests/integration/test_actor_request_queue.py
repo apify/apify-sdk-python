@@ -334,7 +334,7 @@ async def test_request_queue_had_multiple_clients_platform(
             await rq_1.fetch_next_request()
 
             # Accessed with client created explicitly with `client_key=None` should appear as distinct client
-            api_client = ApifyClientAsync(token=Actor.config.token).request_queue(
+            api_client = ApifyClientAsync(token=Actor.configuration.token).request_queue(
                 request_queue_id=rq_1.id, client_key=None
             )
             await api_client.list_head()

@@ -197,11 +197,6 @@ class _ActorType:
 
     @property
     def configuration(self) -> Configuration:
-        """The Configuration instance the Actor instance uses. Deprecated."""
-        return self.config
-
-    @property
-    def config(self) -> Configuration:
         """The Configuration instance the Actor instance uses."""
         if self._configuration:
             return self._configuration
@@ -225,7 +220,7 @@ class _ActorType:
             )
         # Use the configuration from the service locator
         self._configuration = Configuration.get_global_configuration()
-        return self.config
+        return self.configuration
 
     def _finalize_implicit_local_storage_client(self) -> StorageClient:
         """Set implicit local storage client in the actor and return it.
@@ -256,13 +251,13 @@ class _ActorType:
         """The EventManager instance the Actor instance uses."""
         return (
             ApifyEventManager(
-                configuration=self.config,
-                persist_state_interval=self.config.persist_state_interval,
+                configuration=self.configuration,
+                persist_state_interval=self.configuration.persist_state_interval,
             )
             if self.is_at_home()
             else LocalEventManager(
-                system_info_interval=self.config.system_info_interval,
-                persist_state_interval=self.config.persist_state_interval,
+                system_info_interval=self.configuration.system_info_interval,
+                persist_state_interval=self.configuration.persist_state_interval,
             )
         )
 
@@ -285,7 +280,7 @@ class _ActorType:
         if not force_cloud:
             return
 
-        if not self.is_at_home() and self.config.token is None:
+        if not self.is_at_home() and self.configuration.token is None:
             raise RuntimeError(
                 'In order to use the Apify cloud storage from your computer, '
                 'you need to provide an Apify token using the APIFY_TOKEN environment variable.'
@@ -304,7 +299,7 @@ class _ActorType:
         """
         if self._configuration:
             # Set explicitly the configuration in the service locator
-            service_locator.set_configuration(self.config)
+            service_locator.set_configuration(self.configuration)
         else:
             self._finalize_implicit_configuration()
 
@@ -448,8 +443,8 @@ class _ActorType:
                 (increases exponentially from this value).
             timeout: The socket timeout of the HTTP requests sent to the Apify API.
         """
-        token = token or self.config.token
-        api_url = api_url or self.config.api_base_url
+        token = token or self.configuration.token
+        api_url = api_url or self.configuration.api_base_url
         return ApifyClientAsync(
             token=token,
             api_url=api_url,
@@ -496,7 +491,7 @@ class _ActorType:
             id=id,
             alias=alias,
             name=name,
-            configuration=self.config,
+            configuration=self.configuration,
             storage_client=storage_client,
         )
 
@@ -534,7 +529,7 @@ class _ActorType:
             id=id,
             alias=alias,
             name=name,
-            configuration=self.config,
+            configuration=self.configuration,
             storage_client=storage_client,
         )
 
@@ -575,7 +570,7 @@ class _ActorType:
             id=id,
             alias=alias,
             name=name,
-            configuration=self.config,
+            configuration=self.configuration,
             storage_client=storage_client,
         )
 
@@ -624,9 +619,9 @@ class _ActorType:
         """Get the Actor input value from the default key-value store associated with the current Actor run."""
         self._raise_if_not_initialized()
 
-        input_value = await self.get_value(self.config.input_key)
-        input_secrets_private_key = self.config.input_secrets_private_key_file
-        input_secrets_key_passphrase = self.config.input_secrets_private_key_passphrase
+        input_value = await self.get_value(self.configuration.input_key)
+        input_secrets_private_key = self.configuration.input_secrets_private_key_file
+        input_secrets_key_passphrase = self.configuration.input_secrets_private_key_passphrase
         if input_secrets_private_key and input_secrets_key_passphrase:
             private_key = load_private_key(
                 input_secrets_private_key,
@@ -674,7 +669,7 @@ class _ActorType:
 
     @cached_property
     def charging_manager_implementation(self) -> ChargingManagerImplementation:
-        return ChargingManagerImplementation(self.config, self.apify_client)
+        return ChargingManagerImplementation(self.configuration, self.apify_client)
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
@@ -767,7 +762,7 @@ class _ActorType:
 
     def is_at_home(self) -> bool:
         """Return `True` when the Actor is running on the Apify platform, and `False` otherwise (e.g. local run)."""
-        return self.config.is_at_home
+        return self.configuration.is_at_home
 
     def get_env(self) -> dict:
         """Return a dictionary with information parsed from all the `APIFY_XXX` environment variables.
@@ -793,7 +788,7 @@ class _ActorType:
                 aliases = [field_name]
 
             for alias in aliases:
-                config[alias] = getattr(self.config, field_name)
+                config[alias] = getattr(self.configuration, field_name)
 
         env_vars = {env_var.value.lower(): env_var.name.lower() for env_var in [*ActorEnvVars, *ApifyEnvVars]}
         return {option_name: config[env_var] for env_var, option_name in env_vars.items() if env_var in config}
@@ -870,13 +865,13 @@ class _ActorType:
 
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the actor timeout. Returns `None` if not on an Apify platform."""
-        if self.is_at_home() and self.config.timeout_at:
-            return self.config.timeout_at - datetime.now(tz=timezone.utc)
+        if self.is_at_home() and self.configuration.timeout_at:
+            return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
 
         self.log.warning(
             'Returning `None` instead of remaining time. Using `RemainingTime` argument is only possible when the Actor'
             ' is running on the Apify platform and when the timeout for the Actor run is set. '
-            f'{self.is_at_home()=}, {self.config.timeout_at=}'
+            f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
         )
         return None
 
@@ -1081,13 +1076,13 @@ class _ActorType:
             return
 
         if not custom_after_sleep:
-            custom_after_sleep = self.config.metamorph_after_sleep
+            custom_after_sleep = self.configuration.metamorph_after_sleep
 
         # If is_at_home() is True, config.actor_run_id is always set
-        if not self.config.actor_run_id:
+        if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self.apify_client.run(self.config.actor_run_id).metamorph(
+        await self.apify_client.run(self.configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
             target_actor_build=target_actor_build,
@@ -1124,7 +1119,7 @@ class _ActorType:
         _ActorType._is_rebooting = True
 
         if not custom_after_sleep:
-            custom_after_sleep = self.config.metamorph_after_sleep
+            custom_after_sleep = self.configuration.metamorph_after_sleep
 
         # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
         # PERSIST_STATE listeners are called to allow the Actor to persist its state before the reboot.
@@ -1144,10 +1139,10 @@ class _ActorType:
             *[listener(EventMigratingData()) for listener in migrating_listeners],
         )
 
-        if not self.config.actor_run_id:
+        if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self.apify_client.run(self.config.actor_run_id).reboot()
+        await self.apify_client.run(self.configuration.actor_run_id).reboot()
 
         if custom_after_sleep:
             await asyncio.sleep(custom_after_sleep.total_seconds())
@@ -1186,11 +1181,11 @@ class _ActorType:
             return
 
         # If is_at_home() is True, config.actor_run_id is always set
-        if not self.config.actor_run_id:
+        if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
         await self.apify_client.webhooks().create(
-            actor_run_id=self.config.actor_run_id,
+            actor_run_id=self.configuration.actor_run_id,
             event_types=webhook.event_types,
             request_url=webhook.request_url,
             payload_template=webhook.payload_template,
@@ -1222,10 +1217,10 @@ class _ActorType:
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        if not self.config.actor_run_id:
+        if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        api_result = await self.apify_client.run(self.config.actor_run_id).update(
+        api_result = await self.apify_client.run(self.configuration.actor_run_id).update(
             status_message=status_message, is_status_message_terminal=is_terminal
         )
 
@@ -1280,7 +1275,7 @@ class _ActorType:
             country_code=country_code,
             proxy_urls=proxy_urls,
             new_url_function=new_url_function,
-            _actor_config=self.config,
+            _actor_config=self.configuration,
             _apify_client=self._apify_client,
         )
 

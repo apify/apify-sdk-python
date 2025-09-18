@@ -41,7 +41,7 @@ async def main() -> None:
         Actor.log.info('Launching Chrome WebDriver...')
         chrome_options = ChromeOptions()
 
-        if Actor.config.headless:
+        if Actor.configuration.headless:
             chrome_options.add_argument('--headless')
 
         chrome_options.add_argument('--no-sandbox')

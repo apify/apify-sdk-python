@@ -21,7 +21,7 @@ async def test_migration_through_reboot(make_actor: MakeActorFunction, run_actor
             crawler = BasicCrawler(concurrency_settings=ConcurrencySettings(max_concurrency=1))
             requests = ['https://example.com/1', 'https://example.com/2']
 
-            run = await Actor.apify_client.run(Actor.config.actor_run_id or '').get()
+            run = await Actor.apify_client.run(Actor.configuration.actor_run_id or '').get()
             assert run
             first_run = run.get('stats', {}).get('rebootCount', 0) == 0
             Actor.log.warning(run)
