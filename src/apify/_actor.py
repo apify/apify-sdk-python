@@ -341,7 +341,7 @@ class _ActorType:
         await self.event_manager.__aenter__()
         self.log.debug('Event manager initialized')
 
-        await self.charging_manager_implementation.__aenter__()
+        await self._charging_manager_implementation.__aenter__()
         self.log.debug('Charging manager initialized')
 
         self._is_initialized = True
@@ -385,7 +385,7 @@ class _ActorType:
                 await self.event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
 
             await self.event_manager.__aexit__(None, None, None)
-            await self.charging_manager_implementation.__aexit__(None, None, None)
+            await self._charging_manager_implementation.__aexit__(None, None, None)
 
         await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -666,10 +666,10 @@ class _ActorType:
     def get_charging_manager(self) -> ChargingManager:
         """Retrieve the charging manager to access granular pricing information."""
         self._raise_if_not_initialized()
-        return self.charging_manager_implementation
+        return self._charging_manager_implementation
 
     @cached_property
-    def charging_manager_implementation(self) -> ChargingManagerImplementation:
+    def _charging_manager_implementation(self) -> ChargingManagerImplementation:
         return ChargingManagerImplementation(self.configuration, self.apify_client)
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
