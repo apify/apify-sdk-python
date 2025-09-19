@@ -11,7 +11,7 @@ from ._key_value_store_client import ApifyKeyValueStoreClient
 from ._request_queue_client_full import ApifyRequestQueueClientFull
 from ._request_queue_client_simple import ApifyRequestQueueClientSimple
 from ._utils import hash_api_base_url_and_token
-from apify import Configuration as ApifyConfiguration
+from apify._configuration import Configuration as ApifyConfiguration
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
@@ -45,6 +45,8 @@ class ApifyStorageClient(StorageClient):
     @override
     def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if isinstance(configuration, ApifyConfiguration):
+            # Current design does not support opening exactly same queue with full and simple client at the same time,
+            # due to default and unnamed storages. Whichever client variation gets used first, wins.
             return hash_api_base_url_and_token(configuration)
 
         config_class = type(configuration)
@@ -94,7 +96,7 @@ class ApifyStorageClient(StorageClient):
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
             client: type[ApifyRequestQueueClient] = (
-                ApifyRequestQueueClientSimple if (self._simple_request_queue) else ApifyRequestQueueClientFull
+                ApifyRequestQueueClientSimple if self._simple_request_queue else ApifyRequestQueueClientFull
             )
             return await client.open(id=id, name=name, alias=alias, configuration=configuration)
 

@@ -20,14 +20,15 @@ import apify._actor
 from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify._models import ActorRun
+from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._utils import AliasResolver
+from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterator, Mapping
     from decimal import Decimal
 
     from apify_client.clients.resource_clients import ActorClientAsync
-    from crawlee.storages import RequestQueue
 
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
@@ -50,6 +51,9 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
     """
 
     def _prepare_test_env() -> None:
+        # Reset the Actor class state.
+        apify._actor.Actor.__wrapped__.__class__._is_any_instance_initialized = False  # type: ignore[attr-defined]
+        apify._actor.Actor.__wrapped__.__class__._is_rebooting = False  # type: ignore[attr-defined]
         delattr(apify._actor.Actor, '__wrapped__')
 
         # Set the environment variable for the local storage directory to the temporary path.
@@ -103,14 +107,15 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
     return ApifyClientAsync(apify_token, api_url=api_url)
 
 
-@pytest.fixture
-async def request_queue_force_cloud(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[RequestQueue]:
+@pytest.fixture(params=[False, True])
+async def default_request_queue_apify(
+    apify_token: str, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> AsyncGenerator[RequestQueue]:
     """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
-    request_queue_name = generate_unique_resource_name('request_queue')
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
     async with Actor:
-        rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(simple_request_queue=request.param))
         yield rq
         await rq.drop()
 
