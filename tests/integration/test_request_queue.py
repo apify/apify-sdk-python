@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from crawlee.storages import RequestQueue
 
     from .conftest import MakeActorFunction, RunActorFunction
-    from apify.storage_clients._apify._request_queue_client import ApifyRequestQueueMetadata
+    from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
 
 
 async def test_add_and_fetch_requests(
