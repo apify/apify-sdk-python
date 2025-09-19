@@ -101,11 +101,22 @@ async def test_exit_without_init_raises_error() -> None:
         await Actor.exit()
 
 
-async def test_actor_fails_cleanly() -> None:
-    async with _ActorType() as my_actor:
-        assert my_actor._is_initialized
-        await my_actor.fail()
-    assert my_actor._is_initialized is False
+async def test_actor_fails_cleanly_init_fail() -> None:
+    actor = Actor()
+
+    await actor.init()
+    assert actor._is_initialized is True
+
+    await actor.fail()
+    assert actor._is_initialized is False
+
+
+async def test_actor_fails_cleanly_context_manager() -> None:
+    async with Actor() as actor:
+        assert actor._is_initialized
+        actor.exit_code = 1
+
+    assert actor._is_initialized is False
 
 
 async def test_actor_handles_failure_gracefully() -> None:

@@ -168,7 +168,7 @@ async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> N
 async def test_set_terminal_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('INFO')
     async with Actor:
-        await Actor.fail(status_message='test-terminal-message')
+        Actor.status_message = 'test-terminal-message'
 
     matching_records = [record for record in caplog.records if 'test-terminal-message' in record.message]
     assert len(matching_records) == 1
