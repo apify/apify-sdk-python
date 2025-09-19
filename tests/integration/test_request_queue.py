@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from crawlee.storages import RequestQueue
 
     from .conftest import MakeActorFunction, RunActorFunction
+    from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
 
 
 async def test_add_and_fetch_requests(
@@ -1278,3 +1279,26 @@ async def test_request_queue_not_had_multiple_clients(
     api_response = await api_client.get()
     assert api_response
     assert api_response['hadMultipleClients'] is False
+
+
+async def test_request_queue_has_stats(request_queue_force_cloud: RequestQueue) -> None:
+    """Test that Apify based request queue has stats in metadata."""
+
+    add_request_count = 3
+    read_request_count = 2
+
+    await request_queue_force_cloud.add_requests(
+        [Request.from_url(f'http://example.com/{i}') for i in range(add_request_count)]
+    )
+    for _ in range(read_request_count):
+        await request_queue_force_cloud.get_request(Request.from_url('http://example.com/1').unique_key)
+
+    # Wait for stats to become stable
+    await asyncio.sleep(10)
+
+    metadata = await request_queue_force_cloud.get_metadata()
+
+    assert hasattr(metadata, 'stats')
+    apify_metadata = cast('ApifyRequestQueueMetadata', metadata)
+    assert apify_metadata.stats.read_count == read_request_count
+    assert apify_metadata.stats.write_count == add_request_count

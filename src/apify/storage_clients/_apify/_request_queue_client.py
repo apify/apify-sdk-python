@@ -18,7 +18,13 @@ from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 from crawlee.storages import RequestQueue
 
-from ._models import CachedRequest, ProlongRequestLockResponse, RequestQueueHead
+from ._models import (
+    ApifyRequestQueueMetadata,
+    CachedRequest,
+    ProlongRequestLockResponse,
+    RequestQueueHead,
+    RequestQueueStats,
+)
 from ._utils import AliasResolver
 from apify import Request
 
@@ -108,7 +114,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         return self._metadata
 
     @override
-    async def get_metadata(self) -> RequestQueueMetadata:
+    async def get_metadata(self) -> ApifyRequestQueueMetadata:
         """Get metadata about the request queue.
 
         Returns:
@@ -119,7 +125,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if response is None:
             raise ValueError('Failed to fetch request queue metadata from the API.')
         # Enhance API response by local estimations (API can be delayed few seconds, while local estimation not.)
-        return RequestQueueMetadata(
+        return ApifyRequestQueueMetadata(
             id=response['id'],
             name=response['name'],
             total_request_count=max(response['totalRequestCount'], self._metadata.total_request_count),
@@ -129,6 +135,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
             modified_at=max(response['modifiedAt'], self._metadata.modified_at),
             accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
             had_multiple_clients=response['hadMultipleClients'] or self._metadata.had_multiple_clients,
+            stats=RequestQueueStats.model_validate(response['stats'], by_alias=True),
         )
 
     @classmethod
