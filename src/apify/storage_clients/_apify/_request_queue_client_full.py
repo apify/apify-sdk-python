@@ -78,41 +78,6 @@ class ApifyRequestQueueClientFull(ApifyRequestQueueClient):
         return self._metadata
 
     @override
-    async def get_metadata(self) -> RequestQueueMetadata:
-        """Get metadata about the request queue.
-
-        Returns:
-            Metadata from the API, merged with local estimation, because in some cases, the data from the API can
-            be delayed.
-        """
-        response = await self._api_client.get()
-        if response is None:
-            raise ValueError('Failed to fetch request queue metadata from the API.')
-        # Enhance API response by local estimations (API can be delayed few seconds, while local estimation not.)
-        return RequestQueueMetadata(
-            id=response['id'],
-            name=response['name'],
-            total_request_count=max(response['totalRequestCount'], self._metadata.total_request_count),
-            handled_request_count=max(response['handledRequestCount'], self._metadata.handled_request_count),
-            pending_request_count=response['pendingRequestCount'],
-            created_at=min(response['createdAt'], self._metadata.created_at),
-            modified_at=max(response['modifiedAt'], self._metadata.modified_at),
-            accessed_at=max(response['accessedAt'], self._metadata.accessed_at),
-            had_multiple_clients=response['hadMultipleClients'] or self._metadata.had_multiple_clients,
-        )
-
-    @override
-    async def purge(self) -> None:
-        raise NotImplementedError(
-            'Purging the request queue is not supported in the Apify platform. '
-            'Use the `drop` method to delete the request queue instead.'
-        )
-
-    @override
-    async def drop(self) -> None:
-        await self._api_client.delete()
-
-    @override
     async def add_batch_of_requests(
         self,
         requests: Sequence[Request],
