@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from typing_extensions import override
 
@@ -8,7 +8,8 @@ from crawlee.storage_clients._base import StorageClient
 
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
-from ._request_queue_client import ApifyRequestQueueClient
+from ._request_queue_shared_client import ApifyRequestQueueSharedClient
+from ._request_queue_single_client import ApifyRequestQueueSingleClient
 from ._utils import hash_api_base_url_and_token
 from apify._configuration import Configuration as ApifyConfiguration
 from apify._utils import docs_group
@@ -18,10 +19,23 @@ if TYPE_CHECKING:
 
     from crawlee.configuration import Configuration as CrawleeConfiguration
 
+    from ._request_queue_client import ApifyRequestQueueClient
+
 
 @docs_group('Storage clients')
 class ApifyStorageClient(StorageClient):
     """Apify storage client."""
+
+    def __init__(self, *, access: Literal['single', 'shared'] = 'single') -> None:
+        """Initialize the Apify storage client.
+
+        Args:
+            access: If 'single', the `create_rq_client` will return `ApifyRequestQueueSingleClient`, if 'shared' it
+            will return `ApifyRequestQueueSharedClient`.
+            - 'single' is suitable for single consumer scenarios. It makes less API calls, is cheaper and faster.
+            - 'shared' is suitable for multiple consumers scenarios at the cost of higher API usage.
+        """
+        self._access = access
 
     # This class breaches Liskov Substitution Principle. It requires specialized Configuration compared to its parent.
     _lsp_violation_error_message_template = (
@@ -31,6 +45,8 @@ class ApifyStorageClient(StorageClient):
     @override
     def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if isinstance(configuration, ApifyConfiguration):
+            # Current design does not support opening exactly same queue with full and simple client at the same time,
+            # due to default and unnamed storages. Whichever client variation gets used first, wins.
             return hash_api_base_url_and_token(configuration)
 
         config_class = type(configuration)
@@ -79,6 +95,9 @@ class ApifyStorageClient(StorageClient):
     ) -> ApifyRequestQueueClient:
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            return await ApifyRequestQueueClient.open(id=id, name=name, alias=alias, configuration=configuration)
+            client: type[ApifyRequestQueueClient] = (
+                ApifyRequestQueueSingleClient if self._access == 'single' else ApifyRequestQueueSharedClient
+            )
+            return await client.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))

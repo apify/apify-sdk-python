@@ -52,3 +52,21 @@ async def main():
 ## Storage clients
 
 <!-- TODO -->
+
+## The default use of optimized ApifyRequestQueueClient
+
+- The default client for working with Apify platform based `RequestQueue` is now optimized and simplified client which has significantly lower amount of API calls, but does not support multiple consumers working on the same queue. It is cheaper and faster and is suitable for the majority of the use cases.
+- The full client is still available, but it has to be explicitly requested via `simple_request_queue=False` argument when using the `ApifyStorageClient`.
+
+**Now (v3.0):**
+
+```python
+from apify.storages import RequestQueue
+from apify.storage_clients import ApifyStorageClient
+
+async def main():
+    # Full client
+    rq_full = await RequestQueue.open(storage_client=ApifyStorageClient(simple_request_queue=False))
+    # Default optimized client
+    rq_simple = await RequestQueue.open(storage_client=ApifyStorageClient())
+```
