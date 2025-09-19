@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from crawlee.storage_clients.models import KeyValueStoreMetadata
+from crawlee.storage_clients.models import KeyValueStoreMetadata, RequestQueueMetadata
 
 from apify import Request
 from apify._utils import docs_group
@@ -105,3 +105,27 @@ class CachedRequest(BaseModel):
 
     lock_expires_at: datetime | None = None
     """The expiration time of the lock on the request."""
+
+
+class RequestQueueStats(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    delete_count: Annotated[int, Field(alias='deleteCount', default=0)]
+    """"The number of request queue deletes."""
+
+    head_item_read_count: Annotated[int, Field(alias='headItemReadCount', default=0)]
+    """The number of request queue head reads."""
+
+    read_count: Annotated[int, Field(alias='readCount', default=0)]
+    """The number of request queue reads."""
+
+    storage_bytes: Annotated[int, Field(alias='storageBytes', default=0)]
+    """Storage size in Bytes."""
+
+    write_count: Annotated[int, Field(alias='writeCount', default=0)]
+    """The number of request queue writes."""
+
+
+class ApifyRequestQueueMetadata(RequestQueueMetadata):
+    stats: Annotated[RequestQueueStats, Field(alias='stats', default_factory=RequestQueueStats)]
+    """Additional statistics about the request queue."""

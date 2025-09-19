@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from crawlee._types import BasicCrawlingContext
 
     from .conftest import MakeActorFunction, RunActorFunction
+    from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
 
 
 async def test_add_and_fetch_requests(default_request_queue_apify: RequestQueue) -> None:
@@ -1126,14 +1127,9 @@ async def test_crawler_run_request_queue_variant_stats(
     # Check the request queue stats
     await asyncio.sleep(10)  # Wait to be sure that metadata are updated
 
-    # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
-    # https://github.com/apify/apify-sdk-python/pull/574
-    rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
-    _rq = await rq_client.get()
-    assert _rq
-    request_queue_stats = _rq.get('stats', {})
-    Actor.log.info(f'{request_queue_stats=}')
-    assert request_queue_stats['writeCount'] == requests * expected_write_count_per_request
+    metadata = cast('ApifyRequestQueueMetadata', await rq.get_metadata())
+    Actor.log.info(f'{metadata.stats=}')
+    assert metadata.stats.write_count == requests * expected_write_count_per_request
     await rq.drop()
 
 
@@ -1153,13 +1149,8 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
 
             # Check that it is correctly in the API
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
-
-            # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
-            # https://github.com/apify/apify-sdk-python/pull/574
-            rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
-            _rq = await rq_client.get()
-            assert _rq
-            stats_before = _rq.get('stats', {})
+            metadata = cast('ApifyRequestQueueMetadata', await rq.get_metadata())
+            stats_before = metadata.stats
             Actor.log.info(stats_before)
 
             # Clear service locator cache to simulate creating RQ instance from scratch
@@ -1170,15 +1161,37 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
             await rq.add_requests(requests)
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
-            _rq = await rq_client.get()
-            assert _rq
-            stats_after = _rq.get('stats', {})
+            metadata = cast('ApifyRequestQueueMetadata', await rq.get_metadata())
+            stats_after = metadata.stats
             Actor.log.info(stats_after)
 
             # Cache was actually initialized, readCount increased
-            assert (stats_after['readCount'] - stats_before['readCount']) == len(requests)
+            assert (stats_after.read_count - stats_before.read_count) == len(requests)
             # Deduplication happened locally, writeCount should be the same
-            assert stats_after['writeCount'] == stats_before['writeCount']
+            assert stats_after.write_count == stats_before.write_count
 
         finally:
             await rq.drop()
+
+
+async def test_request_queue_has_stats(request_queue_force_cloud: RequestQueue) -> None:
+    """Test that Apify based request queue has stats in metadata."""
+
+    add_request_count = 3
+    read_request_count = 2
+
+    await request_queue_force_cloud.add_requests(
+        [Request.from_url(f'http://example.com/{i}') for i in range(add_request_count)]
+    )
+    for _ in range(read_request_count):
+        await request_queue_force_cloud.get_request(Request.from_url('http://example.com/1').unique_key)
+
+    # Wait for stats to become stable
+    await asyncio.sleep(10)
+
+    metadata = await request_queue_force_cloud.get_metadata()
+
+    assert hasattr(metadata, 'stats')
+    apify_metadata = cast('ApifyRequestQueueMetadata', metadata)
+    assert apify_metadata.stats.read_count == read_request_count
+    assert apify_metadata.stats.write_count == add_request_count
