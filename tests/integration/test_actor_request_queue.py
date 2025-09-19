@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-@pytest.fixture(params=[False, True])
+@pytest.fixture(params=['single', 'shared'])
 async def apify_named_rq(
     apify_client_async: ApifyClientAsync, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> AsyncGenerator[RequestQueue]:
@@ -33,7 +33,7 @@ async def apify_named_rq(
 
     async with Actor:
         request_queue = await RequestQueue.open(
-            name=request_queue_name, storage_client=ApifyStorageClient(simple_request_queue=request.param)
+            name=request_queue_name, storage_client=ApifyStorageClient(access=request.param)
         )
         yield request_queue
         await request_queue.drop()

@@ -107,7 +107,7 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
     return ApifyClientAsync(apify_token, api_url=api_url)
 
 
-@pytest.fixture(params=[False, True])
+@pytest.fixture(params=[['single', 'shared']])
 async def request_queue_apify(
     apify_token: str, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> AsyncGenerator[RequestQueue]:
@@ -115,7 +115,7 @@ async def request_queue_apify(
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
     async with Actor:
-        rq = await RequestQueue.open(storage_client=ApifyStorageClient(simple_request_queue=request.param))
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(access=request.param))
         yield rq
         await rq.drop()
 

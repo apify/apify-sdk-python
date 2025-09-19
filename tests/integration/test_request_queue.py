@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import pytest
 
@@ -1086,22 +1086,22 @@ async def test_request_queue_simple_and_full_at_the_same_time(
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
     async with Actor:
-        rq_simple = await RequestQueue.open(storage_client=ApifyStorageClient(simple_request_queue=True))
-        rq_full = await RequestQueue.open(storage_client=ApifyStorageClient(simple_request_queue=False))
+        rq_simple = await RequestQueue.open(storage_client=ApifyStorageClient(access='single'))
+        rq_full = await RequestQueue.open(storage_client=ApifyStorageClient(access='shared'))
         # Opening same queue again with different ApifyStorageClient will resolve to the first client used.
         assert rq_simple is rq_full
         await rq_simple.drop()
 
 
 @pytest.mark.parametrize(
-    ('simple_request_queue', 'expected_write_count_per_request'),
-    [pytest.param(True, 2, id='Simple rq client'), pytest.param(False, 3, id='Full rq client')],
+    ('access', 'expected_write_count_per_request'),
+    [pytest.param('single', 2, id='Simple rq client'), pytest.param('shared', 3, id='Full rq client')],
 )
 async def test_crawler_run_request_queue_variant_stats(
     *,
     apify_token: str,
     monkeypatch: pytest.MonkeyPatch,
-    simple_request_queue: bool,
+    access: Literal['single', 'shared'],
     expected_write_count_per_request: int,
 ) -> None:
     """Check the main difference in the simple vs full request queue client - writeCount per request.
@@ -1112,7 +1112,7 @@ async def test_crawler_run_request_queue_variant_stats(
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
     async with Actor:
         requests = 5
-        rq = await RequestQueue.open(storage_client=ApifyStorageClient(simple_request_queue=simple_request_queue))
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(access=access))
         crawler = BasicCrawler(request_manager=rq)
 
         @crawler.router.default_handler
