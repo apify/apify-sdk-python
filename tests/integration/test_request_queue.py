@@ -23,12 +23,12 @@ if TYPE_CHECKING:
     from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
 
 
-async def test_add_and_fetch_requests(default_request_queue_apify: RequestQueue) -> None:
+async def test_add_and_fetch_requests(request_queue_apify: RequestQueue) -> None:
     """Test basic functionality of adding and fetching requests."""
 
     desired_request_count = 100
     Actor.log.info('Opening request queue...')
-    rq = default_request_queue_apify
+    rq = request_queue_apify
 
     # Add some requests
     for i in range(desired_request_count):
@@ -54,11 +54,11 @@ async def test_add_and_fetch_requests(default_request_queue_apify: RequestQueue)
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_add_requests_in_batches(default_request_queue_apify: RequestQueue) -> None:
+async def test_add_requests_in_batches(request_queue_apify: RequestQueue) -> None:
     """Test adding multiple requests in a single batch operation."""
 
     desired_request_count = 100
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add some requests
@@ -85,11 +85,11 @@ async def test_add_requests_in_batches(default_request_queue_apify: RequestQueue
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_add_non_unique_requests_in_batch(default_request_queue_apify: RequestQueue) -> None:
+async def test_add_non_unique_requests_in_batch(request_queue_apify: RequestQueue) -> None:
     """Test adding requests with duplicate unique keys in batch."""
 
     desired_request_count = 100
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add some requests
@@ -122,10 +122,10 @@ async def test_add_non_unique_requests_in_batch(default_request_queue_apify: Req
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_forefront_requests_ordering(default_request_queue_apify: RequestQueue) -> None:
+async def test_forefront_requests_ordering(request_queue_apify: RequestQueue) -> None:
     """Test that forefront requests are processed before regular requests."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add regular requests
@@ -161,10 +161,10 @@ async def test_forefront_requests_ordering(default_request_queue_apify: RequestQ
     )
 
 
-async def test_request_unique_key_behavior(default_request_queue_apify: RequestQueue) -> None:
+async def test_request_unique_key_behavior(request_queue_apify: RequestQueue) -> None:
     """Test behavior of custom unique keys."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add requests with custom unique keys
@@ -205,10 +205,10 @@ async def test_request_unique_key_behavior(default_request_queue_apify: RequestQ
     )
 
 
-async def test_request_reclaim_functionality(default_request_queue_apify: RequestQueue) -> None:
+async def test_request_reclaim_functionality(request_queue_apify: RequestQueue) -> None:
     """Test request reclaiming for failed processing."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add a test request
@@ -243,10 +243,10 @@ async def test_request_reclaim_functionality(default_request_queue_apify: Reques
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_request_reclaim_with_forefront(default_request_queue_apify: RequestQueue) -> None:
+async def test_request_reclaim_with_forefront(request_queue_apify: RequestQueue) -> None:
     """Test reclaiming requests to the front of the queue."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add multiple requests
@@ -284,10 +284,10 @@ async def test_request_reclaim_with_forefront(default_request_queue_apify: Reque
     Actor.log.info(f'Test completed - processed {remaining_count} additional requests')
 
 
-async def test_complex_request_objects(default_request_queue_apify: RequestQueue) -> None:
+async def test_complex_request_objects(request_queue_apify: RequestQueue) -> None:
     """Test handling complex Request objects with various properties."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Create request with various properties
@@ -327,10 +327,10 @@ async def test_complex_request_objects(default_request_queue_apify: RequestQueue
     Actor.log.info('Complex request test completed')
 
 
-async def test_get_request_by_unique_key(default_request_queue_apify: RequestQueue) -> None:
+async def test_get_request_by_unique_key(request_queue_apify: RequestQueue) -> None:
     """Test retrieving specific requests by their unique_key."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add a request and get its unique_key
@@ -351,10 +351,10 @@ async def test_get_request_by_unique_key(default_request_queue_apify: RequestQue
     Actor.log.info('Non-existent unique_key correctly returned None')
 
 
-async def test_metadata_tracking(default_request_queue_apify: RequestQueue) -> None:
+async def test_metadata_tracking(request_queue_apify: RequestQueue) -> None:
     """Test request queue metadata and counts."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Check initial state
@@ -391,10 +391,10 @@ async def test_metadata_tracking(default_request_queue_apify: RequestQueue) -> N
     assert final_handled == 3, f'final_handled={final_handled}'
 
 
-async def test_batch_operations_performance(default_request_queue_apify: RequestQueue) -> None:
+async def test_batch_operations_performance(request_queue_apify: RequestQueue) -> None:
     """Test batch operations vs individual operations."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Test batch add vs individual adds
@@ -427,10 +427,10 @@ async def test_batch_operations_performance(default_request_queue_apify: Request
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_state_consistency(default_request_queue_apify: RequestQueue) -> None:
+async def test_state_consistency(request_queue_apify: RequestQueue) -> None:
     """Test queue state consistency during concurrent operations."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add initial requests
@@ -482,10 +482,10 @@ async def test_state_consistency(default_request_queue_apify: RequestQueue) -> N
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_empty_rq_behavior(default_request_queue_apify: RequestQueue) -> None:
+async def test_empty_rq_behavior(request_queue_apify: RequestQueue) -> None:
     """Test behavior with empty queues."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Test empty queue operations
@@ -513,10 +513,10 @@ async def test_empty_rq_behavior(default_request_queue_apify: RequestQueue) -> N
     assert metadata.pending_request_count == 0, f'metadata.pending_request_count={metadata.pending_request_count}'
 
 
-async def test_large_batch_operations(default_request_queue_apify: RequestQueue) -> None:
+async def test_large_batch_operations(request_queue_apify: RequestQueue) -> None:
     """Test handling large batches of requests."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Create a large batch of requests
@@ -550,10 +550,10 @@ async def test_large_batch_operations(default_request_queue_apify: RequestQueue)
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_mixed_string_and_request_objects(default_request_queue_apify: RequestQueue) -> None:
+async def test_mixed_string_and_request_objects(request_queue_apify: RequestQueue) -> None:
     """Test adding both string URLs and Request objects."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add string URLs
@@ -691,11 +691,11 @@ async def test_concurrent_processing_simulation(
     assert run_result.status == 'SUCCEEDED'
 
 
-async def test_persistence_across_operations(default_request_queue_apify: RequestQueue) -> None:
+async def test_persistence_across_operations(request_queue_apify: RequestQueue) -> None:
     """Test that queue state persists across different operations."""
 
     # Open queue and add some requests
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add initial batch
@@ -753,9 +753,9 @@ async def test_persistence_across_operations(default_request_queue_apify: Reques
     assert final_handled == 15, f'final_handled={final_handled}'
 
 
-async def test_request_deduplication_edge_cases(default_request_queue_apify: RequestQueue) -> None:
+async def test_request_deduplication_edge_cases(request_queue_apify: RequestQueue) -> None:
     """Test edge cases in request deduplication."""
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Test URL normalization and deduplication with expected results
@@ -803,10 +803,10 @@ async def test_request_deduplication_edge_cases(default_request_queue_apify: Req
     )
 
 
-async def test_request_ordering_with_mixed_operations(default_request_queue_apify: RequestQueue) -> None:
+async def test_request_ordering_with_mixed_operations(request_queue_apify: RequestQueue) -> None:
     """Test request ordering with mixed add/reclaim operations."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Add initial requests
@@ -898,10 +898,10 @@ async def test_rq_isolation(
     assert run_result.status == 'SUCCEEDED'
 
 
-async def test_finished_state_accuracy(default_request_queue_apify: RequestQueue) -> None:
+async def test_finished_state_accuracy(request_queue_apify: RequestQueue) -> None:
     """Test accuracy of is_finished() method in various scenarios."""
 
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Initially should be finished
@@ -940,10 +940,10 @@ async def test_finished_state_accuracy(default_request_queue_apify: RequestQueue
     assert final_finished is True, f'final_finished={final_finished}'
 
 
-async def test_operations_performance_pattern(default_request_queue_apify: RequestQueue) -> None:
+async def test_operations_performance_pattern(request_queue_apify: RequestQueue) -> None:
     """Test a common performance pattern: producer-consumer."""
     Actor.log.info('Request queue opened')
-    rq = default_request_queue_apify
+    rq = request_queue_apify
 
     # Producer: Add requests in background
     async def producer() -> None:
@@ -998,14 +998,14 @@ async def test_operations_performance_pattern(default_request_queue_apify: Reque
 
 
 async def test_request_queue_enhanced_metadata(
-    default_request_queue_apify: RequestQueue,
+    request_queue_apify: RequestQueue,
     apify_client_async: ApifyClientAsync,
 ) -> None:
     """Test metadata tracking.
 
     Multiple clients scenarios are not guaranteed to give correct results without delay. But at least multiple clients,
     single producer, should be reliable on the producer side."""
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     for i in range(1, 10):
         await rq.add_request(Request.from_url(f'http://example.com/{i}'))
         # Reliable information as the API response is enhanced with local metadata estimation.
@@ -1023,11 +1023,11 @@ async def test_request_queue_enhanced_metadata(
 
 
 async def test_request_queue_metadata_another_client(
-    default_request_queue_apify: RequestQueue,
+    request_queue_apify: RequestQueue,
     apify_client_async: ApifyClientAsync,
 ) -> None:
     """Test metadata tracking. The delayed metadata should be reliable even when changed by another client."""
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     api_client = apify_client_async.request_queue(request_queue_id=rq.id, client_key=None)
     await api_client.add_request(Request.from_url('http://example.com/1').model_dump(by_alias=True, exclude={'id'}))
 
@@ -1038,17 +1038,17 @@ async def test_request_queue_metadata_another_client(
 
 
 async def test_request_queue_had_multiple_clients(
-    default_request_queue_apify: RequestQueue,
+    request_queue_apify: RequestQueue,
     apify_client_async: ApifyClientAsync,
 ) -> None:
     """Test that `RequestQueue` correctly detects multiple clients.
 
     Clients created with different `client_key` should appear as distinct clients."""
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     await rq.fetch_next_request()
 
     # Accessed with client created explicitly with `client_key=None` should appear as distinct client
-    api_client = apify_client_async.request_queue(request_queue_id=default_request_queue_apify.id, client_key=None)
+    api_client = apify_client_async.request_queue(request_queue_id=request_queue_apify.id, client_key=None)
     await api_client.list_head()
 
     # Check that it is correctly in the RequestQueueClient metadata
@@ -1061,10 +1061,10 @@ async def test_request_queue_had_multiple_clients(
 
 
 async def test_request_queue_not_had_multiple_clients(
-    default_request_queue_apify: RequestQueue, apify_client_async: ApifyClientAsync
+    request_queue_apify: RequestQueue, apify_client_async: ApifyClientAsync
 ) -> None:
     """Test that same `RequestQueue` created from Actor does not act as multiple clients."""
-    rq = default_request_queue_apify
+    rq = request_queue_apify
     # Two calls to API to create situation where different `client_key` can set `had_multiple_clients` to True
     await rq.fetch_next_request()
     await rq.fetch_next_request()

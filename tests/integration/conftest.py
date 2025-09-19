@@ -108,7 +108,7 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
 
 
 @pytest.fixture(params=[False, True])
-async def default_request_queue_apify(
+async def request_queue_apify(
     apify_token: str, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> AsyncGenerator[RequestQueue]:
     """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
