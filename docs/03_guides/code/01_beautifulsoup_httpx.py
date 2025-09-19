@@ -1,15 +1,10 @@
-from __future__ import annotations
-
+import asyncio
 from urllib.parse import urljoin
 
-from playwright.async_api import async_playwright
+import httpx
+from bs4 import BeautifulSoup
 
 from apify import Actor, Request
-
-# Note: To run this Actor locally, ensure that Playwright browsers are installed.
-# Run `playwright install --with-deps` in the Actor's virtual environment to install them.
-# When running on the Apify platform, these dependencies are already included
-# in the Actor's Docker image.
 
 
 async def main() -> None:
@@ -22,7 +17,7 @@ async def main() -> None:
 
         # Exit if no start URLs are provided.
         if not start_urls:
-            Actor.log.info('No start URLs specified in actor input, exiting...')
+            Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
         # Open the default request queue for handling URLs to be processed.
@@ -35,17 +30,8 @@ async def main() -> None:
             new_request = Request.from_url(url, user_data={'depth': 0})
             await request_queue.add_request(new_request)
 
-        Actor.log.info('Launching Playwright...')
-
-        # Launch Playwright and open a new browser context.
-        async with async_playwright() as playwright:
-            # Configure the browser to launch in headless mode as per Actor configuration.
-            browser = await playwright.chromium.launch(
-                headless=Actor.config.headless,
-                args=['--disable-gpu'],
-            )
-            context = await browser.new_context()
-
+        # Create an HTTPX client to fetch the HTML content of the URLs.
+        async with httpx.AsyncClient() as client:
             # Process the URLs from the request queue.
             while request := await request_queue.fetch_next_request():
                 url = request.url
@@ -57,15 +43,17 @@ async def main() -> None:
                 Actor.log.info(f'Scraping {url} (depth={depth}) ...')
 
                 try:
-                    # Open a new page in the browser context and navigate to the URL.
-                    page = await context.new_page()
-                    await page.goto(url)
+                    # Fetch the HTTP response from the specified URL using HTTPX.
+                    response = await client.get(url, follow_redirects=True)
+
+                    # Parse the HTML content using Beautiful Soup.
+                    soup = BeautifulSoup(response.content, 'html.parser')
 
                     # If the current depth is less than max_depth, find nested links
                     # and enqueue them.
                     if depth < max_depth:
-                        for link in await page.locator('a').all():
-                            link_href = await link.get_attribute('href')
+                        for link in soup.find_all('a'):
+                            link_href = link.get('href')
                             link_url = urljoin(url, link_href)
 
                             if link_url.startswith(('http://', 'https://')):
@@ -79,7 +67,10 @@ async def main() -> None:
                     # Extract the desired data.
                     data = {
                         'url': url,
-                        'title': await page.title(),
+                        'title': soup.title.string if soup.title else None,
+                        'h1s': [h1.text for h1 in soup.find_all('h1')],
+                        'h2s': [h2.text for h2 in soup.find_all('h2')],
+                        'h3s': [h3.text for h3 in soup.find_all('h3')],
                     }
 
                     # Store the extracted data to the default dataset.
@@ -89,6 +80,9 @@ async def main() -> None:
                     Actor.log.exception(f'Cannot extract data from {url}.')
 
                 finally:
-                    await page.close()
                     # Mark the request as handled to ensure it is not processed again.
-                    await request_queue.mark_request_as_handled(request)
+                    await request_queue.mark_request_as_handled(new_request)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -22,12 +22,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_lifecycle_local(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger='apify')
-    config = Configuration.get_global_configuration()
 
-    async with ApifyEventManager(config):
+    async with ApifyEventManager(Configuration()):
         pass
 
     assert len(caplog.records) == 1
@@ -132,7 +130,7 @@ async def test_lifecycle_on_platform_without_websocket(monkeypatch: pytest.Monke
     monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
     event_manager = ApifyEventManager(Configuration.get_global_configuration())
 
-    with pytest.raises(RuntimeError, match='Error connecting to platform events websocket!'):
+    with pytest.raises(RuntimeError, match=r'Error connecting to platform events websocket!'):
         async with event_manager:
             pass
 

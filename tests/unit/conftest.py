@@ -16,10 +16,32 @@ from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
+import apify.log
+from apify.storage_clients._apify._utils import AliasResolver
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
+    from logging import Logger
     from pathlib import Path
+
+
+@pytest.fixture
+def _patch_propagate_logger(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch enabling `propagate` for the crawlee logger.
+
+    This is necessary for tests requiring log interception using `caplog`.
+    """
+
+    original_configure_logger = apify.log.configure_logger
+
+    def propagate_logger(logger: Logger, **kwargs: Any) -> None:
+        original_configure_logger(logger, **kwargs)
+        logger.propagate = True
+
+    monkeypatch.setattr('crawlee._log_config.configure_logger', propagate_logger)
+    monkeypatch.setattr(apify.log, 'configure_logger', propagate_logger)
+    yield
+    monkeypatch.undo()
 
 
 @pytest.fixture
@@ -49,24 +71,23 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         service_locator._configuration = None
         service_locator._event_manager = None
         service_locator._storage_client = None
-        service_locator._storage_instance_manager = None
+        service_locator.storage_instance_manager.clear_cache()
 
-        # Reset the retrieval flags.
-        service_locator._configuration_was_retrieved = False
-        service_locator._event_manager_was_retrieved = False
-        service_locator._storage_client_was_retrieved = False
+        # Reset the AliasResolver class state.
+        AliasResolver._alias_map = {}
+        AliasResolver._alias_init_lock = None
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
-        assert service_locator._configuration_was_retrieved is False
-        assert service_locator._storage_client_was_retrieved is False
-        assert service_locator._event_manager_was_retrieved is False
 
     return _prepare_test_env
 
 
 @pytest.fixture(autouse=True)
-def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
+def _isolate_test_environment(
+    prepare_test_env: Callable[[], None],
+    _patch_propagate_logger: None,
+) -> None:
     """Isolate the testing environment by resetting global state before and after each test.
 
     This fixture ensures that each test starts with a clean slate and that any modifications during the test

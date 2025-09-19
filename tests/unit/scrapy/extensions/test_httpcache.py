@@ -67,5 +67,5 @@ def test_get_kvs_name(spider_name: str, expected: str) -> None:
     ],
 )
 def test_get_kvs_name_raises(spider_name: str) -> None:
-    with pytest.raises(ValueError, match='Unsupported spider name'):
+    with pytest.raises(ValueError, match=r'Unsupported spider name'):
         assert get_kvs_name(spider_name)

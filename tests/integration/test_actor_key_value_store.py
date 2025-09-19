@@ -206,8 +206,8 @@ async def test_generate_public_url_for_kvs_record(
         from apify.storage_clients._apify._models import ApifyKeyValueStoreMetadata
 
         async with Actor:
-            public_api_url = Actor.config.api_public_base_url
-            default_kvs_id = Actor.config.default_key_value_store_id
+            public_api_url = Actor.configuration.api_public_base_url
+            default_kvs_id = Actor.configuration.default_key_value_store_id
             record_key = 'public-record-key'
 
             kvs = await Actor.open_key_value_store()
@@ -227,6 +227,89 @@ async def test_generate_public_url_for_kvs_record(
             assert record_url == expected_record_url
 
     actor = await make_actor(label='kvs-get-public-url', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+
+
+async def test_kvs_defaults(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    async def main() -> None:
+        from apify.storages import KeyValueStore
+
+        async with Actor:
+            was_rebooted = await Actor.get_value('was_rebooted', default_value=False)
+
+            kvs_1 = await Actor.open_key_value_store()
+            kvs_2 = await KeyValueStore.open()
+
+            assert kvs_1 is kvs_2
+
+            if not was_rebooted:
+                await kvs_1.set_value('key1', {'from': 'kvs_1'})
+                await kvs_2.set_value('key2', {'from': 'kvs_2'})
+                await Actor.set_value('was_rebooted', value=True)
+                await Actor.reboot()
+
+            kvs_11 = await Actor.open_key_value_store()
+            kvs_22 = await KeyValueStore.open()
+
+            assert kvs_11 is kvs_22
+            assert kvs_1.id == kvs_11.id == kvs_2.id == kvs_22.id
+
+            kvs_1_item = await kvs_11.get_value('key1')
+            kvs_2_item = await kvs_22.get_value('key2')
+
+            assert kvs_1_item == {'from': 'kvs_1'}
+            assert kvs_2_item == {'from': 'kvs_2'}
+
+    actor = await make_actor(label='kvs-defaults', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+
+
+async def test_kvs_aliases(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    async def main() -> None:
+        from apify.storages import KeyValueStore
+
+        async with Actor:
+            was_rebooted = await Actor.get_value('was_rebooted', default_value=False)
+
+            kvs_1 = await Actor.open_key_value_store(alias='my-alias-kvs-1')
+            kvs_2 = await KeyValueStore.open(alias='my-alias-kvs-2')
+
+            assert kvs_1 is not kvs_2
+            assert kvs_1.id != kvs_2.id
+            assert kvs_1.name is None
+            assert kvs_2.name is None
+
+            if not was_rebooted:
+                await kvs_1.set_value('key1', {'from': 'kvs_1'})
+                await kvs_2.set_value('key1', {'from': 'kvs_2'})
+                await Actor.set_value('was_rebooted', value=True)
+                await Actor.reboot()
+
+            kvs_11 = await Actor.open_key_value_store(alias='my-alias-kvs-1')
+            kvs_22 = await KeyValueStore.open(alias='my-alias-kvs-2')
+
+            assert kvs_1.id == kvs_11.id
+            assert kvs_11 is kvs_1
+
+            assert kvs_2.id == kvs_22.id
+            assert kvs_22 is kvs_2
+
+            kvs_1_item = await kvs_11.get_value('key1')
+            kvs_2_item = await kvs_22.get_value('key1')
+            assert kvs_1_item == {'from': 'kvs_1'}
+            assert kvs_2_item == {'from': 'kvs_2'}
+
+    actor = await make_actor(label='kvs-aliases', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'

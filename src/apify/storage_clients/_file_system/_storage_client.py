@@ -27,9 +27,15 @@ class ApifyFileSystemStorageClient(FileSystemStorageClient):
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
         configuration: Configuration | None = None,
     ) -> FileSystemKeyValueStoreClient:
         configuration = configuration or Configuration.get_global_configuration()
-        client = await ApifyFileSystemKeyValueStoreClient.open(id=id, name=name, configuration=configuration)
+        client = await ApifyFileSystemKeyValueStoreClient.open(
+            id=id,
+            name=name,
+            alias=alias,
+            configuration=configuration,
+        )
         await self._purge_if_needed(client, configuration)
         return client
