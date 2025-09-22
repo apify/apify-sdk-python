@@ -9,6 +9,66 @@ This page summarizes the breaking changes between Apify Python SDK v2.x and v3.0
 
 Support for Python 3.9 has been dropped. The Apify Python SDK v3.x now requires Python 3.10 or later. Make sure your environment is running a compatible version before upgrading.
 
+## Changes in storages
+
+Apify Python SDK v3.0 includes Crawlee v1.0, which brings significant changes to the storage APIs. In Crawlee v1.0, the `Dataset`, `KeyValueStore`, and `RequestQueue` storage APIs have been updated for consistency and simplicity. Below is a detailed overview of what's new, what's changed, and what's been removed.
+
+See the [Storages guide](https://crawlee.dev/python/docs/guides/storages) for more details.
+
+### Dataset
+
+The `Dataset` API now includes several new methods, such as:
+
+- `get_metadata` - retrieves metadata information for the dataset.
+- `purge` - completely clears the dataset, including all items (keeps the metadata only).
+- `list_items` - returns the dataset's items in a list format.
+
+Some older methods have been removed or replaced:
+
+- `from_storage_object` constructor has been removed. You should now use the `open` method with either a `name` or `id` parameter.
+- `get_info` method and the `storage_object` property have been replaced by the new `get_metadata` method.
+- `set_metadata` method has been removed.
+- `write_to_json` and `write_to_csv` methods have been removed; instead, use the `export_to` method for exporting data in different formats.
+
+### Key-value store
+
+The `KeyValueStore` API now includes several new methods, such as:
+
+- `get_metadata` - retrieves metadata information for the key-value store.
+- `purge` - completely clears the key-value store, removing all keys and values (keeps the metadata only).
+- `delete_value` - deletes a specific key and its associated value.
+- `list_keys` - lists all keys in the key-value store.
+
+Some older methods have been removed or replaced:
+
+- `from_storage_object` - removed; use the `open` method with either a `name` or `id` instead.
+- `get_info` and `storage_object` - replaced by the new `get_metadata` method.
+- `set_metadata` method has been removed.
+
+### Request queue
+
+The `RequestQueue` API now includes several new methods, such as:
+
+- `get_metadata` - retrieves metadata information for the request queue.
+- `purge` - completely clears the request queue, including all pending and processed requests (keeps the metadata only).
+- `add_requests` - replaces the previous `add_requests_batched` method, offering the same functionality under a simpler name.
+
+Some older methods have been removed or replaced:
+
+- `from_storage_object` - removed; use the `open` method with either a `name` or `id` instead.
+- `get_info` and `storage_object` - replaced by the new `get_metadata` method.
+- `get_request` has argument `unique_key` instead of `request_id` as the `id` field was removed from the `Request`.
+- `set_metadata` method has been removed.
+
+Some changes in the related model classes:
+
+- `resource_directory` in `RequestQueueMetadata` - removed; use the corresponding `path_to_*` property instead.
+- `stats` field in `RequestQueueMetadata` - removed as it was unused.
+- `RequestQueueHead` - replaced by `RequestQueueHeadWithLocks`.
+
+## Removed Actor.config property
+- `Actor.config` property has been removed. Use `Actor.configuration` instead.
+
 ## Actor initialization and ServiceLocator changes
 
 `Actor` initialization and global `service_locator` services setup is more strict and predictable.
@@ -41,14 +101,3 @@ async def main():
             storage_client=custom_storage_client,
         )
 ```
-
-## Removed Actor.config property
-- `Actor.config` property has been removed. Use `Actor.configuration` instead.
-
-## Storages
-
-<!-- TODO -->
-
-## Storage clients
-
-<!-- TODO -->
