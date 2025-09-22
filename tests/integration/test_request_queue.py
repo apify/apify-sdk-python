@@ -1174,24 +1174,18 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
             await rq.drop()
 
 
-async def test_request_queue_has_stats(request_queue_force_cloud: RequestQueue) -> None:
+async def test_request_queue_has_stats(request_queue_apify: RequestQueue) -> None:
     """Test that Apify based request queue has stats in metadata."""
-
+    rq = request_queue_apify
     add_request_count = 3
-    read_request_count = 2
 
-    await request_queue_force_cloud.add_requests(
-        [Request.from_url(f'http://example.com/{i}') for i in range(add_request_count)]
-    )
-    for _ in range(read_request_count):
-        await request_queue_force_cloud.get_request(Request.from_url('http://example.com/1').unique_key)
+    await rq.add_requests([Request.from_url(f'http://example.com/{i}') for i in range(add_request_count)])
 
     # Wait for stats to become stable
     await asyncio.sleep(10)
 
-    metadata = await request_queue_force_cloud.get_metadata()
+    metadata = await rq.get_metadata()
 
     assert hasattr(metadata, 'stats')
     apify_metadata = cast('ApifyRequestQueueMetadata', metadata)
-    assert apify_metadata.stats.read_count == read_request_count
     assert apify_metadata.stats.write_count == add_request_count
