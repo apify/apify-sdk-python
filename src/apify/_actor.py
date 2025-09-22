@@ -324,9 +324,6 @@ class _ActorType:
         self.log.info('Initializing Actor...')
         self.log.info('System info', extra=get_system_info())
 
-        # TODO: Print outdated SDK version warning (we need a new env var for this)
-        # https://github.com/apify/apify-sdk-python/issues/146
-
         await self.event_manager.__aenter__()
         self.log.debug('Event manager initialized')
 
