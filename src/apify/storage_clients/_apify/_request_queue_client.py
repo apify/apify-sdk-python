@@ -200,8 +200,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
         apify_rqs_client = apify_client_async.request_queues()
 
-        # Normalize 'default' alias to None
-        alias = None if alias == 'default' else alias
+        # Normalize unnamed default storage in cases where not defined in `configuration.default_request_queue_id` to
+        # unnamed storage aliased as `__default__`
+        if not any([alias, name, id, configuration.default_request_queue_id]):
+            alias = '__default__'
 
         if alias:
             # Check if there is pre-existing alias mapping in the default KVS.
@@ -226,6 +228,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # If none are provided, try to get the default storage ID from environment variables.
         elif id is None:
             id = configuration.default_request_queue_id
+            if not id:
+                raise ValueError(
+                    'RequestQueue "id", "name", or "alias" must be specified, '
+                    'or a default default_request_queue_id ID must be set in the configuration.'
+                )
 
         # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
         # It should persist across migrated or resurrected Actor runs on the Apify platform.

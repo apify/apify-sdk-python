@@ -45,6 +45,13 @@ async def main():
 ## Removed Actor.config property
 - `Actor.config` property has been removed. Use `Actor.configuration` instead.
 
+## Default storage ids in configuration changed to None
+- `Configuration.default_key_value_store_id` changed from `'default'` to `None`.
+- `Configuration.default_dataset_id` changed from `'default'` to `None`.
+- `Configuration.default_request_queue_id` changed from `'default'` to `None`.
+
+As a consequence of this change, using default storage without specifying its `id` in `Configuration` will use unnamed storage.
+
 ## Storages
 
 <!-- TODO -->

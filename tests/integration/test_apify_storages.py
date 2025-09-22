@@ -32,3 +32,20 @@ async def test_alias_concurrent_creation_local(
     except AssertionError:
         for storage in storages:
             await storage.drop()
+
+
+@pytest.mark.parametrize(
+    'storage_type',
+    [Dataset, KeyValueStore, RequestQueue],
+)
+async def test_unnamed_default_without_config(
+    storage_type: Dataset | KeyValueStore | RequestQueue, apify_token: str
+) -> None:
+    """Test that default Apify storage used locally is unnamed storage."""
+    service_locator.set_configuration(Configuration(token=apify_token))
+    service_locator.set_storage_client(ApifyStorageClient())
+
+    storage = await storage_type.open()
+    assert storage.name is None
+    assert storage.id
+    await storage.drop()

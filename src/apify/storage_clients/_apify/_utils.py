@@ -76,7 +76,7 @@ class AliasResolver:
         Returns:
             Map of aliases and storage ids.
         """
-        if not cls._alias_map:
+        if not cls._alias_map and Configuration.get_global_configuration().is_at_home:
             default_kvs_client = await _get_default_kvs_client()
 
             record = await default_kvs_client.get_record(cls._ALIAS_MAPPING_KEY)
@@ -156,7 +156,8 @@ async def _get_default_kvs_client() -> KeyValueStoreClientAsync:
         min_delay_between_retries_millis=500,
         timeout_secs=360,
     )
-
+    if not configuration.default_key_value_store_id:
+        raise ValueError("'Configuration.default_key_value_store_id' must be set.")
     return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
 
 

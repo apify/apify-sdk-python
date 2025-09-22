@@ -115,8 +115,10 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
         apify_kvss_client = apify_client_async.key_value_stores()
 
-        # Normalize 'default' alias to None
-        alias = None if alias == 'default' else alias
+        # Normalize unnamed default storage in cases where not defined in `configuration.default_key_value_store_id` to
+        # unnamed storage aliased as `__default__`
+        if not any([alias, name, id, configuration.default_key_value_store_id]):
+            alias = '__default__'
 
         if alias:
             # Check if there is pre-existing alias mapping in the default KVS.
@@ -142,6 +144,11 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         # If none are provided, try to get the default storage ID from environment variables.
         elif id is None:
             id = configuration.default_key_value_store_id
+            if not id:
+                raise ValueError(
+                    'KeyValueStore "id", "name", or "alias" must be specified, '
+                    'or a default KeyValueStore ID must be set in the configuration.'
+                )
 
         # Now create the client for the determined ID
         apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
