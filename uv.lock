@@ -76,7 +76,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.0.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", specifier = "==0.6.13b42" },
+    { name = "crawlee", specifier = "==0.6.13b45" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.6.1" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
@@ -516,7 +516,7 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "0.6.13b42"
+version = "0.6.13b45"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -532,9 +532,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/98/8e/8c5bf3cd84335aeb157f95ecaadc5cb61b9bb0f1ffa28a50f9a2485c38a6/crawlee-0.6.13b42.tar.gz", hash = "sha256:5a8c7bcf6abf77c6b7be3323e3cfa017a9717f0b5e5275bbb7ad8de589c851af", size = 24842767, upload-time = "2025-09-17T15:19:26.706Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/2b/b773868cff5b4f051da24b484b9d8cbb88d0aa2b44b8050d4aa827f26c44/crawlee-0.6.13b45.tar.gz", hash = "sha256:eb22fbf48b373d617460dc19def041ceb4cf9bd6ab97303ce3b29543c4215bef", size = 24846311, upload-time = "2025-09-22T08:59:45.491Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6e/eb/6a048e5916a78c30ea1b550452a6ede24facf5cafd564bbb1bc5e8ba6fea/crawlee-0.6.13b42-py3-none-any.whl", hash = "sha256:e9c258d49c8d4269d41a1dd9babfc262d241c62c9549d4dd54d1cad0ddbf9569", size = 279764, upload-time = "2025-09-17T15:19:23.817Z" },
+    { url = "https://files.pythonhosted.org/packages/45/84/fb463d821ab0fc51878fcf1743f4509d697d6e745c0ff90cbba4f5b6375a/crawlee-0.6.13b45-py3-none-any.whl", hash = "sha256:ac44a9b9dfe9c0fb2c9aed168dc6cb23408cc054aa7dd167de6c30dc456e2e33", size = 280215, upload-time = "2025-09-22T08:59:42.453Z" },
 ]
 
 [package.optional-dependencies]
