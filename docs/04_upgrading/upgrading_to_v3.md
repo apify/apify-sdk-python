@@ -13,7 +13,7 @@ Support for Python 3.9 has been dropped. The Apify Python SDK v3.x now requires 
 
 Apify Python SDK v3.0 includes Crawlee v1.0, which brings significant changes to the storage APIs. In Crawlee v1.0, the `Dataset`, `KeyValueStore`, and `RequestQueue` storage APIs have been updated for consistency and simplicity. Below is a detailed overview of what's new, what's changed, and what's been removed.
 
-See the [Storages guide](https://crawlee.dev/python/docs/guides/storages) for more details.
+See the Crawlee's [Storages guide](https://crawlee.dev/python/docs/guides/storages) for more details.
 
 ### Dataset
 
