@@ -50,7 +50,7 @@ async def main():
 - `Configuration.default_dataset_id` changed from `'default'` to `None`.
 - `Configuration.default_request_queue_id` changed from `'default'` to `None`.
 
-As a consequence of this change, using default storage without specifying its `id` in `Configuration` will use unnamed storage.
+Previously using the default storage without specifying its `id` in `Configuration` would lead to using specific storage with id `'default'`. Now it will use newly created unnamed storage with `'id'` assigned by the Apify platform, consecutive calls to get the default storage will return the same storage.
 
 ## Storages
 

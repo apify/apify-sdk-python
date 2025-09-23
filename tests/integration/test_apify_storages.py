@@ -45,7 +45,13 @@ async def test_unnamed_default_without_config(
     service_locator.set_configuration(Configuration(token=apify_token))
     service_locator.set_storage_client(ApifyStorageClient())
 
+    # Open storage and make sure it has no name and it has id
     storage = await storage_type.open()
     assert storage.name is None
     assert storage.id
+
+    # Make sure the same instance is returned when opened again without name or alias
+    storage_again = await storage_type.open()
+    assert storage is storage_again
+
     await storage.drop()
