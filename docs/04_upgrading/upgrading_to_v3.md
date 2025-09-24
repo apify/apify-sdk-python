@@ -53,6 +53,28 @@ async def main():
 
 <!-- TODO -->
 
+## Explicit control over storage clients used in Actor
+- It is now possible to have full control over which storage clients are used by the `Actor`. To make development of Actors convenient, the `Actor` has two storage clients. One that is used when running on Apify platform or when opening storages with `force_cloud=True` and the other client that is used when running outside the Apify platform. The `Actor` has reasonable defaults and for the majority of use-cases there is no need to change it. However, if you need to use a different storage client, you can set it up before entering `Actor` context through `service_locator`.
+
+**Now (v3.0):**
+```python
+from crawlee import service_locator
+from apify.storage_clients import ApifyStorageClient, ApifyHybridStorageClient, MemoryStorageClient
+from apify import Actor
+
+
+async def main():
+    service_locator.set_storage_client(
+        ApifyHybridStorageClient(
+            cloud_storage_client=ApifyStorageClient(access="single"),
+            local_storage_client=MemoryStorageClient()
+        )
+    )
+    async with Actor:
+        rq = await Actor.open_request_queue()
+```
+
+
 ## The default use of optimized ApifyRequestQueueClient
 
 - The default client for working with Apify platform based `RequestQueue` is now optimized and simplified client which does significantly lower amount of API calls, but does not support multiple consumers working on the same queue. It is cheaper and faster and is suitable for the majority of the use cases.
@@ -61,12 +83,13 @@ async def main():
 **Now (v3.0):**
 
 ```python
-from apify.storages import RequestQueue
+from crawlee import service_locator
 from apify.storage_clients import ApifyStorageClient
+from apify import Actor
 
 async def main():
    # Full client that supports multiple consumers of the Apify Request Queue
-    rq_shared = await RequestQueue.open(storage_client=ApifyStorageClient(access="shared"))
-    # Default optimized client that expects only single consumer of the Apify Request Queue
-    rq_single = await RequestQueue.open(storage_client=ApifyStorageClient())
+    service_locator.set_storage_client(ApifyStorageClient(access="shared"))
+    async with Actor:
+        rq = await Actor.open_request_queue()
 ```
