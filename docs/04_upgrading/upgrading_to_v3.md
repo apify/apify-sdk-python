@@ -101,3 +101,21 @@ async def main():
             storage_client=custom_storage_client,
         )
 ```
+
+## Removed Actor.config property
+- `Actor.config` property has been removed. Use `Actor.configuration` instead.
+
+## Default storage ids in configuration changed to None
+- `Configuration.default_key_value_store_id` changed from `'default'` to `None`.
+- `Configuration.default_dataset_id` changed from `'default'` to `None`.
+- `Configuration.default_request_queue_id` changed from `'default'` to `None`.
+
+Previously using the default storage without specifying its `id` in `Configuration` would lead to using specific storage with id `'default'`. Now it will use newly created unnamed storage with `'id'` assigned by the Apify platform, consecutive calls to get the default storage will return the same storage.
+
+## Storages
+
+<!-- TODO -->
+
+## Storage clients
+
+<!-- TODO -->

@@ -124,8 +124,10 @@ class ApifyDatasetClient(DatasetClient):
         )
         apify_datasets_client = apify_client_async.datasets()
 
-        # Normalize 'default' alias to None
-        alias = None if alias == 'default' else alias
+        # Normalize unnamed default storage in cases where not defined in `configuration.default_dataset_id` to unnamed
+        # storage aliased as `__default__`
+        if not any([alias, name, id, configuration.default_dataset_id]):
+            alias = '__default__'
 
         if alias:
             # Check if there is pre-existing alias mapping in the default KVS.
@@ -150,6 +152,11 @@ class ApifyDatasetClient(DatasetClient):
         # If none are provided, try to get the default storage ID from environment variables.
         elif id is None:
             id = configuration.default_dataset_id
+            if not id:
+                raise ValueError(
+                    'Dataset "id", "name", or "alias" must be specified, '
+                    'or a default dataset ID must be set in the configuration.'
+                )
 
         # Now create the client for the determined ID
         apify_dataset_client = apify_client_async.dataset(dataset_id=id)
