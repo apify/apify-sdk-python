@@ -33,7 +33,7 @@ async def apify_named_rq(
 
     async with Actor:
         request_queue = await RequestQueue.open(
-            name=request_queue_name, storage_client=ApifyStorageClient(access=request.param)
+            name=request_queue_name, storage_client=ApifyStorageClient(request_queue_access=request.param)
         )
         yield request_queue
         await request_queue.drop()

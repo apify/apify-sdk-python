@@ -26,16 +26,16 @@ if TYPE_CHECKING:
 class ApifyStorageClient(StorageClient):
     """Apify storage client."""
 
-    def __init__(self, *, access: Literal['single', 'shared'] = 'single') -> None:
+    def __init__(self, *, request_queue_access: Literal['single', 'shared'] = 'single') -> None:
         """Initialize the Apify storage client.
 
         Args:
-            access: If 'single', the `create_rq_client` will return `ApifyRequestQueueSingleClient`, if 'shared' it
-            will return `ApifyRequestQueueSharedClient`.
-            - 'single' is suitable for single consumer scenarios. It makes less API calls, is cheaper and faster.
-            - 'shared' is suitable for multiple consumers scenarios at the cost of higher API usage.
+            request_queue_access: If 'single', the `create_rq_client` will return `ApifyRequestQueueSingleClient`, if
+                'shared' it will return `ApifyRequestQueueSharedClient`.
+                - 'single' is suitable for single consumer scenarios. It makes less API calls, is cheaper and faster.
+                - 'shared' is suitable for multiple consumers scenarios at the cost of higher API usage.
         """
-        self._access = access
+        self._request_queue_access = request_queue_access
 
     # This class breaches Liskov Substitution Principle. It requires specialized Configuration compared to its parent.
     _lsp_violation_error_message_template = (
@@ -96,7 +96,9 @@ class ApifyStorageClient(StorageClient):
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
             client: type[ApifyRequestQueueClient] = (
-                ApifyRequestQueueSingleClient if self._access == 'single' else ApifyRequestQueueSharedClient
+                ApifyRequestQueueSingleClient
+                if self._request_queue_access == 'single'
+                else ApifyRequestQueueSharedClient
             )
             return await client.open(id=id, name=name, alias=alias, configuration=configuration)
 

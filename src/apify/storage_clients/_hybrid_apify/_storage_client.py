@@ -43,7 +43,7 @@ class ApifyHybridStorageClient(StorageClient):
             local_storage_client: Client used to communicate with the storage when not running on the Apify
                 platform and not using `force_cloud` argument when opening storages.
         """
-        self._cloud_storage_client = cloud_storage_client or ApifyStorageClient(access='single')
+        self._cloud_storage_client = cloud_storage_client or ApifyStorageClient(request_queue_access='single')
         self._local_storage_client = local_storage_client or ApifyFileSystemStorageClient()
 
     def _get_suitable_storage_client(self, *, force_cloud: bool = False) -> StorageClient:

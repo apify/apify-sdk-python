@@ -1086,8 +1086,8 @@ async def test_request_queue_simple_and_full_at_the_same_time(
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
     async with Actor:
-        rq_simple = await RequestQueue.open(storage_client=ApifyStorageClient(access='single'))
-        rq_full = await RequestQueue.open(storage_client=ApifyStorageClient(access='shared'))
+        rq_simple = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access='single'))
+        rq_full = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access='shared'))
         # Opening same queue again with different ApifyStorageClient will resolve to the first client used.
         assert rq_simple is rq_full
         await rq_simple.drop()
@@ -1112,7 +1112,7 @@ async def test_crawler_run_request_queue_variant_stats(
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
     async with Actor:
         requests = 5
-        rq = await RequestQueue.open(storage_client=ApifyStorageClient(access=access))
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access=access))
         crawler = BasicCrawler(request_manager=rq)
 
         @crawler.router.default_handler

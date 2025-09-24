@@ -40,7 +40,7 @@ async def test_actor_full_explicit_storage_init(apify_token: str) -> None:
     service_locator.set_storage_client(
         ApifyHybridStorageClient(
             local_storage_client=MemoryStorageClient(),
-            cloud_storage_client=ApifyStorageClient(access='shared'),
+            cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
         )
     )
     async with Actor():
@@ -55,8 +55,8 @@ async def test_actor_full_explicit_storage_init_same_client(apify_token: str) ->
     service_locator.set_configuration(Configuration(token=apify_token))
     service_locator.set_storage_client(
         ApifyHybridStorageClient(
-            local_storage_client=ApifyStorageClient(access='shared'),
-            cloud_storage_client=ApifyStorageClient(access='shared'),
+            local_storage_client=ApifyStorageClient(request_queue_access='shared'),
+            cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
         )
     )
     async with Actor():
@@ -69,7 +69,7 @@ async def test_actor_full_explicit_storage_init_same_client(apify_token: str) ->
 
 async def test_actor_partial_explicit_cloud_storage_init(apify_token: str) -> None:
     service_locator.set_configuration(Configuration(token=apify_token))
-    service_locator.set_storage_client(ApifyStorageClient(access='shared'))
+    service_locator.set_storage_client(ApifyStorageClient(request_queue_access='shared'))
     async with Actor():
         # If service locator was already set with ApifyStorageClient, the actor will use it as cloud_storage_client of
         # ApifyHybridStorageClient
@@ -108,7 +108,7 @@ async def test_actor_full_explicit_storage_init_on_platform(
         service_locator.set_storage_client(
             ApifyHybridStorageClient(
                 local_storage_client=MemoryStorageClient(),
-                cloud_storage_client=ApifyStorageClient(access='shared'),
+                cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
             )
         )
         async with Actor():

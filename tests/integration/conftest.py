@@ -115,7 +115,7 @@ async def request_queue_apify(
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
     async with Actor:
-        rq = await RequestQueue.open(storage_client=ApifyStorageClient(access=request.param))
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access=request.param))
         yield rq
         await rq.drop()
 
