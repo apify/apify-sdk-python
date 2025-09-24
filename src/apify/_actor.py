@@ -244,7 +244,7 @@ class _ActorType:
         Depending on the initialization of the service locator the client can be created in different ways.
         """
         try:
-            # Notning was set by the user.
+            # Nothing was set by the user.
             implicit_storage_client = ApifyHybridStorageClient(
                 local_storage_client=ApifyFileSystemStorageClient(), cloud_storage_client=ApifyStorageClient()
             )
