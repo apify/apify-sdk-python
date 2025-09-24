@@ -288,6 +288,7 @@ class _ActorType:
         This method should be called immediately before performing any additional Actor actions, and it should be
         called only once.
         """
+        self.log.info('Initializing Actor...')
         if self._configuration:
             # Set explicitly the configuration in the service locator
             service_locator.set_configuration(self.configuration)
@@ -315,7 +316,6 @@ class _ActorType:
         if self._configure_logging:
             _configure_logging()
 
-        self.log.info('Initializing Actor...')
         self.log.info('System info', extra=get_system_info())
 
         await self.event_manager.__aenter__()
