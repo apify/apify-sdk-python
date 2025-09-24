@@ -25,7 +25,6 @@ from crawlee.events import (
     EventPersistStateData,
     EventSystemInfoData,
 )
-from crawlee.storage_clients import FileSystemStorageClient
 
 from apify._charging import ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
@@ -258,24 +257,17 @@ class _ActorType:
             return implicit_storage_client
 
         # User set something in the service locator.
-        storage_client = service_locator.get_storage_client()
-        if isinstance(storage_client, SmartApifyStorageClient):
+        explicit_storage_client = service_locator.get_storage_client()
+        if isinstance(explicit_storage_client, SmartApifyStorageClient):
             # The client was manually set to the right type in the service locator. This is the explicit way.
-            return storage_client
+            return explicit_storage_client
 
-        if isinstance(storage_client, ApifyStorageClient):
-            # The cloud storage client was manually set in the service locator.
-            return SmartApifyStorageClient(cloud_storage_client=storage_client)
-
-        # The local storage client was manually set in the service locator
-        if type(storage_client) is FileSystemStorageClient:
-            self.log.warning(
-                f'Using {FileSystemStorageClient.__module__}.{FileSystemStorageClient.__name__} in Actor context is not'
-                f' recommended and can lead to problems with reading the input file. Use '
-                f'`apify.storage_clients.FileSystemStorageClient` instead.'
-            )
-
-        return SmartApifyStorageClient(cloud_storage_client=ApifyStorageClient(), local_storage_client=storage_client)
+        raise RuntimeError(
+            'The storage client in the service locator has to be instance of SmartApifyStorageClient. If you want to '
+            'set the storage client manually you have to call '
+            '`service_locator.set_storage_client(SmartApifyStorageClient(...))` before entering Actor context or '
+            'awaiting `Actor.init`.'
+        )
 
     async def init(self) -> None:
         """Initialize the Actor instance.

@@ -67,7 +67,6 @@ async def test_aliases_not_stored_on_platform_when_local(
 ) -> None:
     """Test that default Apify storage used locally is not persisting aliases to Apify based default KVS."""
     service_locator.set_configuration(Configuration(token=apify_token))
-    service_locator.set_storage_client(ApifyStorageClient())
     async with Actor(configure_logging=False):
         await storage_type.open(alias='test')
         default_kvs = await Actor.open_key_value_store(force_cloud=True)
@@ -111,23 +110,12 @@ async def test_actor_full_explicit_storage_init_same_client(apify_token: str) ->
 async def test_actor_partial_explicit_cloud_storage_init(apify_token: str) -> None:
     service_locator.set_configuration(Configuration(token=apify_token))
     service_locator.set_storage_client(ApifyStorageClient(request_queue_access='shared'))
-    async with Actor:
-        # If service locator was already set with ApifyStorageClient, the actor will use it as cloud_storage_client of
-        # SmartApifyStorageClient
-        assert await Actor.open_dataset() is not await Actor.open_dataset(force_cloud=True)
-        assert await Actor.open_key_value_store() is not await Actor.open_key_value_store(force_cloud=True)
-        assert await Actor.open_request_queue() is not await Actor.open_request_queue(force_cloud=True)
-
-
-async def test_actor_partial_explicit_local_storage_init(apify_token: str) -> None:
-    service_locator.set_configuration(Configuration(token=apify_token))
-    service_locator.set_storage_client(MemoryStorageClient())
-    async with Actor:
-        # If service locator was already set with non-ApifyStorageClient, the actor will use it as local_storage_client
-        # of SmartApifyStorageClient
-        assert await Actor.open_dataset() is not await Actor.open_dataset(force_cloud=True)
-        assert await Actor.open_key_value_store() is not await Actor.open_key_value_store(force_cloud=True)
-        assert await Actor.open_request_queue() is not await Actor.open_request_queue(force_cloud=True)
+    with pytest.raises(
+        RuntimeError, match=r'^The storage client in the service locator has to be instance of SmartApifyStorageClient'
+    ):
+        async with Actor:
+            # If service locator was explicitly set to something different than SmartApifyStorageClient, raise an error.
+            ...
 
 
 async def test_actor_implicit_storage_init(apify_token: str) -> None:

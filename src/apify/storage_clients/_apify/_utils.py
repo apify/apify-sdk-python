@@ -107,7 +107,7 @@ class AliasResolver:
         # Update in-memory mapping
         (await self._get_alias_map())[self._storage_key] = storage_id
         if not Configuration.get_global_configuration().is_at_home:
-            logging.getLogger(__name__).warning(
+            logging.getLogger(__name__).debug(
                 'AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
             )
             return

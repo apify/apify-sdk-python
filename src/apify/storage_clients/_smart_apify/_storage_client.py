@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import cached_property
 from typing import TYPE_CHECKING
 
 from typing_extensions import override
@@ -56,7 +55,7 @@ class SmartApifyStorageClient(StorageClient):
         Args:
             force_cloud: If True, return `cloud_storage_client`.
         """
-        if self._is_at_home:
+        if ApifyConfiguration.get_global_configuration().is_at_home:
             return self._cloud_storage_client
 
         configuration = ApifyConfiguration.get_global_configuration()
@@ -72,7 +71,7 @@ class SmartApifyStorageClient(StorageClient):
 
     @override
     def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
-        if self._is_at_home:
+        if ApifyConfiguration.get_global_configuration().is_at_home:
             if isinstance(configuration, ApifyConfiguration):
                 return self._cloud_storage_client.get_additional_cache_key(configuration)
             raise TypeError('Expecting ApifyConfiguration')
@@ -117,8 +116,3 @@ class SmartApifyStorageClient(StorageClient):
         return await self.get_suitable_storage_client().create_rq_client(
             id=id, name=id, alias=alias, configuration=configuration
         )
-
-    @cached_property
-    def _is_at_home(self) -> bool:
-        configuration = ApifyConfiguration.get_global_configuration()
-        return configuration.is_at_home
