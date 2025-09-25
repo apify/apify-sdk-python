@@ -4,20 +4,18 @@ import asyncio
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from cachetools import LRUCache
-from typing_extensions import override
 
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
-from . import ApifyRequestQueueClient
-from ._models import CachedRequest, RequestQueueHead
-from ._request_queue_client import unique_key_to_request_id
+from ._models import ApifyRequestQueueMetadata, CachedRequest, RequestQueueHead
+from ._utils import unique_key_to_request_id
 from apify import Request
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Coroutine, Sequence
 
     from apify_client.clients import RequestQueueClientAsync
 
@@ -25,7 +23,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
+class _ApifyRequestQueueSharedClient:
     """An Apify platform implementation of the request queue client.
 
     This implementation supports multiple producers and multiple consumers scenario.
@@ -39,21 +37,26 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
         *,
         api_client: RequestQueueClientAsync,
         metadata: RequestQueueMetadata,
+        cache_size: int,
+        metadata_getter: Callable[[], Coroutine[Any, Any, ApifyRequestQueueMetadata]],
     ) -> None:
         """Initialize a new instance.
 
         Preferably use the `ApifyRequestQueueClient.open` class method to create a new instance.
         """
+        self.metadata = metadata
+        """Additional data related to the RequestQueue."""
+
+        self._metadata_getter = metadata_getter
+        """Async function to get metadata from API."""
+
         self._api_client = api_client
         """The Apify request queue client for API operations."""
-
-        self._metadata = metadata
-        """Additional data related to the RequestQueue."""
 
         self._queue_head = deque[str]()
         """A deque to store request unique keys in the queue head."""
 
-        self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=self._MAX_CACHED_REQUESTS)
+        self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """A cache to store request objects. Request unique key is used as the cache key."""
 
         self._queue_has_locked_requests: bool | None = None
@@ -72,12 +75,11 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
         Local estimation of metadata is without delay, unlike metadata from API. In situation where there is only one
         client, it is the better choice.
         """
-        if self._metadata.had_multiple_clients:
-            return await self.get_metadata()
+        if self.metadata.had_multiple_clients:
+            return await self._metadata_getter()
         # Get local estimation (will not include changes done bo another client)
-        return self._metadata
+        return self.metadata
 
-    @override
     async def add_batch_of_requests(
         self,
         requests: Sequence[Request],
@@ -167,11 +169,10 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
             if not processed_request.was_already_present and not processed_request.was_already_handled:
                 new_request_count += 1
 
-        self._metadata.total_request_count += new_request_count
+        self.metadata.total_request_count += new_request_count
 
         return api_response
 
-    @override
     async def get_request(self, unique_key: str) -> Request | None:
         """Get a request by unique key.
 
@@ -188,7 +189,6 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
 
         return Request.model_validate(response)
 
-    @override
     async def fetch_next_request(self) -> Request | None:
         """Return the next request in the queue to be processed.
 
@@ -240,7 +240,6 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
 
         return request
 
-    @override
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
         """Mark a request as handled after successful processing.
 
@@ -265,7 +264,7 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
 
             # Update assumed handled count if this wasn't already handled
             if not processed_request.was_already_handled:
-                self._metadata.handled_request_count += 1
+                self.metadata.handled_request_count += 1
 
             # Update the cache with the handled request
             cache_key = request.unique_key
@@ -280,7 +279,6 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
         else:
             return processed_request
 
-    @override
     async def reclaim_request(
         self,
         request: Request,
@@ -313,7 +311,7 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
                 # If the request was previously handled, decrement our handled count since
                 # we're putting it back for processing.
                 if request.was_already_handled and not processed_request.was_already_handled:
-                    self._metadata.handled_request_count -= 1
+                    self.metadata.handled_request_count -= 1
 
                 # Update the cache
                 cache_key = request.unique_key
@@ -334,7 +332,6 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
             else:
                 return processed_request
 
-    @override
     async def is_empty(self) -> bool:
         """Check if the queue is empty.
 
@@ -472,7 +469,7 @@ class ApifyRequestQueueSharedClient(ApifyRequestQueueClient):
         # Update the queue head cache
         self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
         # Check if there is another client working with the RequestQueue
-        self._metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
 
         for request_data in response.get('items', []):
             request = Request.model_validate(request_data)

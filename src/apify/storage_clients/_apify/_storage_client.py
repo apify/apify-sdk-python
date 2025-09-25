@@ -8,8 +8,7 @@ from crawlee.storage_clients._base import StorageClient
 
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
-from ._request_queue_shared_client import ApifyRequestQueueSharedClient
-from ._request_queue_single_client import ApifyRequestQueueSingleClient
+from ._request_queue_client import ApifyRequestQueueClient
 from ._utils import hash_api_base_url_and_token
 from apify._configuration import Configuration as ApifyConfiguration
 from apify._utils import docs_group
@@ -18,8 +17,6 @@ if TYPE_CHECKING:
     from collections.abc import Hashable
 
     from crawlee.configuration import Configuration as CrawleeConfiguration
-
-    from ._request_queue_client import ApifyRequestQueueClient
 
 
 @docs_group('Storage clients')
@@ -95,11 +92,8 @@ class ApifyStorageClient(StorageClient):
     ) -> ApifyRequestQueueClient:
         configuration = configuration or ApifyConfiguration.get_global_configuration()
         if isinstance(configuration, ApifyConfiguration):
-            client: type[ApifyRequestQueueClient] = (
-                ApifyRequestQueueSingleClient
-                if self._request_queue_access == 'single'
-                else ApifyRequestQueueSharedClient
+            return await ApifyRequestQueueClient.open(
+                id=id, name=name, alias=alias, configuration=configuration, access=self._request_queue_access
             )
-            return await client.open(id=id, name=name, alias=alias, configuration=configuration)
 
         raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))

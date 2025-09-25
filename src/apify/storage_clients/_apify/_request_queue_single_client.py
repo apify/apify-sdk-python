@@ -6,13 +6,11 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Final
 
 from cachetools import LRUCache
-from typing_extensions import override
 
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from apify import Request
-from apify.storage_clients._apify import ApifyRequestQueueClient
-from apify.storage_clients._apify._request_queue_client import unique_key_to_request_id
+from apify.storage_clients._apify._utils import unique_key_to_request_id
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -23,7 +21,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
+class _ApifyRequestQueueSingleClient:
     """An Apify platform implementation of the request queue client with limited capability.
 
     This client is designed to use as little resources as possible, but has to be used in constrained context.
@@ -45,18 +43,19 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
         *,
         api_client: RequestQueueClientAsync,
         metadata: RequestQueueMetadata,
+        cache_size: int,
     ) -> None:
         """Initialize a new instance.
 
         Preferably use the `ApifyRequestQueueClient.open` class method to create a new instance.
         """
+        self.metadata = metadata
+        """Additional data related to the RequestQueue."""
+
         self._api_client = api_client
         """The Apify request queue client for API operations."""
 
-        self._metadata = metadata
-        """Additional data related to the RequestQueue."""
-
-        self._requests_cache: LRUCache[str, Request] = LRUCache(maxsize=self._MAX_CACHED_REQUESTS)
+        self._requests_cache: LRUCache[str, Request] = LRUCache(maxsize=cache_size)
         """A cache to store request objects. Request unique key is used as the cache key."""
 
         self._head_requests: deque[str] = deque()
@@ -82,7 +81,6 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
         Initialization is done lazily only if deduplication is needed (When calling add_batch_of_requests).
         """
 
-    @override
     async def add_batch_of_requests(
         self,
         requests: Sequence[Request],
@@ -169,11 +167,10 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
         for processed_request in api_response.processed_requests:
             if not processed_request.was_already_present and not processed_request.was_already_handled:
                 new_request_count += 1
-        self._metadata.total_request_count += new_request_count
+        self.metadata.total_request_count += new_request_count
 
         return api_response
 
-    @override
     async def get_request(self, unique_key: str) -> Request | None:
         """Get a request by unique key.
 
@@ -193,7 +190,6 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
 
         return Request.model_validate(response)
 
-    @override
     async def fetch_next_request(self) -> Request | None:
         """Return the next request in the queue to be processed.
 
@@ -231,11 +227,11 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
 
         # Update metadata
         # Check if there is another client working with the RequestQueue
-        self._metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
         # Should warn once? This might be outside expected context if the other consumers consumes at the same time
 
         if modified_at := response.get('queueModifiedAt'):
-            self._metadata.modified_at = max(self._metadata.modified_at, modified_at)
+            self.metadata.modified_at = max(self.metadata.modified_at, modified_at)
 
         # Update the cached data
         for request_data in response.get('items', []):
@@ -259,7 +255,6 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
                 if request.unique_key not in self._head_requests:
                     self._head_requests.appendleft(request.unique_key)
 
-    @override
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
         """Mark a request as handled after successful processing.
 
@@ -275,7 +270,7 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
 
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
-            self._metadata.handled_request_count += 1
+            self.metadata.handled_request_count += 1
 
         if cached_request := self._requests_cache.get(request.unique_key):
             cached_request.handled_at = request.handled_at
@@ -297,7 +292,6 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
         else:
             return processed_request
 
-    @override
     async def reclaim_request(
         self,
         request: Request,
@@ -338,7 +332,7 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
             # If the request was previously handled, decrement our handled count since
             # we're putting it back for processing.
             if request.was_already_handled and not processed_request.was_already_handled:
-                self._metadata.handled_request_count -= 1
+                self.metadata.handled_request_count -= 1
 
         except Exception as exc:
             logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
@@ -346,7 +340,6 @@ class ApifyRequestQueueSingleClient(ApifyRequestQueueClient):
         else:
             return processed_request
 
-    @override
     async def is_empty(self) -> bool:
         """Check if the queue is empty.
 

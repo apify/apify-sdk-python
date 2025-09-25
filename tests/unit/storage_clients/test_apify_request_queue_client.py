@@ -1,6 +1,6 @@
 import pytest
 
-from apify.storage_clients._apify._request_queue_client import unique_key_to_request_id
+from apify.storage_clients._apify._utils import unique_key_to_request_id
 
 
 def test_unique_key_to_request_id_length() -> None:
