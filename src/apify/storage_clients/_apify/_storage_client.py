@@ -27,10 +27,17 @@ class ApifyStorageClient(StorageClient):
         """Initialize the Apify storage client.
 
         Args:
-            request_queue_access: If 'single', the `create_rq_client` will return `ApifyRequestQueueSingleClient`, if
-                'shared' it will return `ApifyRequestQueueSharedClient`.
+            request_queue_access: Controls the implementation of the request queue client based on expected scenario:
                 - 'single' is suitable for single consumer scenarios. It makes less API calls, is cheaper and faster.
                 - 'shared' is suitable for multiple consumers scenarios at the cost of higher API usage.
+                Detailed constraints for the 'single' access type:
+                - Only one client is consuming the request queue at the time.
+                - Multiple producers can put requests to the queue, but their forefront requests are not guaranteed to
+                  be handled so quickly as this client does not aggressively fetch the forefront and relies on local
+                  head estimation.
+                - Requests are only added to the queue, never deleted by other clients. (Marking as handled is ok.)
+                - Other producers can add new requests, but not modify existing ones.
+                  (Modifications would not be included in local cache)
         """
         self._request_queue_access = request_queue_access
 
@@ -42,8 +49,8 @@ class ApifyStorageClient(StorageClient):
     @override
     def get_storage_client_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if isinstance(configuration, ApifyConfiguration):
-            # Current design does not support opening exactly same queue with full and simple client at the same time,
-            # due to default and unnamed storages. Whichever client variation gets used first, wins.
+            # It is not supported to open exactly same queue with 'single' and 'shared' client at the same time.
+            # Whichever client variation gets used first, wins.
             return super().get_storage_client_cache_key(configuration), hash_api_base_url_and_token(configuration)
 
         config_class = type(configuration)

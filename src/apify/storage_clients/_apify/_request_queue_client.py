@@ -208,7 +208,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
             access: Controls the implementation of the request queue client based on expected scenario:
                 - 'single' is suitable for single consumer scenarios. It makes less API calls, is cheaper and faster.
                 - 'shared' is suitable for multiple consumers scenarios at the cost of higher API usage.
-
                 Detailed constraints for the 'single' access type:
                 - Only one client is consuming the request queue at the time.
                 - Multiple producers can put requests to the queue, but their forefront requests are not guaranteed to
