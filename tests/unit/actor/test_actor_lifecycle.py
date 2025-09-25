@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
@@ -109,6 +110,21 @@ async def test_actor_fails_cleanly_init_fail() -> None:
 
     await actor.fail()
     assert actor._is_initialized is False
+
+
+async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    async with Actor:
+        await Actor.fail(exit_code=2, exception=Exception('abc'), status_message='cde')
+        raise RuntimeError('This should not trigger')
+
+    assert caplog.records[-3].levelno == logging.ERROR  # type: ignore[unreachable]
+    assert caplog.records[-3].msg == 'Actor failed with an exception'
+    assert caplog.records[-3].exc_text == 'Exception: abc'
+    assert caplog.records[-2].levelno == logging.INFO
+    assert caplog.records[-2].msg == 'Exiting Actor'
+    assert caplog.records[-1].levelno == logging.INFO
+    assert caplog.records[-1].msg == '[Terminal status message]: cde'
 
 
 async def test_actor_fails_cleanly_context_manager() -> None:
