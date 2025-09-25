@@ -21,9 +21,8 @@ if TYPE_CHECKING:
 class SmartApifyStorageClient(StorageClient):
     """SmartApifyStorageClient that delegates to cloud_storage_client or local_storage_client.
 
-    When running on Apify platform use cloud_storage_client, else use local_storage_client. It has additional wrapper
-    methods with `force_cloud` parameter to force using cloud_storage_client when opening specific storages even when
-    not running on the Apify platform. This storage client is designed to work specifically in Actor context.
+    When running on Apify platform use cloud_storage_client, else use local_storage_client. This storage client is
+    designed to work specifically in Actor context.
     """
 
     def __init__(

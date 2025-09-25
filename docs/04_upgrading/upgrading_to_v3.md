@@ -118,13 +118,13 @@ async def main():
 
 ```python
 from crawlee import service_locator
-from apify.storage_clients import ApifyStorageClient, ApifyHybridStorageClient, MemoryStorageClient
+from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient, MemoryStorageClient
 from apify import Actor
 
 
 async def main():
     service_locator.set_storage_client(
-        ApifyHybridStorageClient(
+        SmartApifyStorageClient(
             cloud_storage_client=ApifyStorageClient(request_queue_access="single"),
             local_storage_client=MemoryStorageClient()
         )
@@ -143,13 +143,17 @@ async def main():
 
 ```python
 from crawlee import service_locator
-from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
 from apify import Actor
 
 
 async def main():
     # Full client that supports multiple consumers of the Apify Request Queue
-    service_locator.set_storage_client(ApifyStorageClient(request_queue_access="shared"))
+    service_locator.set_storage_client(
+        SmartApifyStorageClient(
+            cloud_storage_client=ApifyStorageClient(request_queue_access="shared"),
+        )
+    )
     async with Actor:
         rq = await Actor.open_request_queue()
 ```
