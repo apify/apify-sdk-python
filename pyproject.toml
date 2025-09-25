@@ -36,7 +36,7 @@ keywords = [
 dependencies = [
     "apify-client>=2.0.0,<3.0.0",
     "apify-shared>=2.0.0,<3.0.0",
-    "crawlee @ git+https://github.com/apify/crawlee-python.git@include-storag-client-in-additional-cache-key",
+    "crawlee==0.6.13b46",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
     "impit>=0.6.1",

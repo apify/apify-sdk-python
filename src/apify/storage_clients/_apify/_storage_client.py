@@ -43,11 +43,11 @@ class ApifyStorageClient(StorageClient):
     )
 
     @override
-    def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
+    def get_storage_client_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if isinstance(configuration, ApifyConfiguration):
             # Current design does not support opening exactly same queue with full and simple client at the same time,
             # due to default and unnamed storages. Whichever client variation gets used first, wins.
-            return hash_api_base_url_and_token(configuration)
+            return super().get_storage_client_cache_key(configuration), hash_api_base_url_and_token(configuration)
 
         config_class = type(configuration)
         raise TypeError(

@@ -70,13 +70,13 @@ class SmartApifyStorageClient(StorageClient):
         return self._local_storage_client
 
     @override
-    def get_additional_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
+    def get_storage_client_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
         if ApifyConfiguration.get_global_configuration().is_at_home:
             if isinstance(configuration, ApifyConfiguration):
-                return self._cloud_storage_client.get_additional_cache_key(configuration)
+                return self._cloud_storage_client.get_storage_client_cache_key(configuration)
             raise TypeError('Expecting ApifyConfiguration')
 
-        return self._local_storage_client.get_additional_cache_key(configuration)
+        return self._local_storage_client.get_storage_client_cache_key(configuration)
 
     @override
     async def create_dataset_client(

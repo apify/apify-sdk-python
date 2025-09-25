@@ -76,7 +76,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.0.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=include-storag-client-in-additional-cache-key" },
+    { name = "crawlee", specifier = "==0.6.13b46" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.6.1" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
@@ -516,8 +516,8 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "0.6.13"
-source = { git = "https://github.com/apify/crawlee-python.git?rev=include-storag-client-in-additional-cache-key#182b872c9b18ebdc54a442e2331ea2e3172ab8e6" }
+version = "0.6.13b46"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
     { name = "colorama" },
@@ -531,6 +531,10 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/94/5d/f42c7684b0120eaaf0fd0b7667e6222ab0e0bed2c197a348ad6b534061e8/crawlee-0.6.13b46.tar.gz", hash = "sha256:a1ba1fd649c5673801b85c7b3035c8288a8f783a25e6980961d87d08d55701d4", size = 24846309, upload-time = "2025-09-25T06:40:30.654Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/a8/1210d96728108c0ff1d1cd935fb41998768265a9e1a03265f2476c2d734f/crawlee-0.6.13b46-py3-none-any.whl", hash = "sha256:48788749a861024fa21eba114c1c209e34a321bc5475e0ce38c493ada333f785", size = 280069, upload-time = "2025-09-25T06:40:28.272Z" },
 ]
 
 [package.optional-dependencies]
