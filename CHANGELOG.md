@@ -30,9 +30,22 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Replace `httpx` with `impit` ([#560](https://github.com/apify/apify-sdk-python/pull/560)) ([cca3869](https://github.com/apify/apify-sdk-python/commit/cca3869e85968865e56aafcdcb36fbccba27aef0)) by [@Mantisus](https://github.com/Mantisus), closes [#558](https://github.com/apify/apify-sdk-python/issues/558)
 - [**breaking**] Remove `Request.id` field ([#553](https://github.com/apify/apify-sdk-python/pull/553)) ([445ab5d](https://github.com/apify/apify-sdk-python/commit/445ab5d752b785fc2018b35c8adbe779253d7acd)) by [@Pijukatel](https://github.com/Pijukatel)
 - [**breaking**] Make `Actor` initialization stricter and more predictable ([#576](https://github.com/apify/apify-sdk-python/pull/576)) ([912222a](https://github.com/apify/apify-sdk-python/commit/912222a7a8123be66c94c50a2e461276fbfc50c4)) by [@Pijukatel](https://github.com/Pijukatel)
+- [**breaking**] Make default Apify storages use alias mechanism ([#606](https://github.com/apify/apify-sdk-python/pull/606)) ([dbea7d9](https://github.com/apify/apify-sdk-python/commit/dbea7d97fe7f25aa8658a32c5bb46a3800561df5)) by [@Pijukatel](https://github.com/Pijukatel), closes [#599](https://github.com/apify/apify-sdk-python/issues/599)
 
 
 <!-- git-cliff-unreleased-end -->
+## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
+
+### 🚀 Features
+
+- **crypto:** Decrypt secret objects ([#482](https://github.com/apify/apify-sdk-python/pull/482)) ([ce9daf7](https://github.com/apify/apify-sdk-python/commit/ce9daf7381212b8dc194e8a643e5ca0dedbc0078)) by [@MFori](https://github.com/MFori)
+
+### 🐛 Bug Fixes
+
+- Sync `@docusaurus` theme version [internal] ([#500](https://github.com/apify/apify-sdk-python/pull/500)) ([a7485e7](https://github.com/apify/apify-sdk-python/commit/a7485e7d2276fde464ce862573d5b95e7d4d836a)) by [@katzino](https://github.com/katzino)
+- Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
+
+
 ## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
 
 ### 🚀 Features
