@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -296,3 +297,19 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
     # Check if all the other events are regular persist state events
     for event_data in persist_state_events_data:
         assert event_data == EventPersistStateData(is_migrating=False)
+
+
+async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that calling Actor.fail() prevents further code execution in the Actor context."""
+    caplog.set_level(logging.INFO)
+    async with Actor:
+        await Actor.fail(exit_code=2, exception=Exception('abc'), status_message='cde')
+        raise RuntimeError('This should not trigger')
+
+    assert caplog.records[-3].levelno == logging.ERROR  # type: ignore[unreachable]
+    assert caplog.records[-3].msg == 'Actor failed with an exception'
+    assert caplog.records[-3].exc_text == 'Exception: abc'
+    assert caplog.records[-2].levelno == logging.INFO
+    assert caplog.records[-2].msg == 'Exiting Actor'
+    assert caplog.records[-1].levelno == logging.INFO
+    assert caplog.records[-1].msg == '[Terminal status message]: cde'
