@@ -7,11 +7,10 @@ from crawlee._types import BasicCrawlingContext
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.crawlers import BasicCrawler
 from crawlee.errors import ServiceConflictError
-from crawlee.storage_clients import FileSystemStorageClient
 
 from apify import Actor
 from apify import Configuration as ApifyConfiguration
-from apify.storage_clients import FileSystemStorageClient as ApifyFileSystemStorageClient
+from apify.storage_clients._smart_apify._storage_client import SmartApifyStorageClient
 
 
 @pytest.mark.parametrize(
@@ -111,8 +110,8 @@ async def test_crawler_implicit_local_storage() -> None:
     async with Actor():
         crawler = BasicCrawler()
 
-    assert isinstance(service_locator.get_storage_client(), ApifyFileSystemStorageClient)
-    assert isinstance(crawler._service_locator.get_storage_client(), ApifyFileSystemStorageClient)
+    assert isinstance(service_locator.get_storage_client(), SmartApifyStorageClient)
+    assert isinstance(crawler._service_locator.get_storage_client(), SmartApifyStorageClient)
 
 
 async def test_crawlers_own_configuration(tmp_path: Path) -> None:
@@ -241,17 +240,4 @@ def test_apify_configuration_is_always_used(caplog: pytest.LogCaptureFixture) ->
         'Non Apify Configration is set in the `service_locator` in the SDK context. '
         'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
         'service_locator.set_configuration'
-    ) in caplog.messages
-
-
-async def test_file_system_storage_client_warning(caplog: pytest.LogCaptureFixture) -> None:
-    service_locator.set_storage_client(FileSystemStorageClient())
-    caplog.set_level('WARNING')
-    async with Actor():
-        ...
-
-    assert (
-        'Using crawlee.storage_clients._file_system._storage_client.FileSystemStorageClient in Actor context is not '
-        'recommended and can lead to problems with reading the input file. Use '
-        '`apify.storage_clients.FileSystemStorageClient` instead.'
     ) in caplog.messages

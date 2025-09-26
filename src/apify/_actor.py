@@ -25,7 +25,6 @@ from crawlee.events import (
     EventPersistStateData,
     EventSystemInfoData,
 )
-from crawlee.storage_clients import FileSystemStorageClient
 
 from apify._charging import ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
@@ -38,6 +37,7 @@ from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._file_system import ApifyFileSystemStorageClient
+from apify.storage_clients._smart_apify._storage_client import SmartApifyStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
@@ -48,7 +48,6 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
-    from crawlee.storage_clients import StorageClient
 
     from apify._models import Webhook
 
@@ -131,7 +130,6 @@ class _ActorType:
         self._configuration = configuration
         self._configure_logging = configure_logging
         self._apify_client: ApifyClientAsync | None = None
-        self._local_storage_client: StorageClient | None = None
 
         self._is_initialized = False
 
@@ -234,45 +232,42 @@ class _ActorType:
         """The logging.Logger instance the Actor uses."""
         return logger
 
-    def _get_local_storage_client(self) -> StorageClient:
-        """Get the local storage client the Actor instance uses."""
-        if self._local_storage_client:
-            return self._local_storage_client
+    def _raise_if_not_initialized(self) -> None:
+        if not self._is_initialized:
+            raise RuntimeError('The Actor was not initialized!')
 
+    @cached_property
+    def _storage_client(self) -> SmartApifyStorageClient:
+        """Storage client used by the actor.
+
+        Depending on the initialization of the service locator the client can be created in different ways.
+        """
         try:
-            # Set implicit default local storage client, unless local storage client was already set.
-            implicit_storage_client = ApifyFileSystemStorageClient()
+            # Nothing was set by the user.
+            implicit_storage_client = SmartApifyStorageClient(
+                local_storage_client=ApifyFileSystemStorageClient(), cloud_storage_client=ApifyStorageClient()
+            )
             service_locator.set_storage_client(implicit_storage_client)
-            self._local_storage_client = implicit_storage_client
         except ServiceConflictError:
             self.log.debug(
                 'Storage client in service locator was set explicitly before Actor.init was called.'
                 'Using the existing storage client as implicit storage client for the Actor.'
             )
+        else:
+            return implicit_storage_client
 
-        self._local_storage_client = service_locator.get_storage_client()
-        if type(self._local_storage_client) is FileSystemStorageClient:
-            self.log.warning(
-                f'Using {FileSystemStorageClient.__module__}.{FileSystemStorageClient.__name__} in Actor context is not'
-                f' recommended and can lead to problems with reading the input file. Use '
-                f'`apify.storage_clients.FileSystemStorageClient` instead.'
-            )
+        # User set something in the service locator.
+        explicit_storage_client = service_locator.get_storage_client()
+        if isinstance(explicit_storage_client, SmartApifyStorageClient):
+            # The client was manually set to the right type in the service locator. This is the explicit way.
+            return explicit_storage_client
 
-        return self._local_storage_client
-
-    def _raise_if_not_initialized(self) -> None:
-        if not self._is_initialized:
-            raise RuntimeError('The Actor was not initialized!')
-
-    def _raise_if_cloud_requested_but_not_configured(self, *, force_cloud: bool) -> None:
-        if not force_cloud:
-            return
-
-        if not self.is_at_home() and self.configuration.token is None:
-            raise RuntimeError(
-                'In order to use the Apify cloud storage from your computer, '
-                'you need to provide an Apify token using the APIFY_TOKEN environment variable.'
-            )
+        raise RuntimeError(
+            'The storage client in the service locator has to be instance of SmartApifyStorageClient. If you want to '
+            'set the storage client manually you have to call '
+            '`service_locator.set_storage_client(SmartApifyStorageClient(...))` before entering Actor context or '
+            'awaiting `Actor.init`.'
+        )
 
     async def init(self) -> None:
         """Initialize the Actor instance.
@@ -285,6 +280,7 @@ class _ActorType:
         This method should be called immediately before performing any additional Actor actions, and it should be
         called only once.
         """
+        self.log.info('Initializing Actor...')
         if self._configuration:
             # Set explicitly the configuration in the service locator
             service_locator.set_configuration(self.configuration)
@@ -298,22 +294,13 @@ class _ActorType:
         if _ActorType._is_any_instance_initialized:
             self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care')
 
-        # Create an instance of the cloud storage client, the local storage client is obtained
-        # from the service locator
-        self._cloud_storage_client = ApifyStorageClient()
-
         # Make sure that the currently initialized instance is also available through the global `Actor` proxy
         cast('Proxy', Actor).__wrapped__ = self
 
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 
-        # If the Actor is running on the Apify platform, we set the cloud storage client.
-        if self.is_at_home():
-            service_locator.set_storage_client(self._cloud_storage_client)
-            self._local_storage_client = self._cloud_storage_client
-        else:
-            self._get_local_storage_client()
+        self.log.debug(f'Storage client set to {self._storage_client}')
 
         service_locator.set_event_manager(self.event_manager)
 
@@ -321,7 +308,6 @@ class _ActorType:
         if self._configure_logging:
             _configure_logging()
 
-        self.log.info('Initializing Actor...')
         self.log.info('System info', extra=get_system_info())
 
         await self.event_manager.__aenter__()
@@ -470,16 +456,11 @@ class _ActorType:
             An instance of the `Dataset` class for the given ID or name.
         """
         self._raise_if_not_initialized()
-        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
-
-        storage_client = self._cloud_storage_client if force_cloud else self._get_local_storage_client()
-
         return await Dataset.open(
             id=id,
-            alias=alias,
             name=name,
-            configuration=self.configuration,
-            storage_client=storage_client,
+            alias=alias,
+            storage_client=self._storage_client.get_suitable_storage_client(force_cloud=force_cloud),
         )
 
     async def open_key_value_store(
@@ -509,16 +490,11 @@ class _ActorType:
             An instance of the `KeyValueStore` class for the given ID or name.
         """
         self._raise_if_not_initialized()
-        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
-
-        storage_client = self._cloud_storage_client if force_cloud else self._get_local_storage_client()
-
         return await KeyValueStore.open(
             id=id,
-            alias=alias,
             name=name,
-            configuration=self.configuration,
-            storage_client=storage_client,
+            alias=alias,
+            storage_client=self._storage_client.get_suitable_storage_client(force_cloud=force_cloud),
         )
 
     async def open_request_queue(
@@ -550,16 +526,11 @@ class _ActorType:
             An instance of the `RequestQueue` class for the given ID or name.
         """
         self._raise_if_not_initialized()
-        self._raise_if_cloud_requested_but_not_configured(force_cloud=force_cloud)
-
-        storage_client = self._cloud_storage_client if force_cloud else self._get_local_storage_client()
-
         return await RequestQueue.open(
             id=id,
-            alias=alias,
             name=name,
-            configuration=self.configuration,
-            storage_client=storage_client,
+            alias=alias,
+            storage_client=self._storage_client.get_suitable_storage_client(force_cloud=force_cloud),
         )
 
     @overload

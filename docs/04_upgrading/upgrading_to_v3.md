@@ -69,6 +69,13 @@ Some changes in the related model classes:
 ## Removed Actor.config property
 - `Actor.config` property has been removed. Use `Actor.configuration` instead.
 
+## Default storage ids in configuration changed to None
+- `Configuration.default_key_value_store_id` changed from `'default'` to `None`.
+- `Configuration.default_dataset_id` changed from `'default'` to `None`.
+- `Configuration.default_request_queue_id` changed from `'default'` to `None`.
+
+Previously using the default storage without specifying its `id` in `Configuration` would lead to using specific storage with id `'default'`. Now it will use newly created unnamed storage with `'id'` assigned by the Apify platform, consecutive calls to get the default storage will return the same storage.
+
 ## Actor initialization and ServiceLocator changes
 
 `Actor` initialization and global `service_locator` services setup is more strict and predictable.
@@ -102,20 +109,51 @@ async def main():
         )
 ```
 
-## Removed Actor.config property
-- `Actor.config` property has been removed. Use `Actor.configuration` instead.
+### Changes in storage clients
 
-## Default storage ids in configuration changed to None
-- `Configuration.default_key_value_store_id` changed from `'default'` to `None`.
-- `Configuration.default_dataset_id` changed from `'default'` to `None`.
-- `Configuration.default_request_queue_id` changed from `'default'` to `None`.
+## Explicit control over storage clients used in Actor
+- It is now possible to have full control over which storage clients are used by the `Actor`. To make development of Actors convenient, the `Actor` has two storage clients. One that is used when running on Apify platform or when opening storages with `force_cloud=True` and the other client that is used when running outside the Apify platform. The `Actor` has reasonable defaults and for the majority of use-cases there is no need to change it. However, if you need to use a different storage client, you can set it up before entering `Actor` context through `service_locator`.
 
-Previously using the default storage without specifying its `id` in `Configuration` would lead to using specific storage with id `'default'`. Now it will use newly created unnamed storage with `'id'` assigned by the Apify platform, consecutive calls to get the default storage will return the same storage.
+**Now (v3.0):**
 
-## Storages
+```python
+from crawlee import service_locator
+from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient, MemoryStorageClient
+from apify import Actor
 
-<!-- TODO -->
 
-## Storage clients
+async def main():
+    service_locator.set_storage_client(
+        SmartApifyStorageClient(
+            cloud_storage_client=ApifyStorageClient(request_queue_access="single"),
+            local_storage_client=MemoryStorageClient()
+        )
+    )
+    async with Actor:
+        rq = await Actor.open_request_queue()
+```
 
-<!-- TODO -->
+
+## The default use of optimized ApifyRequestQueueClient
+
+- The default client for working with Apify platform based `RequestQueue` is now optimized and simplified client which does significantly lower amount of API calls, but does not support multiple consumers working on the same queue. It is cheaper and faster and is suitable for the majority of the use cases.
+- The full client is still available, but it has to be explicitly requested via `request_queue_access="shared"` argument when using the `ApifyStorageClient`.
+
+**Now (v3.0):**
+
+```python
+from crawlee import service_locator
+from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
+from apify import Actor
+
+
+async def main():
+    # Full client that supports multiple consumers of the Apify Request Queue
+    service_locator.set_storage_client(
+        SmartApifyStorageClient(
+            cloud_storage_client=ApifyStorageClient(request_queue_access="shared"),
+        )
+    )
+    async with Actor:
+        rq = await Actor.open_request_queue()
+```

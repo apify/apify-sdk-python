@@ -5,8 +5,9 @@ import pytest
 from crawlee import service_locator
 from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
+from .conftest import MakeActorFunction, RunActorFunction
 from apify import Actor, Configuration
-from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients import ApifyStorageClient, MemoryStorageClient, SmartApifyStorageClient
 
 
 @pytest.mark.parametrize(
@@ -66,10 +67,86 @@ async def test_aliases_not_stored_on_platform_when_local(
 ) -> None:
     """Test that default Apify storage used locally is not persisting aliases to Apify based default KVS."""
     service_locator.set_configuration(Configuration(token=apify_token))
-    service_locator.set_storage_client(ApifyStorageClient())
     async with Actor(configure_logging=False):
         await storage_type.open(alias='test')
         default_kvs = await Actor.open_key_value_store(force_cloud=True)
 
         # The default KVS should be empty
         assert len(await default_kvs.list_keys()) == 0
+
+
+async def test_actor_full_explicit_storage_init(apify_token: str) -> None:
+    service_locator.set_configuration(Configuration(token=apify_token))
+    service_locator.set_storage_client(
+        SmartApifyStorageClient(
+            local_storage_client=MemoryStorageClient(),
+            cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
+        )
+    )
+    async with Actor:
+        # If service locator was already set with SmartApifyStorageClient, the actor will use it.
+        # Storages should be different when force_cloud is used outside the Apify platform
+        assert await Actor.open_dataset() is not await Actor.open_dataset(force_cloud=True)
+        assert await Actor.open_key_value_store() is not await Actor.open_key_value_store(force_cloud=True)
+        assert await Actor.open_request_queue() is not await Actor.open_request_queue(force_cloud=True)
+
+
+async def test_actor_full_explicit_storage_init_same_client(apify_token: str) -> None:
+    service_locator.set_configuration(Configuration(token=apify_token))
+    service_locator.set_storage_client(
+        SmartApifyStorageClient(
+            local_storage_client=ApifyStorageClient(request_queue_access='shared'),
+            cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
+        )
+    )
+    async with Actor:
+        # If service locator was already set with SmartApifyStorageClient, the actor will use it.
+        # Storages should be same as the equivalent storage client is for both local and cloud storage client
+        assert await Actor.open_dataset() is await Actor.open_dataset(force_cloud=True)
+        assert await Actor.open_key_value_store() is await Actor.open_key_value_store(force_cloud=True)
+        assert await Actor.open_request_queue() is await Actor.open_request_queue(force_cloud=True)
+
+
+async def test_actor_partial_explicit_cloud_storage_init(apify_token: str) -> None:
+    service_locator.set_configuration(Configuration(token=apify_token))
+    service_locator.set_storage_client(ApifyStorageClient(request_queue_access='shared'))
+    with pytest.raises(
+        RuntimeError, match=r'^The storage client in the service locator has to be instance of SmartApifyStorageClient'
+    ):
+        async with Actor:
+            # If service locator was explicitly set to something different than SmartApifyStorageClient, raise an error.
+            ...
+
+
+async def test_actor_implicit_storage_init(apify_token: str) -> None:
+    service_locator.set_configuration(Configuration(token=apify_token))
+    async with Actor:
+        assert await Actor.open_dataset() is not await Actor.open_dataset(force_cloud=True)
+        assert await Actor.open_key_value_store() is not await Actor.open_key_value_store(force_cloud=True)
+        assert await Actor.open_request_queue() is not await Actor.open_request_queue(force_cloud=True)
+
+
+async def test_actor_full_explicit_storage_init_on_platform(
+    make_actor: MakeActorFunction, run_actor: RunActorFunction
+) -> None:
+    async def main() -> None:
+        from crawlee import service_locator
+
+        from apify.storage_clients import ApifyStorageClient, MemoryStorageClient, SmartApifyStorageClient
+
+        service_locator.set_storage_client(
+            SmartApifyStorageClient(
+                local_storage_client=MemoryStorageClient(),
+                cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
+            )
+        )
+        async with Actor:
+            # Storages should be same as the cloud client is used on the platform
+            assert await Actor.open_dataset() is await Actor.open_dataset(force_cloud=True)
+            assert await Actor.open_key_value_store() is await Actor.open_key_value_store(force_cloud=True)
+            assert await Actor.open_request_queue() is await Actor.open_request_queue(force_cloud=True)
+
+    actor = await make_actor(label='explicit_storage_init', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
