@@ -168,6 +168,7 @@ class _ApifyRequestQueueSingleClient:
             if not processed_request.was_already_present and not processed_request.was_already_handled:
                 new_request_count += 1
         self.metadata.total_request_count += new_request_count
+        self.metadata.pending_request_count += new_request_count
 
         return api_response
 
@@ -271,6 +272,7 @@ class _ApifyRequestQueueSingleClient:
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
             self.metadata.handled_request_count += 1
+            self.metadata.pending_request_count -= 1
 
         if cached_request := self._requests_cache.get(request.unique_key):
             cached_request.handled_at = request.handled_at
@@ -333,6 +335,7 @@ class _ApifyRequestQueueSingleClient:
             # we're putting it back for processing.
             if request.was_already_handled and not processed_request.was_already_handled:
                 self.metadata.handled_request_count -= 1
+                self.metadata.pending_request_count += 1
 
         except Exception as exc:
             logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')

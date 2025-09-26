@@ -170,6 +170,7 @@ class _ApifyRequestQueueSharedClient:
                 new_request_count += 1
 
         self.metadata.total_request_count += new_request_count
+        self.metadata.pending_request_count += new_request_count
 
         return api_response
 
@@ -265,6 +266,7 @@ class _ApifyRequestQueueSharedClient:
             # Update assumed handled count if this wasn't already handled
             if not processed_request.was_already_handled:
                 self.metadata.handled_request_count += 1
+                self.metadata.pending_request_count -= 1
 
             # Update the cache with the handled request
             cache_key = request.unique_key
@@ -312,6 +314,7 @@ class _ApifyRequestQueueSharedClient:
                 # we're putting it back for processing.
                 if request.was_already_handled and not processed_request.was_already_handled:
                     self.metadata.handled_request_count -= 1
+                    self.metadata.pending_request_count += 1
 
                 # Update the cache
                 cache_key = request.unique_key
