@@ -56,7 +56,8 @@ async def test_actor_on_platform_max_requests_per_crawl(
 
         async with Actor:
             crawler = ParselCrawler(
-                max_requests_per_crawl=3, concurrency_settings=ConcurrencySettings(max_concurrency=1)
+                max_requests_per_crawl=3,
+                concurrency_settings=ConcurrencySettings(max_concurrency=1, desired_concurrency=1),
             )
             finished = []
 
