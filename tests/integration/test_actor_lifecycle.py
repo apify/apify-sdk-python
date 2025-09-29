@@ -131,7 +131,7 @@ async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_acto
         from apify import Actor
 
         async with Actor:
-            crawler = BasicCrawler(concurrency_settings=ConcurrencySettings(max_concurrency=1))
+            crawler = BasicCrawler(concurrency_settings=ConcurrencySettings(max_concurrency=1, desired_concurrency=1))
             requests = ['https://example.com/1', 'https://example.com/2']
 
             run = await Actor.apify_client.run(Actor.configuration.actor_run_id or '').get()
