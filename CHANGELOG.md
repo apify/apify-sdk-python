@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 2.7.1 - **not yet released**
+## [3.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.0) (2025-09-29)
 
 ### 🚀 Features
 
@@ -34,7 +33,18 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Make default Apify storages use alias mechanism ([#606](https://github.com/apify/apify-sdk-python/pull/606)) ([dbea7d9](https://github.com/apify/apify-sdk-python/commit/dbea7d97fe7f25aa8658a32c5bb46a3800561df5)) by [@Pijukatel](https://github.com/Pijukatel), closes [#599](https://github.com/apify/apify-sdk-python/issues/599)
 
 
-<!-- git-cliff-unreleased-end -->
+## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
+
+### 🚀 Features
+
+- **crypto:** Decrypt secret objects ([#482](https://github.com/apify/apify-sdk-python/pull/482)) ([ce9daf7](https://github.com/apify/apify-sdk-python/commit/ce9daf7381212b8dc194e8a643e5ca0dedbc0078)) by [@MFori](https://github.com/MFori)
+
+### 🐛 Bug Fixes
+
+- Sync `@docusaurus` theme version [internal] ([#500](https://github.com/apify/apify-sdk-python/pull/500)) ([a7485e7](https://github.com/apify/apify-sdk-python/commit/a7485e7d2276fde464ce862573d5b95e7d4d836a)) by [@katzino](https://github.com/katzino)
+- Tagline overlap ([#501](https://github.com/apify/apify-sdk-python/pull/501)) ([bae8340](https://github.com/apify/apify-sdk-python/commit/bae8340c46fea756ea35ea4d591da84c09d478e2)) by [@katzino](https://github.com/katzino)
+
+
 ## [2.7.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.7.0) (2025-07-14)
 
 ### 🚀 Features
