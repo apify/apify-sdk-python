@@ -32,7 +32,7 @@ from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._models import ActorRun
 from apify._proxy_configuration import ProxyConfiguration
-from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython, maybe_extract_enum_member_value
+from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient
@@ -48,9 +48,9 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
+    from crawlee.storage_clients import StorageClient
 
     from apify._models import Webhook
-
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -98,7 +98,10 @@ class _ActorType:
     """
 
     _is_rebooting = False
+    """Whether the Actor is currently rebooting."""
+
     _is_any_instance_initialized = False
+    """Whether any Actor instance was initialized."""
 
     def __init__(
         self,
@@ -106,63 +109,142 @@ class _ActorType:
         *,
         configure_logging: bool = True,
         exit_process: bool | None = None,
+        exit_code: int = 0,
+        status_message: str | None = None,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
+        cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
-        """Create an Actor instance.
-
-        Note that you don't have to do this, all the functionality is accessible using the default instance
-        (e.g. `Actor.open_dataset()`).
+        """Initialize a new instance.
 
         Args:
-            configuration: The Actor configuration to be used. If not passed, a new Configuration instance will
-                be created.
-            configure_logging: Should the default logging configuration be configured?
-            exit_process: Whether the Actor should call `sys.exit` when the context manager exits. The default is
-                True except for the IPython, Pytest and Scrapy environments.
+            configuration: The Actor configuration to use. If not provided, a default configuration is created.
+            configure_logging: Whether to set up the default logging configuration.
+            exit_process: Whether the Actor should call `sys.exit` when the context manager exits.
+                Defaults to True, except in IPython, Pytest, and Scrapy environments.
+            exit_code: The exit code the Actor should use when exiting.
+            status_message: Final status message to display upon Actor termination.
+            event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
+            cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
         """
+        self._configuration = configuration
+        self._configure_logging = configure_logging
         self._exit_process = self._get_default_exit_process() if exit_process is None else exit_process
-        self._is_exiting = False
+        self._exit_code = exit_code
+        self._status_message = status_message
+        self._event_listeners_timeout = event_listeners_timeout
+        self._cleanup_timeout = cleanup_timeout
 
         # Actor state when this method is being executed is unpredictable.
         # Actor can be initialized by lazy object proxy or by user directly, or by both.
         # Until `init` method is run, this state of uncertainty remains. This is the reason why any setting done here in
         # `__init__` method should not be considered final.
 
-        self._configuration = configuration
-        self._configure_logging = configure_logging
         self._apify_client: ApifyClientAsync | None = None
+        self._local_storage_client: StorageClient | None = None
 
+        self._is_exiting = False
         self._is_initialized = False
 
     async def __aenter__(self) -> Self:
-        """Initialize the Actor.
+        """Enter the Actor context.
 
-        Automatically initializes the Actor instance when you use it in an `async with ...` statement.
+        Initializes the Actor when used in an `async with` block. This method:
 
-        When you exit the `async with` block, the `Actor.exit()` method is called, and if any exception happens while
-        executing the block code, the `Actor.fail` method is called.
+        - Sets up local or cloud storage clients depending on whether the Actor runs locally or on the Apify platform.
+        - Configures the event manager and starts periodic state persistence.
+        - Initializes the charging manager for handling charging events.
+        - Configures logging after all core services are registered.
+
+        This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
+        active Actor instances is not standard usage and may lead to warnings or unexpected behavior.
         """
-        await self.init()
+        self.log.info('Initializing Actor...')
+        self.log.info('System info', extra=get_system_info())
+
+        if self._is_initialized:
+            raise RuntimeError('The Actor was already initialized!')
+
+        if _ActorType._is_any_instance_initialized:
+            self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care.')
+
+        if self._configuration:
+            # Set explicitly the configuration in the service locator.
+            service_locator.set_configuration(self.configuration)
+        else:
+            # Ensure that the configuration (cached property) is set.
+            _ = self.configuration
+
+        # Make sure that the currently initialized instance is also available through the global `Actor` proxy.
+        cast('Proxy', Actor).__wrapped__ = self
+
+        self._is_exiting = False
+        self._was_final_persist_state_emitted = False
+
+        service_locator.set_event_manager(self.event_manager)
+
+        # Initialize storage client to ensure it's available in service locator.
+        _ = self._storage_client
+
+        # The logging configuration has to be called after all service_locator set methods.
+        if self._configure_logging:
+            _configure_logging()
+
+        await self.event_manager.__aenter__()
+        await self._charging_manager_implementation.__aenter__()
+
+        self._is_initialized = True
+        _ActorType._is_any_instance_initialized = True
         return self
 
     async def __aexit__(
         self,
-        _exc_type: type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        _exc_traceback: TracebackType | None,
+        exc_traceback: TracebackType | None,
     ) -> None:
-        """Exit the Actor, handling any exceptions properly.
+        """Exit the Actor context.
 
-        When you exit the `async with` block, the `Actor.exit()` method is called, and if any exception happens while
-        executing the block code, the `Actor.fail` method is called.
+        If the block exits with an exception, the Actor fails with a non-zero exit code.
+        Otherwise, it exits cleanly. In both cases the Actor:
+
+        - Cancels periodic `PERSIST_STATE` events.
+        - Sends a final `PERSIST_STATE` event.
+        - Waits for all event listeners to finish.
+        - Stops the event manager and the charging manager.
+        - Optionally terminates the process with the selected exit code.
         """
-        if not self._is_exiting:
-            if exc_value:
-                await self.fail(
-                    exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW.value,
-                    exception=exc_value,
-                )
-            else:
-                await self.exit()
+        if self._is_exiting:
+            return
+
+        self._raise_if_not_initialized()
+
+        if exc_value and not is_running_in_ipython():
+            # In IPython, we don't run `sys.exit()` during Actor exits,
+            # so the exception traceback will be printed on its own
+            self.log.exception('Actor failed with an exception', exc_info=exc_value)
+            self.exit_value = ActorExitCodes.ERROR_USER_FUNCTION_THREW.value
+
+        self._is_exiting = True
+        self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
+
+        async def finalize() -> None:
+            if self.status_message is not None:
+                await self.set_status_message(self.status_message, is_terminal=True)
+
+            # Sleep for a bit so that the listeners have a chance to trigger
+            await asyncio.sleep(0.1)
+
+            if self._event_listeners_timeout:
+                await self.event_manager.wait_for_all_listeners_to_complete(timeout=self._event_listeners_timeout)
+
+            await self.event_manager.__aexit__(None, None, None)
+            await self._charging_manager_implementation.__aexit__(None, None, None)
+
+        await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
+        self._is_initialized = False
+
+        if self._exit_process:
+            sys.exit(self.exit_code)
 
     def __repr__(self) -> str:
         if self is cast('Proxy', Actor).__wrapped__:
@@ -176,24 +258,58 @@ class _ActorType:
         *,
         configure_logging: bool = True,
         exit_process: bool | None = None,
+        exit_code: int = 0,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
+        status_message: str | None = None,
+        cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> Self:
-        """Make a new Actor instance with a non-default configuration."""
+        """Make a new Actor instance with a non-default configuration.
+
+        This is necessary due to the lazy object proxying of the global `Actor` instance.
+        """
         return self.__class__(
             configuration=configuration,
             configure_logging=configure_logging,
             exit_process=exit_process,
+            exit_code=exit_code,
+            event_listeners_timeout=event_listeners_timeout,
+            status_message=status_message,
+            cleanup_timeout=cleanup_timeout,
         )
 
     @property
+    def log(self) -> logging.Logger:
+        """Logger configured for this Actor."""
+        return logger
+
+    @property
+    def exit_code(self) -> int:
+        """The exit code the Actor will use when exiting."""
+        return self._exit_code
+
+    @exit_code.setter
+    def exit_code(self, value: int) -> None:
+        self._exit_code = value
+
+    @property
+    def status_message(self) -> str | None:
+        """The final status message that the Actor will display upon termination."""
+        return self._status_message
+
+    @status_message.setter
+    def status_message(self, value: str | None) -> None:
+        self._status_message = value
+
+    @property
     def apify_client(self) -> ApifyClientAsync:
-        """The ApifyClientAsync instance the Actor instance uses."""
+        """Asynchronous Apify client for interacting with the Apify API."""
         if not self._apify_client:
             self._apify_client = self.new_client()
         return self._apify_client
 
     @cached_property
     def configuration(self) -> Configuration:
-        """The Configuration instance the Actor instance uses."""
+        """Actor configuration, uses the default instance if not explicitly set."""
         if self._configuration:
             return self._configuration
 
@@ -214,7 +330,10 @@ class _ActorType:
 
     @cached_property
     def event_manager(self) -> EventManager:
-        """The EventManager instance the Actor instance uses."""
+        """Manages Apify platform events.
+
+        It uses `ApifyEventManager` on the Apify platform and `LocalEventManager` otherwise.
+        """
         return (
             ApifyEventManager(
                 configuration=self.configuration,
@@ -227,18 +346,13 @@ class _ActorType:
             )
         )
 
-    @property
-    def log(self) -> logging.Logger:
-        """The logging.Logger instance the Actor uses."""
-        return logger
-
-    def _raise_if_not_initialized(self) -> None:
-        if not self._is_initialized:
-            raise RuntimeError('The Actor was not initialized!')
+    @cached_property
+    def _charging_manager_implementation(self) -> ChargingManagerImplementation:
+        return ChargingManagerImplementation(self.configuration, self.apify_client)
 
     @cached_property
     def _storage_client(self) -> SmartApifyStorageClient:
-        """Storage client used by the actor.
+        """Storage client used by the Actor.
 
         Depending on the initialization of the service locator the client can be created in different ways.
         """
@@ -250,7 +364,7 @@ class _ActorType:
             service_locator.set_storage_client(implicit_storage_client)
         except ServiceConflictError:
             self.log.debug(
-                'Storage client in service locator was set explicitly before Actor.init was called.'
+                'Storage client in service locator was set explicitly before Actor.init was called. '
                 'Using the existing storage client as implicit storage client for the Actor.'
             )
         else:
@@ -270,100 +384,35 @@ class _ActorType:
         )
 
     async def init(self) -> None:
-        """Initialize the Actor instance.
+        """Initialize the Actor without using context-manager syntax.
 
-        This initializes the Actor instance. It configures the right storage client based on whether the Actor is
-        running locally or on the Apify platform, it initializes the event manager for processing Actor events,
-        and starts an interval for regularly sending `PERSIST_STATE` events, so that the Actor can regularly persist
-        its state in response to these events.
-
-        This method should be called immediately before performing any additional Actor actions, and it should be
-        called only once.
+        Equivalent to `await Actor.__aenter__()`.
         """
-        self.log.info('Initializing Actor...')
-        if self._configuration:
-            # Set explicitly the configuration in the service locator
-            service_locator.set_configuration(self.configuration)
-        else:
-            # Ensure that the configuration (cached property) is set
-            _ = self.configuration
-
-        if self._is_initialized:
-            raise RuntimeError('The Actor was already initialized!')
-
-        if _ActorType._is_any_instance_initialized:
-            self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care')
-
-        # Make sure that the currently initialized instance is also available through the global `Actor` proxy
-        cast('Proxy', Actor).__wrapped__ = self
-
-        self._is_exiting = False
-        self._was_final_persist_state_emitted = False
-
-        self.log.debug(f'Storage client set to {self._storage_client}')
-
-        service_locator.set_event_manager(self.event_manager)
-
-        # The logging configuration has to be called after all service_locator set methods.
-        if self._configure_logging:
-            _configure_logging()
-
-        self.log.info('System info', extra=get_system_info())
-
-        await self.event_manager.__aenter__()
-        self.log.debug('Event manager initialized')
-
-        await self._charging_manager_implementation.__aenter__()
-        self.log.debug('Charging manager initialized')
-
-        self._is_initialized = True
-        _ActorType._is_any_instance_initialized = True
+        await self.__aenter__()
 
     async def exit(
         self,
         *,
         exit_code: int = 0,
-        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         cleanup_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
-        """Exit the Actor instance.
+        """Exit the Actor without using context-manager syntax.
 
-        This stops the Actor instance. It cancels all the intervals for regularly sending `PERSIST_STATE` events,
-        sends a final `PERSIST_STATE` event, waits for all the event listeners to finish, and stops the event manager.
+        Equivalent to `await Actor.__aexit__()`.
 
         Args:
-            exit_code: The exit code with which the Actor should fail (defaults to `0`).
-            event_listeners_timeout: How long should the Actor wait for Actor event listeners to finish before exiting.
-            status_message: The final status message that the Actor should display.
-            cleanup_timeout: How long we should wait for event listeners.
+            exit_code: The exit code the Actor should use when exiting.
+            status_message: Final status message to display upon Actor termination.
+            event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
+            cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
         """
-        self._raise_if_not_initialized()
-
-        self._is_exiting = True
-
-        exit_code = maybe_extract_enum_member_value(exit_code)
-
-        self.log.info('Exiting Actor', extra={'exit_code': exit_code})
-
-        async def finalize() -> None:
-            if status_message is not None:
-                await self.set_status_message(status_message, is_terminal=True)
-
-            # Sleep for a bit so that the listeners have a chance to trigger
-            await asyncio.sleep(0.1)
-
-            if event_listeners_timeout:
-                await self.event_manager.wait_for_all_listeners_to_complete(timeout=event_listeners_timeout)
-
-            await self.event_manager.__aexit__(None, None, None)
-            await self._charging_manager_implementation.__aexit__(None, None, None)
-
-        await asyncio.wait_for(finalize(), cleanup_timeout.total_seconds())
-        self._is_initialized = False
-
-        if self._exit_process:
-            sys.exit(exit_code)
+        self.exit_code = exit_code
+        self.status_message = status_message
+        self._event_listeners_timeout = event_listeners_timeout
+        self._cleanup_timeout = cleanup_timeout
+        await self.__aexit__(None, None, None)
 
     async def fail(
         self,
@@ -372,23 +421,24 @@ class _ActorType:
         exception: BaseException | None = None,
         status_message: str | None = None,
     ) -> None:
-        """Fail the Actor instance.
+        """Fail the Actor instance without using context-manager syntax.
 
-        This performs all the same steps as Actor.exit(), but it additionally sets the exit code to `1` (by default).
+        Equivalent to setting the `self.exit_code` and `self.status_message` properties and using
+        `await Actor.__aexit__()`.
 
         Args:
             exit_code: The exit code with which the Actor should fail (defaults to `1`).
             exception: The exception with which the Actor failed.
             status_message: The final status message that the Actor should display.
         """
-        self._raise_if_not_initialized()
+        self.exit_code = exit_code
+        self.status_message = status_message
 
-        # In IPython, we don't run `sys.exit()` during Actor exits,
-        # so the exception traceback will be printed on its own
-        if exception and not is_running_in_ipython():
-            self.log.exception('Actor failed with an exception', exc_info=exception)
-
-        await self.exit(exit_code=exit_code, status_message=status_message)
+        await self.__aexit__(
+            exc_type=type(exception) if exception else None,
+            exc_value=exception,
+            exc_traceback=exception.__traceback__ if exception else None,
+        )
 
     def new_client(
         self,
@@ -626,10 +676,6 @@ class _ActorType:
         self._raise_if_not_initialized()
         return self._charging_manager_implementation
 
-    @cached_property
-    def _charging_manager_implementation(self) -> ChargingManagerImplementation:
-        return ChargingManagerImplementation(self.configuration, self.apify_client)
-
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
@@ -821,18 +867,6 @@ class _ActorType:
         )
 
         return ActorRun.model_validate(api_result)
-
-    def _get_remaining_time(self) -> timedelta | None:
-        """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
-        if self.is_at_home() and self.configuration.timeout_at:
-            return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
-
-        self.log.warning(
-            'Returning `None` instead of remaining time. Using `RemainingTime` argument is only possible when the Actor'
-            ' is running on the Apify platform and when the timeout for the Actor run is set. '
-            f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
-        )
-        return None
 
     async def abort(
         self,
@@ -1242,6 +1276,10 @@ class _ActorType:
 
         return proxy_configuration
 
+    def _raise_if_not_initialized(self) -> None:
+        if not self._is_initialized:
+            raise RuntimeError('The Actor was not initialized!')
+
     def _get_default_exit_process(self) -> bool:
         """Return False for IPython, Pytest, and Scrapy environments, True otherwise."""
         if is_running_in_ipython():
@@ -1261,6 +1299,18 @@ class _ActorType:
             return False
 
         return True
+
+    def _get_remaining_time(self) -> timedelta | None:
+        """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
+        if self.is_at_home() and self.configuration.timeout_at:
+            return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
+
+        self.log.warning(
+            'Returning `None` instead of remaining time. Using `RemainingTime` argument is only possible when the Actor'
+            ' is running on the Apify platform and when the timeout for the Actor run is set. '
+            f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
+        )
+        return None
 
 
 Actor = cast('_ActorType', Proxy(_ActorType))
