@@ -17,7 +17,6 @@ from crawlee.events._types import Event, EventPersistStateData
 
 import apify._actor
 from apify import Actor
-from apify._actor import _ActorType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,7 +32,7 @@ async def test_actor_properly_init_with_async() -> None:
 
 
 async def test_actor_init() -> None:
-    my_actor = _ActorType()
+    my_actor = Actor()
 
     await my_actor.init()
     assert my_actor._is_initialized is True
@@ -57,7 +56,7 @@ async def test_double_init_raises_error(prepare_test_env: Callable) -> None:
 
     prepare_test_env()
 
-    async with _ActorType() as actor:
+    async with Actor() as actor:
         assert actor._is_initialized
         with pytest.raises(RuntimeError):
             await actor.init()
@@ -78,7 +77,7 @@ async def test_actor_exits_cleanly_with_events(monkeypatch: pytest.MonkeyPatch) 
             return lambda data: on_system_info.append(data)
         return lambda data: print(data)
 
-    my_actor = _ActorType()
+    my_actor = Actor()
     async with my_actor:
         assert my_actor._is_initialized
         my_actor.on(Event.PERSIST_STATE, on_event(Event.PERSIST_STATE))
@@ -102,17 +101,18 @@ async def test_exit_without_init_raises_error() -> None:
 
 
 async def test_actor_fails_cleanly() -> None:
-    async with _ActorType() as my_actor:
-        assert my_actor._is_initialized
-        await my_actor.fail()
-    assert my_actor._is_initialized is False
+    async with Actor() as actor:
+        assert actor._is_initialized
+        await actor.fail()
+
+    assert actor._is_initialized is False
 
 
 async def test_actor_handles_failure_gracefully() -> None:
     my_actor = None
 
     with contextlib.suppress(Exception):
-        async with _ActorType() as my_actor:
+        async with Actor() as my_actor:
             assert my_actor._is_initialized
             raise Exception('Failed')  # noqa: TRY002
 
