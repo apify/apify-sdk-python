@@ -30,10 +30,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
 
         # First try to find the alternative format of the input file and process it if it exists.
         for file_path in self.path_to_kvs.glob('*'):
-            if (
-                file_path.name in configuration.input_key_candidates
-                and file_path.name != configuration.canonical_input_key
-            ):
+            if file_path.name in configuration.input_key_candidates:
                 await self._process_input_json(file_path)
 
         async with self._lock:

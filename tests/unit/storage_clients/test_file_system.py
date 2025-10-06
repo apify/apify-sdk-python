@@ -4,6 +4,8 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
+import pytest
+
 from crawlee._consts import METADATA_FILENAME
 
 from apify import Actor, Configuration
@@ -64,16 +66,16 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
     assert input_content == '{"test": "input"}'
 
 
-async def test_pre_existing_input_used_by_actor(tmp_path: Path) -> None:
+@pytest.mark.parametrize('input_file_name', ['INPUT', 'INPUT.json'])
+async def test_pre_existing_input_used_by_actor(tmp_path: Path, input_file_name: str) -> None:
     pre_existing_input = {
         'foo': 'bar',
     }
 
-    configuration = Configuration.get_global_configuration()
     # Create pre-existing INPUT.json file
     path_to_input = tmp_path / 'key_value_stores' / 'default'
     path_to_input.mkdir(parents=True)
-    (path_to_input / f'{configuration.input_key}.json').write_text(json.dumps(pre_existing_input))
+    (path_to_input / input_file_name).write_text(json.dumps(pre_existing_input))
 
     async with Actor():
         assert pre_existing_input == await Actor.get_input()
