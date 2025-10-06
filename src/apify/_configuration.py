@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
+from pathlib import Path
 from typing import Annotated, Any
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
@@ -420,6 +421,14 @@ class Configuration(CrawleeConfiguration):
             self.disable_browser_sandbox = True
             logger.warning('Actor is running on the Apify platform, `disable_browser_sandbox` was changed to True.')
         return self
+
+    @property
+    def canonical_input_key(self) -> str:
+        return Path(self.input_key).stem
+
+    @property
+    def input_key_candidates(self) -> set[str]:
+        return {self.input_key, self.canonical_input_key, Path(self.canonical_input_key).with_suffix('.json').name}
 
     @classmethod
     def get_global_configuration(cls) -> Configuration:
