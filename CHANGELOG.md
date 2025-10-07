@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [3.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.0) (2025-09-29)
 
+- Check out the [Upgrading guide](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v3) to ensure a smooth update.
+
 ### 🚀 Features
 
 - Add deduplication to `add_batch_of_requests` ([#534](https://github.com/apify/apify-sdk-python/pull/534)) ([dd03c4d](https://github.com/apify/apify-sdk-python/commit/dd03c4d446f611492adf35f1b5738648ee5a66f7)) by [@Pijukatel](https://github.com/Pijukatel), closes [#514](https://github.com/apify/apify-sdk-python/issues/514)
@@ -171,6 +173,8 @@ All notable changes to this project will be documented in this file.
 
 
 ## [2.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v2.0.0) (2024-09-10)
+
+- Check out the [Upgrading guide](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2) to ensure a smooth update.
 
 ### 🚀 Features
 
