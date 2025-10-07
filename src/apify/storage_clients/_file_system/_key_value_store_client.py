@@ -56,7 +56,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
     async def _sanitize_input_json(self, path: Path) -> None:
         """Transform an input json file to match the naming convention expected by the FileSystemKeyValueStoreClient.
 
-        For example: INPUT.json -> INPUT, INPUT.json.metadata
+        For example: INPUT.json -> INPUT, INPUT.__metadata__.json
         """
         configuration = Configuration.get_global_configuration()
 
