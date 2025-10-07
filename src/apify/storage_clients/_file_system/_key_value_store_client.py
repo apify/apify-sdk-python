@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-from pathlib import Path
 
 from more_itertools import flatten
 from typing_extensions import override
@@ -31,10 +30,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         """
         configuration = Configuration.get_global_configuration()
 
-        # First try to find the alternative format of the input file and process it if it exists.
-        for file_path in self.path_to_kvs.glob('*'):
-            if file_path.name in configuration.input_key_candidates:
-                await self._sanitize_input_json(file_path)
+        await self._sanitize_input_json_files()
 
         async with self._lock:
             files_to_keep = set(
@@ -53,29 +49,31 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
                 update_modified_at=True,
             )
 
-    async def _sanitize_input_json(self, path: Path) -> None:
-        """Transform an input json file to match the naming convention expected by the FileSystemKeyValueStoreClient.
-
-        For example: INPUT.json -> INPUT, INPUT.__metadata__.json
-        """
+    async def _sanitize_input_json_files(self) -> None:
+        """Handle missing metadata for input files."""
         configuration = Configuration.get_global_configuration()
+        alternative_keys = configuration.input_key_candidates - {configuration.canonical_input_key}
 
-        f = None
-        try:
-            f = await asyncio.to_thread(path.open)
-            input_data = json.load(f)
-        finally:
-            if f is not None:
-                f.close()
+        if (self.path_to_kvs / configuration.canonical_input_key).exists():
+            # Handle missing metadata
+            if not await self.record_exists(key=configuration.canonical_input_key):
+                input_data = await asyncio.to_thread(
+                    lambda: json.loads((self.path_to_kvs / configuration.canonical_input_key).read_text())
+                )
+                await self.set_value(key=configuration.canonical_input_key, value=input_data)
 
-        if await self.record_exists(key=configuration.canonical_input_key):
-            logger.warning(f'Redundant input file found: {path}')
-            return
+            for alternative_key in alternative_keys:
+                if (alternative_input_file := self.path_to_kvs / alternative_key).exists():
+                    logger.warning(f'Redundant input file found: {alternative_input_file}')
+        else:
+            for alternative_key in alternative_keys:
+                alternative_input_file = self.path_to_kvs / alternative_key
 
-        logger.info(f'Renaming input file: {path.name} -> {configuration.canonical_input_key}')
-
-        await asyncio.to_thread(path.unlink, missing_ok=True)
-        await self.set_value(key=configuration.canonical_input_key, value=input_data)
+                # Handle missing metadata
+                if alternative_input_file.exists() and not await self.record_exists(key=alternative_key):
+                    with alternative_input_file.open() as f:
+                        input_data = await asyncio.to_thread(lambda: json.load(f))
+                    await self.set_value(key=configuration.canonical_input_key, value=input_data)
 
     @override
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
