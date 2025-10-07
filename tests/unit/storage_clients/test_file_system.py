@@ -79,3 +79,6 @@ async def test_pre_existing_input_used_by_actor(tmp_path: Path, input_file_name:
 
     async with Actor():
         assert pre_existing_input == await Actor.get_input()
+
+    # Make sure that the input file doesn't get renamed in the process
+    assert (path_to_input / input_file_name).exists()
