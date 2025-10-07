@@ -63,7 +63,7 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
 
     # Verify INPUT.json content is unchanged
     input_content = await asyncio.to_thread(input_file.read_text)
-    assert input_content == '{"test": "input"}'
+    assert json.loads(input_content) == json.loads('{"test": "input"}')
 
 
 @pytest.mark.parametrize('input_file_name', ['INPUT', 'INPUT.json'])
