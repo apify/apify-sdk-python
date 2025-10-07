@@ -424,11 +424,11 @@ class Configuration(CrawleeConfiguration):
 
     @property
     def canonical_input_key(self) -> str:
-        return Path(self.input_key).stem
+        return str(Path(self.input_key).with_suffix('.json'))
 
     @property
     def input_key_candidates(self) -> set[str]:
-        return {self.input_key, self.canonical_input_key, Path(self.canonical_input_key).with_suffix('.json').name}
+        return {self.input_key, self.canonical_input_key, Path(self.canonical_input_key).stem}
 
     @classmethod
     def get_global_configuration(cls) -> Configuration:
