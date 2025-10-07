@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 
 from more_itertools import flatten
@@ -10,6 +11,8 @@ from crawlee.storage_clients._file_system import FileSystemKeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord
 
 from apify._configuration import Configuration
+
+logger = logging.getLogger(__name__)
 
 
 class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
@@ -31,7 +34,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         # First try to find the alternative format of the input file and process it if it exists.
         for file_path in self.path_to_kvs.glob('*'):
             if file_path.name in configuration.input_key_candidates:
-                await self._process_input_json(file_path)
+                await self._sanitize_input_json(file_path)
 
         async with self._lock:
             files_to_keep = set(
@@ -50,18 +53,29 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
                 update_modified_at=True,
             )
 
-    async def _process_input_json(self, path: Path) -> None:
-        """Process simple input json file to format expected by the FileSystemKeyValueStoreClient.
+    async def _sanitize_input_json(self, path: Path) -> None:
+        """Transform an input json file to match the naming convention expected by the FileSystemKeyValueStoreClient.
 
         For example: INPUT.json -> INPUT, INPUT.json.metadata
         """
+        configuration = Configuration.get_global_configuration()
+
+        f = None
         try:
             f = await asyncio.to_thread(path.open)
             input_data = json.load(f)
         finally:
-            f.close()
+            if f is not None:
+                f.close()
+
+        if await self.record_exists(key=configuration.canonical_input_key):
+            logger.warning(f'Redundant input file found: {path}')
+            return
+
+        logger.info(f'Renaming input file: {path.name} -> {configuration.canonical_input_key}')
+
         await asyncio.to_thread(path.unlink, missing_ok=True)
-        await self.set_value(key=path.stem, value=input_data)
+        await self.set_value(key=configuration.canonical_input_key, value=input_data)
 
     @override
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
