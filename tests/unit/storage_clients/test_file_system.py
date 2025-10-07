@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
@@ -10,9 +10,6 @@ from crawlee._consts import METADATA_FILENAME
 
 from apify import Actor, Configuration
 from apify.storage_clients._file_system import ApifyFileSystemKeyValueStoreClient
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 async def test_purge_preserves_input_file_and_metadata() -> None:
@@ -67,13 +64,15 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
 
 
 @pytest.mark.parametrize('input_file_name', ['INPUT', 'INPUT.json'])
-async def test_pre_existing_input_used_by_actor(tmp_path: Path, input_file_name: str) -> None:
+async def test_pre_existing_input_used_by_actor(input_file_name: str) -> None:
+    configuration = Configuration.get_global_configuration()
+
     pre_existing_input = {
         'foo': 'bar',
     }
 
     # Create pre-existing INPUT.json file
-    path_to_input = tmp_path / 'key_value_stores' / 'default'
+    path_to_input = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
     path_to_input.mkdir(parents=True)
     (path_to_input / input_file_name).write_text(json.dumps(pre_existing_input))
 

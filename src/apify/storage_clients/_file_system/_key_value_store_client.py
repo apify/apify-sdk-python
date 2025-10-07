@@ -55,12 +55,11 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         alternative_keys = configuration.input_key_candidates - {configuration.canonical_input_key}
 
         if (self.path_to_kvs / configuration.canonical_input_key).exists():
-            # Handle missing metadata
-            if not await self.record_exists(key=configuration.canonical_input_key):
-                input_data = await asyncio.to_thread(
-                    lambda: json.loads((self.path_to_kvs / configuration.canonical_input_key).read_text())
-                )
-                await self.set_value(key=configuration.canonical_input_key, value=input_data)
+            # Refresh metadata to prevent inconsistencies
+            input_data = await asyncio.to_thread(
+                lambda: json.loads((self.path_to_kvs / configuration.canonical_input_key).read_text())
+            )
+            await self.set_value(key=configuration.canonical_input_key, value=input_data)
 
             for alternative_key in alternative_keys:
                 if (alternative_input_file := self.path_to_kvs / alternative_key).exists():
@@ -69,11 +68,10 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
             for alternative_key in alternative_keys:
                 alternative_input_file = self.path_to_kvs / alternative_key
 
-                # Handle missing metadata
-                if alternative_input_file.exists() and not await self.record_exists(key=alternative_key):
-                    with alternative_input_file.open() as f:
-                        input_data = await asyncio.to_thread(lambda: json.load(f))
-                    await self.set_value(key=configuration.canonical_input_key, value=input_data)
+                # Refresh metadata to prevent inconsistencies
+                with alternative_input_file.open() as f:
+                    input_data = await asyncio.to_thread(lambda: json.load(f))
+                await self.set_value(key=configuration.canonical_input_key, value=input_data)
 
     @override
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
