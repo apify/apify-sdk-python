@@ -3,9 +3,10 @@ import json
 import logging
 
 from more_itertools import flatten
-from typing_extensions import override
+from typing_extensions import Self, override
 
 from crawlee._consts import METADATA_FILENAME
+from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.storage_clients._file_system import FileSystemKeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord
 
@@ -22,6 +23,22 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
     """
 
     @override
+    @classmethod
+    async def open(
+        cls,
+        *,
+        id: str | None,
+        name: str | None,
+        alias: str | None,
+        configuration: CrawleeConfiguration,
+    ) -> Self:
+        client = await super().open(id=id, name=name, alias=alias, configuration=configuration)
+
+        await client._sanitize_input_json_files()  # noqa: SLF001 - it's okay, this is a factory method
+
+        return client
+
+    @override
     async def purge(self) -> None:
         """Purges the key-value store by deleting all its contents.
 
@@ -29,8 +46,6 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         the `INPUT.json` file. It also updates the metadata to reflect that the store has been purged.
         """
         configuration = Configuration.get_global_configuration()
-
-        await self._sanitize_input_json_files()
 
         async with self._lock:
             files_to_keep = set(
