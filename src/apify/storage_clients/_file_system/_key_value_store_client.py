@@ -83,10 +83,12 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
             for alternative_key in alternative_keys:
                 alternative_input_file = self.path_to_kvs / alternative_key
 
-                # Refresh metadata to prevent inconsistencies
-                with alternative_input_file.open() as f:
-                    input_data = await asyncio.to_thread(lambda: json.load(f))
-                await self.set_value(key=configuration.canonical_input_key, value=input_data)
+                # Only process files that actually exist
+                if alternative_input_file.exists():
+                    # Refresh metadata to prevent inconsistencies
+                    with alternative_input_file.open() as f:
+                        input_data = await asyncio.to_thread(lambda: json.load(f))
+                    await self.set_value(key=configuration.canonical_input_key, value=input_data)
 
     @override
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
