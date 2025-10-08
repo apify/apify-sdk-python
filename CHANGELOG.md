@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.0.1 - **not yet released**
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.0) (2025-09-29)
 
 - Check out the [Upgrading guide](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v3) to ensure a smooth update.
