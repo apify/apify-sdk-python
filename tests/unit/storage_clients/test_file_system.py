@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING
+from pathlib import Path
 
+import pytest
+
+from crawlee import service_locator
 from crawlee._consts import METADATA_FILENAME
 
 from apify import Actor, Configuration
 from apify.storage_clients._file_system import ApifyFileSystemKeyValueStoreClient
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 async def test_purge_preserves_input_file_and_metadata() -> None:
@@ -61,19 +61,32 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
 
     # Verify INPUT.json content is unchanged
     input_content = await asyncio.to_thread(input_file.read_text)
-    assert input_content == '{"test": "input"}'
+    assert json.loads(input_content) == json.loads('{"test": "input"}')
 
 
-async def test_pre_existing_input_used_by_actor(tmp_path: Path) -> None:
+@pytest.mark.parametrize('input_file_name', ['INPUT', 'INPUT.json'])
+async def test_pre_existing_input_used_by_actor(input_file_name: str) -> None:
+    configuration = Configuration()
+    service_locator.set_configuration(configuration)
+
+    # Create key-value store directory and make sure that it is empty
+    path_to_input = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    path_to_input.mkdir(parents=True)
+    assert list(path_to_input.glob('*')) == []
+
     pre_existing_input = {
         'foo': 'bar',
     }
 
-    configuration = Configuration.get_global_configuration()
     # Create pre-existing INPUT.json file
-    path_to_input = tmp_path / 'key_value_stores' / 'default'
-    path_to_input.mkdir(parents=True)
-    (path_to_input / f'{configuration.input_key}.json').write_text(json.dumps(pre_existing_input))
+    (path_to_input / input_file_name).write_text(json.dumps(pre_existing_input))
 
     async with Actor():
         assert pre_existing_input == await Actor.get_input()
+
+    # Make sure that the input file doesn't get renamed in the process and metadata are added
+    assert set(path_to_input.glob('*')) == {
+        path_to_input / '__metadata__.json',
+        path_to_input / input_file_name,
+        path_to_input / f'{input_file_name}.__metadata__.json',
+    }

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 
 [[package]]
@@ -76,7 +76,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.0.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", specifier = ">=1.0.0,<2.0.0" },
+    { name = "crawlee", specifier = ">=1.0.2,<2.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.6.1" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
@@ -516,7 +516,7 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "1.0.1"
+version = "1.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -532,9 +532,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4d/0a/713d5d45c9833a74beaf9f298081823eeef8dcbd5c25b8f87feebe7a4574/crawlee-1.0.1.tar.gz", hash = "sha256:01f7c9bfeace31bb3a175bfb954bc12214dd2fc3d4e9da30e566659f25015a67", size = 24897569, upload-time = "2025-10-06T08:28:36.367Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/93/68/45641208866a60176be4c5f2ab620c2122df18db956dc86a03471181e7c3/crawlee-1.0.2.tar.gz", hash = "sha256:522b52c1362d116b95ba85820f87001713f290a3ec690568adb862a4b29d7ca4", size = 24900937, upload-time = "2025-10-08T07:59:09.983Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/46/5ab3edf0497dad3c6c02979609934f36e1bb934076e4401e5b5c7b060fbd/crawlee-1.0.1-py3-none-any.whl", hash = "sha256:a910f0c2e8fec57b3c800af4f60006e1906923f80e9301f0073a85aca7d16c62", size = 303586, upload-time = "2025-10-06T08:28:32.466Z" },
+    { url = "https://files.pythonhosted.org/packages/be/ac/860de31ca534adb1d6321f66c7d082ba735eff49090f67a316f8d60f1ee2/crawlee-1.0.2-py3-none-any.whl", hash = "sha256:57a63d0b22493297490a5836e6b1d47dee667004d95bbc01387dcfb00f6a8a7a", size = 304369, upload-time = "2025-10-08T07:59:07.475Z" },
 ]
 
 [package.optional-dependencies]
