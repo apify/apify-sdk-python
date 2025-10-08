@@ -2,15 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.0.1 - **not yet released**
+## [3.0.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.1) (2025-10-08)
 
 ### 🐛 Bug Fixes
 
 - Also load input from a file with a .json extension in file system storage ([#617](https://github.com/apify/apify-sdk-python/pull/617)) ([b62804c](https://github.com/apify/apify-sdk-python/commit/b62804c170069cd7aa77572bb9682a156581cbac)) by [@janbuchar](https://github.com/janbuchar)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.0) (2025-09-29)
 
 - Check out the [Upgrading guide](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v3) to ensure a smooth update.
