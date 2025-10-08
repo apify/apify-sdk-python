@@ -88,7 +88,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
                     # Refresh metadata to prevent inconsistencies
                     with alternative_input_file.open() as f:
                         input_data = await asyncio.to_thread(lambda: json.load(f))
-                    await self.set_value(key=configuration.canonical_input_key, value=input_data)
+                    await self.set_value(key=alternative_key, value=input_data)
 
     @override
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
