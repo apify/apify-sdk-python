@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from crawlee import service_locator
 from crawlee._consts import METADATA_FILENAME
 
 from apify import Actor, Configuration
@@ -65,19 +66,27 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
 
 @pytest.mark.parametrize('input_file_name', ['INPUT', 'INPUT.json'])
 async def test_pre_existing_input_used_by_actor(input_file_name: str) -> None:
-    configuration = Configuration.get_global_configuration()
+    configuration = Configuration()
+    service_locator.set_configuration(configuration)
+
+    # Create key-value store directory and make sure that it is empty
+    path_to_input = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    path_to_input.mkdir(parents=True)
+    assert list(path_to_input.glob('*')) == []
 
     pre_existing_input = {
         'foo': 'bar',
     }
 
     # Create pre-existing INPUT.json file
-    path_to_input = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
-    path_to_input.mkdir(parents=True)
     (path_to_input / input_file_name).write_text(json.dumps(pre_existing_input))
 
     async with Actor():
         assert pre_existing_input == await Actor.get_input()
 
-    # Make sure that the input file doesn't get renamed in the process
-    assert (path_to_input / input_file_name).exists()
+    # Make sure that the input file doesn't get renamed in the process and metadata are added
+    assert set(path_to_input.glob('*')) == {
+        path_to_input / '__metadata__.json',
+        path_to_input / input_file_name,
+        path_to_input / f'{input_file_name}.__metadata__.json',
+    }
