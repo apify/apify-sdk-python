@@ -247,10 +247,16 @@ class _ApifyRequestQueueSingleClient:
             else:
                 # Only fetch the request if we do not know it yet.
                 if request.unique_key not in self._requests_cache:
-                    request = Request.model_validate(
-                        await self._api_client.get_request(unique_key_to_request_id(request.unique_key))
-                    )
-                    self._requests_cache[request.unique_key] = request
+                    request_id = unique_key_to_request_id(request.unique_key)
+                    complete_request_data = await self._api_client.get_request(request_id)
+
+                    if complete_request_data is not None:
+                        request = Request.model_validate(complete_request_data)
+                        self._requests_cache[request.unique_key] = request
+                    else:
+                        logger.warning(
+                            f'Could not fetch request data for unique_key=`{request.unique_key}` (id=`{request_id}`)'
+                        )
 
                 # Add new requests to the end of the head, unless already present in head
                 if request.unique_key not in self._head_requests:
