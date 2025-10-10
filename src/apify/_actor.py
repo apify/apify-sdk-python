@@ -216,16 +216,13 @@ class _ActorType:
         if self._is_exiting:
             return
 
-        if exc_value:
-            self.exit_code = ActorExitCodes.ERROR_USER_FUNCTION_THREW.value
-
         self._raise_if_not_initialized()
 
         if exc_value and not is_running_in_ipython():
             # In IPython, we don't run `sys.exit()` during Actor exits,
             # so the exception traceback will be printed on its own
             self.log.exception('Actor failed with an exception', exc_info=exc_value)
-            self.exit_value = ActorExitCodes.ERROR_USER_FUNCTION_THREW.value
+            self.exit_code = ActorExitCodes.ERROR_USER_FUNCTION_THREW.value
 
         self._is_exiting = True
         self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
