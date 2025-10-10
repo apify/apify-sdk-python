@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from apify_shared.consts import ActorExitCodes
+
 from apify import Actor
 
 if TYPE_CHECKING:
@@ -115,7 +117,7 @@ async def test_actor_fails_correctly_with_exception(
     actor = await make_actor(label='with-actor-fail', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.exit_code == 91
+    assert run_result.exit_code == ActorExitCodes.ERROR_USER_FUNCTION_THREW.value
     assert run_result.status == 'FAILED'
 
 

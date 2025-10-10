@@ -216,6 +216,9 @@ class _ActorType:
         if self._is_exiting:
             return
 
+        if exc_value:
+            self.exit_code = ActorExitCodes.ERROR_USER_FUNCTION_THREW.value
+
         self._raise_if_not_initialized()
 
         if exc_value and not is_running_in_ipython():
