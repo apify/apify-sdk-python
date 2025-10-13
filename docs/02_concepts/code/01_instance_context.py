@@ -20,7 +20,7 @@ async def main() -> None:
         await actor.push_data(data)
 
         # Set status message
-        await Actor.set_status_message('Actor completed successfully')
+        await actor.set_status_message('Actor completed successfully')
 
 
 if __name__ == '__main__':
