@@ -49,7 +49,7 @@ class ApifyHttpProxyMiddleware:
         if proxy_settings is None:
             Actor.log.info(
                 'ApifyHttpProxyMiddleware is not going to be used. Object "proxyConfiguration" is probably missing '
-                ' in the Actor input.'
+                'in the Actor input.'
             )
             raise NotConfigured
 
