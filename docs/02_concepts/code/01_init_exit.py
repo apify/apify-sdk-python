@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -14,3 +16,7 @@ async def main() -> None:
         await Actor.fail(exit_code=91, exception=exc)
 
     await Actor.exit()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
