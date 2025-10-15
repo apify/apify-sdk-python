@@ -158,40 +158,47 @@ class _ActorType:
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
         active Actor instances is not standard usage and may lead to warnings or unexpected behavior.
         """
-        self.log.info('Initializing Actor...')
-        self.log.info('System info', extra=get_system_info())
-
         if self._is_initialized:
             raise RuntimeError('The Actor was already initialized!')
 
+        # Initialize configuration first - it's required for the next steps.
+        if self._configuration:
+            # User provided explicit configuration - register it in the service locator.
+            service_locator.set_configuration(self.configuration)
+        else:
+            # No explicit configuration provided - trigger creation of default configuration.
+            _ = self.configuration
+
+        # Configure logging based on the configuration, any logs before this point are lost.
+        if self._configure_logging:
+            _configure_logging()
+        self.log.debug('Logging configured')
+
+        self.log.info('Initializing Actor', extra=get_system_info())
+        self.log.debug('Configuration initialized')
+
+        # Warn about non-standard usage patterns.
         if _ActorType._is_any_instance_initialized:
             self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care.')
 
-        if self._configuration:
-            # Set explicitly the configuration in the service locator.
-            service_locator.set_configuration(self.configuration)
-        else:
-            # Ensure that the configuration (cached property) is set.
-            _ = self.configuration
-
-        # Make sure that the currently initialized instance is also available through the global `Actor` proxy.
+        # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self
-
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 
-        service_locator.set_event_manager(self.event_manager)
-
-        # Initialize storage client to ensure it's available in service locator.
+        # Initialize the storage client and register it in the service locator.
         _ = self._storage_client
+        self.log.debug('Storage client initialized')
 
-        # The logging configuration has to be called after all service_locator set methods.
-        if self._configure_logging:
-            _configure_logging()
-
+        # Initialize the event manager and register it in the service locator.
         await self.event_manager.__aenter__()
-        await self._charging_manager_implementation.__aenter__()
+        self.log.debug('Event manager initialized')
 
+        # Initialize the charging manager.
+        await self._charging_manager_implementation.__aenter__()
+        self.log.debug('Charging manager initialized')
+
+        # Mark initialization as complete and update global state.
         self._is_initialized = True
         _ActorType._is_any_instance_initialized = True
         return self
@@ -334,7 +341,7 @@ class _ActorType:
 
         It uses `ApifyEventManager` on the Apify platform and `LocalEventManager` otherwise.
         """
-        return (
+        event_manager = (
             ApifyEventManager(
                 configuration=self.configuration,
                 persist_state_interval=self.configuration.persist_state_interval,
@@ -345,6 +352,8 @@ class _ActorType:
                 persist_state_interval=self.configuration.persist_state_interval,
             )
         )
+        service_locator.set_event_manager(event_manager)
+        return event_manager
 
     @cached_property
     def _charging_manager_implementation(self) -> ChargingManagerImplementation:
