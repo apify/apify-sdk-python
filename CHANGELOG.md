@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Handle None result in single consumer request queue client ([#623](https://github.com/apify/apify-sdk-python/pull/623)) ([451284a](https://github.com/apify/apify-sdk-python/commit/451284a5c633bc5613bd1e9060df286a1c20b259)) by [@janbuchar](https://github.com/janbuchar), closes [#1472](https://github.com/apify/apify-sdk-python/issues/1472)
+- Unify Actor context manager with init &amp; exit methods ([#600](https://github.com/apify/apify-sdk-python/pull/600)) ([6b0d084](https://github.com/apify/apify-sdk-python/commit/6b0d0842ae66a3a206bbb682a3e5f81ad552f029)) by [@vdusek](https://github.com/vdusek), closes [#598](https://github.com/apify/apify-sdk-python/issues/598)
 
 
 <!-- git-cliff-unreleased-end -->
