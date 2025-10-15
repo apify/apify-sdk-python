@@ -198,6 +198,9 @@ class _ActorType:
         await self._charging_manager_implementation.__aenter__()
         self.log.debug('Charging manager initialized')
 
+        # Log Actor services being used.
+        self.log.debug('Actor services', extra=self._get_services_info())
+
         # Mark initialization as complete and update global state.
         self._is_initialized = True
         _ActorType._is_any_instance_initialized = True
@@ -1320,6 +1323,14 @@ class _ActorType:
             f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
         )
         return None
+
+    def _get_services_info(self) -> dict[str, Any]:
+        """Return dictionary with information about services used by the Actor."""
+        return {
+            'configuration': self.configuration.__class__.__name__,
+            'storage_client': self._storage_client.__class__.__name__,
+            'event_manager': self.event_manager.__class__.__name__,
+        }
 
 
 Actor = cast('_ActorType', Proxy(_ActorType))
