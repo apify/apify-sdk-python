@@ -13,6 +13,7 @@ from crawlee.crawlers import BasicCrawler
 from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients._apify._utils import unique_key_to_request_id
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
@@ -1189,3 +1190,24 @@ async def test_request_queue_has_stats(request_queue_apify: RequestQueue) -> Non
     assert hasattr(metadata, 'stats')
     apify_metadata = cast('ApifyRequestQueueMetadata', metadata)
     assert apify_metadata.stats.write_count == add_request_count
+
+
+async def test_long_request(request_queue_apify: RequestQueue) -> None:
+    request = Request.from_url(
+        'https://portal.isoss.gov.cz/irj/portal/anonymous/mvrest?path=/eosm-public-offer&officeLabels=%7B%7D&page=1&pageSize=100000&sortColumn=zdatzvsm&sortOrder=-1',
+        use_extended_unique_key=True,
+        always_enqueue=True,
+    )
+
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    processed_request = await request_queue_apify.add_request(request)
+    assert processed_request.id == request_id
+
+    request_obtained = await request_queue_apify.fetch_next_request()
+    assert request_obtained is not None
+
+    await request_queue_apify.mark_request_as_handled(request_obtained)
+
+    is_finished = await request_queue_apify.is_finished()
+    assert is_finished
