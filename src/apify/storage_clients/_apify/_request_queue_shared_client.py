@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class _ApifyRequestQueueSharedClient:
+class ApifyRequestQueueSharedClient:
     """An Apify platform implementation of the request queue client.
 
     This implementation supports multiple producers and multiple consumers scenario.

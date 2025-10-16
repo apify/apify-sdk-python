@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class _ApifyRequestQueueSingleClient:
+class ApifyRequestQueueSingleClient:
     """An Apify platform implementation of the request queue client with limited capability.
 
     This client is designed to use as little resources as possible, but has to be used in constrained context.
