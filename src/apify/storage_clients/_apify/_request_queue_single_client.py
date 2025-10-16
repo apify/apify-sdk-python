@@ -236,6 +236,14 @@ class _ApifyRequestQueueSingleClient:
 
         # Update the cached data
         for request_data in response.get('items', []):
+            # Due to https://github.com/apify/apify-core/blob/v0.1377.0/src/api/src/lib/request_queues/request_queue.ts#L53,
+            # the list_head endpoint may return truncated fields for long requests (e.g., long URLs or unique keys).
+            # If truncation is detected, fetch the full request data by its ID from the API.
+            # This is a temporary workaround - the caching will be refactored to use request IDs instead of unique keys.
+            # See https://github.com/apify/apify-sdk-python/issues/630 for details.
+            if '[truncated]' in request_data['uniqueKey'] or '[truncated]' in request_data['url']:
+                request_data = await self._api_client.get_request(request_id=request_data['id'])  # noqa: PLW2901
+
             request = Request.model_validate(request_data)
 
             if request.unique_key in self._requests_in_progress:
@@ -248,15 +256,14 @@ class _ApifyRequestQueueSingleClient:
                 # Only fetch the request if we do not know it yet.
                 if request.unique_key not in self._requests_cache:
                     request_id = unique_key_to_request_id(request.unique_key)
-                    complete_request_data = await self._api_client.get_request(request_id)
-
-                    if complete_request_data is not None:
-                        request = Request.model_validate(complete_request_data)
-                        self._requests_cache[request.unique_key] = request
-                    else:
+                    if request_data is not None and request_id != request_data['id']:
                         logger.warning(
-                            f'Could not fetch request data for unique_key=`{request.unique_key}` (id=`{request_id}`)'
+                            f'Request ID mismatch: {request_id} != {request_data["id"]}, '
+                            'this may cause unexpected behavior.'
                         )
+                    full_request_data = await self._api_client.get_request(request_id)
+                    request = Request.model_validate(full_request_data)
+                    self._requests_cache[request.unique_key] = request
 
                 # Add new requests to the end of the head, unless already present in head
                 if request.unique_key not in self._head_requests:
