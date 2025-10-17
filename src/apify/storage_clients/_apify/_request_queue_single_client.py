@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class _ApifyRequestQueueSingleClient:
+class ApifyRequestQueueSingleClient:
     """An Apify platform implementation of the request queue client with limited capability.
 
     This client is designed to use as little resources as possible, but has to be used in constrained context.
@@ -111,25 +111,21 @@ class _ApifyRequestQueueSingleClient:
             # Check if request is known to be already handled (it has to be present as well.)
             if request_id in self._requests_already_handled:
                 already_present_requests.append(
-                    ProcessedRequest.model_validate(
-                        {
-                            'id': request_id,
-                            'uniqueKey': request.unique_key,
-                            'wasAlreadyPresent': True,
-                            'wasAlreadyHandled': True,
-                        }
+                    ProcessedRequest(
+                        id=request_id,
+                        unique_key=request.unique_key,
+                        was_already_present=True,
+                        was_already_handled=True,
                     )
                 )
             # Check if request is known to be already present, but unhandled
             elif self._requests_cache.get(request_id):
                 already_present_requests.append(
-                    ProcessedRequest.model_validate(
-                        {
-                            'id': request_id,
-                            'uniqueKey': request.unique_key,
-                            'wasAlreadyPresent': True,
-                            'wasAlreadyHandled': request.was_already_handled,
-                        }
+                    ProcessedRequest(
+                        id=request_id,
+                        unique_key=request.unique_key,
+                        was_already_present=True,
+                        was_already_handled=request.was_already_handled,
                     )
                 )
             else:
@@ -163,8 +159,9 @@ class _ApifyRequestQueueSingleClient:
                 self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
 
         else:
-            api_response = AddRequestsResponse.model_validate(
-                {'unprocessedRequests': [], 'processedRequests': already_present_requests}
+            api_response = AddRequestsResponse(
+                unprocessed_requests=[],
+                processed_requests=already_present_requests,
             )
 
         # Update assumed total count for newly added requests.
@@ -261,12 +258,21 @@ class _ApifyRequestQueueSingleClient:
 
         # Update the cached data
         for request_data in response.get('items', []):
+            # Due to https://github.com/apify/apify-core/blob/v0.1377.0/src/api/src/lib/request_queues/request_queue.ts#L53,
+            # the list_head endpoint may return truncated fields for long requests (e.g., long URLs or unique keys).
+            # If truncation is detected, fetch the full request data by its ID from the API.
+            # This is a temporary workaround - the caching will be refactored to use request IDs instead of unique keys.
+            # See https://github.com/apify/apify-sdk-python/issues/630 for details.
+            if '[truncated]' in request_data['uniqueKey'] or '[truncated]' in request_data['url']:
+                request_data = await self._api_client.get_request(request_id=request_data['id'])  # noqa: PLW2901
+
             request = Request.model_validate(request_data)
             request_id = unique_key_to_request_id(request_data['id'])
 
             if request_id in self._requests_in_progress:
                 # Ignore requests that are already in progress, we will not process them again.
                 continue
+
             if request.was_already_handled:
                 # Do not cache fully handled requests, we do not need them. Just cache their id.
                 self._requests_already_handled.add(request_id)
