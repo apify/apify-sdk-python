@@ -94,8 +94,8 @@ class CachedRequest(BaseModel):
     Only internal structure.
     """
 
-    unique_key: str
-    """Unique key of the request."""
+    id: str
+    """Id of the request."""
 
     was_already_handled: bool
     """Whether the request was already handled."""
