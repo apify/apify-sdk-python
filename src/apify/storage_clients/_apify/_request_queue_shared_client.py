@@ -106,23 +106,19 @@ class ApifyRequestQueueSharedClient:
                 # It could have been handled by another client in the meantime, so cached information about
                 # `request.was_already_handled` is not reliable.
                 already_present_requests.append(
-                    ProcessedRequest.model_validate(
-                        {
-                            'uniqueKey': request.unique_key,
-                            'wasAlreadyPresent': True,
-                            'wasAlreadyHandled': request.was_already_handled,
-                        }
+                    ProcessedRequest(
+                        unique_key=request.unique_key,
+                        was_already_present=True,
+                        was_already_handled=request.was_already_handled,
                     )
                 )
 
             else:
                 # Add new request to the cache.
-                processed_request = ProcessedRequest.model_validate(
-                    {
-                        'uniqueKey': request.unique_key,
-                        'wasAlreadyPresent': True,
-                        'wasAlreadyHandled': request.was_already_handled,
-                    }
+                processed_request = ProcessedRequest(
+                    unique_key=request.unique_key,
+                    was_already_present=True,
+                    was_already_handled=request.was_already_handled,
                 )
                 self._cache_request(
                     request.unique_key,

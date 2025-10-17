@@ -109,22 +109,20 @@ class ApifyRequestQueueSingleClient:
             if request.unique_key in self._requests_already_handled:
                 already_present_requests.append(
                     ProcessedRequest.model_validate(
-                        {
-                            'uniqueKey': request.unique_key,
-                            'wasAlreadyPresent': True,
-                            'wasAlreadyHandled': True,
-                        }
+                        ProcessedRequest(
+                            unique_key=request.unique_key,
+                            was_already_present=True,
+                            was_already_handled=True,
+                        )
                     )
                 )
             # Check if request is known to be already present, but unhandled
             elif self._requests_cache.get(request.unique_key):
                 already_present_requests.append(
-                    ProcessedRequest.model_validate(
-                        {
-                            'uniqueKey': request.unique_key,
-                            'wasAlreadyPresent': True,
-                            'wasAlreadyHandled': request.was_already_handled,
-                        }
+                    ProcessedRequest(
+                        unique_key=request.unique_key,
+                        was_already_present=True,
+                        was_already_handled=request.was_already_handled,
                     )
                 )
             else:
@@ -158,8 +156,9 @@ class ApifyRequestQueueSingleClient:
                 self._requests_cache.pop(unprocessed_request.unique_key, None)
 
         else:
-            api_response = AddRequestsResponse.model_validate(
-                {'unprocessedRequests': [], 'processedRequests': already_present_requests}
+            api_response = AddRequestsResponse(
+                unprocessed_requests=[],
+                processed_requests=already_present_requests,
             )
 
         # Update assumed total count for newly added requests.
