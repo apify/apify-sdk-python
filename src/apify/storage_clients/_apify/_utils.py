@@ -6,12 +6,9 @@ from asyncio import Lock
 from base64 import b64encode
 from hashlib import sha256
 from logging import getLogger
-from typing import TYPE_CHECKING, Annotated, ClassVar
-
-from pydantic import Field, model_validator
+from typing import TYPE_CHECKING, ClassVar
 
 from apify_client import ApifyClientAsync
-from crawlee import Request
 from crawlee._utils.crypto import compute_short_hash
 
 from apify._configuration import Configuration
@@ -195,13 +192,3 @@ def unique_key_to_request_id(unique_key: str, *, request_id_length: int = 15) ->
 
     # Truncate the key to the desired length
     return url_safe_key[:request_id_length]
-
-
-class _Request(Request):
-    id: Annotated[str, Field(default='')]
-
-    @model_validator(mode='after')
-    def calculate_id(self) -> _Request:
-        if self.id == '':
-            self.id = unique_key_to_request_id(self.unique_key)
-        return self
