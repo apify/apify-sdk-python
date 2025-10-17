@@ -12,8 +12,8 @@ from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest
 from crawlee.storages import RequestQueue
 
 from ._models import ApifyRequestQueueMetadata, RequestQueueStats
-from ._request_queue_shared_client import _ApifyRequestQueueSharedClient
-from ._request_queue_single_client import _ApifyRequestQueueSingleClient
+from ._request_queue_shared_client import ApifyRequestQueueSharedClient
+from ._request_queue_single_client import ApifyRequestQueueSingleClient
 from ._utils import AliasResolver
 
 if TYPE_CHECKING:
@@ -47,14 +47,14 @@ class ApifyRequestQueueClient(RequestQueueClient):
         self._api_client = api_client
         """The Apify request queue client for API operations."""
 
-        self._implementation: _ApifyRequestQueueSingleClient | _ApifyRequestQueueSharedClient
+        self._implementation: ApifyRequestQueueSingleClient | ApifyRequestQueueSharedClient
         """Internal implementation used to communicate with the Apify platform based Request Queue."""
         if access == 'single':
-            self._implementation = _ApifyRequestQueueSingleClient(
+            self._implementation = ApifyRequestQueueSingleClient(
                 api_client=self._api_client, metadata=metadata, cache_size=self._MAX_CACHED_REQUESTS
             )
         elif access == 'shared':
-            self._implementation = _ApifyRequestQueueSharedClient(
+            self._implementation = ApifyRequestQueueSharedClient(
                 api_client=self._api_client,
                 metadata=metadata,
                 cache_size=self._MAX_CACHED_REQUESTS,

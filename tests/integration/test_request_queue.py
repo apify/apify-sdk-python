@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING, Literal, cast
 import pytest
 
 from apify_shared.consts import ApifyEnvVars
-from crawlee import Request, service_locator
+from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 
 from ._utils import generate_unique_resource_name
-from apify import Actor
+from apify import Actor, Request
 from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients._apify._request_queue_shared_client import ApifyRequestQueueSharedClient
+from apify.storage_clients._apify._utils import unique_key_to_request_id
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
@@ -1189,3 +1191,30 @@ async def test_request_queue_has_stats(request_queue_apify: RequestQueue) -> Non
     assert hasattr(metadata, 'stats')
     apify_metadata = cast('ApifyRequestQueueMetadata', metadata)
     assert apify_metadata.stats.write_count == add_request_count
+
+
+async def test_rq_long_url(request_queue_apify: RequestQueue) -> None:
+    # TODO: Remove the skip when issue #630 is resolved.
+    if isinstance(request_queue_apify._client._implementation, ApifyRequestQueueSharedClient):  # type: ignore[attr-defined]
+        pytest.skip('Skipping for the "shared" request queue - unskip after issue #630 is resolved.')
+
+    url = 'https://portal.isoss.gov.cz/irj/portal/anonymous/mvrest?path=/eosm-public-offer&officeLabels=%7B%7D&page=1&pageSize=100000&sortColumn=zdatzvsm&sortOrder=-1'
+
+    req = Request.from_url(
+        url=url,
+        use_extended_unique_key=True,
+        always_enqueue=True,
+    )
+
+    request_id = unique_key_to_request_id(req.unique_key)
+
+    processed_request = await request_queue_apify.add_request(req)
+    assert processed_request.id == request_id
+
+    request_obtained = await request_queue_apify.fetch_next_request()
+    assert request_obtained is not None
+
+    await request_queue_apify.mark_request_as_handled(request_obtained)
+
+    is_finished = await request_queue_apify.is_finished()
+    assert is_finished
