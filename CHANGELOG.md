@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.0.2 - **not yet released**
+## [3.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.2) (2025-10-17)
 
 ### 🐛 Bug Fixes
 
@@ -12,7 +11,6 @@ All notable changes to this project will be documented in this file.
 - Handle truncated `unique_key` in `list_head` by fetching full request data ([#631](https://github.com/apify/apify-sdk-python/pull/631)) ([4238086](https://github.com/apify/apify-sdk-python/commit/423808678d9155a84a266bf50bb09f1a56466174)) by [@vdusek](https://github.com/vdusek), closes [#627](https://github.com/apify/apify-sdk-python/issues/627)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.0.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.1) (2025-10-08)
 
 ### 🐛 Bug Fixes
