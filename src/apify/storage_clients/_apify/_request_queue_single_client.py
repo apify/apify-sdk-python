@@ -246,6 +246,7 @@ class ApifyRequestQueueSingleClient:
             if request.unique_key in self._requests_in_progress:
                 # Ignore requests that are already in progress, we will not process them again.
                 continue
+
             if request.was_already_handled:
                 # Do not cache fully handled requests, we do not need them. Just cache their unique_key.
                 self._requests_already_handled.add(request.unique_key)
@@ -253,11 +254,18 @@ class ApifyRequestQueueSingleClient:
                 # Only fetch the request if we do not know it yet.
                 if request.unique_key not in self._requests_cache:
                     request_id = unique_key_to_request_id(request.unique_key)
+
                     if request_data is not None and request_id != request_data['id']:
                         logger.warning(
                             f'Request ID mismatch: {request_id} != {request_data["id"]}, '
                             'this may cause unexpected behavior.'
                         )
+
+                    # See https://github.com/apify/apify-sdk-python/issues/630 for details.
+                    if '[truncated]' not in request.unique_key:
+                        request_data = await self._api_client.get_request(request_id=request_id)  # noqa: PLW2901
+                        request = Request.model_validate(request_data)
+
                     self._requests_cache[request.unique_key] = request
 
                 # Add new requests to the end of the head, unless already present in head
