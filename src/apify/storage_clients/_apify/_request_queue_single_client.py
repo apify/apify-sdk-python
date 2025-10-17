@@ -197,6 +197,7 @@ class ApifyRequestQueueSingleClient:
         if id in self._requests_cache:
             return self._requests_cache[id]
 
+        # Requests that were not added by this client are not in local cache. Fetch them from platform.
         response = await self._api_client.get_request(id)
 
         if response is None:
@@ -206,13 +207,13 @@ class ApifyRequestQueueSingleClient:
 
         # Updated local caches
         if id in self._requests_in_progress:
-            # Ignore requests that are already in progress, client is already aware of them.
-            self._requests_already_handled.add(id)
+            # No caching of requests that are already in progress, client is already aware of them.
+            pass
         elif request.was_already_handled:
             # Cache only id for already handled requests
             self._requests_already_handled.add(id)
         else:
-            # Cache full request for unhandled requests that are not yet in progress
+            # Cache full request for unhandled requests that are not yet in progress and are not yet handled.
             self._requests_cache[id] = request
         return request
 
@@ -268,16 +269,9 @@ class ApifyRequestQueueSingleClient:
             if request.was_already_handled:
                 # Do not cache fully handled requests, we do not need them. Just cache their id.
                 self._requests_already_handled.add(request_id)
-            else:
-                # Only fetch the request if we do not know it yet.
-                if request_id not in self._requests_cache:
-                    complete_request_data = await self._api_client.get_request(request_id)
-                    request = Request.model_validate(complete_request_data)
-                    self._requests_cache[request_id] = request
-
-                # Add new requests to the end of the head, unless already present in head
-                if request_id not in self._head_requests:
-                    self._head_requests.appendleft(request_id)
+            # Add new requests to the end of the head, unless already present in head
+            elif request_id not in self._head_requests:
+                self._head_requests.appendleft(request_id)
 
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
         """Mark a request as handled after successful processing.
