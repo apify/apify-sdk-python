@@ -420,7 +420,8 @@ class ApifyRequestQueueSingleClient:
         response = await self._api_client.list_requests(limit=10_000)
         for request_data in response.get('items', []):
             request = Request.model_validate(request_data)
-            request_id = unique_key_to_request_id(request_data['id'])
+            request_id = request_data['id']
+
             if request.was_already_handled:
                 # Cache just id for deduplication
                 self._requests_already_handled.add(request_id)
