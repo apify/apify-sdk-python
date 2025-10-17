@@ -122,7 +122,8 @@ async def test_actor_fails_correctly_with_exception(
 async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_actor: RunActorFunction) -> None:
     """Test that crawler in actor works as expected after reboot.
 
-    Handle two requests. Reboot in between the two requests."""
+    Handle two requests. Reboot in between the two requests. The second run should include statistics of the fist run.
+    """
 
     async def main() -> None:
         from crawlee._types import BasicCrawlingContext, ConcurrencySettings
@@ -152,7 +153,8 @@ async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_acto
             await crawler.run(requests)
 
             # Each time one request is finished.
-            assert crawler.statistics.state.requests_finished == 1
+            expected_requests_finished = 1 if first_run else 2
+            assert crawler.statistics.state.requests_finished == expected_requests_finished
 
     actor = await make_actor(label='migration', main_func=main)
     run_result = await run_actor(actor)
