@@ -258,16 +258,8 @@ class ApifyRequestQueueSingleClient:
 
         # Update the cached data
         for request_data in response.get('items', []):
-            # Due to https://github.com/apify/apify-core/blob/v0.1377.0/src/api/src/lib/request_queues/request_queue.ts#L53,
-            # the list_head endpoint may return truncated fields for long requests (e.g., long URLs or unique keys).
-            # If truncation is detected, fetch the full request data by its ID from the API.
-            # This is a temporary workaround - the caching will be refactored to use request IDs instead of unique keys.
-            # See https://github.com/apify/apify-sdk-python/issues/630 for details.
-            if '[truncated]' in request_data['uniqueKey'] or '[truncated]' in request_data['url']:
-                request_data = await self._api_client.get_request(request_id=request_data['id'])  # noqa: PLW2901
-
             request = Request.model_validate(request_data)
-            request_id = unique_key_to_request_id(request_data['id'])
+            request_id = request_data['id']
 
             if request_id in self._requests_in_progress:
                 # Ignore requests that are already in progress, we will not process them again.
@@ -405,8 +397,10 @@ class ApifyRequestQueueSingleClient:
         Returns:
             The updated request
         """
+        request_dict = request.model_dump(by_alias=True)
+        request_dict['id'] = unique_key_to_request_id(request.unique_key)
         response = await self._api_client.update_request(
-            request=request.model_dump(by_alias=True),
+            request=request_dict,
             forefront=forefront,
         )
 
