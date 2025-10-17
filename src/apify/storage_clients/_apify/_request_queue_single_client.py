@@ -108,12 +108,10 @@ class ApifyRequestQueueSingleClient:
             # Check if request is known to be already handled (it has to be present as well.)
             if request.unique_key in self._requests_already_handled:
                 already_present_requests.append(
-                    ProcessedRequest.model_validate(
-                        ProcessedRequest(
-                            unique_key=request.unique_key,
-                            was_already_present=True,
-                            was_already_handled=True,
-                        )
+                    ProcessedRequest(
+                        unique_key=request.unique_key,
+                        was_already_present=True,
+                        was_already_handled=True,
                     )
                 )
             # Check if request is known to be already present, but unhandled
@@ -260,8 +258,6 @@ class ApifyRequestQueueSingleClient:
                             f'Request ID mismatch: {request_id} != {request_data["id"]}, '
                             'this may cause unexpected behavior.'
                         )
-                    full_request_data = await self._api_client.get_request(request_id)
-                    request = Request.model_validate(full_request_data)
                     self._requests_cache[request.unique_key] = request
 
                 # Add new requests to the end of the head, unless already present in head
