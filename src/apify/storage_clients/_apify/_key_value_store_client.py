@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
-from yarl import URL
 
-from apify_client import ApifyClientAsync
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
 from crawlee.storages import KeyValueStore
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
-from ._utils import AliasResolver
-from apify._crypto import create_hmac_signature
+from ._utils import AliasResolver, create_apify_client
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -43,11 +41,16 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         self._api_client = api_client
         """The Apify KVS client for API operations."""
 
-        self._api_public_base_url = api_public_base_url
-        """The public base URL for accessing the key-value store records."""
-
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
+
+        if api_public_base_url:
+            # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+            warnings.warn(
+                'api_public_base_url argument is deprecated and will be removed in version 4.0.0',
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     @override
     async def get_metadata(self) -> ApifyKeyValueStoreMetadata:
@@ -90,29 +93,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         if sum(1 for param in [id, name, alias] if param is not None) > 1:
             raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
 
-        token = configuration.token
-        if not token:
-            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
-
-        api_url = configuration.api_base_url
-        if not api_url:
-            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-        api_public_base_url = configuration.api_public_base_url
-        if not api_public_base_url:
-            raise ValueError(
-                'Apify storage client requires a valid API public base URL in Configuration '
-                f'(api_public_base_url={api_public_base_url}).'
-            )
-
-        # Create Apify client with the provided token and API URL.
-        apify_client_async = ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
-        )
+        apify_client_async = create_apify_client(configuration)
         apify_kvss_client = apify_client_async.key_value_stores()
 
         # Normalize unnamed default storage in cases where not defined in `configuration.default_key_value_store_id` to
@@ -170,7 +151,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
 
         return cls(
             api_client=apify_kvs_client,
-            api_public_base_url=api_public_base_url,
+            api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
             lock=asyncio.Lock(),
         )
 
@@ -251,15 +232,4 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         Returns:
             A public URL that can be used to access the value of the given key in the KVS.
         """
-        if self._api_client.resource_id is None:
-            raise ValueError('resource_id cannot be None when generating a public URL')
-
-        public_url = (
-            URL(self._api_public_base_url) / 'v2' / 'key-value-stores' / self._api_client.resource_id / 'records' / key
-        )
-        metadata = await self.get_metadata()
-
-        if metadata.url_signing_secret_key is not None:
-            public_url = public_url.with_query(signature=create_hmac_signature(metadata.url_signing_secret_key, key))
-
-        return str(public_url)
+        return await self._api_client.get_record_public_url(key=key)
