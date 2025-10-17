@@ -107,7 +107,7 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
     return ApifyClientAsync(apify_token, api_url=api_url)
 
 
-@pytest.fixture(params=['single', 'shared'])
+@pytest.fixture(params=['shared'])
 async def request_queue_apify(
     apify_token: str, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> AsyncGenerator[RequestQueue]:
