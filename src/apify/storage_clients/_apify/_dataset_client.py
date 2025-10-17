@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
-from apify_client import ApifyClientAsync
 from crawlee._utils.byte_size import ByteSize
 from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 from crawlee.storages import Dataset
 
-from ._utils import AliasResolver
+from ._utils import AliasResolver, create_apify_client
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -52,11 +52,16 @@ class ApifyDatasetClient(DatasetClient):
         self._api_client = api_client
         """The Apify dataset client for API operations."""
 
-        self._api_public_base_url = api_public_base_url
-        """The public base URL for accessing the key-value store records."""
-
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
+
+        if api_public_base_url:
+            # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+            warnings.warn(
+                'api_public_base_url argument is deprecated and will be removed in version 4.0.0',
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     @override
     async def get_metadata(self) -> DatasetMetadata:
@@ -99,29 +104,7 @@ class ApifyDatasetClient(DatasetClient):
         if sum(1 for param in [id, name, alias] if param is not None) > 1:
             raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
 
-        token = configuration.token
-        if not token:
-            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
-
-        api_url = configuration.api_base_url
-        if not api_url:
-            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-        api_public_base_url = configuration.api_public_base_url
-        if not api_public_base_url:
-            raise ValueError(
-                'Apify storage client requires a valid API public base URL in Configuration '
-                f'(api_public_base_url={api_public_base_url}).'
-            )
-
-        # Create Apify client with the provided token and API URL.
-        apify_client_async = ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
-        )
+        apify_client_async = create_apify_client(configuration)
         apify_datasets_client = apify_client_async.datasets()
 
         # Normalize unnamed default storage in cases where not defined in `configuration.default_dataset_id` to unnamed
@@ -178,7 +161,7 @@ class ApifyDatasetClient(DatasetClient):
 
         return cls(
             api_client=apify_dataset_client,
-            api_public_base_url=api_public_base_url,
+            api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
             lock=asyncio.Lock(),
         )
 

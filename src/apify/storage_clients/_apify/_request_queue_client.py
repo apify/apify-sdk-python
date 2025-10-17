@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from typing_extensions import override
 
-from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
@@ -14,7 +13,7 @@ from crawlee.storages import RequestQueue
 from ._models import ApifyRequestQueueMetadata, RequestQueueStats
 from ._request_queue_shared_client import ApifyRequestQueueSharedClient
 from ._request_queue_single_client import ApifyRequestQueueSingleClient
-from ._utils import AliasResolver
+from ._utils import AliasResolver, create_apify_client
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -228,29 +227,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if sum(1 for param in [id, name, alias] if param is not None) > 1:
             raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
 
-        token = configuration.token
-        if not token:
-            raise ValueError(f'Apify storage client requires a valid token in Configuration (token={token}).')
-
-        api_url = configuration.api_base_url
-        if not api_url:
-            raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
-
-        api_public_base_url = configuration.api_public_base_url
-        if not api_public_base_url:
-            raise ValueError(
-                'Apify storage client requires a valid API public base URL in Configuration '
-                f'(api_public_base_url={api_public_base_url}).'
-            )
-
-        # Create Apify client with the provided token and API URL.
-        apify_client_async = ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
-        )
+        apify_client_async = create_apify_client(configuration)
         apify_rqs_client = apify_client_async.request_queues()
 
         # Normalize unnamed default storage in cases where not defined in `configuration.default_request_queue_id` to

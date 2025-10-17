@@ -192,3 +192,30 @@ def unique_key_to_request_id(unique_key: str, *, request_id_length: int = 15) ->
 
     # Truncate the key to the desired length
     return url_safe_key[:request_id_length]
+
+
+def create_apify_client(configuration: Configuration) -> ApifyClientAsync:
+    """Create and return an ApifyClientAsync instance using the provided configuration."""
+    if not configuration.token:
+        raise ValueError(f'Apify storage client requires a valid token in Configuration (token={configuration.token}).')
+
+    api_url = configuration.api_base_url
+    if not api_url:
+        raise ValueError(f'Apify storage client requires a valid API URL in Configuration (api_url={api_url}).')
+
+    api_public_base_url = configuration.api_public_base_url
+    if not api_public_base_url:
+        raise ValueError(
+            'Apify storage client requires a valid API public base URL in Configuration '
+            f'(api_public_base_url={api_public_base_url}).'
+        )
+
+    # Create Apify client with the provided token and API URL.
+    return ApifyClientAsync(
+        token=configuration.token,
+        api_url=api_url,
+        api_public_url=api_public_base_url,
+        max_retries=8,
+        min_delay_between_retries_millis=500,
+        timeout_secs=360,
+    )
