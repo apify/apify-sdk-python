@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 - Handle None result in single consumer request queue client ([#623](https://github.com/apify/apify-sdk-python/pull/623)) ([451284a](https://github.com/apify/apify-sdk-python/commit/451284a5c633bc5613bd1e9060df286a1c20b259)) by [@janbuchar](https://github.com/janbuchar), closes [#1472](https://github.com/apify/apify-sdk-python/issues/1472)
 - Unify Actor context manager with init &amp; exit methods ([#600](https://github.com/apify/apify-sdk-python/pull/600)) ([6b0d084](https://github.com/apify/apify-sdk-python/commit/6b0d0842ae66a3a206bbb682a3e5f81ad552f029)) by [@vdusek](https://github.com/vdusek), closes [#598](https://github.com/apify/apify-sdk-python/issues/598)
+- Handle truncated `unique_key` in `list_head` by fetching full request data ([#631](https://github.com/apify/apify-sdk-python/pull/631)) ([4238086](https://github.com/apify/apify-sdk-python/commit/423808678d9155a84a266bf50bb09f1a56466174)) by [@vdusek](https://github.com/vdusek), closes [#627](https://github.com/apify/apify-sdk-python/issues/627)
 
 
 <!-- git-cliff-unreleased-end -->
