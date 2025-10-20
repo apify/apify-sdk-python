@@ -360,7 +360,7 @@ class ApifyRequestQueueSharedClient:
         await self._list_head()
 
     async def _get_or_hydrate_request(self, request_id: str) -> Request | None:
-        """Get a request by unique key, either from cache or by fetching from API.
+        """Get a request by id, either from cache or by fetching from API.
 
         Args:
             request_id: Id of the request to get.
