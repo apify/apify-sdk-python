@@ -56,21 +56,21 @@ class ApifyRequestQueueSingleClient:
         """The Apify request queue client for API operations."""
 
         self._requests_cache: LRUCache[str, Request] = LRUCache(maxsize=cache_size)
-        """A cache to store request objects. Request unique key is used as the cache key."""
+        """A cache to store request objects. Request id is used as the cache key."""
 
         self._head_requests: deque[str] = deque()
-        """Ordered unique keys of requests that represent queue head."""
+        """Ordered ids of requests that represent queue head."""
 
         self._requests_already_handled: set[str] = set()
         """Local estimation of requests unique keys that are already present and handled on the platform.
 
         - To enhance local deduplication.
         - To reduce the _requests_cache size. Already handled requests are most likely not going to be needed again,
-        so no need to cache more than their unique_key.
+        so no need to cache more than their id.
         """
 
         self._requests_in_progress: set[str] = set()
-        """Set of requests unique keys that are being processed locally.
+        """Set of requests ids that are being processed locally.
 
         - To help decide if the RQ is finished or not. This is the only consumer, so it can be tracked locally.
         """
@@ -105,19 +105,24 @@ class ApifyRequestQueueSingleClient:
         already_present_requests: list[ProcessedRequest] = []
 
         for request in requests:
+            # Calculate id for request
+            request_id = unique_key_to_request_id(request.unique_key)
+
             # Check if request is known to be already handled (it has to be present as well.)
-            if request.unique_key in self._requests_already_handled:
+            if request_id in self._requests_already_handled:
                 already_present_requests.append(
                     ProcessedRequest(
+                        id=request_id,
                         unique_key=request.unique_key,
                         was_already_present=True,
                         was_already_handled=True,
                     )
                 )
             # Check if request is known to be already present, but unhandled
-            elif self._requests_cache.get(request.unique_key):
+            elif self._requests_cache.get(request_id):
                 already_present_requests.append(
                     ProcessedRequest(
+                        id=request_id,
                         unique_key=request.unique_key,
                         was_already_present=True,
                         was_already_handled=request.was_already_handled,
@@ -128,11 +133,11 @@ class ApifyRequestQueueSingleClient:
                 new_requests.append(request)
 
                 # Update local caches
-                self._requests_cache[request.unique_key] = request
+                self._requests_cache[request_id] = request
                 if forefront:
-                    self._head_requests.append(request.unique_key)
+                    self._head_requests.append(request_id)
                 else:
-                    self._head_requests.appendleft(request.unique_key)
+                    self._head_requests.appendleft(request_id)
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
@@ -151,7 +156,7 @@ class ApifyRequestQueueSingleClient:
             api_response.processed_requests.extend(already_present_requests)
             # Remove unprocessed requests from the cache
             for unprocessed_request in api_response.unprocessed_requests:
-                self._requests_cache.pop(unprocessed_request.unique_key, None)
+                self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
 
         else:
             api_response = AddRequestsResponse(
@@ -178,15 +183,39 @@ class ApifyRequestQueueSingleClient:
         Returns:
             The request or None if not found.
         """
-        if unique_key in self._requests_cache:
-            return self._requests_cache[unique_key]
+        return await self._get_request(id=unique_key_to_request_id(unique_key))
 
-        response = await self._api_client.get_request(unique_key_to_request_id(unique_key))
+    async def _get_request(self, id: str) -> Request | None:
+        """Get a request by id.
+
+        Args:
+            id: Id of request to get.
+
+        Returns:
+            The request or None if not found.
+        """
+        if id in self._requests_cache:
+            return self._requests_cache[id]
+
+        # Requests that were not added by this client are not in local cache. Fetch them from platform.
+        response = await self._api_client.get_request(id)
 
         if response is None:
             return None
 
-        return Request.model_validate(response)
+        request = Request.model_validate(response)
+
+        # Updated local caches
+        if id in self._requests_in_progress:
+            # No caching of requests that are already in progress, client is already aware of them.
+            pass
+        elif request.was_already_handled:
+            # Cache only id for already handled requests
+            self._requests_already_handled.add(id)
+        else:
+            # Cache full request for unhandled requests that are not yet in progress and are not yet handled.
+            self._requests_cache[id] = request
+        return request
 
     async def fetch_next_request(self) -> Request | None:
         """Return the next request in the queue to be processed.
@@ -202,13 +231,10 @@ class ApifyRequestQueueSingleClient:
         await self._ensure_head_is_non_empty()
 
         while self._head_requests:
-            request_unique_key = self._head_requests.pop()
-            if (
-                request_unique_key not in self._requests_in_progress
-                and request_unique_key not in self._requests_already_handled
-            ):
-                self._requests_in_progress.add(request_unique_key)
-                return await self.get_request(request_unique_key)
+            request_id = self._head_requests.pop()
+            if request_id not in self._requests_in_progress and request_id not in self._requests_already_handled:
+                self._requests_in_progress.add(request_id)
+                return await self._get_request(request_id)
         # No request locally and the ones returned from the platform are already in progress.
         return None
 
@@ -233,44 +259,19 @@ class ApifyRequestQueueSingleClient:
 
         # Update the cached data
         for request_data in response.get('items', []):
-            # Due to https://github.com/apify/apify-core/blob/v0.1377.0/src/api/src/lib/request_queues/request_queue.ts#L53,
-            # the list_head endpoint may return truncated fields for long requests (e.g., long URLs or unique keys).
-            # If truncation is detected, fetch the full request data by its ID from the API.
-            # This is a temporary workaround - the caching will be refactored to use request IDs instead of unique keys.
-            # See https://github.com/apify/apify-sdk-python/issues/630 for details.
-            if '[truncated]' in request_data['uniqueKey'] or '[truncated]' in request_data['url']:
-                request_data = await self._api_client.get_request(request_id=request_data['id'])  # noqa: PLW2901
-
             request = Request.model_validate(request_data)
+            request_id = request_data['id']
 
-            if request.unique_key in self._requests_in_progress:
+            if request_id in self._requests_in_progress:
                 # Ignore requests that are already in progress, we will not process them again.
                 continue
 
             if request.was_already_handled:
-                # Do not cache fully handled requests, we do not need them. Just cache their unique_key.
-                self._requests_already_handled.add(request.unique_key)
-            else:
-                # Only fetch the request if we do not know it yet.
-                if request.unique_key not in self._requests_cache:
-                    request_id = unique_key_to_request_id(request.unique_key)
-
-                    if request_data is not None and request_id != request_data['id']:
-                        logger.warning(
-                            f'Request ID mismatch: {request_id} != {request_data["id"]}, '
-                            'this may cause unexpected behavior.'
-                        )
-
-                    # See https://github.com/apify/apify-sdk-python/issues/630 for details.
-                    if '[truncated]' not in request.unique_key:
-                        request_data = await self._api_client.get_request(request_id=request_id)  # noqa: PLW2901
-                        request = Request.model_validate(request_data)
-
-                    self._requests_cache[request.unique_key] = request
-
-                # Add new requests to the end of the head, unless already present in head
-                if request.unique_key not in self._head_requests:
-                    self._head_requests.appendleft(request.unique_key)
+                # Do not cache fully handled requests, we do not need them. Just cache their id.
+                self._requests_already_handled.add(request_id)
+            # Add new requests to the end of the head, unless already present in head
+            elif request_id not in self._head_requests:
+                self._head_requests.appendleft(request_id)
 
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
         """Mark a request as handled after successful processing.
@@ -285,12 +286,14 @@ class ApifyRequestQueueSingleClient:
         """
         # Set the handled_at timestamp if not already set
 
+        request_id = unique_key_to_request_id(request.unique_key)
+
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
             self.metadata.handled_request_count += 1
             self.metadata.pending_request_count -= 1
 
-        if cached_request := self._requests_cache.get(request.unique_key):
+        if cached_request := self._requests_cache.get(request_id):
             cached_request.handled_at = request.handled_at
 
         try:
@@ -299,10 +302,10 @@ class ApifyRequestQueueSingleClient:
             # adding to the queue.)
             processed_request = await self._update_request(request)
             # Remember that we handled this request, to optimize local deduplication.
-            self._requests_already_handled.add(request.unique_key)
+            self._requests_already_handled.add(request_id)
             # Remove request from cache. It will most likely not be needed.
-            self._requests_cache.pop(request.unique_key)
-            self._requests_in_progress.discard(request.unique_key)
+            self._requests_cache.pop(request_id)
+            self._requests_in_progress.discard(request_id)
 
         except Exception as exc:
             logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
@@ -329,23 +332,27 @@ class ApifyRequestQueueSingleClient:
         """
         # Check if the request was marked as handled and clear it. When reclaiming,
         # we want to put the request back for processing.
+
+        request_id = unique_key_to_request_id(request.unique_key)
+
         if request.was_already_handled:
             request.handled_at = None
 
         try:
             # Make sure request is in the local cache. We might need it.
-            self._requests_cache[request.unique_key] = request
+            self._requests_cache[request_id] = request
 
             # No longer in progress
-            self._requests_in_progress.discard(request.unique_key)
+            self._requests_in_progress.discard(request_id)
             # No longer handled
-            self._requests_already_handled.discard(request.unique_key)
+            self._requests_already_handled.discard(request_id)
 
             if forefront:
                 # Append to top of the local head estimation
-                self._head_requests.append(request.unique_key)
+                self._head_requests.append(request_id)
 
             processed_request = await self._update_request(request, forefront=forefront)
+            processed_request.id = request_id
             processed_request.unique_key = request.unique_key
             # If the request was previously handled, decrement our handled count since
             # we're putting it back for processing.
@@ -407,9 +414,11 @@ class ApifyRequestQueueSingleClient:
         response = await self._api_client.list_requests(limit=10_000)
         for request_data in response.get('items', []):
             request = Request.model_validate(request_data)
+            request_id = request_data['id']
+
             if request.was_already_handled:
-                # Cache just unique_key for deduplication
-                self._requests_already_handled.add(request.unique_key)
+                # Cache just id for deduplication
+                self._requests_already_handled.add(request_id)
             else:
                 # Cache full request
-                self._requests_cache[request.unique_key] = request
+                self._requests_cache[request_id] = request

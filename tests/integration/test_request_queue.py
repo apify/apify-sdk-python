@@ -13,7 +13,6 @@ from crawlee.crawlers import BasicCrawler
 from ._utils import generate_unique_resource_name
 from apify import Actor, Request
 from apify.storage_clients import ApifyStorageClient
-from apify.storage_clients._apify._request_queue_shared_client import ApifyRequestQueueSharedClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
 from apify.storages import RequestQueue
 
@@ -1194,27 +1193,47 @@ async def test_request_queue_has_stats(request_queue_apify: RequestQueue) -> Non
 
 
 async def test_rq_long_url(request_queue_apify: RequestQueue) -> None:
-    # TODO: Remove the skip when issue #630 is resolved.
-    if isinstance(request_queue_apify._client._implementation, ApifyRequestQueueSharedClient):  # type: ignore[attr-defined]
-        pytest.skip('Skipping for the "shared" request queue - unskip after issue #630 is resolved.')
-
-    url = 'https://portal.isoss.gov.cz/irj/portal/anonymous/mvrest?path=/eosm-public-offer&officeLabels=%7B%7D&page=1&pageSize=100000&sortColumn=zdatzvsm&sortOrder=-1'
-
-    req = Request.from_url(
-        url=url,
+    rq = request_queue_apify
+    request = Request.from_url(
+        'https://portal.isoss.gov.cz/irj/portal/anonymous/mvrest?path=/eosm-public-offer&officeLabels=%7B%7D&page=1&pageSize=100000&sortColumn=zdatzvsm&sortOrder=-1',
         use_extended_unique_key=True,
         always_enqueue=True,
     )
 
-    request_id = unique_key_to_request_id(req.unique_key)
+    request_id = unique_key_to_request_id(request.unique_key)
 
-    processed_request = await request_queue_apify.add_request(req)
+    processed_request = await rq.add_request(request)
     assert processed_request.id == request_id
 
-    request_obtained = await request_queue_apify.fetch_next_request()
+    request_obtained = await rq.fetch_next_request()
     assert request_obtained is not None
 
-    await request_queue_apify.mark_request_as_handled(request_obtained)
+    await rq.mark_request_as_handled(request_obtained)
 
-    is_finished = await request_queue_apify.is_finished()
+    is_finished = await rq.is_finished()
     assert is_finished
+
+
+async def test_pre_existing_request_with_user_data(
+    request_queue_apify: RequestQueue, apify_client_async: ApifyClientAsync
+) -> None:
+    """Test that pre-existing requests with user data are fully fetched.
+
+    list_head does not return user data, so we need to test that fetching unknown requests is not relying on it."""
+    custom_data = {'key': 'value'}
+
+    rq = request_queue_apify
+    request = Request.from_url(
+        'https://example.com',
+        user_data=custom_data,
+    )
+
+    # Add request by a different producer
+    rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
+    await rq_client.add_request(request.model_dump(by_alias=True))
+
+    # Fetch the request by the client under test
+    request_obtained = await rq.fetch_next_request()
+    assert request_obtained is not None
+    # Test that custom_data is preserved in user_data (custom_data should be subset of obtained user_data)
+    assert custom_data.items() <= request_obtained.user_data.items()
