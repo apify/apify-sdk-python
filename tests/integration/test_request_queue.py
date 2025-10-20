@@ -1192,7 +1192,7 @@ async def test_request_queue_has_stats(request_queue_apify: RequestQueue) -> Non
     assert apify_metadata.stats.write_count == add_request_count
 
 
-async def test_long_request(request_queue_apify: RequestQueue) -> None:
+async def test_rq_long_url(request_queue_apify: RequestQueue) -> None:
     rq = request_queue_apify
     request = Request.from_url(
         'https://portal.isoss.gov.cz/irj/portal/anonymous/mvrest?path=/eosm-public-offer&officeLabels=%7B%7D&page=1&pageSize=100000&sortColumn=zdatzvsm&sortOrder=-1',

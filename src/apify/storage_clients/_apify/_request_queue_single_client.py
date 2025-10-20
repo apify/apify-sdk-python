@@ -186,7 +186,7 @@ class ApifyRequestQueueSingleClient:
         return await self._get_request(id=unique_key_to_request_id(unique_key))
 
     async def _get_request(self, id: str) -> Request | None:
-        """Get a request by unique key.
+        """Get a request by id.
 
         Args:
             id: Id of request to get.
