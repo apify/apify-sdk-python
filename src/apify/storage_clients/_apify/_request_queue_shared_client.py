@@ -220,7 +220,7 @@ class ApifyRequestQueueSharedClient:
         if request is None:
             logger.debug(
                 'Cannot find a request from the beginning of queue, will be retried later',
-                extra={'nextRequestId': next_request_id},
+                extra={'next_request_id': next_request_id},
             )
             return None
 
@@ -228,7 +228,7 @@ class ApifyRequestQueueSharedClient:
         if request.handled_at is not None:
             logger.debug(
                 'Request fetched from the beginning of queue was already handled',
-                extra={'nextRequestId': next_request_id},
+                extra={'next_request_id': next_request_id},
             )
             return None
 
@@ -237,7 +237,7 @@ class ApifyRequestQueueSharedClient:
         if request is None:
             logger.debug(
                 'Request fetched from the beginning of queue was not found in the RQ',
-                extra={'nextRequestId': next_request_id},
+                extra={'next_request_id': next_request_id},
             )
             return None
 
