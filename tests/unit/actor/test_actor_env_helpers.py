@@ -79,7 +79,7 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
             continue
 
         datetime_get_env_var = datetime_env_var.name.lower()
-        expected_get_env[datetime_get_env_var] = datetime.now(TzInfo(0))  # type: ignore[call-arg]
+        expected_get_env[datetime_get_env_var] = datetime.now(TzInfo(0))
         monkeypatch.setenv(
             datetime_env_var,
             expected_get_env[datetime_get_env_var].strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
