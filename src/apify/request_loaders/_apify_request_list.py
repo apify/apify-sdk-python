@@ -22,8 +22,8 @@ URL_NO_COMMAS_REGEX = re.compile(
 class _RequestDetails(BaseModel):
     method: HttpMethod = 'GET'
     payload: str = ''
-    headers: Annotated[dict[str, str], Field(default_factory=dict)] = {}
-    user_data: Annotated[dict[str, str], Field(default_factory=dict, alias='userData')] = {}
+    headers: Annotated[dict[str, str], Field(default_factory=dict)]
+    user_data: Annotated[dict[str, str], Field(default_factory=dict, alias='userData')]
 
 
 class _RequestsFromUrlInput(_RequestDetails):
