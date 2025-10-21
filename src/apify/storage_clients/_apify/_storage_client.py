@@ -36,12 +36,18 @@ class ApifyStorageClient(StorageClient):
 
     ### Single mode
 
-    The `single` mode is optimized for scenarios with only one consumer. It makes fewer API calls and is therefore
-    faster and more cost-efficient, but it comes with several constraints. Only one client should consume the request
-    queue at a time. Multiple producers can add new requests, but forefront requests might not be processed
-    immediately, since this mode relies on local head estimation rather than frequent forefront fetching. Requests
-    can be added or marked as handled by other clients, but they must not be deleted or modified, as such changes
-    would not be reflected in the local cache.
+    The `single` mode is optimized for scenarios with only one consumer. It minimizes API calls, making it faster
+    and more cost-efficient compared to the `shared` mode. This option is ideal when a single Actor is responsible
+    for consuming the entire request queue. Using multiple consumers simultaneously may lead to inconsistencies
+    or unexpected behavior.
+
+    In this mode, multiple producers can safely add new requests, but forefront requests may not be processed
+    immediately, as the client relies on local head estimation instead of frequent forefront fetching. Requests can
+    also be added or marked as handled by other clients, but they must not be deleted or modified, since such changes
+    would not be reflected in the local cache. If a request is already fully cached locally, marking it as handled
+    by another client will be ignored by this client. This does not cause errors but can occasionally result in
+    reprocessing a request that was already handled elsewhere. If the request was not yet cached locally, marking
+    it as handled poses no issue.
 
     ### Shared mode
 
