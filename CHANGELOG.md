@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.0.4 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix type of `cloud_storage_client` in `SmartApifyStorageClient` ([#642](https://github.com/apify/apify-sdk-python/pull/642)) ([3bf285d](https://github.com/apify/apify-sdk-python/commit/3bf285d60f507730954986a80c19ed2e27a38f9c)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.0.3](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.3) (2025-10-21)
 
 ### 🐛 Bug Fixes
