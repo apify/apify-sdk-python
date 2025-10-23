@@ -409,6 +409,22 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = None
 
+    actor_pricing_info: Annotated[
+        str | None,
+        Field(
+            alias='apify_actor_pricing_info',
+            description='JSON string with prising info of the actor',
+        ),
+    ] = None
+
+    charged_event_counts: Annotated[
+        str | None,
+        Field(
+            alias='apify_charged_actor_event_counts',
+            description='Counts of events that were charged for the actor',
+        ),
+    ] = None
+
     @model_validator(mode='after')
     def disable_browser_sandbox_on_platform(self) -> Self:
         """Disable the browser sandbox mode when running on the Apify platform.
