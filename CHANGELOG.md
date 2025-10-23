@@ -2,15 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.0.3 - **not yet released**
+## [3.0.3](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.3) (2025-10-21)
 
 ### 🐛 Bug Fixes
 
 - Cache requests in RQ implementations by `id` ([#633](https://github.com/apify/apify-sdk-python/pull/633)) ([76886ce](https://github.com/apify/apify-sdk-python/commit/76886ce496165346a01f67e018547287c211ea54)) by [@Pijukatel](https://github.com/Pijukatel), closes [#630](https://github.com/apify/apify-sdk-python/issues/630)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.2) (2025-10-17)
 
 ### 🐛 Bug Fixes

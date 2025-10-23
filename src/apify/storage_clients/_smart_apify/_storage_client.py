@@ -19,10 +19,18 @@ if TYPE_CHECKING:
 
 @docs_group('Storage clients')
 class SmartApifyStorageClient(StorageClient):
-    """SmartApifyStorageClient that delegates to cloud_storage_client or local_storage_client.
+    """Storage client that automatically selects cloud or local storage client based on the environment.
 
-    When running on Apify platform use cloud_storage_client, else use local_storage_client. This storage client is
-    designed to work specifically in Actor context.
+    This storage client provides access to datasets, key-value stores, and request queues by intelligently
+    delegating to either the cloud or local storage client based on the execution environment and configuration.
+
+    When running on the Apify platform (which is detected via environment variables), this client automatically
+    uses the `cloud_storage_client` to store storage data there. When running locally, it uses the
+    `local_storage_client` to store storage data there. You can also force cloud storage usage from your
+    local machine by using the `force_cloud` argument.
+
+    This storage client is designed to work specifically in `Actor` context and provides a seamless development
+    experience where the same code works both locally and on the Apify platform without any changes.
     """
 
     def __init__(
@@ -31,13 +39,13 @@ class SmartApifyStorageClient(StorageClient):
         cloud_storage_client: ApifyStorageClient | None = None,
         local_storage_client: StorageClient | None = None,
     ) -> None:
-        """Initialize the Apify storage client.
+        """Initialize a new instance.
 
         Args:
-            cloud_storage_client: Client used to communicate with the Apify platform storage. Either through
-                `force_cloud` argument when opening storages or automatically when running on the Apify platform.
-            local_storage_client: Client used to communicate with the storage when not running on the Apify
-                platform and not using `force_cloud` argument when opening storages.
+            cloud_storage_client: Storage client used when an Actor is running on the Apify platform, or when
+                explicitly enabled via the `force_cloud` argument. Defaults to `ApifyStorageClient`.
+            local_storage_client: Storage client used when an Actor is not running on the Apify platform and when
+                `force_cloud` flag is not set. Defaults to `FileSystemStorageClient`.
         """
         self._cloud_storage_client = cloud_storage_client or ApifyStorageClient(request_queue_access='single')
         self._local_storage_client = local_storage_client or ApifyFileSystemStorageClient()
