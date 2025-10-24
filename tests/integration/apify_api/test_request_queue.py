@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
+from unittest import mock
 
 import pytest
 
@@ -10,18 +12,32 @@ from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 
-from ._utils import generate_unique_resource_name
+from .._utils import generate_unique_resource_name
 from apify import Actor, Request
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
     from apify_client import ApifyClientAsync
     from crawlee._types import BasicCrawlingContext
 
-    from .conftest import MakeActorFunction, RunActorFunction
     from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
+
+
+@pytest.fixture(params=['single', 'shared'])
+async def request_queue_apify(
+    apify_token: str, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> AsyncGenerator[RequestQueue]:
+    """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    async with Actor:
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access=request.param))
+        yield rq
+        await rq.drop()
 
 
 async def test_add_and_fetch_requests(request_queue_apify: RequestQueue) -> None:
@@ -599,99 +615,6 @@ async def test_mixed_string_and_request_objects(request_queue_apify: RequestQueu
     Actor.log.info('Mixed types verified - found request object with user_data')
 
 
-@pytest.mark.skip(
-    reason='The Apify RQ client is not resilient to concurrent processing, making this test flaky. See issue #529.'
-)
-async def test_concurrent_processing_simulation(
-    make_actor: MakeActorFunction,
-    run_actor: RunActorFunction,
-) -> None:
-    """Test simulation of concurrent request processing."""
-
-    async def main() -> None:
-        import asyncio
-
-        async with Actor:
-            rq = await Actor.open_request_queue()
-            Actor.log.info('Request queue opened')
-
-            # Add requests for concurrent processing
-            for i in range(20):
-                await rq.add_request(f'https://example.com/concurrent/{i}')
-            Actor.log.info('Added 20 requests for concurrent processing')
-
-            total_count = await rq.get_total_count()
-            assert total_count == 20, f'total_count={total_count}'
-
-            # Simulate concurrent workers
-            async def worker() -> int:
-                processed = 0
-
-                while request := await rq.fetch_next_request():
-                    # Simulate some work
-                    await asyncio.sleep(0.01)
-
-                    # Randomly reclaim some requests (simulate failures)
-                    if processed % 7 == 0 and processed > 0:  # Reclaim every 7th request
-                        await rq.reclaim_request(request)
-                    else:
-                        await rq.mark_request_as_handled(request)
-                        processed += 1
-
-                return processed
-
-            # Run multiple workers concurrently
-            workers = [worker() for _ in range(3)]
-            results = await asyncio.gather(*workers)
-
-            total_processed = sum(results)
-            Actor.log.info(f'Total processed by workers: {total_processed}')
-            Actor.log.info(f'Individual worker results: {results}')
-
-            # Verify that workers processed some requests
-            assert total_processed > 0, f'total_processed={total_processed}'
-            assert len(results) == 3, f'len(results)={len(results)}'
-
-            # Check queue state after concurrent processing
-            handled_after_workers = await rq.get_handled_count()
-            assert handled_after_workers == total_processed, (
-                f'handled_after_workers={handled_after_workers}',
-                f'total_processed={total_processed}',
-            )
-
-            total_after_workers = await rq.get_total_count()
-            assert total_after_workers == 20, f'total_after_workers={total_after_workers}'
-
-            # Process any remaining reclaimed requests
-            remaining_count = 0
-            while not await rq.is_finished():
-                request = await rq.fetch_next_request()
-                if request:
-                    remaining_count += 1
-                    await rq.mark_request_as_handled(request)
-                else:
-                    break
-
-            Actor.log.info(f'Processed {remaining_count} remaining requests')
-
-            # Verify final state
-            final_handled = await rq.get_handled_count()
-            final_total = await rq.get_total_count()
-            assert final_handled == 20, f'final_handled={final_handled}'
-            assert final_total == 20, f'final_total={final_total}'
-            assert total_processed + remaining_count == 20, (
-                f'total_processed={total_processed}',
-                f'remaining_count={remaining_count}',
-            )
-
-            is_finished = await rq.is_finished()
-            assert is_finished is True, f'is_finished={is_finished}'
-
-    actor = await make_actor(label='rq-concurrent-test', main_func=main)
-    run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
-
-
 async def test_persistence_across_operations(request_queue_apify: RequestQueue) -> None:
     """Test that queue state persists across different operations."""
 
@@ -846,57 +769,6 @@ async def test_request_ordering_with_mixed_operations(request_queue_apify: Reque
     )
     assert urls_ordered[2] == 'https://example.com/2', f'urls_ordered[2]={urls_ordered[2]}'
     Actor.log.info('Request ordering verified successfully')
-
-
-async def test_rq_isolation(
-    make_actor: MakeActorFunction,
-    run_actor: RunActorFunction,
-) -> None:
-    """Test that different request queues are properly isolated."""
-
-    async def main() -> None:
-        async with Actor:
-            # Get the unique actor name for creating unique queue names
-            actor_name = Actor.configuration.actor_id
-
-            # Open multiple queues with unique names
-            rq1 = await Actor.open_request_queue(name=f'{actor_name}-rq-1')
-            rq2 = await Actor.open_request_queue(name=f'{actor_name}-rq-2')
-            Actor.log.info('Opened two separate named queues with unique names')
-
-            # Verify they are different instances
-            assert rq1 is not rq2, f'rq1 is rq2={rq1 is rq2}'
-            Actor.log.info('Verified queues are different instances')
-
-            # Add different requests to each queue
-            await rq1.add_request('https://example.com/queue1-request')
-            await rq2.add_request('https://example.com/queue2-request')
-            Actor.log.info('Added different requests to each queue')
-
-            # Verify isolation
-            req1 = await rq1.fetch_next_request()
-            req2 = await rq2.fetch_next_request()
-
-            assert req1 is not None, f'req1={req1}'
-            assert 'queue1' in req1.url, f'req1.url={req1.url}'
-            assert req2 is not None, f'req2={req2}'
-            assert 'queue2' in req2.url, f'req2.url={req2.url}'
-            Actor.log.info(f'Queue 1 request: {req1.url}')
-            Actor.log.info(f'Queue 2 request: {req2.url}')
-            Actor.log.info('Queue isolation verified successfully')
-
-            # Clean up
-            await rq1.mark_request_as_handled(req1)
-            await rq2.mark_request_as_handled(req2)
-
-            # Drop queues
-            await rq1.drop()
-            await rq2.drop()
-            Actor.log.info('Dropped both queues')
-
-    actor = await make_actor(label='rq-isolation-test', main_func=main)
-    run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
 
 
 async def test_finished_state_accuracy(request_queue_apify: RequestQueue) -> None:
@@ -1237,3 +1109,86 @@ async def test_pre_existing_request_with_user_data(
     assert request_obtained is not None
     # Test that custom_data is preserved in user_data (custom_data should be subset of obtained user_data)
     assert custom_data.items() <= request_obtained.user_data.items()
+
+
+async def test_force_cloud(
+    apify_client_async: ApifyClientAsync,
+    request_queue_apify: RequestQueue,
+) -> None:
+    request_queue_id = (await request_queue_apify.get_metadata()).id
+    request_info = await request_queue_apify.add_request(Request.from_url('http://example.com'))
+    assert request_info.id is not None
+    request_queue_client = apify_client_async.request_queue(request_queue_id)
+
+    request_queue_details = await request_queue_client.get()
+    assert request_queue_details is not None
+    assert request_queue_details.get('name') == request_queue_apify.name
+
+    request_queue_request = await request_queue_client.get_request(request_info.id)
+    assert request_queue_request is not None
+    assert request_queue_request['url'] == 'http://example.com'
+
+
+async def test_request_queue_is_finished(
+    request_queue_apify: RequestQueue,
+) -> None:
+    await request_queue_apify.add_request(Request.from_url('http://example.com'))
+    assert not await request_queue_apify.is_finished()
+
+    request = await request_queue_apify.fetch_next_request()
+    assert request is not None
+    assert not await request_queue_apify.is_finished(), (
+        'RequestQueue should not be finished unless the request is marked as handled.'
+    )
+
+    await request_queue_apify.mark_request_as_handled(request)
+    assert await request_queue_apify.is_finished()
+
+
+async def test_request_queue_deduplication_unprocessed_requests(
+    request_queue_apify: RequestQueue,
+) -> None:
+    """Test that the deduplication does not add unprocessed requests to the cache.
+
+    In this test the first call is "hardcoded" to fail, even on all retries, so it never even sends the API request and
+    thus has no chance of increasing the `writeCount`. The second call can increase the `writeCount` only if it is not
+    cached, as cached requests do not make the call (tested in other tests). So this means the `unprocessedRequests`
+    request was intentionally not cached."""
+    logging.getLogger('apify.storage_clients._apify._request_queue_client').setLevel(logging.DEBUG)
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+
+    # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
+    rq_client = Actor.apify_client.request_queue(request_queue_id=request_queue_apify.id)
+    _rq = await rq_client.get()
+    assert _rq
+    stats_before = _rq.get('stats', {})
+    Actor.log.info(stats_before)
+
+    def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> dict[str, list[dict]]:
+        """Simulate API returning unprocessed requests."""
+        return {
+            'processedRequests': [],
+            'unprocessedRequests': [
+                {'url': request['url'], 'uniqueKey': request['uniqueKey'], 'method': request['method']}
+                for request in requests
+            ],
+        }
+
+    with mock.patch(
+        'apify_client.clients.resource_clients.request_queue.RequestQueueClientAsync.batch_add_requests',
+        side_effect=return_unprocessed_requests,
+    ):
+        # Simulate failed API call for adding requests. Request was not processed and should not be cached.
+        await request_queue_apify.add_requests(['http://example.com/1'])
+
+    # This will succeed.
+    await request_queue_apify.add_requests(['http://example.com/1'])
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+    _rq = await rq_client.get()
+    assert _rq
+    stats_after = _rq.get('stats', {})
+    Actor.log.info(stats_after)
+
+    assert (stats_after['writeCount'] - stats_before['writeCount']) == 1

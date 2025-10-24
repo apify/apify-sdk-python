@@ -2,17 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pytest
-
 from apify import Actor, __version__
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-# TODO: What to do with the `browserforge` output?
-# https://github.com/apify/apify-sdk-python/issues/423
-@pytest.mark.skip
 async def test_actor_logging(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -64,12 +59,15 @@ async def test_actor_logging(
     run_log_lines = [line[25:] for line in run_log_lines]
 
     # This might be way too specific and easy to break, but let's hope not
-    assert run_log_lines.pop(0).startswith('ACTOR: Pulling Docker image')
-    assert run_log_lines.pop(0) == 'ACTOR: Creating Docker container.'
-    assert run_log_lines.pop(0) == 'ACTOR: Starting Docker container.'
-    assert run_log_lines.pop(0) == '[apify] INFO  Initializing Actor...'
+    assert run_log_lines.pop(0).startswith('ACTOR: Pulling container image of build')
+    assert run_log_lines.pop(0) == 'ACTOR: Creating container.'
+    assert run_log_lines.pop(0) == 'ACTOR: Starting container.'
+    assert run_log_lines.pop(0) == (
+        '[apify._configuration] WARN  Actor is running on the Apify platform,'
+        ' `disable_browser_sandbox` was changed to True.'
+    )
     assert run_log_lines.pop(0).startswith(
-        f'[apify] INFO  System info ({{"apify_sdk_version": "{__version__}", "apify_client_version": "'
+        f'[apify] INFO  Initializing Actor ({{"apify_sdk_version": "{__version__}", "apify_client_version": "'
     )
     assert run_log_lines.pop(0) == '[apify] DEBUG Debug message'
     assert run_log_lines.pop(0) == '[apify] INFO  Info message'
