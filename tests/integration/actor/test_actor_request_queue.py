@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING
 
 import pytest
@@ -186,6 +185,8 @@ async def test_request_queue_parallel_deduplication(
     third worker adding 10 new requests and 20 known requests and so on"""
 
     async def main() -> None:
+        import logging
+
         from apify import Actor, Request
 
         worker_count = 10
