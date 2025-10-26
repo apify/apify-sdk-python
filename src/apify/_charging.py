@@ -5,7 +5,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import TypeAdapter
 
@@ -181,6 +181,9 @@ class ChargingManagerImplementation(ChargingManager):
 
         # Set up charging log dataset for local development
         if not self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
+            # We are not running on the Apify platform, but PPE is enabled for testing - open a dataset that
+            # will contain a log of all charge calls for debugging purposes.
+
             if self._purge_charging_log_dataset:
                 dataset = await Dataset.open(name=self.LOCAL_CHARGING_LOG_DATASET_NAME)
                 await dataset.drop()
@@ -334,31 +337,15 @@ class ChargingManagerImplementation(ChargingManager):
     def get_max_total_charge_usd(self) -> Decimal:
         return self._max_total_charge_usd
 
-    async def _fetch_pricing_info(self) -> dict[str, Any]:
+    async def _fetch_pricing_info(self) -> _FetchedPricingInfoDict:
         """Fetch pricing information from environment variables or API."""
         # Check if pricing info is available via environment variables
         if self._configuration.actor_pricing_info and self._configuration.charged_event_counts:
-            charged_counts = json.loads(self._configuration.charged_event_counts)
-
-            # Validate pricing info with proper discriminator support
-            pricing_info_adapter: TypeAdapter[
-                FreeActorPricingInfo
-                | FlatPricePerMonthActorPricingInfo
-                | PricePerDatasetItemActorPricingInfo
-                | PayPerEventActorPricingInfo
-            ] = TypeAdapter(
-                FreeActorPricingInfo
-                | FlatPricePerMonthActorPricingInfo
-                | PricePerDatasetItemActorPricingInfo
-                | PayPerEventActorPricingInfo
+            return _FetchedPricingInfoDict(
+                pricing_info=self._configuration.actor_pricing_info,
+                charged_event_counts=json.loads(self._configuration.charged_event_counts),
+                max_total_charge_usd=self._configuration.max_total_charge_usd or Decimal('inf'),
             )
-            pricing_info = pricing_info_adapter.validate_json(self._configuration.actor_pricing_info)
-
-            return {
-                'pricing_info': pricing_info,
-                'charged_event_counts': charged_counts,
-                'max_total_charge_usd': self._configuration.max_total_charge_usd or Decimal('inf'),
-            }
 
         # Fall back to API call
         if self._is_at_home:
@@ -369,18 +356,18 @@ class ChargingManagerImplementation(ChargingManager):
             if run is None:
                 raise RuntimeError('Actor run not found')
 
-            return {
-                'pricing_info': run.pricing_info,
-                'charged_event_counts': run.charged_event_counts or {},
-                'max_total_charge_usd': run.options.max_total_charge_usd or Decimal('inf'),
-            }
+            return _FetchedPricingInfoDict(
+                pricing_info=run.pricing_info,
+                charged_event_counts=run.charged_event_counts or {},
+                max_total_charge_usd=run.options.max_total_charge_usd or Decimal('inf'),
+            )
 
         # Local development without environment variables
-        return {
-            'pricing_info': None,
-            'charged_event_counts': {},
-            'max_total_charge_usd': self._configuration.max_total_charge_usd or Decimal('inf'),
-        }
+        return _FetchedPricingInfoDict(
+            pricing_info=None,
+            charged_event_counts={},
+            max_total_charge_usd=self._configuration.max_total_charge_usd or Decimal('inf'),
+        )
 
 
 @dataclass
@@ -393,3 +380,15 @@ class ChargingStateItem:
 class PricingInfoItem:
     price: Decimal
     title: str
+
+
+class _FetchedPricingInfoDict(TypedDict):
+    pricing_info: (
+        FreeActorPricingInfo
+        | FlatPricePerMonthActorPricingInfo
+        | PricePerDatasetItemActorPricingInfo
+        | PayPerEventActorPricingInfo
+        | None
+    )
+    charged_event_counts: dict[str, int]
+    max_total_charge_usd: Decimal

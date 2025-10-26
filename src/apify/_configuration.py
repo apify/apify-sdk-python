@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
@@ -14,6 +15,12 @@ from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
+from apify._models import (
+    FlatPricePerMonthActorPricingInfo,
+    FreeActorPricingInfo,
+    PayPerEventActorPricingInfo,
+    PricePerDatasetItemActorPricingInfo,
+)
 from apify._utils import docs_group
 
 logger = getLogger(__name__)
@@ -410,11 +417,17 @@ class Configuration(CrawleeConfiguration):
     ] = None
 
     actor_pricing_info: Annotated[
-        str | None,
+        FreeActorPricingInfo
+        | FlatPricePerMonthActorPricingInfo
+        | PricePerDatasetItemActorPricingInfo
+        | PayPerEventActorPricingInfo
+        | None,
         Field(
             alias='apify_actor_pricing_info',
             description='JSON string with prising info of the actor',
+            discriminator='pricing_model',
         ),
+        BeforeValidator(lambda data: json.loads(data) if data else None),
     ] = None
 
     charged_event_counts: Annotated[
