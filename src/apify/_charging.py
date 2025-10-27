@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -343,7 +342,7 @@ class ChargingManagerImplementation(ChargingManager):
         if self._configuration.actor_pricing_info and self._configuration.charged_event_counts:
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
-                charged_event_counts=json.loads(self._configuration.charged_event_counts),
+                charged_event_counts=self._configuration.charged_event_counts,
                 max_total_charge_usd=self._configuration.max_total_charge_usd or Decimal('inf'),
             )
 
