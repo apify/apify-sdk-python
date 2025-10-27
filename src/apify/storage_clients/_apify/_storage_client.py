@@ -57,6 +57,12 @@ class ApifyStorageClient(StorageClient):
     should be used when multiple consumers need to process requests from the same queue simultaneously.
     """
 
+    _LSP_ERROR_MSG = 'Expected "configuration" to be an instance of "apify.Configuration", but got {} instead.'
+    """This class (intentionally) violates the Liskov Substitution Principle.
+
+    It requires a specialized `Configuration` instance compared to its parent class.
+    """
+
     def __init__(self, *, request_queue_access: Literal['single', 'shared'] = 'single') -> None:
         """Initialize a new instance.
 
@@ -67,23 +73,6 @@ class ApifyStorageClient(StorageClient):
                 the additional overhead.
         """
         self._request_queue_access = request_queue_access
-
-    # This class breaches Liskov Substitution Principle. It requires specialized Configuration compared to its parent.
-    _lsp_violation_error_message_template = (
-        'Expected "configuration" to be an instance of "apify.Configuration", but got {} instead.'
-    )
-
-    @override
-    def get_storage_client_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
-        if isinstance(configuration, ApifyConfiguration):
-            # It is not supported to open exactly same queue with 'single' and 'shared' client at the same time.
-            # Whichever client variation gets used first, wins.
-            return super().get_storage_client_cache_key(configuration), hash_api_base_url_and_token(configuration)
-
-        config_class = type(configuration)
-        raise TypeError(
-            self._lsp_violation_error_message_template.format(f'{config_class.__module__}.{config_class.__name__}')
-        )
 
     @override
     async def create_dataset_client(
@@ -98,7 +87,7 @@ class ApifyStorageClient(StorageClient):
         if isinstance(configuration, ApifyConfiguration):
             return await ApifyDatasetClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
-        raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
+        raise TypeError(self._LSP_ERROR_MSG.format(type(configuration).__name__))
 
     @override
     async def create_kvs_client(
@@ -113,7 +102,7 @@ class ApifyStorageClient(StorageClient):
         if isinstance(configuration, ApifyConfiguration):
             return await ApifyKeyValueStoreClient.open(id=id, name=name, alias=alias, configuration=configuration)
 
-        raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
+        raise TypeError(self._LSP_ERROR_MSG.format(type(configuration).__name__))
 
     @override
     async def create_rq_client(
@@ -130,4 +119,14 @@ class ApifyStorageClient(StorageClient):
                 id=id, name=name, alias=alias, configuration=configuration, access=self._request_queue_access
             )
 
-        raise TypeError(self._lsp_violation_error_message_template.format(type(configuration).__name__))
+        raise TypeError(self._LSP_ERROR_MSG.format(type(configuration).__name__))
+
+    @override
+    def get_storage_client_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
+        if isinstance(configuration, ApifyConfiguration):
+            # It is not supported to open exactly same queue with 'single' and 'shared' client at the same time.
+            # Whichever client variation gets used first, wins.
+            return super().get_storage_client_cache_key(configuration), hash_api_base_url_and_token(configuration)
+
+        config_class = type(configuration)
+        raise TypeError(self._LSP_ERROR_MSG.format(f'{config_class.__module__}.{config_class.__name__}'))

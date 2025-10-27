@@ -48,7 +48,6 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from crawlee.proxy_configuration import _NewUrlFunction
-    from crawlee.storage_clients import StorageClient
 
     from apify._models import Webhook
 
@@ -140,7 +139,6 @@ class _ActorType:
         # `__init__` method should not be considered final.
 
         self._apify_client: ApifyClientAsync | None = None
-        self._local_storage_client: StorageClient | None = None
 
         self._is_exiting = False
         self._is_initialized = False

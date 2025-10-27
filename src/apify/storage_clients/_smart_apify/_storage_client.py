@@ -8,8 +8,7 @@ from crawlee.storage_clients._base import DatasetClient, KeyValueStoreClient, Re
 
 from apify._configuration import Configuration as ApifyConfiguration
 from apify._utils import docs_group
-from apify.storage_clients import ApifyStorageClient
-from apify.storage_clients._file_system import ApifyFileSystemStorageClient
+from apify.storage_clients import ApifyStorageClient, FileSystemStorageClient
 
 if TYPE_CHECKING:
     from collections.abc import Hashable
@@ -36,7 +35,7 @@ class SmartApifyStorageClient(StorageClient):
     def __init__(
         self,
         *,
-        cloud_storage_client: ApifyStorageClient | None = None,
+        cloud_storage_client: StorageClient | None = None,
         local_storage_client: StorageClient | None = None,
     ) -> None:
         """Initialize a new instance.
@@ -47,34 +46,14 @@ class SmartApifyStorageClient(StorageClient):
             local_storage_client: Storage client used when an Actor is not running on the Apify platform and when
                 `force_cloud` flag is not set. Defaults to `FileSystemStorageClient`.
         """
-        self._cloud_storage_client = cloud_storage_client or ApifyStorageClient(request_queue_access='single')
-        self._local_storage_client = local_storage_client or ApifyFileSystemStorageClient()
+        self._cloud_storage_client = cloud_storage_client or ApifyStorageClient()
+        self._local_storage_client = local_storage_client or FileSystemStorageClient()
 
     def __str__(self) -> str:
         return (
             f'{self.__class__.__name__}(cloud_storage_client={self._cloud_storage_client.__class__.__name__},'
             f' local_storage_client={self._local_storage_client.__class__.__name__})'
         )
-
-    def get_suitable_storage_client(self, *, force_cloud: bool = False) -> StorageClient:
-        """Get a suitable storage client based on the global configuration and the value of the force_cloud flag.
-
-        Args:
-            force_cloud: If True, return `cloud_storage_client`.
-        """
-        if ApifyConfiguration.get_global_configuration().is_at_home:
-            return self._cloud_storage_client
-
-        configuration = ApifyConfiguration.get_global_configuration()
-        if force_cloud:
-            if configuration.token is None:
-                raise RuntimeError(
-                    'In order to use the Apify cloud storage from your computer, '
-                    'you need to provide an Apify token using the APIFY_TOKEN environment variable.'
-                )
-            return self._cloud_storage_client
-
-        return self._local_storage_client
 
     @override
     def get_storage_client_cache_key(self, configuration: CrawleeConfiguration) -> Hashable:
@@ -123,3 +102,23 @@ class SmartApifyStorageClient(StorageClient):
         return await self.get_suitable_storage_client().create_rq_client(
             id=id, name=id, alias=alias, configuration=configuration
         )
+
+    def get_suitable_storage_client(self, *, force_cloud: bool = False) -> StorageClient:
+        """Get a suitable storage client based on the global configuration and the value of the force_cloud flag.
+
+        Args:
+            force_cloud: If True, return `cloud_storage_client`.
+        """
+        if ApifyConfiguration.get_global_configuration().is_at_home:
+            return self._cloud_storage_client
+
+        configuration = ApifyConfiguration.get_global_configuration()
+        if force_cloud:
+            if configuration.token is None:
+                raise RuntimeError(
+                    'In order to use the Apify cloud storage from your computer, '
+                    'you need to provide an Apify token using the APIFY_TOKEN environment variable.'
+                )
+            return self._cloud_storage_client
+
+        return self._local_storage_client

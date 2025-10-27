@@ -120,7 +120,7 @@ class RequestQueueStats(BaseModel):
     """The number of request queue reads."""
 
     storage_bytes: Annotated[int, Field(alias='storageBytes', default=0)]
-    """Storage size in Bytes."""
+    """Storage size in bytes."""
 
     write_count: Annotated[int, Field(alias='writeCount', default=0)]
     """The number of request queue writes."""
