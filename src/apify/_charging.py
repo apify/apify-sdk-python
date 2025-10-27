@@ -339,7 +339,7 @@ class ChargingManagerImplementation(ChargingManager):
     async def _fetch_pricing_info(self) -> _FetchedPricingInfoDict:
         """Fetch pricing information from environment variables or API."""
         # Check if pricing info is available via environment variables
-        if self._configuration.actor_pricing_info and self._configuration.charged_event_counts:
+        if self._configuration.actor_pricing_info is not None and self._configuration.charged_event_counts is not None:
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
                 charged_event_counts=self._configuration.charged_event_counts,
