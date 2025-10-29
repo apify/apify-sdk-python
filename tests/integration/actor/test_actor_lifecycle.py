@@ -122,7 +122,7 @@ async def test_actor_fails_correctly_with_exception(
 async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_actor: RunActorFunction) -> None:
     """Test that crawler in actor works as expected after reboot.
 
-    Handle two requests. Reboot in between the two requests. The second run should include statistics of the fist run.
+    Handle two requests. Reboot in between the two requests. The second run should include statistics of the first run.
     """
 
     async def main() -> None:
