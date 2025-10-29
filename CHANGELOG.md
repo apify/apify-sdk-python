@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Fix type of `cloud_storage_client` in `SmartApifyStorageClient` ([#642](https://github.com/apify/apify-sdk-python/pull/642)) ([3bf285d](https://github.com/apify/apify-sdk-python/commit/3bf285d60f507730954986a80c19ed2e27a38f9c)) by [@vdusek](https://github.com/vdusek)
+- Fix local charging log dataset name ([#649](https://github.com/apify/apify-sdk-python/pull/649)) ([fdb1276](https://github.com/apify/apify-sdk-python/commit/fdb1276264aee2687596d87c96d19033fe915823)) by [@vdusek](https://github.com/vdusek), closes [#648](https://github.com/apify/apify-sdk-python/issues/648)
+
+### ⚡ Performance
+
+- Use Apify-provided environment variables to obtain PPE pricing information ([#644](https://github.com/apify/apify-sdk-python/pull/644)) ([0c32f29](https://github.com/apify/apify-sdk-python/commit/0c32f29d6a316f5bacc931595d694f262c925b2b)) by [@Mantisus](https://github.com/Mantisus), closes [#614](https://github.com/apify/apify-sdk-python/issues/614)
 
 
 <!-- git-cliff-unreleased-end -->
