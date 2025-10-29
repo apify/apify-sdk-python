@@ -76,7 +76,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.2.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", specifier = ">=1.0.2,<2.0.0" },
+    { name = "crawlee", specifier = ">=1.0.4,<2.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.6.1" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },

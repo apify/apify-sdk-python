@@ -1,14 +1,25 @@
 # Integration tests
 
-We have integration tests which build and run Actors using the Python SDK on the Apify Platform. To run these tests, you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to use for the tests, and then start them with `make integration-tests`.
+There are two different groups of integration tests in this repository:
+- Apify API integration tests. These test that the Apify SDK is correctly communicating with Apify API through Apify client.
+- Actor integration tests. These test that the Apify SDK can be used in Actors deployed to Apify platform. These are very high level tests, and they test communication with the API and correct interaction with the Apify platform.
 
-If you want to run the integration tests on a different environment than the main Apify Platform, you need to set the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to the right URL to the Apify API you want to use.
+To run these tests, you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to use for the tests, and then start them with `make integration-tests`.
 
-## How to write tests
+## Apify API integration tests
+The tests are making real requests to the Apify API as opposed to the unit tests that are mocking such API calls. On the other hand they are faster than `Actor integration tests` as they do not require building and deploying the Actor. These test can be also fully debugged locally. Preferably try to write integration tests on this level if possible.
+
+
+## Actor integration tests
+We have integration tests which build and run Actors using the Python SDK on the Apify platform. These integration tests are slower than `Apify API integration tests` as they need to build and deploy Actors on the platform. Preferably try to write `Apify API integration tests` first, and only write `Actor integration tests` when you need to test something that can only be tested on the platform.
+
+If you want to run the integration tests on a different environment than the main Apify platform, you need to set the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to the right URL to the Apify API you want to use.
+
+### How to write tests
 
 There are two fixtures which you can use to write tests:
 
-### `apify_client_async`
+#### `apify_client_async`
 
 This fixture just gives you an instance of `ApifyClientAsync` configured with the right token and API URL, so you don't have to do that yourself.
 
@@ -17,15 +28,15 @@ async def test_something(apify_client_async: ApifyClientAsync) -> None:
     assert await apify_client_async.user('me').get() is not None
 ```
 
-### `make_actor`
+#### `make_actor`
 
-This fixture returns a factory function for creating Actors on the Apify Platform.
+This fixture returns a factory function for creating Actors on the Apify platform.
 
 For the Actor source, the fixture takes the files from `tests/integration/actor_source_base`, builds the Apify SDK wheel from the current codebase, and adds the Actor source you passed to the fixture as an argument. You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
 
 The created Actor will be uploaded to the platform, built there, and after the test finishes, it will be automatically deleted. If the Actor build fails, it will not be deleted, so that you can check why the build failed.
 
-### Creating test Actor straight from a Python function
+#### Creating test Actor straight from a Python function
 
 You can create Actors straight from a Python function. This is great because you can have the test Actor source code checked with the linter.
 
@@ -66,7 +77,7 @@ async def test_something(
     assert run_result.status == 'SUCCEEDED'
 ```
 
-### Creating Actor from source files
+#### Creating Actor from source files
 
 You can also pass the source files directly if you need something more complex (e.g. pass some fixed value to the Actor source code or use multiple source files).
 
@@ -127,7 +138,7 @@ async def test_something(
     assert actor_run.status == 'SUCCEEDED'
 ```
 
-### Asserts
+#### Asserts
 
 Since test Actors are not executed as standard pytest tests, we don't get introspection of assertion expressions. In case of failure, only a bare `AssertionError` is shown, without the left and right values. This means, we must include explicit assertion messages to aid potential debugging.
 
