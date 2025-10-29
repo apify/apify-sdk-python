@@ -106,7 +106,9 @@ class ActorRun(BaseModel):
     status_message: Annotated[str | None, Field(alias='statusMessage')] = None
     is_status_message_terminal: Annotated[bool | None, Field(alias='isStatusMessageTerminal')] = None
     meta: Annotated[ActorRunMeta, Field(alias='meta')]
-    stats: Annotated[ActorRunStats, Field(alias='stats')]
+    # Optionality, does not correspond to the documentation about 'stats' - https://docs.apify.com/api/v2/actor-run-get
+    # But at the moment, `stats` may be missing from the API response.
+    stats: Annotated[ActorRunStats | None, Field(alias='stats')] = None
     options: Annotated[ActorRunOptions, Field(alias='options')]
     build_id: Annotated[str, Field(alias='buildId')]
     exit_code: Annotated[int | None, Field(alias='exitCode')] = None
