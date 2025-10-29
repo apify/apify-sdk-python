@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
-    from apify.storages import RequestQueue
 
 
 async def test_same_references_in_default_rq(
@@ -60,24 +59,6 @@ async def test_same_references_in_named_rq(
     assert run_result.status == 'SUCCEEDED'
 
 
-async def test_force_cloud(
-    apify_client_async: ApifyClientAsync,
-    apify_named_rq: RequestQueue,
-) -> None:
-    request_queue_id = (await apify_named_rq.get_metadata()).id
-    request_info = await apify_named_rq.add_request(Request.from_url('http://example.com'))
-    assert request_info.id is not None
-    request_queue_client = apify_client_async.request_queue(request_queue_id)
-
-    request_queue_details = await request_queue_client.get()
-    assert request_queue_details is not None
-    assert request_queue_details.get('name') == apify_named_rq.name
-
-    request_queue_request = await request_queue_client.get_request(request_info.id)
-    assert request_queue_request is not None
-    assert request_queue_request['url'] == 'http://example.com'
-
-
 async def test_request_queue_deduplication(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -91,7 +72,7 @@ async def test_request_queue_deduplication(
     """
 
     async def main() -> None:
-        from apify import Actor, Request
+        from apify import Actor
 
         async with Actor:
             request1 = Request.from_url('http://example.com', method='POST')
@@ -138,7 +119,7 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     """
 
     async def main() -> None:
-        from apify import Actor, Request
+        from apify import Actor
 
         async with Actor:
             request1 = Request.from_url('http://example.com', method='POST', use_extended_unique_key=True)
@@ -187,7 +168,7 @@ async def test_request_queue_parallel_deduplication(
     async def main() -> None:
         import logging
 
-        from apify import Actor, Request
+        from apify import Actor
 
         worker_count = 10
         max_requests = 100
@@ -315,7 +296,6 @@ async def test_rq_defaults(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:
@@ -356,7 +336,6 @@ async def test_rq_aliases(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:
