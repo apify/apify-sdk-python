@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 # TODO: What to do with the `browserforge` output?
 # https://github.com/apify/apify-sdk-python/issues/423
-@pytest.mark.skip
+@pytest.mark.skip(reason='Skipped due to known instability, see issue #423.')
 async def test_actor_logging(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,

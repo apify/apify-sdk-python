@@ -121,7 +121,7 @@ async def test_actor_fails_correctly_with_exception(
     assert run_result.status == 'FAILED'
 
 
-@pytest.mark.skip(reason='Failing, needs investigation, see #650.')
+@pytest.mark.skip(reason='Skipped due to known instability, see issue #650.')
 async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_actor: RunActorFunction) -> None:
     """Test that crawler in actor works as expected after reboot.
 
