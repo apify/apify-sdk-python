@@ -47,6 +47,6 @@ It is encouraged to test your monetization code on your machine before releasing
 ACTOR_TEST_PAY_PER_EVENT=true python -m youractor
 ```
 
-If you also wish to see a log of all the events charged throughout the run, the Apify SDK keeps a log of charged events in a so called charging dataset. Your charging dataset can be found under the `charging_log` name (unless you change your storage settings, this dataset is stored in `storage/datasets/charging_log/`). Please note that this log is not available when running the Actor in production on the Apify platform.
+If you also wish to see a log of all the events charged throughout the run, the Apify SDK keeps a log of charged events in a so called charging dataset. Your charging dataset can be found under the `charging-log` name (unless you change your storage settings, this dataset is stored in `storage/datasets/charging-log/`). Please note that this log is not available when running the Actor in production on the Apify platform.
 
 Because pricing configuration is stored by the Apify platform, all events will have a default price of $1.
