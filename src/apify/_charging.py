@@ -118,7 +118,7 @@ class ActorPricingInfo:
 class ChargingManagerImplementation(ChargingManager):
     """Implementation of the `ChargingManager` Protocol - this is only meant to be instantiated internally."""
 
-    LOCAL_CHARGING_LOG_DATASET_NAME = 'charging_log'
+    LOCAL_CHARGING_LOG_DATASET_NAME = 'charging-log'
 
     def __init__(self, configuration: Configuration, client: ApifyClientAsync) -> None:
         self._max_total_charge_usd = configuration.max_total_charge_usd or Decimal('inf')
