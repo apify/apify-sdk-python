@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from .._utils import generate_unique_resource_name
-from apify import Actor, Request
+from apify import Actor
 from apify._models import ActorRun
 
 if TYPE_CHECKING:
@@ -72,6 +72,8 @@ async def test_request_queue_deduplication(
     """
 
     async def main() -> None:
+        from crawlee import Request
+
         from apify import Actor
 
         async with Actor:
@@ -119,6 +121,8 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     """
 
     async def main() -> None:
+        from crawlee import Request
+
         from apify import Actor
 
         async with Actor:
@@ -167,6 +171,8 @@ async def test_request_queue_parallel_deduplication(
 
     async def main() -> None:
         import logging
+
+        from crawlee import Request
 
         from apify import Actor
 
@@ -296,6 +302,8 @@ async def test_rq_defaults(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
+        from crawlee import Request
+
         from apify.storages import RequestQueue
 
         async with Actor:
@@ -336,6 +344,8 @@ async def test_rq_aliases(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
+        from crawlee import Request
+
         from apify.storages import RequestQueue
 
         async with Actor:
