@@ -36,7 +36,7 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
             # Test that exception in Actor.main is logged with the traceback
             raise RuntimeError('Dummy RuntimeError')
 
-    # We skip the first entry, as it is related to the initialization of `lazy_object_proxy.Proxy`` for `Actor`.
+    # We skip the first entry, as it is related to the initialization of `lazy_object_proxy.Proxy` for `Actor`.
     records = caplog.records[1:]
 
     # Updated expected number of log records (additional debug messages added)
