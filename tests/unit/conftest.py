@@ -226,3 +226,21 @@ def patched_impit_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(impit, 'AsyncClient', proxyless_async_client)
     yield
     monkeypatch.undo()
+
+
+@pytest.fixture(autouse=True)
+def patched_actor_exit_proc(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch actor exit process to prevent sys.exit calls during tests."""
+
+    original_method = apify._actor._ActorType._get_default_exit_process
+
+    def mock_get_default_exit_process(self: apify._actor._ActorType) -> bool:
+        if os.getenv('PYTEST_CURRENT_TEST'):
+            self.log.debug('Running in Pytest, setting default `exit_process` to False.')
+            return False
+
+        return original_method(self)
+
+    monkeypatch.setattr(apify._actor._ActorType, '_get_default_exit_process', mock_get_default_exit_process)
+    yield
+    monkeypatch.undo()
