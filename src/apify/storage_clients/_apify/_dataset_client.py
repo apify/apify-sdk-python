@@ -147,15 +147,6 @@ class ApifyDatasetClient(DatasetClient):
         # Fetch its metadata.
         metadata = await apify_dataset_client.get()
 
-        # If metadata is None, it means the storage does not exist, so we create it.
-        if metadata is None:
-            id = DatasetMetadata.model_validate(
-                await apify_datasets_client.get_or_create(),
-            ).id
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
-
-        # Verify that the storage exists by fetching its metadata again.
-        metadata = await apify_dataset_client.get()
         if metadata is None:
             raise ValueError(f'Opening dataset with id={id}, name={name}, and alias={alias} failed.')
 
