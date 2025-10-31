@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
@@ -1288,14 +1287,9 @@ class _ActorType:
             raise RuntimeError('The Actor was not initialized!')
 
     def _get_default_exit_process(self) -> bool:
-        """Return False for IPython, Pytest, and Scrapy environments, True otherwise."""
+        """Return False for IPython and Scrapy environments, True otherwise."""
         if is_running_in_ipython():
             self.log.debug('Running in IPython, setting default `exit_process` to False.')
-            return False
-
-        # Check if running in Pytest by detecting the relevant environment variable.
-        if os.getenv('PYTEST_CURRENT_TEST'):
-            self.log.debug('Running in Pytest, setting default `exit_process` to False.')
             return False
 
         # Check if running in Scrapy by attempting to import it.
