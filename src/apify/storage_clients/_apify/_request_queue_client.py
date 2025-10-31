@@ -276,15 +276,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Fetch its metadata.
         metadata = await apify_rq_client.get()
 
-        # If metadata is None, it means the storage does not exist, so we create it.
-        if metadata is None:
-            id = RequestQueueMetadata.model_validate(
-                await apify_rqs_client.get_or_create(),
-            ).id
-            apify_rq_client = apify_client_async.request_queue(request_queue_id=id, client_key=client_key)
-
-        # Verify that the storage exists by fetching its metadata again.
-        metadata = await apify_rq_client.get()
         if metadata is None:
             raise ValueError(f'Opening request queue with id={id}, name={name}, and alias={alias} failed.')
 
