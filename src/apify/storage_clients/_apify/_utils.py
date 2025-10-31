@@ -98,8 +98,6 @@ class AliasResolver:
     async def resolve_id(self) -> str | None:
         """Get id of the aliased storage.
 
-        Either locate the id in the in-memory mapping or create the new storage.
-
         Returns:
             Storage id if it exists, None otherwise.
         """

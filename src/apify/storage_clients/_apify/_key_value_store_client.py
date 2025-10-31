@@ -106,54 +106,75 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             async with AliasResolver(storage_type=KeyValueStore, alias=alias, configuration=configuration) as _alias:
                 id = await _alias.resolve_id()
 
-                # There was no pre-existing alias in the mapping.
-                # Create a new unnamed storage and store the mapping.
-                if id is None:
-                    # Create a new storage and store the alias mapping
-                    new_storage_metadata = ApifyKeyValueStoreMetadata.model_validate(
-                        await apify_kvss_client.get_or_create(),
-                    )
-                    id = new_storage_metadata.id
-                    await _alias.store_mapping(storage_id=id)
+                if id:
+                    # There was id, storage has to exist, fetch metadata to confirm it.
+                    apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+                    raw_metadata = await apify_kvs_client.get()
+                    if raw_metadata:
+                        return cls(
+                            api_client=apify_kvs_client,
+                            api_public_base_url='',
+                            # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+                            lock=asyncio.Lock(),
+                        )
+
+                # There was no pre-existing alias in the mapping or the id did not point to existing storage.
+                # Create a new unnamed storage and store the alias mapping.
+                metadata = ApifyKeyValueStoreMetadata.model_validate(
+                    await apify_kvss_client.get_or_create(),
+                )
+                await _alias.store_mapping(storage_id=metadata.id)
+
+                # Return the client for the newly created storage directly.
+                # It was just created, no need to refetch it.
+                return cls(
+                    api_client=apify_client_async.key_value_store(key_value_store_id=metadata.id),
+                    api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+                    lock=asyncio.Lock(),
+                )
 
         # If name is provided, get or create the storage by name.
         elif name:
-            id = ApifyKeyValueStoreMetadata.model_validate(
-                await apify_kvss_client.get_or_create(name=name),
-            ).id
+            metadata = ApifyKeyValueStoreMetadata.model_validate(await apify_kvss_client.get_or_create(name=name))
 
-        # If none are provided, try to get the default storage ID from environment variables.
-        elif id is None:
-            id = configuration.default_key_value_store_id
-            if not id:
-                raise ValueError(
-                    'KeyValueStore "id", "name", or "alias" must be specified, '
-                    'or a default KeyValueStore ID must be set in the configuration.'
-                )
-
-        # Now create the client for the determined ID
-        apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
-
-        # Fetch its metadata.
-        metadata = await apify_kvs_client.get()
-
-        # If metadata is None, it means the storage does not exist, so we create it.
-        if metadata is None:
-            id = ApifyKeyValueStoreMetadata.model_validate(
-                await apify_kvss_client.get_or_create(),
-            ).id
+            # Freshly fetched named storage. No need to fetch it again.
+            return cls(
+                api_client=apify_client_async.key_value_store(key_value_store_id=metadata.id),
+                api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+                lock=asyncio.Lock(),
+            )
+        # If id is provided, then storage has to exists.
+        elif id:
+            # Now create the client for the determined ID
             apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
+            # Fetch its metadata.
+            raw_metadata = await apify_kvs_client.get()
+            # If metadata is None, it means the storage does not exist.
+            if raw_metadata is None:
+                raise ValueError(f'Opening key-value store with id={id} failed.')
+            return cls(
+                api_client=apify_kvs_client,
+                api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+                lock=asyncio.Lock(),
+            )
+        # Default key-value store ID from configuration
+        elif configuration.default_key_value_store_id:
+            # Now create the client for the determined ID
+            apify_kvs_client = apify_client_async.key_value_store(
+                key_value_store_id=configuration.default_key_value_store_id
+            )
+            # Fetch its metadata.
+            raw_metadata = await apify_kvs_client.get()
+            if not raw_metadata:
+                metadata = ApifyKeyValueStoreMetadata.model_validate(await apify_kvss_client.get_or_create(name=name))
+                apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=metadata.id)
 
-        # Verify that the storage exists by fetching its metadata again.
-        metadata = await apify_kvs_client.get()
-        if metadata is None:
-            raise ValueError(f'Opening key-value store with id={id}, name={name}, and alias={alias} failed.')
-
-        return cls(
-            api_client=apify_kvs_client,
-            api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-            lock=asyncio.Lock(),
-        )
+            return cls(
+                api_client=apify_kvs_client,
+                api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+                lock=asyncio.Lock(),
+            )
+        raise RuntimeError('Will never happen')
 
     @override
     async def purge(self) -> None:
