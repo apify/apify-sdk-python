@@ -4,12 +4,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from crawlee.storage_clients import FileSystemStorageClient
+from crawlee.storage_clients._file_system import FileSystemKeyValueStoreClient
 from crawlee.storage_clients.models import StorageMetadata
 from crawlee.storages._base import Storage
 
-from apify import Configuration
+from apify import Actor, Configuration
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify import ApifyDatasetClient, ApifyKeyValueStoreClient, ApifyRequestQueueClient
+from apify.storage_clients._file_system import ApifyFileSystemKeyValueStoreClient, ApifyFileSystemStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 
@@ -61,3 +64,31 @@ async def test_get_additional_cache_key(
         # Equivalent configuration results in same storage clients.
         assert storage_1 is storage_4
         assert storage_3 is storage_5
+
+
+async def test_no_double_purge_for_filesystem_storage_client() -> None:
+    expected_value = 'some value'
+    expected_key = 'some key'
+
+    async with Actor():
+        await Actor.set_value(expected_key, expected_value)
+        # RQ uses KVS under the hood for persistence, so it will try to open same default KVS as it was already opened,
+        # but based on different client - FileSystemStorageClient.
+        await Actor.open_request_queue()
+        assert expected_value == await Actor.get_value(expected_key)
+
+
+async def test_first_filesystem_storage_client_wins() -> None:
+    """Test that when two different FileSystemStorageClient variants are used to open the same storage, they both use
+    the same client that was used to open the storage first"""
+    kvs_1 = await KeyValueStore.open(storage_client=ApifyFileSystemStorageClient())
+    kvs_2 = await KeyValueStore.open(storage_client=FileSystemStorageClient())
+
+    kvs_3 = await KeyValueStore.open(name='a', storage_client=FileSystemStorageClient())
+    kvs_4 = await KeyValueStore.open(name='a', storage_client=ApifyFileSystemStorageClient())
+
+    assert kvs_1 is kvs_2
+    assert type(kvs_2._client) is ApifyFileSystemKeyValueStoreClient
+
+    assert kvs_3 is kvs_4
+    assert type(kvs_4._client) is FileSystemKeyValueStoreClient
