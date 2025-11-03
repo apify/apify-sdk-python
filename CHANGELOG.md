@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.0.4 - **not yet released**
+## [3.0.4](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.4) (2025-11-03)
 
 ### 🐛 Bug Fixes
 
@@ -15,7 +14,6 @@ All notable changes to this project will be documented in this file.
 - Use Apify-provided environment variables to obtain PPE pricing information ([#644](https://github.com/apify/apify-sdk-python/pull/644)) ([0c32f29](https://github.com/apify/apify-sdk-python/commit/0c32f29d6a316f5bacc931595d694f262c925b2b)) by [@Mantisus](https://github.com/Mantisus), closes [#614](https://github.com/apify/apify-sdk-python/issues/614)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.0.3](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.3) (2025-10-21)
 
 ### 🐛 Bug Fixes
