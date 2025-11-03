@@ -34,7 +34,8 @@
         "raw-loader": "^4.0.2",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
-        "unist-util-visit": "^5.0.0"
+        "unist-util-visit": "^5.0.0",
+        "@rspack/core": "<1.6.0"
     },
     "devDependencies": {
         "@apify/eslint-config-ts": "^0.4.0",
