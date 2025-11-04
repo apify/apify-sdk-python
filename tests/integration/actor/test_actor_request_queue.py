@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-import pytest
-
 from .._utils import generate_unique_resource_name
 from apify import Actor
 from apify._models import ActorRun
@@ -387,9 +385,6 @@ async def test_rq_aliases(
     assert run_result.status == 'SUCCEEDED'
 
 
-@pytest.mark.skip(
-    reason='The Apify RQ client is not resilient to concurrent processing, making this test flaky. See issue #529.'
-)
 async def test_concurrent_processing_simulation(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -397,6 +392,16 @@ async def test_concurrent_processing_simulation(
     """Test simulation of concurrent request processing."""
 
     async def main() -> None:
+        from crawlee import service_locator
+
+        from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
+
+        # Use `request_queue_access='shared' for concurrent access`
+        service_locator.set_storage_client(
+            SmartApifyStorageClient(
+                cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
+            )
+        )
         async with Actor:
             rq = await Actor.open_request_queue()
             Actor.log.info('Request queue opened')
