@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Final, Literal
 from typing_extensions import override
 
 from apify_client.clients import RequestQueueClientAsync
+from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storages import RequestQueue
 
@@ -263,4 +264,10 @@ class RqApiClientFactory(ApiClientFactory[RequestQueueClientAsync, ApifyRequestQ
         return ApifyRequestQueueMetadata.model_validate(raw_metadata)
 
     def _get_resource_client(self, id: str) -> RequestQueueClientAsync:
-        return self._api_client.request_queue(request_queue_id=id)
+        # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
+        # It should persist across migrated or resurrected Actor runs on the Apify platform.
+        _api_max_client_key_length = 32
+        client_key = (self._configuration.actor_run_id or crypto_random_object_id(length=_api_max_client_key_length))[
+            :_api_max_client_key_length
+        ]
+        return self._api_client.request_queue(request_queue_id=id, client_key=client_key)
