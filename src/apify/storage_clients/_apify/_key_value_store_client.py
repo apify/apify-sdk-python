@@ -7,21 +7,47 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
+from apify_client.clients import (
+    KeyValueStoreClientAsync,
+)
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
 from crawlee.storages import KeyValueStore
 
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
-from ._utils import AliasResolver, create_apify_client
+from ._utils import ApiClientFactory
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import KeyValueStoreClientAsync
+    from apify_client.clients import (
+        KeyValueStoreCollectionClientAsync,
+    )
 
     from apify import Configuration
 
 logger = getLogger(__name__)
+
+
+class KvsApiClientFactory(ApiClientFactory[KeyValueStoreClientAsync, ApifyKeyValueStoreMetadata]):
+    @property
+    def _collection_client(self) -> KeyValueStoreCollectionClientAsync:
+        return self._api_client.key_value_stores()
+
+    def _get_resource_client(self, id: str) -> KeyValueStoreClientAsync:
+        return self._api_client.key_value_store(key_value_store_id=id)
+
+    @property
+    def _default_id(self) -> str | None:
+        return self._configuration.default_key_value_store_id
+
+    @property
+    def _storage_type(self) -> type[KeyValueStore]:
+        return KeyValueStore
+
+    @staticmethod
+    def _get_metadata(raw_metadata: dict | None) -> ApifyKeyValueStoreMetadata:
+        return ApifyKeyValueStoreMetadata.model_validate(raw_metadata)
 
 
 class ApifyKeyValueStoreClient(KeyValueStoreClient):
@@ -90,91 +116,14 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        if sum(1 for param in [id, name, alias] if param is not None) > 1:
-            raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
-
-        apify_client_async = create_apify_client(configuration)
-        apify_kvss_client = apify_client_async.key_value_stores()
-
-        # Normalize unnamed default storage in cases where not defined in `configuration.default_key_value_store_id` to
-        # unnamed storage aliased as `__default__`
-        if not any([alias, name, id, configuration.default_key_value_store_id]):
-            alias = '__default__'
-
-        if alias:
-            # Check if there is pre-existing alias mapping in the default KVS.
-            async with AliasResolver(storage_type=KeyValueStore, alias=alias, configuration=configuration) as _alias:
-                id = await _alias.resolve_id()
-
-                if id:
-                    # There was id, storage has to exist, fetch metadata to confirm it.
-                    apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
-                    raw_metadata = await apify_kvs_client.get()
-                    if raw_metadata:
-                        return cls(
-                            api_client=apify_kvs_client,
-                            api_public_base_url='',
-                            # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-                            lock=asyncio.Lock(),
-                        )
-
-                # There was no pre-existing alias in the mapping or the id did not point to existing storage.
-                # Create a new unnamed storage and store the alias mapping.
-                metadata = ApifyKeyValueStoreMetadata.model_validate(
-                    await apify_kvss_client.get_or_create(),
-                )
-                await _alias.store_mapping(storage_id=metadata.id)
-
-                # Return the client for the newly created storage directly.
-                # It was just created, no need to refetch it.
-                return cls(
-                    api_client=apify_client_async.key_value_store(key_value_store_id=metadata.id),
-                    api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-                    lock=asyncio.Lock(),
-                )
-
-        # If name is provided, get or create the storage by name.
-        elif name:
-            metadata = ApifyKeyValueStoreMetadata.model_validate(await apify_kvss_client.get_or_create(name=name))
-
-            # Freshly fetched named storage. No need to fetch it again.
-            return cls(
-                api_client=apify_client_async.key_value_store(key_value_store_id=metadata.id),
-                api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-                lock=asyncio.Lock(),
-            )
-        # If id is provided, then storage has to exists.
-        elif id:
-            # Now create the client for the determined ID
-            apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=id)
-            # Fetch its metadata.
-            raw_metadata = await apify_kvs_client.get()
-            # If metadata is None, it means the storage does not exist.
-            if raw_metadata is None:
-                raise ValueError(f'Opening key-value store with id={id} failed.')
-            return cls(
-                api_client=apify_kvs_client,
-                api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-                lock=asyncio.Lock(),
-            )
-        # Default key-value store ID from configuration
-        elif configuration.default_key_value_store_id:
-            # Now create the client for the determined ID
-            apify_kvs_client = apify_client_async.key_value_store(
-                key_value_store_id=configuration.default_key_value_store_id
-            )
-            # Fetch its metadata.
-            raw_metadata = await apify_kvs_client.get()
-            if not raw_metadata:
-                metadata = ApifyKeyValueStoreMetadata.model_validate(await apify_kvss_client.get_or_create(name=name))
-                apify_kvs_client = apify_client_async.key_value_store(key_value_store_id=metadata.id)
-
-            return cls(
-                api_client=apify_kvs_client,
-                api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-                lock=asyncio.Lock(),
-            )
-        raise RuntimeError('Will never happen')
+        api_client, _ =await KvsApiClientFactory(
+                configuration=configuration, alias=alias, name=name, id=id
+            ).get_client_with_metadata()
+        return cls(
+            api_client=api_client,
+            api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
+            lock=asyncio.Lock(),
+        )
 
     @override
     async def purge(self) -> None:

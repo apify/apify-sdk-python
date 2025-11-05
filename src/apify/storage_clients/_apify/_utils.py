@@ -2,26 +2,49 @@ from __future__ import annotations
 
 import logging
 import re
+from abc import ABC, abstractmethod
 from asyncio import Lock
 from base64 import b64encode
 from hashlib import sha256
 from logging import getLogger
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
 from apify_client import ApifyClientAsync
+from apify_client.clients import (
+    DatasetClientAsync,
+    DatasetCollectionClientAsync,
+    KeyValueStoreClientAsync,
+    KeyValueStoreCollectionClientAsync,
+    RequestQueueClientAsync,
+    RequestQueueCollectionClientAsync,
+)
 from crawlee._utils.crypto import compute_short_hash
+from crawlee.storage_clients.models import (
+    DatasetMetadata,
+    KeyValueStoreMetadata,
+    RequestQueueMetadata,
+)
 
-from apify._configuration import Configuration
+from apify import Configuration
+from apify.storage_clients._apify._models import ApifyKeyValueStoreMetadata
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from apify_client.clients import KeyValueStoreClientAsync
-    from crawlee.storages import Dataset, KeyValueStore, RequestQueue
+    from crawlee.storages._base import Storage
 
 
 logger = getLogger(__name__)
 
+ResourceCollectionClient = (
+    KeyValueStoreCollectionClientAsync | RequestQueueCollectionClientAsync | DatasetCollectionClientAsync
+)
+TResourceClient = TypeVar(
+    'TResourceClient', bound=KeyValueStoreClientAsync | RequestQueueClientAsync | DatasetClientAsync
+)
+TStorageMetadata = TypeVar(
+    'TStorageMetadata', bound=KeyValueStoreMetadata | RequestQueueMetadata | DatasetMetadata
+)
 
 class AliasResolver:
     """Class for handling aliases.
@@ -40,9 +63,7 @@ class AliasResolver:
     _ALIAS_STORAGE_KEY_SEPARATOR = ','
     _ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
 
-    def __init__(
-        self, storage_type: type[Dataset | KeyValueStore | RequestQueue], alias: str, configuration: Configuration
-    ) -> None:
+    def __init__(self, storage_type: type[Storage], alias: str, configuration: Configuration) -> None:
         self._storage_type = storage_type
         self._alias = alias
         self._additional_cache_key = hash_api_base_url_and_token(configuration)
@@ -217,3 +238,108 @@ def create_apify_client(configuration: Configuration) -> ApifyClientAsync:
         min_delay_between_retries_millis=500,
         timeout_secs=360,
     )
+
+
+class ApiClientFactory(ABC, Generic[TResourceClient, TStorageMetadata]):
+    def __init__(self, configuration: Configuration, alias: str | None, name: str | None, id: str | None) -> None:
+        if sum(1 for param in [id, name, alias] if param is not None) > 1:
+            raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
+
+        self.alias = alias
+        self.name = name
+        self.id = id
+        self._configuration = configuration
+        self._api_client = create_apify_client(configuration)
+
+    async def get_client_with_metadata(self) -> tuple[TResourceClient, TStorageMetadata]:
+        match (self.alias, self.name, self.id, self._default_id):
+            case (None, None, None, None):
+                # Normalize unnamed default storage in cases where not defined in `self._default_id` to
+                # unnamed storage aliased as `__default__`. Used only when running locally.
+                return await self._open_by_alias('__default__')
+
+            case (str(), None, None, _):
+                return await self._open_by_alias(self.alias)
+
+            case (None, None, None, str()):
+                # Now create the client for the determined ID
+                resource_client = self._get_resource_client(id=self._default_id)
+                # Fetch its metadata.
+                raw_metadata = await resource_client.get()
+                metadata = self._get_metadata(raw_metadata)
+                if not raw_metadata:
+                    # Do we want this??? Backwards compatibility, so probably yes.
+                    # Default storage does not exist. Create a new one with new id.
+                    raw_metadata = await self._collection_client.get_or_create()
+                    metadata = self._get_metadata(raw_metadata)
+                    resource_client = self._get_resource_client(id=metadata.id)
+                return resource_client, metadata
+
+            case (None, str(), None, _):
+                metadata = self._get_metadata(
+                    await self._collection_client.get_or_create(name=self.name))
+                # Freshly fetched named storage. No need to fetch it again.
+                return self._get_resource_client(id=metadata.id), metadata
+
+            case (None, None, str(), _):
+                # Now create the client for the determined ID
+                resource_client = self._get_resource_client(id=self.id)
+                # Fetch its metadata.
+                raw_metadata = await resource_client.get()
+                # If metadata is None, it means the storage does not exist.
+                if raw_metadata is None:
+                    raise ValueError(f'Opening key-value store with id={self.id} failed.')
+                return resource_client, self._get_metadata(raw_metadata)
+
+        raise RuntimeError('Will never happen')
+
+    @property
+    @abstractmethod
+    def _collection_client(self) -> ResourceCollectionClient:
+        """Get a collection API client."""
+
+    @property
+    @abstractmethod
+    def _default_id(self) -> str | None:
+        """Get a metadata model class."""
+
+    @property
+    @abstractmethod
+    def _storage_type(self) -> type[Storage]:
+        """Get a metadata model class."""
+
+    @abstractmethod
+    def _get_resource_client(self, id: str) -> TResourceClient:
+        """Get a resource API client."""
+
+    @staticmethod
+    @abstractmethod
+    def _get_metadata(raw_metadata: dict | None) -> TStorageMetadata:
+        """Get a metadata model class."""
+
+    async def _open_by_alias(self, alias: str) -> tuple[TResourceClient, TStorageMetadata]:
+        # Check if there is pre-existing alias mapping in the default KVS.
+        async with AliasResolver(
+            storage_type=self._storage_type, alias=alias, configuration=self._configuration
+        ) as _alias:
+            id = await _alias.resolve_id()
+
+            if id:
+                # There was id, storage has to exist, fetch metadata to confirm it.
+                resource_client = self._get_resource_client(id=id)
+                raw_metadata = await resource_client.get()
+                if raw_metadata:
+                    return resource_client, self._get_metadata(raw_metadata)
+                # If we do not raise here, we will behave same as for default storage. We create it even though it
+                # should exist already. Consistency or throw an error???
+
+            # There was no pre-existing alias in the mapping or the id did not point to existing storage.
+            # Create a new unnamed storage and store the alias mapping.
+            metadata = ApifyKeyValueStoreMetadata.model_validate(
+                await self._collection_client.get_or_create(),
+            )
+            await _alias.store_mapping(storage_id=metadata.id)
+
+            # Return the client for the newly created storage directly.
+            # It was just created, no need to refetch it.
+            return self._get_resource_client(id=metadata.id), self._get_metadata(raw_metadata)
