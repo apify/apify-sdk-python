@@ -189,9 +189,6 @@ class KvsApiClientFactory(ApiClientFactory[KeyValueStoreClientAsync, ApifyKeyVal
     def _collection_client(self) -> KeyValueStoreCollectionClientAsync:
         return self._api_client.key_value_stores()
 
-    def _get_resource_client(self, id: str) -> KeyValueStoreClientAsync:
-        return self._api_client.key_value_store(key_value_store_id=id)
-
     @property
     def _default_id(self) -> str | None:
         return self._configuration.default_key_value_store_id
@@ -203,3 +200,6 @@ class KvsApiClientFactory(ApiClientFactory[KeyValueStoreClientAsync, ApifyKeyVal
     @staticmethod
     def _get_metadata(raw_metadata: dict | None) -> ApifyKeyValueStoreMetadata:
         return ApifyKeyValueStoreMetadata.model_validate(raw_metadata)
+
+    def _get_resource_client(self, id: str) -> KeyValueStoreClientAsync:
+        return self._api_client.key_value_store(key_value_store_id=id)

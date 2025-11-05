@@ -303,10 +303,6 @@ class ApiClientFactory(ABC, Generic[TResourceClient, TStorageMetadata]):
     def _storage_type(self) -> type[Storage]:
         """Get a metadata model class."""
 
-    @abstractmethod
-    def _get_resource_client(self, id: str) -> TResourceClient:
-        """Get a resource API client."""
-
     @staticmethod
     @abstractmethod
     def _get_metadata(raw_metadata: dict | None) -> TStorageMetadata:
@@ -338,3 +334,7 @@ class ApiClientFactory(ABC, Generic[TResourceClient, TStorageMetadata]):
             # Return the client for the newly created storage directly.
             # It was just created, no need to refetch it.
             return self._get_resource_client(id=metadata.id), self._get_metadata(raw_metadata)
+
+    @abstractmethod
+    def _get_resource_client(self, id: str) -> TResourceClient:
+        """Get a resource API client."""

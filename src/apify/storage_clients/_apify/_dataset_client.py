@@ -263,9 +263,6 @@ class DatasetApiClientFactory(ApiClientFactory[DatasetClientAsync, DatasetMetada
     def _collection_client(self) -> DatasetCollectionClientAsync:
         return self._api_client.datasets()
 
-    def _get_resource_client(self, id: str) -> DatasetClientAsync:
-        return self._api_client.dataset(dataset_id=id)
-
     @property
     def _default_id(self) -> str | None:
         return self._configuration.default_dataset_id
@@ -277,3 +274,6 @@ class DatasetApiClientFactory(ApiClientFactory[DatasetClientAsync, DatasetMetada
     @staticmethod
     def _get_metadata(raw_metadata: dict | None) -> DatasetMetadata:
         return DatasetMetadata.model_validate(raw_metadata)
+
+    def _get_resource_client(self, id: str) -> DatasetClientAsync:
+        return self._api_client.dataset(dataset_id=id)

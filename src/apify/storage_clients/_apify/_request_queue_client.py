@@ -250,9 +250,6 @@ class RqApiClientFactory(ApiClientFactory[RequestQueueClientAsync, ApifyRequestQ
     def _collection_client(self) -> RequestQueueCollectionClientAsync:
         return self._api_client.request_queues()
 
-    def _get_resource_client(self, id: str) -> RequestQueueClientAsync:
-        return self._api_client.request_queue(request_queue_id=id)
-
     @property
     def _default_id(self) -> str | None:
         return self._configuration.default_request_queue_id
@@ -264,3 +261,6 @@ class RqApiClientFactory(ApiClientFactory[RequestQueueClientAsync, ApifyRequestQ
     @staticmethod
     def _get_metadata(raw_metadata: dict | None) -> ApifyRequestQueueMetadata:
         return ApifyRequestQueueMetadata.model_validate(raw_metadata)
+
+    def _get_resource_client(self, id: str) -> RequestQueueClientAsync:
+        return self._api_client.request_queue(request_queue_id=id)
