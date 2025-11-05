@@ -5,16 +5,19 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from typing_extensions import override
 
+from apify_client.clients import RequestQueueClientAsync
 from crawlee.storage_clients._base import RequestQueueClient
+from crawlee.storages import RequestQueue
 
 from ._models import ApifyRequestQueueMetadata, RequestQueueStats
 from ._request_queue_shared_client import ApifyRequestQueueSharedClient
 from ._request_queue_single_client import ApifyRequestQueueSingleClient
+from ._utils import ApiClientFactory
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
+    from apify_client.clients import RequestQueueCollectionClientAsync
     from crawlee import Request
     from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
@@ -221,13 +224,11 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        _api_client, metadata =await RqApiClientFactory(
-                configuration=configuration, alias=alias, name=name, id=id
-            ).get_client_with_metadata()
+        _api_client, metadata = await RqApiClientFactory(
+            configuration=configuration, alias=alias, name=name, id=id
+        ).get_client_with_metadata()
         return cls(
-            api_client=await RqApiClientFactory(
-                configuration=configuration, alias=alias, name=name, id=id
-            ).create_api_client(),
+            api_client=_api_client,
             metadata=metadata,
             access=access,
         )
@@ -242,3 +243,24 @@ class ApifyRequestQueueClient(RequestQueueClient):
     @override
     async def drop(self) -> None:
         await self._api_client.delete()
+
+
+class RqApiClientFactory(ApiClientFactory[RequestQueueClientAsync, ApifyRequestQueueMetadata]):
+    @property
+    def _collection_client(self) -> RequestQueueCollectionClientAsync:
+        return self._api_client.request_queues()
+
+    def _get_resource_client(self, id: str) -> RequestQueueClientAsync:
+        return self._api_client.request_queue(request_queue_id=id)
+
+    @property
+    def _default_id(self) -> str | None:
+        return self._configuration.default_request_queue_id
+
+    @property
+    def _storage_type(self) -> type[RequestQueue]:
+        return RequestQueue
+
+    @staticmethod
+    def _get_metadata(raw_metadata: dict | None) -> ApifyRequestQueueMetadata:
+        return ApifyRequestQueueMetadata.model_validate(raw_metadata)

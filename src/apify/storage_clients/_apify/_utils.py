@@ -42,9 +42,8 @@ ResourceCollectionClient = (
 TResourceClient = TypeVar(
     'TResourceClient', bound=KeyValueStoreClientAsync | RequestQueueClientAsync | DatasetClientAsync
 )
-TStorageMetadata = TypeVar(
-    'TStorageMetadata', bound=KeyValueStoreMetadata | RequestQueueMetadata | DatasetMetadata
-)
+TStorageMetadata = TypeVar('TStorageMetadata', bound=KeyValueStoreMetadata | RequestQueueMetadata | DatasetMetadata)
+
 
 class AliasResolver:
     """Class for handling aliases.
@@ -245,26 +244,24 @@ class ApiClientFactory(ABC, Generic[TResourceClient, TStorageMetadata]):
         if sum(1 for param in [id, name, alias] if param is not None) > 1:
             raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
 
-        self.alias = alias
-        self.name = name
-        self.id = id
+        self._alias = alias
+        self._name = name
+        self._id = id
         self._configuration = configuration
         self._api_client = create_apify_client(configuration)
 
     async def get_client_with_metadata(self) -> tuple[TResourceClient, TStorageMetadata]:
-        match (self.alias, self.name, self.id, self._default_id):
+        match (self._alias, self._name, self._id, self._default_id):
             case (None, None, None, None):
                 # Normalize unnamed default storage in cases where not defined in `self._default_id` to
                 # unnamed storage aliased as `__default__`. Used only when running locally.
                 return await self._open_by_alias('__default__')
 
             case (str(), None, None, _):
-                return await self._open_by_alias(self.alias)
+                return await self._open_by_alias(self._alias)
 
             case (None, None, None, str()):
-                # Now create the client for the determined ID
                 resource_client = self._get_resource_client(id=self._default_id)
-                # Fetch its metadata.
                 raw_metadata = await resource_client.get()
                 metadata = self._get_metadata(raw_metadata)
                 if not raw_metadata:
@@ -276,22 +273,20 @@ class ApiClientFactory(ABC, Generic[TResourceClient, TStorageMetadata]):
                 return resource_client, metadata
 
             case (None, str(), None, _):
-                metadata = self._get_metadata(
-                    await self._collection_client.get_or_create(name=self.name))
+                metadata = self._get_metadata(await self._collection_client.get_or_create(name=self._name))
                 # Freshly fetched named storage. No need to fetch it again.
                 return self._get_resource_client(id=metadata.id), metadata
 
             case (None, None, str(), _):
-                # Now create the client for the determined ID
-                resource_client = self._get_resource_client(id=self.id)
+                resource_client = self._get_resource_client(id=self._id)
                 # Fetch its metadata.
                 raw_metadata = await resource_client.get()
                 # If metadata is None, it means the storage does not exist.
                 if raw_metadata is None:
-                    raise ValueError(f'Opening key-value store with id={self.id} failed.')
+                    raise ValueError(f'Opening {self._storage_type} with id={self._id} failed.')
                 return resource_client, self._get_metadata(raw_metadata)
 
-        raise RuntimeError('Will never happen')
+        raise RuntimeError('Unreachable code')
 
     @property
     @abstractmethod

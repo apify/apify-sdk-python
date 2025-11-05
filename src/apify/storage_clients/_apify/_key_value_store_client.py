@@ -29,27 +29,6 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class KvsApiClientFactory(ApiClientFactory[KeyValueStoreClientAsync, ApifyKeyValueStoreMetadata]):
-    @property
-    def _collection_client(self) -> KeyValueStoreCollectionClientAsync:
-        return self._api_client.key_value_stores()
-
-    def _get_resource_client(self, id: str) -> KeyValueStoreClientAsync:
-        return self._api_client.key_value_store(key_value_store_id=id)
-
-    @property
-    def _default_id(self) -> str | None:
-        return self._configuration.default_key_value_store_id
-
-    @property
-    def _storage_type(self) -> type[KeyValueStore]:
-        return KeyValueStore
-
-    @staticmethod
-    def _get_metadata(raw_metadata: dict | None) -> ApifyKeyValueStoreMetadata:
-        return ApifyKeyValueStoreMetadata.model_validate(raw_metadata)
-
-
 class ApifyKeyValueStoreClient(KeyValueStoreClient):
     """An Apify platform implementation of the key-value store client."""
 
@@ -116,9 +95,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        api_client, _ =await KvsApiClientFactory(
-                configuration=configuration, alias=alias, name=name, id=id
-            ).get_client_with_metadata()
+        api_client, _ = await KvsApiClientFactory(
+            configuration=configuration, alias=alias, name=name, id=id
+        ).get_client_with_metadata()
         return cls(
             api_client=api_client,
             api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
@@ -203,3 +182,24 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             A public URL that can be used to access the value of the given key in the KVS.
         """
         return await self._api_client.get_record_public_url(key=key)
+
+
+class KvsApiClientFactory(ApiClientFactory[KeyValueStoreClientAsync, ApifyKeyValueStoreMetadata]):
+    @property
+    def _collection_client(self) -> KeyValueStoreCollectionClientAsync:
+        return self._api_client.key_value_stores()
+
+    def _get_resource_client(self, id: str) -> KeyValueStoreClientAsync:
+        return self._api_client.key_value_store(key_value_store_id=id)
+
+    @property
+    def _default_id(self) -> str | None:
+        return self._configuration.default_key_value_store_id
+
+    @property
+    def _storage_type(self) -> type[KeyValueStore]:
+        return KeyValueStore
+
+    @staticmethod
+    def _get_metadata(raw_metadata: dict | None) -> ApifyKeyValueStoreMetadata:
+        return ApifyKeyValueStoreMetadata.model_validate(raw_metadata)
