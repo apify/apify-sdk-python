@@ -25,7 +25,7 @@ from crawlee.storage_clients.models import (
     RequestQueueMetadata,
 )
 
-from apify import Configuration
+from apify._configuration import Configuration
 from apify.storage_clients._apify._models import ApifyKeyValueStoreMetadata
 
 if TYPE_CHECKING:
