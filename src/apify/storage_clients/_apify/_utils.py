@@ -326,9 +326,8 @@ class ApiClientFactory(ABC, Generic[TResourceClient, TStorageMetadata]):
 
             # There was no pre-existing alias in the mapping or the id did not point to existing storage.
             # Create a new unnamed storage and store the alias mapping.
-            metadata = ApifyKeyValueStoreMetadata.model_validate(
-                await self._collection_client.get_or_create(),
-            )
+            raw_metadata = await self._collection_client.get_or_create()
+            metadata = ApifyKeyValueStoreMetadata.model_validate(raw_metadata)
             await _alias.store_mapping(storage_id=metadata.id)
 
             # Return the client for the newly created storage directly.
