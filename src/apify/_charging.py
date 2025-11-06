@@ -226,7 +226,8 @@ class ChargingManagerImplementation(ChargingManager):
         # START OF CRITICAL SECTION - no awaits here
 
         # Determine the maximum amount of events that can be charged within the budget
-        charged_count = min(count, self.calculate_max_event_charge_count_within_limit(event_name) or count)
+        max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
+        charged_count = min(count, max_chargeable if max_chargeable is not None else count)
 
         if charged_count == 0:
             return ChargeResult(
