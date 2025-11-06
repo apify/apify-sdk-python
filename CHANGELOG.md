@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Fix crash in `Actor.push_data` with PPE and a strict charging limit ([#664](https://github.com/apify/apify-sdk-python/pull/664)) ([8f2e4b2](https://github.com/apify/apify-sdk-python/commit/8f2e4b2cc1f62e9a09656b4d3334caf840338a3a)) by [@janbuchar](https://github.com/janbuchar)
+- Avoid charge calls with count=0 ([#665](https://github.com/apify/apify-sdk-python/pull/665)) ([a0f894e](https://github.com/apify/apify-sdk-python/commit/a0f894e879225eb1b639c4f897a1dd0103903c78)) by [@janbuchar](https://github.com/janbuchar)
 
 
 <!-- git-cliff-unreleased-end -->
