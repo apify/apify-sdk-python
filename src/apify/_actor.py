@@ -614,18 +614,20 @@ class _ActorType:
             else None
         )
 
+        # Push as many items as we can charge for
+        pushed_items_count = min(max_charged_count, len(data)) if max_charged_count is not None else len(data)
+
         dataset = await self.open_dataset()
 
-        if max_charged_count is not None and len(data) > max_charged_count:
-            # Push as many items as we can charge for
-            await dataset.push_data(data[:max_charged_count])
-        else:
+        if pushed_items_count < len(data):
+            await dataset.push_data(data[:pushed_items_count])
+        elif pushed_items_count > 0:
             await dataset.push_data(data)
 
         if charged_event_name:
             return await self.get_charging_manager().charge(
                 event_name=charged_event_name,
-                count=min(max_charged_count, len(data)) if max_charged_count is not None else len(data),
+                count=pushed_items_count,
             )
 
         return None
