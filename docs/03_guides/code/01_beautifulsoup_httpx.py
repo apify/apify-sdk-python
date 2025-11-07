@@ -37,7 +37,7 @@ async def main() -> None:
                 url = request.url
 
                 if not isinstance(request.user_data['depth'], (str, int)):
-                    raise TypeError('Request.depth is an enexpected type.')
+                    raise TypeError('Request.depth is an unexpected type.')
 
                 depth = int(request.user_data['depth'])
                 Actor.log.info(f'Scraping {url} (depth={depth}) ...')
