@@ -198,7 +198,7 @@ async def test_request_list_open_name() -> None:
         pytest.param('http://www.something.com', id='standard_http_with_www'),
         pytest.param('https://www.something.net', id='standard_https_with_www'),
         pytest.param('http://nowww.cz', id='http_no_www'),
-        pytest.param('https://with-hypen.com', id='https_with_hyphen'),
+        pytest.param('https://with-hyphen.com', id='https_with_hyphen'),
         pytest.param('http://number1.com', id='http_with_number_in_domain'),
         pytest.param('http://www.number.123.abc', id='http_with_subdomains_and_numbers'),
         pytest.param('http://many.dots.com', id='http_with_multiple_subdomains'),
