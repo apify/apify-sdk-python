@@ -90,24 +90,24 @@ provides-extras = ["scrapy"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "build", specifier = "~=1.3.0" },
+    { name = "build", specifier = "<2.0.0" },
     { name = "crawlee", extras = ["parsel"] },
-    { name = "dycw-pytest-only", specifier = "~=2.1.0" },
+    { name = "dycw-pytest-only", specifier = "<3.0.0" },
     { name = "griffe" },
-    { name = "mypy", specifier = "~=1.18.1" },
-    { name = "pre-commit", specifier = "~=4.4.0" },
-    { name = "pydoc-markdown", specifier = "~=4.8.0" },
-    { name = "pytest", specifier = "~=8.4.0" },
-    { name = "pytest-asyncio", specifier = "~=1.2.0" },
-    { name = "pytest-cov", specifier = "~=7.0.0" },
-    { name = "pytest-httpserver", specifier = "~=1.1.0" },
-    { name = "pytest-timeout", specifier = "~=2.4.0" },
-    { name = "pytest-xdist", specifier = "~=3.8.0" },
+    { name = "mypy", specifier = "~=1.18.0" },
+    { name = "pre-commit", specifier = "<5.0.0" },
+    { name = "pydoc-markdown", specifier = "<5.0.0" },
+    { name = "pytest", specifier = "<9.0.0" },
+    { name = "pytest-asyncio", specifier = "<2.0.0" },
+    { name = "pytest-cov", specifier = "<8.0.0" },
+    { name = "pytest-httpserver", specifier = "<2.0.0" },
+    { name = "pytest-timeout", specifier = "<3.0.0" },
+    { name = "pytest-xdist", specifier = "<4.0.0" },
     { name = "ruff", specifier = "~=0.14.0" },
     { name = "setuptools" },
-    { name = "types-cachetools", specifier = "~=6.2.0.20250827" },
+    { name = "types-cachetools", specifier = "<7.0.0" },
     { name = "uvicorn", extras = ["standard"] },
-    { name = "werkzeug", specifier = "~=3.1.0" },
+    { name = "werkzeug", specifier = "<4.0.0" },
 ]
 
 [[package]]
