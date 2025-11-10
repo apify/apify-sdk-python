@@ -32,7 +32,8 @@ jobs:
 
   docs_check:
     name: Docs check
-    uses: apify/workflows/.github/workflows/python_docs_check.yaml@main
+    uses: apify/workflows/.github/workflows/python_docs_check.yaml@update-python-docs-check
+    secrets: inherit
 
   integration_tests:
     name: Integration tests

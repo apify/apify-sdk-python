@@ -3,15 +3,15 @@ id: introduction
 title: Introduction
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import IntroductionExample from '!!raw-loader!./code/01_introduction.py';
+import IntroductionExample from '!!raw-loader!roa-loader!./code/01_introduction.py';
 
 The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) using Python.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {IntroductionExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## What are Actors?
 

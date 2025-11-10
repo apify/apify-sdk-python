@@ -4,10 +4,10 @@ title: Pay-per-event monetization
 description: Monetize your Actors using the pay-per-event pricing model
 ---
 
-import ActorChargeSource from '!!raw-loader!./code/actor_charge.py';
-import ConditionalActorChargeSource from '!!raw-loader!./code/conditional_actor_charge.py';
+import ActorChargeSource from '!!raw-loader!roa-loader!./code/12_actor_charge.py';
+import ConditionalActorChargeSource from '!!raw-loader!roa-loader!./code/12_conditional_actor_charge.py';
 import ApiLink from '@site/src/components/ApiLink';
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 Apify provides several [pricing models](https://docs.apify.com/platform/actors/publishing/monetize) for monetizing your Actors. The most recent and most flexible one is [pay-per-event](https://docs.apify.com/platform/actors/running/actors-in-store#pay-per-event), which lets you charge your users programmatically directly from your Actor. As the name suggests, you may charge the users each time a specific event occurs, for example a call to an external API or when you return a result.
 
@@ -23,9 +23,9 @@ If you want more details about PPE pricing, please refer to our [PPE documentati
 
 After monetization is set in the Apify console, you can add <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> calls to your code and start monetizing!
 
-<CodeBlock language="python">
-{ActorChargeSource}
-</CodeBlock>
+<RunnableCodeBlock className="language-python" language="python">
+    {ActorChargeSource}
+</RunnableCodeBlock>
 
 Then you just push your code to Apify and that's it! The SDK will even keep track of the max total charge setting for you, so you will not provide more value than what the user chose to pay for.
 
@@ -35,9 +35,9 @@ If you need finer control over charging, you can access call <ApiLink to="class/
 
 When you plan to start using the pay-per-event pricing model for an Actor that is already monetized with a different pricing model, your source code will need support both pricing models during the transition period enforced by the Apify platform. Arguably the most frequent case is the transition from the pay-per-result model which utilizes the `ACTOR_MAX_PAID_DATASET_ITEMS` environment variable to prevent returning unpaid dataset items. The following is an example how to handle such scenarios. The key part is the <ApiLink to="class/ChargingManager#get_pricing_info">`ChargingManager.get_pricing_info()`</ApiLink> method which returns information about the current pricing model.
 
-<CodeBlock language="python">
-{ConditionalActorChargeSource}
-</CodeBlock>
+<RunnableCodeBlock className="language-python" language="python">
+    {ConditionalActorChargeSource}
+</RunnableCodeBlock>
 
 ## Local development
 

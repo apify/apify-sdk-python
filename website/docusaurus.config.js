@@ -276,7 +276,8 @@ module.exports = {
                 },
             },
         ],
-        ...config.plugins,
+        // Spread config.plugins, filtering out null/undefined values
+        ...(config.plugins || []).filter(Boolean),
     ],
     themeConfig: {
         ...config.themeConfig,

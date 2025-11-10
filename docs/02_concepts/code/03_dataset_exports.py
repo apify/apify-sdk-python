@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -29,3 +31,7 @@ async def main() -> None:
 
         json_data = await store.get_value('data.json')
         Actor.log.info(f'JSON data: {json_data}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 
 from scrapy.crawler import CrawlerRunner
 from scrapy.utils.defer import deferred_to_future
@@ -30,3 +31,7 @@ async def main() -> None:
             allowed_domains=allowed_domains,
         )
         await deferred_to_future(crawl_deferred)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

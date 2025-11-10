@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor, Webhook
 
 
@@ -14,3 +16,7 @@ async def main() -> None:
 
         # Raise an error to simulate a failed run.
         raise RuntimeError('I am an error and I know it!')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

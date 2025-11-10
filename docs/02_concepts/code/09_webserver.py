@@ -47,3 +47,7 @@ async def main() -> None:
         # Signal the HTTP server to shut down, and wait for it to finish.
         http_server.shutdown()
         await run_server_task
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

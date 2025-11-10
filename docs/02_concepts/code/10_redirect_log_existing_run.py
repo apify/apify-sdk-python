@@ -22,3 +22,7 @@ async def main() -> None:
         streamed_log.start()
         await asyncio.sleep(5)
         await streamed_log.stop()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

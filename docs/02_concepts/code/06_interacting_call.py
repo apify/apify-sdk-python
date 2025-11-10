@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -20,3 +22,7 @@ async def main() -> None:
         kvs_client = run_client.key_value_store()
         output = await kvs_client.get_record('OUTPUT')
         Actor.log.info(f'Actor output: {output}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor, Request
 
 
@@ -14,3 +16,7 @@ async def main() -> None:
         # Work with the request queue with the name 'my-queue'
         request_queue = await Actor.open_request_queue(name='my-queue')
         await request_queue.add_request(Request.from_url('https://apify.com'))
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
