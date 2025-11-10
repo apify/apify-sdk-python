@@ -313,7 +313,7 @@ class ChargingManagerImplementation(ChargingManager):
             return None
 
         result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / price
-        return math.floor(result) if result.is_finite() else None
+        return max(0, math.floor(result)) if result.is_finite() else None
 
     @ensure_context
     def get_pricing_info(self) -> ActorPricingInfo:
