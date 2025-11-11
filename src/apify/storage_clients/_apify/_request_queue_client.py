@@ -5,20 +5,17 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from typing_extensions import override
 
-from apify_client.clients import RequestQueueClientAsync
-from crawlee._utils.crypto import crypto_random_object_id
 from crawlee.storage_clients._base import RequestQueueClient
-from crawlee.storages import RequestQueue
 
+from ._api_client_factory import create_api_client
 from ._models import ApifyRequestQueueMetadata, RequestQueueStats
 from ._request_queue_shared_client import ApifyRequestQueueSharedClient
 from ._request_queue_single_client import ApifyRequestQueueSingleClient
-from ._utils import ApiClientFactory
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from apify_client.clients import RequestQueueCollectionClientAsync
+    from apify_client.clients import RequestQueueClientAsync
     from crawlee import Request
     from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
@@ -225,11 +222,22 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        _api_client, metadata = await RqApiClientFactory(
-            configuration=configuration, alias=alias, name=name, id=id
-        ).get_client_with_metadata()
+        api_client = await create_api_client(
+            storage_type='request_queue',
+            configuration=configuration,
+            alias=alias,
+            name=name,
+            id=id,
+        )
+
+        # Fetch metadata separately
+        raw_metadata = await api_client.get()
+        if raw_metadata is None:
+            raise ValueError('Failed to retrieve request queue metadata')
+        metadata = ApifyRequestQueueMetadata.model_validate(raw_metadata)
+
         return cls(
-            api_client=_api_client,
+            api_client=api_client,
             metadata=metadata,
             access=access,
         )
@@ -244,30 +252,3 @@ class ApifyRequestQueueClient(RequestQueueClient):
     @override
     async def drop(self) -> None:
         await self._api_client.delete()
-
-
-class RqApiClientFactory(ApiClientFactory[RequestQueueClientAsync, ApifyRequestQueueMetadata]):
-    @property
-    def _collection_client(self) -> RequestQueueCollectionClientAsync:
-        return self._api_client.request_queues()
-
-    @property
-    def _default_id(self) -> str | None:
-        return self._configuration.default_request_queue_id
-
-    @property
-    def _storage_type(self) -> type[RequestQueue]:
-        return RequestQueue
-
-    @staticmethod
-    def _get_metadata(raw_metadata: dict | None) -> ApifyRequestQueueMetadata:
-        return ApifyRequestQueueMetadata.model_validate(raw_metadata)
-
-    def _get_resource_client(self, id: str) -> RequestQueueClientAsync:
-        # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
-        # It should persist across migrated or resurrected Actor runs on the Apify platform.
-        _api_max_client_key_length = 32
-        client_key = (self._configuration.actor_run_id or crypto_random_object_id(length=_api_max_client_key_length))[
-            :_api_max_client_key_length
-        ]
-        return self._api_client.request_queue(request_queue_id=id, client_key=client_key)

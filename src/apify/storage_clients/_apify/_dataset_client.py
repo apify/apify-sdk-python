@@ -7,19 +7,17 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
-from apify_client.clients import DatasetClientAsync
 from crawlee._utils.byte_size import ByteSize
 from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
-from crawlee.storages import Dataset
 
-from ._utils import ApiClientFactory
+from ._api_client_factory import create_api_client
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import DatasetCollectionClientAsync
+    from apify_client.clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
 
     from apify import Configuration
@@ -102,9 +100,13 @@ class ApifyDatasetClient(DatasetClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        api_client, _ = await DatasetApiClientFactory(
-            configuration=configuration, alias=alias, name=name, id=id
-        ).get_client_with_metadata()
+        api_client = await create_api_client(
+            storage_type='dataset',
+            configuration=configuration,
+            alias=alias,
+            name=name,
+            id=id,
+        )
 
         return cls(
             api_client=api_client,
@@ -256,24 +258,3 @@ class ApifyDatasetClient(DatasetClient):
                 last_chunk_size = payload_size + ByteSize(2)  # Add 2 bytes for [] wrapper.
 
         yield f'[{",".join(current_chunk)}]'
-
-
-class DatasetApiClientFactory(ApiClientFactory[DatasetClientAsync, DatasetMetadata]):
-    @property
-    def _collection_client(self) -> DatasetCollectionClientAsync:
-        return self._api_client.datasets()
-
-    @property
-    def _default_id(self) -> str | None:
-        return self._configuration.default_dataset_id
-
-    @property
-    def _storage_type(self) -> type[Dataset]:
-        return Dataset
-
-    @staticmethod
-    def _get_metadata(raw_metadata: dict | None) -> DatasetMetadata:
-        return DatasetMetadata.model_validate(raw_metadata)
-
-    def _get_resource_client(self, id: str) -> DatasetClientAsync:
-        return self._api_client.dataset(dataset_id=id)

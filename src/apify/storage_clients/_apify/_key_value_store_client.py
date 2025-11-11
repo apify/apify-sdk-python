@@ -7,22 +7,16 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
-from apify_client.clients import (
-    KeyValueStoreClientAsync,
-)
 from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
-from crawlee.storages import KeyValueStore
 
+from ._api_client_factory import create_api_client
 from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
-from ._utils import ApiClientFactory
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import (
-        KeyValueStoreCollectionClientAsync,
-    )
+    from apify_client.clients import KeyValueStoreClientAsync
 
     from apify import Configuration
 
@@ -95,9 +89,13 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        api_client, _ = await KvsApiClientFactory(
-            configuration=configuration, alias=alias, name=name, id=id
-        ).get_client_with_metadata()
+        api_client = await create_api_client(
+            storage_type='key_value_store',
+            configuration=configuration,
+            alias=alias,
+            name=name,
+            id=id,
+        )
         return cls(
             api_client=api_client,
             api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
@@ -117,12 +115,12 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             await self._api_client.delete()
 
     @override
-    async def get_value(self, key: str) -> KeyValueStoreRecord | None:
+    async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
         response = await self._api_client.get_record(key)
         return KeyValueStoreRecord.model_validate(response) if response else None
 
     @override
-    async def set_value(self, key: str, value: Any, content_type: str | None = None) -> None:
+    async def set_value(self, *, key: str, value: Any, content_type: str | None = None) -> None:
         async with self._lock:
             await self._api_client.set_record(
                 key=key,
@@ -131,7 +129,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             )
 
     @override
-    async def delete_value(self, key: str) -> None:
+    async def delete_value(self, *, key: str) -> None:
         async with self._lock:
             await self._api_client.delete_record(key=key)
 
@@ -169,10 +167,11 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             exclusive_start_key = list_key_page.next_exclusive_start_key
 
     @override
-    async def record_exists(self, key: str) -> bool:
+    async def record_exists(self, *, key: str) -> bool:
         return await self._api_client.record_exists(key=key)
 
-    async def get_public_url(self, key: str) -> str:
+    @override
+    async def get_public_url(self, *, key: str) -> str:
         """Get a URL for the given key that may be used to publicly access the value in the remote key-value store.
 
         Args:
@@ -182,24 +181,3 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             A public URL that can be used to access the value of the given key in the KVS.
         """
         return await self._api_client.get_record_public_url(key=key)
-
-
-class KvsApiClientFactory(ApiClientFactory[KeyValueStoreClientAsync, ApifyKeyValueStoreMetadata]):
-    @property
-    def _collection_client(self) -> KeyValueStoreCollectionClientAsync:
-        return self._api_client.key_value_stores()
-
-    @property
-    def _default_id(self) -> str | None:
-        return self._configuration.default_key_value_store_id
-
-    @property
-    def _storage_type(self) -> type[KeyValueStore]:
-        return KeyValueStore
-
-    @staticmethod
-    def _get_metadata(raw_metadata: dict | None) -> ApifyKeyValueStoreMetadata:
-        return ApifyKeyValueStoreMetadata.model_validate(raw_metadata)
-
-    def _get_resource_client(self, id: str) -> KeyValueStoreClientAsync:
-        return self._api_client.key_value_store(key_value_store_id=id)

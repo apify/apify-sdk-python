@@ -17,7 +17,7 @@ from crawlee import service_locator
 
 import apify._actor
 import apify.log
-from apify.storage_clients._apify._utils import AliasResolver
+from apify.storage_clients._apify._alias_resolver import AliasResolver
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
