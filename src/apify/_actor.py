@@ -98,8 +98,8 @@ class _ActorType:
     _is_rebooting = False
     """Whether the Actor is currently rebooting."""
 
-    _is_any_instance_initialized = False
-    """Whether any Actor instance was initialized."""
+    _initialized_instance_count = 0
+    """Count of currently initialized Actor instances."""
 
     def __init__(
         self,
@@ -175,7 +175,7 @@ class _ActorType:
         self.log.debug('Configuration initialized')
 
         # Warn about non-standard usage patterns.
-        if _ActorType._is_any_instance_initialized:
+        if self._is_any_instance_initialized:
             self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care.')
 
         # Update the global Actor proxy to refer to this instance.
@@ -197,7 +197,7 @@ class _ActorType:
 
         # Mark initialization as complete and update global state.
         self._is_initialized = True
-        _ActorType._is_any_instance_initialized = True
+        _ActorType._initialized_instance_count += 1
         return self
 
     async def __aexit__(
@@ -246,6 +246,9 @@ class _ActorType:
 
         await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
         self._is_initialized = False
+
+        # Update global state - decrement instance count (ensure it doesn't go negative)
+        _ActorType._initialized_instance_count = max(0, _ActorType._initialized_instance_count - 1)
 
         if self._exit_process:
             sys.exit(self.exit_code)
@@ -388,6 +391,11 @@ class _ActorType:
             '`service_locator.set_storage_client(SmartApifyStorageClient(...))` before entering Actor context or '
             'awaiting `Actor.init`.'
         )
+
+    @property
+    def _is_any_instance_initialized(self) -> bool:
+        """Whether any Actor instance is currently initialized."""
+        return self._initialized_instance_count > 0
 
     async def init(self) -> None:
         """Initialize the Actor without using context-manager syntax.
