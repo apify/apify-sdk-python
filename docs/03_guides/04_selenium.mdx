@@ -3,9 +3,9 @@ id: selenium
 title: Using Selenium
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import SeleniumExample from '!!raw-loader!./code/04_selenium.py';
+import SeleniumExample from '!!raw-loader!roa-loader!./code/04_selenium.py';
 
 [Selenium](https://www.selenium.dev/) is a tool for web automation and testing that can also be used for web scraping. It allows you to control a web browser programmatically and interact with web pages just as a human would.
 
@@ -37,9 +37,9 @@ This is a simple Actor that recursively scrapes titles from all linked websites,
 
 It uses Selenium ChromeDriver to open the pages in an automated Chrome browser, and to extract the title and anchor elements after the pages load.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {SeleniumExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Conclusion
 

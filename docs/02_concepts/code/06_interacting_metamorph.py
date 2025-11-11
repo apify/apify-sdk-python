@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -22,3 +24,7 @@ async def main() -> None:
         # This code will not be called, since the `metamorph` action terminates
         # the current Actor run container.
         Actor.log.info('You will not see this!')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

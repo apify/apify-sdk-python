@@ -3,16 +3,16 @@ id: storages
 title: Working with storages
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import OpeningStoragesExample from '!!raw-loader!./code/03_opening_storages.py';
-import DeletingStoragesExample from '!!raw-loader!./code/03_deleting_storages.py';
-import DatasetReadWriteExample from '!!raw-loader!./code/03_dataset_read_write.py';
-import DatasetExportsExample from '!!raw-loader!./code/03_dataset_exports.py';
-import KvsReadWriteExample from '!!raw-loader!./code/03_kvs_read_write.py';
-import KvsIteratingExample from '!!raw-loader!./code/03_kvs_iterating.py';
-import KvsPublicRecordExample from '!!raw-loader!./code/03_kvs_public_url.py';
-import RqExample from '!!raw-loader!./code/03_rq.py';
+import OpeningStoragesExample from '!!raw-loader!roa-loader!./code/03_opening_storages.py';
+import DeletingStoragesExample from '!!raw-loader!roa-loader!./code/03_deleting_storages.py';
+import DatasetReadWriteExample from '!!raw-loader!roa-loader!./code/03_dataset_read_write.py';
+import DatasetExportsExample from '!!raw-loader!roa-loader!./code/03_dataset_exports.py';
+import KvsReadWriteExample from '!!raw-loader!roa-loader!./code/03_kvs_read_write.py';
+import KvsIteratingExample from '!!raw-loader!roa-loader!./code/03_kvs_iterating.py';
+import KvsPublicRecordExample from '!!raw-loader!roa-loader!./code/03_kvs_public_url.py';
+import RqExample from '!!raw-loader!roa-loader!./code/03_rq.py';
 
 The `Actor` class provides methods to work either with the default storages of the Actor, or with any other storage, named or unnamed.
 
@@ -65,18 +65,18 @@ There are several methods for directly working with the default key-value store 
 
 The [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store) and [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) methods can be used to open any storage for reading and writing. You can either use them without arguments to open the default storages, or you can pass a storage ID or name to open another storage.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {OpeningStoragesExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Deleting storages
 
 To delete a storage, you can use the [`Dataset.drop`](../../reference/class/Dataset#drop),
 [`KeyValueStore.drop`](../../reference/class/KeyValueStore#drop) or [`RequestQueue.drop`](../../reference/class/RequestQueue#drop) methods.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {DeletingStoragesExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Working with datasets
 
@@ -90,9 +90,9 @@ To read data from a dataset, you can use the [`Dataset.get_data`](../../referenc
 
 To get an iterator of the data, you can use the [`Dataset.iterate_items`](../../reference/class/Dataset#iterate_items) method.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {DatasetReadWriteExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ### Exporting items
 
@@ -100,9 +100,9 @@ You can also export the dataset items into a key-value store, as either a CSV or
 using the [`Dataset.export_to_csv`](../../reference/class/Dataset#export_to_csv)
 or [`Dataset.export_to_json`](../../reference/class/Dataset#export_to_json) method.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {DatasetExportsExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Working with key-value stores
 
@@ -116,27 +116,27 @@ To write records into a key-value store, you can use the [`KeyValueStore.set_val
 You can set the content type of a record with the `content_type` argument.
 To delete a record, set its value to `None`.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {KvsReadWriteExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ### Iterating keys
 
 To get an iterator of the key-value store record keys,
 you can use the [`KeyValueStore.iterate_keys`](../../reference/class/KeyValueStore#iterate_keys) method.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {KvsIteratingExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ### Public URLs of records
 
 To get a publicly accessible URL of a key-value store record,
 you can use the [`KeyValueStore.get_public_url`](../../reference/class/KeyValueStore#get_public_url) method.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {KvsPublicRecordExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Working with request queues
 
@@ -168,6 +168,6 @@ To check if all the requests in the queue are handled, you can use the [`Request
 
 ### Full example
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {RqExample}
-</CodeBlock>
+</RunnableCodeBlock>

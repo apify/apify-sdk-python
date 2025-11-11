@@ -3,9 +3,9 @@ id: beautifulsoup-httpx
 title: Using BeautifulSoup with HTTPX
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import BeautifulSoupHttpxExample from '!!raw-loader!./code/01_beautifulsoup_httpx.py';
+import BeautifulSoupHttpxExample from '!!raw-loader!roa-loader!./code/01_beautifulsoup_httpx.py';
 
 In this guide, you'll learn how to use the [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) library with the [HTTPX](https://www.python-httpx.org/) library in your Apify Actors.
 
@@ -21,9 +21,9 @@ To create an Actor which uses those libraries, start from the [BeautifulSoup & P
 
 Below is a simple Actor that recursively scrapes titles from all linked websites, up to a specified maximum depth, starting from URLs provided in the Actor input. It uses [HTTPX](https://www.python-httpx.org/) for fetching pages and [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) for parsing their content to extract titles and links to other pages.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {BeautifulSoupHttpxExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Conclusion
 

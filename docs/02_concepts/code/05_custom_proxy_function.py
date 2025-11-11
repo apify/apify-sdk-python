@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from apify import Actor, Request
 
 
@@ -14,15 +16,19 @@ async def custom_new_url_function(
 
 async def main() -> None:
     async with Actor:
-        proxy_configuration = await Actor.create_proxy_configuration(
+        proxy_cfg = await Actor.create_proxy_configuration(
             new_url_function=custom_new_url_function,  # type: ignore[arg-type]
         )
 
-        if not proxy_configuration:
+        if not proxy_cfg:
             raise RuntimeError('No proxy configuration available.')
 
-        proxy_url_with_session = await proxy_configuration.new_url('a')
+        proxy_url_with_session = await proxy_cfg.new_url('a')
         Actor.log.info(f'Using proxy URL: {proxy_url_with_session}')
 
-        proxy_url_without_session = await proxy_configuration.new_url()
+        proxy_url_without_session = await proxy_cfg.new_url()
         Actor.log.info(f'Using proxy URL: {proxy_url_without_session}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -28,3 +30,7 @@ async def main() -> None:
             count=len(result),
         )
         # highlight-end
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

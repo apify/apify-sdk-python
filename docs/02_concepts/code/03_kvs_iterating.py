@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -16,3 +18,7 @@ async def main() -> None:
 
         async for key, info in kvs.iterate_keys():
             Actor.log.info(f'key={key}, info={info}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
