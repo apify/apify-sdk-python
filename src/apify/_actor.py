@@ -174,7 +174,7 @@ class _ActorType:
         self.log.debug('Configuration initialized')
 
         # Warn about non-standard usage patterns.
-        if self._is_any_instance_initialized:
+        if _ActorType._is_any_instance_initialized:
             self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care.')
 
         # Update the global Actor proxy to refer to this instance.
