@@ -34,9 +34,8 @@ from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
-from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
 from apify.storage_clients._file_system import ApifyFileSystemStorageClient
-from apify.storage_clients._smart_apify._storage_client import SmartApifyStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
@@ -98,8 +97,8 @@ class _ActorType:
     _is_rebooting = False
     """Whether the Actor is currently rebooting."""
 
-    _initialized_instance_count = 0
-    """Count of currently initialized Actor instances."""
+    _is_any_instance_initialized = False
+    """Whether any Actor instance is currently initialized."""
 
     def __init__(
         self,
@@ -197,7 +196,7 @@ class _ActorType:
 
         # Mark initialization as complete and update global state.
         self._is_initialized = True
-        _ActorType._initialized_instance_count += 1
+        _ActorType._is_any_instance_initialized = True
         return self
 
     async def __aexit__(
@@ -246,9 +245,7 @@ class _ActorType:
 
         await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
         self._is_initialized = False
-
-        # Update global state - decrement instance count (ensure it doesn't go negative)
-        _ActorType._initialized_instance_count = max(0, _ActorType._initialized_instance_count - 1)
+        _ActorType._is_any_instance_initialized = False
 
         if self._exit_process:
             sys.exit(self.exit_code)
@@ -391,11 +388,6 @@ class _ActorType:
             '`service_locator.set_storage_client(SmartApifyStorageClient(...))` before entering Actor context or '
             'awaiting `Actor.init`.'
         )
-
-    @property
-    def _is_any_instance_initialized(self) -> bool:
-        """Whether any Actor instance is currently initialized."""
-        return self._initialized_instance_count > 0
 
     async def init(self) -> None:
         """Initialize the Actor without using context-manager syntax.
