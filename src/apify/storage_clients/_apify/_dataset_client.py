@@ -12,7 +12,7 @@ from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
-from ._api_client_factory import create_api_client
+from ._api_client_creation import create_storage_api_client
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -100,8 +100,8 @@ class ApifyDatasetClient(DatasetClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        api_client = await create_api_client(
-            storage_type='dataset',
+        api_client = await create_storage_api_client(
+            storage_type='Dataset',
             configuration=configuration,
             alias=alias,
             name=name,

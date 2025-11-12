@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from asyncio import Lock
 from logging import getLogger
-from typing import TYPE_CHECKING, ClassVar, overload
+from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
 from apify_client import ApifyClientAsync
 
@@ -22,8 +22,6 @@ if TYPE_CHECKING:
         RequestQueueClientAsync,
         RequestQueueCollectionClientAsync,
     )
-    from crawlee.storages import Dataset, KeyValueStore, RequestQueue
-
 
 logger = getLogger(__name__)
 
@@ -32,7 +30,18 @@ logger = getLogger(__name__)
 async def open_by_alias(
     *,
     alias: str,
-    storage_class: type[KeyValueStore],
+    storage_type: Literal['Dataset'],
+    collection_client: DatasetCollectionClientAsync,
+    get_resource_client_by_id: Callable[[str], DatasetClientAsync],
+    configuration: Configuration,
+) -> DatasetClientAsync: ...
+
+
+@overload
+async def open_by_alias(
+    *,
+    alias: str,
+    storage_type: Literal['KeyValueStore'],
     collection_client: KeyValueStoreCollectionClientAsync,
     get_resource_client_by_id: Callable[[str], KeyValueStoreClientAsync],
     configuration: Configuration,
@@ -43,28 +52,17 @@ async def open_by_alias(
 async def open_by_alias(
     *,
     alias: str,
-    storage_class: type[RequestQueue],
+    storage_type: Literal['RequestQueue'],
     collection_client: RequestQueueCollectionClientAsync,
     get_resource_client_by_id: Callable[[str], RequestQueueClientAsync],
     configuration: Configuration,
 ) -> RequestQueueClientAsync: ...
 
 
-@overload
 async def open_by_alias(
     *,
     alias: str,
-    storage_class: type[Dataset],
-    collection_client: DatasetCollectionClientAsync,
-    get_resource_client_by_id: Callable[[str], DatasetClientAsync],
-    configuration: Configuration,
-) -> DatasetClientAsync: ...
-
-
-async def open_by_alias(
-    *,
-    alias: str,
-    storage_class: type[Dataset | KeyValueStore | RequestQueue],
+    storage_type: Literal['Dataset', 'KeyValueStore', 'RequestQueue'],
     collection_client: (
         KeyValueStoreCollectionClientAsync | RequestQueueCollectionClientAsync | DatasetCollectionClientAsync
     ),
@@ -78,7 +76,7 @@ async def open_by_alias(
 
     Args:
         alias: The alias name for the storage (e.g., '__default__', 'my-storage').
-        storage_class: The storage class type (KeyValueStore, RequestQueue, or Dataset).
+        storage_type: The type of storage to open.
         collection_client: The Apify API collection client for the storage type.
         get_resource_client_by_id: A callable that takes a storage ID and returns the resource client.
         configuration: Configuration object containing API credentials and settings.
@@ -91,7 +89,7 @@ async def open_by_alias(
         TypeError: If API response format is unexpected.
     """
     async with AliasResolver(
-        storage_type=storage_class,
+        storage_type=storage_type,
         alias=alias,
         configuration=configuration,
     ) as alias_resolver:
@@ -125,8 +123,14 @@ class AliasResolver:
     The purpose of this is class is to ensure that alias storages are created with correct id. This is achieved by using
     default kvs as a storage for global mapping of aliases to storage ids. Same mapping is also kept in memory to avoid
     unnecessary calls to API and also have limited support of alias storages when not running on Apify platform. When on
-     Apify platform, the storages created with alias are accessible by the same alias even after migration or reboot.
+    Apify platform, the storages created with alias are accessible by the same alias even after migration or reboot.
     """
+
+    _ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
+    """Key used for storing the alias mapping in the default kvs."""
+
+    _ALIAS_STORAGE_KEY_SEPARATOR = ','
+    """Separator used in the storage key for storing the alias mapping."""
 
     _alias_map: ClassVar[dict[str, str]] = {}
     """Map containing pre-existing alias storages and their ids. Global for all instances."""
@@ -134,12 +138,9 @@ class AliasResolver:
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
-    _ALIAS_STORAGE_KEY_SEPARATOR = ','
-    _ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
-
     def __init__(
         self,
-        storage_type: type[Dataset | KeyValueStore | RequestQueue],
+        storage_type: Literal['Dataset', 'KeyValueStore', 'RequestQueue'],
         alias: str,
         configuration: Configuration,
     ) -> None:
@@ -248,7 +249,7 @@ class AliasResolver:
         """Get a unique storage key used for storing the alias in the mapping."""
         return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
             [
-                self._storage_type.__name__,
+                self._storage_type,
                 self._alias,
                 self._additional_cache_key,
             ]

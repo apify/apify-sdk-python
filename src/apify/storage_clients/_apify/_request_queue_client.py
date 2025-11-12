@@ -7,7 +7,7 @@ from typing_extensions import override
 
 from crawlee.storage_clients._base import RequestQueueClient
 
-from ._api_client_factory import create_api_client
+from ._api_client_creation import create_storage_api_client
 from ._models import ApifyRequestQueueMetadata, RequestQueueStats
 from ._request_queue_shared_client import ApifyRequestQueueSharedClient
 from ._request_queue_single_client import ApifyRequestQueueSingleClient
@@ -222,8 +222,8 @@ class ApifyRequestQueueClient(RequestQueueClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        api_client = await create_api_client(
-            storage_type='request_queue',
+        api_client = await create_storage_api_client(
+            storage_type='RequestQueue',
             configuration=configuration,
             alias=alias,
             name=name,
