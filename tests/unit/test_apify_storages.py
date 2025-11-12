@@ -119,11 +119,8 @@ async def test_multiple_input_file_formats_cause_error(input_test_configuration:
 
     # Create two input files in the KVS directory
     kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
-    with open(kvs_path / f'{input_test_configuration.input_key}', 'wb') as f:  # noqa: ASYNC230 # It is ok for a test to use sync I/O
-        f.write(EXAMPLE_BYTES_INPUT)
-
-    with open(kvs_path / f'{input_test_configuration.input_key}.json', 'w', encoding='utf-8') as f:  # noqa: ASYNC230 # It is ok for a test to use sync I/O
-        f.write(EXAMPLE_JSON_INPUT)
+    (kvs_path / f'{input_test_configuration.input_key}').write_bytes(EXAMPLE_BYTES_INPUT)
+    (kvs_path / f'{input_test_configuration.input_key}.json').write_text(EXAMPLE_JSON_INPUT)
 
     with pytest.raises(RuntimeError, match=r'Only one input file is allowed. Following input files found: .*'):
         await KeyValueStore.open(
@@ -138,8 +135,7 @@ async def test_txt_input_missing_metadata(input_test_configuration: Configuratio
     # Create custom key file without metadata in the KVS directory
     kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
     input_file = kvs_path / f'{input_test_configuration.input_key}.txt'
-    with open(input_file, 'w', encoding='utf-8') as f:  # noqa: ASYNC230 # It is ok for a test to use sync I/O
-        f.write(EXAMPLE_TXT_INPUT)
+    input_file.write_text(EXAMPLE_TXT_INPUT)
     last_modified = input_file.stat().st_mtime
 
     # Make sure that filesystem has enough time to detect changes
@@ -159,8 +155,7 @@ async def test_json_input_missing_metadata(input_test_configuration: Configurati
     # Create custom key file without metadata in the KVS directory
     kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
     input_file = kvs_path / f'{input_test_configuration.input_key}{suffix}'
-    with open(input_file, 'w', encoding='utf-8') as f:  # noqa: ASYNC230 # It is ok for a test to use sync I/O
-        f.write(EXAMPLE_JSON_INPUT)
+    input_file.write_text(EXAMPLE_JSON_INPUT)
     last_modified = input_file.stat().st_mtime
 
     # Make sure that filesystem has enough time to detect changes
@@ -180,8 +175,7 @@ async def test_bytes_input_missing_metadata(input_test_configuration: Configurat
     # Create custom key file without metadata in the KVS directory
     kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
     input_file = kvs_path / f'{input_test_configuration.input_key}{suffix}'
-    with open(input_file, 'wb') as f:  # noqa: ASYNC230 # It is ok for a test to use sync I/O
-        f.write(EXAMPLE_BYTES_INPUT)
+    input_file.write_bytes(EXAMPLE_BYTES_INPUT)
     last_modified = input_file.stat().st_mtime
 
     # Make sure that filesystem has enough time to detect changes
@@ -192,3 +186,19 @@ async def test_bytes_input_missing_metadata(input_test_configuration: Configurat
     )
     assert await kvs.get_value(input_test_configuration.input_key) == EXAMPLE_BYTES_INPUT
     assert last_modified == input_file.stat().st_mtime, 'File was modified or recreated.'
+
+
+async def test_pre_existing_input_not_deleted_in_actor_context(input_test_configuration: Configuration) -> None:
+    """Test that pre-existing INPUT file is never deleted as long as the Actor context was started first."""
+
+    # Create custom key file without metadata in the KVS directory
+    kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
+    input_file = kvs_path / f'{input_test_configuration.input_key}'
+    input_file.write_bytes(EXAMPLE_BYTES_INPUT)
+
+    async with Actor(configuration=input_test_configuration):
+        # Storage client that is not aware of the input file and could delete it during purge.
+        storage_client = FileSystemStorageClient()
+        # Unless already implicitly opened by Actor, the input file would be deleted.
+        await KeyValueStore.open(storage_client=storage_client, configuration=input_test_configuration)
+        assert await Actor.get_input() == EXAMPLE_BYTES_INPUT

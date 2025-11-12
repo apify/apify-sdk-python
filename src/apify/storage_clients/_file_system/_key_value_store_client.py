@@ -130,7 +130,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         for file_path in chain(
             path_to_kvs.glob(f'{configuration.input_key}.*'), path_to_kvs.glob(f'{configuration.input_key}')
         ):
-            if file_path.suffix == f'.{METADATA_FILENAME}':
+            if str(file_path).endswith(METADATA_FILENAME):
                 # Ignore metadata files
                 continue
             found_input_files.add(file_path.name)
