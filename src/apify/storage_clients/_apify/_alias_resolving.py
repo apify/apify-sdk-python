@@ -105,16 +105,8 @@ async def open_by_alias(
         # Create new unnamed storage and store alias mapping
         raw_metadata = await collection_client.get_or_create()
 
-        # Determine metadata class to parse the ID
-        if isinstance(raw_metadata, dict):
-            storage_id = raw_metadata.get('id')
-            if not storage_id:
-                raise ValueError('Failed to get storage ID from API response')
-        else:
-            raise TypeError('Unexpected API response format')
-
-        await alias_resolver.store_mapping(storage_id=storage_id)
-        return get_resource_client_by_id(storage_id)
+        await alias_resolver.store_mapping(storage_id=raw_metadata['id'])
+        return get_resource_client_by_id(raw_metadata['id'])
 
 
 class AliasResolver:
