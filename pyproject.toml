@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
 ]
 keywords = [
@@ -39,7 +40,7 @@ dependencies = [
     "crawlee>=1.0.4,<2.0.0",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
-    "impit>=0.6.1",
+    "impit>=0.8.0",
     "lazy-object-proxy>=1.11.0",
     "more_itertools>=10.2.0",
     "typing-extensions>=4.1.0",

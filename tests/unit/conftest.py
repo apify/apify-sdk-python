@@ -158,7 +158,12 @@ class ApifyClientAsyncPatcher:
                         return original_replacement_method(*args, **kwargs)
             else:
                 original_return_value = return_value
-                return_value = asyncio.Future()
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    # No event loop is running, create a new one
+                    loop = asyncio.new_event_loop()
+                return_value = loop.create_future()
                 return_value.set_result(original_return_value)
 
         if not replacement_method:
