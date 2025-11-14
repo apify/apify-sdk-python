@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -11,3 +13,7 @@ async def main() -> None:
 
         # Log the Actor run ID.
         Actor.log.info(f'Actor run ID: {actor_run.id}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

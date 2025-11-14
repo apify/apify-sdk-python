@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -9,3 +11,7 @@ async def main() -> None:
         # Get information about the current user.
         me = await user_client.get()
         Actor.log.info(f'User: {me}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -3,9 +3,9 @@ id: parsel-impit
 title: Using Parsel with Impit
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import ParselImpitExample from '!!raw-loader!./code/02_parsel_impit.py';
+import ParselImpitExample from '!!raw-loader!roa-loader!./code/02_parsel_impit.py';
 
 In this guide, you'll learn how to combine the [Parsel](https://github.com/scrapy/parsel) and [Impit](https://github.com/apify/impit) libraries when building Apify Actors.
 
@@ -19,9 +19,9 @@ In this guide, you'll learn how to combine the [Parsel](https://github.com/scrap
 
 The following example shows a simple Actor that recursively scrapes titles from linked pages, up to a user-defined maximum depth. It uses [Impit](https://github.com/apify/impit) to fetch pages and [Parsel](https://github.com/scrapy/parsel) to extract titles and discover new links.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {ParselImpitExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Conclusion
 

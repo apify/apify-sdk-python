@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 TOKEN = 'ANOTHER_USERS_TOKEN'
@@ -12,3 +14,7 @@ async def main() -> None:
         # Get information about the another user.
         them = await user_client.get()
         Actor.log.info(f'Another user: {them}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

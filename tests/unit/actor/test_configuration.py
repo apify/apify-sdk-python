@@ -237,7 +237,7 @@ def test_apify_configuration_is_always_used(caplog: pytest.LogCaptureFixture) ->
     assert Actor.configuration.max_used_cpu_ratio == max_used_cpu_ratio
     assert isinstance(Actor.configuration, ApifyConfiguration)
     assert (
-        'Non Apify Configration is set in the `service_locator` in the SDK context. '
+        'Non Apify Configuration is set in the `service_locator` in the SDK context. '
         'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
         'service_locator.set_configuration'
     ) in caplog.messages

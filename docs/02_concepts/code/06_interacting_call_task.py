@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -17,3 +19,7 @@ async def main() -> None:
         dataset_client = run_client.dataset()
         items = await dataset_client.list_items()
         Actor.log.info(f'Task run dataset items: {items}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -3,9 +3,9 @@ id: running-webserver
 title: Running webserver in your Actor
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import WebserverExample from '!!raw-loader!./code/09_webserver.py';
+import WebserverExample from '!!raw-loader!roa-loader!./code/09_webserver.py';
 
 Each Actor run on the Apify platform is assigned a unique hard-to-guess URL (for example `https://8segt5i81sokzm.runs.apify.net`), which enables HTTP access to an optional web server running inside the Actor run's container.
 
@@ -21,6 +21,6 @@ The web server running inside the container must listen at the port defined by t
 
 The following example demonstrates how to start a simple web server in your Actor,which will respond to every GET request with the number of items that the Actor has processed so far:
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {WebserverExample}
-</CodeBlock>
+</RunnableCodeBlock>

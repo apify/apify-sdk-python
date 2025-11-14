@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -14,3 +16,7 @@ async def main() -> None:
         # Iterate over the second half
         second_half = [item async for item in dataset.iterate_items(offset=500)]
         Actor.log.info(f'The second half of items = {second_half}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

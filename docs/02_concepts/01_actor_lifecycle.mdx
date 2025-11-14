@@ -3,21 +3,21 @@ id: actor-lifecycle
 title: Actor lifecycle
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-import ClassContextExample from '!!raw-loader!./code/01_class_context.py';
-import ClassManualExample from '!!raw-loader!./code/01_class_manual.py';
-import InstanceContextExample from '!!raw-loader!./code/01_instance_context.py';
-import InstanceManualExample from '!!raw-loader!./code/01_instance_manual.py';
+import ClassContextExample from '!!raw-loader!roa-loader!./code/01_class_context.py';
+import ClassManualExample from '!!raw-loader!roa-loader!./code/01_class_manual.py';
+import InstanceContextExample from '!!raw-loader!roa-loader!./code/01_instance_context.py';
+import InstanceManualExample from '!!raw-loader!roa-loader!./code/01_instance_manual.py';
 
-import ErrorHandlingContextExample from '!!raw-loader!./code/01_error_handling_context.py';
-import ErrorHandlingManualExample from '!!raw-loader!./code/01_error_handling_manual.py';
+import ErrorHandlingContextExample from '!!raw-loader!roa-loader!./code/01_error_handling_context.py';
+import ErrorHandlingManualExample from '!!raw-loader!roa-loader!./code/01_error_handling_manual.py';
 
-import RebootExample from '!!raw-loader!./code/01_reboot.py';
+import RebootExample from '!!raw-loader!roa-loader!./code/01_reboot.py';
 
-import StatusMessageExample from '!!raw-loader!./code/01_status_message.py';
+import StatusMessageExample from '!!raw-loader!roa-loader!./code/01_status_message.py';
 
 This guide explains how an **Apify Actor** starts, runs, and shuts down, describing the complete Actor lifecycle. For information about the core concepts such as Actors, the Apify Console, storages, and events, check out the [Apify platform documentation](https://docs.apify.com/platform).
 
@@ -31,14 +31,14 @@ When the Actor exits, either normally or due to an exception, the SDK performs a
 
 <Tabs groupId="request_queue">
     <TabItem value="actor_class_with_context_manager" label="Actor class with context manager" default>
-        <CodeBlock className="language-python">
+        <RunnableCodeBlock className="language-python" language="python">
             {ClassContextExample}
-        </CodeBlock>
+        </RunnableCodeBlock>
     </TabItem>
     <TabItem value="actor_class_with_manual_init_exit" label="Actor class with manual init/exit">
-        <CodeBlock className="language-python">
+        <RunnableCodeBlock className="language-python" language="python">
             {ClassManualExample}
-        </CodeBlock>
+        </RunnableCodeBlock>
     </TabItem>
 </Tabs>
 
@@ -46,14 +46,14 @@ You can also create an [`Actor`](https://docs.apify.com/sdk/python/reference/cla
 
 <Tabs groupId="request_queue">
     <TabItem value="actor_instance_with_context_manager" label="Actor instance with context manager" default>
-        <CodeBlock className="language-python">
+        <RunnableCodeBlock className="language-python" language="python">
             {InstanceContextExample}
-        </CodeBlock>
+        </RunnableCodeBlock>
     </TabItem>
     <TabItem value="actor_instance_with_manual_init_exit" label="Actor instance with manual init/exit">
-        <CodeBlock className="language-python">
+        <RunnableCodeBlock className="language-python" language="python">
             {InstanceManualExample}
-        </CodeBlock>
+        </RunnableCodeBlock>
     </TabItem>
 </Tabs>
 
@@ -72,11 +72,11 @@ Catch exceptions only when necessary - for example, to retry network timeouts or
 
 Below is a minimal context-manager example where an unhandled exception automatically fails the run, followed by a manual pattern giving you more control.
 
-<CodeBlock className="language-python">{ErrorHandlingContextExample}</CodeBlock>
+<RunnableCodeBlock className="language-python" language="python">{ErrorHandlingContextExample}</RunnableCodeBlock>
 
 If you need explicit control over exit codes or status messages, you can manage the Actor manually using [`Actor.init`](https://docs.apify.com/sdk/python/reference/class/Actor#init), [`Actor.exit`](https://docs.apify.com/sdk/python/reference/class/Actor#exit), and [`Actor.fail`](https://docs.apify.com/sdk/python/reference/class/Actor#fail).
 
-<CodeBlock className="language-python">{ErrorHandlingManualExample}</CodeBlock>
+<RunnableCodeBlock className="language-python" language="python">{ErrorHandlingManualExample}</RunnableCodeBlock>
 
 ## Reboot
 
@@ -84,7 +84,7 @@ Rebooting (available on the Apify platform only) instructs the platform worker t
 
 Before triggering a reboot, persist any essential state externally (e.g., to the key-value store or dataset), as all in-memory data is lost after reboot. The example below tracks a reboot counter in the default key-value store and allows at most three restarts before exiting normally.
 
-<CodeBlock className="language-python">{RebootExample}</CodeBlock>
+<RunnableCodeBlock className="language-python" language="python">{RebootExample}</RunnableCodeBlock>
 
 ## Status message
 
@@ -94,7 +94,7 @@ Update the status only when the user's understanding of progress changes - avoid
 
 The SDK optimizes updates by sending an API request only when the message text changes, so repeating the same message incurs no additional cost.
 
-<CodeBlock className="language-python">{StatusMessageExample}</CodeBlock>
+<RunnableCodeBlock className="language-python" language="python">{StatusMessageExample}</RunnableCodeBlock>
 
 ## Conclusion
 

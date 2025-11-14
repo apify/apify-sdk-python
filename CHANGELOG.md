@@ -3,7 +3,19 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
-## 3.0.4 - **not yet released**
+## 3.0.5 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix crash in `Actor.push_data` with PPE and a strict charging limit ([#664](https://github.com/apify/apify-sdk-python/pull/664)) ([8f2e4b2](https://github.com/apify/apify-sdk-python/commit/8f2e4b2cc1f62e9a09656b4d3334caf840338a3a)) by [@janbuchar](https://github.com/janbuchar)
+- Avoid charge calls with count=0 ([#665](https://github.com/apify/apify-sdk-python/pull/665)) ([a0f894e](https://github.com/apify/apify-sdk-python/commit/a0f894e879225eb1b639c4f897a1dd0103903c78)) by [@janbuchar](https://github.com/janbuchar)
+- Fix Actor.charge behavior when the budget is overdrawn ([#668](https://github.com/apify/apify-sdk-python/pull/668)) ([88e6ba3](https://github.com/apify/apify-sdk-python/commit/88e6ba340a68dcf5e272ee947f4e38ce0f3dea46)) by [@janbuchar](https://github.com/janbuchar)
+- Fix detection of whether any instance is initialized ([#675](https://github.com/apify/apify-sdk-python/pull/675)) ([b2355cf](https://github.com/apify/apify-sdk-python/commit/b2355cf697aac6383a404e1bbbefbecd5f38c760)) by [@vdusek](https://github.com/vdusek), closes [#674](https://github.com/apify/apify-sdk-python/issues/674)
+- Update apify client to fix rare `JSONDecodeError` ([#679](https://github.com/apify/apify-sdk-python/pull/679)) ([17c13d1](https://github.com/apify/apify-sdk-python/commit/17c13d1ecfbe231fdc4f91c5a24abe65b8abdb26)) by [@Pijukatel](https://github.com/Pijukatel), closes [#672](https://github.com/apify/apify-sdk-python/issues/672)
+
+
+<!-- git-cliff-unreleased-end -->
+## [3.0.4](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.4) (2025-11-03)
 
 ### 🐛 Bug Fixes
 
@@ -15,7 +27,6 @@ All notable changes to this project will be documented in this file.
 - Use Apify-provided environment variables to obtain PPE pricing information ([#644](https://github.com/apify/apify-sdk-python/pull/644)) ([0c32f29](https://github.com/apify/apify-sdk-python/commit/0c32f29d6a316f5bacc931595d694f262c925b2b)) by [@Mantisus](https://github.com/Mantisus), closes [#614](https://github.com/apify/apify-sdk-python/issues/614)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.0.3](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.3) (2025-10-21)
 
 ### 🐛 Bug Fixes

@@ -32,7 +32,7 @@ class TitleSpider(Spider):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        """A default costructor.
+        """A default constructor.
 
         Args:
             start_urls: URLs to start the scraping from.

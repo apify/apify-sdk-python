@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -23,3 +25,7 @@ async def main() -> None:
 
         # Delete the `automatic_text` value
         await kvs.set_value('automatic_text', None)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

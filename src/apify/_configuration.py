@@ -464,7 +464,7 @@ class Configuration(CrawleeConfiguration):
     def get_global_configuration(cls) -> Configuration:
         """Retrieve the global instance of the configuration.
 
-        This method ensures that ApifyConfigration is returned, even if CrawleeConfiguration was set in the
+        This method ensures that ApifyConfiguration is returned, even if CrawleeConfiguration was set in the
         service locator.
         """
         global_configuration = service_locator.get_configuration()
@@ -474,7 +474,7 @@ class Configuration(CrawleeConfiguration):
             return global_configuration
 
         logger.warning(
-            'Non Apify Configration is set in the `service_locator` in the SDK context. '
+            'Non Apify Configuration is set in the `service_locator` in the SDK context. '
             'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
             'service_locator.set_configuration'
         )

@@ -172,7 +172,7 @@ async def test_rotating_custom_urls() -> None:
 
 
 async def test_rotating_custom_urls_with_sessions() -> None:
-    sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
+    sessions = ['session_01', 'session_02', 'session_03', 'session_04', 'session_05', 'session_06']
     proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
@@ -328,7 +328,7 @@ async def test_new_proxy_info_rotating_urls() -> None:
 
 
 async def test_new_proxy_info_rotating_urls_with_sessions() -> None:
-    sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
+    sessions = ['session_01', 'session_02', 'session_03', 'session_04', 'session_05', 'session_06']
     proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
@@ -443,7 +443,7 @@ async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, 
 
 
 @pytest.mark.usefixtures('patched_impit_client')
-async def test_initialize_prefering_password_from_env_over_calling_api(
+async def test_initialize_preferring_password_from_env_over_calling_api(
     monkeypatch: pytest.MonkeyPatch,
     httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
