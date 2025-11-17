@@ -9,8 +9,8 @@ from cachetools import LRUCache
 
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
+from ._utils import unique_key_to_request_id
 from apify import Request
-from apify.storage_clients._apify._utils import unique_key_to_request_id
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

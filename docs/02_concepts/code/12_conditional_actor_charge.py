@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -16,3 +18,7 @@ async def main() -> None:
         elif charged_items < (Actor.configuration.max_paid_dataset_items or 0):
             await Actor.push_data({'hello': 'world'})
             charged_items += 1
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

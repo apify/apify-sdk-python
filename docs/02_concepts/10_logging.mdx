@@ -3,12 +3,12 @@ id: logging
 title: Logging
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import LogConfigExample from '!!raw-loader!./code/10_log_config.py';
-import LoggerUsageExample from '!!raw-loader!./code/10_logger_usage.py';
-import RedirectLog from '!!raw-loader!./code/10_redirect_log.py';
-import RedirectLogExistingRun from '!!raw-loader!./code/10_redirect_log_existing_run.py';
+import LogConfigExample from '!!raw-loader!roa-loader!./code/10_log_config.py';
+import LoggerUsageExample from '!!raw-loader!roa-loader!./code/10_logger_usage.py';
+import RedirectLog from '!!raw-loader!roa-loader!./code/10_redirect_log.py';
+import RedirectLogExistingRun from '!!raw-loader!roa-loader!./code/10_redirect_log_existing_run.py';
 
 The Apify SDK is logging useful information through the [`logging`](https://docs.python.org/3/library/logging.html) module from Python's standard library, into the logger with the name `apify`.
 
@@ -30,9 +30,9 @@ By default, only the log message is printed out to the output, without any forma
 
 To configure and test the logger, you can use this snippet:
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {LogConfigExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 This configuration will cause all levels of messages to be printed to the standard output, with some pretty formatting.
 
@@ -42,9 +42,9 @@ Here you can see how all the log levels would look like.
 
 You can use the `extra` argument for all log levels, it's not specific to the warning level. When you use `Logger.exception`, there is no need to pass the Exception object to the log manually, it will automatiacally infer it from the current execution context and print the exception details.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {LoggerUsageExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 Result:
 
@@ -93,9 +93,9 @@ In some situations, one Actor is going to start one or more other Actors and wai
 
 Typical use case for log redirection is to call another Actor using the [`Actor.call`](../../reference/class/Actor#call) method. This method has an optional `logger` argument, which is by default set to the `default` literal. This means that the logs of the called Actor will be automatically redirected to the parent Actor's logs with default formatting and filtering. If you set the `logger` argument to `None`, then no log redirection happens. The third option is to pass your own `Logger` instance with the possibility to define your own formatter, filter, and handler. Below you can see those three possible ways of log redirection when starting another Actor run through [`Actor.call`](../../reference/class/Actor#call).
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {RedirectLog}
-</CodeBlock>
+</RunnableCodeBlock>
 
 Each default redirect logger log entry will have a specific format. After the timestamp, it will contain cyan colored text that will contain the redirect information - the other actor's name and the run ID. The rest of the log message will be printed in the same manner as the parent Actor's logger is configured.
 
@@ -109,6 +109,6 @@ In some cases, you might want to connect to an already running Actor run and red
 
 You can further decide whether you want to redirect just new logs of the ongoing Actor run, or if you also want to redirect historical logs from that Actor's run, so all logs it has produced since it was started. Both options are shown in the example code below.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {RedirectLogExistingRun}
-</CodeBlock>
+</RunnableCodeBlock>

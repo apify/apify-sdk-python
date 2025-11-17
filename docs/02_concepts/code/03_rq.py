@@ -48,3 +48,7 @@ async def main() -> None:
                 # processed again.
                 Actor.log.warning('Request failed, will retry!')
                 await queue.reclaim_request(request)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

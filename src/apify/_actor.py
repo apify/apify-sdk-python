@@ -34,9 +34,8 @@ from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
-from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
 from apify.storage_clients._file_system import ApifyFileSystemStorageClient
-from apify.storage_clients._smart_apify._storage_client import SmartApifyStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
@@ -95,12 +94,6 @@ class _ActorType:
     ```
     """
 
-    _is_rebooting = False
-    """Whether the Actor is currently rebooting."""
-
-    _is_any_instance_initialized = False
-    """Whether any Actor instance was initialized."""
-
     def __init__(
         self,
         configuration: Configuration | None = None,
@@ -139,8 +132,14 @@ class _ActorType:
 
         self._apify_client: ApifyClientAsync | None = None
 
-        self._is_exiting = False
         self._is_initialized = False
+        """Whether any Actor instance is currently initialized."""
+
+        self._is_rebooting = False
+        """Whether the Actor is currently rebooting."""
+
+        self._is_exiting = False
+        """Whether the Actor is currently exiting."""
 
     async def __aenter__(self) -> Self:
         """Enter the Actor context.
@@ -169,14 +168,10 @@ class _ActorType:
         # Configure logging based on the configuration, any logs before this point are lost.
         if self._configure_logging:
             _configure_logging()
-        self.log.debug('Logging configured')
+            self.log.debug('Logging configured')
 
         self.log.info('Initializing Actor', extra=get_system_info())
         self.log.debug('Configuration initialized')
-
-        # Warn about non-standard usage patterns.
-        if _ActorType._is_any_instance_initialized:
-            self.log.warning('Repeated Actor initialization detected - this is non-standard usage, proceed with care.')
 
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self
@@ -197,7 +192,6 @@ class _ActorType:
 
         # Mark initialization as complete and update global state.
         self._is_initialized = True
-        _ActorType._is_any_instance_initialized = True
         return self
 
     async def __aexit__(
@@ -614,18 +608,20 @@ class _ActorType:
             else None
         )
 
+        # Push as many items as we can charge for
+        pushed_items_count = min(max_charged_count, len(data)) if max_charged_count is not None else len(data)
+
         dataset = await self.open_dataset()
 
-        if max_charged_count is not None and len(data) > max_charged_count:
-            # Push as many items as we can charge for
-            await dataset.push_data(data[:max_charged_count])
-        else:
+        if pushed_items_count < len(data):
+            await dataset.push_data(data[:pushed_items_count])
+        elif pushed_items_count > 0:
             await dataset.push_data(data)
 
         if charged_event_name:
             return await self.get_charging_manager().charge(
                 event_name=charged_event_name,
-                count=min(max_charged_count, len(data)) if max_charged_count is not None else len(data),
+                count=pushed_items_count,
             )
 
         return None
@@ -1111,11 +1107,11 @@ class _ActorType:
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
-        if _ActorType._is_rebooting:
+        if self._is_rebooting:
             self.log.debug('Actor is already rebooting, skipping the additional reboot call.')
             return
 
-        _ActorType._is_rebooting = True
+        self._is_rebooting = True
 
         if not custom_after_sleep:
             custom_after_sleep = self.configuration.metamorph_after_sleep

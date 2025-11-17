@@ -11,9 +11,8 @@ from crawlee._utils.byte_size import ByteSize
 from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
-from crawlee.storages import Dataset
 
-from ._utils import AliasResolver, create_apify_client
+from ._api_client_creation import create_storage_api_client
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -101,66 +100,16 @@ class ApifyDatasetClient(DatasetClient):
                 `id`, `name`, or `alias` is provided, or if none are provided and no default storage ID is available
                 in the configuration.
         """
-        if sum(1 for param in [id, name, alias] if param is not None) > 1:
-            raise ValueError('Only one of "id", "name", or "alias" can be specified, not multiple.')
-
-        apify_client_async = create_apify_client(configuration)
-        apify_datasets_client = apify_client_async.datasets()
-
-        # Normalize unnamed default storage in cases where not defined in `configuration.default_dataset_id` to unnamed
-        # storage aliased as `__default__`
-        if not any([alias, name, id, configuration.default_dataset_id]):
-            alias = '__default__'
-
-        if alias:
-            # Check if there is pre-existing alias mapping in the default KVS.
-            async with AliasResolver(storage_type=Dataset, alias=alias, configuration=configuration) as _alias:
-                id = await _alias.resolve_id()
-
-                # There was no pre-existing alias in the mapping.
-                # Create a new unnamed storage and store the mapping.
-                if id is None:
-                    new_storage_metadata = DatasetMetadata.model_validate(
-                        await apify_datasets_client.get_or_create(),
-                    )
-                    id = new_storage_metadata.id
-                    await _alias.store_mapping(storage_id=id)
-
-        # If name is provided, get or create the storage by name.
-        elif name:
-            id = DatasetMetadata.model_validate(
-                await apify_datasets_client.get_or_create(name=name),
-            ).id
-
-        # If none are provided, try to get the default storage ID from environment variables.
-        elif id is None:
-            id = configuration.default_dataset_id
-            if not id:
-                raise ValueError(
-                    'Dataset "id", "name", or "alias" must be specified, '
-                    'or a default dataset ID must be set in the configuration.'
-                )
-
-        # Now create the client for the determined ID
-        apify_dataset_client = apify_client_async.dataset(dataset_id=id)
-
-        # Fetch its metadata.
-        metadata = await apify_dataset_client.get()
-
-        # If metadata is None, it means the storage does not exist, so we create it.
-        if metadata is None:
-            id = DatasetMetadata.model_validate(
-                await apify_datasets_client.get_or_create(),
-            ).id
-            apify_dataset_client = apify_client_async.dataset(dataset_id=id)
-
-        # Verify that the storage exists by fetching its metadata again.
-        metadata = await apify_dataset_client.get()
-        if metadata is None:
-            raise ValueError(f'Opening dataset with id={id}, name={name}, and alias={alias} failed.')
+        api_client = await create_storage_api_client(
+            storage_type='Dataset',
+            configuration=configuration,
+            alias=alias,
+            name=name,
+            id=id,
+        )
 
         return cls(
-            api_client=apify_dataset_client,
+            api_client=api_client,
             api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
             lock=asyncio.Lock(),
         )

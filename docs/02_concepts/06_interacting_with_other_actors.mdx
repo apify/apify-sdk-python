@@ -3,12 +3,12 @@ id: interacting-with-other-actors
 title: Interacting with other Actors
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import InteractingStartExample from '!!raw-loader!./code/06_interacting_start.py';
-import InteractingCallExample from '!!raw-loader!./code/06_interacting_call.py';
-import InteractingCallTaskExample from '!!raw-loader!./code/06_interacting_call_task.py';
-import InteractingMetamorphExample from '!!raw-loader!./code/06_interacting_metamorph.py';
+import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacting_start.py';
+import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
+import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
+import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 
 There are several methods that interact with other Actors and Actor tasks on the Apify platform.
 
@@ -16,25 +16,25 @@ There are several methods that interact with other Actors and Actor tasks on the
 
 The [`Actor.start`](../../reference/class/Actor#start) method starts another Actor on the Apify platform, and immediately returns the details of the started Actor run.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {InteractingStartExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Actor call
 
 The [`Actor.call`](../../reference/class/Actor#call) method starts another Actor on the Apify platform, and waits for the started Actor run to finish.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {InteractingCallExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Actor call task
 
 The [`Actor.call_task`](../../reference/class/Actor#call_task) method starts an [Actor task](https://docs.apify.com/platform/actors/tasks) on the Apify platform, and waits for the started Actor run to finish.
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {InteractingCallTaskExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 ## Actor metamorph
 
@@ -46,6 +46,6 @@ To make you Actor compatible with the metamorph operation, use [`Actor.get_input
 
 For example, imagine you have an Actor that accepts a hotel URL on input, and then internally uses the [`apify/web-scraper`](https://apify.com/apify/web-scraper) public Actor to scrape all the hotel reviews. The metamorphing code would look as follows:
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {InteractingMetamorphExample}
-</CodeBlock>
+</RunnableCodeBlock>
