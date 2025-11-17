@@ -417,17 +417,20 @@ async def test_concurrent_processing_simulation(
             # Simulate concurrent workers
             async def worker() -> int:
                 processed = 0
+                request_counter = 0
 
                 while request := await rq.fetch_next_request():
                     # Simulate some work
                     await asyncio.sleep(0.01)
 
                     # Randomly reclaim some requests (simulate failures)
-                    if processed % 7 == 0 and processed > 0:  # Reclaim every 7th request
+                    if request_counter % 5 == 0 and request_counter > 0:  # Reclaim every 5th request
                         await rq.reclaim_request(request)
                     else:
                         await rq.mark_request_as_handled(request)
                         processed += 1
+
+                    request_counter += 1
 
                 return processed
 
