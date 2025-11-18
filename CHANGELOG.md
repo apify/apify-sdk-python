@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.0.5 - **not yet released**
+## [3.0.5](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.5) (2025-11-18)
 
 ### 🐛 Bug Fixes
 
@@ -14,7 +13,6 @@ All notable changes to this project will be documented in this file.
 - Update apify client to fix rare `JSONDecodeError` ([#679](https://github.com/apify/apify-sdk-python/pull/679)) ([17c13d1](https://github.com/apify/apify-sdk-python/commit/17c13d1ecfbe231fdc4f91c5a24abe65b8abdb26)) by [@Pijukatel](https://github.com/Pijukatel), closes [#672](https://github.com/apify/apify-sdk-python/issues/672)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.0.4](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.4) (2025-11-03)
 
 ### 🐛 Bug Fixes
