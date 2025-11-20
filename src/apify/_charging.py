@@ -232,6 +232,8 @@ class ChargingManagerImplementation(ChargingManager):
         # Acquire lock to prevent race conditions between concurrent charge calls
         # (e.g., when Actor.push_data with charging is called concurrently with Actor.charge).
         async with self._charge_lock:
+            # START OF CRITICAL SECTION
+
             # Determine the maximum amount of events that can be charged within the budget
             max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
             charged_count = min(count, max_chargeable if max_chargeable is not None else count)
@@ -278,6 +280,8 @@ class ChargingManagerImplementation(ChargingManager):
                         'timestamp': datetime.now(timezone.utc).isoformat(),
                     }
                 )
+
+        # END OF CRITICAL SECTION
 
         # If it is not possible to charge the full amount, log that fact
         if charged_count < count:
