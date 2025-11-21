@@ -3,9 +3,9 @@ id: actor-input
 title: Actor input
 ---
 
-import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import InputExample from '!!raw-loader!./code/02_input.py';
+import InputExample from '!!raw-loader!roa-loader!./code/02_input.py';
 
 The Actor gets its [input](https://docs.apify.com/platform/actors/running/input) from the input record in its default [key-value store](https://docs.apify.com/platform/storage/key-value-store).
 
@@ -13,6 +13,6 @@ To access it, instead of reading the record manually, you can use the [`Actor.ge
 
 For example, if an Actor received a JSON input with two fields, `{ "firstNumber": 1, "secondNumber": 2 }`, this is how you might process it:
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {InputExample}
-</CodeBlock>
+</RunnableCodeBlock>

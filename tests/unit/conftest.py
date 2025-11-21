@@ -17,7 +17,7 @@ from crawlee import service_locator
 
 import apify._actor
 import apify.log
-from apify.storage_clients._apify._utils import AliasResolver
+from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -62,7 +62,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
     def _prepare_test_env() -> None:
         if hasattr(apify._actor.Actor, '__wrapped__'):
             delattr(apify._actor.Actor, '__wrapped__')
-        apify._actor._ActorType._is_any_instance_initialized = False
+        apify._actor.Actor._is_initialized = False
 
         # Set the environment variable for the local storage directory to the temporary path.
         monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))

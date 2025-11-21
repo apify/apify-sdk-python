@@ -36,3 +36,7 @@ async def main() -> None:
         for j in range(10):
             Actor.log.info(f'Processing item {j} of another kind...')
             await asyncio.sleep(1)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from apify import Actor
@@ -21,3 +22,7 @@ async def main() -> None:
             raise RuntimeError('Ouch!')
         except RuntimeError:
             Actor.log.exception('This is an exceptional message')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

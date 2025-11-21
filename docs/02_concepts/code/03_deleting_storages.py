@@ -1,3 +1,5 @@
+import asyncio
+
 from apify import Actor
 
 
@@ -11,3 +13,7 @@ async def main() -> None:
 
         # Now we don't want it anymore
         await key_value_store.drop()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
