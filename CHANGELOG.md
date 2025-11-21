@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 <!-- git-cliff-unreleased-start -->
 ## 3.0.6 - **not yet released**
 
+### 🚀 Features
+
+- Add support for Python 3.14 ([#680](https://github.com/apify/apify-sdk-python/pull/680)) ([b81e86a](https://github.com/apify/apify-sdk-python/commit/b81e86ad294b953f72bce944739649eac3789ebc)) by [@Mantisus](https://github.com/Mantisus)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [3.0.5](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.5) (2025-11-18)
