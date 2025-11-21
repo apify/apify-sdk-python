@@ -192,6 +192,10 @@ class _ActorType:
 
         # Mark initialization as complete and update global state.
         self._is_initialized = True
+
+        if not Actor.is_at_home():
+            # Make sure that the input related KVS is initialized to ensure that the input aware client is used
+            await self.open_key_value_store()
         return self
 
     async def __aexit__(
