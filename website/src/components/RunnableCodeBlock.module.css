@@ -1,6 +1,6 @@
 .button {
     display: inline-block;
-    padding: 3px 10px;
+    padding: 4px 10px;
     position: absolute;
     top: calc(var(--ifm-pre-padding) / 2);
     right: 9px;
@@ -14,6 +14,7 @@
     opacity: 0.7;
     font-weight: 600;
     width: 155px;
+    margin-top: 1px;
 }
 
 @media screen and (max-width: 768px) {
