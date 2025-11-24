@@ -4,7 +4,6 @@ import asyncio
 import contextlib
 import json
 import logging
-import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from unittest import mock
@@ -217,7 +216,6 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
     assert on_system_info_count == len(on_system_info)
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 13), reason='Suffers flaky behavior on Python 3.13')
 async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that Actor handles MIGRATING events correctly by emitting PERSIST_STATE."""
     # This should test whether when you get a MIGRATING event,
@@ -291,7 +289,9 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
 
     print(persist_state_events_data)
 
-    # Check if the last event is from the migration
+    # Expect last event to be is_migrating=False (persistence event on exiting EventManager)
+    assert persist_state_events_data.pop() == EventPersistStateData(is_migrating=False)
+    # Expect second last event to be is_migrating=True (emitted on MIGRATING event)
     assert persist_state_events_data.pop() == EventPersistStateData(is_migrating=True)
 
     # Check if all the other events are regular persist state events
