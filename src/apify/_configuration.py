@@ -61,6 +61,17 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = None
 
+    actor_permission_level: Annotated[
+        str | None,
+        Field(
+            validation_alias=AliasChoices(
+                'actor_permission_level',
+                'apify_actor_permission_level',
+            ),
+            description='Permission level the Actor is run under.',
+        ),
+    ] = None
+
     actor_run_id: Annotated[
         str | None,
         Field(
