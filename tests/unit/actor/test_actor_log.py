@@ -39,7 +39,7 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
     records = caplog.records
 
     # Expected number of log records
-    assert len(records) == 14
+    assert len(records) == 13
 
     # Record 0: Initializing Actor
     assert records[0].levelno == logging.INFO
@@ -61,46 +61,42 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
     assert records[4].levelno == logging.DEBUG
     assert records[4].message == 'Charging manager initialized'
 
-    # Record 5: Actor Permissions
-    assert records[5].levelno == logging.INFO
-    assert records[5].message == 'Permissions'
+    # Record 5: Debug message
+    assert records[5].levelno == logging.DEBUG
+    assert records[5].message == 'Debug message'
 
-    # Record 6: Debug message
-    assert records[6].levelno == logging.DEBUG
-    assert records[6].message == 'Debug message'
+    # Record 6: Info message
+    assert records[6].levelno == logging.INFO
+    assert records[6].message == 'Info message'
 
-    # Record 7: Info message
-    assert records[7].levelno == logging.INFO
-    assert records[7].message == 'Info message'
+    # Record 7: Warning message
+    assert records[7].levelno == logging.WARNING
+    assert records[7].message == 'Warning message'
 
-    # Record 8: Warning message
-    assert records[8].levelno == logging.WARNING
-    assert records[8].message == 'Warning message'
+    # Record 8: Error message
+    assert records[8].levelno == logging.ERROR
+    assert records[8].message == 'Error message'
 
-    # Record 9: Error message
+    # Record 9: Exception message with traceback (ValueError)
     assert records[9].levelno == logging.ERROR
-    assert records[9].message == 'Error message'
+    assert records[9].message == 'Exception message'
+    assert records[9].exc_info is not None
+    assert records[9].exc_info[0] is ValueError
+    assert isinstance(records[9].exc_info[1], ValueError)
+    assert str(records[9].exc_info[1]) == 'Dummy ValueError'
 
-    # Record 10: Exception message with traceback (ValueError)
-    assert records[10].levelno == logging.ERROR
-    assert records[10].message == 'Exception message'
-    assert records[10].exc_info is not None
-    assert records[10].exc_info[0] is ValueError
-    assert isinstance(records[10].exc_info[1], ValueError)
-    assert str(records[10].exc_info[1]) == 'Dummy ValueError'
+    # Record 10: Multiline log message
+    assert records[10].levelno == logging.INFO
+    assert records[10].message == 'Multi\nline\nlog\nmessage'
 
-    # Record 11: Multiline log message
-    assert records[11].levelno == logging.INFO
-    assert records[11].message == 'Multi\nline\nlog\nmessage'
+    # Record 11: Actor failed with an exception (RuntimeError)
+    assert records[11].levelno == logging.ERROR
+    assert records[11].message == 'Actor failed with an exception'
+    assert records[11].exc_info is not None
+    assert records[11].exc_info[0] is RuntimeError
+    assert isinstance(records[11].exc_info[1], RuntimeError)
+    assert str(records[11].exc_info[1]) == 'Dummy RuntimeError'
 
-    # Record 12: Actor failed with an exception (RuntimeError)
-    assert records[12].levelno == logging.ERROR
-    assert records[12].message == 'Actor failed with an exception'
-    assert records[12].exc_info is not None
-    assert records[12].exc_info[0] is RuntimeError
-    assert isinstance(records[12].exc_info[1], RuntimeError)
-    assert str(records[12].exc_info[1]) == 'Dummy RuntimeError'
-
-    # Record 13: Exiting Actor
-    assert records[13].levelno == logging.INFO
-    assert records[13].message == 'Exiting Actor'
+    # Record 12: Exiting Actor
+    assert records[12].levelno == logging.INFO
+    assert records[12].message == 'Exiting Actor'

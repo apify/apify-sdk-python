@@ -192,14 +192,6 @@ class _ActorType:
 
         # Mark initialization as complete and update global state.
         self._is_initialized = True
-
-        self.log.info(
-            'Permissions',
-            extra={
-                'actor_permission_level': self.get_env().get('actor_permission_level'),
-            },
-        )
-
         return self
 
     async def __aexit__(
