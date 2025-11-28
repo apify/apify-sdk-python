@@ -41,62 +41,28 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
     # Expected number of log records
     assert len(records) == 13
 
-    # Record 0: Initializing Actor
-    assert records[0].levelno == logging.INFO
-    assert records[0].message == 'Initializing Actor'
+    expected_logs = [
+        (logging.INFO, 'Initializing Actor'),
+        (logging.DEBUG, 'Configuration initialized'),
+        (logging.DEBUG, 'Storage client initialized'),
+        (logging.DEBUG, 'Event manager initialized'),
+        (logging.DEBUG, 'Charging manager initialized'),
+        (logging.DEBUG, 'Debug message'),
+        (logging.INFO, 'Info message'),
+        (logging.WARNING, 'Warning message'),
+        (logging.ERROR, 'Error message'),
+        (logging.ERROR, 'Exception message', ValueError('Dummy ValueError')),
+        (logging.INFO, 'Multi\nline\nlog\nmessage'),
+        (logging.ERROR, 'Actor failed with an exception', RuntimeError('Dummy RuntimeError')),
+        (logging.INFO, 'Exiting Actor'),
+    ]
 
-    # Record 1: Configuration initialized
-    assert records[1].levelno == logging.DEBUG
-    assert records[1].message == 'Configuration initialized'
-
-    # Record 2: Storage client initialized
-    assert records[2].levelno == logging.DEBUG
-    assert records[2].message == 'Storage client initialized'
-
-    # Record 3: Event manager initialized
-    assert records[3].levelno == logging.DEBUG
-    assert records[3].message == 'Event manager initialized'
-
-    # Record 4: Charging manager initialized
-    assert records[4].levelno == logging.DEBUG
-    assert records[4].message == 'Charging manager initialized'
-
-    # Record 5: Debug message
-    assert records[5].levelno == logging.DEBUG
-    assert records[5].message == 'Debug message'
-
-    # Record 6: Info message
-    assert records[6].levelno == logging.INFO
-    assert records[6].message == 'Info message'
-
-    # Record 7: Warning message
-    assert records[7].levelno == logging.WARNING
-    assert records[7].message == 'Warning message'
-
-    # Record 8: Error message
-    assert records[8].levelno == logging.ERROR
-    assert records[8].message == 'Error message'
-
-    # Record 9: Exception message with traceback (ValueError)
-    assert records[9].levelno == logging.ERROR
-    assert records[9].message == 'Exception message'
-    assert records[9].exc_info is not None
-    assert records[9].exc_info[0] is ValueError
-    assert isinstance(records[9].exc_info[1], ValueError)
-    assert str(records[9].exc_info[1]) == 'Dummy ValueError'
-
-    # Record 10: Multiline log message
-    assert records[10].levelno == logging.INFO
-    assert records[10].message == 'Multi\nline\nlog\nmessage'
-
-    # Record 11: Actor failed with an exception (RuntimeError)
-    assert records[11].levelno == logging.ERROR
-    assert records[11].message == 'Actor failed with an exception'
-    assert records[11].exc_info is not None
-    assert records[11].exc_info[0] is RuntimeError
-    assert isinstance(records[11].exc_info[1], RuntimeError)
-    assert str(records[11].exc_info[1]) == 'Dummy RuntimeError'
-
-    # Record 12: Exiting Actor
-    assert records[12].levelno == logging.INFO
-    assert records[12].message == 'Exiting Actor'
+    for level, message, *exception in expected_logs:
+        record = records.pop(0)
+        assert record.levelno == level
+        assert record.message == message
+        if exception:
+            assert record.exc_info is not None
+            assert record.exc_info[0] is type(exception[0])
+            assert isinstance(record.exc_info[1], type(exception[0]))
+            assert str(record.exc_info[1]) == str(exception[0])
