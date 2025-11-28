@@ -64,7 +64,6 @@ class Configuration(CrawleeConfiguration):
     actor_permission_level: Annotated[
         str | None,
         Field(
-            alias='actor_permission_level',
             description='Permission level the Actor is run under.',
         ),
     ] = None
