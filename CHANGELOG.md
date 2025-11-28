@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Add support for Python 3.14 ([#680](https://github.com/apify/apify-sdk-python/pull/680)) ([b81e86a](https://github.com/apify/apify-sdk-python/commit/b81e86ad294b953f72bce944739649eac3789ebc)) by [@Mantisus](https://github.com/Mantisus)
+- Add `ACTOR_PERMISSION_LEVEL` to the configuration ([#689](https://github.com/apify/apify-sdk-python/pull/689)) ([68012c7](https://github.com/apify/apify-sdk-python/commit/68012c7dfe5e4a8b043ce4075826e63c0262ae2e)) by [@stepskop](https://github.com/stepskop), closes [#690](https://github.com/apify/apify-sdk-python/issues/690)
+
+### 🐛 Bug Fixes
+
+- Make `ApifyFileSystemStorageClient` compatible with the apify cli ([#677](https://github.com/apify/apify-sdk-python/pull/677)) ([a32274f](https://github.com/apify/apify-sdk-python/commit/a32274f26b1d2ae4fcf36958e799bf412941464a)) by [@Pijukatel](https://github.com/Pijukatel)
 
 
 <!-- git-cliff-unreleased-end -->
