@@ -10,6 +10,8 @@ from crawlee.storage_clients import FileSystemStorageClient
 from ._key_value_store_client import ApifyFileSystemKeyValueStoreClient
 
 if TYPE_CHECKING:
+    from collections.abc import Hashable
+
     from crawlee.storage_clients._file_system import FileSystemKeyValueStoreClient
 
 
@@ -20,6 +22,13 @@ class ApifyFileSystemStorageClient(FileSystemStorageClient):
     which overrides the `purge` method to delete all files in the key-value store directory
     except for the metadata file and the `INPUT.json` file.
     """
+
+    @override
+    def get_storage_client_cache_key(self, configuration: Configuration) -> Hashable:
+        # Ensure same cache key as the `FileSystemStorageClient` to prevent potential purging of the path twice.
+        # If `FileSystemStorageClient` opens the storage first, it will be used even in successive open calls by
+        # `ApifyFileSystemStorageClient` and vice versa.
+        return FileSystemStorageClient().get_storage_client_cache_key(configuration)
 
     @override
     async def create_kvs_client(
