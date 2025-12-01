@@ -19,14 +19,19 @@ if TYPE_CHECKING:
 
     from apify_client.clients import RequestQueueClientAsync
 
-
 logger = getLogger(__name__)
 
 
 class ApifyRequestQueueSharedClient:
-    """An Apify platform implementation of the request queue client.
+    """Internal request queue client implementation for multi-consumer scenarios on the Apify platform.
 
-    This implementation supports multiple producers and multiple consumers scenario.
+    This implementation is optimized for scenarios where multiple clients concurrently fetch and process requests
+    from the same queue. It makes more frequent API calls to ensure consistency across all consumers and uses
+    request locking to prevent duplicate processing.
+
+    This class is used internally by `ApifyRequestQueueClient` when `access='shared'` is specified.
+
+    Public methods are not individually documented as they implement the interface defined in `RequestQueueClient`.
     """
 
     _DEFAULT_LOCK_TIME: Final[timedelta] = timedelta(minutes=3)
@@ -40,45 +45,39 @@ class ApifyRequestQueueSharedClient:
         cache_size: int,
         metadata_getter: Callable[[], Coroutine[Any, Any, ApifyRequestQueueMetadata]],
     ) -> None:
-        """Initialize a new instance.
+        """Initialize a new shared request queue client instance.
 
-        Preferably use the `ApifyRequestQueueClient.open` class method to create a new instance.
+        Use `ApifyRequestQueueClient.open(access='shared')` instead of calling this directly.
+
+        Args:
+            api_client: The Apify API client for request queue operations.
+            metadata: Initial metadata for the request queue.
+            cache_size: Maximum number of requests to cache locally.
+            metadata_getter: Async function to fetch current metadata from the API.
         """
         self.metadata = metadata
-        """Additional data related to the RequestQueue."""
+        """Current metadata for the request queue."""
 
         self._metadata_getter = metadata_getter
-        """Async function to get metadata from API."""
+        """Async function to fetch the latest metadata from the API."""
 
         self._api_client = api_client
-        """The Apify request queue client for API operations."""
+        """The Apify API client for communication with Apify platform."""
 
         self._queue_head = deque[str]()
-        """A deque to store request ids in the queue head."""
+        """Local cache of request IDs from the queue head for efficient fetching."""
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
-        """A cache to store request objects. Request id is used as the cache key."""
+        """LRU cache storing request objects, keyed by request ID."""
 
         self._queue_has_locked_requests: bool | None = None
-        """Whether the queue has requests locked by another client."""
+        """Whether the queue contains requests currently locked by other clients."""
 
         self._should_check_for_forefront_requests = False
-        """Whether to check for forefront requests in the next list_head call."""
+        """Flag indicating whether to refresh the queue head to check for newly added forefront requests."""
 
         self._fetch_lock = asyncio.Lock()
-        """Fetch lock to minimize race conditions when communicating with API."""
-
-    async def _get_metadata_estimate(self) -> RequestQueueMetadata:
-        """Try to get cached metadata first. If multiple clients, fuse with global metadata.
-
-        This method is used internally to avoid unnecessary API call unless needed (multiple clients).
-        Local estimation of metadata is without delay, unlike metadata from API. In situation where there is only one
-        client, it is the better choice.
-        """
-        if self.metadata.had_multiple_clients:
-            return await self._metadata_getter()
-        # Get local estimation (will not include changes done bo another client)
-        return self.metadata
+        """Lock to prevent race conditions during concurrent fetch operations."""
 
     async def add_batch_of_requests(
         self,
@@ -86,17 +85,8 @@ class ApifyRequestQueueSharedClient:
         *,
         forefront: bool = False,
     ) -> AddRequestsResponse:
-        """Add a batch of requests to the queue.
-
-        Args:
-            requests: The requests to add.
-            forefront: Whether to add the requests to the beginning of the queue.
-
-        Returns:
-            Response containing information about the added requests.
-        """
+        """Specific implementation of this method for the RQ shared access mode."""
         # Do not try to add previously added requests to avoid pointless expensive calls to API
-
         new_requests: list[Request] = []
         already_present_requests: list[ProcessedRequest] = []
 
@@ -174,35 +164,11 @@ class ApifyRequestQueueSharedClient:
         return api_response
 
     async def get_request(self, unique_key: str) -> Request | None:
-        """Get a request by unique key.
-
-        Args:
-            unique_key: Unique key of the request to get.
-
-        Returns:
-            The request or None if not found.
-        """
+        """Specific implementation of this method for the RQ shared access mode."""
         return await self._get_request_by_id(unique_key_to_request_id(unique_key))
 
-    async def _get_request_by_id(self, request_id: str) -> Request | None:
-        response = await self._api_client.get_request(request_id)
-
-        if response is None:
-            return None
-
-        return Request.model_validate(response)
-
     async def fetch_next_request(self) -> Request | None:
-        """Return the next request in the queue to be processed.
-
-        Once you successfully finish processing of the request, you need to call `mark_request_as_handled`
-        to mark the request as handled in the queue. If there was some error in processing the request, call
-        `reclaim_request` instead, so that the queue will give the request to some other consumer
-        in another call to the `fetch_next_request` method.
-
-        Returns:
-            The request or `None` if there are no more pending requests.
-        """
+        """Specific implementation of this method for the RQ shared access mode."""
         # Ensure the queue head has requests if available. Fetching the head with lock to prevent race conditions.
         async with self._fetch_lock:
             await self._ensure_head_is_non_empty()
@@ -244,16 +210,7 @@ class ApifyRequestQueueSharedClient:
         return request
 
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
-        """Mark a request as handled after successful processing.
-
-        Handled requests will never again be returned by the `fetch_next_request` method.
-
-        Args:
-            request: The request to mark as handled.
-
-        Returns:
-            Information about the queue operation. `None` if the given request was not in progress.
-        """
+        """Specific implementation of this method for the RQ shared access mode."""
         request_id = unique_key_to_request_id(request.unique_key)
         # Set the handled_at timestamp if not already set
         if request.handled_at is None:
@@ -290,17 +247,7 @@ class ApifyRequestQueueSharedClient:
         *,
         forefront: bool = False,
     ) -> ProcessedRequest | None:
-        """Reclaim a failed request back to the queue.
-
-        The request will be returned for processing later again by another call to `fetch_next_request`.
-
-        Args:
-            request: The request to return to the queue.
-            forefront: Whether to add the request to the head or the end of the queue.
-
-        Returns:
-            Information about the queue operation. `None` if the given request was not in progress.
-        """
+        """Specific implementation of this method for the RQ shared access mode."""
         # Check if the request was marked as handled and clear it. When reclaiming,
         # we want to put the request back for processing.
         if request.was_already_handled:
@@ -339,16 +286,33 @@ class ApifyRequestQueueSharedClient:
                 return processed_request
 
     async def is_empty(self) -> bool:
-        """Check if the queue is empty.
-
-        Returns:
-            True if the queue is empty, False otherwise.
-        """
+        """Specific implementation of this method for the RQ shared access mode."""
         # Check _list_head.
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         async with self._fetch_lock:
             head = await self._list_head(limit=1)
             return len(head.items) == 0 and not self._queue_has_locked_requests
+
+    async def _get_metadata_estimate(self) -> RequestQueueMetadata:
+        """Try to get cached metadata first. If multiple clients, fuse with global metadata.
+
+        This method is used internally to avoid unnecessary API call unless needed (multiple clients).
+        Local estimation of metadata is without delay, unlike metadata from API. In situation where there is only one
+        client, it is the better choice.
+        """
+        if self.metadata.had_multiple_clients:
+            return await self._metadata_getter()
+
+        # Get local estimation (will not include changes done bo another client)
+        return self.metadata
+
+    async def _get_request_by_id(self, request_id: str) -> Request | None:
+        response = await self._api_client.get_request(request_id)
+
+        if response is None:
+            return None
+
+        return Request.model_validate(response)
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
@@ -508,6 +472,7 @@ class ApifyRequestQueueSharedClient:
         for leftover_id in leftover_buffer:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_id)
+
         return RequestQueueHead.model_validate(response)
 
     def _cache_request(

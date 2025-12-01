@@ -17,22 +17,33 @@ if TYPE_CHECKING:
 
     from apify_client.clients import RequestQueueClientAsync
 
-
 logger = getLogger(__name__)
 
 
 class ApifyRequestQueueSingleClient:
-    """An Apify platform implementation of the request queue client with limited capability.
+    """Internal request queue client implementation for single-consumer scenarios on the Apify platform.
 
-    This client is designed to use as little resources as possible, but has to be used in constrained context.
-    Constraints:
-    - Only one client is consuming the request queue at the time.
-    - Multiple producers can put requests to the queue, but their forefront requests are not guaranteed to be handled
-      so quickly as this client does not aggressively fetch the forefront and relies on local head estimation.
-    - Requests are only added to the queue, never deleted. (Marking as handled is ok.)
-    - Other producers can add new requests, but not modify existing ones (otherwise caching can miss the updates)
+    This implementation minimizes API calls and resource usage by leveraging local caching and head estimation.
+    It is designed for scenarios where only one client consumes requests from the queue at a time, though multiple
+    producers may add requests concurrently.
 
-    If the constraints are not met, the client might work in an unpredictable way.
+    ### Usage constraints
+
+    This client must operate within the following constraints to function correctly:
+
+    - **Single consumer**: Only one client should be consuming (fetching) requests from the queue at any given time.
+    - **Multiple producers allowed**: Multiple clients can add requests concurrently, but their forefront requests
+      may not be prioritized immediately since this client relies on local head estimation.
+    - **Append-only queue**: Requests should only be added to the queue, never deleted by other clients.
+      Marking requests as handled is permitted.
+    - **No external modifications**: Other producers can add new requests but should not modify existing ones,
+      as modifications won't be reflected in the local cache.
+
+    If these constraints are not met, the client may exhibit unpredictable behavior.
+
+    This class is used internally by `ApifyRequestQueueClient` when `access='single'` is specified.
+
+    Public methods are not individually documented as they implement the interface defined in `RequestQueueClient`.
     """
 
     _MAX_HEAD_ITEMS: Final[int] = 1000
@@ -45,40 +56,43 @@ class ApifyRequestQueueSingleClient:
         metadata: RequestQueueMetadata,
         cache_size: int,
     ) -> None:
-        """Initialize a new instance.
+        """Initialize a new single-consumer request queue client instance.
 
-        Preferably use the `ApifyRequestQueueClient.open` class method to create a new instance.
+        Use `ApifyRequestQueueClient.open(access='single')` instead of calling this directly.
+
+        Args:
+            api_client: The Apify API client for request queue operations.
+            metadata: Initial metadata for the request queue.
+            cache_size: Maximum number of requests to cache locally.
         """
         self.metadata = metadata
-        """Additional data related to the RequestQueue."""
+        """Current metadata for the request queue."""
 
         self._api_client = api_client
-        """The Apify request queue client for API operations."""
+        """The Apify API client for communication with Apify platform."""
 
         self._requests_cache: LRUCache[str, Request] = LRUCache(maxsize=cache_size)
-        """A cache to store request objects. Request id is used as the cache key."""
+        """LRU cache storing unhandled request objects, keyed by request ID."""
 
         self._head_requests: deque[str] = deque()
-        """Ordered ids of requests that represent queue head."""
+        """Ordered queue of request IDs representing the local estimate of the queue head."""
 
         self._requests_already_handled: set[str] = set()
-        """Local estimation of requests unique keys that are already present and handled on the platform.
+        """Set of request IDs known to be already processed on the platform.
 
-        - To enhance local deduplication.
-        - To reduce the _requests_cache size. Already handled requests are most likely not going to be needed again,
-        so no need to cache more than their id.
+        Used for efficient local deduplication without needing to cache full request objects.
         """
 
         self._requests_in_progress: set[str] = set()
-        """Set of requests ids that are being processed locally.
+        """Set of request IDs currently being processed by this client.
 
-        - To help decide if the RQ is finished or not. This is the only consumer, so it can be tracked locally.
+        Tracked locally to accurately determine when the queue is empty for this single consumer.
         """
 
         self._initialized_caches = False
-        """This flag indicates whether the local caches were already initialized.
+        """Flag indicating whether local caches have been populated from existing queue contents.
 
-        Initialization is done lazily only if deduplication is needed (When calling add_batch_of_requests).
+        Initialization is performed lazily when deduplication is first needed (during add_batch_of_requests).
         """
 
     async def add_batch_of_requests(
@@ -87,15 +101,7 @@ class ApifyRequestQueueSingleClient:
         *,
         forefront: bool = False,
     ) -> AddRequestsResponse:
-        """Add a batch of requests to the queue.
-
-        Args:
-            requests: The requests to add.
-            forefront: Whether to add the requests to the beginning of the queue.
-
-        Returns:
-            Response containing information about the added requests.
-        """
+        """Specific implementation of this method for the RQ single access mode."""
         if not self._initialized_caches:
             # One time process to initialize local caches for existing request queues.
             await self._init_caches()
@@ -175,117 +181,24 @@ class ApifyRequestQueueSingleClient:
         return api_response
 
     async def get_request(self, unique_key: str) -> Request | None:
-        """Get a request by unique key.
-
-        Args:
-            unique_key: Unique key of the request to get.
-
-        Returns:
-            The request or None if not found.
-        """
-        return await self._get_request(id=unique_key_to_request_id(unique_key))
-
-    async def _get_request(self, id: str) -> Request | None:
-        """Get a request by id.
-
-        Args:
-            id: Id of request to get.
-
-        Returns:
-            The request or None if not found.
-        """
-        if id in self._requests_cache:
-            return self._requests_cache[id]
-
-        # Requests that were not added by this client are not in local cache. Fetch them from platform.
-        response = await self._api_client.get_request(id)
-
-        if response is None:
-            return None
-
-        request = Request.model_validate(response)
-
-        # Updated local caches
-        if id in self._requests_in_progress:
-            # No caching of requests that are already in progress, client is already aware of them.
-            pass
-        elif request.was_already_handled:
-            # Cache only id for already handled requests
-            self._requests_already_handled.add(id)
-        else:
-            # Cache full request for unhandled requests that are not yet in progress and are not yet handled.
-            self._requests_cache[id] = request
-        return request
+        """Specific implementation of this method for the RQ single access mode."""
+        return await self._get_request_by_id(id=unique_key_to_request_id(unique_key))
 
     async def fetch_next_request(self) -> Request | None:
-        """Return the next request in the queue to be processed.
-
-        Once you successfully finish processing of the request, you need to call `mark_request_as_handled`
-        to mark the request as handled in the queue. If there was some error in processing the request, call
-        `reclaim_request` instead, so that the queue will give the request to some other consumer
-        in another call to the `fetch_next_request` method.
-
-        Returns:
-            The request or `None` if there are no more pending requests.
-        """
+        """Specific implementation of this method for the RQ single access mode."""
         await self._ensure_head_is_non_empty()
 
         while self._head_requests:
             request_id = self._head_requests.pop()
             if request_id not in self._requests_in_progress and request_id not in self._requests_already_handled:
                 self._requests_in_progress.add(request_id)
-                return await self._get_request(request_id)
+                return await self._get_request_by_id(request_id)
         # No request locally and the ones returned from the platform are already in progress.
         return None
 
-    async def _ensure_head_is_non_empty(self) -> None:
-        """Ensure that the queue head has requests if they are available in the queue."""
-        if len(self._head_requests) <= 1:
-            await self._list_head()
-
-    async def _list_head(self) -> None:
-        desired_new_head_items = 200
-        # The head will contain in progress requests as well, so we need to fetch more, to get some new ones.
-        requested_head_items = max(self._MAX_HEAD_ITEMS, desired_new_head_items + len(self._requests_in_progress))
-        response = await self._api_client.list_head(limit=requested_head_items)
-
-        # Update metadata
-        # Check if there is another client working with the RequestQueue
-        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
-        # Should warn once? This might be outside expected context if the other consumers consumes at the same time
-
-        if modified_at := response.get('queueModifiedAt'):
-            self.metadata.modified_at = max(self.metadata.modified_at, modified_at)
-
-        # Update the cached data
-        for request_data in response.get('items', []):
-            request = Request.model_validate(request_data)
-            request_id = request_data['id']
-
-            if request_id in self._requests_in_progress:
-                # Ignore requests that are already in progress, we will not process them again.
-                continue
-
-            if request.was_already_handled:
-                # Do not cache fully handled requests, we do not need them. Just cache their id.
-                self._requests_already_handled.add(request_id)
-            # Add new requests to the end of the head, unless already present in head
-            elif request_id not in self._head_requests:
-                self._head_requests.appendleft(request_id)
-
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
-        """Mark a request as handled after successful processing.
-
-        Handled requests will never again be returned by the `fetch_next_request` method.
-
-        Args:
-            request: The request to mark as handled.
-
-        Returns:
-            Information about the queue operation. `None` if the given request was not in progress.
-        """
+        """Specific implementation of this method for the RQ single access mode."""
         # Set the handled_at timestamp if not already set
-
         request_id = unique_key_to_request_id(request.unique_key)
 
         if request.handled_at is None:
@@ -319,17 +232,7 @@ class ApifyRequestQueueSingleClient:
         *,
         forefront: bool = False,
     ) -> ProcessedRequest | None:
-        """Reclaim a failed request back to the queue.
-
-        The request will be returned for processing later again by another call to `fetch_next_request`.
-
-        Args:
-            request: The request to return to the queue.
-            forefront: Whether to add the request to the head or the end of the queue.
-
-        Returns:
-            Information about the queue operation. `None` if the given request was not in progress.
-        """
+        """Specific implementation of this method for the RQ single access mode."""
         # Check if the request was marked as handled and clear it. When reclaiming,
         # we want to put the request back for processing.
 
@@ -367,14 +270,77 @@ class ApifyRequestQueueSingleClient:
             return processed_request
 
     async def is_empty(self) -> bool:
-        """Check if the queue is empty.
-
-        Returns:
-            True if the queue is empty, False otherwise.
-        """
+        """Specific implementation of this method for the RQ single access mode."""
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         await self._ensure_head_is_non_empty()
         return not self._head_requests and not self._requests_in_progress
+
+    async def _ensure_head_is_non_empty(self) -> None:
+        """Ensure that the queue head has requests if they are available in the queue."""
+        if len(self._head_requests) <= 1:
+            await self._list_head()
+
+    async def _list_head(self) -> None:
+        desired_new_head_items = 200
+        # The head will contain in progress requests as well, so we need to fetch more, to get some new ones.
+        requested_head_items = max(self._MAX_HEAD_ITEMS, desired_new_head_items + len(self._requests_in_progress))
+        response = await self._api_client.list_head(limit=requested_head_items)
+
+        # Update metadata
+        # Check if there is another client working with the RequestQueue
+        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        # Should warn once? This might be outside expected context if the other consumers consumes at the same time
+
+        if modified_at := response.get('queueModifiedAt'):
+            self.metadata.modified_at = max(self.metadata.modified_at, modified_at)
+
+        # Update the cached data
+        for request_data in response.get('items', []):
+            request = Request.model_validate(request_data)
+            request_id = request_data['id']
+
+            if request_id in self._requests_in_progress:
+                # Ignore requests that are already in progress, we will not process them again.
+                continue
+
+            if request.was_already_handled:
+                # Do not cache fully handled requests, we do not need them. Just cache their id.
+                self._requests_already_handled.add(request_id)
+            # Add new requests to the end of the head, unless already present in head
+            elif request_id not in self._head_requests:
+                self._head_requests.appendleft(request_id)
+
+    async def _get_request_by_id(self, id: str) -> Request | None:
+        """Get a request by id.
+
+        Args:
+            id: Id of request to get.
+
+        Returns:
+            The request or None if not found.
+        """
+        if id in self._requests_cache:
+            return self._requests_cache[id]
+
+        # Requests that were not added by this client are not in local cache. Fetch them from platform.
+        response = await self._api_client.get_request(id)
+
+        if response is None:
+            return None
+
+        request = Request.model_validate(response)
+
+        # Updated local caches
+        if id in self._requests_in_progress:
+            # No caching of requests that are already in progress, client is already aware of them.
+            pass
+        elif request.was_already_handled:
+            # Cache only id for already handled requests
+            self._requests_already_handled.add(id)
+        else:
+            # Cache full request for unhandled requests that are not yet in progress and are not yet handled.
+            self._requests_cache[id] = request
+        return request
 
     async def _update_request(
         self,
