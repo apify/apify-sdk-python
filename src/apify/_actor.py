@@ -355,6 +355,14 @@ class _ActorType:
         return ChargingManagerImplementation(self.configuration, self.apify_client)
 
     @cached_property
+    def _charge_lock(self) -> asyncio.Lock:
+        """Lock to synchronize charge operations.
+
+        Prevents race conditions between Actor.charge and Actor.push_data calls.
+        """
+        return asyncio.Lock()
+
+    @cached_property
     def _storage_client(self) -> SmartApifyStorageClient:
         """Storage client used by the Actor.
 
@@ -606,29 +614,33 @@ class _ActorType:
 
         data = data if isinstance(data, list) else [data]
 
-        max_charged_count = (
-            self.get_charging_manager().calculate_max_event_charge_count_within_limit(charged_event_name)
-            if charged_event_name is not None
-            else None
-        )
-
-        # Push as many items as we can charge for
-        pushed_items_count = min(max_charged_count, len(data)) if max_charged_count is not None else len(data)
-
-        dataset = await self.open_dataset()
-
-        if pushed_items_count < len(data):
-            await dataset.push_data(data[:pushed_items_count])
-        elif pushed_items_count > 0:
+        # No charging, just push the data without locking.
+        if charged_event_name is None:
+            dataset = await self.open_dataset()
             await dataset.push_data(data)
+            return None
 
-        if charged_event_name:
+        # If charging is requested, acquire the charge lock to prevent race conditions between concurrent
+        # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
+        async with self._charge_lock:
+            max_charged_count = self.get_charging_manager().calculate_max_event_charge_count_within_limit(
+                charged_event_name
+            )
+
+            # Push as many items as we can charge for.
+            pushed_items_count = min(max_charged_count, len(data)) if max_charged_count is not None else len(data)
+
+            dataset = await self.open_dataset()
+
+            if pushed_items_count < len(data):
+                await dataset.push_data(data[:pushed_items_count])
+            elif pushed_items_count > 0:
+                await dataset.push_data(data)
+
             return await self.get_charging_manager().charge(
                 event_name=charged_event_name,
                 count=pushed_items_count,
             )
-
-        return None
 
     async def get_input(self) -> Any:
         """Get the Actor input value from the default key-value store associated with the current Actor run."""
@@ -692,7 +704,9 @@ class _ActorType:
             count: Number of events to charge for.
         """
         self._raise_if_not_initialized()
-        return await self.get_charging_manager().charge(event_name, count)
+        # Acquire lock to prevent race conditions with concurrent charge/push_data calls.
+        async with self._charge_lock:
+            return await self.get_charging_manager().charge(event_name, count)
 
     @overload
     def on(
