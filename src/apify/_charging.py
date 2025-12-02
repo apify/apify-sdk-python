@@ -239,9 +239,8 @@ class ChargingManagerImplementation(ChargingManager):
         pricing_info = self._pricing_info.get(
             event_name,
             PricingInfoItem(
-                price=Decimal()
-                if self._is_at_home
-                else Decimal(1),  # Use a nonzero price for local development so that the maximum budget can be reached,
+                # Use a nonzero price for local development so that the maximum budget can be reached.
+                price=Decimal() if self._is_at_home else Decimal(1),
                 title=f"Unknown event '{event_name}'",
             ),
         )
