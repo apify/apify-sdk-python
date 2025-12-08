@@ -75,7 +75,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.3.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", specifier = ">=1.0.4,<2.0.0" },
+    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=copy-of-Mantisus-protect-request-fields" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.8.0" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
@@ -131,6 +131,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/66/88/5283f9ffad85751b7501ae56aa500db26b149dc51ed8cc6025304ecfc5fc/apify_shared-2.1.0.tar.gz", hash = "sha256:95b603454788189e9c6fa98af0e311d78033178db1434a4f0690fac40467aae0", size = 46982, upload-time = "2025-09-05T13:38:16.22Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/76/50/3ae064870ae0e302909e215ba30a681d1ddc3c067c2242cae596c921817d/apify_shared-2.1.0-py3-none-any.whl", hash = "sha256:f6dacf375ae07fd72c1fa1daa64e5265b6cab1b05a98df077b7de0ec2077f7c3", size = 16489, upload-time = "2025-09-05T13:38:15.069Z" },
+]
+
+[[package]]
+name = "async-timeout"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/ae/136395dfbfe00dfc94da3f3e136d0b13f394cba8f4841120e34226265780/async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3", size = 9274, upload-time = "2024-11-06T16:41:39.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/ba/e2081de779ca30d473f21f5b30e0e737c438205440784c7dfc81efc2b029/async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c", size = 6233, upload-time = "2024-11-06T16:41:37.9Z" },
 ]
 
 [[package]]
@@ -540,9 +549,10 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "1.1.1"
-source = { registry = "https://pypi.org/simple" }
+version = "1.1.2"
+source = { git = "https://github.com/apify/crawlee-python.git?rev=copy-of-Mantisus-protect-request-fields#741a0856e7f24e66dc97faa62e78f353aee1aef5" }
 dependencies = [
+    { name = "async-timeout" },
     { name = "cachetools" },
     { name = "colorama" },
     { name = "impit" },
@@ -555,10 +565,6 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/01/73/1dc4d617a5287ee682fbb45b2abee1ef95a86857c614ab6323a3eeafb7bc/crawlee-1.1.1.tar.gz", hash = "sha256:7684de82c4321a5eaa203067ff83dbd4dc31d8b03491b641005e59ed9a4633c3", size = 24888905, upload-time = "2025-12-02T10:27:07.898Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/8e/3092969e3ad63c613aceaca80ca32e59568da5e203966d581a2182fa131d/crawlee-1.1.1-py3-none-any.whl", hash = "sha256:219f673b2a980ccfdff34c5db16298777bd7a3aed38309f11aa085211da435b8", size = 328751, upload-time = "2025-12-02T10:27:05.85Z" },
 ]
 
 [package.optional-dependencies]
