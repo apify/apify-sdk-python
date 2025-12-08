@@ -216,8 +216,7 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
     assert on_system_info_count == len(on_system_info)
 
 
-@pytest.mark.parametrize('_', range(1000))
-async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.MonkeyPatch, _: int) -> None:
+async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that Actor handles MIGRATING events correctly by emitting PERSIST_STATE."""
     # This should test whether when you get a MIGRATING event,
     # the Actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
