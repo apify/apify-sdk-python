@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.0.6 - **not yet released**
+## [3.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.1.0) (2025-12-08)
 
 ### 🚀 Features
 
@@ -13,9 +12,9 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Make `ApifyFileSystemStorageClient` compatible with the apify cli ([#677](https://github.com/apify/apify-sdk-python/pull/677)) ([a32274f](https://github.com/apify/apify-sdk-python/commit/a32274f26b1d2ae4fcf36958e799bf412941464a)) by [@Pijukatel](https://github.com/Pijukatel)
+- Synchronize charge operations to prevent race conditions ([#684](https://github.com/apify/apify-sdk-python/pull/684)) ([1c7a9e6](https://github.com/apify/apify-sdk-python/commit/1c7a9e6f386105630c3c1de7ffa092e369698aa0)) by [@vdusek](https://github.com/vdusek), closes [#666](https://github.com/apify/apify-sdk-python/issues/666)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.0.5](https://github.com/apify/apify-sdk-python/releases/tag/v3.0.5) (2025-11-18)
 
 ### 🐛 Bug Fixes
