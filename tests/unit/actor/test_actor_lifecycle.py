@@ -284,9 +284,8 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
 
                 await asyncio.sleep(1)
 
+    # It is enough to check the persist state event we send manually and the crawler final one.
     assert len(persist_state_events_data) >= 2
-
-    print(persist_state_events_data)
 
     # Expect last event to be is_migrating=False (persistence event on exiting EventManager)
     assert persist_state_events_data.pop() == EventPersistStateData(is_migrating=False)
