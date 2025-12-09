@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import warnings
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
@@ -827,7 +828,7 @@ class _ActorType:
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['RemainingTime'] = None,
+        timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
     ) -> ActorRun:
@@ -845,8 +846,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other Actor
-                to the time remaining from this Actor timeout.
+                the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
+                other Actor to the time remaining from this Actor timeout.
             wait_for_finish: The maximum number of seconds the server waits for the run to finish. By default,
                 it is 0, the maximum value is 300.
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
@@ -867,14 +868,22 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
-        if timeout == 'RemainingTime':
+        if timeout in {'inherit', 'RemainingTime'}:
+            if timeout == 'RemainingTime':
+                warnings.warn(
+                    '`RemainingTime` is deprecated and will be removed in version 4.0.0. Use `inherit` instead.',
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
             actor_start_timeout = self._get_remaining_time()
         elif timeout is None:
             actor_start_timeout = None
         elif isinstance(timeout, timedelta):
             actor_start_timeout = timeout
         else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.')
+            raise ValueError(
+                f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
+            )
 
         api_result = await client.actor(actor_id).start(
             run_input=run_input,
@@ -931,7 +940,7 @@ class _ActorType:
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['RemainingTime'] = None,
+        timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | None | Literal['default'] = 'default',
@@ -950,8 +959,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other Actor
-                to the time remaining from this Actor timeout.
+                the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
+                other Actor to the time remaining from this Actor timeout.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
@@ -975,14 +984,23 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
-        if timeout == 'RemainingTime':
+        if timeout in {'inherit', 'RemainingTime'}:
+            if timeout == 'RemainingTime':
+                warnings.warn(
+                    '`RemainingTime` is deprecated and will be removed in version 4.0.0. Use `inherit` instead.',
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+
             actor_call_timeout = self._get_remaining_time()
         elif timeout is None:
             actor_call_timeout = None
         elif isinstance(timeout, timedelta):
             actor_call_timeout = timeout
         else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.')
+            raise ValueError(
+                f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
+            )
 
         api_result = await client.actor(actor_id).call(
             run_input=run_input,
@@ -1004,7 +1022,7 @@ class _ActorType:
         *,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None = None,
+        timeout: timedelta | None | Literal['inherit'] = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
@@ -1026,7 +1044,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor.
+                the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor to the
+                time remaining from this Actor timeout.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
@@ -1047,11 +1066,20 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
+        if timeout == 'inherit':
+            task_call_timeout = self._get_remaining_time()
+        elif timeout is None:
+            task_call_timeout = None
+        elif isinstance(timeout, timedelta):
+            task_call_timeout = timeout
+        else:
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
+
         api_result = await client.task(task_id).call(
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+            timeout_secs=int(task_call_timeout.total_seconds()) if task_call_timeout is not None else None,
             webhooks=serialized_webhooks,
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
@@ -1321,7 +1349,7 @@ class _ActorType:
             return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
 
         self.log.warning(
-            'Returning `None` instead of remaining time. Using `RemainingTime` argument is only possible when the Actor'
+            'Using `inherit` or `RemainingTime` argument is only possible when the Actor'
             ' is running on the Apify platform and when the timeout for the Actor run is set. '
             f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
         )

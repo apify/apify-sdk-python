@@ -9,11 +9,11 @@ if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_actor_start_remaining_timeout(
+async def test_actor_start_inherit_timeout(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """Test that correct timeout is set when using `RemainingTime` value for the `timeout` argument.
+    """Test that correct timeout is set when using `inherit` value for the `timeout` argument.
 
     In this test, one Actor starts itself again and checks that the timeout is correctly set on the second Actor run.
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor start."""
@@ -32,7 +32,7 @@ async def test_actor_start_remaining_timeout(
             other_run_data = await Actor.call(
                 actor_id=Actor.configuration.actor_id or '',
                 run_input={'called_from_another_actor': True},
-                timeout='RemainingTime',
+                timeout='inherit',
             )
             assert other_run_data is not None
             try:
@@ -50,17 +50,17 @@ async def test_actor_start_remaining_timeout(
                 # Make sure the other actor run is aborted
                 await Actor.apify_client.run(other_run_data.id).abort()
 
-    actor = await make_actor(label='remaining-timeout', main_func=main)
+    actor = await make_actor(label='inherit-timeout', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
 
 
-async def test_actor_call_remaining_timeout(
+async def test_actor_call_inherit_timeout(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """Test that correct timeout is set when using `RemainingTime` value for the `timeout` argument.
+    """Test that correct timeout is set when using `inherit` value for the `timeout` argument.
 
     In this test, one Actor starts itself again and checks that the timeout is correctly set on the second Actor run.
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor call."""
@@ -79,7 +79,7 @@ async def test_actor_call_remaining_timeout(
             other_run_data = await Actor.call(
                 actor_id=Actor.configuration.actor_id or '',
                 run_input={'called_from_another_actor': True},
-                timeout='RemainingTime',
+                timeout='inherit',
             )
 
             assert other_run_data is not None
