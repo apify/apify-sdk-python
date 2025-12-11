@@ -29,7 +29,7 @@ unit-tests:
 	uv run pytest --numprocesses=auto -vv --cov=src/apify tests/unit
 
 unit-tests-cov:
-	uv run pytest --numprocesses=auto -vv --cov=src/apify --cov-report=html tests/unit
+	uv run pytest --numprocesses=auto -vv --cov=src/apify --cov-report=html --cov-report=xml tests/unit
 
 integration-tests:
 	uv run pytest --numprocesses=$(INTEGRATION_TESTS_CONCURRENCY) -vv tests/integration
