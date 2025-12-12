@@ -44,8 +44,8 @@ jobs:
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
 
-  action_lint:
-    name: Github actions lint
+  actions_lint_check:
+    name: Actions lint check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
