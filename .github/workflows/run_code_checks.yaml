@@ -12,6 +12,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  actions_lint_check:
+    name: Actions lint check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Run actionlint
+        uses: rhysd/actionlint@v1.7.9
+
   lint_check:
     name: Lint check
     uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
@@ -24,15 +33,6 @@ jobs:
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
 
-  actions_lint_check:
-    name: Actions lint check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-      - name: Run actionlint
-        uses: rhysd/actionlint@v1.7.9
-
   unit_tests:
     name: Unit tests
     uses: apify/workflows/.github/workflows/python_unit_tests.yaml@add-code-cov-to-python
@@ -41,7 +41,7 @@ jobs:
       python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
       operating-systems: '["ubuntu-latest", "windows-latest"]'
       python-version-for-codecov: "3.14"
-      operating-system-for-codecov: "ubuntu-latest"
+      operating-system-for-codecov: ubuntu-latest
 
   docs_check:
     name: Docs check
@@ -56,4 +56,4 @@ jobs:
       python-versions: '["3.10", "3.14"]'
       operating-systems: '["ubuntu-latest"]'
       python-version-for-codecov: "3.14"
-      operating-system-for-codecov: "ubuntu-latest"
+      operating-system-for-codecov: ubuntu-latest
