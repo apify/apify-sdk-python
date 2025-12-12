@@ -107,12 +107,12 @@ jobs:
     needs: [release_metadata, update_changelog]
     runs-on: ubuntu-latest
     steps:
-      - # Trigger building the Python Docker images in apify/apify-actor-docker repo
-        name: Trigger Docker image build
+      # Trigger building the Python Docker images in apify/apify-actor-docker repo
+      - name: Trigger Docker image build
         run: |
           gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
             -F event_type=build-python-images \
-            -F client_payload[release_tag]=latest \
-            -F client_payload[apify_version]=${{ needs.release_metadata.outputs.version_number }}
+            -F 'client_payload[release_tag]=latest' \
+            -F 'client_payload[apify_version]=${{ needs.release_metadata.outputs.version_number }}'
         env:
           GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
