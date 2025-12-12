@@ -2,19 +2,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pytest
-
 from apify_shared.consts import ApifyEnvVars
 
 from .._utils import generate_unique_resource_name
 from apify import Actor
 
 if TYPE_CHECKING:
+    import pytest
+
     from apify_client import ApifyClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
-
-pytestmark = pytest.mark.only
 
 
 async def test_push_and_verify_data_in_default_dataset(
