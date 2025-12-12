@@ -4,8 +4,6 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
-import pytest
-
 from crawlee._utils.crypto import crypto_random_object_id
 
 from .._utils import generate_unique_resource_name
@@ -197,7 +195,6 @@ async def test_actor_calls_another_actor(
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
 
-@pytest.mark.skip(reason='Known failing test, pending investigation.')
 async def test_actor_calls_task(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -251,7 +248,6 @@ async def test_actor_calls_task(
     await apify_client_async.task(task['id']).delete()
 
 
-@pytest.mark.skip(reason='Known failing test, pending investigation.')
 async def test_actor_aborts_another_actor_run(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
