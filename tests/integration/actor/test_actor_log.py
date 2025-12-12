@@ -2,15 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pytest
-
 from apify import Actor, __version__
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-@pytest.mark.skip(reason='Known failing test, pending investigation.')
 async def test_actor_logging(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
