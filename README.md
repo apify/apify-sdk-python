@@ -7,14 +7,14 @@
     <a href="https://pypi.org/project/apify/" rel="nofollow">
         <img src="https://img.shields.io/pypi/dm/apify" alt="PyPI - Downloads" style="max-width: 100%;">
     </a>
-    <a href="https://codecov.io/github/apify/apify-sdk-python" >
-        <img src="https://codecov.io/github/apify/apify-sdk-python/branch/master/graph/badge.svg?token=TODO" alt="Code cov report"/>
-    </a>
-    <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow">
-        <img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on discord" style="max-width: 100%;">
+    <a href="https://codecov.io/gh/apify/apify-sdk-python" >
+        <img src="https://codecov.io/gh/apify/apify-sdk-python/graph/badge.svg?token=Y6JBIZQFT6" alt="Code cov report" style="max-width: 100%;"/>
     </a>
     <a href="https://pypi.org/project/apify/" rel="nofollow">
         <img src="https://img.shields.io/pypi/pyversions/apify" alt="PyPI - Python Version" style="max-width: 100%;">
+    </a>
+    <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow">
+        <img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on discord" style="max-width: 100%;">
     </a>
 </p>
 
