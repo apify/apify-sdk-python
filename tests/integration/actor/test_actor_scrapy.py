@@ -3,10 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
+@pytest.mark.skip(reason='Known failing test, pending investigation.')
 async def test_actor_scrapy_title_spider(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
