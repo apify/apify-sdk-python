@@ -26,13 +26,33 @@ type-check:
 	uv run mypy
 
 unit-tests:
-	uv run pytest --numprocesses=auto -vv --cov=src/apify tests/unit
+	uv run pytest \
+		--numprocesses=auto \
+		--verbose \
+		--cov=src/apify \
+		tests/unit
 
 unit-tests-cov:
-	uv run pytest --numprocesses=auto -vv --cov=src/apify --cov-report=html --cov-report=xml tests/unit
+	uv run pytest \
+		--numprocesses=auto \
+		--verbose \
+		--cov=src/apify \
+		--cov-report=xml:coverage-unit.xml \
+		tests/unit
 
 integration-tests:
-	uv run pytest --numprocesses=$(INTEGRATION_TESTS_CONCURRENCY) -vv tests/integration
+	uv run pytest \
+		--numprocesses=$(INTEGRATION_TESTS_CONCURRENCY) \
+		--verbose \
+		tests/integration
+
+integration-tests-cov:
+	uv run pytest \
+		--numprocesses=$(INTEGRATION_TESTS_CONCURRENCY) \
+		--verbose \
+		--cov=src/apify \
+		--cov-report=xml:coverage-integration.xml \
+		tests/integration
 
 format:
 	uv run ruff check --fix

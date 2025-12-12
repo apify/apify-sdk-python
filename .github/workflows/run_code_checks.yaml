@@ -38,7 +38,7 @@ jobs:
 
   integration_tests:
     name: Integration tests
-    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
+    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@add-code-cov-to-python
     secrets: inherit
     with:
       python-versions: '["3.10", "3.14"]'
