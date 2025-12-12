@@ -46,16 +46,23 @@ jobs:
 
   unit_tests:
     name: Unit tests
-    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
+    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@add-code-cov-to-python
+    secrets: inherit
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+      operating-systems: '["ubuntu-latest", "windows-latest"]'
+      python-version-for-codecov: "3.14"
+      operating-system-for-codecov: "ubuntu-latest"
 
   integration_tests:
     name: Integration tests
-    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
+    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@add-code-cov-to-python
     secrets: inherit
     with:
-      python-versions: '["3.10", "3.13"]'
+      python-versions: '["3.10", "3.14"]'
+      operating-systems: '["ubuntu-latest"]'
+      python-version-for-codecov: "3.14"
+      operating-system-for-codecov: "ubuntu-latest"
 
   update_changelog:
     name: Update changelog

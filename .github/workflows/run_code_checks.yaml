@@ -30,11 +30,9 @@ jobs:
     secrets: inherit
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-
-  docs_check:
-    name: Docs check
-    uses: apify/workflows/.github/workflows/python_docs_check.yaml@main
-    secrets: inherit
+      operating-systems: '["ubuntu-latest", "windows-latest"]'
+      python-version-for-codecov: "3.14"
+      operating-system-for-codecov: "ubuntu-latest"
 
   integration_tests:
     name: Integration tests
@@ -42,3 +40,11 @@ jobs:
     secrets: inherit
     with:
       python-versions: '["3.10", "3.14"]'
+      operating-systems: '["ubuntu-latest"]'
+      python-version-for-codecov: "3.14"
+      operating-system-for-codecov: "ubuntu-latest"
+
+  docs_check:
+    name: Docs check
+    uses: apify/workflows/.github/workflows/python_docs_check.yaml@main
+    secrets: inherit
