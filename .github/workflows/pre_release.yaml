@@ -32,50 +32,18 @@ jobs:
           release_type: prerelease
           existing_changelog_path: CHANGELOG.md
 
-  actions_lint_check:
-    name: Actions lint check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-      - name: Run actionlint
-        uses: rhysd/actionlint@v1.7.9
-
-  lint_check:
-    name: Lint check
-    uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
+  # If github.ref points to a [ci skip] commit, this workflow won't run.
+  # Otherwise, these checks will be launched from the `run_code_checks` workflow.
+  wait_for_checks:
+    name: Wait for code checks to pass
+    uses: apify/workflows/.github/workflows/wait_for_checks.yaml@wait-for-checks-action
     with:
-      python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-
-  type_check:
-    name: Type check
-    uses: apify/workflows/.github/workflows/python_type_check.yaml@main
-    with:
-      python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-
-  unit_tests:
-    name: Unit tests
-    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
-    secrets: inherit
-    with:
-      python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-      operating-systems: '["ubuntu-latest", "windows-latest"]'
-      python-version-for-codecov: "3.14"
-      operating-system-for-codecov: ubuntu-latest
-
-  integration_tests:
-    name: Integration tests
-    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
-    secrets: inherit
-    with:
-      python-versions: '["3.10", "3.14"]'
-      operating-systems: '["ubuntu-latest"]'
-      python-version-for-codecov: "3.14"
-      operating-system-for-codecov: ubuntu-latest
+      ref: ${{ github.ref }}
+      check-regexp: "( check| tests)$"
 
   update_changelog:
     name: Update changelog
-    needs: [release_metadata, lint_check, type_check, unit_tests, integration_tests]
+    needs: [release_metadata, wait_for_checks]
     uses: apify/workflows/.github/workflows/python_bump_and_update_changelog.yaml@main
     with:
       version_number: ${{ needs.release_metadata.outputs.version_number }}
@@ -85,7 +53,7 @@ jobs:
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [release_metadata, update_changelog]
+    needs: [release_metadata, wait_for_checks, update_changelog]
     runs-on: ubuntu-latest
     permissions:
       contents: write
