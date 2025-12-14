@@ -48,7 +48,7 @@ jobs:
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [release_metadata, wait_for_checks, update_changelog]
+    needs: [release_metadata, run_code_checks, update_changelog]
     runs-on: ubuntu-latest
     permissions:
       contents: write
