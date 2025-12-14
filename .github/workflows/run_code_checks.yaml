@@ -11,6 +11,9 @@ on:
   # It should also be possible to trigger checks manually
   workflow_dispatch:
 
+  # Allow this workflow to be invoked as a reusable workflow from other workflows
+  workflow_call:
+
 jobs:
   actions_lint_check:
     name: Actions lint check
