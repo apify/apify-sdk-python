@@ -1,10 +1,10 @@
 <h1 align=center>Apify SDK for Python</h1>
 
 <p align="center">
-  <a href="https://badge.fury.io/py/apify" rel="nofollow"><img src="https://badge.fury.io/py/apify.svg" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/apify/" rel="nofollow"><img src="https://img.shields.io/pypi/dm/apify" alt="PyPI - Downloads"></a>
+  <a href="https://badge.fury.io/py/apify" rel="nofollow"><img src="https://badge.fury.io/py/apify.svg" alt="PyPI package version"></a>
+  <a href="https://pypi.org/project/apify/" rel="nofollow"><img src="https://img.shields.io/pypi/dm/apify" alt="PyPI package downloads"></a>
   <a href="https://codecov.io/gh/apify/apify-sdk-python"><img src="https://codecov.io/gh/apify/apify-sdk-python/graph/badge.svg?token=Y6JBIZQFT6" alt="Codecov report"></a>
-  <a href="https://pypi.org/project/apify/" rel="nofollow"><img src="https://img.shields.io/pypi/pyversions/apify" alt="PyPI - Python version"></a>
+  <a href="https://pypi.org/project/apify/" rel="nofollow"><img src="https://img.shields.io/pypi/pyversions/apify" alt="PyPI Python version"></a>
   <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>
 </p>
 
