@@ -1,15 +1,15 @@
-name: Create a pre-release
+name: Pre-release
 
 on:
-  # Trigger a beta version release (pre-release) on push to the master branch.
-  push:
-    branches:
-      - master
-    tags-ignore:
-      - "**" # Ignore all tags to prevent duplicate builds when tags are pushed.
-
-  # Or it can be triggered manually.
+  # Runs when manually triggered from the GitHub UI.
   workflow_dispatch:
+
+  # Runs when invoked by another workflow.
+  workflow_call:
+    outputs:
+      changelog_commitish:
+        description: The commit SHA after updating the changelog
+        value: ${{ jobs.update_changelog.outputs.changelog_commitish }}
 
 concurrency:
   group: release
@@ -32,13 +32,9 @@ jobs:
           release_type: prerelease
           existing_changelog_path: CHANGELOG.md
 
-  run_code_checks:
-    name: Run code checks
-    uses: ./.github/workflows/code_checks.yaml
-
   update_changelog:
     name: Update changelog
-    needs: [release_metadata, run_code_checks]
+    needs: [release_metadata]
     uses: apify/workflows/.github/workflows/python_bump_and_update_changelog.yaml@main
     with:
       version_number: ${{ needs.release_metadata.outputs.version_number }}
@@ -47,8 +43,9 @@ jobs:
       APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
 
   publish_to_pypi:
+    if: "!startsWith(github.event.head_commit.message, 'ci') && !startsWith(github.event.head_commit.message, 'docs')"
     name: Publish to PyPI
-    needs: [release_metadata, run_code_checks, update_changelog]
+    needs: [release_metadata, update_changelog]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -67,3 +64,6 @@ jobs:
       # Publishes the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+      # TODO: add job for publish package to Conda
+      # https://github.com/apify/crawlee-python/issues/104
