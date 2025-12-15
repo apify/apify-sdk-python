@@ -61,9 +61,7 @@ jobs:
           is_prerelease: "yes"
           version_number: ${{ needs.release_metadata.outputs.version_number }}
           ref: ${{ needs.update_changelog.outputs.changelog_commitish }}
+
       # Publishes the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-      # TODO: add job for publish package to Conda
-      # https://github.com/apify/crawlee-python/issues/104

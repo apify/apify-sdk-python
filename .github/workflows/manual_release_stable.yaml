@@ -91,12 +91,10 @@ jobs:
           is_prerelease: ""
           version_number: ${{ needs.release_metadata.outputs.version_number }}
           ref: ${{ needs.update_changelog.outputs.changelog_commitish }}
+
       # Publishes the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-      # TODO: add job for publish package to Conda
-      # https://github.com/apify/crawlee-python/issues/104
 
   trigger_docker_build:
     name: Trigger Docker image build
