@@ -197,7 +197,7 @@ async def test_actor_calls_another_actor(
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
 
-@pytest.mark.skip(reason='Known failing test, pending investigation.')
+@pytest.mark.skip(reason='Requires Actor permissions beyond limited permissions, see #715.')
 async def test_actor_calls_task(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -251,7 +251,7 @@ async def test_actor_calls_task(
     await apify_client_async.task(task['id']).delete()
 
 
-@pytest.mark.skip(reason='Known failing test, pending investigation.')
+@pytest.mark.skip(reason='Requires Actor permissions beyond limited permissions, see #715.')
 async def test_actor_aborts_another_actor_run(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,

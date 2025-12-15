@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-@pytest.mark.skip(reason='Known failing test, pending investigation.')
+@pytest.mark.skip(reason='Requires Actor permissions beyond limited permissions, see #715.')
 async def test_actor_scrapy_title_spider(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
