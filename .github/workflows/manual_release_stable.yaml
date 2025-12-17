@@ -1,7 +1,7 @@
-name: Create a release
+name: Stable release
 
 on:
-  # Trigger a stable version release via GitHub's UI, with the ability to specify the type of release.
+  # Runs when manually triggered from the GitHub UI, with options to specify the type of release.
   workflow_dispatch:
     inputs:
       release_type:
@@ -26,63 +26,55 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release_metadata:
-    name: Prepare release metadata
+  code_checks:
+    name: Code checks
+    uses: ./.github/workflows/_check_code.yaml
+
+  release_prepare:
+    name: Release prepare
+    needs: [code_checks]
     runs-on: ubuntu-latest
     outputs:
-      version_number: ${{ steps.release_metadata.outputs.version_number }}
-      tag_name: ${{ steps.release_metadata.outputs.tag_name }}
-      changelog: ${{ steps.release_metadata.outputs.changelog }}
-      release_notes: ${{ steps.release_metadata.outputs.release_notes }}
+      version_number: ${{ steps.release_prepare.outputs.version_number }}
+      tag_name: ${{ steps.release_prepare.outputs.tag_name }}
+      changelog: ${{ steps.release_prepare.outputs.changelog }}
+      release_notes: ${{ steps.release_prepare.outputs.release_notes }}
     steps:
       - uses: apify/workflows/git-cliff-release@main
-        name: Prepare release metadata
-        id: release_metadata
+        name: Release prepare
+        id: release_prepare
         with:
           release_type: ${{ inputs.release_type }}
           custom_version: ${{ inputs.custom_version }}
           existing_changelog_path: CHANGELOG.md
 
-  lint_check:
-    name: Lint check
-    uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
-    with:
-      python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-
-  type_check:
-    name: Type check
-    uses: apify/workflows/.github/workflows/python_type_check.yaml@main
-    with:
-      python-versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-
-  update_changelog:
-    name: Update changelog
-    needs: [release_metadata, lint_check, type_check]
+  changelog_update:
+    name: Changelog update
+    needs: [release_prepare]
     uses: apify/workflows/.github/workflows/python_bump_and_update_changelog.yaml@main
     with:
-      version_number: ${{ needs.release_metadata.outputs.version_number }}
-      changelog: ${{ needs.release_metadata.outputs.changelog }}
-    secrets:
-      APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
+      version_number: ${{ needs.release_prepare.outputs.version_number }}
+      changelog: ${{ needs.release_prepare.outputs.changelog }}
+    secrets: inherit
 
-  create_github_release:
-    name: Create github release
-    needs: [release_metadata, update_changelog]
+  github_release:
+    name: GitHub release
+    needs: [release_prepare, changelog_update]
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Create release
+      - name: GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release_metadata.outputs.tag_name }}
-          name: ${{ needs.release_metadata.outputs.version_number }}
-          target_commitish: ${{ needs.update_changelog.outputs.changelog_commitish }}
-          body: ${{ needs.release_metadata.outputs.release_notes }}
+          tag_name: ${{ needs.release_prepare.outputs.tag_name }}
+          name: ${{ needs.release_prepare.outputs.version_number }}
+          target_commitish: ${{ needs.changelog_update.outputs.changelog_commitish }}
+          body: ${{ needs.release_prepare.outputs.release_notes }}
 
-  publish_to_pypi:
-    name: Publish to PyPI
-    needs: [release_metadata, update_changelog]
+  pypi_publish:
+    name: PyPI publish
+    needs: [release_prepare, changelog_update]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -96,15 +88,16 @@ jobs:
         with:
           package_name: apify
           is_prerelease: ""
-          version_number: ${{ needs.release_metadata.outputs.version_number }}
-          ref: ${{ needs.update_changelog.outputs.changelog_commitish }}
+          version_number: ${{ needs.release_prepare.outputs.version_number }}
+          ref: ${{ needs.changelog_update.outputs.changelog_commitish }}
+
       # Publishes the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
   trigger_docker_build:
     name: Trigger Docker image build
-    needs: [release_metadata, update_changelog]
+    needs: [release_prepare, changelog_update]
     runs-on: ubuntu-latest
     steps:
       # Trigger building the Python Docker images in apify/apify-actor-docker repo
@@ -113,6 +106,6 @@ jobs:
           gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
             -F event_type=build-python-images \
             -F 'client_payload[release_tag]=latest' \
-            -F 'client_payload[apify_version]=${{ needs.release_metadata.outputs.version_number }}'
+            -F 'client_payload[apify_version]=${{ needs.release_prepare.outputs.version_number }}'
         env:
           GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
