@@ -1,0 +1,17 @@
+# Configuration for typos spell checker
+# https://github.com/crate-ci/typos
+
+[default]
+extend-ignore-re = [
+    "https?://[^\\s]+", # Ignore URLs
+    "'gASV[^']+",       # Ignore base64-encoded pickle data
+]
+
+[files]
+# Extend the default exclude list
+extend-exclude = [
+    "*.lock",
+    "*.min.js",
+    "*.min.css",
+    "CHANGELOG.md",
+]
