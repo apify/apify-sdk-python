@@ -148,7 +148,7 @@ async def test_lifecycle_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
     async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
         # When you don't specify a port explicitly, the websocket connection is opened on a random free port.
         # We need to find out which port is that.
-        port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
+        port: int = ws_server.sockets[0].getsockname()[1]  # ty: ignore[non-subscriptable]
         monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
         async with ApifyEventManager(Configuration.get_global_configuration()):
@@ -175,7 +175,7 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
     async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
         # When you don't specify a port explicitly, the websocket connection is opened on a random free port.
         # We need to find out which port is that.
-        port: int = ws_server.sockets[0].getsockname()[1]  # type: ignore[index]
+        port: int = ws_server.sockets[0].getsockname()[1]  # ty: ignore[non-subscriptable]
         monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
 
         dummy_system_info = {

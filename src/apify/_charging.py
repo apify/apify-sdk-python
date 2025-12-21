@@ -162,7 +162,7 @@ class ChargingManagerImplementation(ChargingManager):
 
         # Load per-event pricing information
         if pricing_info and pricing_info.pricing_model == 'PAY_PER_EVENT':
-            for event_name, event_pricing in pricing_info.pricing_per_event.actor_charge_events.items():
+            for event_name, event_pricing in pricing_info.pricing_per_event.actor_charge_events.items():  # ty:ignore[possibly-missing-attribute]
                 self._pricing_info[event_name] = PricingInfoItem(
                     price=event_pricing.event_price_usd,
                     title=event_pricing.event_title,

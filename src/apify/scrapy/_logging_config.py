@@ -45,4 +45,4 @@ def initialize_logging() -> None:
         for logger_name in [None, *_ALL_LOGGERS]:
             _configure_logger(logger_name, logging_level, handler)
 
-    scrapy_logging.configure_logging = new_configure_logging
+    scrapy_logging.configure_logging = new_configure_logging  # ty: ignore[invalid-assignment]

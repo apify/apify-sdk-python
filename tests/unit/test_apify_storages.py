@@ -52,7 +52,7 @@ async def test_get_additional_cache_key(
     config_4 = Configuration(token='a')
     config_5 = Configuration(token='a', api_public_base_url='https://super_custom_api.com')
 
-    mocked_client = AsyncMock(spec=type[_storage_client])
+    mocked_client = AsyncMock(spec=type[_storage_client])  # ty: ignore[invalid-type-form]
     mocked_client.get_metadata = AsyncMock(side_effect=lambda: create_metadata(next(storage_ids)))
     mocked_open = AsyncMock(spec=_storage_client.open, return_value=mocked_client)
 

@@ -61,7 +61,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
                     key=configuration.input_key, record_path=input_file_path
                 )
 
-        return client
+        return client  # ty: ignore[invalid-return-type]
 
     @override
     async def purge(self) -> None:

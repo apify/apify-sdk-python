@@ -17,7 +17,7 @@ async def custom_new_url_function(
 async def main() -> None:
     async with Actor:
         proxy_cfg = await Actor.create_proxy_configuration(
-            new_url_function=custom_new_url_function,  # type: ignore[arg-type]
+            new_url_function=custom_new_url_function,  # ty: ignore[invalid-argument-type]
         )
 
         if not proxy_cfg:

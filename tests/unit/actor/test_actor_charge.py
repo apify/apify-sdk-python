@@ -38,7 +38,7 @@ async def setup_mocked_charging(configuration: Configuration) -> AsyncGenerator[
     mock_client.run = Mock(return_value=mock_run_client)
 
     async with Actor(configuration):
-        charging_mgr_impl: ChargingManagerImplementation = Actor.get_charging_manager()  # type: ignore[assignment]
+        charging_mgr_impl = Actor.get_charging_manager()
 
         # Patch the charging manager to simulate running on Apify platform
         with (
@@ -47,7 +47,7 @@ async def setup_mocked_charging(configuration: Configuration) -> AsyncGenerator[
             patch.object(charging_mgr_impl, '_client', mock_client),
         ):
             yield MockedChargingSetup(
-                charging_mgr=charging_mgr_impl,
+                charging_mgr=charging_mgr_impl,  # ty: ignore[invalid-argument-type]
                 mock_charge=mock_charge,
                 mock_client=mock_client,
             )

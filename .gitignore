@@ -1,6 +1,6 @@
 # Cache
 __pycache__
-.mypy_cache
+.ty_cache
 .pytest_cache
 .ruff_cache
 .uv-cache

@@ -75,18 +75,18 @@ def test_invalid_arguments() -> None:
         (['abc', 'DEF', 'geh$'], 2),
         ([111, 'DEF', 'geh$'], 2),
     ]:
-        bad_group = str(invalid_groups[bad_group_index])  # type: ignore[index]
+        bad_group = str(invalid_groups[bad_group_index])
 
         # Match the actual error message pattern that includes the value and argument name
         match_pattern = f'Value {re.escape(bad_group)} of argument groups does not match pattern'
 
         with pytest.raises(ValueError, match=match_pattern):
-            ProxyConfiguration(groups=invalid_groups)  # type: ignore[arg-type]
+            ProxyConfiguration(groups=invalid_groups)  # ty: ignore[invalid-argument-type]
 
     for invalid_country_code in ['CZE', 'aa', 'DDDD', 1111]:
         match_pattern = f'Value {re.escape(str(invalid_country_code))} of argument country_code does not match pattern'
         with pytest.raises(ValueError, match=match_pattern):
-            ProxyConfiguration(country_code=invalid_country_code)  # type: ignore[arg-type]
+            ProxyConfiguration(country_code=invalid_country_code)  # ty: ignore[invalid-argument-type]
 
     with pytest.raises(ValueError, match=r'Exactly one of .* must be specified'):
         ProxyConfiguration(
@@ -409,7 +409,7 @@ async def test_initialize_with_valid_configuration(
     assert proxy_configuration._password == DUMMY_PASSWORD
     assert proxy_configuration.is_man_in_the_middle is True
 
-    assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore[attr-defined]
+    assert len(patched_apify_client.calls['user']['get']) == 1  # ty:ignore[unresolved-attribute]
     assert call_mock.call_count == 1
 
 
@@ -468,7 +468,7 @@ async def test_initialize_preferring_password_from_env_over_calling_api(
     assert proxy_configuration._password == DUMMY_PASSWORD
     assert proxy_configuration.is_man_in_the_middle is False
 
-    assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
+    assert len(patched_apify_client.calls['user']['get']) == 0  # ty: ignore[unresolved-attribute]
 
 
 @pytest.mark.usefixtures('patched_impit_client')
@@ -559,7 +559,7 @@ async def test_initialize_with_non_apify_proxy(
 
     await proxy_configuration.initialize()
 
-    assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
+    assert len(patched_apify_client.calls['user']['get']) == 0  # ty: ignore[unresolved-attribute]
     assert call_mock.call_count == 0
 
 
