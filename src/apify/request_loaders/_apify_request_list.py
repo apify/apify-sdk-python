@@ -152,7 +152,7 @@ class ApifyRequestList(RequestList):
             )
 
             get_response_task.add_done_callback(
-                lambda task, inp=remote_url_requests_input: asyncio.create_task(  # type: ignore[misc]
+                lambda task, inp=remote_url_requests_input: asyncio.create_task(
                     create_requests_from_response(inp, task)
                 )
             )

@@ -33,8 +33,8 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
 
     def _prepare_test_env() -> None:
         # Reset the Actor class state.
-        apify._actor.Actor.__wrapped__.__class__._is_any_instance_initialized = False  # type: ignore[attr-defined]
-        apify._actor.Actor.__wrapped__.__class__._is_rebooting = False  # type: ignore[attr-defined]
+        apify._actor.Actor.__wrapped__.__class__._is_any_instance_initialized = False  # ty: ignore[unresolved-attribute]
+        apify._actor.Actor.__wrapped__.__class__._is_rebooting = False  # ty: ignore[unresolved-attribute]
         delattr(apify._actor.Actor, '__wrapped__')
 
         # Set the environment variable for the local storage directory to the temporary path.

@@ -86,10 +86,10 @@ async def create_storage_api_client(
             return apify_client.key_value_store(key_value_store_id=storage_id)
 
     elif storage_type == 'RequestQueue':
-        collection_client = apify_client.request_queues()  # type: ignore[assignment]
+        collection_client = apify_client.request_queues()
         default_id = configuration.default_request_queue_id
 
-        def get_resource_client(storage_id: str) -> RequestQueueClientAsync:  # type: ignore[misc]
+        def get_resource_client(storage_id: str) -> RequestQueueClientAsync:
             # Use suitable client_key to make `hadMultipleClients` response of Apify API useful.
             # It should persist across migrated or resurrected Actor runs on the Apify platform.
             _api_max_client_key_length = 32
@@ -99,10 +99,10 @@ async def create_storage_api_client(
             return apify_client.request_queue(request_queue_id=storage_id, client_key=client_key)
 
     elif storage_type == 'Dataset':
-        collection_client = apify_client.datasets()  # type: ignore[assignment]
+        collection_client = apify_client.datasets()
         default_id = configuration.default_dataset_id
 
-        def get_resource_client(storage_id: str) -> DatasetClientAsync:  # type: ignore[misc]
+        def get_resource_client(storage_id: str) -> DatasetClientAsync:
             return apify_client.dataset(dataset_id=storage_id)
 
     else:
@@ -114,25 +114,25 @@ async def create_storage_api_client(
         case (None, None, None, None):
             return await open_by_alias(
                 alias='__default__',
-                storage_type=storage_type,  # type: ignore[arg-type]
+                storage_type=storage_type,
                 collection_client=collection_client,
                 get_resource_client_by_id=get_resource_client,
                 configuration=configuration,
-            )
+            )  # ty:ignore[no-matching-overload]
 
         # Open by alias.
         case (str(), None, None, _):
             return await open_by_alias(
                 alias=alias,
-                storage_type=storage_type,  # type: ignore[arg-type]
+                storage_type=storage_type,
                 collection_client=collection_client,
                 get_resource_client_by_id=get_resource_client,
                 configuration=configuration,
-            )
+            )  # ty:ignore[no-matching-overload]
 
         # Open default storage.
         case (None, None, None, str()):
-            resource_client = get_resource_client(default_id)
+            resource_client = get_resource_client(default_id)  # ty: ignore[invalid-argument-type]
             raw_metadata = await resource_client.get()
             # Default storage does not exist. Create a new one.
             if not raw_metadata:
@@ -147,7 +147,7 @@ async def create_storage_api_client(
 
         # Open by ID.
         case (None, None, str(), _):
-            resource_client = get_resource_client(id)
+            resource_client = get_resource_client(id)  # ty: ignore[invalid-argument-type]
             raw_metadata = await resource_client.get()
             if raw_metadata is None:
                 raise ValueError(f'Opening {storage_type} with id={id} failed.')

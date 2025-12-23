@@ -5,7 +5,7 @@
 INTEGRATION_TESTS_CONCURRENCY = 1
 
 clean:
-	rm -rf .mypy_cache .pytest_cache .ruff_cache build dist htmlcov .coverage
+	rm -rf .ty_cache .pytest_cache .ruff_cache build dist htmlcov .coverage
 
 install-dev:
 	uv sync --all-extras
@@ -23,7 +23,7 @@ lint:
 	uv run ruff check
 
 type-check:
-	uv run mypy
+	uv run ty check
 
 unit-tests:
 	uv run pytest \

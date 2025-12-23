@@ -168,7 +168,7 @@ def make_actor(
         # Get the source of main_func and convert it into a reasonable main_py file.
         if main_func:
             func_source = textwrap.dedent(inspect.getsource(main_func))
-            func_source = func_source.replace(f'def {main_func.__name__}(', 'def main(')
+            func_source = func_source.replace(f'def {main_func.__name__}(', 'def main(')  # ty: ignore[unresolved-attribute]
             main_py = '\n'.join(  # noqa: FLY002
                 [
                     'import asyncio',

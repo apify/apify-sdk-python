@@ -88,5 +88,5 @@ def test_with_id_and_unique_key(spider: Spider) -> None:
 def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
     scrapy_request = 'invalid_request'
 
-    apify_request = to_apify_request(scrapy_request, spider)  # type: ignore[arg-type]
+    apify_request = to_apify_request(scrapy_request, spider)  # ty: ignore[invalid-argument-type]
     assert apify_request is None

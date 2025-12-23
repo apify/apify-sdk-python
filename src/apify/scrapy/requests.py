@@ -28,7 +28,7 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         The converted Apify request if the conversion was successful, otherwise None.
     """
     if not isinstance(scrapy_request, ScrapyRequest):
-        logger.warning('Failed to convert to Apify request: Scrapy request must be a ScrapyRequest instance.')  # type: ignore[unreachable]
+        logger.warning('Failed to convert to Apify request: Scrapy request must be a ScrapyRequest instance.')
         return None
 
     logger.debug(f'to_apify_request was called (scrapy_request={scrapy_request})...')
@@ -58,7 +58,7 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         if isinstance(scrapy_request.headers, Headers):
             request_kwargs['headers'] = HttpHeaders(dict(scrapy_request.headers.to_unicode_dict()))
         else:
-            logger.warning(  # type: ignore[unreachable]
+            logger.warning(
                 f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}'
             )
 

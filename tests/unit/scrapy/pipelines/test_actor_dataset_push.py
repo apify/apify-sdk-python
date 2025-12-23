@@ -57,7 +57,7 @@ class ItemTestCase:
             expected_exception=None,
         ),
         ItemTestCase(
-            item=None,  # type: ignore[arg-type]  # that is the point of this test
+            item=None,  # ty: ignore[invalid-argument-type]
             item_dict={},
             expected_exception=TypeError,
         ),

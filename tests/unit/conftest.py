@@ -206,16 +206,16 @@ def make_httpserver() -> Iterator[HTTPServer]:
     server = HTTPServer(threaded=True, host='127.0.0.1')
     server.start()
     yield server
-    server.clear()  # type: ignore[no-untyped-call]
+    server.clear()
     if server.is_running():
-        server.stop()  # type: ignore[no-untyped-call]
+        server.stop()
 
 
 @pytest.fixture
 def httpserver(make_httpserver: HTTPServer) -> Iterator[HTTPServer]:
     server = make_httpserver
     yield server
-    server.clear()  # type: ignore[no-untyped-call]
+    server.clear()
 
 
 @pytest.fixture

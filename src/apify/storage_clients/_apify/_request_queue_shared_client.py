@@ -490,6 +490,9 @@ class ApifyRequestQueueSharedClient:
             forefront: Whether the request was added to the forefront of the queue.
             hydrated_request: The hydrated request object, if available.
         """
+        if processed_request.id is None:
+            raise ValueError('ProcessedRequest must have an ID to be cached.')
+
         self._requests_cache[cache_key] = CachedRequest(
             id=processed_request.id,
             was_already_handled=processed_request.was_already_handled,
