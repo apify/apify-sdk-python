@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Final, Literal
 
@@ -15,7 +16,7 @@ from ._request_queue_single_client import ApifyRequestQueueSingleClient
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
+    from apify_client._resource_clients import RequestQueueClientAsync
     from crawlee import Request
     from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
@@ -82,21 +83,26 @@ class ApifyRequestQueueClient(RequestQueueClient):
         if response is None:
             raise ValueError('Failed to fetch request queue metadata from the API.')
 
+        total_request_count = int(response.total_request_count)
+        handled_request_count = int(response.handled_request_count)
+        pending_request_count = int(response.pending_request_count)
+        created_at = datetime.fromisoformat(response.created_at)
+        modified_at = datetime.fromisoformat(response.modified_at)
+        accessed_at = datetime.fromisoformat(response.accessed_at)
+
         # Enhance API response with local estimations to account for propagation delays (API data can be delayed
         # by a few seconds, while local estimates are immediately accurate).
         return ApifyRequestQueueMetadata(
-            id=response['id'],
-            name=response['name'],
-            total_request_count=max(response['totalRequestCount'], self._implementation.metadata.total_request_count),
-            handled_request_count=max(
-                response['handledRequestCount'], self._implementation.metadata.handled_request_count
-            ),
-            pending_request_count=response['pendingRequestCount'],
-            created_at=min(response['createdAt'], self._implementation.metadata.created_at),
-            modified_at=max(response['modifiedAt'], self._implementation.metadata.modified_at),
-            accessed_at=max(response['accessedAt'], self._implementation.metadata.accessed_at),
-            had_multiple_clients=response['hadMultipleClients'] or self._implementation.metadata.had_multiple_clients,
-            stats=RequestQueueStats.model_validate(response['stats'], by_alias=True),
+            id=response.id,
+            name=response.name,
+            total_request_count=max(total_request_count, self._implementation.metadata.total_request_count),
+            handled_request_count=max(handled_request_count, self._implementation.metadata.handled_request_count),
+            pending_request_count=pending_request_count,
+            created_at=min(created_at, self._implementation.metadata.created_at),
+            modified_at=max(modified_at, self._implementation.metadata.modified_at),
+            accessed_at=max(accessed_at, self._implementation.metadata.accessed_at),
+            had_multiple_clients=response.had_multiple_clients or self._implementation.metadata.had_multiple_clients,
+            stats=RequestQueueStats.model_validate(response.stats, by_alias=True),  # ty: ignore[possibly-missing-attribute]
         )
 
     @classmethod

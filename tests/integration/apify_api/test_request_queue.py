@@ -1122,11 +1122,11 @@ async def test_force_cloud(
 
     request_queue_details = await request_queue_client.get()
     assert request_queue_details is not None
-    assert request_queue_details.get('name') == request_queue_apify.name
+    assert request_queue_details.name == request_queue_apify.name
 
     request_queue_request = await request_queue_client.get_request(request_info.id)
     assert request_queue_request is not None
-    assert request_queue_request['url'] == 'http://example.com'
+    assert request_queue_request.url == 'http://example.com'
 
 
 async def test_request_queue_is_finished(
@@ -1161,8 +1161,8 @@ async def test_request_queue_deduplication_unprocessed_requests(
     # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
     rq_client = Actor.apify_client.request_queue(request_queue_id=request_queue_apify.id)
     _rq = await rq_client.get()
-    assert _rq
-    stats_before = _rq.get('stats', {})
+    assert _rq is not None
+    stats_before = _rq.stats
     Actor.log.info(stats_before)
 
     def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> dict[str, list[dict]]:
@@ -1187,8 +1187,8 @@ async def test_request_queue_deduplication_unprocessed_requests(
 
     await asyncio.sleep(10)  # Wait to be sure that metadata are updated
     _rq = await rq_client.get()
-    assert _rq
-    stats_after = _rq.get('stats', {})
+    assert _rq is not None
+    stats_after = _rq.stats
     Actor.log.info(stats_after)
 
     assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
