@@ -86,8 +86,8 @@ async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_acto
             requests = ['https://example.com/1', 'https://example.com/2']
 
             run = await Actor.apify_client.run(Actor.configuration.actor_run_id or '').get()
-            assert run
-            first_run = run.get('stats', {}).get('rebootCount', 0) == 0
+            assert run is not None
+            first_run = run.stats.reboot_count == 0
 
             @crawler.router.default_handler
             async def default_handler(context: BasicCrawlingContext) -> None:

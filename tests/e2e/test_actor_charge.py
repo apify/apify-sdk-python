@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from apify_client import ApifyClientAsync
-    from apify_client.clients import ActorClientAsync
+    from apify_client._resource_clients import ActorClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
 
@@ -48,13 +48,13 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
                     },
                 },
             },
-        ]
+        ],
     )
 
     actor = await actor_client.get()
 
     assert actor is not None
-    return str(actor['id'])
+    return str(actor.id)
 
 
 @pytest_asyncio.fixture(scope='function', loop_scope='module')
@@ -82,8 +82,13 @@ async def test_actor_charge_basic(
     # Refetch until the platform gets its act together
     for is_last_attempt, _ in retry_counter(30):
         await asyncio.sleep(1)
-        updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+
+        run_client = apify_client_async.run(run.id)
+        updated_run = await run_client.get()
+        assert updated_run is not None, 'Updated run should not be None'
+
+        updated_run_dict = updated_run.model_dump(by_alias=True)
+        run = ActorRun.model_validate(updated_run_dict)
 
         try:
             assert run.status == ActorJobStatus.SUCCEEDED
@@ -104,8 +109,13 @@ async def test_actor_charge_limit(
     # Refetch until the platform gets its act together
     for is_last_attempt, _ in retry_counter(30):
         await asyncio.sleep(1)
-        updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+
+        run_client = apify_client_async.run(run.id)
+        updated_run = await run_client.get()
+        assert updated_run is not None, 'Updated run should not be None'
+
+        updated_run_dict = updated_run.model_dump(by_alias=True)
+        run = ActorRun.model_validate(updated_run_dict)
 
         try:
             assert run.status == ActorJobStatus.SUCCEEDED

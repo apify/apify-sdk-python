@@ -898,7 +898,8 @@ class _ActorType:
                 f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
             )
 
-        api_result = await client.actor(actor_id).start(
+        actor_client = client.actor(actor_id)
+        run = await actor_client.start(
             run_input=run_input,
             content_type=content_type,
             build=build,
@@ -908,7 +909,11 @@ class _ActorType:
             webhooks=serialized_webhooks,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to start Actor with ID "{actor_id}".')
+
+        run_dict = run.model_dump(by_alias=True)
+        return ActorRun.model_validate(run_dict)
 
     async def abort(
         self,
@@ -936,13 +941,18 @@ class _ActorType:
         self._raise_if_not_initialized()
 
         client = self.new_client(token=token) if token else self.apify_client
+        run_client = client.run(run_id)
 
         if status_message:
-            await client.run(run_id).update(status_message=status_message)
+            await run_client.update(status_message=status_message)
 
-        api_result = await client.run(run_id).abort(gracefully=gracefully)
+        run = await run_client.abort(gracefully=gracefully)
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to abort Actor run with ID "{run_id}".')
+
+        run_dict = run.model_dump(by_alias=True)
+        return ActorRun.model_validate(run_dict)
 
     async def call(
         self,
@@ -1015,7 +1025,8 @@ class _ActorType:
                 f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
             )
 
-        api_result = await client.actor(actor_id).call(
+        actor_client = client.actor(actor_id)
+        run = await actor_client.call(
             run_input=run_input,
             content_type=content_type,
             build=build,
@@ -1026,7 +1037,11 @@ class _ActorType:
             logger=logger,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
+
+        run_dict = run.model_dump(by_alias=True)
+        return ActorRun.model_validate(run_dict)
 
     async def call_task(
         self,
@@ -1088,7 +1103,8 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        api_result = await client.task(task_id).call(
+        task_client = client.task(task_id)
+        run = await task_client.call(
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
@@ -1097,7 +1113,11 @@ class _ActorType:
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
+
+        run_dict = run.model_dump(by_alias=True)
+        return ActorRun.model_validate(run_dict)
 
     async def metamorph(
         self,
@@ -1274,11 +1294,19 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        api_result = await self.apify_client.run(self.configuration.actor_run_id).update(
-            status_message=status_message, is_status_message_terminal=is_terminal
+        run_client = self.apify_client.run(self.configuration.actor_run_id)
+        run = await run_client.update(
+            status_message=status_message,
+            is_status_message_terminal=is_terminal,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(
+                f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
+            )
+
+        run_dict = run.model_dump(by_alias=True)
+        return ActorRun.model_validate(run_dict)
 
     async def create_proxy_configuration(
         self,

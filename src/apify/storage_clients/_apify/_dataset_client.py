@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import warnings
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
@@ -17,7 +18,7 @@ from ._api_client_creation import create_storage_api_client
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import DatasetClientAsync
+    from apify_client._resource_clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
 
     from apify import Configuration
@@ -65,7 +66,18 @@ class ApifyDatasetClient(DatasetClient):
     @override
     async def get_metadata(self) -> DatasetMetadata:
         metadata = await self._api_client.get()
-        return DatasetMetadata.model_validate(metadata)
+
+        if metadata is None:
+            raise ValueError('Failed to retrieve dataset metadata.')
+
+        return DatasetMetadata(
+            id=metadata.id,
+            name=metadata.name,
+            created_at=datetime.fromisoformat(metadata.created_at.replace('Z', '+00:00')),
+            modified_at=datetime.fromisoformat(metadata.modified_at.replace('Z', '+00:00')),
+            accessed_at=datetime.fromisoformat(metadata.accessed_at.replace('Z', '+00:00')),
+            item_count=int(metadata.item_count),
+        )
 
     @classmethod
     async def open(

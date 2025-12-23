@@ -8,7 +8,7 @@ from crawlee._utils.crypto import crypto_random_object_id
 from apify.storage_clients._apify._alias_resolving import open_by_alias
 
 if TYPE_CHECKING:
-    from apify_client.clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
+    from apify_client._resource_clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
 
     from apify._configuration import Configuration
 
@@ -137,13 +137,13 @@ async def create_storage_api_client(
             # Default storage does not exist. Create a new one.
             if not raw_metadata:
                 raw_metadata = await collection_client.get_or_create()
-                resource_client = get_resource_client(raw_metadata['id'])
+                resource_client = get_resource_client(raw_metadata.id)
             return resource_client
 
         # Open by name.
         case (None, str(), None, _):
             raw_metadata = await collection_client.get_or_create(name=name)
-            return get_resource_client(raw_metadata['id'])
+            return get_resource_client(raw_metadata.id)
 
         # Open by ID.
         case (None, None, str(), _):

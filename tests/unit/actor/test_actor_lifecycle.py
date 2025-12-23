@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
+from unittest import mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
+import websockets
+import websockets.asyncio.server
 
-from apify_shared.consts import ActorExitCodes, ApifyEnvVars
-from crawlee.events._types import Event
+from apify_client._models import Run
+from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
+from crawlee.events._types import Event, EventPersistStateData
 
 from apify import Actor
 
@@ -209,6 +216,91 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
     await asyncio.sleep(0.2)
     assert on_persist_count == len(on_persist)
     assert on_system_info_count == len(on_system_info)
+
+
+async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that Actor handles MIGRATING events correctly by emitting PERSIST_STATE."""
+    # This should test whether when you get a MIGRATING event,
+    # the Actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
+    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, '1')
+    monkeypatch.setenv(ActorEnvVars.RUN_ID, 'asdf')
+
+    persist_state_events_data = []
+
+    def log_persist_state(data: Any) -> None:
+        nonlocal persist_state_events_data
+        persist_state_events_data.append(data)
+
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
+        await websocket.wait_closed()
+
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
+        port: int = ws_server.sockets[0].getsockname()[1]
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
+
+        mock_run_client = Mock()
+        mock_run_client.run.return_value.get = AsyncMock(
+            side_effect=lambda: Run.model_validate(
+                {
+                    'id': 'asdf',
+                    'actId': 'asdf',
+                    'userId': 'adsf',
+                    'startedAt': datetime.now(timezone.utc).isoformat(),
+                    'status': 'RUNNING',
+                    'meta': {'origin': 'DEVELOPMENT'},
+                    'buildId': 'hjkl',
+                    'defaultDatasetId': 'hjkl',
+                    'defaultKeyValueStoreId': 'hjkl',
+                    'defaultRequestQueueId': 'hjkl',
+                    'containerUrl': 'https://hjkl',
+                    'buildNumber': '0.0.1',
+                    'generalAccess': 'RESTRICTED',
+                    'stats': {
+                        'restartCount': 0,
+                        'resurrectCount': 0,
+                        'computeUnits': 1,
+                    },
+                    'options': {
+                        'build': 'asdf',
+                        'timeoutSecs': 4,
+                        'memoryMbytes': 1024,
+                        'diskMbytes': 1024,
+                    },
+                }
+            )
+        )
+
+        with mock.patch.object(Actor, 'new_client', return_value=mock_run_client):
+            async with Actor:
+                Actor.on(Event.PERSIST_STATE, log_persist_state)
+                await asyncio.sleep(2)
+
+                for socket in ws_server.connections:
+                    await socket.send(
+                        json.dumps(
+                            {
+                                'name': 'migrating',
+                                'data': {
+                                    'isMigrating': True,
+                                },
+                            }
+                        )
+                    )
+
+                await asyncio.sleep(1)
+
+    # It is enough to check the persist state event we send manually and the crawler final one.
+    assert len(persist_state_events_data) >= 2
+
+    # Expect last event to be is_migrating=False (persistence event on exiting EventManager)
+    assert persist_state_events_data.pop() == EventPersistStateData(is_migrating=False)
+    # Expect second last event to be is_migrating=True (emitted on MIGRATING event)
+    assert persist_state_events_data.pop() == EventPersistStateData(is_migrating=True)
+
+    # Check if all the other events are regular persist state events
+    for event_data in persist_state_events_data:
+        assert event_data == EventPersistStateData(is_migrating=False)
+
 
 
 async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFixture) -> None:

@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 
+from apify_client._models import Data13, UnprocessedRequest
 from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
@@ -856,7 +857,7 @@ async def test_request_queue_had_multiple_clients(
     # Check that it is correctly in the API
     api_response = await api_client.get()
     assert api_response
-    assert api_response['hadMultipleClients'] is True
+    assert api_response.had_multiple_clients is True
 
 
 async def test_request_queue_not_had_multiple_clients(
@@ -875,7 +876,7 @@ async def test_request_queue_not_had_multiple_clients(
     api_client = apify_client_async.request_queue(request_queue_id=rq.id)
     api_response = await api_client.get()
     assert api_response
-    assert api_response['hadMultipleClients'] is False
+    assert api_response.had_multiple_clients is False
 
 
 async def test_request_queue_simple_and_full_at_the_same_time(
@@ -1052,11 +1053,11 @@ async def test_force_cloud(
 
     request_queue_details = await request_queue_client.get()
     assert request_queue_details is not None
-    assert request_queue_details.get('name') == request_queue_apify.name
+    assert request_queue_details.name == request_queue_apify.name
 
     request_queue_request = await request_queue_client.get_request(request_info.id)
     assert request_queue_request is not None
-    assert request_queue_request['url'] == 'http://example.com'
+    assert request_queue_request.url == 'http://example.com'
 
 
 async def test_request_queue_is_finished(
@@ -1091,22 +1092,31 @@ async def test_request_queue_deduplication_unprocessed_requests(
     # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
     rq_client = Actor.apify_client.request_queue(request_queue_id=request_queue_apify.id)
     _rq = await rq_client.get()
-    assert _rq
-    stats_before = _rq.get('stats', {})
+    assert _rq is not None
+    stats_before = _rq.stats
     Actor.log.info(stats_before)
 
-    def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> dict[str, list[dict]]:
+    assert stats_before is not None
+    assert stats_before.write_count is not None
+
+    def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> Data13:
         """Simulate API returning unprocessed requests."""
-        return {
-            'processedRequests': [],
-            'unprocessedRequests': [
-                {'url': request['url'], 'uniqueKey': request['uniqueKey'], 'method': request['method']}
-                for request in requests
-            ],
-        }
+        unprocessed_requests = [
+            UnprocessedRequest.model_construct(
+                url=request['url'],
+                unique_key=request['uniqueKey'],
+                method=request['method'],
+            )
+            for request in requests
+        ]
+
+        return Data13.model_construct(
+            processed_requests=[],
+            unprocessed_requests=unprocessed_requests,
+        )
 
     with mock.patch(
-        'apify_client.clients.resource_clients.request_queue.RequestQueueClientAsync.batch_add_requests',
+        'apify_client._resource_clients.request_queue.RequestQueueClientAsync.batch_add_requests',
         side_effect=return_unprocessed_requests,
     ):
         # Simulate failed API call for adding requests. Request was not processed and should not be cached.
@@ -1117,11 +1127,14 @@ async def test_request_queue_deduplication_unprocessed_requests(
 
     await asyncio.sleep(10)  # Wait to be sure that metadata are updated
     _rq = await rq_client.get()
-    assert _rq
-    stats_after = _rq.get('stats', {})
+    assert _rq is not None
+    stats_after = _rq.stats
     Actor.log.info(stats_after)
 
-    assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+    assert stats_after is not None
+    assert stats_after.write_count is not None
+
+    assert (stats_after.write_count - stats_before.write_count) == 1
 
 
 async def test_request_queue_api_fail_when_marking_as_handled(
@@ -1210,7 +1223,7 @@ async def test_request_queue_deduplication(
     rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
     _rq = await rq_client.get()
     assert _rq
-    stats_before = _rq.get('stats', {})
+    stats_before = _rq.stats
 
     # Add same request twice (same unique_key because same URL with default unique key)
     request1 = Request.from_url('http://example.com', method='POST')
@@ -1221,9 +1234,14 @@ async def test_request_queue_deduplication(
     await asyncio.sleep(10)  # Wait to be sure that metadata are updated
     _rq = await rq_client.get()
     assert _rq
-    stats_after = _rq.get('stats', {})
+    stats_after = _rq.stats
 
-    assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+    assert stats_after is not None
+    assert stats_after.write_count is not None
+    assert stats_before is not None
+    assert stats_before.write_count is not None
+
+    assert (stats_after.write_count - stats_before.write_count) == 1
 
 
 async def test_request_queue_deduplication_use_extended_unique_key(
@@ -1238,7 +1256,7 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
     _rq = await rq_client.get()
     assert _rq
-    stats_before = _rq.get('stats', {})
+    stats_before = _rq.stats
 
     request1 = Request.from_url('http://example.com', method='POST', use_extended_unique_key=True)
     request2 = Request.from_url('http://example.com', method='GET', use_extended_unique_key=True)
@@ -1248,9 +1266,14 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     await asyncio.sleep(10)  # Wait to be sure that metadata are updated
     _rq = await rq_client.get()
     assert _rq
-    stats_after = _rq.get('stats', {})
+    stats_after = _rq.stats
 
-    assert (stats_after['writeCount'] - stats_before['writeCount']) == 2
+    assert stats_after is not None
+    assert stats_after.write_count is not None
+    assert stats_before is not None
+    assert stats_before.write_count is not None
+
+    assert (stats_after.write_count - stats_before.write_count) == 2
 
 
 async def test_request_queue_parallel_deduplication(
@@ -1267,7 +1290,7 @@ async def test_request_queue_parallel_deduplication(
     rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
     _rq = await rq_client.get()
     assert _rq
-    stats_before = _rq.get('stats', {})
+    stats_before = _rq.stats
 
     requests = [Request.from_url(f'http://example.com/{i}') for i in range(max_requests)]
     batch_size = iter(range(10, max_requests + 1, int(max_requests / worker_count)))
@@ -1281,9 +1304,14 @@ async def test_request_queue_parallel_deduplication(
     await asyncio.sleep(10)  # Wait to be sure that metadata are updated
     _rq = await rq_client.get()
     assert _rq
-    stats_after = _rq.get('stats', {})
+    stats_after = _rq.stats
 
-    assert (stats_after['writeCount'] - stats_before['writeCount']) == len(requests)
+    assert stats_after is not None
+    assert stats_after.write_count is not None
+    assert stats_before is not None
+    assert stats_before.write_count is not None
+
+    assert (stats_after.write_count - stats_before.write_count) == len(requests)
 
 
 async def test_concurrent_processing_simulation(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
