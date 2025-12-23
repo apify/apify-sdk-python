@@ -84,8 +84,8 @@ async def test_request_queue_deduplication(
             # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
             rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
             _rq = await rq_client.get()
-            assert _rq
-            stats_before = _rq.get('stats', {})
+            assert _rq is not None
+            stats_before = _rq.stats
             Actor.log.info(stats_before)
 
             # Add same request twice
@@ -94,11 +94,16 @@ async def test_request_queue_deduplication(
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
             _rq = await rq_client.get()
-            assert _rq
-            stats_after = _rq.get('stats', {})
+            assert _rq is not None
+            stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+            assert stats_before is not None
+            assert stats_before.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == 1
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
@@ -133,8 +138,8 @@ async def test_request_queue_deduplication_use_extended_unique_key(
             # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
             rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
             _rq = await rq_client.get()
-            assert _rq
-            stats_before = _rq.get('stats', {})
+            assert _rq is not None
+            stats_before = _rq.stats
             Actor.log.info(stats_before)
 
             # Add same request twice
@@ -143,11 +148,16 @@ async def test_request_queue_deduplication_use_extended_unique_key(
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
             _rq = await rq_client.get()
-            assert _rq
-            stats_after = _rq.get('stats', {})
+            assert _rq is not None
+            stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == 2
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+            assert stats_before is not None
+            assert stats_before.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == 2
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
@@ -189,9 +199,12 @@ async def test_request_queue_parallel_deduplication(
             # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
             rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
             _rq = await rq_client.get()
-            assert _rq
-            stats_before = _rq.get('stats', {})
+            assert _rq is not None
+            stats_before = _rq.stats
             Actor.log.info(stats_before)
+
+            assert stats_before is not None
+            assert stats_before.write_count is not None
 
             # Add batches of some new and some already present requests in workers
             async def add_requests_worker() -> None:
@@ -203,11 +216,14 @@ async def test_request_queue_parallel_deduplication(
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
             _rq = await rq_client.get()
-            assert _rq
-            stats_after = _rq.get('stats', {})
+            assert _rq is not None
+            stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == len(requests)
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == len(requests)
 
     actor = await make_actor(label='rq-parallel-deduplication', main_func=main)
     run_result = await run_actor(actor)
@@ -290,8 +306,15 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
     # Redirect logs even from the resurrected run
     streamed_log = await run_client.get_streamed_log(from_start=False)
     await run_client.resurrect()
+
     async with streamed_log:
-        run_result = ActorRun.model_validate(await run_client.wait_for_finish(wait_secs=600))
+        run = await run_client.wait_for_finish(wait_secs=600)
+
+        if run is None:
+            raise AssertionError('Failed to get resurrected run.')
+
+        run_dict = run.model_dump(by_alias=True)
+        run_result = ActorRun.model_validate(run_dict)
         assert run_result.status == 'SUCCEEDED'
 
 

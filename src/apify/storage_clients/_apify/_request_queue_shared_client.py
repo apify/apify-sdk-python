@@ -17,7 +17,7 @@ from apify import Request
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine, Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
+    from apify_client._resource_clients import RequestQueueClientAsync
 
 logger = getLogger(__name__)
 
@@ -121,17 +121,16 @@ class ApifyRequestQueueSharedClient:
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
-            requests_dict = [
-                request.model_dump(
-                    by_alias=True,
-                )
-                for request in new_requests
-            ]
+            requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
 
             # Send requests to API.
-            api_response = AddRequestsResponse.model_validate(
-                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+            batch_response = await self._api_client.batch_add_requests(
+                requests=requests_dict,
+                forefront=forefront,
             )
+
+            batch_response_dict = batch_response.model_dump(by_alias=True)
+            api_response = AddRequestsResponse.model_validate(batch_response_dict)
 
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
@@ -312,7 +311,8 @@ class ApifyRequestQueueSharedClient:
         if response is None:
             return None
 
-        return Request.model_validate(response)
+        response_dict = response.model_dump(by_alias=True)
+        return Request.model_validate(response_dict)
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
@@ -388,7 +388,7 @@ class ApifyRequestQueueSharedClient:
         )
 
         return ProcessedRequest.model_validate(
-            {'uniqueKey': request.unique_key} | response,
+            {'uniqueKey': request.unique_key} | response.model_dump(by_alias=True),
         )
 
     async def _list_head(
@@ -431,19 +431,19 @@ class ApifyRequestQueueSharedClient:
             self._should_check_for_forefront_requests = False
 
         # Otherwise fetch from API
-        response = await self._api_client.list_and_lock_head(
+        list_and_lost_data = await self._api_client.list_and_lock_head(
             lock_secs=int(self._DEFAULT_LOCK_TIME.total_seconds()),
             limit=limit,
         )
 
         # Update the queue head cache
-        self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
+        self._queue_has_locked_requests = list_and_lost_data.queue_has_locked_requests
         # Check if there is another client working with the RequestQueue
-        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        self.metadata.had_multiple_clients = list_and_lost_data.had_multiple_clients
 
-        for request_data in response.get('items', []):
-            request = Request.model_validate(request_data)
-            request_id = request_data.get('id')
+        for request_data in list_and_lost_data.items:
+            request = Request.model_validate(request_data.model_dump(by_alias=True))
+            request_id = request_data.id
 
             # Skip requests without ID or unique key
             if not request.unique_key or not request_id:
@@ -473,7 +473,8 @@ class ApifyRequestQueueSharedClient:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_id)
 
-        return RequestQueueHead.model_validate(response)
+        list_and_lost_dict = list_and_lost_data.model_dump(by_alias=True)
+        return RequestQueueHead.model_validate(list_and_lost_dict)
 
     def _cache_request(
         self,
