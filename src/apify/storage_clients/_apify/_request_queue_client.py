@@ -86,9 +86,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
         total_request_count = int(response.total_request_count)
         handled_request_count = int(response.handled_request_count)
         pending_request_count = int(response.pending_request_count)
-        created_at = datetime.fromisoformat(response.created_at)
-        modified_at = datetime.fromisoformat(response.modified_at)
-        accessed_at = datetime.fromisoformat(response.accessed_at)
+        created_at = datetime.fromisoformat(response.created_at.replace('Z', '+00:00'))
+        modified_at = datetime.fromisoformat(response.modified_at.replace('Z', '+00:00'))
+        accessed_at = datetime.fromisoformat(response.accessed_at.replace('Z', '+00:00'))
 
         # Enhance API response with local estimations to account for propagation delays (API data can be delayed
         # by a few seconds, while local estimates are immediately accurate).
