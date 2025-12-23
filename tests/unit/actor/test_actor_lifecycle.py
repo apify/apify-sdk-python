@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 import websockets.asyncio.server
 
+from apify_client._models import Run
 from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from crawlee.events._types import Event, EventPersistStateData
 
@@ -238,31 +239,34 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
 
         mock_run_client = Mock()
         mock_run_client.run.return_value.get = AsyncMock(
-            side_effect=lambda: {
-                'id': 'asdf',
-                'actId': 'asdf',
-                'userId': 'adsf',
-                'startedAt': datetime.now(timezone.utc),
-                'status': 'RUNNING',
-                'meta': {'origin': 'DEVELOPMENT'},
-                'stats': {
-                    'inputBodyLen': 99,
-                    'restartCount': 0,
-                    'resurrectCount': 0,
-                    'computeUnits': 1,
-                },
-                'options': {
-                    'build': 'asdf',
-                    'timeoutSecs': 4,
-                    'memoryMbytes': 1024,
-                    'diskMbytes': 1024,
-                },
-                'buildId': 'hjkl',
-                'defaultDatasetId': 'hjkl',
-                'defaultKeyValueStoreId': 'hjkl',
-                'defaultRequestQueueId': 'hjkl',
-                'containerUrl': 'https://hjkl',
-            }
+            side_effect=lambda: Run.model_validate(
+                {
+                    'id': 'asdf',
+                    'actId': 'asdf',
+                    'userId': 'adsf',
+                    'startedAt': datetime.now(timezone.utc).isoformat(),
+                    'status': 'RUNNING',
+                    'meta': {'origin': 'DEVELOPMENT'},
+                    'buildId': 'hjkl',
+                    'defaultDatasetId': 'hjkl',
+                    'defaultKeyValueStoreId': 'hjkl',
+                    'defaultRequestQueueId': 'hjkl',
+                    'containerUrl': 'https://hjkl',
+                    'buildNumber': '0.0.1',
+                    'generalAccess': 'RESTRICTED',
+                    'stats': {
+                        'restartCount': 0,
+                        'resurrectCount': 0,
+                        'computeUnits': 1,
+                    },
+                    'options': {
+                        'build': 'asdf',
+                        'timeoutSecs': 4,
+                        'memoryMbytes': 1024,
+                        'diskMbytes': 1024,
+                    },
+                }
+            )
         )
 
         with mock.patch.object(Actor, 'new_client', return_value=mock_run_client):
