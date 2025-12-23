@@ -15,7 +15,7 @@ from apify import Request
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
+    from apify_client._resource_clients import RequestQueueClientAsync
 
 logger = getLogger(__name__)
 
@@ -288,16 +288,17 @@ class ApifyRequestQueueSingleClient:
 
         # Update metadata
         # Check if there is another client working with the RequestQueue
-        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        self.metadata.had_multiple_clients = response.had_multiple_clients
         # Should warn once? This might be outside expected context if the other consumers consumes at the same time
 
-        if modified_at := response.get('queueModifiedAt'):
+        if response.queue_modified_at:
+            modified_at = datetime.fromisoformat(response.queue_modified_at)
             self.metadata.modified_at = max(self.metadata.modified_at, modified_at)
 
         # Update the cached data
-        for request_data in response.get('items', []):
+        for request_data in response.items:
             request = Request.model_validate(request_data)
-            request_id = request_data['id']
+            request_id = request_data.id
 
             if request_id in self._requests_in_progress:
                 # Ignore requests that are already in progress, we will not process them again.
@@ -365,7 +366,7 @@ class ApifyRequestQueueSingleClient:
         )
 
         return ProcessedRequest.model_validate(
-            {'uniqueKey': request.unique_key} | response,
+            {'uniqueKey': request.unique_key} | response.model_dump(by_alias=True),
         )
 
     async def _init_caches(self) -> None:
@@ -378,9 +379,9 @@ class ApifyRequestQueueSingleClient:
         Local deduplication is cheaper, it takes 1 API call for whole cache and 1 read operation per request.
         """
         response = await self._api_client.list_requests(limit=10_000)
-        for request_data in response.get('items', []):
+        for request_data in response.items:
             request = Request.model_validate(request_data)
-            request_id = request_data['id']
+            request_id = request_data.id
 
             if request.was_already_handled:
                 # Cache just id for deduplication

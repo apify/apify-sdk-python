@@ -17,7 +17,7 @@ from ._api_client_creation import create_storage_api_client
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import DatasetClientAsync
+    from apify_client._resource_clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
 
     from apify import Configuration

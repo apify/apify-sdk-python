@@ -16,7 +16,7 @@ from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import KeyValueStoreClientAsync
+    from apify_client._resource_clients import KeyValueStoreClientAsync
 
     from apify import Configuration
 
