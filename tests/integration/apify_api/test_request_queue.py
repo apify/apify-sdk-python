@@ -1165,6 +1165,9 @@ async def test_request_queue_deduplication_unprocessed_requests(
     stats_before = _rq.stats
     Actor.log.info(stats_before)
 
+    assert stats_before is not None
+    assert stats_before.write_count is not None
+
     def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> dict[str, list[dict]]:
         """Simulate API returning unprocessed requests."""
         return {
@@ -1191,4 +1194,7 @@ async def test_request_queue_deduplication_unprocessed_requests(
     stats_after = _rq.stats
     Actor.log.info(stats_after)
 
-    assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+    assert stats_after is not None
+    assert stats_after.write_count is not None
+
+    assert (stats_after.write_count - stats_before.write_count) == 1
