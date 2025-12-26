@@ -102,7 +102,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
             modified_at=max(modified_at, self._implementation.metadata.modified_at),
             accessed_at=max(accessed_at, self._implementation.metadata.accessed_at),
             had_multiple_clients=response.had_multiple_clients or self._implementation.metadata.had_multiple_clients,
-            stats=RequestQueueStats.model_validate(response.stats, by_alias=True),  # ty: ignore[possibly-missing-attribute]
+            stats=RequestQueueStats.model_validate(
+                response.stats.model_dump(by_alias=True) if response.stats else {},
+                by_alias=True,
+            ),
         )
 
     @classmethod
@@ -151,7 +154,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         raw_metadata = await api_client.get()
         if raw_metadata is None:
             raise ValueError('Failed to retrieve request queue metadata from the API.')
-        metadata = ApifyRequestQueueMetadata.model_validate(raw_metadata)
+        metadata = ApifyRequestQueueMetadata.model_validate(raw_metadata.model_dump(by_alias=True))
 
         return cls(
             api_client=api_client,
