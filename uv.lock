@@ -112,7 +112,7 @@ dev = [
 [[package]]
 name = "apify-client"
 version = "2.3.1"
-source = { git = "https://github.com/apify/apify-client-python.git?rev=typed-clients#760032595e3ef355e7a862cf47b9b463c3c46738" }
+source = { git = "https://github.com/apify/apify-client-python.git?rev=typed-clients#dfeb550b0cd62000055331c0c864142c962a03fb" }
 dependencies = [
     { name = "apify-shared" },
     { name = "colorama" },
