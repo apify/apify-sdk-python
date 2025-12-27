@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from apify_client import ApifyClientAsync
-    from apify_client.clients import ActorClientAsync
+    from apify_client._resource_clients import ActorClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
 
@@ -54,7 +54,7 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
     actor = await actor_client.get()
 
     assert actor is not None
-    return str(actor['id'])
+    return str(actor.id)
 
 
 @pytest_asyncio.fixture(scope='function', loop_scope='module')

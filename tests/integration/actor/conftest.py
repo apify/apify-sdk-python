@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine, Iterator, Mapping
     from decimal import Decimal
 
-    from apify_client.clients.resource_clients import ActorClientAsync
+    from apify_client._resource_clients import ActorClientAsync
 
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
@@ -236,19 +236,19 @@ def make_actor(
             ],
         )
 
-        actor_client = client.actor(created_actor['id'])
+        actor_client = client.actor(created_actor.id)
 
         print(f'Building Actor {actor_name}...')
         build_result = await actor_client.build(version_number='0.0')
-        build_client = client.build(build_result['id'])
+        build_client = client.build(build_result.id)
         build_client_result = await build_client.wait_for_finish(wait_secs=600)
 
         assert build_client_result is not None
-        assert build_client_result['status'] == ActorJobStatus.SUCCEEDED
+        assert build_client_result.status == ActorJobStatus.SUCCEEDED
 
         # We only mark the client for cleanup if the build succeeded, so that if something goes wrong here,
         # you have a chance to check the error.
-        actors_for_cleanup.append(created_actor['id'])
+        actors_for_cleanup.append(created_actor.id)
 
         return actor_client
 
@@ -259,14 +259,9 @@ def make_actor(
         actor_client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR)).actor(actor_id)
 
         if (actor := actor_client.get()) is not None:
-            actor_client.update(
-                pricing_infos=[
-                    *actor.get('pricingInfos', []),
-                    {
-                        'pricingModel': 'FREE',
-                    },
-                ]
-            )
+            assert actor.pricing_infos is not None
+            new_pricing_infos = [*actor.pricing_infos, {'pricingModel': 'FREE'}]
+            actor_client.update(pricing_infos=new_pricing_infos)
 
         actor_client.delete()
 

@@ -130,7 +130,7 @@ async def test_actor_starts_another_actor_instance(
 
             inner_run_status = await Actor.apify_client.actor(inner_actor_id).last_run().get()
             assert inner_run_status is not None
-            assert inner_run_status.get('status') in ['READY', 'RUNNING']
+            assert inner_run_status.status in ['READY', 'RUNNING']
 
     inner_actor = await make_actor(label='start-inner', main_func=main_inner)
     outer_actor = await make_actor(label='start-outer', main_func=main_outer)
@@ -175,7 +175,7 @@ async def test_actor_calls_another_actor(
 
             inner_run_status = await Actor.apify_client.actor(inner_actor_id).last_run().get()
             assert inner_run_status is not None
-            assert inner_run_status.get('status') == 'SUCCEEDED'
+            assert inner_run_status.status == 'SUCCEEDED'
 
     inner_actor = await make_actor(label='call-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-outer', main_func=main_outer)
@@ -221,7 +221,7 @@ async def test_actor_calls_task(
 
             inner_run_status = await Actor.apify_client.task(inner_task_id).last_run().get()
             assert inner_run_status is not None
-            assert inner_run_status.get('status') == 'SUCCEEDED'
+            assert inner_run_status.status == 'SUCCEEDED'
 
     inner_actor = await make_actor(label='call-task-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-task-outer', main_func=main_outer)
@@ -237,7 +237,7 @@ async def test_actor_calls_task(
 
     run_result_outer = await run_actor(
         outer_actor,
-        run_input={'test_value': test_value, 'inner_task_id': task['id']},
+        run_input={'test_value': test_value, 'inner_task_id': task.id},
     )
 
     assert run_result_outer.status == 'SUCCEEDED'
@@ -248,7 +248,7 @@ async def test_actor_calls_task(
     assert inner_output_record is not None
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
-    await apify_client_async.task(task['id']).delete()
+    await apify_client_async.task(task.id).delete()
 
 
 @pytest.mark.skip(reason='Requires Actor permissions beyond limited permissions, see #715.')
@@ -274,7 +274,8 @@ async def test_actor_aborts_another_actor_run(
     inner_actor = await make_actor(label='abort-inner', main_func=main_inner)
     outer_actor = await make_actor(label='abort-outer', main_func=main_outer)
 
-    inner_run_id = (await inner_actor.start())['id']
+    actor_run = await inner_actor.start()
+    inner_run_id = actor_run.id
 
     run_result_outer = await run_actor(
         outer_actor,

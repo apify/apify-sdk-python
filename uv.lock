@@ -72,7 +72,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apify-client", specifier = ">=2.3.0,<3.0.0" },
+    { name = "apify-client", git = "https://github.com/apify/apify-client-python.git?rev=typed-clients" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", specifier = ">=1.0.4,<2.0.0" },
@@ -111,17 +111,13 @@ dev = [
 
 [[package]]
 name = "apify-client"
-version = "2.3.0"
-source = { registry = "https://pypi.org/simple" }
+version = "2.3.1"
+source = { git = "https://github.com/apify/apify-client-python.git?rev=typed-clients#dfeb550b0cd62000055331c0c864142c962a03fb" }
 dependencies = [
     { name = "apify-shared" },
     { name = "colorama" },
     { name = "impit" },
     { name = "more-itertools" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/e3/08c1eb269d4559e5c01343347c913423c24efd425f0c2bd9f743e28c8a86/apify_client-2.3.0.tar.gz", hash = "sha256:ff6d32e27d5205343e89057ac0e0c02b53a9219ccedfd30a3c4d70d13d931488", size = 389101, upload-time = "2025-11-13T13:42:33.923Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/b6/6dabe41804932e020557450abc8bc74725a942c6f08969021efe965d4260/apify_client-2.3.0-py3-none-any.whl", hash = "sha256:6ae9b1461c2a15ab19c6131bfcab55be9362259cced9b254b827b4c3b6c12d40", size = 85996, upload-time = "2025-11-13T13:42:32.012Z" },
 ]
 
 [[package]]
