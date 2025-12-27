@@ -442,7 +442,7 @@ class ApifyRequestQueueSharedClient:
         self.metadata.had_multiple_clients = list_and_lost_data.had_multiple_clients
 
         for request_data in list_and_lost_data.items:
-            request = Request.model_validate(request_data)
+            request = Request.model_validate(request_data.model_dump(by_alias=True))
             request_id = request_data.id
 
             # Skip requests without ID or unique key

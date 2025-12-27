@@ -297,7 +297,7 @@ class ApifyRequestQueueSingleClient:
 
         # Update the cached data
         for request_data in response.items:
-            request = Request.model_validate(request_data)
+            request = Request.model_validate(request_data.model_dump(by_alias=True))
             request_id = request_data.id
 
             if request_id in self._requests_in_progress:
@@ -380,7 +380,7 @@ class ApifyRequestQueueSingleClient:
         """
         response = await self._api_client.list_requests(limit=10_000)
         for request_data in response.items:
-            request = Request.model_validate(request_data)
+            request = Request.model_validate(request_data.model_dump(by_alias=True))
             request_id = request_data.id
 
             if request.was_already_handled:

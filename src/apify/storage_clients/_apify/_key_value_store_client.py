@@ -11,7 +11,7 @@ from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
 
 from ._api_client_creation import create_storage_api_client
-from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
+from ._models import ApifyKeyValueStoreMetadata
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -143,14 +143,13 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         count = 0
 
         while True:
-            response = await self._api_client.list_keys(exclusive_start_key=exclusive_start_key)
-            list_key_page = KeyValueStoreListKeysPage.model_validate(response)
+            list_key_page = await self._api_client.list_keys(exclusive_start_key=exclusive_start_key)
 
             for item in list_key_page.items:
                 # Convert KeyValueStoreKeyInfo to KeyValueStoreRecordMetadata
                 record_metadata = KeyValueStoreRecordMetadata(
                     key=item.key,
-                    size=item.size,
+                    size=int(item.size),
                     content_type='application/octet-stream',  # Content type not available from list_keys
                 )
                 yield record_metadata
