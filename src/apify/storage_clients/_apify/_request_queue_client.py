@@ -78,32 +78,32 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             Request queue metadata with accurate counts and timestamps, combining API data with local estimates.
         """
-        response = await self._api_client.get()
+        metadata = await self._api_client.get()
 
-        if response is None:
+        if metadata is None:
             raise ValueError('Failed to fetch request queue metadata from the API.')
 
-        total_request_count = int(response.total_request_count)
-        handled_request_count = int(response.handled_request_count)
-        pending_request_count = int(response.pending_request_count)
-        created_at = datetime.fromisoformat(response.created_at.replace('Z', '+00:00'))
-        modified_at = datetime.fromisoformat(response.modified_at.replace('Z', '+00:00'))
-        accessed_at = datetime.fromisoformat(response.accessed_at.replace('Z', '+00:00'))
+        total_request_count = int(metadata.total_request_count)
+        handled_request_count = int(metadata.handled_request_count)
+        pending_request_count = int(metadata.pending_request_count)
+        created_at = datetime.fromisoformat(metadata.created_at.replace('Z', '+00:00'))
+        modified_at = datetime.fromisoformat(metadata.modified_at.replace('Z', '+00:00'))
+        accessed_at = datetime.fromisoformat(metadata.accessed_at.replace('Z', '+00:00'))
 
         # Enhance API response with local estimations to account for propagation delays (API data can be delayed
         # by a few seconds, while local estimates are immediately accurate).
         return ApifyRequestQueueMetadata(
-            id=response.id,
-            name=response.name,
+            id=metadata.id,
+            name=metadata.name,
             total_request_count=max(total_request_count, self._implementation.metadata.total_request_count),
             handled_request_count=max(handled_request_count, self._implementation.metadata.handled_request_count),
             pending_request_count=pending_request_count,
             created_at=min(created_at, self._implementation.metadata.created_at),
             modified_at=max(modified_at, self._implementation.metadata.modified_at),
             accessed_at=max(accessed_at, self._implementation.metadata.accessed_at),
-            had_multiple_clients=response.had_multiple_clients or self._implementation.metadata.had_multiple_clients,
+            had_multiple_clients=metadata.had_multiple_clients or self._implementation.metadata.had_multiple_clients,
             stats=RequestQueueStats.model_validate(
-                response.stats.model_dump(by_alias=True) if response.stats else {},
+                metadata.stats.model_dump(by_alias=True) if metadata.stats else {},
                 by_alias=True,
             ),
         )

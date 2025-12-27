@@ -147,22 +147,20 @@ class ApifyRequestQueueSingleClient:
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
-            requests_dict = [
-                request.model_dump(
-                    by_alias=True,
-                )
-                for request in new_requests
-            ]
+            requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
 
             # Send requests to API.
-            api_response = AddRequestsResponse.model_validate(
-                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
-            )
+            batch_response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+            batch_response_dict = batch_response.model_dump(by_alias=True)
+            api_response = AddRequestsResponse.model_validate(batch_response_dict)
+
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
+
             # Remove unprocessed requests from the cache
             for unprocessed_request in api_response.unprocessed_requests:
-                self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
+                request_id = unique_key_to_request_id(unprocessed_request.unique_key)
+                self._requests_cache.pop(request_id, None)
 
         else:
             api_response = AddRequestsResponse(
@@ -329,7 +327,8 @@ class ApifyRequestQueueSingleClient:
         if response is None:
             return None
 
-        request = Request.model_validate(response)
+        response_dict = response.model_dump(by_alias=True)
+        request = Request.model_validate(response_dict)
 
         # Updated local caches
         if id in self._requests_in_progress:

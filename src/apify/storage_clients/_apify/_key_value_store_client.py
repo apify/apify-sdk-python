@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import warnings
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
@@ -54,7 +55,18 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
     @override
     async def get_metadata(self) -> ApifyKeyValueStoreMetadata:
         metadata = await self._api_client.get()
-        return ApifyKeyValueStoreMetadata.model_validate(metadata)
+
+        if metadata is None:
+            raise ValueError('Failed to retrieve dataset metadata.')
+
+        return ApifyKeyValueStoreMetadata(
+            id=metadata.id,
+            name=metadata.name,
+            created_at=datetime.fromisoformat(metadata.created_at.replace('Z', '+00:00')),
+            modified_at=datetime.fromisoformat(metadata.modified_at.replace('Z', '+00:00')),
+            accessed_at=datetime.fromisoformat(metadata.accessed_at.replace('Z', '+00:00')),
+            url_signing_secret_key=metadata.url_signing_secret_key,
+        )
 
     @classmethod
     async def open(
