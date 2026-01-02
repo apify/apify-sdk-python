@@ -98,7 +98,12 @@ async def test_request_queue_deduplication(
             stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+            assert stats_before is not None
+            assert stats_before.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == 1
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
@@ -147,7 +152,12 @@ async def test_request_queue_deduplication_use_extended_unique_key(
             stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == 2
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+            assert stats_before is not None
+            assert stats_before.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == 2
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
@@ -193,6 +203,9 @@ async def test_request_queue_parallel_deduplication(
             stats_before = _rq.stats
             Actor.log.info(stats_before)
 
+            assert stats_before is not None
+            assert stats_before.write_count is not None
+
             # Add batches of some new and some already present requests in workers
             async def add_requests_worker() -> None:
                 await rq.add_requests(requests[: next(batch_size)])
@@ -207,7 +220,10 @@ async def test_request_queue_parallel_deduplication(
             stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == len(requests)
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == len(requests)
 
     actor = await make_actor(label='rq-parallel-deduplication', main_func=main)
     run_result = await run_actor(actor)

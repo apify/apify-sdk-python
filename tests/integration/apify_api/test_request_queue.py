@@ -930,7 +930,7 @@ async def test_request_queue_had_multiple_clients(
     # Check that it is correctly in the API
     api_response = await api_client.get()
     assert api_response
-    assert api_response['hadMultipleClients'] is True
+    assert api_response.had_multiple_clients is True
 
 
 async def test_request_queue_not_had_multiple_clients(
@@ -949,7 +949,7 @@ async def test_request_queue_not_had_multiple_clients(
     api_client = apify_client_async.request_queue(request_queue_id=rq.id)
     api_response = await api_client.get()
     assert api_response
-    assert api_response['hadMultipleClients'] is False
+    assert api_response.had_multiple_clients is False
 
 
 async def test_request_queue_simple_and_full_at_the_same_time(
@@ -1165,6 +1165,9 @@ async def test_request_queue_deduplication_unprocessed_requests(
     stats_before = _rq.stats
     Actor.log.info(stats_before)
 
+    assert stats_before is not None
+    assert stats_before.write_count is not None
+
     def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> dict[str, list[dict]]:
         """Simulate API returning unprocessed requests."""
         return {
@@ -1176,7 +1179,7 @@ async def test_request_queue_deduplication_unprocessed_requests(
         }
 
     with mock.patch(
-        'apify_client.clients.resource_clients.request_queue.RequestQueueClientAsync.batch_add_requests',
+        'apify_client._resource_clients.request_queue.RequestQueueClientAsync.batch_add_requests',
         side_effect=return_unprocessed_requests,
     ):
         # Simulate failed API call for adding requests. Request was not processed and should not be cached.
@@ -1191,4 +1194,7 @@ async def test_request_queue_deduplication_unprocessed_requests(
     stats_after = _rq.stats
     Actor.log.info(stats_after)
 
-    assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+    assert stats_after is not None
+    assert stats_after.write_count is not None
+
+    assert (stats_after.write_count - stats_before.write_count) == 1
