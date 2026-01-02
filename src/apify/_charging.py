@@ -356,7 +356,8 @@ class ChargingManagerImplementation(ChargingManager):
             if run is None:
                 raise RuntimeError('Actor run not found')
 
-            actor_run = run_validator.validate_python(run)
+            run_dict = run.model_dump(by_alias=True)
+            actor_run = run_validator.validate_python(run_dict)
 
             if actor_run is None:
                 raise RuntimeError('Actor run not found')
