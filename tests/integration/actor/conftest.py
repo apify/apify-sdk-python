@@ -256,10 +256,11 @@ def make_actor(
 
     # Delete all the generated Actors.
     for actor_id in actors_for_cleanup:
-        actor_client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR)).actor(actor_id)
+        apify_client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
+        actor_client = apify_client.actor(actor_id)
+        actor = actor_client.get()
 
-        if (actor := actor_client.get()) is not None:
-            assert actor.pricing_infos is not None
+        if actor is not None and actor.pricing_infos is not None:
             new_pricing_infos = [*actor.pricing_infos, {'pricingModel': 'FREE'}]
             actor_client.update(pricing_infos=new_pricing_infos)
 
@@ -301,17 +302,16 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         run_input: Any = None,
         max_total_charge_usd: Decimal | None = None,
     ) -> ActorRun:
-        call_result = await actor.call(
-            run_input=run_input,
-            max_total_charge_usd=max_total_charge_usd,
-        )
+        call_result = await actor.call(run_input=run_input, max_total_charge_usd=max_total_charge_usd)
 
-        assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
-        assert 'id' in call_result, 'The result of ActorClientAsync.call() does not contain an ID.'
+        assert call_result is not None, 'Failed to start Actor run: missing run ID in the response.'
 
-        run_client = apify_client_async.run(call_result['id'])
-        run_result = await run_client.wait_for_finish(wait_secs=600)
+        run_client = apify_client_async.run(call_result.id)
+        actor_run = await run_client.wait_for_finish(wait_secs=600)
 
-        return ActorRun.model_validate(run_result)
+        assert actor_run is not None, 'Actor run did not finish successfully within the expected time.'
+
+        actor_run_dict = actor_run.model_dump(by_alias=True)
+        return ActorRun.model_validate(actor_run_dict)
 
     return _run_actor
