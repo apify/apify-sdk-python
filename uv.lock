@@ -549,7 +549,7 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "1.2.1"
+version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-timeout" },
@@ -566,9 +566,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/a1/713ff86354625c2ffce5ff622f670023c320e5a15bc4dff746747393b634/crawlee-1.2.1.tar.gz", hash = "sha256:84ace2269bd609a97e8ccfec30759fa42004a501af686467e2e9c8ebb7eea7bb", size = 24902092, upload-time = "2025-12-16T17:23:07.31Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/07/46c0cc9d5448bf3e631b81c58155ea08a37e6e87482e43ebb9defe297d08/crawlee-1.2.0.tar.gz", hash = "sha256:c71ae0fa6e583eb63d0b1d670a2498b730794f5ca8d11acbf519a5b56ef9c53c", size = 24894300, upload-time = "2025-12-08T14:00:36.463Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/d2/2c225e6cf154d1e4378eefdafa4febd2b3b162010bdf36ba84526115143d/crawlee-1.2.1-py3-none-any.whl", hash = "sha256:a14fb96820cc0a94b1852d3042cc4fc1632c8d5440863aaa92fd4da9af684994", size = 331661, upload-time = "2025-12-16T17:23:05.039Z" },
+    { url = "https://files.pythonhosted.org/packages/27/c1/1f3910619cd8b4ee4c5d433d6f8fce1cb192bc907ce409e0a7f1d65feb0b/crawlee-1.2.0-py3-none-any.whl", hash = "sha256:80cb96650a543a0e9fd9905282fb62c1705d2fac586477c6b1e7d99a1b70df5d", size = 330547, upload-time = "2025-12-08T14:00:31.502Z" },
 ]
 
 [package.optional-dependencies]
