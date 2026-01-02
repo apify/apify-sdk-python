@@ -445,7 +445,7 @@ async def test_actor_adds_webhook_and_receives_event(
     )
 
     server_actor_run = await server_actor.start()
-    server_actor_container_url = server_actor_run['containerUrl']
+    server_actor_container_url = server_actor_run.container_url
 
     server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
     while not server_actor_initialized:
