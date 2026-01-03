@@ -35,6 +35,7 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
     actor_client = await make_actor('ppe', main_func=main)
 
     await actor_client.update(
+        default_run_build='latest',
         pricing_infos=[
             {
                 'pricingModel': 'PAY_PER_EVENT',
@@ -48,7 +49,7 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
                     },
                 },
             },
-        ]
+        ],
     )
 
     actor = await actor_client.get()
@@ -82,8 +83,12 @@ async def test_actor_charge_basic(
     # Refetch until the platform gets its act together
     for is_last_attempt, _ in retry_counter(30):
         await asyncio.sleep(1)
+
         updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+        assert updated_run is not None, 'Updated run should not be None'
+
+        updated_run_dict = updated_run.model_dump(by_alias=True)
+        run = ActorRun.model_validate(updated_run_dict)
 
         try:
             assert run.status == ActorJobStatus.SUCCEEDED
@@ -104,8 +109,12 @@ async def test_actor_charge_limit(
     # Refetch until the platform gets its act together
     for is_last_attempt, _ in retry_counter(30):
         await asyncio.sleep(1)
+
         updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+        assert updated_run is not None, 'Updated run should not be None'
+
+        updated_run_dict = updated_run.model_dump(by_alias=True)
+        run = ActorRun.model_validate(updated_run_dict)
 
         try:
             assert run.status == ActorJobStatus.SUCCEEDED

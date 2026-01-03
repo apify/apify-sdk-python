@@ -247,6 +247,13 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
                     'startedAt': datetime.now(timezone.utc).isoformat(),
                     'status': 'RUNNING',
                     'meta': {'origin': 'DEVELOPMENT'},
+                    'buildId': 'hjkl',
+                    'defaultDatasetId': 'hjkl',
+                    'defaultKeyValueStoreId': 'hjkl',
+                    'defaultRequestQueueId': 'hjkl',
+                    'containerUrl': 'https://hjkl',
+                    'buildNumber': '0.0.1',
+                    'generalAccess': 'RESTRICTED',
                     'stats': {
                         'restartCount': 0,
                         'resurrectCount': 0,
@@ -258,13 +265,6 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
                         'memoryMbytes': 1024,
                         'diskMbytes': 1024,
                     },
-                    'buildId': 'hjkl',
-                    'defaultDatasetId': 'hjkl',
-                    'defaultKeyValueStoreId': 'hjkl',
-                    'defaultRequestQueueId': 'hjkl',
-                    'containerUrl': 'https://hjkl',
-                    'buildNumber': '0.0.1',
-                    'generalAccess': 'RESTRICTED',
                 }
             )
         )

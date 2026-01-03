@@ -135,7 +135,10 @@ async def test_actor_starts_another_actor_instance(
     inner_actor = await make_actor(label='start-inner', main_func=main_inner)
     outer_actor = await make_actor(label='start-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     run_result_outer = await run_actor(
@@ -180,7 +183,10 @@ async def test_actor_calls_another_actor(
     inner_actor = await make_actor(label='call-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     run_result_outer = await run_actor(
@@ -226,7 +232,10 @@ async def test_actor_calls_task(
     inner_actor = await make_actor(label='call-task-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-task-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     task = await apify_client_async.tasks().create(
@@ -332,7 +341,10 @@ async def test_actor_metamorphs_into_another_actor(
     inner_actor = await make_actor(label='metamorph-inner', main_func=main_inner)
     outer_actor = await make_actor(label='metamorph-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     run_result_outer = await run_actor(
