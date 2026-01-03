@@ -79,7 +79,7 @@ async def test_force_cloud(
     try:
         key_value_store_details = await key_value_store_client.get()
         assert key_value_store_details is not None
-        assert key_value_store_details.get('name') == key_value_store_name
+        assert key_value_store_details.name == key_value_store_name
 
         key_value_store_record = await key_value_store_client.get_record('foo')
         assert key_value_store_record is not None
@@ -141,7 +141,7 @@ async def test_set_value_in_one_run_and_get_value_in_another(
     default_kvs_info = await actor_set.last_run().key_value_store().get()
     assert default_kvs_info is not None
 
-    run_result_get = await run_actor(actor_get, run_input={'kvs-id': default_kvs_info['id']})
+    run_result_get = await run_actor(actor_get, run_input={'kvs-id': default_kvs_info.id})
 
     assert run_result_get.status == 'SUCCEEDED'
 
