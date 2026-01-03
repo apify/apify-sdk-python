@@ -306,8 +306,15 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
     # Redirect logs even from the resurrected run
     streamed_log = await run_client.get_streamed_log(from_start=False)
     await run_client.resurrect()
+
     async with streamed_log:
-        run_result = ActorRun.model_validate(await run_client.wait_for_finish(wait_secs=600))
+        run = await run_client.wait_for_finish(wait_secs=600)
+
+        if run is None:
+            raise AssertionError('Failed to get resurrected run.')
+
+        run_dict = run.model_dump(by_alias=True)
+        run_result = ActorRun.model_validate(run_dict)
         assert run_result.status == 'SUCCEEDED'
 
 

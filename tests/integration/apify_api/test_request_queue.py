@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 
+from apify_client._models import Data13, ProcessedRequest, UnprocessedRequest
 from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
@@ -1168,15 +1169,15 @@ async def test_request_queue_deduplication_unprocessed_requests(
     assert stats_before is not None
     assert stats_before.write_count is not None
 
-    def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> dict[str, list[dict]]:
+    def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> Data13:
         """Simulate API returning unprocessed requests."""
-        return {
-            'processedRequests': [],
-            'unprocessedRequests': [
-                {'url': request['url'], 'uniqueKey': request['uniqueKey'], 'method': request['method']}
+        return Data13(
+            processed_requests=list[ProcessedRequest](),
+            unprocessed_requests=[
+                UnprocessedRequest(url=request['url'], unique_key=request['uniqueKey'], method=request['method'])
                 for request in requests
             ],
-        }
+        )
 
     with mock.patch(
         'apify_client._resource_clients.request_queue.RequestQueueClientAsync.batch_add_requests',

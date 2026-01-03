@@ -84,7 +84,8 @@ async def test_actor_charge_basic(
     for is_last_attempt, _ in retry_counter(30):
         await asyncio.sleep(1)
 
-        updated_run = await apify_client_async.run(run.id).get()
+        run_client = apify_client_async.run(run.id)
+        updated_run = await run_client.get()
         assert updated_run is not None, 'Updated run should not be None'
 
         updated_run_dict = updated_run.model_dump(by_alias=True)
@@ -110,7 +111,8 @@ async def test_actor_charge_limit(
     for is_last_attempt, _ in retry_counter(30):
         await asyncio.sleep(1)
 
-        updated_run = await apify_client_async.run(run.id).get()
+        run_client = apify_client_async.run(run.id)
+        updated_run = await run_client.get()
         assert updated_run is not None, 'Updated run should not be None'
 
         updated_run_dict = updated_run.model_dump(by_alias=True)
