@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 from yarl import URL
 
-from crawlee._request import UserData
+from crawlee._request import CrawleeRequestData, UserData
 from crawlee._types import HttpMethod
 
 from apify.request_loaders import ApifyRequestList
@@ -65,6 +65,8 @@ async def test_request_list_open_request_types(
     assert request.url == request_dict_input['url']
     assert request.payload == request_dict_input.get('payload', '').encode('utf-8')
     expected_user_data = UserData()
+    # `crawlee_data` must be present in user_data
+    expected_user_data.crawlee_data = CrawleeRequestData()
     if 'userData' in optional_input:
         for key, value in optional_input['userData'].items():
             expected_user_data[key] = value
@@ -181,6 +183,8 @@ async def test_request_list_open_from_url_additional_inputs(httpserver: HTTPServ
     assert request.headers.root == example_start_url_input['headers']
     assert request.payload == str(example_start_url_input['payload']).encode('utf-8')
     expected_user_data = UserData()
+    # `crawlee_data` must be present in user_data
+    expected_user_data.crawlee_data = CrawleeRequestData()
     for key, value in example_start_url_input['userData'].items():
         expected_user_data[key] = value
     assert request.user_data == expected_user_data
