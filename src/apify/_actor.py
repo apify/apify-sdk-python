@@ -175,7 +175,7 @@ class _ActorType:
         self.log.debug('Configuration initialized')
 
         # Update the global Actor proxy to refer to this instance.
-        cast('Proxy', Actor).__wrapped__ = self # ty: ignore[invalid-assignment]
+        cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 
