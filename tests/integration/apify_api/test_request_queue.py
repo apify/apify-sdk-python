@@ -1097,7 +1097,7 @@ async def test_pre_existing_request_with_user_data(
     rq = request_queue_apify
     request = Request.from_url(
         'https://example.com',
-        user_data=custom_data,
+        user_data=custom_data.copy(),
     )
 
     # Add request by a different producer
