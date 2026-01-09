@@ -4,8 +4,7 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
-import pytest
-
+from apify_shared.consts import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
 from .._utils import generate_unique_resource_name
@@ -197,7 +196,6 @@ async def test_actor_calls_another_actor(
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
 
-@pytest.mark.skip(reason='Requires Actor permissions beyond limited permissions, see #715.')
 async def test_actor_calls_task(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -238,6 +236,7 @@ async def test_actor_calls_task(
     run_result_outer = await run_actor(
         outer_actor,
         run_input={'test_value': test_value, 'inner_task_id': task['id']},
+        force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
     )
 
     assert run_result_outer.status == 'SUCCEEDED'
@@ -251,7 +250,6 @@ async def test_actor_calls_task(
     await apify_client_async.task(task['id']).delete()
 
 
-@pytest.mark.skip(reason='Requires Actor permissions beyond limited permissions, see #715.')
 async def test_actor_aborts_another_actor_run(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -274,11 +272,13 @@ async def test_actor_aborts_another_actor_run(
     inner_actor = await make_actor(label='abort-inner', main_func=main_inner)
     outer_actor = await make_actor(label='abort-outer', main_func=main_outer)
 
-    inner_run_id = (await inner_actor.start())['id']
+    run_result_inner = await inner_actor.start(force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS)
+    inner_run_id = run_result_inner['id']
 
     run_result_outer = await run_actor(
         outer_actor,
         run_input={'inner_run_id': inner_run_id},
+        force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
     )
 
     assert run_result_outer.status == 'SUCCEEDED'

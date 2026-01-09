@@ -111,7 +111,7 @@ dev = [
 
 [[package]]
 name = "apify-client"
-version = "2.3.0"
+version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "apify-shared" },
@@ -119,9 +119,9 @@ dependencies = [
     { name = "impit" },
     { name = "more-itertools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/e3/08c1eb269d4559e5c01343347c913423c24efd425f0c2bd9f743e28c8a86/apify_client-2.3.0.tar.gz", hash = "sha256:ff6d32e27d5205343e89057ac0e0c02b53a9219ccedfd30a3c4d70d13d931488", size = 389101, upload-time = "2025-11-13T13:42:33.923Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/24/6a/82e2d61641508e2a8a0509e78d1641273df901683e7108afc71b078c8488/apify_client-2.4.0.tar.gz", hash = "sha256:efcad708f9091f774f180ced18e2aaaec3b45effcc19b933d2fa0b3059b8a001", size = 368665, upload-time = "2026-01-09T10:33:25.756Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/b6/6dabe41804932e020557450abc8bc74725a942c6f08969021efe965d4260/apify_client-2.3.0-py3-none-any.whl", hash = "sha256:6ae9b1461c2a15ab19c6131bfcab55be9362259cced9b254b827b4c3b6c12d40", size = 85996, upload-time = "2025-11-13T13:42:32.012Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/65/71dd2515b799bded5a767006423a11ebac27f41193372e751672f4c12516/apify_client-2.4.0-py3-none-any.whl", hash = "sha256:073109fa136fd978471eff62bf30eda9a51557a5ee383fe762c89430cee27c30", size = 86156, upload-time = "2026-01-09T10:33:24.524Z" },
 ]
 
 [[package]]
