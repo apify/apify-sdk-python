@@ -3,13 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pytest
+from apify_shared.consts import ActorPermissionLevel
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-@pytest.mark.skip(reason='Requires Actor permissions beyond limited permissions, see #715.')
 async def test_actor_scrapy_title_spider(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -38,6 +37,7 @@ async def test_actor_scrapy_title_spider(
             'allowedDomains': ['crawlee.dev'],
             'proxyConfiguration': {'useApifyProxy': True},
         },
+        force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
     )
 
     assert run_result.status == 'SUCCEEDED'

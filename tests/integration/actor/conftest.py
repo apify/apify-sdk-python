@@ -13,7 +13,7 @@ import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorSourceType
+from apify_shared.consts import ActorJobStatus, ActorPermissionLevel, ActorSourceType
 
 from .._utils import generate_unique_resource_name
 from apify._models import ActorRun
@@ -280,12 +280,14 @@ class RunActorFunction(Protocol):
         *,
         run_input: Any = None,
         max_total_charge_usd: Decimal | None = None,
+        force_permission_level: ActorPermissionLevel | None = None,
     ) -> Coroutine[None, None, ActorRun]:
         """Initiate an Actor run and wait for its completion.
 
         Args:
             actor: Actor async client, in testing context usually created by `make_actor` fixture.
             run_input: Optional input for the Actor run.
+            force_permission_level: Override the Actor's permissions for this run.
 
         Returns:
             Actor run result.
@@ -305,10 +307,12 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         *,
         run_input: Any = None,
         max_total_charge_usd: Decimal | None = None,
+        force_permission_level: ActorPermissionLevel | None = None,
     ) -> ActorRun:
         call_result = await actor.call(
             run_input=run_input,
             max_total_charge_usd=max_total_charge_usd,
+            force_permission_level=None if force_permission_level is None else force_permission_level.value,
         )
 
         assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
