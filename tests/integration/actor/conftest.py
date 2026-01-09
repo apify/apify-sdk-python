@@ -312,7 +312,7 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         call_result = await actor.call(
             run_input=run_input,
             max_total_charge_usd=max_total_charge_usd,
-            force_permission_level=None if force_permission_level is None else force_permission_level.value,
+            force_permission_level=force_permission_level,
         )
 
         assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
