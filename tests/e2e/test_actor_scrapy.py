@@ -40,7 +40,7 @@ async def test_actor_scrapy_title_spider(
         force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
     )
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     items = await actor.last_run().dataset().list_items()
 

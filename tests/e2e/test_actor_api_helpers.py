@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
-from apify_client._models import ActorPermissionLevel
+from apify_client._models import ActorJobStatus, ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
 from ._utils import generate_unique_resource_name
@@ -28,7 +28,7 @@ async def test_actor_reports_running_on_platform(
     actor = await make_actor(label='is-at-home', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_actor_retrieves_env_vars(
@@ -52,7 +52,7 @@ async def test_actor_retrieves_env_vars(
     actor = await make_actor(label='get-env', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_actor_creates_new_client_instance(
@@ -76,7 +76,7 @@ async def test_actor_creates_new_client_instance(
     actor = await make_actor(label='new-client', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
     assert output_record is not None
@@ -129,7 +129,7 @@ async def test_actor_starts_another_actor_instance(
 
             inner_run_status = await Actor.apify_client.actor(inner_actor_id).last_run().get()
             assert inner_run_status is not None
-            assert inner_run_status.status in ['READY', 'RUNNING']
+            assert inner_run_status.status.value in {'READY', 'RUNNING'}
 
     inner_actor = await make_actor(label='start-inner', main_func=main_inner)
     outer_actor = await make_actor(label='start-outer', main_func=main_outer)
@@ -175,9 +175,10 @@ async def test_actor_calls_another_actor(
 
             await Actor.call(inner_actor_id, run_input={'test_value': test_value})
 
-            inner_run_status = await Actor.apify_client.actor(inner_actor_id).last_run().get()
-            assert inner_run_status is not None
-            assert inner_run_status.status == 'SUCCEEDED'
+            run_result_inner = await Actor.apify_client.actor(inner_actor_id).last_run().get()
+
+            assert run_result_inner is not None
+            assert run_result_inner.status.value == 'SUCCEEDED'
 
     inner_actor = await make_actor(label='call-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-outer', main_func=main_outer)
@@ -223,9 +224,10 @@ async def test_actor_calls_task(
 
             await Actor.call_task(inner_task_id)
 
-            inner_run_status = await Actor.apify_client.task(inner_task_id).last_run().get()
-            assert inner_run_status is not None
-            assert inner_run_status.status == 'SUCCEEDED'
+            run_result_inner = await Actor.apify_client.task(inner_task_id).last_run().get()
+
+            assert run_result_inner is not None
+            assert run_result_inner.status.value == 'SUCCEEDED'
 
     inner_actor = await make_actor(label='call-task-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-task-outer', main_func=main_outer)
@@ -248,7 +250,7 @@ async def test_actor_calls_task(
         force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
     )
 
-    assert run_result_outer.status == 'SUCCEEDED'
+    assert run_result_outer.status.value == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
@@ -301,7 +303,7 @@ async def test_actor_aborts_another_actor_run(
     inner_actor_run_dict = inner_actor_run.model_dump(by_alias=True)
     inner_actor_last_run = ActorRun.model_validate(inner_actor_run_dict)
 
-    assert inner_actor_last_run.status == 'ABORTED'
+    assert inner_actor_last_run.status == ActorJobStatus.ABORTED
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is None
@@ -394,7 +396,7 @@ async def test_actor_reboots_successfully(
         run_input={'counter_key': 'reboot_counter'},
     )
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     not_written_value = await actor.last_run().key_value_store().get_record('THIS_KEY_SHOULD_NOT_BE_WRITTEN')
     assert not_written_value is None
@@ -450,7 +452,7 @@ async def test_actor_adds_webhook_and_receives_event(
 
             await Actor.add_webhook(
                 Webhook(
-                    event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED],
+                    event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED.value],
                     request_url=server_actor_container_url,
                 )
             )

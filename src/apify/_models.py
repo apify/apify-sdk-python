@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from apify_client._models import ActorJobStatus, RunOrigin, WebhookEventType
+from apify_client._models import ActorJobStatus
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 
@@ -54,7 +54,7 @@ class Webhook(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     event_types: Annotated[
-        list[WebhookEventType],
+        list[str],
         Field(alias='eventTypes', description='Event types that should trigger the webhook'),
     ]
     request_url: Annotated[
@@ -85,7 +85,7 @@ class Webhook(BaseModel):
 class ActorRunMeta(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
-    origin: Annotated[RunOrigin, Field()]
+    origin: Annotated[str, Field()]
     client_ip: Annotated[str | None, Field(alias='clientIp')] = None
     user_agent: Annotated[str | None, Field(alias='userAgent')] = None
     schedule_id: Annotated[str | None, Field(alias='scheduleId')] = None

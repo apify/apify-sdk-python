@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
-from apify_client._models import ActorJobStatus
-
 from apify import Actor
 from apify._models import ActorRun
 
@@ -91,7 +89,7 @@ async def test_actor_charge_basic(
         run = ActorRun.model_validate(updated_run_dict)
 
         try:
-            assert run.status == ActorJobStatus.SUCCEEDED
+            assert run.status == 'SUCCEEDED'
             assert run.charged_event_counts == {'foobar': 4}
             break
         except AssertionError:
@@ -104,22 +102,22 @@ async def test_actor_charge_limit(
     run_actor: RunActorFunction,
     apify_client_async: ApifyClientAsync,
 ) -> None:
-    run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
+    run_result = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
 
     # Refetch until the platform gets its act together
     for is_last_attempt, _ in retry_counter(30):
         await asyncio.sleep(1)
 
-        run_client = apify_client_async.run(run.id)
+        run_client = apify_client_async.run(run_result.id)
         updated_run = await run_client.get()
         assert updated_run is not None, 'Updated run should not be None'
 
         updated_run_dict = updated_run.model_dump(by_alias=True)
-        run = ActorRun.model_validate(updated_run_dict)
+        run_result = ActorRun.model_validate(updated_run_dict)
 
         try:
-            assert run.status == ActorJobStatus.SUCCEEDED
-            assert run.charged_event_counts == {'foobar': 2}
+            assert run_result.status.value == 'SUCCEEDED'
+            assert run_result.charged_event_counts == {'foobar': 2}
             break
         except AssertionError:
             if is_last_attempt:
