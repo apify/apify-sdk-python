@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from apify_shared.consts import ActorPermissionLevel
+from apify_client._models import ActorPermissionLevel
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction

@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_client._models import Run
-from apify_shared.consts import ApifyEnvVars, WebhookEventType
+from apify_client._models import Run, WebhookEventType
+from apify_shared.consts import ApifyEnvVars
 from crawlee.events._types import Event
 
 from apify import Actor, Webhook

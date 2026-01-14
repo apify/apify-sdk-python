@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
-from apify_shared.consts import ActorPermissionLevel
+from apify_client._models import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
 from ._utils import generate_unique_resource_name
