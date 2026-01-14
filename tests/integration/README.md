@@ -52,7 +52,7 @@ async def test_something(
     actor = await make_actor(label='something', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 ```
 
 These Actors will have the `src/main.py` file set to the `main` function definition, prepended with `import asyncio` and `from apify import Actor`, for your convenience.
@@ -74,7 +74,7 @@ async def test_something(
     actor = await make_actor(label='something', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 ```
 
 #### Creating Actor from source files
@@ -135,7 +135,7 @@ async def test_something(
     actor = await make_actor(label='something', source_files=actor_source_files)
     actor_run = await run_actor(actor)
 
-    assert actor_run.status == 'SUCCEEDED'
+    assert actor_run.status.value == 'SUCCEEDED'
 ```
 
 #### Asserts
@@ -158,5 +158,5 @@ async def test_add_and_fetch_requests(
     actor = await make_actor(label='rq-test', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 ```

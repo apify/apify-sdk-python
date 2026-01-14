@@ -28,7 +28,7 @@ async def test_actor_from_main_func(
     actor = await make_actor(label='make-actor-main-func', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
 
@@ -52,7 +52,7 @@ async def test_actor_from_main_py(
     actor = await make_actor(label='make-actor-main-py', main_py=main_py_source)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
 
@@ -86,7 +86,7 @@ async def test_actor_from_source_files(
     actor = await make_actor(label='make-actor-source-files', source_files=actor_source_files)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
     assert output_record is not None

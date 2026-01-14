@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from apify_client._models import ActorJobStatus, RunOrigin, WebhookEventType
+from apify_client._models import ActorJobStatus
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 
@@ -18,10 +18,10 @@ if TYPE_CHECKING:
 
 @docs_group('Actor')
 class Webhook(BaseModel):
-    __model_config__ = ConfigDict(populate_by_name=True)
+    __model_config__ = ConfigDict(populate_by_name=True, use_enum_values=True)
 
     event_types: Annotated[
-        list[WebhookEventType],
+        list[str],
         Field(description='Event types that should trigger the webhook'),
     ]
     request_url: Annotated[
@@ -37,9 +37,9 @@ class Webhook(BaseModel):
 
 @docs_group('Actor')
 class ActorRunMeta(BaseModel):
-    __model_config__ = ConfigDict(populate_by_name=True)
+    __model_config__ = ConfigDict(populate_by_name=True, use_enum_values=True)
 
-    origin: Annotated[RunOrigin, Field()]
+    origin: Annotated[str, Field()]
 
 
 @docs_group('Actor')
@@ -96,7 +96,7 @@ class ActorRunUsage(BaseModel):
 class ActorRun(BaseModel):
     """Represents an Actor run and its associated data."""
 
-    __model_config__ = ConfigDict(populate_by_name=True)
+    __model_config__ = ConfigDict(populate_by_name=True, use_enum_values=True)
 
     id: Annotated[str, Field(alias='id')]
     """Unique identifier of the Actor run."""

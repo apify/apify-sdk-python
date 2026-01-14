@@ -29,7 +29,7 @@ async def test_push_and_verify_data_in_default_dataset(
     actor = await make_actor(label='push-data', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     list_page = await actor.last_run().dataset().list_items()
     assert list_page.items[0]['id'] == 0
@@ -48,7 +48,7 @@ async def test_push_large_data_chunks_over_9mb(
     actor = await make_actor(label='push-data-over-9mb', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     async for item in actor.last_run().dataset().iterate_items():
         assert item['str'] == 'x' * 10000
@@ -71,7 +71,7 @@ async def test_dataset_iter_items(
 
     actor = await make_actor(label='test_dataset_iter_items', main_func=main)
     run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_same_references_in_default_dataset(
@@ -87,7 +87,7 @@ async def test_same_references_in_default_dataset(
     actor = await make_actor(label='dataset-same-ref-default', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_same_references_in_named_dataset(
@@ -115,7 +115,7 @@ async def test_same_references_in_named_dataset(
     actor = await make_actor(label='dataset-same-ref-named', main_func=main)
     run_result = await run_actor(actor, run_input={'datasetName': dataset_name})
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_force_cloud(
@@ -183,7 +183,7 @@ async def test_dataset_defaults(
     actor = await make_actor(label='dataset-defaults', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_dataset_aliases(
@@ -227,4 +227,4 @@ async def test_dataset_aliases(
     actor = await make_actor(label='dataset-aliases', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

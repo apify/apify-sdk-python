@@ -13,7 +13,7 @@ import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
-from apify_client._models import ActorJobStatus, ActorPermissionLevel, VersionSourceType
+from apify_client._models import ActorPermissionLevel, VersionSourceType
 
 from .._utils import generate_unique_resource_name
 from apify._models import ActorRun
@@ -230,7 +230,7 @@ def make_actor(
                 {
                     'versionNumber': '0.0',
                     'buildTag': 'latest',
-                    'sourceType': VersionSourceType.SOURCE_FILES,
+                    'sourceType': VersionSourceType.SOURCE_FILES.value,
                     'sourceFiles': source_files_for_api,
                 }
             ],
@@ -244,7 +244,7 @@ def make_actor(
         build_client_result = await build_client.wait_for_finish(wait_secs=600)
 
         assert build_client_result is not None
-        assert build_client_result.status == ActorJobStatus.SUCCEEDED
+        assert build_client_result.status.value == 'SUCCEEDED'
 
         # We only mark the client for cleanup if the build succeeded, so that if something goes wrong here,
         # you have a chance to check the error.

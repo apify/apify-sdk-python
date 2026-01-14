@@ -150,7 +150,7 @@ async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> No
     caplog.set_level('WARNING')
     async with Actor:
         await Actor.add_webhook(
-            Webhook(event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com')
+            Webhook(event_types=[WebhookEventType.ACTOR_BUILD_ABORTED.value], request_url='https://example.com')
         )
 
     assert len(caplog.records) == 1

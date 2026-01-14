@@ -26,7 +26,7 @@ async def test_same_references_in_default_rq(
     actor = await make_actor(label='rq-same-ref-default', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_same_references_in_named_rq(
@@ -54,7 +54,7 @@ async def test_same_references_in_named_rq(
     actor = await make_actor(label='rq-same-ref-named', main_func=main)
     run_result = await run_actor(actor, run_input={'rqName': rq_name})
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_deduplication(
@@ -108,7 +108,7 @@ async def test_request_queue_deduplication(
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_deduplication_use_extended_unique_key(
@@ -162,7 +162,7 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_parallel_deduplication(
@@ -228,7 +228,7 @@ async def test_request_queue_parallel_deduplication(
     actor = await make_actor(label='rq-parallel-deduplication', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_had_multiple_clients_platform(
@@ -255,7 +255,7 @@ async def test_request_queue_had_multiple_clients_platform(
     actor = await make_actor(label='rq-had-multiple-clients', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_not_had_multiple_clients_platform(
@@ -276,7 +276,7 @@ async def test_request_queue_not_had_multiple_clients_platform(
     actor = await make_actor(label='rq-not-had-multiple-clients', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_not_had_multiple_clients_platform_resurrection(
@@ -299,7 +299,7 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
 
     actor = await make_actor(label='rq-clients-resurrection', main_func=main)
     run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     # Resurrect the run, the RequestQueue should still use same client key and thus not have multiple clients.
     run_client = apify_client_async.run(run_id=run_result.id)
@@ -315,7 +315,7 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
 
         run_dict = run.model_dump(by_alias=True)
         run_result = ActorRun.model_validate(run_dict)
-        assert run_result.status == 'SUCCEEDED'
+        assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_rq_defaults(
@@ -357,7 +357,7 @@ async def test_rq_defaults(
     actor = await make_actor(label='rq-defaults', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_rq_aliases(
@@ -405,7 +405,7 @@ async def test_rq_aliases(
     actor = await make_actor(label='rq-aliases', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_concurrent_processing_simulation(
@@ -506,7 +506,7 @@ async def test_concurrent_processing_simulation(
 
     actor = await make_actor(label='rq-concurrent-test', main_func=main)
     run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_rq_isolation(
@@ -557,4 +557,4 @@ async def test_rq_isolation(
 
     actor = await make_actor(label='rq-isolation-test', main_func=main)
     run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
