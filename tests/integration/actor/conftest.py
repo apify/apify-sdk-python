@@ -13,7 +13,7 @@ import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorPermissionLevel, ActorSourceType
+from apify_client._models import ActorJobStatus, ActorPermissionLevel, VersionSourceType
 
 from .._utils import generate_unique_resource_name
 from apify._models import ActorRun
@@ -230,7 +230,7 @@ def make_actor(
                 {
                     'versionNumber': '0.0',
                     'buildTag': 'latest',
-                    'sourceType': ActorSourceType.SOURCE_FILES,
+                    'sourceType': VersionSourceType.SOURCE_FILES,
                     'sourceFiles': source_files_for_api,
                 }
             ],

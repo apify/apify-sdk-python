@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
-from apify_shared.consts import ActorJobStatus
+from apify_client._models import ActorJobStatus
 
 from apify import Actor
 from apify._models import ActorRun
