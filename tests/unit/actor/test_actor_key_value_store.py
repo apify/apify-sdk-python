@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from apify_shared.consts import ApifyEnvVars
@@ -106,3 +108,79 @@ async def test_get_input_with_encrypted_secrets(monkeypatch: pytest.MonkeyPatch)
         assert actor_input['secret_string'] == secret_string
         assert actor_input['secret_object'] == secret_object
         assert actor_input['secret_array'] == secret_array
+
+
+async def test_use_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Set a short persist state interval to speed up the test
+    monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '100')
+    async with Actor as actor:
+        state = await actor.use_state()
+        assert state == {}
+
+        state['state'] = 'first_state'
+
+        await asyncio.sleep(0.2)  # Wait for the state to be persisted
+
+        kvs = await actor.open_key_value_store()
+        stored_state = await kvs.get_value('CRAWLEE_STATE_0')
+        assert stored_state == {'state': 'first_state'}
+
+        state['state'] = 'finished_state'
+
+    saved_sate = await kvs.get_value('CRAWLEE_STATE_0')
+    assert saved_sate == {'state': 'finished_state'}
+
+
+async def test_use_state_non_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Set a short persist state interval to speed up the test
+    monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '100')
+    async with Actor as actor:
+        state = await actor.use_state(
+            default_value={'state': 'initial_state'}, key='custom_state_key', kvs_name='custom-kvs'
+        )
+        assert state == {'state': 'initial_state'}
+
+        state['state'] = 'first_state'
+
+        await asyncio.sleep(0.2)  # Wait for the state to be persisted
+
+        kvs = await actor.open_key_value_store(name='custom-kvs')
+        stored_state = await kvs.get_value('custom_state_key')
+        assert stored_state == {'state': 'first_state'}
+
+        state['state'] = 'finished_state'
+
+    saved_sate = await kvs.get_value('custom_state_key')
+    assert saved_sate == {'state': 'finished_state'}
+
+
+async def test_use_state_persists_on_actor_stop() -> None:
+    async with Actor as actor:
+        state = await actor.use_state()
+        assert state == {}
+
+        kvs = await actor.open_key_value_store()
+
+        state['state'] = 'finished_state'
+
+    # After Actor context is exited, the state should be persisted
+    saved_sate = await kvs.get_value('CRAWLEE_STATE_0')
+    assert saved_sate == {'state': 'finished_state'}
+
+
+async def test_use_state_with_multiple_stores() -> None:
+    async with Actor as actor:
+        state_default = await actor.use_state()
+        state_custom = await actor.use_state(kvs_name='custom-kvs')
+
+        state_default['value'] = 'default_store'
+        state_custom['value'] = 'custom_store'
+
+        kvs_default = await actor.open_key_value_store()
+        kvs_custom = await actor.open_key_value_store(name='custom-kvs')
+
+    saved_state_default = await kvs_default.get_value('CRAWLEE_STATE_0')
+    assert saved_state_default == {'value': 'default_store'}
+
+    saved_state_custom = await kvs_custom.get_value('CRAWLEE_STATE_0')
+    assert saved_state_custom == {'value': 'custom_store'}
