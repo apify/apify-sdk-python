@@ -96,7 +96,7 @@ class _ActorType:
     ```
     """
 
-    _ACTOR_STATE_KEY = 'CRAWLEE_STATE_0'
+    _ACTOR_STATE_KEY = 'APIFY_GLOBAL_STATE'
 
     def __init__(
         self,
