@@ -89,7 +89,7 @@ async def test_actor_charge_basic(
         run = ActorRun.model_validate(updated_run_dict)
 
         try:
-            assert run.status == 'SUCCEEDED'
+            assert run.status.value == 'SUCCEEDED'
             assert run.charged_event_counts == {'foobar': 4}
             break
         except AssertionError:
