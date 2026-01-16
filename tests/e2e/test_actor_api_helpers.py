@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
-from apify_client._models import ActorJobStatus, ActorPermissionLevel
+from apify_client._models import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
 from ._utils import generate_unique_resource_name
@@ -303,7 +303,7 @@ async def test_actor_aborts_another_actor_run(
     inner_actor_run_dict = inner_actor_run.model_dump(by_alias=True)
     inner_actor_last_run = ActorRun.model_validate(inner_actor_run_dict)
 
-    assert inner_actor_last_run.status.value == ActorJobStatus.ABORTED
+    assert inner_actor_last_run.status.value == 'ABORTED'
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is None

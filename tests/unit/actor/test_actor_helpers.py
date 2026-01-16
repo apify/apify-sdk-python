@@ -29,7 +29,7 @@ def fake_actor_run() -> Run:
             'actId': 'actor_id',
             'actorId': 'actor_id',
             'userId': 'user_id',
-            'startedAt': '2024-08-08 12:12:44',
+            'startedAt': '2024-08-08T12:12:44Z',
             'status': 'RUNNING',
             'meta': {'origin': 'API'},
             'containerUrl': 'http://0.0.0.0:3333',

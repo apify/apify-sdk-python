@@ -290,8 +290,7 @@ class ApifyRequestQueueSingleClient:
         # Should warn once? This might be outside expected context if the other consumers consumes at the same time
 
         if response.queue_modified_at:
-            modified_at = datetime.fromisoformat(response.queue_modified_at.replace('Z', '+00:00'))
-            self.metadata.modified_at = max(self.metadata.modified_at, modified_at)
+            self.metadata.modified_at = max(self.metadata.modified_at, response.queue_modified_at)
 
         # Update the cached data
         for request_data in response.items:

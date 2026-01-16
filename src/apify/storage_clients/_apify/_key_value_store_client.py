@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import warnings
-from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
@@ -62,9 +61,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         return ApifyKeyValueStoreMetadata(
             id=metadata.id,
             name=metadata.name,
-            created_at=datetime.fromisoformat(metadata.created_at.replace('Z', '+00:00')),
-            modified_at=datetime.fromisoformat(metadata.modified_at.replace('Z', '+00:00')),
-            accessed_at=datetime.fromisoformat(metadata.accessed_at.replace('Z', '+00:00')),
+            created_at=metadata.created_at,
+            modified_at=metadata.modified_at,
+            accessed_at=metadata.accessed_at,
             url_signing_secret_key=metadata.url_signing_secret_key,
         )
 

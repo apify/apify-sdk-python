@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Final, Literal
 
@@ -86,9 +85,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         total_request_count = int(metadata.total_request_count)
         handled_request_count = int(metadata.handled_request_count)
         pending_request_count = int(metadata.pending_request_count)
-        created_at = datetime.fromisoformat(metadata.created_at.replace('Z', '+00:00'))
-        modified_at = datetime.fromisoformat(metadata.modified_at.replace('Z', '+00:00'))
-        accessed_at = datetime.fromisoformat(metadata.accessed_at.replace('Z', '+00:00'))
 
         # Enhance API response with local estimations to account for propagation delays (API data can be delayed
         # by a few seconds, while local estimates are immediately accurate).
@@ -98,9 +94,9 @@ class ApifyRequestQueueClient(RequestQueueClient):
             total_request_count=max(total_request_count, self._implementation.metadata.total_request_count),
             handled_request_count=max(handled_request_count, self._implementation.metadata.handled_request_count),
             pending_request_count=pending_request_count,
-            created_at=min(created_at, self._implementation.metadata.created_at),
-            modified_at=max(modified_at, self._implementation.metadata.modified_at),
-            accessed_at=max(accessed_at, self._implementation.metadata.accessed_at),
+            created_at=min(metadata.created_at, self._implementation.metadata.created_at),
+            modified_at=max(metadata.modified_at, self._implementation.metadata.modified_at),
+            accessed_at=max(metadata.accessed_at, self._implementation.metadata.accessed_at),
             had_multiple_clients=metadata.had_multiple_clients or self._implementation.metadata.had_multiple_clients,
             stats=RequestQueueStats.model_validate(
                 metadata.stats.model_dump(by_alias=True) if metadata.stats else {},
