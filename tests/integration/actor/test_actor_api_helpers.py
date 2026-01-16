@@ -95,13 +95,13 @@ async def test_actor_sets_status_message(
     actor = await make_actor(label='set-status-message', main_func=main)
     run_result_1 = await run_actor(actor)
 
-    assert run_result_1.status == 'SUCCEEDED'
+    assert run_result_1.status.value == 'SUCCEEDED'
     assert run_result_1.status_message == 'testing-status-message'
     assert run_result_1.is_status_message_terminal is None
 
     run_result_2 = await run_actor(actor, run_input={'is_terminal': True})
 
-    assert run_result_2.status == 'SUCCEEDED'
+    assert run_result_2.status.value == 'SUCCEEDED'
     assert run_result_2.status_message == 'testing-status-message'
     assert run_result_2.is_status_message_terminal is True
 
@@ -145,7 +145,7 @@ async def test_actor_starts_another_actor_instance(
         run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
     )
 
-    assert run_result_outer.status == 'SUCCEEDED'
+    assert run_result_outer.status.value == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
@@ -194,7 +194,7 @@ async def test_actor_calls_another_actor(
         run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
     )
 
-    assert run_result_outer.status == 'SUCCEEDED'
+    assert run_result_outer.status.value == 'SUCCEEDED'
 
     await inner_actor.last_run().wait_for_finish(wait_secs=600)
 
@@ -292,7 +292,7 @@ async def test_actor_aborts_another_actor_run(
         force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
     )
 
-    assert run_result_outer.status == 'SUCCEEDED'
+    assert run_result_outer.status.value == 'SUCCEEDED'
 
     inner_actor_run_client = inner_actor.last_run()
     inner_actor_run = await inner_actor_run_client.wait_for_finish(wait_secs=600)
@@ -303,7 +303,7 @@ async def test_actor_aborts_another_actor_run(
     inner_actor_run_dict = inner_actor_run.model_dump(by_alias=True)
     inner_actor_last_run = ActorRun.model_validate(inner_actor_run_dict)
 
-    assert inner_actor_last_run.status == ActorJobStatus.ABORTED
+    assert inner_actor_last_run.status.value == ActorJobStatus.ABORTED
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is None
@@ -358,7 +358,7 @@ async def test_actor_metamorphs_into_another_actor(
         run_input={'test_value': test_value, 'inner_actor_id': inner_actor_id},
     )
 
-    assert run_result_outer.status == 'SUCCEEDED'
+    assert run_result_outer.status.value == 'SUCCEEDED'
 
     outer_run_key_value_store = outer_actor.last_run().key_value_store()
 
@@ -475,7 +475,7 @@ async def test_actor_adds_webhook_and_receives_event(
         run_input={'server_actor_container_url': server_actor_container_url},
     )
 
-    assert ac_run_result.status == 'SUCCEEDED'
+    assert ac_run_result.status.value == 'SUCCEEDED'
 
     sa_run_client = server_actor.last_run()
     sa_run_client_run = await sa_run_client.wait_for_finish(wait_secs=600)
@@ -486,7 +486,7 @@ async def test_actor_adds_webhook_and_receives_event(
     sa_run_client_run_dict = sa_run_client_run.model_dump(by_alias=True)
     sa_run_result = ActorRun.model_validate(sa_run_client_run_dict)
 
-    assert sa_run_result.status == 'SUCCEEDED'
+    assert sa_run_result.status.value == 'SUCCEEDED'
 
     webhook_body_record = await server_actor.last_run().key_value_store().get_record('WEBHOOK_BODY')
     assert webhook_body_record is not None
