@@ -431,17 +431,17 @@ class ApifyRequestQueueSharedClient:
             self._should_check_for_forefront_requests = False
 
         # Otherwise fetch from API
-        list_and_lost_data = await self._api_client.list_and_lock_head(
+        locked_queue_head = await self._api_client.list_and_lock_head(
             lock_secs=int(self._DEFAULT_LOCK_TIME.total_seconds()),
             limit=limit,
         )
 
         # Update the queue head cache
-        self._queue_has_locked_requests = list_and_lost_data.queue_has_locked_requests
+        self._queue_has_locked_requests = locked_queue_head.queue_has_locked_requests
         # Check if there is another client working with the RequestQueue
-        self.metadata.had_multiple_clients = list_and_lost_data.had_multiple_clients
+        self.metadata.had_multiple_clients = locked_queue_head.had_multiple_clients
 
-        for request_data in list_and_lost_data.items:
+        for request_data in locked_queue_head.items:
             request = Request.model_validate(request_data.model_dump(by_alias=True))
             request_id = request_data.id
 
@@ -473,7 +473,7 @@ class ApifyRequestQueueSharedClient:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_id)
 
-        list_and_lost_dict = list_and_lost_data.model_dump(by_alias=True)
+        list_and_lost_dict = locked_queue_head.model_dump(by_alias=True)
         return RequestQueueHead.model_validate(list_and_lost_dict)
 
     def _cache_request(
