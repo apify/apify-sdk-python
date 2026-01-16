@@ -1,0 +1,45 @@
+---
+id: overview
+title: Introduction
+sidebar_label: Introduction
+description: 'The official library for creating Apify Actors in Python, providing tools for web scraping, automation, and data storage integration.'
+---
+
+The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python.
+
+It provides tools and classes for web scraping and automation, allowing you to manage Actor lifecycles, handle data storage, work with proxies, and integrate with popular Python libraries.
+
+## Example
+
+Here's a simple example of an Actor that scrapes a web page and stores the result:
+
+```py
+from apify import Actor
+from bs4 import BeautifulSoup
+import requests
+
+async def main():
+    async with Actor:
+        input = await Actor.get_input()
+        response = requests.get(input['url'])
+        soup = BeautifulSoup(response.content, 'html.parser')
+        await Actor.push_data({ 'url': input['url'], 'title': soup.title.string })
+```
+
+## Features
+
+The Apify SDK for Python provides:
+
+- **Actor lifecycle management** - Handle initialization, teardown, and graceful shutdowns
+- **Storage management** - Work with Datasets, Key-Value Stores, and Request Queues
+- **Event handling** - Respond to Actor events like migration, abort, and system info
+- **Proxy management** - Rotate and manage proxies for web scraping
+- **Platform integration** - Interact with other Actors, webhooks, and the Apify API
+- **Framework compatibility** - Integrate with BeautifulSoup, Playwright, Selenium, Scrapy, and Crawlee
+
+## Next steps
+
+- **[Installation](./installation)** - Install the SDK and set up your development environment
+- **[Quick start](./quick-start)** - Create and run your first Actor
+- **[Concepts](../concepts/actor-lifecycle)** - Learn about core SDK concepts
+- **[Guides](../guides/beautiful-soup)** - See how to integrate with popular libraries

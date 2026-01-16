@@ -1,47 +1,18 @@
 ---
-title: Overview
-sidebar_label: Overview
+title: Quick start
+sidebar_label: Quick start
+description: 'Get started with the Apify SDK for Python by creating your first Actor and learning the basics.'
+---
+
+Learn how to create and run Actors using the Apify SDK for Python.
+
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import CodeBlock from '@theme/CodeBlock';
 
-The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python.
-
-```py
-from apify import Actor
-from bs4 import BeautifulSoup
-import requests
-
-async def main():
-    async with Actor:
-        input = await Actor.get_input()
-        response = requests.get(input['url'])
-        soup = BeautifulSoup(response.content, 'html.parser')
-        await Actor.push_data({ 'url': input['url'], 'title': soup.title.string })
-```
-
-## Requirements
-
-The Apify SDK requires Python version 3.10 or above to run Python Actors locally.
-
-## Installation
-
-The Apify Python SDK is available as [`apify`](https://pypi.org/project/apify/) package on PyPi. To install it, run:
-
-```bash
-pip install apify
-```
-
-When you create an Actor using the Apify CLI, the Apify SDK for Python is installed for you automatically.
-
-If you are not developing Apify Actors and you just need to access the Apify API from Python,
-consider using the [Apify API client for Python](/api/client/python) directly.
-
-## Quick start
-
-### Creating Actors
+## Step 1: Creating Actors
 
 To create and run Actors in Apify Console, refer to the [Console documentation](/platform/actors/development/quick-start/web-ide).
 
@@ -55,9 +26,9 @@ apify create my-first-actor --template python-start
 
 This will create a new folder called `my-first-actor`, download and extract the "Getting started with Python" Actor template there, create a virtual environment in `my-first-actor/.venv`, and install the Actor dependencies in it.
 
-![actor create command run](../01_overview/images/apify-create.gif)
+![actor create command run](./images/apify-create.gif)
 
-#### Running the Actor
+## Step 2: Running the Actor
 
 To run the Actor, you can use the [`apify run` command](/cli/docs/reference#apify-run):
 
@@ -74,7 +45,7 @@ This command:
 
 The Actor input, for example, will be in `storage/key_value_stores/default/INPUT.json`.
 
-## Actor structure
+## Step 3: Understanding Actor structure
 
 All Python Actor templates follow the same structure.
 
@@ -121,31 +92,6 @@ asyncio.run(main())`
 
 If you want to modify the Actor structure, you need to make sure that your Actor is executable as a module, via `python -m src`, as that is the command started by `apify run` in the Apify CLI.
 We recommend keeping the entrypoint for the Actor in the `src/__main__.py` file.
-
-## Adding dependencies
-
-First, add the dependencies in the [`requirements.txt`](https://pip.pypa.io/en/stable/reference/requirements-file-format/) file in the Actor source folder.
-
-Then activate the virtual environment in `.venv`:
-
-<Tabs groupId="operating-systems">
-    <TabItem value="unix" label="Linux / macOS" default>
-        <CodeBlock language="bash">{
-`source .venv/bin/activate`
-        }</CodeBlock>
-    </TabItem>
-    <TabItem value="win" label="Windows">
-        <CodeBlock language="powershell">{
-`.venv\\Scripts\\activate`
-        }</CodeBlock>
-    </TabItem>
-</Tabs>
-
-Finally, install the dependencies:
-
-```bash
-python -m pip install -r requirements.txt
-```
 
 ## Next steps
 
