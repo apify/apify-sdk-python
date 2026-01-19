@@ -65,7 +65,7 @@ class ApifyRequestQueueSharedClient:
         """The Apify API client for communication with Apify platform."""
 
         self._queue_head = deque[str]()
-        """Local cache of request IDs from the queue head for efficient fetching."""
+        """Local cache of request IDs from the request queue head for efficient fetching."""
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """LRU cache storing request objects, keyed by request ID."""
@@ -176,7 +176,7 @@ class ApifyRequestQueueSharedClient:
             if not self._queue_head:
                 return None
 
-            # Get the next request ID from the queue head
+            # Get the next request ID from the request queue head
             next_request_id = self._queue_head.popleft()
 
         request = await self._get_or_hydrate_request(next_request_id)
