@@ -300,8 +300,7 @@ async def test_actor_aborts_another_actor_run(
     if inner_actor_run is None:
         raise AssertionError('Failed to get inner actor run after aborting it.')
 
-    inner_actor_run_dict = inner_actor_run.model_dump(by_alias=True)
-    inner_actor_last_run = ActorRun.model_validate(inner_actor_run_dict)
+    inner_actor_last_run = ActorRun.from_client_actor_run(inner_actor_run)
 
     assert inner_actor_last_run.status.value == 'ABORTED'
 
@@ -483,8 +482,7 @@ async def test_actor_adds_webhook_and_receives_event(
     if sa_run_client_run is None:
         raise AssertionError('Failed to get server actor run after waiting for finish.')
 
-    sa_run_client_run_dict = sa_run_client_run.model_dump(by_alias=True)
-    sa_run_result = ActorRun.model_validate(sa_run_client_run_dict)
+    sa_run_result = ActorRun.from_client_actor_run(sa_run_client_run)
 
     assert sa_run_result.status.value == 'SUCCEEDED'
 

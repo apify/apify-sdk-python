@@ -38,7 +38,7 @@ dependencies = [
     { name = "impit" },
     { name = "lazy-object-proxy" },
     { name = "more-itertools" },
-    { name = "pydantic" },
+    { name = "pydantic", extra = ["email"] },
     { name = "typing-extensions" },
     { name = "websockets" },
     { name = "yarl" },
@@ -82,7 +82,7 @@ requires-dist = [
     { name = "impit", specifier = ">=0.8.0" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
     { name = "more-itertools", specifier = ">=10.2.0" },
-    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pydantic", extras = ["email"], specifier = ">=2.11.0" },
     { name = "scrapy", marker = "extra == 'scrapy'", specifier = ">=2.11.0" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
     { name = "websockets", specifier = ">=14.0" },
@@ -116,12 +116,13 @@ dev = [
 [[package]]
 name = "apify-client"
 version = "2.4.1"
-source = { git = "https://github.com/apify/apify-client-python.git?rev=typed-clients#e3ee3c1172f16b3e53b550e004b7a07c4927f8e1" }
+source = { git = "https://github.com/apify/apify-client-python.git?rev=typed-clients#8f10fe05a31d1a9a5827db9fec510c55160aafbe" }
 dependencies = [
     { name = "apify-shared" },
     { name = "colorama" },
     { name = "impit" },
     { name = "more-itertools" },
+    { name = "pydantic", extra = ["email"] },
 ]
 
 [[package]]
@@ -721,6 +722,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dnspython"
+version = "2.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8c/8b/57666417c0f90f08bcafa776861060426765fdb422eb10212086fb811d26/dnspython-2.8.0.tar.gz", hash = "sha256:181d3c6996452cb1189c4046c61599b84a5a86e099562ffde77d26984ff26d0f", size = 368251, upload-time = "2025-09-07T18:58:00.022Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/5a/18ad964b0086c6e62e2e7500f7edc89e3faa45033c71c1893d34eed2b2de/dnspython-2.8.0-py3-none-any.whl", hash = "sha256:01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af", size = 331094, upload-time = "2025-09-07T18:57:58.071Z" },
+]
+
+[[package]]
 name = "docspec"
 version = "2.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -764,6 +774,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b9/71/0c544627c131eee64e41653bf35ebbf02a5aa2318b69c2f9d9415b8005f5/dycw_pytest_only-2.1.1.tar.gz", hash = "sha256:b3c7dce202ee3fac6c83a47d7b9b581737d83db89aab4c624102def18edd00d5", size = 5054, upload-time = "2025-06-03T01:04:47.751Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/1a/25272fafd13c92a2e3b8e351127410b9ea5557324bfea3552388d65797fc/dycw_pytest_only-2.1.1-py3-none-any.whl", hash = "sha256:ea8fe48878dd95ad0ca804e549225cf3b7a1928eb188c22a284c1d17b48a7b89", size = 2413, upload-time = "2025-06-03T01:04:46.585Z" },
+]
+
+[[package]]
+name = "email-validator"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dnspython" },
+    { name = "idna" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/22/900cb125c76b7aaa450ce02fd727f452243f2e91a61af068b40adba60ea9/email_validator-2.3.0.tar.gz", hash = "sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426", size = 51238, upload-time = "2025-08-26T13:09:06.831Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/15/545e2b6cf2e3be84bc1ed85613edd75b8aea69807a71c26f4ca6a9258e82/email_validator-2.3.0-py3-none-any.whl", hash = "sha256:80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4", size = 35604, upload-time = "2025-08-26T13:09:05.858Z" },
 ]
 
 [[package]]
@@ -1758,6 +1781,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/69/44/36f1a6e523abc58ae5f928898e4aca2e0ea509b5aa6f6f392a5d882be928/pydantic-2.12.5.tar.gz", hash = "sha256:4d351024c75c0f085a9febbb665ce8c0c6ec5d30e903bdb6394b7ede26aebb49", size = 821591, upload-time = "2025-11-26T15:11:46.471Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5a/87/b70ad306ebb6f9b585f114d0ac2137d792b48be34d732d60e597c2f8465a/pydantic-2.12.5-py3-none-any.whl", hash = "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d", size = 463580, upload-time = "2025-11-26T15:11:44.605Z" },
+]
+
+[package.optional-dependencies]
+email = [
+    { name = "email-validator" },
 ]
 
 [[package]]

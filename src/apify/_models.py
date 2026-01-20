@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from apify_client._models import ActorJobStatus
+from apify_client._models import ActorJobStatus, Run
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 
@@ -47,6 +47,8 @@ class WebhookStats(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     total_dispatches: Annotated[int, Field(alias='totalDispatches')]
+
+    from apify_client._models import Run
 
 
 @docs_group('Actor')
@@ -322,3 +324,19 @@ class ActorRun(BaseModel):
 
     metamorphs: Annotated[list[Metamorph] | None, Field(alias='metamorphs')] = None
     """List of metamorph events that occurred during the run."""
+
+    @classmethod
+    def from_client_actor_run(cls, client_actor_run: Run) -> ActorRun:
+        """Create an `ActorRun` from an Apify API client's `Run` model.
+
+        Args:
+            client_actor_run: `Run` instance from Apify API client.
+
+        Returns:
+            `ActorRun` instance with properly converted types.
+        """
+        # Dump to dict first with mode='json' to serialize special types
+        client_actor_run_dict = client_actor_run.model_dump(by_alias=True, mode='json')
+
+        # Validate and construct ActorRun from the serialized dict
+        return cls.model_validate(client_actor_run_dict)

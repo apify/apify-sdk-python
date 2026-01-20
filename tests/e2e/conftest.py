@@ -391,11 +391,10 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         assert call_result is not None, 'Failed to start Actor run: missing run ID in the response.'
 
         run_client = apify_client_async.run(call_result.id)
-        actor_run = await run_client.wait_for_finish(wait_secs=600)
+        client_actor_run = await run_client.wait_for_finish(wait_secs=600)
 
-        assert actor_run is not None, 'Actor run did not finish successfully within the expected time.'
+        assert client_actor_run is not None, 'Actor run did not finish successfully within the expected time.'
 
-        actor_run_dict = actor_run.model_dump(by_alias=True)
-        return ActorRun.model_validate(actor_run_dict)
+        return ActorRun.from_client_actor_run(client_actor_run)
 
     return _run_actor

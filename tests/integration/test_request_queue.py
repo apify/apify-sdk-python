@@ -1057,7 +1057,7 @@ async def test_force_cloud(
 
     request_queue_request = await request_queue_client.get_request(request_info.id)
     assert request_queue_request is not None
-    assert request_queue_request.url == 'http://example.com'
+    assert str(request_queue_request.url) == 'http://example.com/'
 
 
 async def test_request_queue_is_finished(

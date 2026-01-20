@@ -9,13 +9,14 @@ from cachetools import LRUCache
 
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
-from ._utils import unique_key_to_request_id
-from apify import Request
+from ._utils import to_crawlee_request, unique_key_to_request_id
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from apify_client._resource_clients import RequestQueueClientAsync
+
+    from apify import Request
 
 logger = getLogger(__name__)
 
@@ -294,7 +295,7 @@ class ApifyRequestQueueSingleClient:
 
         # Update the cached data
         for request_data in response.items:
-            request = Request.model_validate(request_data.model_dump(by_alias=True))
+            request = to_crawlee_request(request_data)
             request_id = request_data.id
 
             if request_id in self._requests_in_progress:
@@ -331,8 +332,7 @@ class ApifyRequestQueueSingleClient:
         if response is None:
             return None
 
-        response_dict = response.model_dump(by_alias=True)
-        request = Request.model_validate(response_dict)
+        request = to_crawlee_request(response)
 
         # Updated local caches
         if id in self._requests_in_progress:
@@ -383,7 +383,7 @@ class ApifyRequestQueueSingleClient:
         """
         response = await self._api_client.list_requests(limit=10_000)
         for request_data in response.items:
-            request = Request.model_validate(request_data.model_dump(by_alias=True))
+            request = to_crawlee_request(request_data)
             request_id = request_data.id
 
             if request.was_already_handled:
