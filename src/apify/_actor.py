@@ -908,8 +908,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to start Actor with ID "{actor_id}".')
 
-        run_dict = run.model_dump(by_alias=True)
-        return ActorRun.model_validate(run_dict)
+        return ActorRun.from_client_actor_run(run)
 
     async def abort(
         self,
@@ -947,8 +946,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to abort Actor run with ID "{run_id}".')
 
-        run_dict = run.model_dump(by_alias=True)
-        return ActorRun.model_validate(run_dict)
+        return ActorRun.from_client_actor_run(run)
 
     async def call(
         self,
@@ -1036,8 +1034,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
 
-        run_dict = run.model_dump(by_alias=True)
-        return ActorRun.model_validate(run_dict)
+        return ActorRun.from_client_actor_run(run)
 
     async def call_task(
         self,
@@ -1112,8 +1109,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
 
-        run_dict = run.model_dump(by_alias=True)
-        return ActorRun.model_validate(run_dict)
+        return ActorRun.from_client_actor_run(run)
 
     async def metamorph(
         self,
@@ -1301,8 +1297,7 @@ class _ActorType:
                 f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
             )
 
-        run_dict = run.model_dump(by_alias=True)
-        return ActorRun.model_validate(run_dict)
+        return ActorRun.from_client_actor_run(run)
 
     async def create_proxy_configuration(
         self,

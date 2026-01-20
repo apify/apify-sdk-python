@@ -16,10 +16,9 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from apify_client._resource_clients import RequestQueueClientAsync
-    from crawlee import Request
     from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
-    from apify import Configuration
+    from apify import Configuration, Request
 
 logger = getLogger(__name__)
 

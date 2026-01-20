@@ -11,13 +11,14 @@ from cachetools import LRUCache
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import ApifyRequestQueueMetadata, CachedRequest, RequestQueueHead
-from ._utils import unique_key_to_request_id
-from apify import Request
+from ._utils import to_crawlee_request, unique_key_to_request_id
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine, Sequence
 
     from apify_client._resource_clients import RequestQueueClientAsync
+
+    from apify import Request
 
 logger = getLogger(__name__)
 
@@ -311,8 +312,7 @@ class ApifyRequestQueueSharedClient:
         if response is None:
             return None
 
-        response_dict = response.model_dump(by_alias=True)
-        return Request.model_validate(response_dict)
+        return to_crawlee_request(response)
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
@@ -442,7 +442,7 @@ class ApifyRequestQueueSharedClient:
         self.metadata.had_multiple_clients = locked_queue_head.had_multiple_clients
 
         for request_data in locked_queue_head.items:
-            request = Request.model_validate(request_data.model_dump(by_alias=True))
+            request = to_crawlee_request(request_data)
             request_id = request_data.id
 
             # Skip requests without ID or unique key
@@ -473,8 +473,7 @@ class ApifyRequestQueueSharedClient:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_id)
 
-        list_and_lost_dict = locked_queue_head.model_dump(by_alias=True)
-        return RequestQueueHead.model_validate(list_and_lost_dict)
+        return RequestQueueHead.from_client_locked_head(locked_queue_head)
 
     def _cache_request(
         self,

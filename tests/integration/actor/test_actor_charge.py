@@ -85,8 +85,7 @@ async def test_actor_charge_basic(
         updated_run = await run_client.get()
         assert updated_run is not None, 'Updated run should not be None'
 
-        updated_run_dict = updated_run.model_dump(by_alias=True)
-        run = ActorRun.model_validate(updated_run_dict)
+        run = ActorRun.from_client_actor_run(updated_run)
 
         try:
             assert run.status.value == 'SUCCEEDED'
@@ -112,8 +111,7 @@ async def test_actor_charge_limit(
         updated_run = await run_client.get()
         assert updated_run is not None, 'Updated run should not be None'
 
-        updated_run_dict = updated_run.model_dump(by_alias=True)
-        run_result = ActorRun.model_validate(updated_run_dict)
+        run_result = ActorRun.from_client_actor_run(updated_run)
 
         try:
             assert run_result.status.value == 'SUCCEEDED'

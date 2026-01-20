@@ -15,6 +15,8 @@ from apify._utils import docs_group
 if TYPE_CHECKING:
     from typing import TypeAlias
 
+    from apify_client._models import Run
+
 
 @docs_group('Actor')
 class Webhook(BaseModel):
@@ -185,6 +187,22 @@ class ActorRun(BaseModel):
         Field(alias='chargedEventCounts'),
     ] = None
     """Count of charged events for pay-per-event pricing model."""
+
+    @classmethod
+    def from_client_actor_run(cls, client_actor_run: Run) -> ActorRun:
+        """Create an `ActorRun` from an Apify API client's `Run` model.
+
+        Args:
+            client_actor_run: `Run` instance from Apify API client.
+
+        Returns:
+            `ActorRun` instance with properly converted types.
+        """
+        # Dump to dict first with mode='json' to serialize special types
+        client_actor_run_dict = client_actor_run.model_dump(by_alias=True, mode='json')
+
+        # Validate and construct ActorRun from the serialized dict
+        return cls.model_validate(client_actor_run_dict)
 
 
 class FreeActorPricingInfo(BaseModel):

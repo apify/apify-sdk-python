@@ -70,9 +70,7 @@ async def test_request_queue_deduplication(
     """
 
     async def main() -> None:
-        from crawlee import Request
-
-        from apify import Actor
+        from apify import Actor, Request
 
         async with Actor:
             request1 = Request.from_url('http://example.com', method='POST')
@@ -124,9 +122,7 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     """
 
     async def main() -> None:
-        from crawlee import Request
-
-        from apify import Actor
+        from apify import Actor, Request
 
         async with Actor:
             request1 = Request.from_url('http://example.com', method='POST', use_extended_unique_key=True)
@@ -180,9 +176,7 @@ async def test_request_queue_parallel_deduplication(
     async def main() -> None:
         import logging
 
-        from crawlee import Request
-
-        from apify import Actor
+        from apify import Actor, Request
 
         worker_count = 10
         max_requests = 100
@@ -313,8 +307,7 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
         if run is None:
             raise AssertionError('Failed to get resurrected run.')
 
-        run_dict = run.model_dump(by_alias=True)
-        run_result = ActorRun.model_validate(run_dict)
+        run_result = ActorRun.from_client_actor_run(run)
         assert run_result.status.value == 'SUCCEEDED'
 
 
@@ -323,8 +316,7 @@ async def test_rq_defaults(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from crawlee import Request
-
+        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:
@@ -365,8 +357,7 @@ async def test_rq_aliases(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from crawlee import Request
-
+        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:
