@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+# Rerun all integration tests up to 3 times on failure, as the platform can be unstable.
+_INTEGRATION_TEST_RERUNS = 3
+
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 
@@ -89,3 +92,10 @@ def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
         prepare_test_env: Fixture to prepare the environment before each test.
     """
     prepare_test_env()
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Add flaky marker with reruns to all integration tests."""
+    flaky_marker = pytest.mark.flaky(reruns=_INTEGRATION_TEST_RERUNS)
+    for item in items:
+        item.add_marker(flaky_marker)
