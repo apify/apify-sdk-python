@@ -4,7 +4,7 @@ There are two different groups of integration tests in this repository:
 - Apify API integration tests. These test that the Apify SDK is correctly communicating with Apify API through Apify client.
 - Actor integration tests. These test that the Apify SDK can be used in Actors deployed to Apify platform. These are very high level tests, and they test communication with the API and correct interaction with the Apify platform.
 
-To run these tests, you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to use for the tests, and then start them with `make integration-tests`.
+To run these tests, you need to set the `APIFY_TEST_USER_API_TOKEN` environment variable to the API token of the Apify user you want to use for the tests, and then start them with `uv run poe integration-tests`.
 
 ## Apify API integration tests
 The tests are making real requests to the Apify API as opposed to the unit tests that are mocking such API calls. On the other hand they are faster than `Actor integration tests` as they do not require building and deploying the Actor. These test can be also fully debugged locally. Preferably try to write integration tests on this level if possible.
