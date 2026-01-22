@@ -241,9 +241,9 @@ shell = "uv run ruff format --check && uv run ruff check"
 shell = "uv run ruff check --fix && uv run ruff format"
 
 [tool.poe.tasks.build-docs]
-shell = "./build_api_reference.sh && corepack enable && yarn && yarn build"
+shell = "./build_api_reference.sh && npm ci && npm run build"
 cwd = "website"
 
 [tool.poe.tasks.run-docs]
-shell = "./build_api_reference.sh && corepack enable && yarn && yarn start"
+shell = "./build_api_reference.sh && npm ci && npm run start"
 cwd = "website"
