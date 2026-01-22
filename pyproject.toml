@@ -68,6 +68,7 @@ dev = [
     "crawlee[parsel]",
     "dycw-pytest-only<3.0.0",
     "griffe",
+    "poethepoet<1.0.0",
     "pre-commit<5.0.0",
     "pydoc-markdown<5.0.0",
     "pytest-asyncio<2.0.0",
@@ -216,3 +217,33 @@ exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
 
 [tool.ipdb]
 context = 7
+
+# Run tasks with: uv run poe <task>
+[tool.poe.tasks]
+clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
+install-sync = "uv sync --all-extras"
+build = "uv build --verbose"
+publish-to-pypi = "uv publish --verbose --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
+type-check = "uv run ty check"
+unit-tests = "uv run pytest --numprocesses=auto --verbose tests/unit"
+unit-tests-cov = "uv run pytest --numprocesses=auto --verbose --cov=src/apify --cov-report=xml:coverage-unit.xml tests/unit"
+integration-tests = "uv run pytest --numprocesses=${INTEGRATION_TESTS_CONCURRENCY:-1} --verbose tests/integration"
+integration-tests-cov = "uv run pytest --numprocesses=${INTEGRATION_TESTS_CONCURRENCY:-1} --verbose --cov=src/apify --cov-report=xml:coverage-integration.xml tests/integration"
+check-code = ["lint", "type-check", "unit-tests"]
+
+[tool.poe.tasks.install-dev]
+shell = "uv sync --all-extras && uv run pre-commit install"
+
+[tool.poe.tasks.lint]
+shell = "uv run ruff format --check && uv run ruff check"
+
+[tool.poe.tasks.format]
+shell = "uv run ruff check --fix && uv run ruff format"
+
+[tool.poe.tasks.build-docs]
+shell = "./build_api_reference.sh && corepack enable && yarn && yarn build"
+cwd = "website"
+
+[tool.poe.tasks.run-docs]
+shell = "./build_api_reference.sh && corepack enable && yarn && yarn start"
+cwd = "website"
