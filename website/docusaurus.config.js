@@ -284,6 +284,13 @@ module.exports = {
             ...config.themeConfig.tableOfContents,
             maxHeadingLevel: 5,
         },
+        footer: {
+            ...config.themeConfig.footer,
+            logo: {
+                ...config.themeConfig.footer.logo,
+                href: 'docs/overview',
+            },
+        },
         image: 'https://docs.apify.com/sdk/python/img/docs-og.png',
     },
     staticDirectories: ['node_modules/@apify/docs-theme/static', 'static'],
