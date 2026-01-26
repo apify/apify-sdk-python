@@ -38,24 +38,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-          cache-dependency-path: website/yarn.lock
-
-      - name: Install Node dependencies
-        run: |
-          yarn install
-          yarn upgrade @apify/docs-theme
-        working-directory: ./website
-
-      # We do this as early as possible to prevent conflicts if someone else would push something in the meantime
-      - name: Commit the updated package.json and lockfile
-        run: |
-          git config user.name 'GitHub Actions'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add website/package.json
-          git add website/yarn.lock
-          git diff-index --quiet HEAD || git commit -m 'chore: Automatic docs theme update [skip ci]' || true
-          git push
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -69,6 +51,18 @@ jobs:
 
       - name: Install Python dependencies
         run: uv run poe install-dev
+
+      - name: Update docs theme
+        run: uv run poe update-docs-theme
+
+      - name: Commit the updated package.json and lockfile
+        run: |
+          git config user.name 'GitHub Actions'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add website/package.json
+          git add website/yarn.lock
+          git diff-index --quiet HEAD || git commit -m 'chore: Automatic docs theme update [skip ci]' || true
+          git push
 
       - name: Build docs
         run: uv run poe build-docs
