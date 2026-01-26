@@ -240,6 +240,10 @@ shell = "uv run ruff format --check && uv run ruff check"
 [tool.poe.tasks.format]
 shell = "uv run ruff check --fix && uv run ruff format"
 
+[tool.poe.tasks.update-docs-theme]
+shell = "corepack enable && yarn up @apify/docs-theme"
+cwd = "website"
+
 [tool.poe.tasks.build-docs]
 shell = "./build_api_reference.sh && corepack enable && yarn && uv run yarn build"
 cwd = "website"
