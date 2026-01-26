@@ -1,16 +1,40 @@
+# AI assistant files
+.agent
+.agents
+.ai
+.aider
+.claude
+.codeium
+.continue
+.copilot
+.cursor
+.gemini
+.llm
+.llms
+.openai
+.serena
+.windsurf
+.zed-ai
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
 # Cache
 __pycache__
-.mypy_cache
 .pytest_cache
 .ruff_cache
 .ty_cache
 .uv-cache
 
 # Virtual envs
-.venv
 .direnv
+.env
 .envrc
 .python-version
+.venv
+
+# Other Python tools
+.ropeproject
 
 # Mise
 mise.toml
@@ -29,10 +53,12 @@ coverage-unit.xml
 coverage-integration.xml
 
 # IDE, editors
-.vscode
-.idea
+*~
 .DS_Store
+.idea
 .nvim.lua
+.vscode
+.zed
 Session.vim
 
 # Docs
@@ -51,3 +77,6 @@ website/typedoc-types*
 
 # Default directory for memory storage
 storage/
+
+# Tmp dir
+tmp/
