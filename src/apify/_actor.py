@@ -1348,6 +1348,9 @@ class _ActorType:
             key: The key in the key-value store where the state is stored. If not provided, a default key is used.
             kvs_name: The name of the key-value store where the state is stored. If not provided, the default
                 key-value store associated with the Actor run is used.
+
+        Returns:
+            The state dictionary with automatic persistence.
         """
         self._use_state_stores.add(kvs_name)
         kvs = await self.open_key_value_store(name=kvs_name)

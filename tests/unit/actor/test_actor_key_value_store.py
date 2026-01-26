@@ -127,8 +127,8 @@ async def test_use_state(monkeypatch: pytest.MonkeyPatch) -> None:
 
         state['state'] = 'finished_state'
 
-    saved_sate = await kvs.get_value('APIFY_GLOBAL_STATE')
-    assert saved_sate == {'state': 'finished_state'}
+    saved_state = await kvs.get_value('APIFY_GLOBAL_STATE')
+    assert saved_state == {'state': 'finished_state'}
 
 
 async def test_use_state_non_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -150,8 +150,8 @@ async def test_use_state_non_default(monkeypatch: pytest.MonkeyPatch) -> None:
 
         state['state'] = 'finished_state'
 
-    saved_sate = await kvs.get_value('custom_state_key')
-    assert saved_sate == {'state': 'finished_state'}
+    saved_state = await kvs.get_value('custom_state_key')
+    assert saved_state == {'state': 'finished_state'}
 
 
 async def test_use_state_persists_on_actor_stop() -> None:
@@ -164,8 +164,8 @@ async def test_use_state_persists_on_actor_stop() -> None:
         state['state'] = 'finished_state'
 
     # After Actor context is exited, the state should be persisted
-    saved_sate = await kvs.get_value('APIFY_GLOBAL_STATE')
-    assert saved_sate == {'state': 'finished_state'}
+    saved_state = await kvs.get_value('APIFY_GLOBAL_STATE')
+    assert saved_state == {'state': 'finished_state'}
 
 
 async def test_use_state_with_multiple_stores() -> None:
