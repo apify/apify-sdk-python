@@ -122,12 +122,12 @@ async def test_use_state(monkeypatch: pytest.MonkeyPatch) -> None:
         await asyncio.sleep(0.2)  # Wait for the state to be persisted
 
         kvs = await actor.open_key_value_store()
-        stored_state = await kvs.get_value('CRAWLEE_STATE_0')
+        stored_state = await kvs.get_value('APIFY_GLOBAL_STATE')
         assert stored_state == {'state': 'first_state'}
 
         state['state'] = 'finished_state'
 
-    saved_sate = await kvs.get_value('CRAWLEE_STATE_0')
+    saved_sate = await kvs.get_value('APIFY_GLOBAL_STATE')
     assert saved_sate == {'state': 'finished_state'}
 
 
@@ -164,7 +164,7 @@ async def test_use_state_persists_on_actor_stop() -> None:
         state['state'] = 'finished_state'
 
     # After Actor context is exited, the state should be persisted
-    saved_sate = await kvs.get_value('CRAWLEE_STATE_0')
+    saved_sate = await kvs.get_value('APIFY_GLOBAL_STATE')
     assert saved_sate == {'state': 'finished_state'}
 
 
@@ -179,8 +179,8 @@ async def test_use_state_with_multiple_stores() -> None:
         kvs_default = await actor.open_key_value_store()
         kvs_custom = await actor.open_key_value_store(name='custom-kvs')
 
-    saved_state_default = await kvs_default.get_value('CRAWLEE_STATE_0')
+    saved_state_default = await kvs_default.get_value('APIFY_GLOBAL_STATE')
     assert saved_state_default == {'value': 'default_store'}
 
-    saved_state_custom = await kvs_custom.get_value('CRAWLEE_STATE_0')
+    saved_state_custom = await kvs_custom.get_value('APIFY_GLOBAL_STATE')
     assert saved_state_custom == {'value': 'custom_store'}
