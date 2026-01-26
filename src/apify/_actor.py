@@ -1352,6 +1352,8 @@ class _ActorType:
         Returns:
             The state dictionary with automatic persistence.
         """
+        self._raise_if_not_initialized()
+
         self._use_state_stores.add(kvs_name)
         kvs = await self.open_key_value_store(name=kvs_name)
         return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
