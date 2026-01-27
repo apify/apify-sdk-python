@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
+    from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
     from apify._models import Webhook
@@ -95,6 +96,8 @@ class _ActorType:
     ```
     """
 
+    _ACTOR_STATE_KEY = 'APIFY_GLOBAL_STATE'
+
     def __init__(
         self,
         configuration: Configuration | None = None,
@@ -132,6 +135,9 @@ class _ActorType:
         # `__init__` method should not be considered final.
 
         self._apify_client: ApifyClientAsync | None = None
+
+        # Keep track of all used state stores to persist their values on exit
+        self._use_state_stores: set[str | None] = set()
 
         self._is_initialized = False
         """Whether any Actor instance is currently initialized."""
@@ -242,6 +248,9 @@ class _ActorType:
 
             await self.event_manager.__aexit__(None, None, None)
             await self._charging_manager_implementation.__aexit__(None, None, None)
+
+            # Persist Actor state
+            await self._save_actor_state()
 
         await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
         self._is_initialized = False
@@ -1323,6 +1332,36 @@ class _ActorType:
         await proxy_configuration.initialize()
 
         return proxy_configuration
+
+    async def use_state(
+        self,
+        default_value: dict[str, JsonSerializable] | None = None,
+        key: str | None = None,
+        kvs_name: str | None = None,
+    ) -> dict[str, JsonSerializable]:
+        """Easily create and manage state values. All state values are automatically persisted.
+
+        Values can be modified by simply using the assignment operator.
+
+        Args:
+            default_value: The default value to initialize the state if it is not already set.
+            key: The key in the key-value store where the state is stored. If not provided, a default key is used.
+            kvs_name: The name of the key-value store where the state is stored. If not provided, the default
+                key-value store associated with the Actor run is used.
+
+        Returns:
+            The state dictionary with automatic persistence.
+        """
+        self._raise_if_not_initialized()
+
+        self._use_state_stores.add(kvs_name)
+        kvs = await self.open_key_value_store(name=kvs_name)
+        return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
+
+    async def _save_actor_state(self) -> None:
+        for kvs_name in self._use_state_stores:
+            store = await self.open_key_value_store(name=kvs_name)
+            await store.persist_autosaved_values()
 
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
