@@ -38,7 +38,7 @@ async def test_actor_on_platform_max_crawl_depth(
     actor = await make_actor(label='crawler-max-depth', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_actor_on_platform_max_requests_per_crawl(
@@ -74,7 +74,7 @@ async def test_actor_on_platform_max_requests_per_crawl(
     actor = await make_actor(label='crawler-max-requests', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_actor_on_platform_max_request_retries(
@@ -110,4 +110,4 @@ async def test_actor_on_platform_max_request_retries(
     actor = await make_actor(label='crawler-max-retries', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

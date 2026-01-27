@@ -28,7 +28,7 @@ async def test_same_references_in_default_kvs(
     actor = await make_actor(label='kvs-same-ref-default', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_same_references_in_named_kvs(
@@ -56,7 +56,7 @@ async def test_same_references_in_named_kvs(
     actor = await make_actor(label='kvs-same-ref-named', main_func=main)
     run_result = await run_actor(actor, run_input={'kvsName': kvs_name})
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_force_cloud(
@@ -79,7 +79,7 @@ async def test_force_cloud(
     try:
         key_value_store_details = await key_value_store_client.get()
         assert key_value_store_details is not None
-        assert key_value_store_details.get('name') == key_value_store_name
+        assert key_value_store_details.name == key_value_store_name
 
         key_value_store_record = await key_value_store_client.get_record('foo')
         assert key_value_store_record is not None
@@ -103,7 +103,7 @@ async def test_set_and_get_value_in_same_run(
     actor = await make_actor(label='actor-get-set-value', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_set_value_in_one_run_and_get_value_in_another(
@@ -117,7 +117,7 @@ async def test_set_value_in_one_run_and_get_value_in_another(
     actor_set = await make_actor(label='actor-set-value', main_func=main_set)
     run_result_set = await run_actor(actor_set)
 
-    assert run_result_set.status == 'SUCCEEDED'
+    assert run_result_set.status.value == 'SUCCEEDED'
 
     # Externally check if the value is present in key-value store
     test_record = await actor_set.last_run().key_value_store().get_record('test')
@@ -141,9 +141,9 @@ async def test_set_value_in_one_run_and_get_value_in_another(
     default_kvs_info = await actor_set.last_run().key_value_store().get()
     assert default_kvs_info is not None
 
-    run_result_get = await run_actor(actor_get, run_input={'kvs-id': default_kvs_info['id']})
+    run_result = await run_actor(actor_get, run_input={'kvs-id': default_kvs_info.id})
 
-    assert run_result_get.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_actor_get_input_from_run(
@@ -194,7 +194,7 @@ async def test_actor_get_input_from_run(
         },
     )
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_generate_public_url_for_kvs_record(
@@ -229,7 +229,7 @@ async def test_generate_public_url_for_kvs_record(
     actor = await make_actor(label='kvs-get-public-url', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_kvs_defaults(
@@ -268,7 +268,7 @@ async def test_kvs_defaults(
     actor = await make_actor(label='kvs-defaults', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_kvs_aliases(
@@ -312,4 +312,4 @@ async def test_kvs_aliases(
     actor = await make_actor(label='kvs-aliases', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

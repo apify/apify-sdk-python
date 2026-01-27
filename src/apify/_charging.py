@@ -351,14 +351,20 @@ class ChargingManagerImplementation(ChargingManager):
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
 
-            run = run_validator.validate_python(await self._client.run(self._actor_run_id).get())
+            run = await self._client.run(self._actor_run_id).get()
+
             if run is None:
                 raise RuntimeError('Actor run not found')
 
+            actor_run = ActorRun.from_client_actor_run(run)
+
+            if actor_run is None:
+                raise RuntimeError('Actor run not found')
+
             return _FetchedPricingInfoDict(
-                pricing_info=run.pricing_info,
-                charged_event_counts=run.charged_event_counts or {},
-                max_total_charge_usd=run.options.max_total_charge_usd or Decimal('inf'),
+                pricing_info=actor_run.pricing_info,
+                charged_event_counts=actor_run.charged_event_counts or {},
+                max_total_charge_usd=actor_run.options.max_total_charge_usd or Decimal('inf'),
             )
 
         # Local development without environment variables

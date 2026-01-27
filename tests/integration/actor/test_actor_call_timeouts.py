@@ -53,7 +53,7 @@ async def test_actor_start_inherit_timeout(
     actor = await make_actor(label='inherit-timeout', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_actor_call_inherit_timeout(
@@ -102,4 +102,4 @@ async def test_actor_call_inherit_timeout(
     actor = await make_actor(label='remaining-timeout', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

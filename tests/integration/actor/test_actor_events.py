@@ -60,7 +60,7 @@ async def test_emit_and_capture_interval_events(
     actor = await make_actor(label='actor-interval-events', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     dataset_items_page = await actor.last_run().dataset().list_items()
     persist_state_events = [
@@ -105,4 +105,4 @@ async def test_event_listener_can_be_removed_successfully(
     actor = await make_actor(label='actor-off-event', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

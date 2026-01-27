@@ -13,7 +13,7 @@ import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorPermissionLevel, ActorSourceType
+from apify_client._models import ActorPermissionLevel, VersionSourceType
 
 from .._utils import generate_unique_resource_name
 from apify._models import ActorRun
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine, Iterator, Mapping
     from decimal import Decimal
 
-    from apify_client.clients.resource_clients import ActorClientAsync
+    from apify_client._resource_clients import ActorClientAsync
 
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
@@ -230,25 +230,25 @@ def make_actor(
                 {
                     'versionNumber': '0.0',
                     'buildTag': 'latest',
-                    'sourceType': ActorSourceType.SOURCE_FILES,
+                    'sourceType': VersionSourceType.SOURCE_FILES.value,
                     'sourceFiles': source_files_for_api,
                 }
             ],
         )
 
-        actor_client = client.actor(created_actor['id'])
+        actor_client = client.actor(created_actor.id)
 
         print(f'Building Actor {actor_name}...')
         build_result = await actor_client.build(version_number='0.0')
-        build_client = client.build(build_result['id'])
+        build_client = client.build(build_result.id)
         build_client_result = await build_client.wait_for_finish(wait_secs=600)
 
         assert build_client_result is not None
-        assert build_client_result['status'] == ActorJobStatus.SUCCEEDED
+        assert build_client_result.status.value == 'SUCCEEDED'
 
         # We only mark the client for cleanup if the build succeeded, so that if something goes wrong here,
         # you have a chance to check the error.
-        actors_for_cleanup.append(created_actor['id'])
+        actors_for_cleanup.append(created_actor.id)
 
         return actor_client
 
@@ -256,17 +256,15 @@ def make_actor(
 
     # Delete all the generated Actors.
     for actor_id in actors_for_cleanup:
-        actor_client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR)).actor(actor_id)
+        apify_client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
+        actor_client = apify_client.actor(actor_id)
+        actor = actor_client.get()
 
-        if (actor := actor_client.get()) is not None:
-            actor_client.update(
-                pricing_infos=[
-                    *actor.get('pricingInfos', []),
-                    {
-                        'pricingModel': 'FREE',
-                    },
-                ]
-            )
+        if actor is not None and actor.pricing_infos is not None:
+            # Convert Pydantic models to dicts before mixing with plain dict
+            existing_pricing_infos = [pi.model_dump(by_alias=True, exclude_none=True) for pi in actor.pricing_infos]
+            new_pricing_infos = [*existing_pricing_infos, {'pricingModel': 'FREE'}]
+            actor_client.update(pricing_infos=new_pricing_infos)
 
         actor_client.delete()
 
@@ -315,12 +313,13 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
             force_permission_level=force_permission_level,
         )
 
-        assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
-        assert 'id' in call_result, 'The result of ActorClientAsync.call() does not contain an ID.'
+        assert call_result is not None, 'Failed to start Actor run: missing run ID in the response.'
 
-        run_client = apify_client_async.run(call_result['id'])
-        run_result = await run_client.wait_for_finish(wait_secs=600)
+        run_client = apify_client_async.run(call_result.id)
+        client_actor_run = await run_client.wait_for_finish(wait_secs=600)
 
-        return ActorRun.model_validate(run_result)
+        assert client_actor_run is not None, 'Actor run did not finish successfully within the expected time.'
+
+        return ActorRun.from_client_actor_run(client_actor_run)
 
     return _run_actor
