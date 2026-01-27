@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 <!-- git-cliff-unreleased-start -->
 ## 3.1.1 - **not yet released**
 
+### 🚀 Features
+
+- Add `Actor` method `use_state` ([#738](https://github.com/apify/apify-sdk-python/pull/738)) ([8a78b6f](https://github.com/apify/apify-sdk-python/commit/8a78b6fc9324e948b3481b07a3582215d3c966fe)) by [@Mantisus](https://github.com/Mantisus), closes [#735](https://github.com/apify/apify-sdk-python/issues/735)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [3.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.1.0) (2025-12-08)
