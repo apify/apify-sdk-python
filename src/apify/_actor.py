@@ -492,17 +492,21 @@ class _ActorType:
                 (increases exponentially from this value).
             timeout: The socket timeout of the HTTP requests sent to the Apify API.
         """
-        token = token or self.configuration.token
-        api_url = api_url or self.configuration.api_base_url
-        return ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=max_retries,
-            min_delay_between_retries_millis=int(min_delay_between_retries.total_seconds() * 1000)
-            if min_delay_between_retries is not None
-            else None,
-            timeout_secs=int(timeout.total_seconds()) if timeout else None,
-        )
+        kwargs = {
+            'token': token or self.configuration.token,
+            'api_url': api_url or self.configuration.api_base_url,
+        }
+
+        if max_retries is not None:
+            kwargs['max_retries'] = max_retries
+
+        if min_delay_between_retries is not None:
+            kwargs['min_delay_between_retries_millis'] = int(min_delay_between_retries.total_seconds() * 1000)
+
+        if timeout is not None:
+            kwargs['timeout_secs'] = int(timeout.total_seconds())
+
+        return ApifyClientAsync(**kwargs)  # ty: ignore[invalid-argument-type]
 
     async def open_dataset(
         self,

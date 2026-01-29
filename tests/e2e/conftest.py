@@ -237,7 +237,13 @@ def make_actor(
         if (main_func and main_py) or (main_func and source_files) or (main_py and source_files):
             raise TypeError('Cannot specify more than one of `main_func`, `main_py` and `source_files` arguments')
 
-        client = ApifyClientAsync(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
+        api_url = os.getenv(_API_URL_ENV_VAR)
+        client = (
+            ApifyClientAsync(token=apify_token)
+            if api_url is None
+            else ApifyClientAsync(token=apify_token, api_url=api_url)
+        )
+
         actor_name = generate_unique_resource_name(label)
 
         # Get the source of main_func and convert it into a reasonable main_py file.
@@ -331,7 +337,12 @@ def make_actor(
 
     # Delete all the generated Actors.
     for actor_id in actors_for_cleanup:
-        apify_client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
+        api_url = os.getenv(_API_URL_ENV_VAR)
+
+        apify_client = (
+            ApifyClient(token=apify_token) if api_url is None else ApifyClient(token=apify_token, api_url=api_url)
+        )
+
         actor_client = apify_client.actor(actor_id)
         actor = actor_client.get()
 
