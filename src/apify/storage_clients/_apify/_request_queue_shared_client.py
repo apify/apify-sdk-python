@@ -432,7 +432,7 @@ class ApifyRequestQueueSharedClient:
 
         # Otherwise fetch from API
         locked_queue_head = await self._api_client.list_and_lock_head(
-            lock_secs=int(self._DEFAULT_LOCK_TIME.total_seconds()),
+            lock_duration=self._DEFAULT_LOCK_TIME,
             limit=limit,
         )
 

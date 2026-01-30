@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from apify_client._models import ActorPermissionLevel
@@ -147,7 +148,7 @@ async def test_actor_starts_another_actor_instance(
 
     assert run_result_outer.status.value == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=600)
+    await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -196,7 +197,7 @@ async def test_actor_calls_another_actor(
 
     assert run_result_outer.status.value == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=600)
+    await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -252,7 +253,7 @@ async def test_actor_calls_task(
 
     assert run_result_outer.status.value == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=600)
+    await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -295,7 +296,7 @@ async def test_actor_aborts_another_actor_run(
     assert run_result_outer.status.value == 'SUCCEEDED'
 
     inner_actor_run_client = inner_actor.last_run()
-    inner_actor_run = await inner_actor_run_client.wait_for_finish(wait_secs=600)
+    inner_actor_run = await inner_actor_run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
 
     if inner_actor_run is None:
         raise AssertionError('Failed to get inner actor run after aborting it.')
@@ -477,7 +478,7 @@ async def test_actor_adds_webhook_and_receives_event(
     assert ac_run_result.status.value == 'SUCCEEDED'
 
     sa_run_client = server_actor.last_run()
-    sa_run_client_run = await sa_run_client.wait_for_finish(wait_secs=600)
+    sa_run_client_run = await sa_run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
 
     if sa_run_client_run is None:
         raise AssertionError('Failed to get server actor run after waiting for finish.')

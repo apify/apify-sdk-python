@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -306,7 +307,7 @@ def make_actor(
             name=actor_name,
             default_run_build='latest',
             default_run_memory_mbytes=memory_mbytes,
-            default_run_timeout_secs=600,
+            default_run_timeout=timedelta(seconds=600),
             versions=[
                 {
                     'versionNumber': '0.0',
@@ -322,7 +323,7 @@ def make_actor(
         print(f'Building Actor {actor_name}...')
         build_result = await actor_client.build(version_number='0.0')
         build_client = client.build(build_result.id)
-        build_client_result = await build_client.wait_for_finish(wait_secs=600)
+        build_client_result = await build_client.wait_for_finish(wait_duration=timedelta(seconds=600))
 
         assert build_client_result is not None
         assert build_client_result.status.value == 'SUCCEEDED'
@@ -402,7 +403,7 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         assert call_result is not None, 'Failed to start Actor run: missing run ID in the response.'
 
         run_client = apify_client_async.run(call_result.id)
-        client_actor_run = await run_client.wait_for_finish(wait_secs=600)
+        client_actor_run = await run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
 
         assert client_actor_run is not None, 'Actor run did not finish successfully within the expected time.'
 
