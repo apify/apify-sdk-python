@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from .._utils import generate_unique_resource_name
@@ -26,7 +27,7 @@ async def test_same_references_in_default_rq(
     actor = await make_actor(label='rq-same-ref-default', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_same_references_in_named_rq(
@@ -54,7 +55,7 @@ async def test_same_references_in_named_rq(
     actor = await make_actor(label='rq-same-ref-named', main_func=main)
     run_result = await run_actor(actor, run_input={'rqName': rq_name})
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_deduplication(
@@ -70,9 +71,7 @@ async def test_request_queue_deduplication(
     """
 
     async def main() -> None:
-        from crawlee import Request
-
-        from apify import Actor
+        from apify import Actor, Request
 
         async with Actor:
             request1 = Request.from_url('http://example.com', method='POST')
@@ -84,8 +83,8 @@ async def test_request_queue_deduplication(
             # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
             rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
             _rq = await rq_client.get()
-            assert _rq
-            stats_before = _rq.get('stats', {})
+            assert _rq is not None
+            stats_before = _rq.stats
             Actor.log.info(stats_before)
 
             # Add same request twice
@@ -94,16 +93,21 @@ async def test_request_queue_deduplication(
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
             _rq = await rq_client.get()
-            assert _rq
-            stats_after = _rq.get('stats', {})
+            assert _rq is not None
+            stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+            assert stats_before is not None
+            assert stats_before.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == 1
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_deduplication_use_extended_unique_key(
@@ -119,9 +123,7 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     """
 
     async def main() -> None:
-        from crawlee import Request
-
-        from apify import Actor
+        from apify import Actor, Request
 
         async with Actor:
             request1 = Request.from_url('http://example.com', method='POST', use_extended_unique_key=True)
@@ -133,8 +135,8 @@ async def test_request_queue_deduplication_use_extended_unique_key(
             # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
             rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
             _rq = await rq_client.get()
-            assert _rq
-            stats_before = _rq.get('stats', {})
+            assert _rq is not None
+            stats_before = _rq.stats
             Actor.log.info(stats_before)
 
             # Add same request twice
@@ -143,16 +145,21 @@ async def test_request_queue_deduplication_use_extended_unique_key(
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
             _rq = await rq_client.get()
-            assert _rq
-            stats_after = _rq.get('stats', {})
+            assert _rq is not None
+            stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == 2
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+            assert stats_before is not None
+            assert stats_before.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == 2
 
     actor = await make_actor(label='rq-deduplication', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_parallel_deduplication(
@@ -170,9 +177,7 @@ async def test_request_queue_parallel_deduplication(
     async def main() -> None:
         import logging
 
-        from crawlee import Request
-
-        from apify import Actor
+        from apify import Actor, Request
 
         worker_count = 10
         max_requests = 100
@@ -189,9 +194,12 @@ async def test_request_queue_parallel_deduplication(
             # Get raw client, because stats are not exposed in `RequestQueue` class, but are available in raw client
             rq_client = Actor.apify_client.request_queue(request_queue_id=rq.id)
             _rq = await rq_client.get()
-            assert _rq
-            stats_before = _rq.get('stats', {})
+            assert _rq is not None
+            stats_before = _rq.stats
             Actor.log.info(stats_before)
+
+            assert stats_before is not None
+            assert stats_before.write_count is not None
 
             # Add batches of some new and some already present requests in workers
             async def add_requests_worker() -> None:
@@ -203,16 +211,19 @@ async def test_request_queue_parallel_deduplication(
 
             await asyncio.sleep(10)  # Wait to be sure that metadata are updated
             _rq = await rq_client.get()
-            assert _rq
-            stats_after = _rq.get('stats', {})
+            assert _rq is not None
+            stats_after = _rq.stats
             Actor.log.info(stats_after)
 
-            assert (stats_after['writeCount'] - stats_before['writeCount']) == len(requests)
+            assert stats_after is not None
+            assert stats_after.write_count is not None
+
+            assert (stats_after.write_count - stats_before.write_count) == len(requests)
 
     actor = await make_actor(label='rq-parallel-deduplication', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_had_multiple_clients_platform(
@@ -239,7 +250,7 @@ async def test_request_queue_had_multiple_clients_platform(
     actor = await make_actor(label='rq-had-multiple-clients', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_not_had_multiple_clients_platform(
@@ -260,7 +271,7 @@ async def test_request_queue_not_had_multiple_clients_platform(
     actor = await make_actor(label='rq-not-had-multiple-clients', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_request_queue_not_had_multiple_clients_platform_resurrection(
@@ -283,16 +294,22 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
 
     actor = await make_actor(label='rq-clients-resurrection', main_func=main)
     run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     # Resurrect the run, the RequestQueue should still use same client key and thus not have multiple clients.
     run_client = apify_client_async.run(run_id=run_result.id)
     # Redirect logs even from the resurrected run
     streamed_log = await run_client.get_streamed_log(from_start=False)
     await run_client.resurrect()
+
     async with streamed_log:
-        run_result = ActorRun.model_validate(await run_client.wait_for_finish(wait_secs=600))
-        assert run_result.status == 'SUCCEEDED'
+        run = await run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
+
+        if run is None:
+            raise AssertionError('Failed to get resurrected run.')
+
+        run_result = ActorRun.from_client_actor_run(run)
+        assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_rq_defaults(
@@ -300,8 +317,7 @@ async def test_rq_defaults(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from crawlee import Request
-
+        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:
@@ -334,7 +350,7 @@ async def test_rq_defaults(
     actor = await make_actor(label='rq-defaults', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_rq_aliases(
@@ -342,8 +358,7 @@ async def test_rq_aliases(
     run_actor: RunActorFunction,
 ) -> None:
     async def main() -> None:
-        from crawlee import Request
-
+        from apify import Request
         from apify.storages import RequestQueue
 
         async with Actor:
@@ -382,7 +397,7 @@ async def test_rq_aliases(
     actor = await make_actor(label='rq-aliases', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_concurrent_processing_simulation(
@@ -483,7 +498,7 @@ async def test_concurrent_processing_simulation(
 
     actor = await make_actor(label='rq-concurrent-test', main_func=main)
     run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_rq_isolation(
@@ -534,4 +549,4 @@ async def test_rq_isolation(
 
     actor = await make_actor(label='rq-isolation-test', main_func=main)
     run_result = await run_actor(actor)
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

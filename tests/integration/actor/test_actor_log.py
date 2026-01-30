@@ -43,7 +43,7 @@ async def test_actor_logging(
     actor = await make_actor(label='actor-log', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'FAILED'
+    assert run_result.status.value == 'FAILED'
 
     run_log = await actor.last_run().log().get()
     assert run_log is not None

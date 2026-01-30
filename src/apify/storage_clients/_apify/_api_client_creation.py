@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING, Literal, overload
 
 from apify_client import ApifyClientAsync
@@ -8,7 +9,7 @@ from crawlee._utils.crypto import crypto_random_object_id
 from apify.storage_clients._apify._alias_resolving import open_by_alias
 
 if TYPE_CHECKING:
-    from apify_client.clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
+    from apify_client._resource_clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
 
     from apify._configuration import Configuration
 
@@ -137,13 +138,13 @@ async def create_storage_api_client(
             # Default storage does not exist. Create a new one.
             if not raw_metadata:
                 raw_metadata = await collection_client.get_or_create()
-                resource_client = get_resource_client(raw_metadata['id'])
+                resource_client = get_resource_client(raw_metadata.id)
             return resource_client
 
         # Open by name.
         case (None, str(), None, _):
             raw_metadata = await collection_client.get_or_create(name=name)
-            return get_resource_client(raw_metadata['id'])
+            return get_resource_client(raw_metadata.id)
 
         # Open by ID.
         case (None, None, str(), _):
@@ -177,6 +178,6 @@ def _create_api_client(configuration: Configuration) -> ApifyClientAsync:
         api_url=configuration.api_base_url,
         api_public_url=configuration.api_public_base_url,
         max_retries=8,
-        min_delay_between_retries_millis=500,
-        timeout_secs=360,
+        min_delay_between_retries=timedelta(milliseconds=500),
+        timeout=timedelta(seconds=360),
     )
