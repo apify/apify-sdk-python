@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from .._utils import generate_unique_resource_name
@@ -302,7 +303,7 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
     await run_client.resurrect()
 
     async with streamed_log:
-        run = await run_client.wait_for_finish(wait_secs=600)
+        run = await run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
 
         if run is None:
             raise AssertionError('Failed to get resurrected run.')

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING, Literal, overload
 
 from apify_client import ApifyClientAsync
@@ -177,6 +178,6 @@ def _create_api_client(configuration: Configuration) -> ApifyClientAsync:
         api_url=configuration.api_base_url,
         api_public_url=configuration.api_public_base_url,
         max_retries=8,
-        min_delay_between_retries_millis=500,
-        timeout_secs=360,
+        min_delay_between_retries=timedelta(milliseconds=500),
+        timeout=timedelta(seconds=360),
     )
