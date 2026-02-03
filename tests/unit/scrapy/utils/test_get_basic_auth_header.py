@@ -18,7 +18,7 @@ class ItemTestCase:
     'tc',
     [
         ItemTestCase('username', 'password', b'Basic dXNlcm5hbWU6cGFzc3dvcmQ='),
-        ItemTestCase('john_smith', 'secret_password_123', b'Basic am9obl9zbWl0aDpzZWNyZXRfcGFzc3dvcmRfMTIz'),
+        ItemTestCase('john_smith', 'secret_password_12', b'Basic am9obl9zbWl0aDpzZWNyZXRfcGFzc3dvcmRfMTI='),
     ],
     ids=['simple_username_password', 'complex_username_password'],
 )

@@ -7,6 +7,9 @@ extend-ignore-re = [
     "'gASV[^']+",       # Ignore base64-encoded pickle data
 ]
 
+[default.extend-words]
+consts = "consts"  # Common abbreviation for "constants" used in apify_shared.consts
+
 [files]
 # Extend the default exclude list
 extend-exclude = [
