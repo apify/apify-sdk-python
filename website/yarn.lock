@@ -402,7 +402,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apify/docs-theme@npm:^1.0.230":
+"@apify/docs-theme@npm:^1.0.231":
   version: 1.0.231
   resolution: "@apify/docs-theme@npm:1.0.231"
   dependencies:
@@ -6562,7 +6562,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "apify-sdk-python@workspace:."
   dependencies:
-    "@apify/docs-theme": "npm:^1.0.230"
+    "@apify/docs-theme": "npm:^1.0.231"
     "@apify/docusaurus-plugin-typedoc-api": "npm:^5.0.0"
     "@apify/eslint-config-ts": "npm:^0.4.0"
     "@apify/tsconfig": "npm:^0.1.0"
