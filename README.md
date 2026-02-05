@@ -159,7 +159,7 @@ To create and run Actors through Apify Console,
 see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template).
 
 To create and run Python Actors locally, check the documentation for
-[how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/quick-start).
+[how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/overview/running-locally).
 
 ## Guides
 
