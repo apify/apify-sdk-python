@@ -66,7 +66,7 @@ module.exports = {
                     title: 'SDK for Python',
                     items: [
                         {
-                            to: 'docs/introduction',
+                            to: 'docs/overview',
                             label: 'Docs',
                             position: 'left',
                             activeBaseRegex: '/docs(?!/changelog)',
