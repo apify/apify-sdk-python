@@ -77,7 +77,7 @@ dev = [
     "pytest-timeout<3.0.0",
     "pytest-xdist<4.0.0",
     "pytest<9.0.0",
-    "ruff~=0.14.0",
+    "ruff~=0.15.0",
     "setuptools", # setuptools are used by pytest but not explicitly required
     "ty~=0.0.0",
     "types-cachetools<7.0.0",
