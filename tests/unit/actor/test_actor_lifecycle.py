@@ -193,10 +193,10 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
         nonlocal on_persist
         nonlocal on_system_info
         if event_type == Event.PERSIST_STATE:
-            return lambda data: on_persist.append(data)
+            return on_persist.append
         if event_type == Event.SYSTEM_INFO:
-            return lambda data: on_system_info.append(data)
-        return lambda data: print(data)
+            return on_system_info.append
+        return print
 
     actor = Actor()
     async with actor:

@@ -434,7 +434,7 @@ class Configuration(CrawleeConfiguration):
             description='JSON string with prising info of the actor',
             discriminator='pricing_model',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data if data else None),
+        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
     ] = None
 
     charged_event_counts: Annotated[
@@ -443,7 +443,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_charged_actor_event_counts',
             description='Counts of events that were charged for the actor',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data if data else None),
+        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
     ] = None
 
     @model_validator(mode='after')
