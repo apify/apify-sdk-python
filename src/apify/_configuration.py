@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Required, TypedDict
 
-from pydantic import AliasChoices, BeforeValidator, Field, model_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, Field, field_validator, model_validator
 from typing_extensions import Self, deprecated
 
 from crawlee import service_locator
@@ -32,6 +32,13 @@ def _transform_to_list(value: Any) -> list[str] | None:
     if not value:
         return []
     return value if isinstance(value, list) else str(value).split(',')
+
+
+class ActorStorageIds(TypedDict):
+    """Storage IDs for different storage types used by an Actor."""
+    keyValueStores: dict[str, str]
+    datasets: dict[str, str]
+    requestQueues: dict[str, str]
 
 
 @docs_group('Configuration')
@@ -442,6 +449,15 @@ class Configuration(CrawleeConfiguration):
         Field(
             alias='apify_charged_actor_event_counts',
             description='Counts of events that were charged for the actor',
+        ),
+        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+    ] = None
+
+    actor_storage_ids: Annotated[
+        ActorStorageIds | None,
+        Field(
+            alias='apify_actor_storage_ids',
+            description='Storage IDs for the actor',
         ),
         BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
     ] = None

@@ -262,3 +262,39 @@ class AliasResolver:
             raise ValueError("'Configuration.default_key_value_store_id' must be set.")
 
         return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
+
+
+    @classmethod
+    async def register_aliases(cls, configuration: Configuration) -> None:
+        """Load alias mapping from dictionary to the default kvs."""
+        def convert_name(name: str):
+            """Convert from mapping name to storage type name used in the alias mapping."""
+            return {"datasets": "Dataset", "keyValueStores": "KeyValueStore", "requestQueues": "RequestQueue"}[name]
+
+        configuration_mapping = {}
+
+        if configuration.default_dataset_id != configuration.actor_storage_ids["datasets"].get("default", configuration.default_dataset_id):
+            raise RuntimeError(
+                f"Conflicting default dataset ids: {configuration.default_dataset_id=},"
+                f" {configuration.actor_storage_ids['datasets'].get('default')=}")
+
+        for config_storage_type, mapping in configuration.actor_storage_ids.items():
+            for storage_alias, storage_id in mapping.items():
+                if storage_alias == "default":
+                    # This is how the default storage is stored in the default kvs
+                    storage_alias="__default__"
+
+                configuration_mapping[AliasResolver(
+                    storage_type=convert_name(config_storage_type),
+                    alias=storage_alias,
+                    configuration=configuration,
+                )._storage_key] = storage_id
+
+        # Aliased storage can be also default storage!!!
+        # Should we store such second alias to the default storage or ignore it in such case? Probably
+
+        # What if existing default dataset already has conflicting keys?
+        # Just override it, that will teach it to have conflicting values!
+        client = await cls._get_default_kvs_client(configuration=configuration)
+        existing_mapping = (await client.get_record(cls._ALIAS_MAPPING_KEY) or {"value":{}}).get("value")
+        await client.set_record(cls._ALIAS_MAPPING_KEY, {**existing_mapping, **configuration_mapping})
