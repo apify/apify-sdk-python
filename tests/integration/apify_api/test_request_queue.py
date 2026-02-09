@@ -1192,3 +1192,40 @@ async def test_request_queue_deduplication_unprocessed_requests(
     Actor.log.info(stats_after)
 
     assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+
+
+async def test_request_queue_api_fail_when_marking_as_handled(
+    apify_token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that single-access based Apify RQ can deal with API failures when marking requests as handled.
+
+    Single-access based Apify RQ is aware that local information is reliable, so even if marking as handled fails
+    during API call, the RQ correctly tracks the handling information locally. It can even fix the missing handled
+    information on the platform later, when fetching next request later.
+    """
+
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+    async with Actor:
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access='single'))
+
+        try:
+            request = Request.from_url('http://example.com')
+            # Fetch request
+            await rq.add_request(request)
+            assert request == await rq.fetch_next_request()
+
+            # Mark as handled, but simulate API failure.
+            with mock.patch.object(
+                rq._client._api_client, 'update_request', side_effect=Exception('Simulated API failure')
+            ):
+                await rq.mark_request_as_handled(request)
+            assert not (await rq.get_request(request.unique_key)).was_already_handled
+
+            # RQ with `request_queue_access="single"` knows, that the local information is reliable, so it knows it
+            # handled this request already despite the platform not being aware of it.
+            assert not await rq.fetch_next_request()
+            assert await rq.is_finished()
+            assert await rq.is_empty()
+
+        finally:
+            await rq.drop()

@@ -201,27 +201,27 @@ class ApifyRequestQueueSingleClient:
         # Set the handled_at timestamp if not already set
         request_id = unique_key_to_request_id(request.unique_key)
 
+        if cached_request := self._requests_cache.get(request_id):
+            cached_request.handled_at = request.handled_at
+
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
             self.metadata.handled_request_count += 1
             self.metadata.pending_request_count -= 1
 
-        if cached_request := self._requests_cache.get(request_id):
-            cached_request.handled_at = request.handled_at
-
         try:
+            # Remember that we handled this request, to optimize local deduplication.
+            self._requests_already_handled.add(request_id)
+            self._requests_in_progress.discard(request_id)
+            # Remove request from cache, it will most likely not be needed.
+            self._requests_cache.pop(request_id, None)
             # Update the request in the API
             # Works as upsert - adds the request if it does not exist yet. (Local request that was handled before
             # adding to the queue.)
             processed_request = await self._update_request(request)
-            # Remember that we handled this request, to optimize local deduplication.
-            self._requests_already_handled.add(request_id)
-            # Remove request from cache. It will most likely not be needed.
-            self._requests_cache.pop(request_id)
-            self._requests_in_progress.discard(request_id)
 
-        except Exception as exc:
-            logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
+        except Exception:
+            logger.exception(f'Error marking request {request.unique_key} as handled.')
             return None
         else:
             return processed_request
@@ -301,6 +301,11 @@ class ApifyRequestQueueSingleClient:
 
             if request_id in self._requests_in_progress:
                 # Ignore requests that are already in progress, we will not process them again.
+                continue
+
+            if request_id in self._requests_already_handled:
+                # Request is locally known to be handled, but platform is not aware of it.
+                # This can be either due to delay in API data propagation or failed API call to mark it as handled.
                 continue
 
             if request.was_already_handled:
