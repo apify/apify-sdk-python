@@ -252,8 +252,12 @@ class _ActorType:
             # Persist Actor state
             await self._save_actor_state()
 
-        await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
-        self._is_initialized = False
+        try:
+            await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
+        except TimeoutError:
+            self.log.exception('Actor cleanup timed out')
+        finally:
+            self._is_initialized = False
 
         if self._exit_process:
             sys.exit(self.exit_code)
