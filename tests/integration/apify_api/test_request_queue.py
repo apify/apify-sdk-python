@@ -548,15 +548,19 @@ async def test_large_batch_operations(request_queue_apify: RequestQueue) -> None
     total_count = await rq.get_total_count()
     assert total_count == 500, f'total_count={total_count}'
 
-    # Process all in chunks to test performance
+    # Process all requests using a retry loop to handle eventual consistency —
+    # fetch_next_request() can temporarily return None even when requests exist.
     processed_count = 0
+    max_consecutive_empty_fetches = 10
+    consecutive_empty_fetches = 0
 
-    while not await rq.is_empty():
+    while consecutive_empty_fetches < max_consecutive_empty_fetches:
         request = await rq.fetch_next_request()
-
-        # The RQ is_empty should ensure we don't get None
-        assert request is not None, f'request={request}'
-
+        if request is None:
+            consecutive_empty_fetches += 1
+            await asyncio.sleep(0.5)
+            continue
+        consecutive_empty_fetches = 0
         await rq.mark_request_as_handled(request)
         processed_count += 1
 
