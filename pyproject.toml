@@ -64,6 +64,11 @@ scrapy = ["scrapy>=2.11.0"]
 
 [dependency-groups]
 dev = [
+    # TODO: Remove this constraint once pydoc-markdown updates its dependencies.
+    # Package pydoc-markdown is unmaintained and pins old docspec-python with vulnerable black.
+    # See https://github.com/apify/apify-client-python/pull/582/ for more details.
+    # We explicitly constrain black>=24.3.0 to override the transitive dependency.
+    "black>=24.3.0",
     "build<2.0.0",
     "crawlee[parsel]",
     "dycw-pytest-only<3.0.0",
