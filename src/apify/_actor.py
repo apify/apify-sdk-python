@@ -255,12 +255,7 @@ class _ActorType:
         try:
             await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
         except TimeoutError:
-            self.log.warning('Actor cleanup timed out, forcing shutdown of event manager and charging manager')
-            # Ensure critical resources are cleaned up even after timeout
-            with suppress(Exception):
-                await self.event_manager.__aexit__(None, None, None)
-            with suppress(Exception):
-                await self._charging_manager_implementation.__aexit__(None, None, None)
+            self.log.exception('Actor cleanup timed out')
         finally:
             self._is_initialized = False
 
