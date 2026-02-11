@@ -86,6 +86,7 @@ jobs:
       }}
 
     strategy:
+      max-parallel: 1  # E2E tests build and run Actors on the platform, limit parallelism to avoid exceeding memory limits.
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.10", "3.14"]
