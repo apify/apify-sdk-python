@@ -9,6 +9,12 @@ All notable changes to this project will be documented in this file.
 
 - Add `Actor` method `use_state` ([#738](https://github.com/apify/apify-sdk-python/pull/738)) ([8a78b6f](https://github.com/apify/apify-sdk-python/commit/8a78b6fc9324e948b3481b07a3582215d3c966fe)) by [@Mantisus](https://github.com/Mantisus), closes [#735](https://github.com/apify/apify-sdk-python/issues/735)
 
+### 🐛 Bug Fixes
+
+- Stop silently swallowing exceptions in request queue ([#777](https://github.com/apify/apify-sdk-python/pull/777)) ([6358d66](https://github.com/apify/apify-sdk-python/commit/6358d66aeb83484845b17f7c8632b6c763cef368)) by [@vdusek](https://github.com/vdusek)
+- Handle TimeoutError in Actor __aexit__ to prevent resource leaks ([#776](https://github.com/apify/apify-sdk-python/pull/776)) ([fb13765](https://github.com/apify/apify-sdk-python/commit/fb13765448a2a6e2b776de819ece68f90abff1e3)) by [@vdusek](https://github.com/vdusek)
+- Pass name instead of id for name param in SmartApifyStorageClient ([#775](https://github.com/apify/apify-sdk-python/pull/775)) ([56cfc38](https://github.com/apify/apify-sdk-python/commit/56cfc38aa98a2a6689dd077e9d5c5d8729872413)) by [@vdusek](https://github.com/vdusek)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [3.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.1.0) (2025-12-08)
