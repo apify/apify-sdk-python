@@ -155,6 +155,9 @@ indent-style = "space"
 "**/{tests}/{integration}/*" = [
     "PLC0415", # `import` should be at the top-level of a file
 ]
+"**/{tests}/e2e/*" = [
+    "PLC0415", # `import` should be at the top-level of a file
+]
 "**/{docs,website}/**" = [
     "D",       # Everything from the pydocstyle
     "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
@@ -234,6 +237,8 @@ unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit
 unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-unit.xml tests/unit"
 integration-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
 integration-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-integration.xml tests/integration"
+e2e-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/e2e"
+e2e-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-e2e.xml tests/e2e"
 check-code = ["lint", "type-check", "unit-tests"]
 
 [tool.poe.tasks.install-dev]
