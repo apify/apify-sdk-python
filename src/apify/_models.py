@@ -30,23 +30,71 @@ class GeneralAccessEnum(str, Enum):
     RESTRICTED = 'RESTRICTED'
 
 
+class WebhookCondition(BaseModel):
+    """Condition for triggering a webhook."""
+
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
+
+    actor_id: Annotated[str | None, Field(alias='actorId')] = None
+    actor_task_id: Annotated[str | None, Field(alias='actorTaskId')] = None
+    actor_run_id: Annotated[str | None, Field(alias='actorRunId')] = None
+
+
+class WebhookDispatchStatus(str, Enum):
+    """Status of a webhook dispatch."""
+
+    ACTIVE = 'ACTIVE'
+    SUCCEEDED = 'SUCCEEDED'
+    FAILED = 'FAILED'
+
+
+class ExampleWebhookDispatch(BaseModel):
+    """Information about a webhook dispatch."""
+
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
+
+    status: WebhookDispatchStatus
+    finished_at: Annotated[datetime, Field(alias='finishedAt')]
+
+
+class WebhookStats(BaseModel):
+    """Statistics about webhook dispatches."""
+
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
+
+    total_dispatches: Annotated[int, Field(alias='totalDispatches')]
+
+
 @docs_group('Actor')
 class Webhook(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     event_types: Annotated[
         list[WebhookEventType],
-        Field(description='Event types that should trigger the webhook'),
+        Field(alias='eventTypes', description='Event types that should trigger the webhook'),
     ]
     request_url: Annotated[
         str,
-        Field(description='URL that the webhook should call'),
+        Field(alias='requestUrl', description='URL that the webhook should call'),
         BeforeValidator(validate_http_url),
     ]
+    id: Annotated[str | None, Field(alias='id')] = None
+    created_at: Annotated[datetime | None, Field(alias='createdAt')] = None
+    modified_at: Annotated[datetime | None, Field(alias='modifiedAt')] = None
+    user_id: Annotated[str | None, Field(alias='userId')] = None
+    is_ad_hoc: Annotated[bool | None, Field(alias='isAdHoc')] = None
+    should_interpolate_strings: Annotated[bool | None, Field(alias='shouldInterpolateStrings')] = None
+    condition: Annotated[WebhookCondition | None, Field(alias='condition')] = None
+    ignore_ssl_errors: Annotated[bool | None, Field(alias='ignoreSslErrors')] = None
+    do_not_retry: Annotated[bool | None, Field(alias='doNotRetry')] = None
     payload_template: Annotated[
         str | None,
-        Field(description='Template for the payload sent by the webhook'),
+        Field(alias='payloadTemplate', description='Template for the payload sent by the webhook'),
     ] = None
+    headers_template: Annotated[str | None, Field(alias='headersTemplate')] = None
+    description: Annotated[str | None, Field(alias='description')] = None
+    last_dispatch: Annotated[ExampleWebhookDispatch | None, Field(alias='lastDispatch')] = None
+    stats: Annotated[WebhookStats | None, Field(alias='stats')] = None
 
 
 @docs_group('Actor')
