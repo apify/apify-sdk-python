@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.1.1 - **not yet released**
+## [3.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.2.0) (2026-02-11)
 
 ### 🚀 Features
 
@@ -16,7 +15,6 @@ All notable changes to this project will be documented in this file.
 - Pass name instead of id for name param in SmartApifyStorageClient ([#775](https://github.com/apify/apify-sdk-python/pull/775)) ([56cfc38](https://github.com/apify/apify-sdk-python/commit/56cfc38aa98a2a6689dd077e9d5c5d8729872413)) by [@vdusek](https://github.com/vdusek)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.1.0) (2025-12-08)
 
 ### 🚀 Features
