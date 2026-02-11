@@ -1,43 +1,30 @@
 # E2E tests
 
-These tests build and run Actors using the Python SDK on the Apify platform. They are slower than integration tests (see `tests/integration/`) because they need to build and deploy Actors. Preferably try to write integration tests first, and only write E2E tests when you need to test something that can only be tested on the platform.
+These tests build and run Actors using the Python SDK on the Apify platform. They are slower than integration tests (see [`tests/integration/`](../integration/)) because they need to build and deploy Actors.
+
+When writing new tests, prefer integration tests if possible. Only write E2E tests when you need to test something that requires building and running an Actor on the platform.
 
 ## Running
 
 ```bash
-# Set the API token
 export APIFY_TEST_USER_API_TOKEN=<your-token>
-
-# Run the tests
 uv run poe e2e-tests
 ```
 
-If you want to run the tests on a different environment than the main Apify platform, set the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to the right URL.
+To run against a different environment, also set `APIFY_INTEGRATION_TESTS_API_URL`.
+
+## Key fixtures
+
+- **`apify_client_async`** — A session-scoped `ApifyClientAsync` instance configured with the test token and API URL.
+- **`prepare_test_env`** / **`_isolate_test_environment`** (autouse) — Resets global state and sets `APIFY_LOCAL_STORAGE_DIR` to a temporary directory before each test.
+- **`make_actor`** — Factory for creating temporary Actors on the Apify platform (built, then auto-deleted after the test).
+- **`run_actor`** — Starts an Actor run and waits for completion (10 min timeout).
 
 ## How to write tests
 
-There are two fixtures which you can use to write tests:
+### Creating an Actor from a Python function
 
-### `apify_client_async`
-
-This fixture just gives you an instance of `ApifyClientAsync` configured with the right token and API URL, so you don't have to do that yourself.
-
-```python
-async def test_something(apify_client_async: ApifyClientAsync) -> None:
-    assert await apify_client_async.user('me').get() is not None
-```
-
-### `make_actor`
-
-This fixture returns a factory function for creating Actors on the Apify platform.
-
-For the Actor source, the fixture takes the files from `tests/e2e/actor_source_base`, builds the Apify SDK wheel from the current codebase, and adds the Actor source you passed to the fixture as an argument. You have to pass exactly one of the `main_func`, `main_py` and `source_files` arguments.
-
-The created Actor will be uploaded to the platform, built there, and after the test finishes, it will be automatically deleted. If the Actor build fails, it will not be deleted, so that you can check why the build failed.
-
-### Creating test Actor straight from a Python function
-
-You can create Actors straight from a Python function. This is great because you can have the test Actor source code checked with the linter.
+You can create Actors straight from a Python function. This is great because the test Actor source code gets checked by the linter.
 
 ```python
 async def test_something(
@@ -54,13 +41,11 @@ async def test_something(
     assert run_result.status == 'SUCCEEDED'
 ```
 
-These Actors will have the `src/main.py` file set to the `main` function definition, prepended with `import asyncio` and `from apify import Actor`, for your convenience.
+The `src/main.py` file will be set to the function definition, prepended with `import asyncio` and `from apify import Actor`. You can add extra imports directly inside the function body.
 
-### Creating Actor from source files
+### Creating an Actor from source files
 
-You can also pass the source files directly if you need something more complex (e.g. pass some fixed value to the Actor source code or use multiple source files).
-
-To pass the source code of the `src/main.py` file directly, use the `main_py` argument to `make_actor`:
+Pass the `main_py` argument for a single-file Actor:
 
 ```python
 async def test_something(
@@ -74,7 +59,6 @@ async def test_something(
         from apify import Actor
         async def main():
             async with Actor:
-                print('Hello! It is ' + datetime.now().time())
                 await Actor.set_value('OUTPUT', '{expected_output}')
     """
 
@@ -86,25 +70,31 @@ async def test_something(
     assert output_record['value'] == expected_output
 ```
 
-### Asserts
-
-Since test Actors are not executed as standard pytest tests, we don't get introspection of assertion expressions. In case of failure, only a bare `AssertionError` is shown, without the left and right values. This means, we must include explicit assertion messages to aid potential debugging.
+Or pass `source_files` for multi-file Actors:
 
 ```python
-async def test_add_and_fetch_requests(
-    make_actor: MakeActorFunction,
-    run_actor: RunActorFunction,
-) -> None:
-    """Test basic functionality of adding and fetching requests."""
+actor_source_files = {
+    'src/utils.py': """
+        from datetime import datetime, timezone
+        def get_current_datetime():
+            return datetime.now(timezone.utc)
+    """,
+    'src/main.py': """
+        import asyncio
+        from apify import Actor
+        from .utils import get_current_datetime
+        async def main():
+            async with Actor:
+                print('Hello! It is ' + str(get_current_datetime()))
+    """,
+}
+actor = await make_actor(label='something', source_files=actor_source_files)
+```
 
-    async def main() -> None:
-        async with Actor:
-            rq = await Actor.open_request_queue()
-            await rq.add_request(f'https://apify.com/')
-            assert is_finished is False, f'is_finished={is_finished}'
+### Assertions inside Actors
 
-    actor = await make_actor(label='rq-test', main_func=main)
-    run_result = await run_actor(actor)
+Since test Actors are not executed as standard pytest tests, we don't get introspection of assertion expressions. In case of failure, only a bare `AssertionError` is shown. Always include explicit assertion messages:
 
-    assert run_result.status == 'SUCCEEDED'
+```python
+assert is_finished is False, f'is_finished={is_finished}'
 ```

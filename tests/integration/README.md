@@ -1,17 +1,19 @@
 # Integration tests
 
-These tests make real requests to the Apify API (as opposed to unit tests that mock API calls), but they do not build or deploy Actors on the platform. They can be fully debugged locally and are faster than E2E tests.
+These tests make real requests to the Apify API, but do not build or deploy Actors on the platform. They are faster than E2E tests and can be fully debugged locally.
 
-Preferably try to write integration tests on this level if possible. Only write E2E tests (see `tests/e2e/`) when you need to test something that can only be tested by building and running an Actor on the platform.
+When writing new tests, prefer this level if possible. Only write E2E tests (see [`tests/e2e/`](../e2e/)) when you need to test something that requires building and running an Actor on the platform.
 
 ## Running
 
 ```bash
-# Set the API token
 export APIFY_TEST_USER_API_TOKEN=<your-token>
-
-# Run the tests
 uv run poe integration-tests
 ```
 
-If you want to run the tests against a different environment than the main Apify platform, set the `APIFY_INTEGRATION_TESTS_API_URL` environment variable to the right URL.
+To run against a different environment, also set `APIFY_INTEGRATION_TESTS_API_URL`.
+
+## Key fixtures
+
+- **`apify_client_async`** — A session-scoped `ApifyClientAsync` instance configured with the test token and API URL.
+- **`prepare_test_env`** / **`_isolate_test_environment`** (autouse) — Resets global state and sets `APIFY_LOCAL_STORAGE_DIR` to a temporary directory before each test.
