@@ -26,7 +26,7 @@ class ApifyKeyValueStoreMetadata(KeyValueStoreMetadata):
 class ProlongRequestLockResponse(BaseModel):
     """Response to prolong request lock calls."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     lock_expires_at: Annotated[datetime, Field(alias='lockExpiresAt')]
 
@@ -39,7 +39,7 @@ class RequestQueueHead(BaseModel):
     including metadata about the queue's state and lock information for the requests.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     limit: Annotated[int | None, Field(alias='limit', default=None)]
     """The maximum number of requests that were requested from the queue."""
@@ -66,7 +66,7 @@ class KeyValueStoreKeyInfo(BaseModel):
     Only internal structure.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     key: Annotated[str, Field(alias='key')]
     size: Annotated[int, Field(alias='size')]
@@ -78,7 +78,7 @@ class KeyValueStoreListKeysPage(BaseModel):
     Only internal structure.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     count: Annotated[int, Field(alias='count')]
     limit: Annotated[int, Field(alias='limit')]
@@ -108,7 +108,7 @@ class CachedRequest(BaseModel):
 
 
 class RequestQueueStats(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     delete_count: Annotated[int, Field(alias='deleteCount', default=0)]
     """"The number of request queue deletes."""
