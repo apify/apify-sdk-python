@@ -19,7 +19,7 @@ async def test_actor_start_inherit_timeout(
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor start."""
 
     async def main() -> None:
-        from datetime import datetime, timezone
+        from datetime import datetime, timedelta, timezone
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}
@@ -44,8 +44,11 @@ async def test_actor_start_inherit_timeout(
 
                 remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=timezone.utc)
 
-                assert other_run_data.options.timeout > remaining_time_after_actor_start
-                assert other_run_data.options.timeout < Actor.configuration.timeout_at - Actor.configuration.started_at
+                other_timeout = timedelta(seconds=other_run_data.options.timeout_secs)
+                total_timeout = Actor.configuration.timeout_at - Actor.configuration.started_at
+
+                assert other_timeout > remaining_time_after_actor_start
+                assert other_timeout < total_timeout
             finally:
                 # Make sure the other actor run is aborted
                 await Actor.apify_client.run(other_run_data.id).abort()
@@ -66,7 +69,7 @@ async def test_actor_call_inherit_timeout(
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor call."""
 
     async def main() -> None:
-        from datetime import datetime, timezone
+        from datetime import datetime, timedelta, timezone
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}
@@ -93,8 +96,11 @@ async def test_actor_call_inherit_timeout(
 
                 remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=timezone.utc)
 
-                assert other_run_data.options.timeout > remaining_time_after_actor_start
-                assert other_run_data.options.timeout < Actor.configuration.timeout_at - Actor.configuration.started_at
+                other_timeout = timedelta(seconds=other_run_data.options.timeout_secs)
+                total_timeout = Actor.configuration.timeout_at - Actor.configuration.started_at
+
+                assert other_timeout > remaining_time_after_actor_start
+                assert other_timeout < total_timeout
             finally:
                 # Make sure the other actor run is aborted
                 await Actor.apify_client.run(other_run_data.id).abort()

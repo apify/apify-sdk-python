@@ -164,7 +164,7 @@ class ChargingManagerImplementation(ChargingManager):
         if pricing_info and pricing_info.pricing_model == 'PAY_PER_EVENT':
             for event_name, event_pricing in pricing_info.pricing_per_event.actor_charge_events.items():  # ty:ignore[possibly-missing-attribute]
                 self._pricing_info[event_name] = PricingInfoItem(
-                    price=event_pricing.event_price_usd,
+                    price=Decimal(str(event_pricing.event_price_usd)),
                     title=event_pricing.event_title,
                 )
 
@@ -355,10 +355,11 @@ class ChargingManagerImplementation(ChargingManager):
             if run is None:
                 raise RuntimeError('Actor run not found')
 
+            max_charge = run.options.max_total_charge_usd
             return _FetchedPricingInfoDict(
                 pricing_info=run.pricing_info,
                 charged_event_counts=run.charged_event_counts or {},
-                max_total_charge_usd=run.options.max_total_charge_usd or Decimal('inf'),
+                max_total_charge_usd=Decimal(str(max_charge)) if max_charge is not None else Decimal('inf'),
             )
 
         # Local development without environment variables
