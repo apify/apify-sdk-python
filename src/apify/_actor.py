@@ -252,8 +252,17 @@ class _ActorType:
             # Persist Actor state
             await self._save_actor_state()
 
-        await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
-        self._is_initialized = False
+        try:
+            await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
+        except TimeoutError:
+            self.log.warning('Actor cleanup timed out, forcing shutdown of event manager and charging manager')
+            # Ensure critical resources are cleaned up even after timeout
+            with suppress(Exception):
+                await self.event_manager.__aexit__(None, None, None)
+            with suppress(Exception):
+                await self._charging_manager_implementation.__aexit__(None, None, None)
+        finally:
+            self._is_initialized = False
 
         if self._exit_process:
             sys.exit(self.exit_code)
