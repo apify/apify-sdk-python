@@ -12,7 +12,7 @@ from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 
-from .._utils import generate_unique_resource_name
+from ._utils import generate_unique_resource_name
 from apify import Actor, Request
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id

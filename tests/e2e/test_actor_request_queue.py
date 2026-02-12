@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from .._utils import generate_unique_resource_name
+from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify._models import ActorRun
 
