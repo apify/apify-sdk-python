@@ -255,9 +255,6 @@ async def test_url_reference_not_shared_between_instances() -> None:
     proxy_urls.append('http://proxy-example-3.com:8000')
     proxy_configuration_2 = ProxyConfiguration(proxy_urls=proxy_urls)
 
-    assert proxy_configuration_1 is not None
-    assert proxy_configuration_2 is not None
-
     assert proxy_configuration_1._proxy_urls is not proxy_configuration_2._proxy_urls
 
     session_id = 'ABCD'

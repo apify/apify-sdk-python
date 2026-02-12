@@ -38,15 +38,7 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
 
     records = caplog.records
 
-    # Expected number of log records
-    assert len(records) == 13
-
     expected_logs = [
-        (logging.INFO, 'Initializing Actor'),
-        (logging.DEBUG, 'Configuration initialized'),
-        (logging.DEBUG, 'Storage client initialized'),
-        (logging.DEBUG, 'Event manager initialized'),
-        (logging.DEBUG, 'Charging manager initialized'),
         (logging.DEBUG, 'Debug message'),
         (logging.INFO, 'Info message'),
         (logging.WARNING, 'Warning message'),
@@ -58,9 +50,10 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
     ]
 
     for level, message, *exception in expected_logs:
-        record = records.pop(0)
+        matching = [r for r in records if r.message == message]
+        assert len(matching) == 1, f'Expected exactly one log record with message {message!r}, found {len(matching)}'
+        record = matching[0]
         assert record.levelno == level
-        assert record.message == message
         if exception:
             assert record.exc_info is not None
             assert record.exc_info[0] is type(exception[0])

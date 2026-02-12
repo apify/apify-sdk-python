@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import warnings
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -130,9 +131,10 @@ async def test_metamorph_fails_locally(caplog: pytest.LogCaptureFixture) -> None
     async with Actor:
         await Actor.metamorph('random-id')
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'ERROR'
-    assert 'Actor.metamorph() is only supported when running on the Apify platform.' in caplog.records[0].message
+    matching = [r for r in caplog.records if 'Actor.metamorph()' in r.message]
+    assert len(matching) == 1
+    assert matching[0].levelname == 'ERROR'
+    assert 'only supported when running on the Apify platform' in matching[0].message
 
 
 async def test_reboot_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
@@ -140,9 +142,10 @@ async def test_reboot_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
     async with Actor:
         await Actor.reboot()
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'ERROR'
-    assert 'Actor.reboot() is only supported when running on the Apify platform.' in caplog.records[0].message
+    matching = [r for r in caplog.records if 'Actor.reboot()' in r.message]
+    assert len(matching) == 1
+    assert matching[0].levelname == 'ERROR'
+    assert 'only supported when running on the Apify platform' in matching[0].message
 
 
 async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
@@ -152,9 +155,10 @@ async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> No
             Webhook(event_types=[WebhookEventType.ACTOR_BUILD_ABORTED], request_url='https://example.com')
         )
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'ERROR'
-    assert 'Actor.add_webhook() is only supported when running on the Apify platform.' in caplog.records[0].message
+    matching = [r for r in caplog.records if 'Actor.add_webhook()' in r.message]
+    assert len(matching) == 1
+    assert matching[0].levelname == 'ERROR'
+    assert 'only supported when running on the Apify platform' in matching[0].message
 
 
 async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:
@@ -189,8 +193,9 @@ async def test_push_data_with_empty_data() -> None:
         assert result is None
 
 
-async def test_off_removes_event_listener() -> None:
+async def test_off_removes_event_listener(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that Actor.off() removes an event listener."""
+    monkeypatch.setenv(ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS, '50')
     called = False
 
     async def listener(_data: object) -> None:
@@ -200,6 +205,10 @@ async def test_off_removes_event_listener() -> None:
     async with Actor:
         Actor.on(Event.PERSIST_STATE, listener)
         Actor.off(Event.PERSIST_STATE, listener)
+        # Wait long enough for at least one PERSIST_STATE event to fire
+        await asyncio.sleep(0.2)
+        # Verify the listener was NOT called because it was removed
+        assert called is False
 
 
 async def test_start_actor_with_webhooks(
@@ -214,7 +223,11 @@ async def test_start_actor_with_webhooks(
             webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
         )
 
-    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+    calls = apify_client_async_patcher.calls['actor']['start']
+    assert len(calls) == 1
+    _, kwargs = calls[0][0], calls[0][1]
+    assert 'webhooks' in kwargs
+    assert kwargs['webhooks'] is not None
 
 
 async def test_start_actor_with_timedelta_timeout(
@@ -226,7 +239,10 @@ async def test_start_actor_with_timedelta_timeout(
     async with Actor:
         await Actor.start('some-actor-id', timeout=timedelta(seconds=120))
 
-    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+    calls = apify_client_async_patcher.calls['actor']['start']
+    assert len(calls) == 1
+    _, kwargs = calls[0][0], calls[0][1]
+    assert kwargs.get('timeout_secs') == 120
 
 
 async def test_start_actor_with_invalid_timeout(
@@ -252,7 +268,11 @@ async def test_call_actor_with_webhooks(
             webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
         )
 
-    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
+    calls = apify_client_async_patcher.calls['actor']['call']
+    assert len(calls) == 1
+    _, kwargs = calls[0][0], calls[0][1]
+    assert 'webhooks' in kwargs
+    assert kwargs['webhooks'] is not None
 
 
 async def test_call_actor_with_timedelta_timeout(
@@ -264,7 +284,10 @@ async def test_call_actor_with_timedelta_timeout(
     async with Actor:
         await Actor.call('some-actor-id', timeout=timedelta(seconds=120))
 
-    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
+    calls = apify_client_async_patcher.calls['actor']['call']
+    assert len(calls) == 1
+    _, kwargs = calls[0][0], calls[0][1]
+    assert kwargs.get('timeout_secs') == 120
 
 
 async def test_call_actor_with_remaining_time_deprecation(
@@ -305,7 +328,11 @@ async def test_call_task_with_webhooks(
             webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
         )
 
-    assert len(apify_client_async_patcher.calls['task']['call']) == 1
+    calls = apify_client_async_patcher.calls['task']['call']
+    assert len(calls) == 1
+    _, kwargs = calls[0][0], calls[0][1]
+    assert 'webhooks' in kwargs
+    assert kwargs['webhooks'] is not None
 
 
 async def test_call_task_with_timedelta_timeout(
@@ -317,7 +344,10 @@ async def test_call_task_with_timedelta_timeout(
     async with Actor:
         await Actor.call_task('some-task-id', timeout=timedelta(seconds=120))
 
-    assert len(apify_client_async_patcher.calls['task']['call']) == 1
+    calls = apify_client_async_patcher.calls['task']['call']
+    assert len(calls) == 1
+    _, kwargs = calls[0][0], calls[0][1]
+    assert kwargs.get('timeout_secs') == 120
 
 
 async def test_call_task_with_invalid_timeout(

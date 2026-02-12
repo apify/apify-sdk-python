@@ -65,10 +65,14 @@ async def test_concurrent_alias_creation_uses_lock() -> None:
     assert not lock.locked()
 
 
-async def test_alias_map_cached_locally() -> None:
-    """Test that alias map is returned from memory when already loaded."""
+async def test_get_alias_map_returns_in_memory_map() -> None:
+    """Test that _get_alias_map returns the in-memory map when not at home."""
     AliasResolver._alias_map = {'existing_key': 'existing_id'}
     config = Configuration(is_at_home=False, token='test-token')
 
     result = await AliasResolver._get_alias_map(config)
     assert result == {'existing_key': 'existing_id'}
+    # Also verify that an empty map is returned without fetching from KVS when not at home
+    AliasResolver._alias_map = {}
+    result = await AliasResolver._get_alias_map(config)
+    assert result == {}
