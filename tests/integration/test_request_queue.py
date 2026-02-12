@@ -682,9 +682,7 @@ async def test_request_deduplication_edge_cases(
 ) -> None:
     """Test edge cases in request deduplication."""
     if request.param == 'shared':
-        pytest.skip(
-            'Flaky with shared RQ access mode due to Crawlee bug, see https://github.com/apify/apify-sdk-python/issues/786'
-        )
+        pytest.skip('Test is flaky, see https://github.com/apify/apify-sdk-python/issues/786')
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
