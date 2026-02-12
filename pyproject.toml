@@ -145,18 +145,13 @@ indent-style = "space"
 "**/{tests}/*" = [
     "D",       # Everything from the pydocstyle
     "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
+    "PLC0415", # `import` should be at the top-level of a file
     "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
     "S101",    # Use of assert detected
     "SLF001",  # Private member accessed: `{name}`
     "T20",     # flake8-print
-    "TRY301",  # Abstract `raise` to an inner function
     "TID252",  # Prefer absolute imports over relative imports from parent modules
-]
-"**/{tests}/{integration}/*" = [
-    "PLC0415", # `import` should be at the top-level of a file
-]
-"**/{tests}/e2e/*" = [
-    "PLC0415", # `import` should be at the top-level of a file
+    "TRY301",  # Abstract `raise` to an inner function
 ]
 "**/{docs,website}/**" = [
     "D",       # Everything from the pydocstyle
