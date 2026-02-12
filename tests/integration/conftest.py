@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import os
-from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pytest
-from pytest_httpserver import HTTPServer
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
@@ -15,7 +13,7 @@ import apify._actor
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
     from pathlib import Path
 
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
@@ -91,23 +89,3 @@ def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
         prepare_test_env: Fixture to prepare the environment before each test.
     """
     prepare_test_env()
-
-
-@pytest.fixture(scope='session')
-def make_httpserver() -> Iterator[HTTPServer]:
-    werkzeug_logger = getLogger('werkzeug')
-    werkzeug_logger.disabled = True
-
-    server = HTTPServer(threaded=True, host='127.0.0.1')
-    server.start()
-    yield server
-    server.clear()
-    if server.is_running():
-        server.stop()
-
-
-@pytest.fixture
-def httpserver(make_httpserver: HTTPServer) -> Iterator[HTTPServer]:
-    server = make_httpserver
-    yield server
-    server.clear()
