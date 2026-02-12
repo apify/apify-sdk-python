@@ -71,38 +71,3 @@ async def test_emit_and_capture_interval_events(
     ]
     assert len(persist_state_events) > 2
     assert len(system_info_events) > 0
-
-
-async def test_event_listener_can_be_removed_successfully(
-    make_actor: MakeActorFunction,
-    run_actor: RunActorFunction,
-) -> None:
-    async def main() -> None:
-        import os
-        from typing import Any
-
-        from apify_shared.consts import ApifyEnvVars
-        from crawlee.events._types import Event
-
-        os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '100'
-
-        counter = 0
-
-        def count_event(data: Any) -> None:
-            nonlocal counter
-            print(data)
-            counter += 1
-
-        async with Actor:
-            Actor.on(Event.PERSIST_STATE, count_event)
-            await asyncio.sleep(0.5)
-            assert counter > 1
-            last_count = counter
-            Actor.off(Event.PERSIST_STATE, count_event)
-            await asyncio.sleep(0.5)
-            assert counter == last_count
-
-    actor = await make_actor(label='actor-off-event', main_func=main)
-    run_result = await run_actor(actor)
-
-    assert run_result.status == 'SUCCEEDED'

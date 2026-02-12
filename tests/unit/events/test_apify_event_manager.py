@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from collections import defaultdict
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
@@ -205,3 +206,150 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
             assert event_calls[0] is not None
             assert event_calls[0]['cpuInfo']['usedRatio'] == 0.0845549815498155
             event_calls.clear()
+
+
+async def test_event_listener_removal_stops_counting() -> None:
+    """Test that removing an event listener stops it from receiving further events."""
+    config = Configuration.get_global_configuration()
+
+    async with ApifyEventManager(config, persist_state_interval=timedelta(milliseconds=500)) as event_manager:
+        persist_state_counter = 0
+
+        async def handler(_data: Any) -> None:
+            nonlocal persist_state_counter
+            persist_state_counter += 1
+
+        event_manager.on(event=Event.PERSIST_STATE, listener=handler)
+        await asyncio.sleep(1.5)
+        first_count = persist_state_counter
+        assert first_count > 0
+
+        event_manager.off(event=Event.PERSIST_STATE, listener=handler)
+        persist_state_counter = 0
+        await asyncio.sleep(1.5)
+        assert persist_state_counter == 0
+
+
+async def test_deprecated_event_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that deprecated events (like CPU_INFO) are silently skipped."""
+    connected_ws_clients: set[websockets.asyncio.server.ServerConnection] = set()
+
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
+        connected_ws_clients.add(websocket)
+        try:
+            await websocket.wait_closed()
+        finally:
+            connected_ws_clients.remove(websocket)
+
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
+        port: int = ws_server.sockets[0].getsockname()[1]
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
+
+        async with ApifyEventManager(Configuration.get_global_configuration()) as event_manager:
+            event_calls: list[Any] = []
+
+            def listener(data: Any) -> None:
+                event_calls.append(data)
+
+            event_manager.on(event=Event.SYSTEM_INFO, listener=listener)
+
+            # Send a deprecated event (cpuInfo is deprecated)
+            deprecated_message = json.dumps({'name': 'cpuInfo', 'data': {}})
+            websockets.broadcast(connected_ws_clients, deprecated_message)
+            await asyncio.sleep(0.2)
+
+            # No events should have been emitted
+            assert len(event_calls) == 0
+
+
+async def test_unknown_event_is_logged(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Test that unknown events are logged and not emitted."""
+    connected_ws_clients: set[websockets.asyncio.server.ServerConnection] = set()
+
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
+        connected_ws_clients.add(websocket)
+        try:
+            await websocket.wait_closed()
+        finally:
+            connected_ws_clients.remove(websocket)
+
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
+        port: int = ws_server.sockets[0].getsockname()[1]
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
+
+        async with ApifyEventManager(Configuration.get_global_configuration()):
+            # Send an unknown event
+            unknown_message = json.dumps({'name': 'totallyNewEvent2099', 'data': {'foo': 'bar'}})
+            websockets.broadcast(connected_ws_clients, unknown_message)
+            await asyncio.sleep(0.2)
+
+            assert 'Unknown message received' in caplog.text
+            assert 'totallyNewEvent2099' in caplog.text
+
+
+async def test_migrating_event_triggers_persist_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a MIGRATING event triggers a PERSIST_STATE event with is_migrating=True."""
+    connected_ws_clients: set[websockets.asyncio.server.ServerConnection] = set()
+
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
+        connected_ws_clients.add(websocket)
+        try:
+            await websocket.wait_closed()
+        finally:
+            connected_ws_clients.remove(websocket)
+
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
+        port: int = ws_server.sockets[0].getsockname()[1]
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
+
+        async with ApifyEventManager(Configuration.get_global_configuration()) as event_manager:
+            persist_calls: list[Any] = []
+            migrating_calls: list[Any] = []
+
+            def persist_listener(data: Any) -> None:
+                persist_calls.append(data)
+
+            def migrating_listener(data: Any) -> None:
+                migrating_calls.append(data)
+
+            event_manager.on(event=Event.PERSIST_STATE, listener=persist_listener)
+            event_manager.on(event=Event.MIGRATING, listener=migrating_listener)
+
+            # Clear any initial persist state events
+            await asyncio.sleep(0.2)
+            persist_calls.clear()
+
+            # Send migrating event
+            migrating_message = json.dumps({'name': 'migrating'})
+            websockets.broadcast(connected_ws_clients, migrating_message)
+            await asyncio.sleep(0.2)
+
+            assert len(migrating_calls) == 1
+            # MIGRATING should also trigger a PERSIST_STATE with is_migrating=True
+            migration_persist_events = [c for c in persist_calls if hasattr(c, 'is_migrating') and c.is_migrating]
+            assert len(migration_persist_events) >= 1
+
+
+async def test_malformed_message_logs_exception(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that malformed websocket messages are logged and don't crash the event manager."""
+    connected_ws_clients: set[websockets.asyncio.server.ServerConnection] = set()
+
+    async def handler(websocket: websockets.asyncio.server.ServerConnection) -> None:
+        connected_ws_clients.add(websocket)
+        try:
+            await websocket.wait_closed()
+        finally:
+            connected_ws_clients.remove(websocket)
+
+    async with websockets.asyncio.server.serve(handler, host='localhost') as ws_server:
+        port: int = ws_server.sockets[0].getsockname()[1]
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://localhost:{port}')
+
+        async with ApifyEventManager(Configuration.get_global_configuration()):
+            # Send malformed message
+            websockets.broadcast(connected_ws_clients, 'this is not valid json{{{')
+            await asyncio.sleep(0.2)
+
+            assert 'Cannot parse Actor event' in caplog.text

@@ -1243,3 +1243,223 @@ async def test_request_queue_api_fail_when_marking_as_handled(
 
         finally:
             await rq.drop()
+
+
+async def test_same_references_in_default_rq(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that opening the default RQ twice returns the same instance."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    async with Actor:
+        rq1 = await Actor.open_request_queue()
+        rq2 = await Actor.open_request_queue()
+        assert rq1 is rq2
+
+
+async def test_same_references_in_named_rq(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that opening a named RQ by name and then by ID returns the same instance."""
+    rq_name = generate_unique_resource_name('request-queue')
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    async with Actor:
+        rq_by_name_1 = await Actor.open_request_queue(name=rq_name)
+        rq_by_name_2 = await Actor.open_request_queue(name=rq_name)
+        assert rq_by_name_1 is rq_by_name_2
+
+        rq_1_metadata = await rq_by_name_1.get_metadata()
+        rq_by_id_1 = await Actor.open_request_queue(id=rq_1_metadata.id)
+        rq_by_id_2 = await Actor.open_request_queue(id=rq_1_metadata.id)
+        assert rq_by_id_1 is rq_by_name_1
+        assert rq_by_id_2 is rq_by_id_1
+
+        await rq_by_name_1.drop()
+
+
+async def test_request_queue_deduplication(
+    request_queue_apify: RequestQueue,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test that deduplication works correctly - adding 2 requests with same unique_key calls API just once."""
+    rq = request_queue_apify
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+
+    rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
+    _rq = await rq_client.get()
+    assert _rq
+    stats_before = _rq.get('stats', {})
+
+    # Add same request twice (same unique_key because same URL with default unique key)
+    request1 = Request.from_url('http://example.com', method='POST')
+    request2 = Request.from_url('http://example.com', method='GET')
+    await rq.add_request(request1)
+    await rq.add_request(request2)
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+    _rq = await rq_client.get()
+    assert _rq
+    stats_after = _rq.get('stats', {})
+
+    assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
+
+
+async def test_request_queue_deduplication_use_extended_unique_key(
+    request_queue_apify: RequestQueue,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test deduplication with extended unique key - different methods produce different unique keys."""
+    rq = request_queue_apify
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+
+    rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
+    _rq = await rq_client.get()
+    assert _rq
+    stats_before = _rq.get('stats', {})
+
+    request1 = Request.from_url('http://example.com', method='POST', use_extended_unique_key=True)
+    request2 = Request.from_url('http://example.com', method='GET', use_extended_unique_key=True)
+    await rq.add_request(request1)
+    await rq.add_request(request2)
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+    _rq = await rq_client.get()
+    assert _rq
+    stats_after = _rq.get('stats', {})
+
+    assert (stats_after['writeCount'] - stats_before['writeCount']) == 2
+
+
+async def test_request_queue_parallel_deduplication(
+    request_queue_apify: RequestQueue,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test parallel deduplication with concurrent workers adding overlapping request batches."""
+    rq = request_queue_apify
+    worker_count = 10
+    max_requests = 100
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+
+    rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
+    _rq = await rq_client.get()
+    assert _rq
+    stats_before = _rq.get('stats', {})
+
+    requests = [Request.from_url(f'http://example.com/{i}') for i in range(max_requests)]
+    batch_size = iter(range(10, max_requests + 1, int(max_requests / worker_count)))
+
+    async def add_requests_worker() -> None:
+        await rq.add_requests(requests[: next(batch_size)])
+
+    add_requests_workers = [asyncio.create_task(add_requests_worker()) for _ in range(worker_count)]
+    await asyncio.gather(*add_requests_workers)
+
+    await asyncio.sleep(10)  # Wait to be sure that metadata are updated
+    _rq = await rq_client.get()
+    assert _rq
+    stats_after = _rq.get('stats', {})
+
+    assert (stats_after['writeCount'] - stats_before['writeCount']) == len(requests)
+
+
+async def test_concurrent_processing_simulation(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test simulation of concurrent request processing with fetch/handle/reclaim."""
+    from apify.storage_clients import SmartApifyStorageClient
+
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    service_locator.set_storage_client(
+        SmartApifyStorageClient(
+            cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
+        )
+    )
+    async with Actor:
+        rq = await Actor.open_request_queue()
+
+        for i in range(20):
+            await rq.add_request(f'https://example.com/concurrent/{i}')
+
+        total_count = await rq.get_total_count()
+        assert total_count == 20
+
+        async def worker() -> int:
+            processed = 0
+            request_counter = 0
+
+            while request := await rq.fetch_next_request():
+                await asyncio.sleep(0.01)
+
+                if request_counter % 5 == 0 and request_counter > 0:
+                    await rq.reclaim_request(request)
+                else:
+                    await rq.mark_request_as_handled(request)
+                    processed += 1
+
+                request_counter += 1
+
+            return processed
+
+        workers = [worker() for _ in range(3)]
+        results = await asyncio.gather(*workers)
+
+        total_processed = sum(results)
+
+        assert total_processed > 0
+        assert len(results) == 3
+
+        handled_after_workers = await rq.get_handled_count()
+        assert handled_after_workers == total_processed
+
+        total_after_workers = await rq.get_total_count()
+        assert total_after_workers == 20
+
+        remaining_count = 0
+        while not await rq.is_finished():
+            request = await rq.fetch_next_request()
+            if request:
+                remaining_count += 1
+                await rq.mark_request_as_handled(request)
+            else:
+                break
+
+        final_handled = await rq.get_handled_count()
+        final_total = await rq.get_total_count()
+        assert final_handled == 20
+        assert final_total == 20
+        assert total_processed + remaining_count == 20
+
+        is_finished = await rq.is_finished()
+        assert is_finished is True
+
+        await rq.drop()
+
+
+async def test_rq_isolation(apify_token: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that different named request queues are properly isolated."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    rq_name_1 = generate_unique_resource_name('rq-1')
+    rq_name_2 = generate_unique_resource_name('rq-2')
+
+    async with Actor:
+        rq1 = await Actor.open_request_queue(name=rq_name_1)
+        rq2 = await Actor.open_request_queue(name=rq_name_2)
+
+        assert rq1 is not rq2
+
+        await rq1.add_request('https://example.com/queue1-request')
+        await rq2.add_request('https://example.com/queue2-request')
+
+        req1 = await rq1.fetch_next_request()
+        req2 = await rq2.fetch_next_request()
+
+        assert req1 is not None
+        assert 'queue1' in req1.url
+        assert req2 is not None
+        assert 'queue2' in req2.url
+
+        await rq1.mark_request_as_handled(req1)
+        await rq2.mark_request_as_handled(req2)
+
+        await rq1.drop()
+        await rq2.drop()

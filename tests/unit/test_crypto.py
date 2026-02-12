@@ -135,3 +135,38 @@ def test_create_same_hmac() -> None:
     message = 'hmac-same-message-to-be-authenticated'
     assert create_hmac_signature(secret_key, message) == 'FYMcmTIm3idXqleF1Sw5'
     assert create_hmac_signature(secret_key, message) == 'FYMcmTIm3idXqleF1Sw5'
+
+
+def test_encrypt_decrypt_empty_string() -> None:
+    """Test that encrypting and decrypting an empty string works correctly."""
+    encrypted = public_encrypt('', public_key=PUBLIC_KEY)
+    decrypted = private_decrypt(**encrypted, private_key=PRIVATE_KEY)
+    assert decrypted == ''
+
+
+def test_encrypt_decrypt_very_long_string() -> None:
+    """Test that encrypting and decrypting a very long string works correctly."""
+    long_string = 'A' * 10000
+    encrypted = public_encrypt(long_string, public_key=PUBLIC_KEY)
+    decrypted = private_decrypt(**encrypted, private_key=PRIVATE_KEY)
+    assert decrypted == long_string
+
+
+def test_hmac_with_empty_message() -> None:
+    """Test HMAC signature generation with an empty message."""
+    signature = create_hmac_signature('some-key', '')
+    assert isinstance(signature, str)
+    assert len(signature) > 0
+    # Same key and empty message should always produce the same signature
+    assert create_hmac_signature('some-key', '') == signature
+
+
+def test_encode_base62_large_number() -> None:
+    """Test encode_base62 with a large number."""
+    result = encode_base62(2**64)
+    assert isinstance(result, str)
+    assert len(result) > 0
+    # Verify all characters are in the base62 charset
+    charset = '0123456789abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ'
+    for char in result:
+        assert char in charset
