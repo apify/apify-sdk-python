@@ -306,10 +306,15 @@ async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFi
             await actor.fail(exit_code=2, exception=Exception('abc'), status_message='cde')
             raise RuntimeError('This should not trigger')
     except SystemExit:
-        assert caplog.records[-3].levelno == logging.ERROR
-        assert caplog.records[-3].msg == 'Actor failed with an exception'
-        assert caplog.records[-3].exc_text == 'Exception: abc'
-        assert caplog.records[-2].levelno == logging.INFO
-        assert caplog.records[-2].msg == 'Exiting Actor'
-        assert caplog.records[-1].levelno == logging.INFO
-        assert caplog.records[-1].msg == '[Terminal status message]: cde'
+        fail_records = [r for r in caplog.records if r.msg == 'Actor failed with an exception']
+        assert len(fail_records) == 1
+        assert fail_records[0].levelno == logging.ERROR
+        assert fail_records[0].exc_text == 'Exception: abc'
+
+        exit_records = [r for r in caplog.records if r.msg == 'Exiting Actor']
+        assert len(exit_records) == 1
+        assert exit_records[0].levelno == logging.INFO
+
+        status_records = [r for r in caplog.records if r.msg == '[Terminal status message]: cde']
+        assert len(status_records) == 1
+        assert status_records[0].levelno == logging.INFO

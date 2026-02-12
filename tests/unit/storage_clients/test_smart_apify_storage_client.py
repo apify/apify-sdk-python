@@ -79,9 +79,12 @@ def test_cache_key_at_home(monkeypatch: pytest.MonkeyPatch) -> None:
     service_locator._configuration = None
 
     config = Configuration(is_at_home=True, token='test-token')
-    client = SmartApifyStorageClient()
+    cloud_client = MagicMock(spec=ApifyStorageClient)
+    cloud_client.get_storage_client_cache_key.return_value = 'cloud-key'
+    client = SmartApifyStorageClient(cloud_storage_client=cloud_client)
     key = client.get_storage_client_cache_key(config)
-    assert key is not None
+    assert key == 'cloud-key'
+    cloud_client.get_storage_client_cache_key.assert_called_once_with(config)
 
 
 def test_cache_key_local(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -90,6 +93,9 @@ def test_cache_key_local(monkeypatch: pytest.MonkeyPatch) -> None:
     service_locator._configuration = None
 
     config = Configuration()
-    client = SmartApifyStorageClient()
+    local_client = MagicMock(spec=FileSystemStorageClient)
+    local_client.get_storage_client_cache_key.return_value = 'local-key'
+    client = SmartApifyStorageClient(local_storage_client=local_client)
     key = client.get_storage_client_cache_key(config)
-    assert key is not None
+    assert key == 'local-key'
+    local_client.get_storage_client_cache_key.assert_called_once_with(config)

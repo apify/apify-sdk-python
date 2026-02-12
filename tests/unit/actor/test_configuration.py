@@ -76,7 +76,7 @@ async def test_setting_config_after_actor_raises_exception() -> None:
 
 
 async def test_actor_using_input_configuration() -> None:
-    """Test that setting configuration in service locator after actor was created raises an exception."""
+    """Test that configuration passed to Actor is stored in the service locator."""
     apify_config = ApifyConfiguration()
     async with Actor(configuration=apify_config):
         pass
