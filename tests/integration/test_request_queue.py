@@ -677,6 +677,9 @@ async def test_persistence_across_operations(request_queue_apify: RequestQueue) 
     assert final_handled == 15, f'final_handled={final_handled}'
 
 
+@pytest.mark.skip(
+    reason='Flaky with shared RQ access mode due to Crawlee bug, see https://github.com/apify/apify-sdk-python/issues/786'
+)
 async def test_request_deduplication_edge_cases(request_queue_apify: RequestQueue) -> None:
     """Test edge cases in request deduplication."""
     rq = request_queue_apify
