@@ -86,11 +86,10 @@ jobs:
       }}
 
     strategy:
-      # E2E tests build and run Actors on the platform. Limit parallel workflows to 2 to allow running both
-      # the oldest and newest Python versions simultaneously, while not exceeding the platform's limits. Two
-      # parallel workflows with 8 pytest workers each is a compromise between good test parallelization and
-      # not being rate-limited by the platform.
-      max-parallel: 2
+      # E2E tests build and run Actors on the platform. Limit parallel workflows to 1 to avoid exceeding
+      # the platform's memory limits. A single workflow with 16 pytest workers provides good test
+      # parallelization while staying within platform constraints.
+      max-parallel: 1
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.10", "3.14"]
@@ -98,7 +97,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      TESTS_CONCURRENCY: "8"
+      TESTS_CONCURRENCY: "16"
 
     steps:
       - name: Checkout repository
