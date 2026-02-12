@@ -55,6 +55,7 @@ async def test_adaptive_playwright_crawler(make_actor: MakeActorFunction, run_ac
             'Dockerfile': _PLAYWRIGHT_DOCKERFILE,
         },
         additional_requirements=['crawlee[all]>=1.0.0,<2.0.0'],
+        memory_mbytes=1024,
     )
     run_result = await run_actor(actor)
     await _verify_crawler_results(actor, run_result, 'AdaptivePlaywrightCrawler')

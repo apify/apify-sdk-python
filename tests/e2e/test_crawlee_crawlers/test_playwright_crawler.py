@@ -55,6 +55,7 @@ async def test_playwright_crawler(make_actor: MakeActorFunction, run_actor: RunA
             'Dockerfile': _PLAYWRIGHT_DOCKERFILE,
         },
         additional_requirements=['crawlee[playwright]>=1.0.0,<2.0.0'],
+        memory_mbytes=1024,
     )
     run_result = await run_actor(actor)
     await _verify_crawler_results(actor, run_result, 'PlaywrightCrawler')
