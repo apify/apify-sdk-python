@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import warnings
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars, WebhookEventType
+from crawlee.events._types import Event
 
 from apify import Actor, Webhook
 from apify._actor import _ActorType
@@ -174,3 +177,179 @@ async def test_set_terminal_status_message_locally(caplog: pytest.LogCaptureFixt
     assert len(matching_records) == 1
     assert matching_records[0].levelname == 'INFO'
     assert '[Terminal status message]: test-terminal-message' in matching_records[0].message
+
+
+async def test_push_data_with_empty_data() -> None:
+    """Test that push_data returns None when data is empty."""
+    async with Actor:
+        result = await Actor.push_data([])
+        assert result is None
+
+        result = await Actor.push_data({})
+        assert result is None
+
+
+async def test_off_removes_event_listener() -> None:
+    """Test that Actor.off() removes an event listener."""
+    called = False
+
+    async def listener(_data: object) -> None:
+        nonlocal called
+        called = True
+
+    async with Actor:
+        Actor.on(Event.PERSIST_STATE, listener)
+        Actor.off(Event.PERSIST_STATE, listener)
+
+
+async def test_start_actor_with_webhooks(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that start() correctly serializes webhooks."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.start(
+            'some-actor-id',
+            webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
+        )
+
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_start_actor_with_timedelta_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that start() accepts a timedelta timeout."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.start('some-actor-id', timeout=timedelta(seconds=120))
+
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_start_actor_with_invalid_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that start() raises ValueError for invalid timeout."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        with pytest.raises(ValueError, match='Invalid timeout'):
+            await Actor.start('some-actor-id', timeout='invalid')  # type: ignore[arg-type]
+
+
+async def test_call_actor_with_webhooks(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that call() correctly serializes webhooks."""
+    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.call(
+            'some-actor-id',
+            webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
+        )
+
+    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
+
+
+async def test_call_actor_with_timedelta_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that call() accepts a timedelta timeout."""
+    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.call('some-actor-id', timeout=timedelta(seconds=120))
+
+    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
+
+
+async def test_call_actor_with_remaining_time_deprecation(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that call() with RemainingTime emits deprecation warning."""
+    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
+
+    async with Actor:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            await Actor.call('some-actor-id', timeout='RemainingTime')
+            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+            assert len(deprecation_warnings) == 1
+            assert 'RemainingTime' in str(deprecation_warnings[0].message)
+
+
+async def test_call_actor_with_invalid_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that call() raises ValueError for invalid timeout."""
+    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
+
+    async with Actor:
+        with pytest.raises(ValueError, match='Invalid timeout'):
+            await Actor.call('some-actor-id', timeout='invalid')  # type: ignore[arg-type]
+
+
+async def test_call_task_with_webhooks(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that call_task() correctly serializes webhooks."""
+    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.call_task(
+            'some-task-id',
+            webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
+        )
+
+    assert len(apify_client_async_patcher.calls['task']['call']) == 1
+
+
+async def test_call_task_with_timedelta_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that call_task() accepts a timedelta timeout."""
+    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.call_task('some-task-id', timeout=timedelta(seconds=120))
+
+    assert len(apify_client_async_patcher.calls['task']['call']) == 1
+
+
+async def test_call_task_with_invalid_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that call_task() raises ValueError for invalid timeout."""
+    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
+
+    async with Actor:
+        with pytest.raises(ValueError, match='Invalid timeout'):
+            await Actor.call_task('some-task-id', timeout='invalid')  # type: ignore[arg-type]
+
+
+async def test_abort_with_status_message(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+) -> None:
+    """Test that abort() updates status message before aborting."""
+    apify_client_async_patcher.patch('run', 'update', return_value=fake_actor_run)
+    apify_client_async_patcher.patch('run', 'abort', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.abort('run-id', status_message='Aborting due to error')
+
+    assert len(apify_client_async_patcher.calls['run']['update']) == 1
+    assert len(apify_client_async_patcher.calls['run']['abort']) == 1
+
+
+async def test_get_remaining_time_warns_when_not_at_home(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that _get_remaining_time logs warning when not at home."""
+    caplog.set_level('WARNING')
+    async with Actor:
+        # Actor is not at home, so _get_remaining_time should return None and log warning
+        result = Actor._get_remaining_time()
+        assert result is None
+    assert any('inherit' in msg or 'RemainingTime' in msg for msg in caplog.messages)
