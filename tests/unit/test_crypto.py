@@ -170,3 +170,35 @@ def test_encode_base62_large_number() -> None:
     charset = '0123456789abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ'
     for char in result:
         assert char in charset
+
+
+def test_load_private_key_invalid_type() -> None:
+    """Test that load_private_key raises TypeError for non-RSA keys."""
+    from unittest.mock import patch
+
+    with (
+        patch('apify._crypto.serialization.load_pem_private_key', return_value='not_an_rsa_key'),
+        pytest.raises(TypeError, match='Invalid private key'),
+    ):
+        load_private_key('ZHVtbXk=', 'password')
+
+
+def test_load_public_key_invalid_type() -> None:
+    """Test that _load_public_key raises TypeError for non-RSA keys."""
+    from unittest.mock import patch
+
+    with (
+        patch('apify._crypto.serialization.load_pem_public_key', return_value='not_an_rsa_key'),
+        pytest.raises(TypeError, match='Invalid public key'),
+    ):
+        _load_public_key('ZHVtbXk=')
+
+
+def test_decrypt_input_secrets_non_dict() -> None:
+    """Test that decrypt_input_secrets returns non-dict input unchanged."""
+    from apify._crypto import decrypt_input_secrets
+
+    assert decrypt_input_secrets(PRIVATE_KEY, 'just a string') == 'just a string'
+    assert decrypt_input_secrets(PRIVATE_KEY, 42) == 42
+    assert decrypt_input_secrets(PRIVATE_KEY, [1, 2, 3]) == [1, 2, 3]
+    assert decrypt_input_secrets(PRIVATE_KEY, None) is None

@@ -580,3 +580,25 @@ def test_is_url_validation() -> None:
     assert is_url('12.34.56.78') is False
     assert is_url('::1') is False
     assert is_url('https://4da6:8f56:af8c:5dce:c1de:14d2:8661') is False
+
+
+def test_is_url_with_completely_unparsable_input() -> None:
+    """Test is_url with input that causes urlparse to fail."""
+    # These should trigger the outer except and return False
+    assert is_url('') is False
+    assert is_url(None) is False  # type: ignore[arg-type]
+
+
+def test_check_min_length_raises() -> None:
+    """Test that _check raises ValueError for values shorter than min_length."""
+    from apify._proxy_configuration import _check
+
+    with pytest.raises(ValueError, match='shorter than minimum allowed length'):
+        _check('ab', label='session_id', min_length=5)
+
+
+async def test_proxy_urls_with_apify_domain_warns(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that using apify.com URLs in proxy_urls triggers a warning."""
+    caplog.set_level('WARNING')
+    ProxyConfiguration(proxy_urls=['http://proxy.apify.com:8000'])
+    assert any('Some Apify proxy features may work incorrectly' in msg for msg in caplog.messages)
