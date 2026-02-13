@@ -101,7 +101,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      TESTS_CONCURRENCY: "16"
+      TESTS_CONCURRENCY: "8"
 
     steps:
       - name: Checkout repository
