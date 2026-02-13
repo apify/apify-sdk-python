@@ -8,7 +8,7 @@ from apify import Actor
 async def main() -> None:
     async with Actor:
         pages_visited: list[str] = []
-        crawler = BeautifulSoupCrawler()
+        crawler = BeautifulSoupCrawler(max_crawl_depth=2)
 
         @crawler.router.default_handler
         async def handler(context: BeautifulSoupCrawlingContext) -> None:

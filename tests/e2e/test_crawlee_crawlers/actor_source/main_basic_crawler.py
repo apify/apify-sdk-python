@@ -45,7 +45,7 @@ class _PageParser(HTMLParser):
 async def main() -> None:
     async with Actor:
         pages_visited: list[str] = []
-        crawler = BasicCrawler()
+        crawler = BasicCrawler(max_crawl_depth=2)
 
         @crawler.router.default_handler
         async def handler(context: BasicCrawlingContext) -> None:

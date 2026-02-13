@@ -10,7 +10,7 @@ from apify import Actor
 async def main() -> None:
     async with Actor:
         pages_visited: list[str] = []
-        crawler = HttpCrawler()
+        crawler = HttpCrawler(max_crawl_depth=2)
 
         @crawler.router.default_handler
         async def handler(context: HttpCrawlingContext) -> None:

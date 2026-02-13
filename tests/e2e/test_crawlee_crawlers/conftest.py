@@ -58,4 +58,7 @@ async def verify_crawler_results(
     assert kvs_record is not None
     result = kvs_record['value']
     assert result['crawler_type'] == expected_crawler_type
+    # With max_crawl_depth=2, the server has 9 pages reachable (homepage, 2 categories, about, /deep/1,
+    # 3 products, /deep/2). The crawler should visit most of them but not go beyond /deep/2.
     assert result['pages_visited_count'] >= 5
+    assert result['pages_visited_count'] <= 15

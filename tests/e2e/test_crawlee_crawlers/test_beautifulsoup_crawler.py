@@ -12,7 +12,6 @@ async def test_beautifulsoup_crawler(make_actor: MakeActorFunction, run_actor: R
     actor = await make_actor(
         label='crawl-bsoup',
         source_files={
-            'server.py': read_actor_source('server.py'),
             'src/main.py': read_actor_source('main_beautifulsoup_crawler.py'),
         },
         additional_requirements=['crawlee[beautifulsoup]'],

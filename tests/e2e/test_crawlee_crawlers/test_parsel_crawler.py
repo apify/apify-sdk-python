@@ -12,7 +12,6 @@ async def test_parsel_crawler(make_actor: MakeActorFunction, run_actor: RunActor
     actor = await make_actor(
         label='crawl-parsel',
         source_files={
-            'server.py': read_actor_source('server.py'),
             'src/main.py': read_actor_source('main_parsel_crawler.py'),
         },
     )
