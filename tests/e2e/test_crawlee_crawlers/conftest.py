@@ -15,12 +15,12 @@ _PYTHON_VERSION = os.getenv('INTEGRATION_TESTS_PYTHON_VERSION') or '.'.join(str(
 _ACTOR_SOURCE_DIR = Path(__file__).parent / 'actor_source'
 
 
-def _read_actor_source(filename: str) -> str:
+def read_actor_source(filename: str) -> str:
     return (_ACTOR_SOURCE_DIR / filename).read_text()
 
 
-def _get_playwright_dockerfile() -> str:
-    return _read_actor_source('Dockerfile.playwright').replace(
+def get_playwright_dockerfile() -> str:
+    return read_actor_source('Dockerfile.playwright').replace(
         'PYTHON_VERSION_PLACEHOLDER',
         _PYTHON_VERSION,
     )
@@ -33,7 +33,7 @@ _EXPECTED_PRODUCTS = {
 }
 
 
-async def _verify_crawler_results(
+async def verify_crawler_results(
     actor: ActorClientAsync,
     run_result: ActorRun,
     expected_crawler_type: str,
