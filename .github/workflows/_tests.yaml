@@ -87,7 +87,7 @@ jobs:
 
     strategy:
       # E2E tests build and run Actors on the platform. Limit parallel workflows to 1 to avoid exceeding
-      # the platform's memory limits. A single workflow with 16 pytest workers provides good test
+      # the platform's memory limits. A single workflow with 4 pytest workers provides good test
       # parallelization while staying within platform constraints.
       max-parallel: 1
       matrix:
@@ -97,7 +97,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      TESTS_CONCURRENCY: "16"
+      TESTS_CONCURRENCY: "4"
 
     steps:
       - name: Checkout repository
