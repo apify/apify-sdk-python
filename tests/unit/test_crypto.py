@@ -112,7 +112,7 @@ def test_crypto_random_object_id_length_and_charset() -> None:
     assert len(crypto_random_object_id(5)) == 5
     long_random_object_id = crypto_random_object_id(1000)
     for char in long_random_object_id:
-        assert char in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        assert char in 'abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 
 @pytest.mark.parametrize(('test_input', 'expected'), [(0, '0'), (10, 'a'), (999999999, '15FTGf')])
