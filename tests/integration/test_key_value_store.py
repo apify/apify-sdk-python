@@ -46,16 +46,17 @@ async def test_same_references_in_named_kvs(apify_token: str, monkeypatch: pytes
 
     async with Actor:
         kvs_by_name_1 = await Actor.open_key_value_store(name=kvs_name)
-        kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
-        assert kvs_by_name_1 is kvs_by_name_2
+        try:
+            kvs_by_name_2 = await Actor.open_key_value_store(name=kvs_name)
+            assert kvs_by_name_1 is kvs_by_name_2
 
-        kvs_1_metadata = await kvs_by_name_1.get_metadata()
-        kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
-        kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
-        assert kvs_by_id_1 is kvs_by_name_1
-        assert kvs_by_id_2 is kvs_by_id_1
-
-        await kvs_by_name_1.drop()
+            kvs_1_metadata = await kvs_by_name_1.get_metadata()
+            kvs_by_id_1 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
+            kvs_by_id_2 = await Actor.open_key_value_store(id=kvs_1_metadata.id)
+            assert kvs_by_id_1 is kvs_by_name_1
+            assert kvs_by_id_2 is kvs_by_id_1
+        finally:
+            await kvs_by_name_1.drop()
 
 
 async def test_set_and_get_value_in_same_run(key_value_store_apify: KeyValueStore) -> None:

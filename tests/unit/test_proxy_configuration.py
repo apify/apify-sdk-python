@@ -579,11 +579,16 @@ def test_is_url_validation() -> None:
     assert is_url('https://4da6:8f56:af8c:5dce:c1de:14d2:8661') is False
 
 
-def test_is_url_with_completely_unparsable_input() -> None:
+@pytest.mark.parametrize(
+    'value',
+    [
+        pytest.param('', id='empty_string'),
+        pytest.param(None, id='none'),
+    ],
+)
+def test_is_url_with_completely_unparsable_input(value: str | None) -> None:
     """Test is_url with input that causes urlparse to fail."""
-    # These should trigger the outer except and return False
-    assert is_url('') is False
-    assert is_url(None) is False  # type: ignore[arg-type]
+    assert is_url(value) is False  # ty: ignore[invalid-argument-type]
 
 
 def test_check_min_length_raises() -> None:
