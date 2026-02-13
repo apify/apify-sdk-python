@@ -17,12 +17,12 @@ async def test_open_returns_same_references() -> None:
         assert rq1 is rq2
 
         rq_name = 'non-default'
-        rq_by_name_1 = await Actor.open_key_value_store(name=rq_name)
-        rq_by_name_2 = await Actor.open_key_value_store(name=rq_name)
+        rq_by_name_1 = await Actor.open_request_queue(name=rq_name)
+        rq_by_name_2 = await Actor.open_request_queue(name=rq_name)
         assert rq_by_name_1 is rq_by_name_2
 
         rq_1_metadata = await rq_by_name_1.get_metadata()
-        rq_by_id_1 = await Actor.open_key_value_store(id=rq_1_metadata.id)
-        rq_by_id_2 = await Actor.open_key_value_store(id=rq_1_metadata.id)
+        rq_by_id_1 = await Actor.open_request_queue(id=rq_1_metadata.id)
+        rq_by_id_2 = await Actor.open_request_queue(id=rq_1_metadata.id)
         assert rq_by_id_1 is rq_by_name_1
         assert rq_by_id_2 is rq_by_id_1

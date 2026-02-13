@@ -76,7 +76,7 @@ async def test_setting_config_after_actor_raises_exception() -> None:
 
 
 async def test_actor_using_input_configuration() -> None:
-    """Test that setting configuration in service locator after actor was created raises an exception."""
+    """Test that configuration passed to Actor is stored in the service locator."""
     apify_config = ApifyConfiguration()
     async with Actor(configuration=apify_config):
         pass
@@ -241,3 +241,62 @@ def test_apify_configuration_is_always_used(caplog: pytest.LogCaptureFixture) ->
         'It is recommended to set `apify.Configuration` explicitly as early as possible by using '
         'service_locator.set_configuration'
     ) in caplog.messages
+
+
+def test_env_vars_populate_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that configuration values are populated from environment variables."""
+    monkeypatch.setenv('APIFY_TOKEN', 'my-test-token')
+    monkeypatch.setenv('APIFY_ACTOR_ID', 'actor-123')
+    monkeypatch.setenv('APIFY_ACT_RUN_ID', 'run-456')
+    monkeypatch.setenv('APIFY_IS_AT_HOME', '1')
+    monkeypatch.setenv('APIFY_API_BASE_URL', 'https://custom-api.apify.com')
+    config = ApifyConfiguration()
+    assert config.token == 'my-test-token'
+    assert config.actor_id == 'actor-123'
+    assert config.actor_run_id == 'run-456'
+    assert config.is_at_home is True
+    assert config.api_base_url == 'https://custom-api.apify.com'
+
+
+def test_default_values() -> None:
+    """Test that default values are set correctly."""
+    config = ApifyConfiguration()
+    assert config.is_at_home is False
+    assert config.api_base_url == 'https://api.apify.com'
+    assert config.api_public_base_url == 'https://api.apify.com'
+    assert config.proxy_hostname == 'proxy.apify.com'
+    assert config.proxy_port == 8000
+    assert config.input_key == 'INPUT'
+    assert config.token is None
+    assert config.actor_id is None
+    assert config.actor_run_id is None
+    assert config.max_total_charge_usd is None
+    assert config.test_pay_per_event is False
+
+
+def test_max_total_charge_usd_decimal_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that max_total_charge_usd is parsed as Decimal from env var."""
+    from decimal import Decimal
+
+    monkeypatch.setenv('ACTOR_MAX_TOTAL_CHARGE_USD', '42.50')
+    config = ApifyConfiguration()
+    assert config.max_total_charge_usd == Decimal('42.50')
+    assert isinstance(config.max_total_charge_usd, Decimal)
+
+
+def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that actor_pricing_info is parsed from JSON env var."""
+    import json
+
+    pricing_json = json.dumps(
+        {
+            'pricingModel': 'PAY_PER_EVENT',
+            'pricingPerEvent': {
+                'actorChargeEvents': {'search': {'eventPriceUsd': '0.01', 'eventTitle': 'Search event'}}
+            },
+        }
+    )
+    monkeypatch.setenv('APIFY_ACTOR_PRICING_INFO', pricing_json)
+    config = ApifyConfiguration()
+    assert config.actor_pricing_info is not None
+    assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'

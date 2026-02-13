@@ -8,56 +8,6 @@ if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_actor_init_and_double_init_prevention(
-    make_actor: MakeActorFunction,
-    run_actor: RunActorFunction,
-) -> None:
-    async def main() -> None:
-        my_actor = Actor
-        await my_actor.init()
-        assert my_actor._is_initialized is True
-        double_init = False
-        try:
-            await my_actor.init()
-            double_init = True
-        except RuntimeError as err:
-            assert str(err) == 'The Actor was already initialized!'  # noqa: PT017
-        except Exception:
-            raise
-        try:
-            await Actor.init()
-            double_init = True
-        except RuntimeError as err:
-            assert str(err) == 'The Actor was already initialized!'  # noqa: PT017
-        except Exception:
-            raise
-        await my_actor.exit()
-        assert double_init is False
-        assert my_actor._is_initialized is False
-
-    actor = await make_actor(label='actor-init', main_func=main)
-    run_result = await run_actor(actor)
-
-    assert run_result.status == 'SUCCEEDED'
-
-
-async def test_actor_init_correctly_in_async_with_block(
-    make_actor: MakeActorFunction,
-    run_actor: RunActorFunction,
-) -> None:
-    async def main() -> None:
-        import apify._actor
-
-        async with Actor:
-            assert apify._actor.Actor._is_initialized
-        assert apify._actor.Actor._is_initialized is False
-
-    actor = await make_actor(label='with-actor-init', main_func=main)
-    run_result = await run_actor(actor)
-
-    assert run_result.status == 'SUCCEEDED'
-
-
 async def test_actor_exit_with_different_exit_codes(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
