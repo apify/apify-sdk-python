@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from apify_shared.consts import ApifyEnvVars
 
-from .._utils import generate_unique_resource_name
+from ._utils import generate_unique_resource_name
 from apify import Actor
 
 if TYPE_CHECKING:

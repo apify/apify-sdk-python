@@ -74,7 +74,7 @@ class SmartApifyStorageClient(StorageClient):
         configuration: CrawleeConfiguration | None = None,
     ) -> DatasetClient:
         return await self.get_suitable_storage_client().create_dataset_client(
-            id=id, name=id, alias=alias, configuration=configuration
+            id=id, name=name, alias=alias, configuration=configuration
         )
 
     @override
@@ -87,7 +87,7 @@ class SmartApifyStorageClient(StorageClient):
         configuration: CrawleeConfiguration | None = None,
     ) -> KeyValueStoreClient:
         return await self.get_suitable_storage_client().create_kvs_client(
-            id=id, name=id, alias=alias, configuration=configuration
+            id=id, name=name, alias=alias, configuration=configuration
         )
 
     @override
@@ -100,7 +100,7 @@ class SmartApifyStorageClient(StorageClient):
         configuration: CrawleeConfiguration | None = None,
     ) -> RequestQueueClient:
         return await self.get_suitable_storage_client().create_rq_client(
-            id=id, name=id, alias=alias, configuration=configuration
+            id=id, name=name, alias=alias, configuration=configuration
         )
 
     def get_suitable_storage_client(self, *, force_cloud: bool = False) -> StorageClient:

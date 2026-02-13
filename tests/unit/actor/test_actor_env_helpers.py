@@ -22,6 +22,8 @@ from apify_shared.consts import (
 from apify import Actor
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pytest
 
 
@@ -31,11 +33,12 @@ async def test_actor_is_not_at_home_when_local() -> None:
         assert is_at_home is False
 
 
-async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     ignored_env_vars = {
         ApifyEnvVars.SDK_LATEST_VERSION,
         ApifyEnvVars.LOG_FORMAT,
         ApifyEnvVars.LOG_LEVEL,
+        ApifyEnvVars.LOCAL_STORAGE_DIR,
         ActorEnvVars.STANDBY_PORT,
         ApifyEnvVars.PERSIST_STORAGE,
     }
@@ -126,6 +129,10 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch)
     expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()] = float(
         expected_get_env[ApifyEnvVars.DEDICATED_CPUS.name.lower()]
     )
+
+    # LOCAL_STORAGE_DIR is excluded from randomization to avoid creating directories in the project root.
+    # Its value is set by the _isolate_test_environment fixture to tmp_path.
+    expected_get_env[ApifyEnvVars.LOCAL_STORAGE_DIR.name.lower()] = str(tmp_path)
 
     await Actor.init()
     assert Actor.get_env() == expected_get_env

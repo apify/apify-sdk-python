@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from apify_shared.consts import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
-from .._utils import generate_unique_resource_name
+from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify._models import ActorRun
 

@@ -263,8 +263,8 @@ class ApifyRequestQueueSingleClient:
                 self.metadata.handled_request_count -= 1
                 self.metadata.pending_request_count += 1
 
-        except Exception as exc:
-            logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
+        except Exception:
+            logger.exception(f'Error reclaiming request {request.unique_key}')
             return None
         else:
             return processed_request
