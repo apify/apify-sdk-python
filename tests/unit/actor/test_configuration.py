@@ -243,11 +243,19 @@ def test_apify_configuration_is_always_used(caplog: pytest.LogCaptureFixture) ->
     ) in caplog.messages
 
 
-def test_token_from_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that token is populated from APIFY_TOKEN env var."""
+def test_env_vars_populate_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that configuration values are populated from environment variables."""
     monkeypatch.setenv('APIFY_TOKEN', 'my-test-token')
+    monkeypatch.setenv('APIFY_ACTOR_ID', 'actor-123')
+    monkeypatch.setenv('APIFY_ACT_RUN_ID', 'run-456')
+    monkeypatch.setenv('APIFY_IS_AT_HOME', '1')
+    monkeypatch.setenv('APIFY_API_BASE_URL', 'https://custom-api.apify.com')
     config = ApifyConfiguration()
     assert config.token == 'my-test-token'
+    assert config.actor_id == 'actor-123'
+    assert config.actor_run_id == 'run-456'
+    assert config.is_at_home is True
+    assert config.api_base_url == 'https://custom-api.apify.com'
 
 
 def test_default_values() -> None:
@@ -264,19 +272,6 @@ def test_default_values() -> None:
     assert config.actor_run_id is None
     assert config.max_total_charge_usd is None
     assert config.test_pay_per_event is False
-
-
-def test_env_var_aliases_populate_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that env var aliases are resolved correctly."""
-    monkeypatch.setenv('APIFY_ACTOR_ID', 'actor-123')
-    monkeypatch.setenv('APIFY_ACT_RUN_ID', 'run-456')
-    monkeypatch.setenv('APIFY_IS_AT_HOME', '1')
-    monkeypatch.setenv('APIFY_API_BASE_URL', 'https://custom-api.apify.com')
-    config = ApifyConfiguration()
-    assert config.actor_id == 'actor-123'
-    assert config.actor_run_id == 'run-456'
-    assert config.is_at_home is True
-    assert config.api_base_url == 'https://custom-api.apify.com'
 
 
 def test_max_total_charge_usd_decimal_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
