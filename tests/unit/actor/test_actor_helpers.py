@@ -211,80 +211,56 @@ async def test_off_removes_event_listener(monkeypatch: pytest.MonkeyPatch) -> No
         assert called is False
 
 
-async def test_start_actor_with_webhooks(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+_ACTOR_REMOTE_METHODS = [
+    pytest.param('actor', 'start', 'start', 'some-actor-id', id='start'),
+    pytest.param('actor', 'call', 'call', 'some-actor-id', id='call'),
+    pytest.param('task', 'call', 'call_task', 'some-task-id', id='call_task'),
+]
+
+
+@pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
+async def test_remote_method_with_webhooks(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: dict,
+    client_resource: str,
+    client_method: str,
+    actor_method_name: str,
+    entity_id: str,
 ) -> None:
-    """Test that start() correctly serializes webhooks."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
+    """Test that start/call/call_task correctly serialize webhooks."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
-        await Actor.start(
-            'some-actor-id',
+        actor_method = getattr(Actor, actor_method_name)
+        await actor_method(
+            entity_id,
             webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
         )
 
-    calls = apify_client_async_patcher.calls['actor']['start']
+    calls = apify_client_async_patcher.calls[client_resource][client_method]
     assert len(calls) == 1
     _, kwargs = calls[0][0], calls[0][1]
     assert 'webhooks' in kwargs
     assert kwargs['webhooks'] is not None
 
 
-async def test_start_actor_with_timedelta_timeout(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+@pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
+async def test_remote_method_with_timedelta_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: dict,
+    client_resource: str,
+    client_method: str,
+    actor_method_name: str,
+    entity_id: str,
 ) -> None:
-    """Test that start() accepts a timedelta timeout."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
+    """Test that start/call/call_task accept a timedelta timeout."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
-        await Actor.start('some-actor-id', timeout=timedelta(seconds=120))
+        actor_method = getattr(Actor, actor_method_name)
+        await actor_method(entity_id, timeout=timedelta(seconds=120))
 
-    calls = apify_client_async_patcher.calls['actor']['start']
-    assert len(calls) == 1
-    _, kwargs = calls[0][0], calls[0][1]
-    assert kwargs.get('timeout_secs') == 120
-
-
-async def test_start_actor_with_invalid_timeout(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
-) -> None:
-    """Test that start() raises ValueError for invalid timeout."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
-
-    async with Actor:
-        with pytest.raises(ValueError, match='Invalid timeout'):
-            await Actor.start('some-actor-id', timeout='invalid')  # type: ignore[arg-type]
-
-
-async def test_call_actor_with_webhooks(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
-) -> None:
-    """Test that call() correctly serializes webhooks."""
-    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
-
-    async with Actor:
-        await Actor.call(
-            'some-actor-id',
-            webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
-        )
-
-    calls = apify_client_async_patcher.calls['actor']['call']
-    assert len(calls) == 1
-    _, kwargs = calls[0][0], calls[0][1]
-    assert 'webhooks' in kwargs
-    assert kwargs['webhooks'] is not None
-
-
-async def test_call_actor_with_timedelta_timeout(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
-) -> None:
-    """Test that call() accepts a timedelta timeout."""
-    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
-
-    async with Actor:
-        await Actor.call('some-actor-id', timeout=timedelta(seconds=120))
-
-    calls = apify_client_async_patcher.calls['actor']['call']
+    calls = apify_client_async_patcher.calls[client_resource][client_method]
     assert len(calls) == 1
     _, kwargs = calls[0][0], calls[0][1]
     assert kwargs.get('timeout_secs') == 120
@@ -305,60 +281,22 @@ async def test_call_actor_with_remaining_time_deprecation(
             assert 'RemainingTime' in str(deprecation_warnings[0].message)
 
 
-async def test_call_actor_with_invalid_timeout(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
+@pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
+async def test_remote_method_with_invalid_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: dict,
+    client_resource: str,
+    client_method: str,
+    actor_method_name: str,
+    entity_id: str,
 ) -> None:
-    """Test that call() raises ValueError for invalid timeout."""
-    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
+    """Test that start/call/call_task raise ValueError for invalid timeout."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
+        actor_method = getattr(Actor, actor_method_name)
         with pytest.raises(ValueError, match='Invalid timeout'):
-            await Actor.call('some-actor-id', timeout='invalid')  # type: ignore[arg-type]
-
-
-async def test_call_task_with_webhooks(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
-) -> None:
-    """Test that call_task() correctly serializes webhooks."""
-    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
-
-    async with Actor:
-        await Actor.call_task(
-            'some-task-id',
-            webhooks=[Webhook(event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED], request_url='https://example.com')],
-        )
-
-    calls = apify_client_async_patcher.calls['task']['call']
-    assert len(calls) == 1
-    _, kwargs = calls[0][0], calls[0][1]
-    assert 'webhooks' in kwargs
-    assert kwargs['webhooks'] is not None
-
-
-async def test_call_task_with_timedelta_timeout(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
-) -> None:
-    """Test that call_task() accepts a timedelta timeout."""
-    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
-
-    async with Actor:
-        await Actor.call_task('some-task-id', timeout=timedelta(seconds=120))
-
-    calls = apify_client_async_patcher.calls['task']['call']
-    assert len(calls) == 1
-    _, kwargs = calls[0][0], calls[0][1]
-    assert kwargs.get('timeout_secs') == 120
-
-
-async def test_call_task_with_invalid_timeout(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
-) -> None:
-    """Test that call_task() raises ValueError for invalid timeout."""
-    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
-
-    async with Actor:
-        with pytest.raises(ValueError, match='Invalid timeout'):
-            await Actor.call_task('some-task-id', timeout='invalid')  # type: ignore[arg-type]
+            await actor_method(entity_id, timeout='invalid')  # type: ignore[arg-type]
 
 
 async def test_abort_with_status_message(
