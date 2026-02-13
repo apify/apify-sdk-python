@@ -677,8 +677,14 @@ async def test_persistence_across_operations(request_queue_apify: RequestQueue) 
     assert final_handled == 15, f'final_handled={final_handled}'
 
 
-async def test_request_deduplication_edge_cases(request_queue_apify: RequestQueue) -> None:
+async def test_request_deduplication_edge_cases(
+    request_queue_apify: RequestQueue, request: pytest.FixtureRequest
+) -> None:
     """Test edge cases in request deduplication."""
+    rq_access_mode = request.node.callspec.params.get('request_queue_apify')
+    if rq_access_mode == 'shared':
+        pytest.skip('Test is flaky, see https://github.com/apify/apify-sdk-python/issues/786')
+
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
