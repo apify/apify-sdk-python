@@ -2,16 +2,18 @@
 
 Serves an e-commerce test website with a category-based structure for testing crawl depth:
 
-    / (depth 0) - Homepage with links to categories, about page, and deep chain
+    / (depth 0) - Homepage with links to products, categories, about page, and deep chain
     /categories/electronics (depth 1) - Links to products 1 and 2
     /categories/home (depth 1) - Links to product 3
     /about (depth 1) - About page
     /deep/1 (depth 1) -> /deep/2 (depth 2) -> /deep/3 (depth 3) -> ... (infinite chain)
-    /products/1 (depth 2) - Widget A
-    /products/2 (depth 2) - Widget B
-    /products/3 (depth 2) - Widget C
+    /products/1 (depth 1 or 2) - Widget A
+    /products/2 (depth 1 or 2) - Widget B
+    /products/3 (depth 1 or 2) - Widget C
 
-With max_crawl_depth=2, the crawler reaches all products but does not go beyond /deep/2.
+The homepage includes both direct product links (for Scrapy spiders that look for /products/ links
+on the start page) and category links (for testing crawl depth with Crawlee crawlers).
+With max_crawl_depth=2, the crawler reaches all products and categories but does not go beyond /deep/2.
 """
 
 from __future__ import annotations
@@ -54,6 +56,9 @@ async def app(scope: dict[str, Any], _receive: Receive, send: Send) -> None:
             send,
             '<html><head><title>E-commerce Test Store</title></head><body>'
             '<h1>Welcome to Test Store</h1>'
+            '<a href="/products/1">Widget A</a>'
+            '<a href="/products/2">Widget B</a>'
+            '<a href="/products/3">Widget C</a>'
             '<a href="/categories/electronics">Electronics</a>'
             '<a href="/categories/home">Home &amp; Garden</a>'
             '<a href="/about">About Us</a>'

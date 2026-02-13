@@ -22,7 +22,6 @@ def get_scrapy_source_files(
     extra_source_files: dict[str, str] | None = None,
 ) -> dict[str, str]:
     source_files: dict[str, str] = {
-        'server.py': read_actor_source('server.py'),
         'src/__main__.py': read_actor_source('__main__.py'),
         'src/main.py': read_actor_source('main.py'),
         'src/settings.py': read_actor_source('settings.py'),
