@@ -19,7 +19,7 @@ def read_actor_source(filename: str) -> str:
 
 
 def get_playwright_dockerfile() -> str:
-    return read_actor_source('Dockerfile.playwright').replace(
+    return read_actor_source('playwright.Dockerfile').replace(
         'PYTHON_VERSION_PLACEHOLDER',
         _PYTHON_VERSION,
     )
