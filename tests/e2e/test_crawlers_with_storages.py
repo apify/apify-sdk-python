@@ -23,7 +23,7 @@ async def test_actor_on_platform_max_crawl_depth(
         async with Actor:
             crawler = ParselCrawler(max_crawl_depth=2)
             finished = []
-            enqueue_pattern = re.compile(r'http://localhost:8080/2+$')
+            enqueue_pattern = re.compile(r'http://localhost:8080/deep/\d+$')
 
             @crawler.router.default_handler
             async def default_handler(context: ParselCrawlingContext) -> None:
@@ -33,7 +33,11 @@ async def test_actor_on_platform_max_crawl_depth(
                 finished.append(context.request.url)
 
             await crawler.run(['http://localhost:8080/'])
-            assert finished == ['http://localhost:8080/', 'http://localhost:8080/2', 'http://localhost:8080/22']
+            assert finished == [
+                'http://localhost:8080/',
+                'http://localhost:8080/deep/1',
+                'http://localhost:8080/deep/2',
+            ]
 
     actor = await make_actor(label='crawler-max-depth', main_func=main)
     run_result = await run_actor(actor)
