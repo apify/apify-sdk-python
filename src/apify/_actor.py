@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import warnings
 from contextlib import suppress
@@ -206,6 +207,7 @@ class _ActorType:
             await self.open_key_value_store()
 
         # Load non-default aliased storages from configuration
+        self.log.warning('\n'.join(f'{k}={v}' for k, v in os.environ.items()))
         await AliasResolver.register_aliases(configuration=self._configuration)
         return self
 

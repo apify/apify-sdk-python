@@ -453,10 +453,10 @@ class Configuration(CrawleeConfiguration):
         BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
     ] = None
 
-    actor_storage_ids: Annotated[
+    actor_storages: Annotated[
         ActorStorageIds | None,
         Field(
-            alias='apify_actor_storage_ids',
+            alias='actor_storages_json',
             description='Storage IDs for the actor',
         ),
         BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),

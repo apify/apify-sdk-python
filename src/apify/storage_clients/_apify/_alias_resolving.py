@@ -273,12 +273,12 @@ class AliasResolver:
 
         configuration_mapping = {}
 
-        if configuration.default_dataset_id != configuration.actor_storage_ids["datasets"].get("default", configuration.default_dataset_id):
+        if configuration.default_dataset_id != configuration.actor_storages["datasets"].get("default", configuration.default_dataset_id):
             raise RuntimeError(
                 f"Conflicting default dataset ids: {configuration.default_dataset_id=},"
-                f" {configuration.actor_storage_ids['datasets'].get('default')=}")
+                f" {configuration.actor_storages['datasets'].get('default')=}")
 
-        for config_storage_type, mapping in configuration.actor_storage_ids.items():
+        for config_storage_type, mapping in configuration.actor_storages.items():
             for storage_alias, storage_id in mapping.items():
                 if storage_alias == "default":
                     # This is how the default storage is stored in the default kvs
