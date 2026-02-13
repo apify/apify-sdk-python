@@ -236,7 +236,7 @@ class ApifyRequestQueueSharedClient:
                 hydrated_request=request,
             )
         except Exception:
-            logger.exception(f'Error marking request {request.unique_key} as handled')
+            logger.exception(f'Error marking request {request.unique_key} as handled.')
             return None
         else:
             return processed_request
