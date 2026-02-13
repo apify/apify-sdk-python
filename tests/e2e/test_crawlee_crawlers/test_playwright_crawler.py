@@ -16,7 +16,7 @@ async def test_playwright_crawler(make_actor: MakeActorFunction, run_actor: RunA
             'src/main.py': read_actor_source('main_playwright_crawler.py'),
             'Dockerfile': get_playwright_dockerfile(),
         },
-        additional_requirements=['crawlee[playwright]>=1.0.0,<2.0.0'],
+        additional_requirements=['crawlee[playwright]'],
         memory_mbytes=1024,
     )
     run_result = await run_actor(actor)

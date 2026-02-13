@@ -15,7 +15,7 @@ async def test_beautifulsoup_crawler(make_actor: MakeActorFunction, run_actor: R
             'server.py': read_actor_source('server.py'),
             'src/main.py': read_actor_source('main_beautifulsoup_crawler.py'),
         },
-        additional_requirements=['crawlee[beautifulsoup]>=1.0.0,<2.0.0'],
+        additional_requirements=['crawlee[beautifulsoup]'],
     )
     run_result = await run_actor(actor)
     await verify_crawler_results(actor, run_result, 'BeautifulSoupCrawler')

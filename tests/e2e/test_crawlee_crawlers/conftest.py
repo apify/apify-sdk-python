@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -10,7 +9,7 @@ if TYPE_CHECKING:
 
     from apify._models import ActorRun
 
-_PYTHON_VERSION = os.getenv('INTEGRATION_TESTS_PYTHON_VERSION') or '.'.join(str(x) for x in sys.version_info[:2])
+_PYTHON_VERSION = f'{sys.version_info[0]}.{sys.version_info[1]}'
 
 _ACTOR_SOURCE_DIR = Path(__file__).parent / 'actor_source'
 

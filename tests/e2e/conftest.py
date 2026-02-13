@@ -168,12 +168,9 @@ def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
         'APIFY_SDK_WHEEL_PLACEHOLDER', f'./{sdk_wheel_file_name}'
     )
 
-    current_major_minor_python_version = '.'.join([str(x) for x in sys.version_info[:2]])
-    integration_tests_python_version = (
-        os.getenv('INTEGRATION_TESTS_PYTHON_VERSION') or current_major_minor_python_version
-    )
+    python_version = f'{sys.version_info[0]}.{sys.version_info[1]}'
     source_files['Dockerfile'] = str(source_files['Dockerfile']).replace(
-        'BASE_IMAGE_VERSION_PLACEHOLDER', integration_tests_python_version
+        'BASE_IMAGE_VERSION_PLACEHOLDER', python_version
     )
 
     return source_files
