@@ -173,6 +173,12 @@ indent-style = "space"
     # Local imports in Scrapy project.
     "TID252", # Prefer absolute imports over relative imports from parent modules
 ]
+"**/tests/**/test_scrapy/actor_source/__main__.py" = [
+    # Because of asyncioreactor.install() call.
+    "E402", # Module level import not at top of file
+    # Local imports are mixed up with the Apify SDK.
+    "I001", # Import block is un-sorted or un-formatted
+]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
