@@ -1200,8 +1200,7 @@ async def test_request_queue_api_fail_when_marking_as_handled(
     """Test that single-access based Apify RQ can deal with API failures when marking requests as handled.
 
     Single-access based Apify RQ is aware that local information is reliable, so even if marking as handled fails
-    during API call, the RQ correctly tracks the handling information locally. It can even fix the missing handled
-    information on the platform later, when fetching next request later.
+    during API call, the RQ correctly tracks the handling information locally.
     """
 
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
