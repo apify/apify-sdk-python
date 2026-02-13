@@ -134,7 +134,6 @@ def test_create_same_hmac() -> None:
     secret_key = 'hmac-same-secret-key'
     message = 'hmac-same-message-to-be-authenticated'
     assert create_hmac_signature(secret_key, message) == 'FYMcmTIm3idXqleF1Sw5'
-    assert create_hmac_signature(secret_key, message) == 'FYMcmTIm3idXqleF1Sw5'
 
 
 def test_encrypt_decrypt_empty_string() -> None:
@@ -194,11 +193,21 @@ def test_load_public_key_invalid_type() -> None:
         _load_public_key('ZHVtbXk=')
 
 
-def test_decrypt_input_secrets_non_dict() -> None:
+@pytest.mark.parametrize(
+    'value',
+    [
+        pytest.param('just a string', id='string'),
+        pytest.param(42, id='int'),
+        pytest.param([1, 2, 3], id='list'),
+        pytest.param(None, id='none'),
+    ],
+)
+def test_decrypt_input_secrets_non_dict(value: object) -> None:
     """Test that decrypt_input_secrets returns non-dict input unchanged."""
     from apify._crypto import decrypt_input_secrets
 
-    assert decrypt_input_secrets(PRIVATE_KEY, 'just a string') == 'just a string'
-    assert decrypt_input_secrets(PRIVATE_KEY, 42) == 42
-    assert decrypt_input_secrets(PRIVATE_KEY, [1, 2, 3]) == [1, 2, 3]
-    assert decrypt_input_secrets(PRIVATE_KEY, None) is None
+    result = decrypt_input_secrets(PRIVATE_KEY, value)
+    if value is None:
+        assert result is None
+    else:
+        assert result == value

@@ -3,6 +3,8 @@ from __future__ import annotations
 from enum import Enum
 from unittest.mock import patch
 
+import pytest
+
 from apify._utils import get_system_info, is_running_in_ipython, maybe_extract_enum_member_value
 
 
@@ -22,18 +24,18 @@ def test_ipython_detection_when_active() -> None:
             builtins.__IPYTHON__ = original  # type: ignore[attr-defined]
 
 
-def test_get_system_info_includes_ipython_flag() -> None:
-    """Test that get_system_info includes is_running_in_ipython when in IPython."""
-    with patch('apify._utils.is_running_in_ipython', return_value=True):
+@pytest.mark.parametrize(
+    'ipython_running',
+    [
+        pytest.param(True, id='in_ipython'),
+        pytest.param(False, id='not_in_ipython'),
+    ],
+)
+def test_get_system_info_ipython_flag(*, ipython_running: bool) -> None:
+    """Test that get_system_info correctly reflects the is_running_in_ipython flag."""
+    with patch('apify._utils.is_running_in_ipython', return_value=ipython_running):
         info = get_system_info()
-        assert info['is_running_in_ipython'] is True
-
-
-def test_get_system_info_excludes_ipython_flag() -> None:
-    """Test that get_system_info excludes is_running_in_ipython when not in IPython."""
-    with patch('apify._utils.is_running_in_ipython', return_value=False):
-        info = get_system_info()
-        assert 'is_running_in_ipython' not in info
+        assert info['is_running_in_ipython'] is ipython_running
 
 
 def test_maybe_extract_enum_member_value_with_enum() -> None:

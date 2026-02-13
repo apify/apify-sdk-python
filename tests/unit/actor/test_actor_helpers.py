@@ -296,7 +296,7 @@ async def test_remote_method_with_invalid_timeout(
     async with Actor:
         actor_method = getattr(Actor, actor_method_name)
         with pytest.raises(ValueError, match='Invalid timeout'):
-            await actor_method(entity_id, timeout='invalid')  # type: ignore[arg-type]
+            await actor_method(entity_id, timeout='invalid')
 
 
 async def test_abort_with_status_message(
