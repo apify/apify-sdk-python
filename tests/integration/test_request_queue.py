@@ -15,6 +15,7 @@ from crawlee.crawlers import BasicCrawler
 from ._utils import generate_unique_resource_name
 from apify import Actor, Request
 from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients._apify import ApifyRequestQueueClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
 from apify.storages import RequestQueue
 
@@ -683,7 +684,7 @@ async def test_request_deduplication_edge_cases(
     """Test edge cases in request deduplication."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
     if rq_access_mode == 'shared':
-        pytest.skip('Test is flaky, see https://github.com/apify/apify-sdk-python/issues/786')
+        pytest.skip(reason='Test is flaky, see https://github.com/apify/apify-sdk-python/issues/786')  # ty: ignore[invalid-argument-type, parameter-already-assigned]
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -1218,17 +1219,25 @@ async def test_request_queue_api_fail_when_marking_as_handled(
             # Fetch request
             await rq.add_request(request)
             assert request == await rq.fetch_next_request()
+            assert isinstance(rq._client, ApifyRequestQueueClient)
 
             # Mark as handled, but simulate API failure.
             with mock.patch.object(
-                rq._client._api_client, 'update_request', side_effect=Exception('Simulated API failure')
+                rq._client._api_client,
+                'update_request',
+                side_effect=Exception('Simulated API failure'),
             ):
                 await rq.mark_request_as_handled(request)
-            assert not (await rq.get_request(request.unique_key)).was_already_handled
+
+            request = await rq.get_request(request.unique_key)
+            assert request is not None
+            assert not request.was_already_handled
 
             # RQ with `request_queue_access="single"` knows, that the local information is reliable, so it knows it
             # handled this request already despite the platform not being aware of it.
-            assert not await rq.fetch_next_request()
+            next_request = await rq.fetch_next_request()
+            assert next_request is None
+
             assert await rq.is_finished()
             assert await rq.is_empty()
 
