@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.2.1 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix crawler deadlock when API fails during marking request as handled ([#768](https://github.com/apify/apify-sdk-python/pull/768)) ([66ed5ea](https://github.com/apify/apify-sdk-python/commit/66ed5eaf819f9c9f411c814606187d76d32a4e11)) by [@Pijukatel](https://github.com/Pijukatel), closes [#1694](https://github.com/apify/apify-sdk-python/issues/1694)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.2.0) (2026-02-11)
 
 ### 🚀 Features
