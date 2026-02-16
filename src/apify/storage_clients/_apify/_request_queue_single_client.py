@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from datetime import datetime, timezone
 from logging import getLogger
@@ -95,6 +96,9 @@ class ApifyRequestQueueSingleClient:
         Initialization is performed lazily when deduplication is first needed (during add_batch_of_requests).
         """
 
+        self._lock = asyncio.Lock()
+        """Lock to prevent race conditions during concurrent access to shared mutable state."""
+
     async def add_batch_of_requests(
         self,
         requests: Sequence[Request],
@@ -102,83 +106,84 @@ class ApifyRequestQueueSingleClient:
         forefront: bool = False,
     ) -> AddRequestsResponse:
         """Specific implementation of this method for the RQ single access mode."""
-        if not self._initialized_caches:
-            # One time process to initialize local caches for existing request queues.
-            await self._init_caches()
-            self._initialized_caches = True
+        async with self._lock:
+            if not self._initialized_caches:
+                # One time process to initialize local caches for existing request queues.
+                await self._init_caches()
+                self._initialized_caches = True
 
-        new_requests: list[Request] = []
-        already_present_requests: list[ProcessedRequest] = []
+            new_requests: list[Request] = []
+            already_present_requests: list[ProcessedRequest] = []
 
-        for request in requests:
-            # Calculate id for request
-            request_id = unique_key_to_request_id(request.unique_key)
+            for request in requests:
+                # Calculate id for request
+                request_id = unique_key_to_request_id(request.unique_key)
 
-            # Check if request is known to be already handled (it has to be present as well.)
-            if request_id in self._requests_already_handled:
-                already_present_requests.append(
-                    ProcessedRequest(
-                        id=request_id,
-                        unique_key=request.unique_key,
-                        was_already_present=True,
-                        was_already_handled=True,
+                # Check if request is known to be already handled (it has to be present as well.)
+                if request_id in self._requests_already_handled:
+                    already_present_requests.append(
+                        ProcessedRequest(
+                            id=request_id,
+                            unique_key=request.unique_key,
+                            was_already_present=True,
+                            was_already_handled=True,
+                        )
                     )
-                )
-            # Check if request is known to be already present, but unhandled
-            elif self._requests_cache.get(request_id):
-                already_present_requests.append(
-                    ProcessedRequest(
-                        id=request_id,
-                        unique_key=request.unique_key,
-                        was_already_present=True,
-                        was_already_handled=request.was_already_handled,
+                # Check if request is known to be already present, but unhandled
+                elif self._requests_cache.get(request_id):
+                    already_present_requests.append(
+                        ProcessedRequest(
+                            id=request_id,
+                            unique_key=request.unique_key,
+                            was_already_present=True,
+                            was_already_handled=request.was_already_handled,
+                        )
                     )
-                )
-            else:
-                # Push the request to the platform. Probably not there, or we are not aware of it
-                new_requests.append(request)
-
-                # Update local caches
-                self._requests_cache[request_id] = request
-                if forefront:
-                    self._head_requests.append(request_id)
                 else:
-                    self._head_requests.appendleft(request_id)
+                    # Push the request to the platform. Probably not there, or we are not aware of it
+                    new_requests.append(request)
 
-        if new_requests:
-            # Prepare requests for API by converting to dictionaries.
-            requests_dict = [
-                request.model_dump(
-                    by_alias=True,
+                    # Update local caches
+                    self._requests_cache[request_id] = request
+                    if forefront:
+                        self._head_requests.append(request_id)
+                    else:
+                        self._head_requests.appendleft(request_id)
+
+            if new_requests:
+                # Prepare requests for API by converting to dictionaries.
+                requests_dict = [
+                    request.model_dump(
+                        by_alias=True,
+                    )
+                    for request in new_requests
+                ]
+
+                # Send requests to API.
+                api_response = AddRequestsResponse.model_validate(
+                    await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
                 )
-                for request in new_requests
-            ]
+                # Add the locally known already present processed requests based on the local cache.
+                api_response.processed_requests.extend(already_present_requests)
+                # Remove unprocessed requests from the cache
+                for unprocessed_request in api_response.unprocessed_requests:
+                    self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
 
-            # Send requests to API.
-            api_response = AddRequestsResponse.model_validate(
-                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
-            )
-            # Add the locally known already present processed requests based on the local cache.
-            api_response.processed_requests.extend(already_present_requests)
-            # Remove unprocessed requests from the cache
-            for unprocessed_request in api_response.unprocessed_requests:
-                self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
+            else:
+                api_response = AddRequestsResponse(
+                    unprocessed_requests=[],
+                    processed_requests=already_present_requests,
+                )
 
-        else:
-            api_response = AddRequestsResponse(
-                unprocessed_requests=[],
-                processed_requests=already_present_requests,
-            )
+            # Update assumed total count for newly added requests.
+            new_request_count = 0
+            for processed_request in api_response.processed_requests:
+                if not processed_request.was_already_present and not processed_request.was_already_handled:
+                    new_request_count += 1
+            self.metadata.total_request_count += new_request_count
+            self.metadata.pending_request_count += new_request_count
 
-        # Update assumed total count for newly added requests.
-        new_request_count = 0
-        for processed_request in api_response.processed_requests:
-            if not processed_request.was_already_present and not processed_request.was_already_handled:
-                new_request_count += 1
-        self.metadata.total_request_count += new_request_count
-        self.metadata.pending_request_count += new_request_count
-
-        return api_response
+            return api_response
 
     async def get_request(self, unique_key: str) -> Request | None:
         """Specific implementation of this method for the RQ single access mode."""
@@ -186,45 +191,53 @@ class ApifyRequestQueueSingleClient:
 
     async def fetch_next_request(self) -> Request | None:
         """Specific implementation of this method for the RQ single access mode."""
-        await self._ensure_head_is_non_empty()
+        async with self._lock:
+            await self._ensure_head_is_non_empty()
 
-        while self._head_requests:
-            request_id = self._head_requests.pop()
-            if request_id not in self._requests_in_progress and request_id not in self._requests_already_handled:
-                self._requests_in_progress.add(request_id)
-                return await self._get_request_by_id(request_id)
-        # No request locally and the ones returned from the platform are already in progress.
-        return None
+            next_request_id: str | None = None
+            while self._head_requests:
+                request_id = self._head_requests.pop()
+                if request_id not in self._requests_in_progress and request_id not in self._requests_already_handled:
+                    self._requests_in_progress.add(request_id)
+                    next_request_id = request_id
+                    break
+
+        if next_request_id is None:
+            # No request locally and the ones returned from the platform are already in progress.
+            return None
+
+        return await self._get_request_by_id(next_request_id)
 
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
         """Specific implementation of this method for the RQ single access mode."""
-        # Set the handled_at timestamp if not already set
-        request_id = unique_key_to_request_id(request.unique_key)
+        async with self._lock:
+            # Set the handled_at timestamp if not already set
+            request_id = unique_key_to_request_id(request.unique_key)
 
-        if cached_request := self._requests_cache.get(request_id):
-            cached_request.handled_at = request.handled_at
+            if cached_request := self._requests_cache.get(request_id):
+                cached_request.handled_at = request.handled_at
 
-        if request.handled_at is None:
-            request.handled_at = datetime.now(tz=timezone.utc)
-            self.metadata.handled_request_count += 1
-            self.metadata.pending_request_count -= 1
+            if request.handled_at is None:
+                request.handled_at = datetime.now(tz=timezone.utc)
+                self.metadata.handled_request_count += 1
+                self.metadata.pending_request_count -= 1
 
-        try:
-            # Remember that we handled this request, to optimize local deduplication.
-            self._requests_already_handled.add(request_id)
-            self._requests_in_progress.discard(request_id)
-            # Remove request from cache, it will most likely not be needed.
-            self._requests_cache.pop(request_id, None)
-            # Update the request in the API
-            # Works as upsert - adds the request if it does not exist yet. (Local request that was handled before
-            # adding to the queue.)
-            processed_request = await self._update_request(request)
+            try:
+                # Remember that we handled this request, to optimize local deduplication.
+                self._requests_already_handled.add(request_id)
+                self._requests_in_progress.discard(request_id)
+                # Remove request from cache, it will most likely not be needed.
+                self._requests_cache.pop(request_id, None)
+                # Update the request in the API
+                # Works as upsert - adds the request if it does not exist yet. (Local request that was handled before
+                # adding to the queue.)
+                processed_request = await self._update_request(request)
 
-        except Exception:
-            logger.exception(f'Error marking request {request.unique_key} as handled.')
-            return None
-        else:
-            return processed_request
+            except Exception:
+                logger.exception(f'Error marking request {request.unique_key} as handled.')
+                return None
+            else:
+                return processed_request
 
     async def reclaim_request(
         self,
@@ -233,47 +246,48 @@ class ApifyRequestQueueSingleClient:
         forefront: bool = False,
     ) -> ProcessedRequest | None:
         """Specific implementation of this method for the RQ single access mode."""
-        # Check if the request was marked as handled and clear it. When reclaiming,
-        # we want to put the request back for processing.
+        async with self._lock:
+            # Check if the request was marked as handled and clear it. When reclaiming,
+            # we want to put the request back for processing.
 
-        request_id = unique_key_to_request_id(request.unique_key)
+            request_id = unique_key_to_request_id(request.unique_key)
 
-        if request.was_already_handled:
-            request.handled_at = None
+            if request.was_already_handled:
+                request.handled_at = None
 
-        try:
-            # Make sure request is in the local cache. We might need it.
-            self._requests_cache[request_id] = request
+            try:
+                # Make sure request is in the local cache. We might need it.
+                self._requests_cache[request_id] = request
 
-            # No longer in progress
-            self._requests_in_progress.discard(request_id)
-            # No longer handled
-            self._requests_already_handled.discard(request_id)
+                # No longer in progress
+                self._requests_in_progress.discard(request_id)
+                # No longer handled
+                self._requests_already_handled.discard(request_id)
 
-            if forefront:
-                # Append to top of the local head estimation
-                self._head_requests.append(request_id)
+                if forefront:
+                    # Append to top of the local head estimation
+                    self._head_requests.append(request_id)
 
-            processed_request = await self._update_request(request, forefront=forefront)
-            processed_request.id = request_id
-            processed_request.unique_key = request.unique_key
-            # If the request was previously handled, decrement our handled count since
-            # we're putting it back for processing.
-            if request.was_already_handled and not processed_request.was_already_handled:
-                self.metadata.handled_request_count -= 1
-                self.metadata.pending_request_count += 1
+                processed_request = await self._update_request(request, forefront=forefront)
+                processed_request.id = request_id
+                processed_request.unique_key = request.unique_key
+                # If the request was previously handled, decrement our handled count since
+                # we're putting it back for processing.
+                if request.was_already_handled and not processed_request.was_already_handled:
+                    self.metadata.handled_request_count -= 1
+                    self.metadata.pending_request_count += 1
 
-        except Exception:
-            logger.exception(f'Error reclaiming request {request.unique_key}')
-            return None
-        else:
-            return processed_request
+            except Exception:
+                logger.exception(f'Error reclaiming request {request.unique_key}')
+                return None
+            else:
+                return processed_request
 
     async def is_empty(self) -> bool:
         """Specific implementation of this method for the RQ single access mode."""
-        # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
-        await self._ensure_head_is_non_empty()
-        return not self._head_requests and not self._requests_in_progress
+        async with self._lock:
+            await self._ensure_head_is_non_empty()
+            return not self._head_requests and not self._requests_in_progress
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
