@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from pathlib import Path
-from typing import Annotated, Any, Required, TypedDict
+from typing import Annotated, Any
 
-from pydantic import AliasChoices, BaseModel, BeforeValidator, Field, field_validator, model_validator
+from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import Self, deprecated
 
 from crawlee import service_locator
@@ -34,11 +35,26 @@ def _transform_to_list(value: Any) -> list[str] | None:
     return value if isinstance(value, list) else str(value).split(',')
 
 
-class ActorStorageIds(TypedDict):
+@dataclasses.dataclass
+class ActorStorages:
     """Storage IDs for different storage types used by an Actor."""
-    keyValueStores: dict[str, str]
+
+    key_value_stores: dict[str, str]
     datasets: dict[str, str]
-    requestQueues: dict[str, str]
+    request_queues: dict[str, str]
+
+
+def _load_storage_keys(data: None | str | dict) -> ActorStorages | None:
+    """Load storage keys from environment."""
+    if data is None:
+        return None
+
+    storage_mapping = data if isinstance(data, dict) else json.loads(data)
+    return ActorStorages(
+        key_value_stores=storage_mapping.get('keyValueStores', {}),
+        datasets=storage_mapping.get('datasets', {}),
+        request_queues=storage_mapping.get('requestQueues', {}),
+    )
 
 
 @docs_group('Configuration')
@@ -454,12 +470,12 @@ class Configuration(CrawleeConfiguration):
     ] = None
 
     actor_storages: Annotated[
-        ActorStorageIds | None,
+        ActorStorages | None,
         Field(
             alias='actor_storages_json',
             description='Storage IDs for the actor',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+        BeforeValidator(_load_storage_keys),
     ] = None
 
     @model_validator(mode='after')

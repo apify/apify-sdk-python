@@ -207,8 +207,7 @@ class _ActorType:
             await self.open_key_value_store()
 
         # Load non-default aliased storages from configuration
-        self.log.warning('\n'.join(f'{k}={v}' for k, v in os.environ.items()))
-        await AliasResolver.register_aliases(configuration=self._configuration)
+        #await AliasResolver.register_aliases(configuration=self.configuration)
         return self
 
     async def __aexit__(
