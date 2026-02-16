@@ -20,25 +20,10 @@ from apify.storage_clients._apify._utils import unique_key_to_request_id
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
-
     from apify_client import ApifyClientAsync
     from crawlee._types import BasicCrawlingContext
 
     from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
-
-
-@pytest.fixture(params=['single', 'shared'])
-async def request_queue_apify(
-    apify_token: str, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
-) -> AsyncGenerator[RequestQueue]:
-    """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
-    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
-
-    async with Actor:
-        rq = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access=request.param))
-        yield rq
-        await rq.drop()
 
 
 async def test_add_and_fetch_requests(request_queue_apify: RequestQueue) -> None:
@@ -976,6 +961,7 @@ async def test_request_queue_has_stats(request_queue_apify: RequestQueue) -> Non
 
 
 async def test_rq_long_url(request_queue_apify: RequestQueue) -> None:
+    """Test handling of requests with long URLs and extended unique keys."""
     rq = request_queue_apify
     request = Request.from_url(
         'https://portal.isoss.gov.cz/irj/portal/anonymous/mvrest?path=/eosm-public-offer&officeLabels=%7B%7D&page=1&pageSize=100000&sortColumn=zdatzvsm&sortOrder=-1',

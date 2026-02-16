@@ -10,6 +10,7 @@ from crawlee import service_locator
 from ._utils import generate_unique_resource_name
 from apify import Actor
 from apify.storage_clients import ApifyStorageClient
+from apify.storage_clients._apify._alias_resolving import AliasResolver
 from apify.storages import KeyValueStore
 
 if TYPE_CHECKING:
@@ -87,6 +88,8 @@ async def test_set_value_in_one_context_and_get_value_in_another(
     service_locator._event_manager = None
     service_locator._storage_client = None
     service_locator.storage_instance_manager.clear_cache()
+    AliasResolver._alias_map = {}
+    AliasResolver._alias_init_lock = None
 
     # Second context: get the value
     try:
@@ -102,6 +105,8 @@ async def test_set_value_in_one_context_and_get_value_in_another(
         service_locator._event_manager = None
         service_locator._storage_client = None
         service_locator.storage_instance_manager.clear_cache()
+        AliasResolver._alias_map = {}
+        AliasResolver._alias_init_lock = None
         async with Actor:
             kvs3 = await Actor.open_key_value_store(id=kvs_id, force_cloud=True)
             await kvs3.drop()
