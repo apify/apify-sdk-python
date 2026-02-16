@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from asyncio import Task
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, TypeAdapter
@@ -114,49 +113,34 @@ class ApifyRequestList(RequestList):
     ) -> list[Request]:
         """Create list of requests from url.
 
-        Send GET requests to urls defined in each requests_from_url of remote_url_requests_inputs. Run extracting
-        callback on each response body and use URL_NO_COMMAS_REGEX regex to find all links. Create list of Requests from
-        collected links and additional inputs stored in other attributes of each remote_url_requests_inputs.
+        Send GET requests to urls defined in each requests_from_url of remote_url_requests_inputs. Extract links from
+        each response body using URL_NO_COMMAS_REGEX regex. Create list of Requests from collected links and additional
+        inputs stored in other attributes of each remote_url_requests_inputs.
         """
         created_requests: list[Request] = []
 
-        async def create_requests_from_response(request_input: _RequestsFromUrlInput, task: Task) -> None:
-            """Extract links from response body and use them to create `Request` objects.
+        # Fetch all remote URLs in parallel.
+        responses = await asyncio.gather(
+            *[
+                http_client.send_request(method='GET', url=remote_url_input.requests_from_url)
+                for remote_url_input in remote_url_requests_inputs
+            ]
+        )
 
-            Use the regular expression to find all matching links in the response body, then create `Request`
-            objects from these links and the provided input attributes.
-            """
-            response = await (task.result()).read()
-            matches = re.finditer(URL_NO_COMMAS_REGEX, response.decode('utf-8'))
+        # Process each response and extract links.
+        for request_input, http_response in zip(remote_url_requests_inputs, responses, strict=True):
+            response_body = await http_response.read()
+            matches = re.finditer(URL_NO_COMMAS_REGEX, response_body.decode('utf-8'))
 
             created_requests.extend(
-                [
-                    Request.from_url(
-                        match.group(0),
-                        method=request_input.method,
-                        payload=request_input.payload.encode('utf-8'),
-                        headers=request_input.headers,
-                        user_data=request_input.user_data,
-                    )
-                    for match in matches
-                ]
-            )
-
-        remote_url_requests = []
-        for remote_url_requests_input in remote_url_requests_inputs:
-            get_response_task = asyncio.create_task(
-                http_client.send_request(
-                    method='GET',
-                    url=remote_url_requests_input.requests_from_url,
+                Request.from_url(
+                    match.group(0),
+                    method=request_input.method,
+                    payload=request_input.payload.encode('utf-8'),
+                    headers=request_input.headers,
+                    user_data=request_input.user_data,
                 )
+                for match in matches
             )
 
-            get_response_task.add_done_callback(
-                lambda task, inp=remote_url_requests_input: asyncio.create_task(
-                    create_requests_from_response(inp, task)
-                )
-            )
-            remote_url_requests.append(get_response_task)
-
-        await asyncio.gather(*remote_url_requests)
         return created_requests
