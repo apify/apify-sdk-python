@@ -3,14 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from scrapy import Field, Item, Spider
+from scrapy import Field, Item
 
 from apify import Actor
 from apify.scrapy.pipelines import ActorDatasetPushPipeline
-
-
-class DummySpider(Spider):
-    name = 'dummy_spider'
 
 
 class DummyItem(Item):
@@ -22,12 +18,6 @@ class DummyItem(Item):
 class TitleItem(Item):
     url = Field()
     title = Field()
-
-
-@pytest.fixture
-def spider() -> DummySpider:
-    """Fixture to create a "dummy" Scrapy spider."""
-    return DummySpider()
 
 
 @pytest.fixture
@@ -67,7 +57,6 @@ class ItemTestCase:
 async def test_process_item(
     monkeypatch: pytest.MonkeyPatch,
     pipeline: ActorDatasetPushPipeline,
-    spider: Spider,
     tc: ItemTestCase,
 ) -> None:
     dataset = []
@@ -79,9 +68,9 @@ async def test_process_item(
 
     if tc.expected_exception:
         with pytest.raises(tc.expected_exception):
-            await pipeline.process_item(tc.item, spider)
+            await pipeline.process_item(tc.item)
 
     else:
-        output = await pipeline.process_item(tc.item, spider)
+        output = await pipeline.process_item(tc.item)
         assert output == tc.item
         assert dataset == [tc.item_dict]
