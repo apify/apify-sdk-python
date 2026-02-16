@@ -13,7 +13,17 @@ uv run poe integration-tests
 
 To run against a different environment, also set `APIFY_INTEGRATION_TESTS_API_URL`.
 
+## Structure
+
+| File | Description |
+| --- | --- |
+| `test_dataset.py` | Dataset operations |
+| `test_key_value_store.py` | Key-value store operations |
+| `test_request_queue.py` | Request queue operations |
+| `test_storages.py` | Cross-storage tests (aliases, unnamed defaults, explicit init) |
+
 ## Key fixtures
 
 - **`apify_client_async`** — A session-scoped `ApifyClientAsync` instance configured with the test token and API URL.
+- **`request_queue_apify`** — Creates a parametrized (`single`/`shared` access mode) Apify request queue on the platform, yields it, and drops it after the test. Defined in `conftest.py`.
 - **`prepare_test_env`** / **`_isolate_test_environment`** (autouse) — Resets global state and sets `APIFY_LOCAL_STORAGE_DIR` to a temporary directory before each test.

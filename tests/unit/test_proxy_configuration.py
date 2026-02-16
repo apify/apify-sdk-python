@@ -255,9 +255,6 @@ async def test_url_reference_not_shared_between_instances() -> None:
     proxy_urls.append('http://proxy-example-3.com:8000')
     proxy_configuration_2 = ProxyConfiguration(proxy_urls=proxy_urls)
 
-    assert proxy_configuration_1 is not None
-    assert proxy_configuration_2 is not None
-
     assert proxy_configuration_1._proxy_urls is not proxy_configuration_2._proxy_urls
 
     session_id = 'ABCD'
@@ -580,3 +577,30 @@ def test_is_url_validation() -> None:
     assert is_url('12.34.56.78') is False
     assert is_url('::1') is False
     assert is_url('https://4da6:8f56:af8c:5dce:c1de:14d2:8661') is False
+
+
+@pytest.mark.parametrize(
+    'value',
+    [
+        pytest.param('', id='empty_string'),
+        pytest.param(None, id='none'),
+    ],
+)
+def test_is_url_with_completely_unparsable_input(value: str | None) -> None:
+    """Test is_url with input that causes urlparse to fail."""
+    assert is_url(value) is False  # ty: ignore[invalid-argument-type]
+
+
+def test_check_min_length_raises() -> None:
+    """Test that _check raises ValueError for values shorter than min_length."""
+    from apify._proxy_configuration import _check
+
+    with pytest.raises(ValueError, match='shorter than minimum allowed length'):
+        _check('ab', label='session_id', min_length=5)
+
+
+async def test_proxy_urls_with_apify_domain_warns(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that using apify.com URLs in proxy_urls triggers a warning."""
+    caplog.set_level('WARNING')
+    ProxyConfiguration(proxy_urls=['http://proxy.apify.com:8000'])
+    assert any('Some Apify proxy features may work incorrectly' in msg for msg in caplog.messages)

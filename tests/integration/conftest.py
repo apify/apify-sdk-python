@@ -10,10 +10,13 @@ from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
+from apify import Actor
+from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._alias_resolving import AliasResolver
+from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncGenerator, Callable
     from pathlib import Path
 
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
@@ -76,6 +79,19 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
 
     return _prepare_test_env
+
+
+@pytest.fixture(params=['single', 'shared'])
+async def request_queue_apify(
+    apify_token: str, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> AsyncGenerator[RequestQueue]:
+    """Create an instance of the Apify request queue on the platform and drop it when the test is finished."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
+
+    async with Actor:
+        rq = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access=request.param))
+        yield rq
+        await rq.drop()
 
 
 @pytest.fixture(autouse=True)
