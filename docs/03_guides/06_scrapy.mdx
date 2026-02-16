@@ -17,13 +17,13 @@ import SettingsExample from '!!raw-loader!./code/scrapy_project/src/settings.py'
 
 ## Integrating Scrapy with the Apify platform
 
-The Apify SDK provides an Apify-Scrapy integration. The main challenge of this is to combine two asynchronous frameworks that use different event loop implementations. Scrapy uses [Twisted](https://twisted.org/) for asynchronous execution, while the Apify SDK is based on [asyncio](https://docs.python.org/3/library/asyncio.html). The key thing is to install the Twisted's `asyncioreactor` to run Twisted's asyncio compatible event loop. This allows both Twisted and asyncio to run on a single event loop, enabling a Scrapy spider to run as an Apify Actor with minimal modifications.
+The Apify SDK provides an Apify-Scrapy integration. The main challenge of this is to combine two asynchronous frameworks that use different event loop implementations. Scrapy uses [Twisted](https://twisted.org/) for asynchronous execution, while the Apify SDK is based on [asyncio](https://docs.python.org/3/library/asyncio.html). The key thing is to install the Twisted's `asyncioreactor` to run Twisted's asyncio compatible event loop. The `apify.scrapy.run_scrapy_actor` function handles this reactor installation automatically. This allows both Twisted and asyncio to run on a single event loop, enabling a Scrapy spider to run as an Apify Actor with minimal modifications.
 
 <CodeBlock className="language-python" title="__main.py__: The Actor entry point ">
     {UnderscoreMainExample}
 </CodeBlock>
 
-In this setup, `apify.scrapy.initialize_logging` configures an Apify log formatter and reconfigures loggers to ensure consistent logging across Scrapy, the Apify SDK, and other libraries. The `apify.scrapy.run_scrapy_actor` bridges asyncio coroutines with Twisted's reactor, enabling the Actor's main coroutine, which contains the Scrapy spider, to be executed.
+In this setup, `apify.scrapy.initialize_logging` configures an Apify log formatter and reconfigures loggers to ensure consistent logging across Scrapy, the Apify SDK, and other libraries. The `apify.scrapy.run_scrapy_actor` installs Twisted's asyncio-compatible reactor and bridges asyncio coroutines with Twisted's reactor, enabling the Actor's main coroutine, which contains the Scrapy spider, to be executed.
 
 Make sure the `SCRAPY_SETTINGS_MODULE` environment variable is set to the path of the Scrapy settings module. This variable is also used by the `Actor` class to detect that the project is a Scrapy project, triggering additional actions.
 
@@ -47,7 +47,7 @@ Additional helper functions in the [`apify.scrapy`](https://github.com/apify/api
 - `apply_apify_settings` - Applies Apify-specific components to Scrapy settings.
 - `to_apify_request` and `to_scrapy_request` - Convert between Apify and Scrapy request objects.
 - `initialize_logging` - Configures logging for the Actor environment.
-- `run_scrapy_actor` - Bridges asyncio and Twisted event loops.
+- `run_scrapy_actor` - Installs Twisted's asyncio reactor and bridges asyncio and Twisted event loops.
 
 ## Create a new Apify-Scrapy project
 

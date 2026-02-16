@@ -84,7 +84,7 @@ requires-dist = [
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
     { name = "more-itertools", specifier = ">=10.2.0" },
     { name = "pydantic", specifier = ">=2.11.0" },
-    { name = "scrapy", marker = "extra == 'scrapy'", specifier = ">=2.11.0" },
+    { name = "scrapy", marker = "extra == 'scrapy'", specifier = ">=2.14.0" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
     { name = "websockets", specifier = ">=14.0" },
     { name = "yarl", specifier = ">=1.18.0" },

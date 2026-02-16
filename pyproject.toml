@@ -50,7 +50,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-scrapy = ["scrapy>=2.11.0"]
+scrapy = ["scrapy>=2.14.0"]
 
 [project.urls]
 "Apify Homepage" = "https://apify.com"
@@ -160,10 +160,6 @@ indent-style = "space"
     "TRY301",  # Abstract `raise` to an inner function
     "PLR2004", # Magic value used in comparison, consider replacing `{value}` with a constant variable
     "PLW0603", # Using the global statement to update `{name}` is discouraged
-]
-"**/docs/**/scrapy_project/**/__main__.py" = [
-    # Because of asyncioreactor.install() call.
-    "E402", # Module level import not at top of file
 ]
 "**/docs/**/scrapy_project/**" = [
     # Local imports are mixed up with the Apify SDK.

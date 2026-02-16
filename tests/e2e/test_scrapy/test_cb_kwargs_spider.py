@@ -30,7 +30,7 @@ async def test_cb_kwargs_spider(make_actor: MakeActorFunction, run_actor: RunAct
     actor = await make_actor(
         label='scrapy-cb-kwargs',
         source_files=get_scrapy_source_files('spider_cb_kwargs.py', 'CbKwargsSpider'),
-        additional_requirements=['scrapy~=2.12.0'],
+        additional_requirements=['scrapy>=2.14.0'],
     )
     run_result = await run_actor(actor)
     await verify_spider_results(actor, run_result, expected_products=_EXPECTED_PRODUCTS)
