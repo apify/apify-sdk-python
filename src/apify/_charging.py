@@ -158,11 +158,11 @@ class ChargingManagerImplementation(ChargingManager):
         if self._configuration.test_pay_per_event:
             self._pricing_model = 'PAY_PER_EVENT'
         else:
-            self._pricing_model = pricing_info.pricing_model if pricing_info else None
+            self._pricing_model = pricing_info.pricing_model if pricing_info is not None else None
 
         # Load per-event pricing information
-        if pricing_info and pricing_info.pricing_model == 'PAY_PER_EVENT':
-            for event_name, event_pricing in pricing_info.pricing_per_event.actor_charge_events.items():  # ty:ignore[possibly-missing-attribute]
+        if pricing_info is not None and isinstance(pricing_info, PayPerEventActorPricingInfo):
+            for event_name, event_pricing in pricing_info.pricing_per_event.actor_charge_events.items():
                 self._pricing_info[event_name] = PricingInfoItem(
                     price=event_pricing.event_price_usd,
                     title=event_pricing.event_title,

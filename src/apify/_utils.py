@@ -21,8 +21,7 @@ def get_system_info() -> dict:
         'os': sys.platform,
     }
 
-    if is_running_in_ipython():
-        system_info['is_running_in_ipython'] = True
+    system_info['is_running_in_ipython'] = is_running_in_ipython()
 
     return system_info
 

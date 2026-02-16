@@ -20,12 +20,123 @@ jobs:
       tests_concurrency: "1"
 
   integration_tests:
-    name: Integration tests
-    uses: apify/workflows/.github/workflows/python_integration_tests.yaml@main
-    secrets: inherit
-    with:
-      python_versions: '["3.10", "3.14"]'
-      operating_systems: '["ubuntu-latest"]'
-      python_version_for_codecov: "3.14"
-      operating_system_for_codecov: ubuntu-latest
-      tests_concurrency: "16"
+    name: Integration tests (${{ matrix.python-version }}, ${{ matrix.os }})
+
+    if: >-
+      ${{
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/master')
+      }}
+
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.10", "3.14"]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      TESTS_CONCURRENCY: "8"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv package manager
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: uv run poe install-dev
+
+      - name: Run integration tests
+        run: uv run poe integration-tests-cov
+        env:
+          APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_PYTHON_SDK_API_TOKEN }}
+          APIFY_TEST_USER_2_API_TOKEN: ${{ secrets.APIFY_TEST_USER_2_API_TOKEN }}
+
+      - name: Upload integration test coverage
+        if: >-
+          ${{
+            matrix.os == 'ubuntu-latest' &&
+            matrix.python-version == '3.14' &&
+            env.CODECOV_TOKEN != ''
+          }}
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: coverage-integration.xml
+          flags: integration
+
+  e2e_tests:
+    name: E2E tests (${{ matrix.python-version }}, ${{ matrix.os }})
+
+    if: >-
+      ${{
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/master')
+      }}
+
+    # E2E tests build and run Actors on the platform. The combination of max-parallel 2 with 16 pytest
+    # workers and a global concurrency group is a compromise between stability and performance - it keeps
+    # the platform's resource usage in check while still allowing reasonable test throughput.
+    concurrency:
+      group: e2e-tests
+      cancel-in-progress: false
+
+    strategy:
+      max-parallel: 2
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.10", "3.14"]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      TESTS_CONCURRENCY: "16"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv package manager
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: uv run poe install-dev
+
+      - name: Run E2E tests
+        run: uv run poe e2e-tests-cov
+        env:
+          APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_PYTHON_SDK_API_TOKEN }}
+          APIFY_TEST_USER_2_API_TOKEN: ${{ secrets.APIFY_TEST_USER_2_API_TOKEN }}
+
+      - name: Upload E2E test coverage
+        if: >-
+          ${{
+            matrix.os == 'ubuntu-latest' &&
+            matrix.python-version == '3.14' &&
+            env.CODECOV_TOKEN != ''
+          }}
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: coverage-e2e.xml
+          flags: e2e

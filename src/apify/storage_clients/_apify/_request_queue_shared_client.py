@@ -235,8 +235,8 @@ class ApifyRequestQueueSharedClient:
                 processed_request=processed_request,
                 hydrated_request=request,
             )
-        except Exception as exc:
-            logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
+        except Exception:
+            logger.exception(f'Error marking request {request.unique_key} as handled.')
             return None
         else:
             return processed_request
@@ -279,8 +279,8 @@ class ApifyRequestQueueSharedClient:
                 if forefront:
                     self._should_check_for_forefront_requests = True
 
-            except Exception as exc:
-                logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
+            except Exception:
+                logger.exception(f'Error reclaiming request {request.unique_key}')
                 return None
             else:
                 return processed_request
