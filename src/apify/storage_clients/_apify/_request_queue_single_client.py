@@ -204,10 +204,9 @@ class ApifyRequestQueueSingleClient:
         if cached_request := self._requests_cache.get(request_id):
             cached_request.handled_at = request.handled_at
 
-        if request.handled_at is None:
+        should_update_counters = request.handled_at is None
+        if should_update_counters:
             request.handled_at = datetime.now(tz=timezone.utc)
-            self.metadata.handled_request_count += 1
-            self.metadata.pending_request_count -= 1
 
         try:
             # Remember that we handled this request, to optimize local deduplication.
@@ -224,6 +223,10 @@ class ApifyRequestQueueSingleClient:
             logger.exception(f'Error marking request {request.unique_key} as handled.')
             return None
         else:
+            # Update counters only after a successful API call to avoid inconsistency on failure.
+            if should_update_counters:
+                self.metadata.handled_request_count += 1
+                self.metadata.pending_request_count -= 1
             return processed_request
 
     async def reclaim_request(
