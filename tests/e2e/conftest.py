@@ -168,12 +168,9 @@ def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
         'APIFY_SDK_WHEEL_PLACEHOLDER', f'./{sdk_wheel_file_name}'
     )
 
-    current_major_minor_python_version = '.'.join([str(x) for x in sys.version_info[:2]])
-    integration_tests_python_version = (
-        os.getenv('INTEGRATION_TESTS_PYTHON_VERSION') or current_major_minor_python_version
-    )
+    python_version = f'{sys.version_info[0]}.{sys.version_info[1]}'
     source_files['Dockerfile'] = str(source_files['Dockerfile']).replace(
-        'BASE_IMAGE_VERSION_PLACEHOLDER', integration_tests_python_version
+        'BASE_IMAGE_VERSION_PLACEHOLDER', python_version
     )
 
     return source_files
@@ -190,6 +187,7 @@ class MakeActorFunction(Protocol):
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
         additional_requirements: list[str] | None = None,
+        memory_mbytes: int = 256,
     ) -> Awaitable[ActorClientAsync]:
         """Create a temporary Actor from the given main function or source files.
 
@@ -204,6 +202,7 @@ class MakeActorFunction(Protocol):
             main_py: The `src/main.py` file of the Actor.
             source_files: A dictionary of the source files of the Actor.
             additional_requirements: A list of additional requirements to be added to the `requirements.txt`.
+            memory_mbytes: The default memory allocation for the Actor run in MB.
 
         Returns:
             A resource client for the created Actor.
@@ -229,6 +228,7 @@ def make_actor(
         main_py: str | None = None,
         source_files: Mapping[str, str | bytes] | None = None,
         additional_requirements: list[str] | None = None,
+        memory_mbytes: int = 256,
     ) -> ActorClientAsync:
         if not (main_func or main_py or source_files):
             raise TypeError('One of `main_func`, `main_py` or `source_files` arguments must be specified')
@@ -298,7 +298,7 @@ def make_actor(
         created_actor = await client.actors().create(
             name=actor_name,
             default_run_build='latest',
-            default_run_memory_mbytes=256,
+            default_run_memory_mbytes=memory_mbytes,
             default_run_timeout_secs=600,
             versions=[
                 {
