@@ -6,7 +6,14 @@ from apify.scrapy.extensions._httpcache import from_gzip, get_kvs_name, read_gzi
 
 FIXTURE_DICT = {'name': 'Alice'}
 
+# JSON-based gzip format (current)
 FIXTURE_BYTES = (
+    b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff\xabV\xcaK\xccMU\xb2RPr\xcc\xc9LNU\xaa\x05\x00'
+    b'\x03\x9a\x9d\xb0\x11\x00\x00\x00'
+)
+
+# Legacy pickle-based gzip format (for backward compatibility testing)
+FIXTURE_BYTES_LEGACY_PICKLE = (
     b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xffk`\x99*\xcc\x00\x01\xb5SzX\xf2\x12s'
     b'S\xa7\xf4\xb0:\xe6d&\xa7N)\xd6\x03\x00\x1c\xe8U\x9c\x1e\x00\x00\x00'
 )
@@ -14,6 +21,21 @@ FIXTURE_BYTES = (
 
 def test_gzip() -> None:
     assert from_gzip(to_gzip(FIXTURE_DICT)) == FIXTURE_DICT
+
+
+def test_gzip_with_bytes_values() -> None:
+    data = {
+        'status': 200,
+        'url': 'https://example.com',
+        'headers': {b'Content-Type': [b'text/html']},
+        'body': b'<html>Hello</html>',
+    }
+    result = from_gzip(to_gzip(data))
+    # After JSON roundtrip, bytes keys become strings, bytes values are preserved
+    assert result['status'] == 200
+    assert result['url'] == 'https://example.com'
+    assert result['headers']['Content-Type'] == [b'text/html']
+    assert result['body'] == b'<html>Hello</html>'
 
 
 def test_to_gzip() -> None:
@@ -24,6 +46,13 @@ def test_to_gzip() -> None:
 
 def test_from_gzip() -> None:
     data_dict = from_gzip(FIXTURE_BYTES)
+
+    assert data_dict == FIXTURE_DICT
+
+
+def test_from_gzip_legacy_pickle_format() -> None:
+    """Test that legacy pickle-encoded gzip data can still be read (backward compatibility)."""
+    data_dict = from_gzip(FIXTURE_BYTES_LEGACY_PICKLE)
 
     assert data_dict == FIXTURE_DICT
 

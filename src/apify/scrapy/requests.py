@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-import codecs
+import base64
+import json
 import pickle
+from enum import Enum
 from logging import getLogger
 from typing import Any, cast
 
+from pydantic import BaseModel
 from scrapy import Request as ScrapyRequest
 from scrapy import Spider
 from scrapy.http.headers import Headers
@@ -15,6 +18,37 @@ from crawlee._types import HttpHeaders
 from apify import Request as ApifyRequest
 
 logger = getLogger(__name__)
+
+
+def _prepare_for_json(obj: Any) -> Any:
+    """Recursively convert non-JSON-serializable values to JSON-safe representations.
+
+    Bytes values are converted to dicts with a `__bytes_b64__` key. Bytes dict keys
+    are decoded to UTF-8 strings. Pydantic models are converted via `model_dump(mode='json')`.
+    Enum values are converted to their underlying value.
+    """
+    if isinstance(obj, bytes):
+        return {'__bytes_b64__': base64.b64encode(obj).decode('ascii')}
+    if isinstance(obj, BaseModel):
+        return obj.model_dump(mode='json')
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, dict):
+        return {(k.decode('utf-8') if isinstance(k, bytes) else k): _prepare_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_prepare_for_json(item) for item in obj]
+    return obj
+
+
+def _restore_from_json(obj: Any) -> Any:
+    """Recursively restore bytes values from their base64-encoded JSON representations."""
+    if isinstance(obj, dict):
+        if '__bytes_b64__' in obj and len(obj) == 1:
+            return base64.b64decode(obj['__bytes_b64__'])
+        return {k: _restore_from_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_restore_from_json(item) for item in obj]
+    return obj
 
 
 def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequest | None:
@@ -65,11 +99,13 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         apify_request = ApifyRequest.from_url(**request_kwargs)
 
         # Serialize the Scrapy ScrapyRequest and store it in the apify_request.
-        #   - This process involves converting the Scrapy ScrapyRequest object into a dictionary, encoding it to base64,
+        #   - This process involves converting the Scrapy ScrapyRequest object into a dictionary,
+        #     JSON-encoding it (with bytes fields base64-encoded), then base64-encoding the result,
         #     and storing it as 'scrapy_request' within the 'userData' dictionary of the apify_request.
-        #   - The serialization process can be referenced at: https://stackoverflow.com/questions/30469575/.
         scrapy_request_dict = scrapy_request.to_dict(spider=spider)
-        scrapy_request_dict_encoded = codecs.encode(pickle.dumps(scrapy_request_dict), 'base64').decode()
+        json_safe_dict = _prepare_for_json(scrapy_request_dict)
+        scrapy_request_json = json.dumps(json_safe_dict)
+        scrapy_request_dict_encoded = base64.b64encode(scrapy_request_json.encode('utf-8')).decode('ascii')
         apify_request.user_data['scrapy_request'] = scrapy_request_dict_encoded
 
     except Exception as exc:
@@ -110,7 +146,13 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
         if not isinstance(scrapy_request_dict_encoded, str):
             raise TypeError('scrapy_request_dict_encoded must be a string')
 
-        scrapy_request_dict = pickle.loads(codecs.decode(scrapy_request_dict_encoded.encode(), 'base64'))
+        raw_bytes = base64.b64decode(scrapy_request_dict_encoded)
+        try:
+            scrapy_request_dict = _restore_from_json(json.loads(raw_bytes.decode('utf-8')))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            logger.warning('Scrapy request uses legacy pickle format. Re-storing will convert it to JSON.')
+            scrapy_request_dict = pickle.loads(raw_bytes)
+
         if not isinstance(scrapy_request_dict, dict):
             raise TypeError('scrapy_request_dict must be a dictionary')
 

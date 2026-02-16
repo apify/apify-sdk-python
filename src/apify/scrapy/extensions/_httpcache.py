@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import base64
 import gzip
 import io
+import json
 import pickle
 import re
 import struct
+from enum import Enum
 from logging import getLogger
 from time import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel
 from scrapy.http.headers import Headers
 from scrapy.responsetypes import responsetypes
 
@@ -161,19 +165,61 @@ class ApifyCacheStorage:
         self._async_thread.run_coro(self._kvs.set_value(key, value))
 
 
+def _prepare_for_json(obj: Any) -> Any:
+    """Recursively convert non-JSON-serializable values to JSON-safe representations.
+
+    Bytes values are converted to dicts with a `__bytes_b64__` key. Bytes dict keys
+    are decoded to UTF-8 strings. Pydantic models are converted via `model_dump(mode='json')`.
+    Enum values are converted to their underlying value.
+    """
+    if isinstance(obj, bytes):
+        return {'__bytes_b64__': base64.b64encode(obj).decode('ascii')}
+    if isinstance(obj, BaseModel):
+        return obj.model_dump(mode='json')
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, dict):
+        return {(k.decode('utf-8') if isinstance(k, bytes) else k): _prepare_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_prepare_for_json(item) for item in obj]
+    return obj
+
+
+def _restore_from_json(obj: Any) -> Any:
+    """Recursively restore bytes values from their base64-encoded JSON representations."""
+    if isinstance(obj, dict):
+        if '__bytes_b64__' in obj and len(obj) == 1:
+            return base64.b64decode(obj['__bytes_b64__'])
+        return {k: _restore_from_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_restore_from_json(item) for item in obj]
+    return obj
+
+
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:
-    """Dump a dictionary to a gzip-compressed byte stream."""
+    """Dump a dictionary to a gzip-compressed byte stream using JSON serialization."""
+    json_safe_data = _prepare_for_json(data)
     with io.BytesIO() as byte_stream:
         with gzip.GzipFile(fileobj=byte_stream, mode='wb', mtime=mtime) as gzip_file:
-            pickle.dump(data, gzip_file, protocol=4)
+            gzip_file.write(json.dumps(json_safe_data).encode('utf-8'))
         return byte_stream.getvalue()
 
 
 def from_gzip(gzip_bytes: bytes) -> dict:
-    """Load a dictionary from a gzip-compressed byte stream."""
+    """Load a dictionary from a gzip-compressed byte stream.
+
+    Supports both the current JSON format and the legacy pickle format for backward compatibility.
+    """
     with io.BytesIO(gzip_bytes) as byte_stream, gzip.GzipFile(fileobj=byte_stream, mode='rb') as gzip_file:
-        data: dict = pickle.load(gzip_file)
-        return data
+        raw_data = gzip_file.read()
+
+    try:
+        data: dict = _restore_from_json(json.loads(raw_data.decode('utf-8')))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        logger.warning('Cache entry uses legacy pickle format. Re-storing will convert it to JSON.')
+        data = pickle.loads(raw_data)
+
+    return data
 
 
 def read_gzip_time(gzip_bytes: bytes) -> int:
