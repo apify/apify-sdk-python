@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -8,7 +7,6 @@ from crawlee._types import BasicCrawlingContext
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.crawlers import BasicCrawler
 from crawlee.errors import ServiceConflictError
-from crawlee.storage_clients import MemoryStorageClient
 
 from apify import Actor
 from apify import Configuration as ApifyConfiguration

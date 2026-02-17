@@ -265,13 +265,13 @@ class AliasResolver:
 
     @classmethod
     async def register_aliases(cls, configuration: Configuration) -> None:
-        """Load any alias mapping from configuration to the default kvs."""
+        """Load alias mapping from configuration to the default kvs."""
         if configuration.actor_storages is None:
             return
+
         configuration_mapping = {}
 
-        if configuration.default_dataset_id != configuration.actor_storages.datasets.get(
-            'default'):
+        if configuration.default_dataset_id != configuration.actor_storages.datasets.get('default'):
             logger.warning(
                 f'Conflicting default dataset ids: {configuration.default_dataset_id=},'
                 f" {configuration.actor_storages.datasets.get('default')=}"
@@ -291,12 +291,6 @@ class AliasResolver:
                     )._storage_key
                 ] = storage_id
 
-        # Aliased storage can be also default storage!!!
-        # Should we store such second alias to the default storage or ignore it in such case? Probably
-
-        # What if existing default dataset already has conflicting keys?
-        # Just override it, that will teach it to have conflicting values!
         client = await cls._get_default_kvs_client(configuration=configuration)
-        existing_mapping = ((await client.get_record(cls._ALIAS_MAPPING_KEY)) or {'value': {}}).get('value',
-                                                                                                    {})
+        existing_mapping = ((await client.get_record(cls._ALIAS_MAPPING_KEY)) or {'value': {}}).get('value', {})
         await client.set_record(cls._ALIAS_MAPPING_KEY, {**existing_mapping, **configuration_mapping})
