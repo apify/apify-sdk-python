@@ -44,11 +44,12 @@ class ActorStorages:
     request_queues: dict[str, str]
 
 
-def _load_storage_keys(data: None | str | dict) -> ActorStorages | None:
+def _load_storage_keys(data: None | str | dict | ActorStorages) -> ActorStorages | None:
     """Load storage keys from environment."""
     if data is None:
         return None
-
+    if isinstance(data, ActorStorages):
+        return data
     storage_mapping = data if isinstance(data, dict) else json.loads(data)
     return ActorStorages(
         key_value_stores=storage_mapping.get('keyValueStores', {}),

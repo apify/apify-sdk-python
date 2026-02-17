@@ -291,6 +291,15 @@ class AliasResolver:
                     )._storage_key
                 ] = storage_id
 
-        client = await cls._get_default_kvs_client(configuration=configuration)
-        existing_mapping = ((await client.get_record(cls._ALIAS_MAPPING_KEY)) or {'value': {}}).get('value', {})
-        await client.set_record(cls._ALIAS_MAPPING_KEY, {**existing_mapping, **configuration_mapping})
+        if configuration.is_at_home:
+            # Bulk update the mapping in the default KVS with the configuration mapping.
+            client = await cls._get_default_kvs_client(configuration=configuration)
+            existing_mapping = ((await client.get_record(cls._ALIAS_MAPPING_KEY)) or {'value': {}}).get('value', {})
+            # Update the existing mapping with the configuration mapping.
+            existing_mapping.update(configuration_mapping)
+            # Store the updated mapping back in the KVS and in memory.
+            await client.set_record(cls._ALIAS_MAPPING_KEY, existing_mapping)
+            cls._alias_map = existing_mapping
+        else:
+            # Update only in-memory mapping when not at home
+            cls._alias_map.update(configuration_mapping)
