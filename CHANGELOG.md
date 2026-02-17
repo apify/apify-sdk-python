@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Fix crawler deadlock when API fails during marking request as handled ([#768](https://github.com/apify/apify-sdk-python/pull/768)) ([66ed5ea](https://github.com/apify/apify-sdk-python/commit/66ed5eaf819f9c9f411c814606187d76d32a4e11)) by [@Pijukatel](https://github.com/Pijukatel), closes [#1694](https://github.com/apify/apify-sdk-python/issues/1694)
 - Use hashed request_id as cache key in shared RQ client reclaim_request ([#795](https://github.com/apify/apify-sdk-python/pull/795)) ([bd7572f](https://github.com/apify/apify-sdk-python/commit/bd7572f5b66e9417e4fa1c021b4d47a86b4cb8cf)) by [@vdusek](https://github.com/vdusek)
 - Correct inverted return value in Scrapy scheduler enqueue_request ([#794](https://github.com/apify/apify-sdk-python/pull/794)) ([405cf5d](https://github.com/apify/apify-sdk-python/commit/405cf5dc96f9fd794eaf570ffc877d503829244a)) by [@vdusek](https://github.com/vdusek)
+- Eliminate race condition in _fetch_requests_from_url ([#796](https://github.com/apify/apify-sdk-python/pull/796)) ([c0a74b9](https://github.com/apify/apify-sdk-python/commit/c0a74b9eaf8032510528c2a9ab93c4840a51e79f)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
