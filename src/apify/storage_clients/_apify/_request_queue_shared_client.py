@@ -267,9 +267,9 @@ class ApifyRequestQueueSharedClient:
                     self.metadata.pending_request_count += 1
 
                 # Update the cache
-                cache_key = request.unique_key
+                request_id = unique_key_to_request_id(request.unique_key)
                 self._cache_request(
-                    cache_key,
+                    request_id,
                     processed_request,
                     hydrated_request=request,
                 )

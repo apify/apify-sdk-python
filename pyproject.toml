@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify"
-version = "3.2.1"
+version = "3.2.2"
 description = "Apify SDK for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -56,7 +56,7 @@ scrapy = ["scrapy>=2.11.0"]
 "Apify Homepage" = "https://apify.com"
 "Changelog" = "https://docs.apify.com/sdk/python/docs/changelog"
 "Discord" = "https://discord.com/invite/jyEM2PRvMU"
-"Documentation" = "https://docs.apify.com/sdk/python/docs/overview/introduction"
+"Documentation" = "https://docs.apify.com/sdk/python/docs/overview"
 "Homepage" = "https://docs.apify.com/sdk/python/"
 "Issue Tracker" = "https://github.com/apify/apify-sdk-python/issues"
 "Release Notes" = "https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2"

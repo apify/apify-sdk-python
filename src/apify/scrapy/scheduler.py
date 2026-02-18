@@ -136,7 +136,7 @@ class ApifyScheduler(BaseScheduler):
             raise
 
         logger.debug(f'rq.add_request result: {result}')
-        return bool(result.was_already_present)
+        return not bool(result.was_already_present)
 
     def next_request(self) -> Request | None:
         """Fetch the next request from the scheduler.
