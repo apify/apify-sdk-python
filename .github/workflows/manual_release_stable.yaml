@@ -95,6 +95,15 @@ jobs:
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  doc_release:
+    name: Doc release
+    needs: [changelog_update, pypi_publish]
+    uses: ./.github/workflows/_release_docs.yaml
+    with:
+      # Use the ref from the changelog update to include the updated changelog.
+      ref: ${{ needs.changelog_update.outputs.changelog_commitish }}
+    secrets: inherit
+
   trigger_docker_build:
     name: Trigger Docker image build
     needs: [release_prepare, changelog_update]
