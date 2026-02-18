@@ -2,7 +2,11 @@ module.exports = {
     sidebar: [
         {
             type: 'doc',
-            id: 'overview/index',
+            id: 'introduction/introduction',
+        },
+        {
+            type: 'doc',
+            id: 'introduction/quick-start',
         },
         {
             type: 'category',
