@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from crawlee import service_locator
-
-from apify import Actor
-from apify._configuration import Configuration, ActorStorages
-from apify.storage_clients import SmartApifyStorageClient, ApifyStorageClient
+from apify._configuration import Configuration
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 
@@ -80,30 +76,3 @@ async def test_get_alias_map_returns_in_memory_map() -> None:
     AliasResolver._alias_map = {}
     result = await AliasResolver._get_alias_map(config)
     assert result == {}
-
-
-async def test_register_aliases() -> None:
-    """Test that _get_alias_map loads the map from KVS when at home.
-
-    AliasResolver works locally only """
-
-
-    datasets = {"default":  "default_dataset_id", "custom": "custom_dataset_id"}
-    request_queues = {"default": "default_dataset_id", "custom": "custom_dataset_id"}
-    key_value_stores = {"default": "default_dataset_id", "custom": "custom_dataset_id"}
-
-    config = Configuration(is_at_home=False,
-                           token='test-token',
-                           actor_storages= ActorStorages(
-                               datasets = datasets,
-                               request_queues = request_queues,
-                               key_value_stores = key_value_stores
-                           ),
-    )
-    storage_client = ApifyStorageClient()
-    service_locator.set_storage_client(
-        SmartApifyStorageClient(local_storage_client=storage_client, cloud_storage_client=storage_client)
-    )
-    async with Actor(configuration=config):
-        d = await Actor.open_dataset(alias='default')
-        assert d

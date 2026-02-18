@@ -306,9 +306,9 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that actor_storages_json is parsed from JSON env var."""
     import json
 
-    datasets = {"default":  "default_dataset_id", "custom": "custom_dataset_id"}
-    request_queues = {"default": "default_dataset_id", "custom": "custom_dataset_id"}
-    key_value_stores = {"default": "default_dataset_id", "custom": "custom_dataset_id"}
+    datasets = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
+    request_queues = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
+    key_value_stores = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
 
     actor_storages_json = json.dumps(
         {

@@ -204,9 +204,10 @@ class _ActorType:
         if not Actor.is_at_home():
             # Make sure that the input related KVS is initialized to ensure that the input aware client is used
             await self.open_key_value_store()
-
-        # Load non-default aliased storages from configuration
-        await AliasResolver.register_aliases(configuration=self.configuration)
+        else:
+            # Load pre-existing non-default aliased storages from configuration
+            # Supported only on the Apify platform, where those storages are pre-created by the platform.
+            await AliasResolver.register_aliases(configuration=self.configuration)
         return self
 
     async def __aexit__(
