@@ -505,7 +505,7 @@ class Configuration(CrawleeConfiguration):
         # Due to known Pydantic issue https://github.com/pydantic/pydantic/issues/9516, creating new instance of
         # Configuration from existing one in situation where environment can have some fields set by alias is very
         # unpredictable. Use the stable workaround.
-        for name in configuration.model_fields:
+        for name in type(configuration).model_fields:
             setattr(apify_configuration, name, getattr(configuration, name))
 
         return apify_configuration
