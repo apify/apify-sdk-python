@@ -133,7 +133,7 @@ class ApifyEventManager(EventManager):
                             await self._emit_persist_state_event_rec_task.stop()
                             self.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
                     except Exception:
-                        logger.exception('Cannot parse Actor event', extra={'message': message})
+                        logger.exception('Cannot parse Actor event', extra={'raw_message': message})
         except Exception:
             logger.exception('Error in websocket connection')
             if self._connected_to_platform_websocket is not None:

@@ -266,6 +266,7 @@ async def test_deprecated_event_is_skipped(monkeypatch: pytest.MonkeyPatch) -> N
 
 async def test_unknown_event_is_logged(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     """Test that unknown events are logged and not emitted."""
+    caplog.set_level(logging.INFO, logger='apify')
     async with (
         _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected),
         ApifyEventManager(Configuration.get_global_configuration()),
