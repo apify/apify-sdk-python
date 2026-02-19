@@ -136,10 +136,11 @@ class AliasResolver:
         alias: str,
         configuration: Configuration,
     ) -> None:
-        self._storage_type = storage_type
         self._alias = alias
         self._configuration = configuration
-        self._additional_cache_key = hash_api_base_url_and_token(configuration)
+        self._storage_key = self.get_storage_key(
+            storage_type=storage_type, alias=alias, additional_cache_key=hash_api_base_url_and_token(configuration)
+        )
 
     async def __aenter__(self) -> AliasResolver:
         """Context manager to prevent race condition in alias creation."""
@@ -236,17 +237,6 @@ class AliasResolver:
         except Exception as exc:
             logger.warning(f'Error storing alias mapping for {self._alias}: {exc}')
 
-    @property
-    def _storage_key(self) -> str:
-        """Get a unique storage key used for storing the alias in the mapping."""
-        return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
-            [
-                self._storage_type,
-                self._alias,
-                self._additional_cache_key,
-            ]
-        )
-
     @staticmethod
     async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
         """Get a client for the default key-value store."""
@@ -264,6 +254,18 @@ class AliasResolver:
         return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
 
     @classmethod
+    def get_storage_key(
+        cls, storage_type: Literal['Dataset', 'KeyValueStore', 'RequestQueue'], alias: str, additional_cache_key: str
+    ) -> str:
+        return cls._ALIAS_STORAGE_KEY_SEPARATOR.join(
+            [
+                storage_type,
+                alias,
+                additional_cache_key,
+            ]
+        )
+
+    @classmethod
     async def register_aliases(cls, configuration: Configuration) -> None:
         """Load alias mapping from configuration to the default kvs."""
         if configuration.actor_storages is None:
@@ -276,6 +278,7 @@ class AliasResolver:
                 f'Conflicting default dataset ids: {configuration.default_dataset_id=},'
                 f" {configuration.actor_storages.datasets.get('default')=}"
             )
+        additional_cache_key = hash_api_base_url_and_token(configuration)
 
         for mapping, storage_type in (
             (configuration.actor_storages.key_value_stores, 'KeyValueStore'),
@@ -284,11 +287,11 @@ class AliasResolver:
         ):
             for storage_alias, storage_id in mapping.items():
                 configuration_mapping[
-                    cls(  # noqa: SLF001  # It is ok in own classmethod.
-                        storage_type=storage_type,
-                        alias='__default__' if storage_alias == 'default' else storage_alias,
-                        configuration=configuration,
-                    )._storage_key
+                    cls.get_storage_key(
+                        storage_type,
+                        '__default__' if storage_alias == 'default' else storage_alias,
+                        additional_cache_key,
+                    )
                 ] = storage_id
 
         # Bulk update the mapping in the default KVS with the configuration mapping.
