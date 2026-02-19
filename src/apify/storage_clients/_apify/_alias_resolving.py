@@ -252,39 +252,45 @@ class AliasResolver:
     @classmethod
     async def register_aliases(cls, configuration: Configuration) -> None:
         """Load alias mapping from configuration to the default kvs."""
-        if configuration.actor_storages is None:
-            return
+        async with await cls._get_alias_init_lock():
+            # Skip if no mapping or just default storages
+            if configuration.actor_storages is None or set(
+                configuration.actor_storages.datasets.keys()
+                | configuration.actor_storages.key_value_stores.keys()
+                | configuration.actor_storages.request_queues.keys()
+            ) == {'default'}:
+                return
 
-        configuration_mapping = {}
+            configuration_mapping = {}
 
-        if configuration.default_dataset_id != configuration.actor_storages.datasets.get('default'):
-            logger.warning(
-                f'Conflicting default dataset ids: {configuration.default_dataset_id=},'
-                f" {configuration.actor_storages.datasets.get('default')=}"
-            )
-        additional_cache_key = hash_api_base_url_and_token(configuration)
+            if configuration.default_dataset_id != configuration.actor_storages.datasets.get('default'):
+                logger.warning(
+                    f'Conflicting default dataset ids: {configuration.default_dataset_id=},'
+                    f" {configuration.actor_storages.datasets.get('default')=}"
+                )
+            additional_cache_key = hash_api_base_url_and_token(configuration)
 
-        for mapping, storage_type in (
-            (configuration.actor_storages.key_value_stores, 'KeyValueStore'),
-            (configuration.actor_storages.datasets, 'Dataset'),
-            (configuration.actor_storages.request_queues, 'RequestQueue'),
-        ):
-            for storage_alias, storage_id in mapping.items():
-                configuration_mapping[
-                    cls.get_storage_key(
-                        storage_type,
-                        '__default__' if storage_alias == 'default' else storage_alias,
-                        additional_cache_key,
-                    )
-                ] = storage_id
+            for mapping, storage_type in (
+                (configuration.actor_storages.key_value_stores, 'KeyValueStore'),
+                (configuration.actor_storages.datasets, 'Dataset'),
+                (configuration.actor_storages.request_queues, 'RequestQueue'),
+            ):
+                for storage_alias, storage_id in mapping.items():
+                    configuration_mapping[
+                        cls.get_storage_key(
+                            storage_type,
+                            '__default__' if storage_alias == 'default' else storage_alias,
+                            additional_cache_key,
+                        )
+                    ] = storage_id
 
-        # Bulk update the mapping in the default KVS with the configuration mapping.
-        client = await cls._get_default_kvs_client(configuration=configuration)
-        record = await client.get_record(cls._ALIAS_MAPPING_KEY)
-        existing_mapping = record.get('value', {}) if record else {}
+            # Bulk update the mapping in the default KVS with the configuration mapping.
+            client = await cls._get_default_kvs_client(configuration=configuration)
+            record = await client.get_record(cls._ALIAS_MAPPING_KEY)
+            existing_mapping = record.get('value', {}) if record else {}
 
-        # Update the existing mapping with the configuration mapping.
-        existing_mapping.update(configuration_mapping)
-        # Store the updated mapping back in the KVS and in memory.
-        await client.set_record(cls._ALIAS_MAPPING_KEY, existing_mapping)
-        cls._alias_map.update(existing_mapping)
+            # Update the existing mapping with the configuration mapping.
+            existing_mapping.update(configuration_mapping)
+            # Store the updated mapping back in the KVS and in memory.
+            await client.set_record(cls._ALIAS_MAPPING_KEY, existing_mapping)
+            cls._alias_map.update(existing_mapping)
