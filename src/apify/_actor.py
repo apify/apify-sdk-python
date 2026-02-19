@@ -350,18 +350,27 @@ class _ActorType:
 
         It uses `ApifyEventManager` on the Apify platform and `LocalEventManager` otherwise.
         """
-        event_manager = (
-            ApifyEventManager(
-                configuration=self.configuration,
-                persist_state_interval=self.configuration.persist_state_interval,
+        try:
+            event_manager = (
+                ApifyEventManager(
+                    configuration=self.configuration,
+                    persist_state_interval=self.configuration.persist_state_interval,
+                )
+                if self.is_at_home()
+                else LocalEventManager(
+                    system_info_interval=self.configuration.system_info_interval,
+                    persist_state_interval=self.configuration.persist_state_interval,
+                )
             )
-            if self.is_at_home()
-            else LocalEventManager(
-                system_info_interval=self.configuration.system_info_interval,
-                persist_state_interval=self.configuration.persist_state_interval,
+            service_locator.set_event_manager(event_manager)
+        except ServiceConflictError:
+            self.log.debug(
+                'Event manager in service locator was set explicitly before Actor.init was called. '
+                'Using the existing event manager as implicit event manager for the Actor.'
             )
-        )
-        service_locator.set_event_manager(event_manager)
+            # Use the event manager from the service locator
+            event_manager = service_locator.get_event_manager()
+
         return event_manager
 
     @cached_property
