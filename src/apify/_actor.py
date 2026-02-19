@@ -365,8 +365,8 @@ class _ActorType:
             service_locator.set_event_manager(event_manager)
         except ServiceConflictError:
             self.log.debug(
-                'Event manager in service locator was set explicitly before Actor.init was called. '
-                'Using the existing event manager as implicit event manager for the Actor.'
+                'Event manager already exists in service locator (set by previous Actor context or explicitly by user). '
+                'Using the existing event manager.'
             )
             # Use the event manager from the service locator
             event_manager = service_locator.get_event_manager()
