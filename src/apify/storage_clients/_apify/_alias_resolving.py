@@ -184,15 +184,7 @@ class AliasResolver:
             default_kvs_client = await cls._get_default_kvs_client(configuration)
 
             record = await default_kvs_client.get_record(cls._ALIAS_MAPPING_KEY)
-
-            # get_record can return {key: ..., value: ..., content_type: ...}
-            if isinstance(record, dict):
-                if 'value' in record and isinstance(record['value'], dict):
-                    cls._alias_map = record['value']
-                else:
-                    cls._alias_map = record
-            else:
-                cls._alias_map = dict[str, str]()
+            cls._alias_map = record.get('value', {}) if record else {}
 
         return cls._alias_map
 
@@ -221,19 +213,11 @@ class AliasResolver:
 
         try:
             record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
-
-            # get_record can return {key: ..., value: ..., content_type: ...}
-            if isinstance(record, dict) and 'value' in record:
-                record = record['value']
-
-            # Update or create the record with the new alias mapping
-            if isinstance(record, dict):
-                record[self._storage_key] = storage_id
-            else:
-                record = {self._storage_key: storage_id}
+            value = record.get('value', {}) if record else {}
+            value[self._storage_key] = storage_id
 
             # Store the mapping back in the KVS.
-            await default_kvs_client.set_record(self._ALIAS_MAPPING_KEY, record)
+            await default_kvs_client.set_record(key=self._ALIAS_MAPPING_KEY, value=value)
         except Exception as exc:
             logger.warning(f'Error storing alias mapping for {self._alias}: {exc}')
 
@@ -296,7 +280,8 @@ class AliasResolver:
 
         # Bulk update the mapping in the default KVS with the configuration mapping.
         client = await cls._get_default_kvs_client(configuration=configuration)
-        existing_mapping = ((await client.get_record(cls._ALIAS_MAPPING_KEY)) or {'value': {}}).get('value', {})
+        record = await client.get_record(cls._ALIAS_MAPPING_KEY)
+        existing_mapping = record.get('value', {}) if record else {}
 
         # Update the existing mapping with the configuration mapping.
         existing_mapping.update(configuration_mapping)
