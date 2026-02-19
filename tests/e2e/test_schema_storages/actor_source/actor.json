@@ -11,43 +11,7 @@
                     }
                 }
             },
-            "custom_d": {
-                "actorSpecification": 1,
-                "fields": {
-                    "properties": {
-                        "id": { "type": "string" }
-                    }
-                }
-            }
-        },
-        "key_value_stores": {
-            "default": {
-                "actorSpecification": 1,
-                "fields": {
-                    "properties": {
-                        "id": { "type": "string" }
-                    }
-                }
-            },
-            "custom_kvs": {
-                "actorSpecification": 1,
-                "fields": {
-                    "properties": {
-                        "id": { "type": "string" }
-                    }
-                }
-            }
-        },
-        "request_queues": {
-            "default": {
-                "actorSpecification": 1,
-                "fields": {
-                    "properties": {
-                        "id": { "type": "string" }
-                    }
-                }
-            },
-            "custom_rq": {
+            "custom": {
                 "actorSpecification": 1,
                 "fields": {
                     "properties": {

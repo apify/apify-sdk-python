@@ -233,6 +233,16 @@ class AliasResolver:
         except Exception as exc:
             logger.warning(f'Error storing alias mapping for {self._alias}: {exc}')
 
+    @cached_property
+    def _storage_key(self) -> str:
+        return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
+            [
+                self._storage_type,
+                self._alias,
+                hash_api_base_url_and_token(self._configuration),
+            ]
+        )
+
     @staticmethod
     async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
         """Get a client for the default key-value store."""
@@ -248,13 +258,3 @@ class AliasResolver:
             raise ValueError("'Configuration.default_key_value_store_id' must be set.")
 
         return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
-
-    @cached_property
-    def _storage_key(self) -> str:
-        return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
-            [
-                self._storage_type,
-                self._alias,
-                hash_api_base_url_and_token(self._configuration),
-            ]
-        )

@@ -78,23 +78,22 @@ async def test_get_alias_map_returns_in_memory_map() -> None:
     assert result == {}
 
 
-async def test_actor_storages_alias_resolving() -> None:
-    """Test that `AliasResolver.register_aliases` correctly updates default KVS with Actor storages."""
+async def test_configuration_storages_alias_resolving() -> None:
+    """Test that `AliasResolver` correctly resolves ids of storages registered in Configuration."""
 
     # Actor storages
     datasets = {'default': 'default_dataset_id', 'custom': 'custom_Dataset_id'}
     request_queues = {'default': 'default_request_queue_id', 'custom': 'custom_RequestQueue_id'}
     key_value_stores = {'default': 'default_key_value_store_id', 'custom': 'custom_KeyValueStore_id'}
 
-    # Set up the configuration and storage client for the test
+    # Set up the configuration with the storage mapping
     configuration = Configuration(
-        default_key_value_store_id='default_kvs_id',
         actor_storages=ActorStorages(
             datasets=datasets, request_queues=request_queues, key_value_stores=key_value_stores
         ),
     )
 
-    # Construct the expected mapping
+    # Check that id of each non-default storage saved in the mapping is resolved
     for storage_type in ('Dataset', 'KeyValueStore', 'RequestQueue'):
         assert (
             await AliasResolver(storage_type=storage_type, alias='custom', configuration=configuration).resolve_id()
