@@ -3,21 +3,21 @@
     "version": "0.0",
     "storages": {
         "datasets": {
-			"default": {
-                "actorSpecification": 1,
-				"fields": {
-					"properties": {
-						"id": { "type": "string" }
-					}
-				}
-            },
-			"custom": {
+            "default": {
                 "actorSpecification": 1,
                 "fields": {
-					"properties": {
-						"id": { "type": "string" }
-					}
-				}
+                    "properties": {
+                        "id": { "type": "string" }
+                    }
+                }
+            },
+            "custom": {
+                "actorSpecification": 1,
+                "fields": {
+                    "properties": {
+                        "id": { "type": "string" }
+                    }
+                }
             }
         }
     }

@@ -135,8 +135,8 @@ async def test_actor_storages_alias_resolving(apify_token: str) -> None:
 
     # Actor storages
     datasets = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
-    request_queues = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
-    key_value_stores = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
+    request_queues = {'default': 'default_request_queue_id', 'custom': 'custom_request_queue_id'}
+    key_value_stores = {'default': 'default_key_value_store_id', 'custom': 'custom_key_value_store_id'}
 
     # Set up the configuration and storage client for the test
     configuration = Configuration(

@@ -284,7 +284,7 @@ class AliasResolver:
         ):
             for storage_alias, storage_id in mapping.items():
                 configuration_mapping[
-                    cls(  # noqa: SLF001# It is ok in own classmethod.
+                    cls(  # noqa: SLF001  # It is ok in own classmethod.
                         storage_type=storage_type,
                         alias='__default__' if storage_alias == 'default' else storage_alias,
                         configuration=configuration,
