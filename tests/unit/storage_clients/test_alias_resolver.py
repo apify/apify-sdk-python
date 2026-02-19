@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apify._configuration import Configuration
+from apify._configuration import ActorStorages, Configuration
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 
@@ -76,3 +76,27 @@ async def test_get_alias_map_returns_in_memory_map() -> None:
     AliasResolver._alias_map = {}
     result = await AliasResolver._get_alias_map(config)
     assert result == {}
+
+
+async def test_actor_storages_alias_resolving() -> None:
+    """Test that `AliasResolver.register_aliases` correctly updates default KVS with Actor storages."""
+
+    # Actor storages
+    datasets = {'default': 'default_dataset_id', 'custom': 'custom_Dataset_id'}
+    request_queues = {'default': 'default_request_queue_id', 'custom': 'custom_RequestQueue_id'}
+    key_value_stores = {'default': 'default_key_value_store_id', 'custom': 'custom_KeyValueStore_id'}
+
+    # Set up the configuration and storage client for the test
+    configuration = Configuration(
+        default_key_value_store_id='default_kvs_id',
+        actor_storages=ActorStorages(
+            datasets=datasets, request_queues=request_queues, key_value_stores=key_value_stores
+        ),
+    )
+
+    # Construct the expected mapping
+    for storage_type in ('Dataset', 'KeyValueStore', 'RequestQueue'):
+        assert (
+            await AliasResolver(storage_type=storage_type, alias='custom', configuration=configuration).resolve_id()
+            == f'custom_{storage_type}_id'
+        )

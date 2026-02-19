@@ -5,6 +5,8 @@ from asyncio import Lock
 from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
+from propcache import cached_property
+
 from apify_client import ApifyClientAsync
 
 from ._utils import hash_api_base_url_and_token
@@ -136,11 +138,9 @@ class AliasResolver:
         alias: str,
         configuration: Configuration,
     ) -> None:
+        self._storage_type = storage_type
         self._alias = alias
         self._configuration = configuration
-        self._storage_key = self.get_storage_key(
-            storage_type=storage_type, alias=alias, additional_cache_key=hash_api_base_url_and_token(configuration)
-        )
 
     async def __aenter__(self) -> AliasResolver:
         """Context manager to prevent race condition in alias creation."""
@@ -194,6 +194,18 @@ class AliasResolver:
         Returns:
             Storage id if it exists, None otherwise.
         """
+        # First try to find the alias in the configuration mapping to avoid any API calls.
+        # This mapping is maintained by the Apify platform and does not have to be maintained in the default KVS.
+        if self._configuration.actor_storages and self._alias != 'default':
+            storage_maps = {
+                'Dataset': self._configuration.actor_storages.datasets,
+                'KeyValueStore': self._configuration.actor_storages.key_value_stores,
+                'RequestQueue': self._configuration.actor_storages.request_queues,
+            }
+            if storage_id := storage_maps.get(self._storage_type, {}).get(self._alias):
+                return storage_id
+
+        # Fallback to the mapping saved in the default KVS
         return (await self._get_alias_map(self._configuration)).get(self._storage_key, None)
 
     async def store_mapping(self, storage_id: str) -> None:
@@ -237,60 +249,12 @@ class AliasResolver:
 
         return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
 
-    @classmethod
-    def get_storage_key(
-        cls, storage_type: Literal['Dataset', 'KeyValueStore', 'RequestQueue'], alias: str, additional_cache_key: str
-    ) -> str:
-        return cls._ALIAS_STORAGE_KEY_SEPARATOR.join(
+    @cached_property
+    def _storage_key(self) -> str:
+        return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
             [
-                storage_type,
-                alias,
-                additional_cache_key,
+                self._storage_type,
+                self._alias,
+                hash_api_base_url_and_token(self._configuration),
             ]
         )
-
-    @classmethod
-    async def register_aliases(cls, configuration: Configuration) -> None:
-        """Load alias mapping from configuration to the default kvs."""
-        async with await cls._get_alias_init_lock():
-            # Skip if no mapping or just default storages
-            if configuration.actor_storages is None or set(
-                configuration.actor_storages.datasets.keys()
-                | configuration.actor_storages.key_value_stores.keys()
-                | configuration.actor_storages.request_queues.keys()
-            ) == {'default'}:
-                return
-
-            configuration_mapping = {}
-
-            if configuration.default_dataset_id != configuration.actor_storages.datasets.get('default'):
-                logger.warning(
-                    f'Conflicting default dataset ids: {configuration.default_dataset_id=},'
-                    f" {configuration.actor_storages.datasets.get('default')=}"
-                )
-            additional_cache_key = hash_api_base_url_and_token(configuration)
-
-            for mapping, storage_type in (
-                (configuration.actor_storages.key_value_stores, 'KeyValueStore'),
-                (configuration.actor_storages.datasets, 'Dataset'),
-                (configuration.actor_storages.request_queues, 'RequestQueue'),
-            ):
-                for storage_alias, storage_id in mapping.items():
-                    configuration_mapping[
-                        cls.get_storage_key(
-                            storage_type,
-                            '__default__' if storage_alias == 'default' else storage_alias,
-                            additional_cache_key,
-                        )
-                    ] = storage_id
-
-            # Bulk update the mapping in the default KVS with the configuration mapping.
-            client = await cls._get_default_kvs_client(configuration=configuration)
-            record = await client.get_record(cls._ALIAS_MAPPING_KEY)
-            existing_mapping = record.get('value', {}) if record else {}
-
-            # Update the existing mapping with the configuration mapping.
-            existing_mapping.update(configuration_mapping)
-            # Store the updated mapping back in the KVS and in memory.
-            await client.set_record(cls._ALIAS_MAPPING_KEY, existing_mapping)
-            cls._alias_map.update(existing_mapping)

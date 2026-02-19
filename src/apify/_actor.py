@@ -36,7 +36,6 @@ from apify._utils import docs_group, docs_name, get_system_info, is_running_in_i
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
-from apify.storage_clients._apify._alias_resolving import AliasResolver
 from apify.storage_clients._file_system import ApifyFileSystemStorageClient
 from apify.storages import Dataset, KeyValueStore, RequestQueue
 
@@ -204,10 +203,6 @@ class _ActorType:
         if not Actor.is_at_home():
             # Make sure that the input related KVS is initialized to ensure that the input aware client is used
             await self.open_key_value_store()
-        else:
-            # Load pre-existing non-default aliased storages from configuration
-            # Supported only on the Apify platform, where those storages are pre-created by the platform.
-            await AliasResolver.register_aliases(configuration=self.configuration)
         return self
 
     async def __aexit__(
