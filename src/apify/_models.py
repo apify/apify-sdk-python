@@ -13,7 +13,7 @@ from apify._utils import docs_group
 PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
 """Pricing model for an Actor."""
 
-GeneralAccessEnum = Literal['ANYONE_WITH_ID_CAN_READ', 'ANYONE_WITH_NAME_CAN_READ', 'FOLLOW_USER_SETTING', 'RESTRICTED']
+GeneralAccess = Literal['ANYONE_WITH_ID_CAN_READ', 'ANYONE_WITH_NAME_CAN_READ', 'FOLLOW_USER_SETTING', 'RESTRICTED']
 """Defines the general access level for the resource."""
 
 
