@@ -8,7 +8,7 @@ from itemadapter.adapter import ItemAdapter
 from apify import Actor
 
 if TYPE_CHECKING:
-    from scrapy import Item, Spider
+    from scrapy import Item
 
 logger = getLogger(__name__)
 
@@ -22,10 +22,9 @@ class ActorDatasetPushPipeline:
     async def process_item(
         self,
         item: Item,
-        spider: Spider,
     ) -> Item:
         """Pushes the provided Scrapy item to the Actor's default dataset."""
         item_dict = ItemAdapter(item).asdict()
-        logger.debug(f'Pushing item={item_dict} produced by spider={spider} to the dataset.')
+        logger.debug(f'Pushing item={item_dict} to the dataset.')
         await Actor.push_data(item_dict)
         return item
