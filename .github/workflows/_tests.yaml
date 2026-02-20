@@ -85,15 +85,7 @@ jobs:
         (github.event_name == 'push' && github.ref == 'refs/heads/master')
       }}
 
-    # E2E tests build and run Actors on the platform. The combination of max-parallel 2 with 16 pytest
-    # workers and a global concurrency group is a compromise between stability and performance - it keeps
-    # the platform's resource usage in check while still allowing reasonable test throughput.
-    concurrency:
-      group: e2e-tests
-      cancel-in-progress: false
-
     strategy:
-      max-parallel: 2
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.10", "3.14"]
