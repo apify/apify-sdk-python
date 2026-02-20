@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -8,7 +7,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import AliasChoices, BeforeValidator, Field, model_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, Field, model_validator
 from typing_extensions import Self, deprecated
 
 from crawlee import service_locator
@@ -35,8 +34,7 @@ def _transform_to_list(value: Any) -> list[str] | None:
     return value if isinstance(value, list) else str(value).split(',')
 
 
-@dataclasses.dataclass
-class ActorStorages:
+class ActorStorages(BaseModel):
     """Storage IDs for different storage types used by an Actor."""
 
     key_value_stores: dict[str, str]

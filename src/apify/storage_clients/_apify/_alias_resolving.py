@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import logging
 from asyncio import Lock
+from functools import cached_property
 from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar, Literal, overload
-
-from propcache import cached_property
 
 from apify_client import ApifyClientAsync
 
@@ -235,6 +234,7 @@ class AliasResolver:
 
     @cached_property
     def _storage_key(self) -> str:
+        """Get a unique storage key used for storing the alias in the mapping."""
         return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
             [
                 self._storage_type,

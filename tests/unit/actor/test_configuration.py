@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -286,7 +287,6 @@ def test_max_total_charge_usd_decimal_parsing(monkeypatch: pytest.MonkeyPatch) -
 
 def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that actor_pricing_info is parsed from JSON env var."""
-    import json
 
     pricing_json = json.dumps(
         {
@@ -304,11 +304,9 @@ def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -
 
 def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that actor_storages_json is parsed from JSON env var."""
-    import json
-
     datasets = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
-    request_queues = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
-    key_value_stores = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
+    request_queues = {'default': 'default_request_queue_id', 'custom': 'custom_request_queue_id'}
+    key_value_stores = {'default': 'default_key_value_store_id', 'custom': 'custom_key_value_store_id'}
 
     actor_storages_json = json.dumps(
         {
