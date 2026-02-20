@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
-from typing_extensions import Self, deprecated
+from typing_extensions import Self, TypedDict, deprecated
 
 from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms
@@ -32,6 +32,26 @@ def _transform_to_list(value: Any) -> list[str] | None:
     if not value:
         return []
     return value if isinstance(value, list) else str(value).split(',')
+
+
+class ActorStorages(TypedDict):
+    key_value_stores: dict[str, str]
+    datasets: dict[str, str]
+    request_queues: dict[str, str]
+
+
+def _load_storage_keys(
+    data: None | str | ActorStorages,
+) -> ActorStorages | None:
+    """Load storage keys."""
+    if data is None:
+        return None
+    storage_mapping = json.loads(data) if isinstance(data, str) else data
+    return {
+        'key_value_stores': storage_mapping.get('keyValueStores', storage_mapping.get('key_value_stores', {})),
+        'datasets': storage_mapping.get('datasets', storage_mapping.get('datasets', {})),
+        'request_queues': storage_mapping.get('requestQueues', storage_mapping.get('request_queues', {})),
+    }
 
 
 @docs_group('Configuration')
@@ -444,6 +464,15 @@ class Configuration(CrawleeConfiguration):
             description='Counts of events that were charged for the actor',
         ),
         BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+    ] = None
+
+    actor_storages: Annotated[
+        ActorStorages | None,
+        Field(
+            alias='actor_storages_json',
+            description='Storage IDs for the actor',
+        ),
+        BeforeValidator(_load_storage_keys),
     ] = None
 
     @model_validator(mode='after')

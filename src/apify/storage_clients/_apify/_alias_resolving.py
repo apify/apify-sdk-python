@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from asyncio import Lock
+from functools import cached_property
 from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
@@ -139,7 +140,6 @@ class AliasResolver:
         self._storage_type = storage_type
         self._alias = alias
         self._configuration = configuration
-        self._additional_cache_key = hash_api_base_url_and_token(configuration)
 
     async def __aenter__(self) -> AliasResolver:
         """Context manager to prevent race condition in alias creation."""
@@ -183,15 +183,7 @@ class AliasResolver:
             default_kvs_client = await cls._get_default_kvs_client(configuration)
 
             record = await default_kvs_client.get_record(cls._ALIAS_MAPPING_KEY)
-
-            # get_record can return {key: ..., value: ..., content_type: ...}
-            if isinstance(record, dict):
-                if 'value' in record and isinstance(record['value'], dict):
-                    cls._alias_map = record['value']
-                else:
-                    cls._alias_map = record
-            else:
-                cls._alias_map = dict[str, str]()
+            cls._alias_map = record.get('value', {}) if record else {}
 
         return cls._alias_map
 
@@ -201,6 +193,18 @@ class AliasResolver:
         Returns:
             Storage id if it exists, None otherwise.
         """
+        # First try to find the alias in the configuration mapping to avoid any API calls.
+        # This mapping is maintained by the Apify platform and does not have to be maintained in the default KVS.
+        if self._configuration.actor_storages and self._alias != 'default':
+            storage_maps = {
+                'Dataset': self._configuration.actor_storages['datasets'],
+                'KeyValueStore': self._configuration.actor_storages['key_value_stores'],
+                'RequestQueue': self._configuration.actor_storages['request_queues'],
+            }
+            if storage_id := storage_maps.get(self._storage_type, {}).get(self._alias):
+                return storage_id
+
+        # Fallback to the mapping saved in the default KVS
         return (await self._get_alias_map(self._configuration)).get(self._storage_key, None)
 
     async def store_mapping(self, storage_id: str) -> None:
@@ -220,30 +224,22 @@ class AliasResolver:
 
         try:
             record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
-
-            # get_record can return {key: ..., value: ..., content_type: ...}
-            if isinstance(record, dict) and 'value' in record:
-                record = record['value']
-
-            # Update or create the record with the new alias mapping
-            if isinstance(record, dict):
-                record[self._storage_key] = storage_id
-            else:
-                record = {self._storage_key: storage_id}
+            value = record.get('value', {}) if record else {}
+            value[self._storage_key] = storage_id
 
             # Store the mapping back in the KVS.
-            await default_kvs_client.set_record(self._ALIAS_MAPPING_KEY, record)
+            await default_kvs_client.set_record(key=self._ALIAS_MAPPING_KEY, value=value)
         except Exception as exc:
             logger.warning(f'Error storing alias mapping for {self._alias}: {exc}')
 
-    @property
+    @cached_property
     def _storage_key(self) -> str:
         """Get a unique storage key used for storing the alias in the mapping."""
         return self._ALIAS_STORAGE_KEY_SEPARATOR.join(
             [
                 self._storage_type,
                 self._alias,
-                self._additional_cache_key,
+                hash_api_base_url_and_token(self._configuration),
             ]
         )
 
