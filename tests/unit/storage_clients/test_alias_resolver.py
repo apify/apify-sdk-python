@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apify._configuration import ActorStorages, Configuration
+from apify._configuration import Configuration
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 
@@ -88,9 +88,7 @@ async def test_configuration_storages_alias_resolving() -> None:
 
     # Set up the configuration with the storage mapping
     configuration = Configuration(
-        actor_storages=ActorStorages(
-            datasets=datasets, request_queues=request_queues, key_value_stores=key_value_stores
-        ),
+        actor_storages={'datasets': datasets, 'request_queues': request_queues, 'key_value_stores': key_value_stores}
     )
 
     # Check that id of each non-default storage saved in the mapping is resolved

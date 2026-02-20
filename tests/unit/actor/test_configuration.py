@@ -318,6 +318,6 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('ACTOR_STORAGES_JSON', actor_storages_json)
     config = ApifyConfiguration()
     assert config.actor_storages
-    assert config.actor_storages.datasets == datasets
-    assert config.actor_storages.request_queues == request_queues
-    assert config.actor_storages.key_value_stores == key_value_stores
+    assert config.actor_storages['datasets'] == datasets
+    assert config.actor_storages['request_queues'] == request_queues
+    assert config.actor_storages['key_value_stores'] == key_value_stores

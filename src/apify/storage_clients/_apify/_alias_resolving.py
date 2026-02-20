@@ -197,9 +197,9 @@ class AliasResolver:
         # This mapping is maintained by the Apify platform and does not have to be maintained in the default KVS.
         if self._configuration.actor_storages and self._alias != 'default':
             storage_maps = {
-                'Dataset': self._configuration.actor_storages.datasets,
-                'KeyValueStore': self._configuration.actor_storages.key_value_stores,
-                'RequestQueue': self._configuration.actor_storages.request_queues,
+                'Dataset': self._configuration.actor_storages['datasets'],
+                'KeyValueStore': self._configuration.actor_storages['key_value_stores'],
+                'RequestQueue': self._configuration.actor_storages['request_queues'],
             }
             if storage_id := storage_maps.get(self._storage_type, {}).get(self._alias):
                 return storage_id
