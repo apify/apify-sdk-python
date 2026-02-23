@@ -15,11 +15,10 @@ from ._request_queue_single_client import ApifyRequestQueueSingleClient
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
-    from crawlee import Request
+    from apify_client._resource_clients import RequestQueueClientAsync
     from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
-    from apify import Configuration
+    from apify import Configuration, Request
 
 logger = getLogger(__name__)
 
@@ -77,26 +76,31 @@ class ApifyRequestQueueClient(RequestQueueClient):
         Returns:
             Request queue metadata with accurate counts and timestamps, combining API data with local estimates.
         """
-        response = await self._api_client.get()
+        metadata = await self._api_client.get()
 
-        if response is None:
+        if metadata is None:
             raise ValueError('Failed to fetch request queue metadata from the API.')
+
+        total_request_count = int(metadata.total_request_count)
+        handled_request_count = int(metadata.handled_request_count)
+        pending_request_count = int(metadata.pending_request_count)
 
         # Enhance API response with local estimations to account for propagation delays (API data can be delayed
         # by a few seconds, while local estimates are immediately accurate).
         return ApifyRequestQueueMetadata(
-            id=response['id'],
-            name=response['name'],
-            total_request_count=max(response['totalRequestCount'], self._implementation.metadata.total_request_count),
-            handled_request_count=max(
-                response['handledRequestCount'], self._implementation.metadata.handled_request_count
+            id=metadata.id,
+            name=metadata.name,
+            total_request_count=max(total_request_count, self._implementation.metadata.total_request_count),
+            handled_request_count=max(handled_request_count, self._implementation.metadata.handled_request_count),
+            pending_request_count=pending_request_count,
+            created_at=min(metadata.created_at, self._implementation.metadata.created_at),
+            modified_at=max(metadata.modified_at, self._implementation.metadata.modified_at),
+            accessed_at=max(metadata.accessed_at, self._implementation.metadata.accessed_at),
+            had_multiple_clients=metadata.had_multiple_clients or self._implementation.metadata.had_multiple_clients,
+            stats=RequestQueueStats.model_validate(
+                metadata.stats.model_dump(by_alias=True) if metadata.stats else {},
+                by_alias=True,
             ),
-            pending_request_count=response['pendingRequestCount'],
-            created_at=min(response['createdAt'], self._implementation.metadata.created_at),
-            modified_at=max(response['modifiedAt'], self._implementation.metadata.modified_at),
-            accessed_at=max(response['accessedAt'], self._implementation.metadata.accessed_at),
-            had_multiple_clients=response['hadMultipleClients'] or self._implementation.metadata.had_multiple_clients,
-            stats=RequestQueueStats.model_validate(response['stats'], by_alias=True),
         )
 
     @classmethod
@@ -145,7 +149,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         raw_metadata = await api_client.get()
         if raw_metadata is None:
             raise ValueError('Failed to retrieve request queue metadata from the API.')
-        metadata = ApifyRequestQueueMetadata.model_validate(raw_metadata)
+        metadata = ApifyRequestQueueMetadata.model_validate(raw_metadata.model_dump(by_alias=True))
 
         return cls(
             api_client=api_client,

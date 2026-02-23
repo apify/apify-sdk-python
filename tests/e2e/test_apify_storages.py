@@ -25,4 +25,4 @@ async def test_actor_full_explicit_storage_init_on_platform(
     actor = await make_actor(label='explicit_storage_init', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

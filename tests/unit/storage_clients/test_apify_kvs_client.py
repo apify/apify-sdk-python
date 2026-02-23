@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from apify_client._models import ListOfKeys
+
 from apify.storage_clients._apify._key_value_store_client import ApifyKeyValueStoreClient
 
 
@@ -53,13 +55,18 @@ async def test_iterate_keys_single_page() -> None:
     """Test iterating keys with a single page of results."""
     api_client = AsyncMock()
     api_client.list_keys = AsyncMock(
-        return_value={
-            'items': [{'key': 'key1', 'size': 100}, {'key': 'key2', 'size': 200}],
-            'count': 2,
-            'limit': 1000,
-            'isTruncated': False,
-            'nextExclusiveStartKey': None,
-        }
+        return_value=ListOfKeys.model_validate(
+            {
+                'items': [
+                    {'key': 'key1', 'size': 100, 'recordPublicUrl': 'https://example.com/key1'},
+                    {'key': 'key2', 'size': 200, 'recordPublicUrl': 'https://example.com/key2'},
+                ],
+                'count': 2,
+                'limit': 1000,
+                'isTruncated': False,
+                'nextExclusiveStartKey': None,
+            }
+        )
     )
     client, _ = _make_kvs_client(api_client=api_client)
 
@@ -73,13 +80,17 @@ async def test_iterate_keys_with_limit() -> None:
     """Test that iterate_keys respects the limit parameter."""
     api_client = AsyncMock()
     api_client.list_keys = AsyncMock(
-        return_value={
-            'items': [{'key': f'key{i}', 'size': 100} for i in range(5)],
-            'count': 5,
-            'limit': 1000,
-            'isTruncated': True,
-            'nextExclusiveStartKey': 'key4',
-        }
+        return_value=ListOfKeys.model_validate(
+            {
+                'items': [
+                    {'key': f'key{i}', 'size': 100, 'recordPublicUrl': f'https://example.com/key{i}'} for i in range(5)
+                ],
+                'count': 5,
+                'limit': 1000,
+                'isTruncated': True,
+                'nextExclusiveStartKey': 'key4',
+            }
+        )
     )
     client, _ = _make_kvs_client(api_client=api_client)
 
@@ -89,20 +100,24 @@ async def test_iterate_keys_with_limit() -> None:
 
 async def test_iterate_keys_pagination() -> None:
     """Test that iterate_keys handles pagination across multiple pages."""
-    page1 = {
-        'items': [{'key': 'key1', 'size': 100}],
-        'count': 1,
-        'limit': 1000,
-        'isTruncated': True,
-        'nextExclusiveStartKey': 'key1',
-    }
-    page2 = {
-        'items': [{'key': 'key2', 'size': 200}],
-        'count': 1,
-        'limit': 1000,
-        'isTruncated': False,
-        'nextExclusiveStartKey': None,
-    }
+    page1 = ListOfKeys.model_validate(
+        {
+            'items': [{'key': 'key1', 'size': 100, 'recordPublicUrl': 'https://example.com/key1'}],
+            'count': 1,
+            'limit': 1000,
+            'isTruncated': True,
+            'nextExclusiveStartKey': 'key1',
+        }
+    )
+    page2 = ListOfKeys.model_validate(
+        {
+            'items': [{'key': 'key2', 'size': 200, 'recordPublicUrl': 'https://example.com/key2'}],
+            'count': 1,
+            'limit': 1000,
+            'isTruncated': False,
+            'nextExclusiveStartKey': None,
+        }
+    )
     api_client = AsyncMock()
     api_client.list_keys = AsyncMock(side_effect=[page1, page2])
     client, _ = _make_kvs_client(api_client=api_client)

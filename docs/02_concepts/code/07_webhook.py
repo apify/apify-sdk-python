@@ -7,7 +7,7 @@ async def main() -> None:
     async with Actor:
         # Create a webhook that will be triggered when the Actor run fails.
         webhook = Webhook(
-            event_types=['ACTOR.RUN.FAILED'],  # ty: ignore[invalid-argument-type]
+            event_types=['ACTOR.RUN.FAILED'],
             request_url='https://example.com/run-failed',
         )
 

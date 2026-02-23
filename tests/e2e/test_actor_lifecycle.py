@@ -8,6 +8,56 @@ if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
+async def test_actor_init_and_double_init_prevention(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    async def main() -> None:
+        my_actor = Actor
+        await my_actor.init()
+        assert my_actor._is_initialized is True
+        double_init = False
+        try:
+            await my_actor.init()
+            double_init = True
+        except RuntimeError as err:
+            assert str(err) == 'The Actor was already initialized!'  # noqa: PT017
+        except Exception:
+            raise
+        try:
+            await Actor.init()
+            double_init = True
+        except RuntimeError as err:
+            assert str(err) == 'The Actor was already initialized!'  # noqa: PT017
+        except Exception:
+            raise
+        await my_actor.exit()
+        assert double_init is False
+        assert my_actor._is_initialized is False
+
+    actor = await make_actor(label='actor-init', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status.value == 'SUCCEEDED'
+
+
+async def test_actor_init_correctly_in_async_with_block(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    async def main() -> None:
+        import apify._actor
+
+        async with Actor:
+            assert apify._actor.Actor._is_initialized
+        assert apify._actor.Actor._is_initialized is False
+
+    actor = await make_actor(label='with-actor-init', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status.value == 'SUCCEEDED'
+
+
 async def test_actor_exit_with_different_exit_codes(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
@@ -23,7 +73,7 @@ async def test_actor_exit_with_different_exit_codes(
         run_result = await run_actor(actor, run_input={'exit_code': exit_code})
 
         assert run_result.exit_code == exit_code
-        assert run_result.status == 'FAILED' if exit_code > 0 else 'SUCCEEDED'
+        assert run_result.status.value == 'FAILED' if exit_code > 0 else 'SUCCEEDED'
 
 
 async def test_actor_fail_with_custom_exit_codes_and_status_messages(
@@ -39,18 +89,18 @@ async def test_actor_fail_with_custom_exit_codes_and_status_messages(
     run_result = await run_actor(actor)
 
     assert run_result.exit_code == 1
-    assert run_result.status == 'FAILED'
+    assert run_result.status.value == 'FAILED'
 
     for exit_code in [1, 10, 100]:
         run_result = await run_actor(actor, run_input={'exit_code': exit_code})
 
         assert run_result.exit_code == exit_code
-        assert run_result.status == 'FAILED'
+        assert run_result.status.value == 'FAILED'
 
     # Fail with a status message.
     run_result = await run_actor(actor, run_input={'status_message': 'This is a test message'})
 
-    assert run_result.status == 'FAILED'
+    assert run_result.status.value == 'FAILED'
     assert run_result.status_message == 'This is a test message'
 
 
@@ -66,7 +116,7 @@ async def test_actor_fails_correctly_with_exception(
     run_result = await run_actor(actor)
 
     assert run_result.exit_code == 91
-    assert run_result.status == 'FAILED'
+    assert run_result.status.value == 'FAILED'
 
 
 async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_actor: RunActorFunction) -> None:
@@ -86,8 +136,8 @@ async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_acto
             requests = ['https://example.com/1', 'https://example.com/2']
 
             run = await Actor.apify_client.run(Actor.configuration.actor_run_id or '').get()
-            assert run
-            first_run = run.get('stats', {}).get('rebootCount', 0) == 0
+            assert run is not None
+            first_run = run.stats.reboot_count == 0
 
             @crawler.router.default_handler
             async def default_handler(context: BasicCrawlingContext) -> None:
@@ -109,4 +159,4 @@ async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_acto
     actor = await make_actor(label='migration', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

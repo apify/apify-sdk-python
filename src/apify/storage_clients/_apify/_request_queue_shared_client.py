@@ -11,13 +11,14 @@ from cachetools import LRUCache
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import ApifyRequestQueueMetadata, CachedRequest, RequestQueueHead
-from ._utils import unique_key_to_request_id
-from apify import Request
+from ._utils import to_crawlee_request, unique_key_to_request_id
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine, Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
+    from apify_client._resource_clients import RequestQueueClientAsync
+
+    from apify import Request
 
 logger = getLogger(__name__)
 
@@ -65,7 +66,7 @@ class ApifyRequestQueueSharedClient:
         """The Apify API client for communication with Apify platform."""
 
         self._queue_head = deque[str]()
-        """Local cache of request IDs from the queue head for efficient fetching."""
+        """Local cache of request IDs from the request queue head for efficient fetching."""
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """LRU cache storing request objects, keyed by request ID."""
@@ -121,17 +122,16 @@ class ApifyRequestQueueSharedClient:
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
-            requests_dict = [
-                request.model_dump(
-                    by_alias=True,
-                )
-                for request in new_requests
-            ]
+            requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
 
             # Send requests to API.
-            api_response = AddRequestsResponse.model_validate(
-                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+            batch_response = await self._api_client.batch_add_requests(
+                requests=requests_dict,
+                forefront=forefront,
             )
+
+            batch_response_dict = batch_response.model_dump(by_alias=True)
+            api_response = AddRequestsResponse.model_validate(batch_response_dict)
 
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
@@ -177,7 +177,7 @@ class ApifyRequestQueueSharedClient:
             if not self._queue_head:
                 return None
 
-            # Get the next request ID from the queue head
+            # Get the next request ID from the request queue head
             next_request_id = self._queue_head.popleft()
 
         request = await self._get_or_hydrate_request(next_request_id)
@@ -312,7 +312,7 @@ class ApifyRequestQueueSharedClient:
         if response is None:
             return None
 
-        return Request.model_validate(response)
+        return to_crawlee_request(response)
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
@@ -388,7 +388,7 @@ class ApifyRequestQueueSharedClient:
         )
 
         return ProcessedRequest.model_validate(
-            {'uniqueKey': request.unique_key} | response,
+            {'uniqueKey': request.unique_key} | response.model_dump(by_alias=True),
         )
 
     async def _list_head(
@@ -431,19 +431,19 @@ class ApifyRequestQueueSharedClient:
             self._should_check_for_forefront_requests = False
 
         # Otherwise fetch from API
-        response = await self._api_client.list_and_lock_head(
-            lock_secs=int(self._DEFAULT_LOCK_TIME.total_seconds()),
+        locked_queue_head = await self._api_client.list_and_lock_head(
+            lock_duration=self._DEFAULT_LOCK_TIME,
             limit=limit,
         )
 
         # Update the queue head cache
-        self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
+        self._queue_has_locked_requests = locked_queue_head.queue_has_locked_requests
         # Check if there is another client working with the RequestQueue
-        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        self.metadata.had_multiple_clients = locked_queue_head.had_multiple_clients
 
-        for request_data in response.get('items', []):
-            request = Request.model_validate(request_data)
-            request_id = request_data.get('id')
+        for request_data in locked_queue_head.items:
+            request = to_crawlee_request(request_data)
+            request_id = request_data.id
 
             # Skip requests without ID or unique key
             if not request.unique_key or not request_id:
@@ -473,7 +473,7 @@ class ApifyRequestQueueSharedClient:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_id)
 
-        return RequestQueueHead.model_validate(response)
+        return RequestQueueHead.from_client_locked_head(locked_queue_head)
 
     def _cache_request(
         self,

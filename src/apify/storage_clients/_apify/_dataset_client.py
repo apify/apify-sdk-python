@@ -17,7 +17,7 @@ from ._api_client_creation import create_storage_api_client
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import DatasetClientAsync
+    from apify_client._resource_clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
 
     from apify import Configuration
@@ -65,7 +65,18 @@ class ApifyDatasetClient(DatasetClient):
     @override
     async def get_metadata(self) -> DatasetMetadata:
         metadata = await self._api_client.get()
-        return DatasetMetadata.model_validate(metadata)
+
+        if metadata is None:
+            raise ValueError('Failed to retrieve dataset metadata.')
+
+        return DatasetMetadata(
+            id=metadata.id,
+            name=metadata.name,
+            created_at=metadata.created_at,
+            modified_at=metadata.modified_at,
+            accessed_at=metadata.accessed_at,
+            item_count=int(metadata.item_count),
+        )
 
     @classmethod
     async def open(

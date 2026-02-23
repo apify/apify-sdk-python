@@ -62,6 +62,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
     def _prepare_test_env() -> None:
         if hasattr(apify._actor.Actor, '__wrapped__'):
             delattr(apify._actor.Actor, '__wrapped__')
+
         apify._actor.Actor._is_initialized = False
 
         # Set the environment variable for the local storage directory to the temporary path.

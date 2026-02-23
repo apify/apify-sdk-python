@@ -35,7 +35,7 @@ keywords = [
     "scraping",
 ]
 dependencies = [
-    "apify-client>=2.3.0,<3.0.0",
+    "apify-client @ git+https://github.com/apify/apify-client-python.git@typed-clients",
     "apify-shared>=2.0.0,<3.0.0",
     "crawlee>=1.0.4,<2.0.0",
     "cachetools>=5.5.0",
@@ -43,7 +43,7 @@ dependencies = [
     "impit>=0.8.0",
     "lazy-object-proxy>=1.11.0",
     "more_itertools>=10.2.0",
-    "pydantic>=2.11.0",
+    "pydantic[email]>=2.11.0",
     "typing-extensions>=4.1.0",
     "websockets>=14.0",
     "yarl>=1.18.0",

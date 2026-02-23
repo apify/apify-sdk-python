@@ -492,17 +492,21 @@ class _ActorType:
                 (increases exponentially from this value).
             timeout: The socket timeout of the HTTP requests sent to the Apify API.
         """
-        token = token or self.configuration.token
-        api_url = api_url or self.configuration.api_base_url
-        return ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=max_retries,
-            min_delay_between_retries_millis=int(min_delay_between_retries.total_seconds() * 1000)
-            if min_delay_between_retries is not None
-            else None,
-            timeout_secs=int(timeout.total_seconds()) if timeout else None,
-        )
+        kwargs = {
+            'token': token or self.configuration.token,
+            'api_url': api_url or self.configuration.api_base_url,
+        }
+
+        if max_retries is not None:
+            kwargs['max_retries'] = max_retries
+
+        if min_delay_between_retries is not None:
+            kwargs['min_delay_between_retries_millis'] = int(min_delay_between_retries.total_seconds() * 1000)
+
+        if timeout is not None:
+            kwargs['timeout_secs'] = int(timeout.total_seconds())
+
+        return ApifyClientAsync(**kwargs)  # ty: ignore[invalid-argument-type]
 
     async def open_dataset(
         self,
@@ -898,17 +902,21 @@ class _ActorType:
                 f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
             )
 
-        api_result = await client.actor(actor_id).start(
+        actor_client = client.actor(actor_id)
+        run = await actor_client.start(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(actor_start_timeout.total_seconds()) if actor_start_timeout is not None else None,
+            timeout=actor_start_timeout,
             wait_for_finish=wait_for_finish,
             webhooks=serialized_webhooks,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to start Actor with ID "{actor_id}".')
+
+        return ActorRun.from_client_actor_run(run)
 
     async def abort(
         self,
@@ -936,13 +944,17 @@ class _ActorType:
         self._raise_if_not_initialized()
 
         client = self.new_client(token=token) if token else self.apify_client
+        run_client = client.run(run_id)
 
         if status_message:
-            await client.run(run_id).update(status_message=status_message)
+            await run_client.update(status_message=status_message)
 
-        api_result = await client.run(run_id).abort(gracefully=gracefully)
+        run = await run_client.abort(gracefully=gracefully)
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to abort Actor run with ID "{run_id}".')
+
+        return ActorRun.from_client_actor_run(run)
 
     async def call(
         self,
@@ -1015,18 +1027,22 @@ class _ActorType:
                 f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
             )
 
-        api_result = await client.actor(actor_id).call(
+        actor_client = client.actor(actor_id)
+        run = await actor_client.call(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(actor_call_timeout.total_seconds()) if actor_call_timeout is not None else None,
+            timeout=actor_call_timeout,
             webhooks=serialized_webhooks,
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            wait_duration=wait,
             logger=logger,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
+
+        return ActorRun.from_client_actor_run(run)
 
     async def call_task(
         self,
@@ -1088,16 +1104,20 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        api_result = await client.task(task_id).call(
+        task_client = client.task(task_id)
+        run = await task_client.call(
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(task_call_timeout.total_seconds()) if task_call_timeout is not None else None,
+            timeout=task_call_timeout,
             webhooks=serialized_webhooks,
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            wait_duration=wait,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
+
+        return ActorRun.from_client_actor_run(run)
 
     async def metamorph(
         self,
@@ -1274,11 +1294,18 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        api_result = await self.apify_client.run(self.configuration.actor_run_id).update(
-            status_message=status_message, is_status_message_terminal=is_terminal
+        run_client = self.apify_client.run(self.configuration.actor_run_id)
+        run = await run_client.update(
+            status_message=status_message,
+            is_status_message_terminal=is_terminal,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(
+                f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
+            )
+
+        return ActorRun.from_client_actor_run(run)
 
     async def create_proxy_configuration(
         self,

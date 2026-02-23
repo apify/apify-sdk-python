@@ -37,8 +37,7 @@ def apify_token() -> str:
 def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync."""
     api_url = os.getenv(_API_URL_ENV_VAR)
-
-    return ApifyClientAsync(apify_token, api_url=api_url)
+    return ApifyClientAsync(apify_token) if api_url is None else ApifyClientAsync(apify_token, api_url=api_url)
 
 
 @pytest.fixture
