@@ -35,15 +35,32 @@ def _transform_to_list(value: Any) -> list[str] | None:
 
 
 class ActorStorages(TypedDict):
+    """Mapping of storage aliases to their IDs, grouped by storage type.
+
+    Populated from the `ACTOR_STORAGES_JSON` env var that the Apify platform sets when an Actor declares
+    named storages in its `actor.json` schema. Each key maps a user-defined alias (e.g. `'custom'`)
+    to the platform-assigned storage ID.
+    """
+
     key_value_stores: dict[str, str]
     datasets: dict[str, str]
     request_queues: dict[str, str]
 
 
-def _load_storage_keys(
-    data: None | str | ActorStorages,
-) -> ActorStorages | None:
-    """Load storage keys."""
+def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None:
+    """Parse the `ACTOR_STORAGES_JSON` value into a normalized `ActorStorages` dict.
+
+    The platform provides this as a JSON string with camelCase keys (`keyValueStores`, `requestQueues`, `datasets`).
+    This validator deserializes the JSON when needed and normalizes the keys to snake_case, falling back to empty
+    dicts for missing storage types.
+
+    Args:
+        data: Raw value - `None` when the env var is unset, a JSON string from the env var, or an already-parsed
+        `ActorStorages` dict when set programmatically.
+
+    Returns:
+        Normalized storage mapping, or `None` if the input is `None`.
+    """
     if data is None:
         return None
     storage_mapping = json.loads(data) if isinstance(data, str) else data
@@ -470,7 +487,7 @@ class Configuration(CrawleeConfiguration):
         ActorStorages | None,
         Field(
             alias='actor_storages_json',
-            description='Storage IDs for the actor',
+            description='Mapping of storage aliases to their platform-assigned IDs.',
         ),
         BeforeValidator(_load_storage_keys),
     ] = None
