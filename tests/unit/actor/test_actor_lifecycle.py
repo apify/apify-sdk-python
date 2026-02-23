@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -232,3 +233,28 @@ async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFi
         status_records = [r for r in caplog.records if r.msg == '[Terminal status message]: cde']
         assert len(status_records) == 1
         assert status_records[0].levelno == logging.INFO
+
+
+@pytest.mark.parametrize(
+    ('first_with_call', 'second_with_call'),
+    [
+        pytest.param(False, False, id='both_without_call'),
+        pytest.param(False, True, id='first_without_call'),
+        pytest.param(True, False, id='second_without_call'),
+        pytest.param(True, True, id='both_with_call'),
+    ],
+)
+async def test_actor_sequential_contexts(*, first_with_call: bool, second_with_call: bool) -> None:
+    """Test that Actor and Actor() can be used in two sequential async context manager blocks."""
+    mock = AsyncMock()
+    async with Actor(exit_process=False) if first_with_call else Actor as actor:
+        await mock()
+        assert actor._is_initialized is True
+
+    # After exiting the context, new Actor instance can be created without conflicts.
+    async with Actor() if second_with_call else Actor as actor:
+        await mock()
+        assert actor._is_initialized is True
+
+    # The mock should have been called twice, once in each context.
+    assert mock.call_count == 2

@@ -110,3 +110,34 @@ async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_acto
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
+
+
+async def test_actor_sequential_contexts(make_actor: MakeActorFunction, run_actor: RunActorFunction) -> None:
+    """Test that Actor and Actor() can be used in sequential async context manager blocks."""
+
+    async def main() -> None:
+        async with Actor as actor:
+            actor._exit_process = False
+            assert actor._is_initialized is True
+
+        # Actor after Actor.
+        async with Actor as actor:
+            actor._exit_process = False
+            assert actor._is_initialized is True
+
+        # Actor() after Actor.
+        async with Actor(exit_process=False) as actor:
+            assert actor._is_initialized is True
+
+        # Actor() after Actor().
+        async with Actor(exit_process=False) as actor:
+            assert actor._is_initialized is True
+
+        # Actor after Actor().
+        async with Actor as actor:
+            assert actor._is_initialized is True
+
+    actor = await make_actor(label='actor-sequential-contexts', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
