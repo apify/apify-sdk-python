@@ -703,7 +703,7 @@ async def test_request_deduplication_edge_cases(
     """Test edge cases in request deduplication."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
     if rq_access_mode == 'shared':
-        pytest.skip(reason='Test is flaky, see https://github.com/apify/apify-sdk-python/issues/786')  # ty: ignore[invalid-argument-type, parameter-already-assigned]
+        pytest.skip(reason='Test is flaky, see https://github.com/apify/apify-sdk-python/issues/786')
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')

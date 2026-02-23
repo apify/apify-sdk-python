@@ -117,7 +117,7 @@ async def test_force_cloud(
     try:
         dataset_details = await dataset_client.get()
         assert dataset_details is not None
-        assert dataset_details.get('name') == dataset_name
+        assert dataset_details.name == dataset_name
 
         dataset_items = await dataset_client.list_items()
         assert dataset_items.items == [dataset_item]

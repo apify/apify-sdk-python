@@ -6,7 +6,6 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from apify_client._models import ActorJobStatus, Run
-from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 
 from apify._utils import docs_group
@@ -47,8 +46,6 @@ class WebhookStats(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     total_dispatches: Annotated[int, Field(alias='totalDispatches')]
-
-    from apify_client._models import Run
 
 
 @docs_group('Actor')

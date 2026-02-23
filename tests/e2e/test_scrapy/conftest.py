@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from apify_client.clients.resource_clients import ActorClientAsync
+    from apify_client._resource_clients import ActorClientAsync
 
     from apify._models import ActorRun
 

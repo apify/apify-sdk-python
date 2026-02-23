@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from apify import Actor
@@ -32,14 +33,17 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
     actor = await make_actor(label='rq-clients-resurrection', main_func=main)
     run_result = await run_actor(actor)
     assert run_result.status == 'SUCCEEDED'
-
     # Resurrect the run, the RequestQueue should still use same client key and thus not have multiple clients.
     run_client = apify_client_async.run(run_id=run_result.id)
     # Redirect logs even from the resurrected run
     streamed_log = await run_client.get_streamed_log(from_start=False)
     await run_client.resurrect()
+
     async with streamed_log:
-        run_result = ActorRun.model_validate(await run_client.wait_for_finish(wait_secs=600))
+        raw_run_result = await run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
+        assert raw_run_result is not None
+
+        run_result = ActorRun.from_client_actor_run(raw_run_result)
         assert run_result.status == 'SUCCEEDED'
 
 

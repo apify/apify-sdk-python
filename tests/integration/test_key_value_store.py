@@ -156,7 +156,7 @@ async def test_force_cloud(
     try:
         key_value_store_details = await key_value_store_client.get()
         assert key_value_store_details is not None
-        assert key_value_store_details.get('name') == key_value_store_name
+        assert key_value_store_details.name == key_value_store_name
 
         key_value_store_record = await key_value_store_client.get_record('foo')
         assert key_value_store_record is not None

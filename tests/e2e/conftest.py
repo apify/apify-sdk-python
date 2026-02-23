@@ -14,7 +14,7 @@ import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
-from apify_client._models import ActorJobStatus, ActorPermissionLevel, VersionSourceType
+from apify_client._models import ActorPermissionLevel, VersionSourceType
 from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
@@ -49,7 +49,9 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync."""
     api_url = os.getenv(_API_URL_ENV_VAR)
 
-    return ApifyClientAsync(apify_token, api_url=api_url)
+    if api_url is not None:
+        return ApifyClientAsync(apify_token, api_url=api_url)
+    return ApifyClientAsync(apify_token)
 
 
 @pytest.fixture
