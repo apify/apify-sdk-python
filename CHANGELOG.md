@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 - Resolve LogRecord attribute conflict in event manager logging ([#802](https://github.com/apify/apify-sdk-python/pull/802)) ([e1bdbc9](https://github.com/apify/apify-sdk-python/commit/e1bdbc9e303c24571b9511f43ec0815e7e9f4b55)) by [@vdusek](https://github.com/vdusek)
 - Update models.py to align with the current API behavior ([#782](https://github.com/apify/apify-sdk-python/pull/782)) ([b06355d](https://github.com/apify/apify-sdk-python/commit/b06355dbc1c8276e9930ecbde72795b6570dde33)) by [@vdusek](https://github.com/vdusek), closes [#778](https://github.com/apify/apify-sdk-python/issues/778)
+- Handle `ServiceConflictError` when reusing `Actor` across sequential context ([#804](https://github.com/apify/apify-sdk-python/pull/804)) ([9e5078f](https://github.com/apify/apify-sdk-python/commit/9e5078fa7b1a19e44893bd3409b45108519aef63)) by [@Mantisus](https://github.com/Mantisus), closes [#678](https://github.com/apify/apify-sdk-python/issues/678)
 
 
 <!-- git-cliff-unreleased-end -->
