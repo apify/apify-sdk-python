@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Support Actor schema storages with Alias mechanism ([#797](https://github.com/apify/apify-sdk-python/pull/797)) ([10986ac](https://github.com/apify/apify-sdk-python/commit/10986ac2f4a3d1112aa06eaf26f82884ab9c455a)) by [@Pijukatel](https://github.com/Pijukatel), closes [#762](https://github.com/apify/apify-sdk-python/issues/762)
+- Migrate to Scrapy&#x27;s native AsyncCrawlerRunner ([#793](https://github.com/apify/apify-sdk-python/pull/793)) ([01ad9da](https://github.com/apify/apify-sdk-python/commit/01ad9daf834894f798bbfa4362fc7d7f95bafe5c)) by [@vdusek](https://github.com/vdusek), closes [#638](https://github.com/apify/apify-sdk-python/issues/638)
 
 ### 🐛 Bug Fixes
 
