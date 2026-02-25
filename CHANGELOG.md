@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.2.2 - **not yet released**
+## [3.3.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.0) (2026-02-25)
 
 ### 🚀 Features
 
@@ -17,7 +16,6 @@ All notable changes to this project will be documented in this file.
 - Handle `ServiceConflictError` when reusing `Actor` across sequential context ([#804](https://github.com/apify/apify-sdk-python/pull/804)) ([9e5078f](https://github.com/apify/apify-sdk-python/commit/9e5078fa7b1a19e44893bd3409b45108519aef63)) by [@Mantisus](https://github.com/Mantisus), closes [#678](https://github.com/apify/apify-sdk-python/issues/678)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.2.1) (2026-02-17)
 
 ### 🐛 Bug Fixes
