@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar
 
 from crawlee._utils.crypto import crypto_random_object_id
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 T = TypeVar('T')
 
 
-async def call_with_exp_backoff(fn: Callable[[], Awaitable[T]], *, max_retries: int = 3) -> T:
+async def call_with_exp_backoff(fn: Callable[[], Awaitable[T]], *, max_retries: int = 3) -> T | None:
     """Call an async callable with exponential backoff retries until it returns a truthy value.
 
     In shared request queue mode, there is a propagation delay before newly added, reclaimed, or handled requests
@@ -21,14 +21,18 @@ async def call_with_exp_backoff(fn: Callable[[], Awaitable[T]], *, max_retries: 
     exponential backoff to handle that delay in integration tests.
     """
     result = None
+
     for attempt in range(max_retries):
         result = await fn()
+
         if result:
             return result
+
         delay = 2**attempt
         Actor.log.info(f'{fn} returned {result!r}, retrying in {delay}s (attempt {attempt + 1}/{max_retries})')
         await asyncio.sleep(delay)
-    return cast('T', result)
+
+    return result
 
 
 def generate_unique_resource_name(label: str) -> str:
