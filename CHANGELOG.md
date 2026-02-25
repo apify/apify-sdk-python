@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 <!-- git-cliff-unreleased-start -->
 ## 3.2.2 - **not yet released**
 
+### 🚀 Features
+
+- Support Actor schema storages with Alias mechanism ([#797](https://github.com/apify/apify-sdk-python/pull/797)) ([10986ac](https://github.com/apify/apify-sdk-python/commit/10986ac2f4a3d1112aa06eaf26f82884ab9c455a)) by [@Pijukatel](https://github.com/Pijukatel), closes [#762](https://github.com/apify/apify-sdk-python/issues/762)
+
 ### 🐛 Bug Fixes
 
 - Resolve LogRecord attribute conflict in event manager logging ([#802](https://github.com/apify/apify-sdk-python/pull/802)) ([e1bdbc9](https://github.com/apify/apify-sdk-python/commit/e1bdbc9e303c24571b9511f43ec0815e7e9f4b55)) by [@vdusek](https://github.com/vdusek)
