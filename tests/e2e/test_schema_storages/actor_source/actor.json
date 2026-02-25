@@ -1,0 +1,24 @@
+{
+    "actorSpecification": 1,
+    "version": "0.0",
+    "storages": {
+        "datasets": {
+            "default": {
+                "actorSpecification": 1,
+                "fields": {
+                    "properties": {
+                        "id": { "type": "string" }
+                    }
+                }
+            },
+            "custom": {
+                "actorSpecification": 1,
+                "fields": {
+                    "properties": {
+                        "id": { "type": "string" }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
-from typing_extensions import Self, deprecated
+from typing_extensions import Self, TypedDict, deprecated
 
 from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms
@@ -32,6 +32,43 @@ def _transform_to_list(value: Any) -> list[str] | None:
     if not value:
         return []
     return value if isinstance(value, list) else str(value).split(',')
+
+
+class ActorStorages(TypedDict):
+    """Mapping of storage aliases to their IDs, grouped by storage type.
+
+    Populated from the `ACTOR_STORAGES_JSON` env var that the Apify platform sets when an Actor declares
+    named storages in its `actor.json` schema. Each key maps a user-defined alias (e.g. `'custom'`)
+    to the platform-assigned storage ID.
+    """
+
+    key_value_stores: dict[str, str]
+    datasets: dict[str, str]
+    request_queues: dict[str, str]
+
+
+def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None:
+    """Parse the `ACTOR_STORAGES_JSON` value into a normalized `ActorStorages` dict.
+
+    The platform provides this as a JSON string with camelCase keys (`keyValueStores`, `requestQueues`, `datasets`).
+    This validator deserializes the JSON when needed and normalizes the keys to snake_case, falling back to empty
+    dicts for missing storage types.
+
+    Args:
+        data: Raw value - `None` when the env var is unset, a JSON string from the env var, or an already-parsed
+        `ActorStorages` dict when set programmatically.
+
+    Returns:
+        Normalized storage mapping, or `None` if the input is `None`.
+    """
+    if data is None:
+        return None
+    storage_mapping = json.loads(data) if isinstance(data, str) else data
+    return {
+        'key_value_stores': storage_mapping.get('keyValueStores', storage_mapping.get('key_value_stores', {})),
+        'datasets': storage_mapping.get('datasets', storage_mapping.get('datasets', {})),
+        'request_queues': storage_mapping.get('requestQueues', storage_mapping.get('request_queues', {})),
+    }
 
 
 @docs_group('Configuration')
@@ -444,6 +481,15 @@ class Configuration(CrawleeConfiguration):
             description='Counts of events that were charged for the actor',
         ),
         BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+    ] = None
+
+    actor_storages: Annotated[
+        ActorStorages | None,
+        Field(
+            alias='actor_storages_json',
+            description='Mapping of storage aliases to their platform-assigned IDs.',
+        ),
+        BeforeValidator(_load_storage_keys),
     ] = None
 
     @model_validator(mode='after')
