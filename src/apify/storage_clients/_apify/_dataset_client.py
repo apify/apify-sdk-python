@@ -13,6 +13,7 @@ from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
 from ._api_client_creation import create_storage_api_client
+from apify.storage_clients._ppe_dataset_mixin import _DatasetClientPPEMixin
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class ApifyDatasetClient(DatasetClient):
+class ApifyDatasetClient(DatasetClient, _DatasetClientPPEMixin):
     """An Apify platform implementation of the dataset client."""
 
     _MAX_PAYLOAD_SIZE = ByteSize.from_mb(9)
@@ -48,6 +49,8 @@ class ApifyDatasetClient(DatasetClient):
 
         Preferably use the `ApifyDatasetClient.open` class method to create a new instance.
         """
+        super().__init__()
+
         self._api_client = api_client
         """The Apify dataset client for API operations."""
 
@@ -108,11 +111,15 @@ class ApifyDatasetClient(DatasetClient):
             id=id,
         )
 
-        return cls(
+        dataset_client = cls(
             api_client=api_client,
             api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
             lock=asyncio.Lock(),
         )
+
+        dataset_client.is_default_dataset = (await dataset_client.get_metadata()).id == configuration.default_dataset_id
+
+        return dataset_client
 
     @override
     async def purge(self) -> None:
@@ -128,21 +135,19 @@ class ApifyDatasetClient(DatasetClient):
 
     @override
     async def push_data(self, data: list[Any] | dict[str, Any]) -> None:
-        async def payloads_generator() -> AsyncIterator[str]:
-            for index, item in enumerate(data):
+        async def payloads_generator(items: list[Any]) -> AsyncIterator[str]:
+            for index, item in enumerate(items):
                 yield await self._check_and_serialize(item, index)
 
         async with self._lock:
-            # Handle lists
-            if isinstance(data, list):
-                # Invoke client in series to preserve the order of data
-                async for items in self._chunk_by_size(payloads_generator()):
-                    await self._api_client.push_items(items=items)
+            items = data if isinstance(data, list) else [data]
+            limit = await self._calculate_limit_for_push(len(items))
+            items = items[:limit]
 
-            # Handle singular items
-            else:
-                items = await self._check_and_serialize(data)
-                await self._api_client.push_items(items=items)
+            async for chunk in self._chunk_by_size(payloads_generator(items)):
+                await self._api_client.push_items(items=chunk)
+
+            await self._charge_for_items(count_items=limit)
 
     @override
     async def get_data(

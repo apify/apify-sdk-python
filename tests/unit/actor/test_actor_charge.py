@@ -143,6 +143,49 @@ async def test_max_event_charge_count_within_limit_tolerates_overdraw() -> None:
         assert max_count == 0
 
 
+async def test_push_data_combined_price_limits_items() -> None:
+    """Test that push_data limits items when the combined explicit + synthetic event price exceeds the budget."""
+    async with setup_mocked_charging(
+        Configuration(max_total_charge_usd=Decimal('3.00'), test_pay_per_event=True)
+    ) as setup:
+        setup.charging_mgr._pricing_info['scrape'] = PricingInfoItem(Decimal('1.00'), 'Scrape')
+        setup.charging_mgr._pricing_info['apify-default-dataset-item'] = PricingInfoItem(
+            Decimal('1.00'), 'Default dataset item'
+        )
+
+        data = [{'id': i} for i in range(5)]
+        result = await Actor.push_data(data, 'scrape')
+
+        assert result is not None
+        assert result.charged_count == 1
+
+        dataset = await Actor.open_dataset()
+        items = await dataset.get_data()
+        assert len(items.items) == 1
+        assert items.items[0] == {'id': 0}
+
+
+async def test_push_data_charges_synthetic_event_for_default_dataset() -> None:
+    """Test that push_data charges both the explicit event and the synthetic apify-default-dataset-item event."""
+    async with setup_mocked_charging(
+        Configuration(max_total_charge_usd=Decimal('10.00'), test_pay_per_event=True)
+    ) as setup:
+        setup.charging_mgr._pricing_info['test'] = PricingInfoItem(Decimal('0.10'), 'Test')
+        setup.charging_mgr._pricing_info['apify-default-dataset-item'] = PricingInfoItem(
+            Decimal('0.05'), 'Dataset item'
+        )
+
+        data = [{'id': i} for i in range(3)]
+        result = await Actor.push_data(data, 'test')
+
+        assert result is not None
+        assert result.charged_count == 3
+
+        # Both explicit and synthetic events should be charged
+        assert setup.charging_mgr.get_charged_event_count('test') == 3
+        assert setup.charging_mgr.get_charged_event_count('apify-default-dataset-item') == 3
+
+
 async def test_charge_with_overdrawn_budget() -> None:
     configuration = Configuration(
         max_total_charge_usd=Decimal('0.00025'),

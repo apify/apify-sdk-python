@@ -628,6 +628,9 @@ class _ActorType:
 
         data = data if isinstance(data, list) else [data]
 
+        if charged_event_name and charged_event_name.startswith('apify-'):
+            raise ValueError(f'Cannot charge for synthetic event "{charged_event_name}" manually')
+
         # No charging, just push the data without locking.
         if charged_event_name is None:
             dataset = await self.open_dataset()
@@ -637,12 +640,11 @@ class _ActorType:
         # If charging is requested, acquire the charge lock to prevent race conditions between concurrent
         # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
         async with self._charge_lock:
-            max_charged_count = self.get_charging_manager().calculate_max_event_charge_count_within_limit(
-                charged_event_name
+            pushed_items_count = self.get_charging_manager().calculate_push_data_limit(
+                items_count=len(data),
+                event_name=charged_event_name,
+                is_default_dataset=True,
             )
-
-            # Push as many items as we can charge for.
-            pushed_items_count = min(max_charged_count, len(data)) if max_charged_count is not None else len(data)
 
             dataset = await self.open_dataset()
 
@@ -651,6 +653,7 @@ class _ActorType:
             elif pushed_items_count > 0:
                 await dataset.push_data(data)
 
+            # Only charge explicit events; synthetic events will be processed within the client.
             return await self.get_charging_manager().charge(
                 event_name=charged_event_name,
                 count=pushed_items_count,
