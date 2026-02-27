@@ -7,16 +7,16 @@ from typing_extensions import Self, override
 from crawlee.storage_clients._file_system import FileSystemDatasetClient
 
 from apify._configuration import Configuration as ApifyConfiguration
-from apify.storage_clients._ppe_dataset_mixin import _DatasetClientPPEMixin
+from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 
 if TYPE_CHECKING:
     from crawlee.configuration import Configuration
 
 
-class ApifyFileSystemDatasetClient(FileSystemDatasetClient, _DatasetClientPPEMixin):
+class ApifyFileSystemDatasetClient(FileSystemDatasetClient, DatasetClientPpeMixin):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         FileSystemDatasetClient.__init__(self, *args, **kwargs)
-        _DatasetClientPPEMixin.__init__(self)
+        DatasetClientPpeMixin.__init__(self)
 
     @override
     @classmethod

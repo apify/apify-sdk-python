@@ -13,7 +13,7 @@ from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
 from ._api_client_creation import create_storage_api_client
-from apify.storage_clients._ppe_dataset_mixin import _DatasetClientPPEMixin
+from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class ApifyDatasetClient(DatasetClient, _DatasetClientPPEMixin):
+class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
     """An Apify platform implementation of the dataset client."""
 
     _MAX_PAYLOAD_SIZE = ByteSize.from_mb(9)

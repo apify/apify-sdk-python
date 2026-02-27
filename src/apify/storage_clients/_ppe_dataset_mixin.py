@@ -1,7 +1,7 @@
 from apify._charging import DEFAULT_DATASET_ITEM_EVENT, charging_manager_ctx
 
 
-class _DatasetClientPPEMixin:
+class DatasetClientPpeMixin:
     """A mixin for dataset clients to add support for PPE pricing model and tracking synthetic events."""
 
     def __init__(self) -> None:
