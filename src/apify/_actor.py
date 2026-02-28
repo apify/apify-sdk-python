@@ -1398,7 +1398,7 @@ class _ActorType:
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
         if self.is_at_home() and self.configuration.timeout_at:
-            return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
+            return max(self.configuration.timeout_at - datetime.now(tz=timezone.utc), timedelta(0))
 
         self.log.warning(
             'Using `inherit` or `RemainingTime` argument is only possible when the Actor'
