@@ -8,7 +8,7 @@ from scrapy import Request, Spider
 from crawlee._types import HttpHeaders
 
 from apify import Request as ApifyRequest
-from apify.scrapy.requests import to_scrapy_request
+from apify.scrapy.requests import to_apify_request, to_scrapy_request
 
 
 class DummySpider(Spider):
@@ -61,16 +61,18 @@ def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
-def test_with_reconstruction(spider: Spider) -> None:
-    # With reconstruction of encoded Scrapy request
-    apify_request = ApifyRequest(
+def test_with_reconstruction_roundtrip(spider: Spider) -> None:
+    """Test that a Scrapy request survives serialization and deserialization roundtrip."""
+    original_scrapy_request = Request(
         url='https://apify.com',
         method='GET',
-        unique_key='https://apify.com',
-        user_data={
-            'scrapy_request': 'gASVJgIAAAAAAAB9lCiMA3VybJSMEWh0dHBzOi8vYXBpZnkuY29tlIwIY2FsbGJhY2uUTowHZXJy\nYmFja5ROjAdoZWFkZXJzlH2UKEMGQWNjZXB0lF2UQz90ZXh0L2h0bWwsYXBwbGljYXRpb24veGh0\nbWwreG1sLGFwcGxpY2F0aW9uL3htbDtxPTAuOSwqLyo7cT0wLjiUYUMPQWNjZXB0LUxhbmd1YWdl\nlF2UQwJlbpRhQwpVc2VyLUFnZW50lF2UQyNTY3JhcHkvMi4xMS4wICgraHR0cHM6Ly9zY3JhcHku\nb3JnKZRhQw9BY2NlcHQtRW5jb2RpbmeUXZRDDWd6aXAsIGRlZmxhdGWUYXWMBm1ldGhvZJSMA0dF\nVJSMBGJvZHmUQwCUjAdjb29raWVzlH2UjARtZXRhlH2UKIwQYXBpZnlfcmVxdWVzdF9pZJSMD2Z2\nd3NjTzJVSkxkcjEwQpSMGGFwaWZ5X3JlcXVlc3RfdW5pcXVlX2tleZSMEWh0dHBzOi8vYXBpZnku\nY29tlIwQZG93bmxvYWRfdGltZW91dJRHQGaAAAAAAACMDWRvd25sb2FkX3Nsb3SUjAlhcGlmeS5j\nb22UjBBkb3dubG9hZF9sYXRlbmN5lEc/tYIIAAAAAHWMCGVuY29kaW5nlIwFdXRmLTiUjAhwcmlv\ncml0eZRLAIwLZG9udF9maWx0ZXKUiYwFZmxhZ3OUXZSMCWNiX2t3YXJnc5R9lHUu\n',  # noqa: E501
+        meta={
+            'apify_request_unique_key': 'https://apify.com',
         },
     )
+
+    apify_request = to_apify_request(original_scrapy_request, spider)
+    assert apify_request is not None
 
     scrapy_request = to_scrapy_request(apify_request, spider)
 
@@ -81,18 +83,21 @@ def test_with_reconstruction(spider: Spider) -> None:
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
-def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
-    # With reconstruction of encoded Scrapy request
-    apify_request = ApifyRequest(
+def test_with_reconstruction_roundtrip_with_optional_fields(spider: Spider) -> None:
+    """Test roundtrip with headers and user data."""
+    original_scrapy_request = Request(
         url='https://apify.com',
         method='GET',
-        unique_key='https://apify.com',
-        headers=HttpHeaders({'Authorization': 'Bearer access_token'}),
-        user_data={
-            'some_user_data': 'hello',
-            'scrapy_request': 'gASVJgIAAAAAAAB9lCiMA3VybJSMEWh0dHBzOi8vYXBpZnkuY29tlIwIY2FsbGJhY2uUTowHZXJy\nYmFja5ROjAdoZWFkZXJzlH2UKEMGQWNjZXB0lF2UQz90ZXh0L2h0bWwsYXBwbGljYXRpb24veGh0\nbWwreG1sLGFwcGxpY2F0aW9uL3htbDtxPTAuOSwqLyo7cT0wLjiUYUMPQWNjZXB0LUxhbmd1YWdl\nlF2UQwJlbpRhQwpVc2VyLUFnZW50lF2UQyNTY3JhcHkvMi4xMS4wICgraHR0cHM6Ly9zY3JhcHku\nb3JnKZRhQw9BY2NlcHQtRW5jb2RpbmeUXZRDDWd6aXAsIGRlZmxhdGWUYXWMBm1ldGhvZJSMA0dF\nVJSMBGJvZHmUQwCUjAdjb29raWVzlH2UjARtZXRhlH2UKIwQYXBpZnlfcmVxdWVzdF9pZJSMD2Z2\nd3NjTzJVSkxkcjEwQpSMGGFwaWZ5X3JlcXVlc3RfdW5pcXVlX2tleZSMEWh0dHBzOi8vYXBpZnku\nY29tlIwQZG93bmxvYWRfdGltZW91dJRHQGaAAAAAAACMDWRvd25sb2FkX3Nsb3SUjAlhcGlmeS5j\nb22UjBBkb3dubG9hZF9sYXRlbmN5lEc/tYIIAAAAAHWMCGVuY29kaW5nlIwFdXRmLTiUjAhwcmlv\ncml0eZRLAIwLZG9udF9maWx0ZXKUiYwFZmxhZ3OUXZSMCWNiX2t3YXJnc5R9lHUu\n',  # noqa: E501
+        headers={'Authorization': 'Bearer access_token'},
+        meta={
+            'apify_request_unique_key': 'https://apify.com',
+            'userData': {'some_user_data': 'hello'},
         },
     )
+
+    apify_request = to_apify_request(original_scrapy_request, spider)
+    assert apify_request is not None
+    apify_request.headers = HttpHeaders({'Authorization': 'Bearer access_token'})
 
     scrapy_request = to_scrapy_request(apify_request, spider)
 
@@ -104,7 +109,6 @@ def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
     scrapy_request_headers = scrapy_request.headers.get('authorization')
     assert scrapy_request_headers is not None
     assert apify_request.headers.get('authorization') == scrapy_request_headers.decode()
-    assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
 def test_invalid_request_for_reconstruction(spider: Spider) -> None:

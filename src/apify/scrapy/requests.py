@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import codecs
-import pickle
+import json
+from base64 import b64decode, b64encode
 from logging import getLogger
-from typing import Any, cast
+from typing import Any
 
 from scrapy import Request as ScrapyRequest
 from scrapy import Spider
@@ -13,6 +13,7 @@ from scrapy.utils.request import request_from_dict
 from crawlee._types import HttpHeaders
 
 from apify import Request as ApifyRequest
+from apify.scrapy._json_utils import prepare_for_json, restore_from_json
 
 logger = getLogger(__name__)
 
@@ -64,13 +65,14 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
 
         apify_request = ApifyRequest.from_url(**request_kwargs)
 
-        # Serialize the Scrapy ScrapyRequest and store it in the apify_request.
-        #   - This process involves converting the Scrapy ScrapyRequest object into a dictionary, encoding it to base64,
-        #     and storing it as 'scrapy_request' within the 'userData' dictionary of the apify_request.
-        #   - The serialization process can be referenced at: https://stackoverflow.com/questions/30469575/.
-        scrapy_request_dict = scrapy_request.to_dict(spider=spider)
-        scrapy_request_dict_encoded = codecs.encode(pickle.dumps(scrapy_request_dict), 'base64').decode()
-        apify_request.user_data['scrapy_request'] = scrapy_request_dict_encoded
+        # Serialize the Scrapy request as dict -> JSON (with bytes base64-encoded) -> base64 string,
+        # and store it in apify_request.user_data['scrapy_request'].
+        request_dict = scrapy_request.to_dict(spider=spider)
+        json_safe_dict = prepare_for_json(request_dict)
+        json_string = json.dumps(json_safe_dict)
+        json_bytes = json_string.encode('utf-8')
+        encoded_request = b64encode(json_bytes).decode('ascii')
+        apify_request.user_data['scrapy_request'] = encoded_request
 
     except Exception as exc:
         logger.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
@@ -94,27 +96,28 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     Returns:
         The converted Scrapy request.
     """
-    if not isinstance(cast('Any', apify_request), ApifyRequest):
-        raise TypeError('apify_request must be a crawlee.ScrapyRequest instance')
+    if not isinstance(apify_request, ApifyRequest):
+        raise TypeError('apify_request must be a apify.Request instance')
 
     logger.debug(f'to_scrapy_request was called (apify_request={apify_request})...')
 
-    # If the apify_request comes from the Scrapy
+    # If the apify_request contains a serialized Scrapy request, deserialize it
+    # (base64 string -> JSON -> dict with bytes restored) and reconstruct the Scrapy request.
     if 'scrapy_request' in apify_request.user_data:
-        # Deserialize the Scrapy ScrapyRequest from the apify_request.
-        #   - This process involves decoding the base64-encoded request data and reconstructing
-        #     the Scrapy ScrapyRequest object from its dictionary representation.
         logger.debug('Restoring the Scrapy ScrapyRequest from the apify_request...')
 
-        scrapy_request_dict_encoded = apify_request.user_data['scrapy_request']
-        if not isinstance(scrapy_request_dict_encoded, str):
-            raise TypeError('scrapy_request_dict_encoded must be a string')
+        encoded_request = apify_request.user_data['scrapy_request']
+        if not isinstance(encoded_request, str):
+            raise TypeError('encoded_request must be a string')
 
-        scrapy_request_dict = pickle.loads(codecs.decode(scrapy_request_dict_encoded.encode(), 'base64'))
-        if not isinstance(scrapy_request_dict, dict):
-            raise TypeError('scrapy_request_dict must be a dictionary')
+        json_bytes = b64decode(encoded_request)
+        raw_dict = json.loads(json_bytes.decode('utf-8'))
+        request_dict = restore_from_json(raw_dict)
 
-        scrapy_request = request_from_dict(scrapy_request_dict, spider=spider)
+        if not isinstance(request_dict, dict):
+            raise TypeError('request_dict must be a dictionary')
+
+        scrapy_request = request_from_dict(request_dict, spider=spider)
         if not isinstance(scrapy_request, ScrapyRequest):
             raise TypeError('scrapy_request must be an instance of the ScrapyRequest class')
 

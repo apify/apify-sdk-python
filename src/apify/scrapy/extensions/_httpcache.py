@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import gzip
 import io
-import pickle
+import json
 import re
 import struct
 from logging import getLogger
@@ -14,6 +14,7 @@ from scrapy.responsetypes import responsetypes
 
 from apify import Configuration
 from apify.scrapy._async_thread import AsyncThread
+from apify.scrapy._json_utils import prepare_for_json, restore_from_json
 from apify.storage_clients import ApifyStorageClient
 from apify.storages import KeyValueStore
 
@@ -162,18 +163,25 @@ class ApifyCacheStorage:
 
 
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:
-    """Dump a dictionary to a gzip-compressed byte stream."""
+    """Dump a dictionary to a gzip-compressed byte stream using JSON serialization."""
+    json_safe_data = prepare_for_json(data)
+    json_string = json.dumps(json_safe_data)
+    json_bytes = json_string.encode('utf-8')
+
     with io.BytesIO() as byte_stream:
         with gzip.GzipFile(fileobj=byte_stream, mode='wb', mtime=mtime) as gzip_file:
-            pickle.dump(data, gzip_file, protocol=4)
+            gzip_file.write(json_bytes)
+
         return byte_stream.getvalue()
 
 
 def from_gzip(gzip_bytes: bytes) -> dict:
     """Load a dictionary from a gzip-compressed byte stream."""
     with io.BytesIO(gzip_bytes) as byte_stream, gzip.GzipFile(fileobj=byte_stream, mode='rb') as gzip_file:
-        data: dict = pickle.load(gzip_file)
-        return data
+        raw_data = gzip_file.read()
+
+    raw_dict = json.loads(raw_data.decode('utf-8'))
+    return restore_from_json(raw_dict)
 
 
 def read_gzip_time(gzip_bytes: bytes) -> int:
