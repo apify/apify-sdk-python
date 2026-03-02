@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import warnings
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import pytest
@@ -321,3 +321,26 @@ async def test_get_remaining_time_warns_when_not_at_home(caplog: pytest.LogCaptu
         result = Actor._get_remaining_time()
         assert result is None
     assert any('inherit' in msg or 'RemainingTime' in msg for msg in caplog.messages)
+
+
+async def test_get_remaining_time_clamps_negative_to_zero() -> None:
+    """Test that _get_remaining_time returns timedelta(0) instead of a negative value when timeout is in the past."""
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.timeout_at = datetime.now(tz=timezone.utc) - timedelta(minutes=5)
+
+        result = Actor._get_remaining_time()
+        assert result is not None
+        assert result == timedelta(0)
+
+
+async def test_get_remaining_time_returns_positive_when_timeout_in_future() -> None:
+    """Test that _get_remaining_time returns a positive timedelta when timeout is in the future."""
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.timeout_at = datetime.now(tz=timezone.utc) + timedelta(minutes=5)
+
+        result = Actor._get_remaining_time()
+        assert result is not None
+        assert result > timedelta(0)
+        assert result <= timedelta(minutes=5)
