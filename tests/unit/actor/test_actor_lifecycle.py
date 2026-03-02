@@ -68,41 +68,41 @@ async def test_actor_init_instance_manual() -> None:
     """Test that Actor instance can be properly initialized and cleaned up manually."""
     actor = Actor()
     await actor.init()
-    assert actor._is_initialized is True
+    assert actor.active is True
     await actor.exit()
-    assert actor._is_initialized is False
+    assert actor.active is False
 
 
 async def test_actor_init_instance_async_with() -> None:
     """Test that Actor instance can be properly initialized and cleaned up using async context manager."""
     actor = Actor()
     async with actor:
-        assert actor._is_initialized is True
+        assert actor.active is True
 
-    assert actor._is_initialized is False
+    assert actor.active is False
 
 
 async def test_actor_init_class_manual() -> None:
     """Test that Actor class can be properly initialized and cleaned up manually."""
     await Actor.init()
-    assert Actor._is_initialized is True
+    assert Actor.active is True
     await Actor.exit()
-    assert not Actor._is_initialized
+    assert not Actor.active
 
 
 async def test_actor_init_class_async_with() -> None:
     """Test that Actor class can be properly initialized and cleaned up using async context manager."""
     async with Actor:
-        assert Actor._is_initialized is True
+        assert Actor.active is True
 
-    assert not Actor._is_initialized
+    assert not Actor.active
 
 
 async def test_fail_properly_deinitializes_actor(actor: _ActorType) -> None:
     """Test that fail() method properly deinitializes the Actor."""
-    assert actor._is_initialized
+    assert actor.active
     await actor.fail()
-    assert actor._is_initialized is False
+    assert actor.active is False
 
 
 async def test_actor_handles_exceptions_and_cleans_up_properly() -> None:
@@ -111,16 +111,16 @@ async def test_actor_handles_exceptions_and_cleans_up_properly() -> None:
 
     with contextlib.suppress(Exception):
         async with Actor() as actor:
-            assert actor._is_initialized
+            assert actor.active
             raise Exception('Failed')  # noqa: TRY002
 
     assert actor is not None
-    assert actor._is_initialized is False
+    assert actor.active is False
 
 
 async def test_double_init_raises_runtime_error(actor: _ActorType) -> None:
     """Test that attempting to initialize an already initialized Actor raises RuntimeError."""
-    assert actor._is_initialized
+    assert actor.active
     with pytest.raises(RuntimeError):
         await actor.init()
 
@@ -196,7 +196,7 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
 
     actor = Actor()
     async with actor:
-        assert actor._is_initialized
+        assert actor.active
         actor.on(Event.PERSIST_STATE, on_event(Event.PERSIST_STATE))
         actor.on(Event.SYSTEM_INFO, on_event(Event.SYSTEM_INFO))
         await asyncio.sleep(1)
@@ -249,12 +249,12 @@ async def test_actor_sequential_contexts(*, first_with_call: bool, second_with_c
     mock = AsyncMock()
     async with Actor(exit_process=False) if first_with_call else Actor as actor:
         await mock()
-        assert actor._is_initialized is True
+        assert actor.active is True
 
     # After exiting the context, new Actor instance can be created without conflicts.
     async with Actor() if second_with_call else Actor as actor:
         await mock()
-        assert actor._is_initialized is True
+        assert actor.active is True
 
     # The mock should have been called twice, once in each context.
     assert mock.call_count == 2
