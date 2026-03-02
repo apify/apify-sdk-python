@@ -295,7 +295,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_max_paid_dataset_items',
             description='For paid-per-result Actors, the user-set limit on returned results. Do not exceed this limit',
         ),
-        BeforeValidator(lambda val: val or None),
+        BeforeValidator(lambda val: val if val != '' else None),
     ] = None
 
     max_total_charge_usd: Annotated[
@@ -304,7 +304,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_max_total_charge_usd',
             description='For pay-per-event Actors, the user-set limit on total charges. Do not exceed this limit',
         ),
-        BeforeValidator(lambda val: val or None),
+        BeforeValidator(lambda val: val if val != '' else None),
     ] = None
 
     test_pay_per_event: Annotated[
