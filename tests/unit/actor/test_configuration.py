@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -273,6 +274,34 @@ def test_default_values() -> None:
     assert config.actor_run_id is None
     assert config.max_total_charge_usd is None
     assert config.test_pay_per_event is False
+
+
+def test_max_paid_dataset_items_zero_is_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that max_paid_dataset_items=0 is not treated as falsy and converted to None."""
+    monkeypatch.setenv('ACTOR_MAX_PAID_DATASET_ITEMS', '0')
+    config = ApifyConfiguration()
+    assert config.max_paid_dataset_items == 0
+
+
+def test_max_total_charge_usd_zero_is_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that max_total_charge_usd=0 is not treated as falsy and converted to None."""
+    monkeypatch.setenv('ACTOR_MAX_TOTAL_CHARGE_USD', '0')
+    config = ApifyConfiguration()
+    assert config.max_total_charge_usd == Decimal(0)
+
+
+def test_max_paid_dataset_items_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that an empty env var for max_paid_dataset_items is converted to None."""
+    monkeypatch.setenv('ACTOR_MAX_PAID_DATASET_ITEMS', '')
+    config = ApifyConfiguration()
+    assert config.max_paid_dataset_items is None
+
+
+def test_max_total_charge_usd_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that an empty env var for max_total_charge_usd is converted to None."""
+    monkeypatch.setenv('ACTOR_MAX_TOTAL_CHARGE_USD', '')
+    config = ApifyConfiguration()
+    assert config.max_total_charge_usd is None
 
 
 def test_max_total_charge_usd_decimal_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
