@@ -350,18 +350,27 @@ class _ActorType:
 
         It uses `ApifyEventManager` on the Apify platform and `LocalEventManager` otherwise.
         """
-        event_manager = (
-            ApifyEventManager(
-                configuration=self.configuration,
-                persist_state_interval=self.configuration.persist_state_interval,
+        try:
+            event_manager = (
+                ApifyEventManager(
+                    configuration=self.configuration,
+                    persist_state_interval=self.configuration.persist_state_interval,
+                )
+                if self.is_at_home()
+                else LocalEventManager(
+                    system_info_interval=self.configuration.system_info_interval,
+                    persist_state_interval=self.configuration.persist_state_interval,
+                )
             )
-            if self.is_at_home()
-            else LocalEventManager(
-                system_info_interval=self.configuration.system_info_interval,
-                persist_state_interval=self.configuration.persist_state_interval,
+            service_locator.set_event_manager(event_manager)
+        except ServiceConflictError:
+            self.log.debug(
+                'Event manager already exists in service locator (set by previous Actor context or explicitly by '
+                'user). Using the existing event manager.'
             )
-        )
-        service_locator.set_event_manager(event_manager)
+            # Use the event manager from the service locator
+            event_manager = service_locator.get_event_manager()
+
         return event_manager
 
     @cached_property
@@ -1392,7 +1401,7 @@ class _ActorType:
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
         if self.is_at_home() and self.configuration.timeout_at:
-            return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
+            return max(self.configuration.timeout_at - datetime.now(tz=timezone.utc), timedelta(0))
 
         self.log.warning(
             'Using `inherit` or `RemainingTime` argument is only possible when the Actor'

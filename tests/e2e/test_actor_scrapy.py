@@ -28,7 +28,7 @@ async def test_actor_scrapy_title_spider(
     actor = await make_actor(
         'actor-scrapy-title-spider',
         source_files=actor_source_files,
-        additional_requirements=['scrapy~=2.12.0'],
+        additional_requirements=['scrapy>=2.14.0'],
     )
     run_result = await run_actor(
         actor,

@@ -3,15 +3,31 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
-## 3.2.2 - **not yet released**
+## 3.3.1 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix f-string bugs in charging log message ([#817](https://github.com/apify/apify-sdk-python/pull/817)) ([bcb4050](https://github.com/apify/apify-sdk-python/commit/bcb4050b3f5ade0e577dd7499979dc65c0ba815e)) by [@vdusek](https://github.com/vdusek)
+- Fix BeforeValidator treating 0 as falsy in configuration fields ([#819](https://github.com/apify/apify-sdk-python/pull/819)) ([72efe88](https://github.com/apify/apify-sdk-python/commit/72efe883574ef0d05795934337c7f1c8c0d11877)) by [@vdusek](https://github.com/vdusek)
+- Clamp negative timedelta in _get_remaining_time() ([#818](https://github.com/apify/apify-sdk-python/pull/818)) ([69b8af9](https://github.com/apify/apify-sdk-python/commit/69b8af9b8d245cfed76875f983f374e05d93bba8)) by [@vdusek](https://github.com/vdusek)
+- **scrapy:** Close AsyncThread on scheduler open() failure ([#820](https://github.com/apify/apify-sdk-python/pull/820)) ([7dfaf1a](https://github.com/apify/apify-sdk-python/commit/7dfaf1a5c5af44743bd448a91140d9b074ac44bf)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
+## [3.3.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.0) (2026-02-25)
+
+### 🚀 Features
+
+- Support Actor schema storages with Alias mechanism ([#797](https://github.com/apify/apify-sdk-python/pull/797)) ([10986ac](https://github.com/apify/apify-sdk-python/commit/10986ac2f4a3d1112aa06eaf26f82884ab9c455a)) by [@Pijukatel](https://github.com/Pijukatel), closes [#762](https://github.com/apify/apify-sdk-python/issues/762)
+- Migrate to Scrapy&#x27;s native AsyncCrawlerRunner ([#793](https://github.com/apify/apify-sdk-python/pull/793)) ([01ad9da](https://github.com/apify/apify-sdk-python/commit/01ad9daf834894f798bbfa4362fc7d7f95bafe5c)) by [@vdusek](https://github.com/vdusek), closes [#638](https://github.com/apify/apify-sdk-python/issues/638)
 
 ### 🐛 Bug Fixes
 
 - Resolve LogRecord attribute conflict in event manager logging ([#802](https://github.com/apify/apify-sdk-python/pull/802)) ([e1bdbc9](https://github.com/apify/apify-sdk-python/commit/e1bdbc9e303c24571b9511f43ec0815e7e9f4b55)) by [@vdusek](https://github.com/vdusek)
 - Update models.py to align with the current API behavior ([#782](https://github.com/apify/apify-sdk-python/pull/782)) ([b06355d](https://github.com/apify/apify-sdk-python/commit/b06355dbc1c8276e9930ecbde72795b6570dde33)) by [@vdusek](https://github.com/vdusek), closes [#778](https://github.com/apify/apify-sdk-python/issues/778)
+- Handle `ServiceConflictError` when reusing `Actor` across sequential context ([#804](https://github.com/apify/apify-sdk-python/pull/804)) ([9e5078f](https://github.com/apify/apify-sdk-python/commit/9e5078fa7b1a19e44893bd3409b45108519aef63)) by [@Mantisus](https://github.com/Mantisus), closes [#678](https://github.com/apify/apify-sdk-python/issues/678)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.2.1) (2026-02-17)
 
 ### 🐛 Bug Fixes

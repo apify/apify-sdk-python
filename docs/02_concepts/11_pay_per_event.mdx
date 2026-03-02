@@ -6,6 +6,7 @@ description: Monetize your Actors using the pay-per-event pricing model
 
 import ActorChargeSource from '!!raw-loader!roa-loader!./code/11_actor_charge.py';
 import ConditionalActorChargeSource from '!!raw-loader!roa-loader!./code/11_conditional_actor_charge.py';
+import ChargeLimitCheckSource from '!!raw-loader!roa-loader!./code/11_charge_limit_check.py';
 import ApiLink from '@site/src/components/ApiLink';
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
@@ -30,6 +31,22 @@ After monetization is set in the Apify console, you can add <ApiLink to="class/A
 Then you just push your code to Apify and that's it! The SDK will even keep track of the max total charge setting for you, so you will not provide more value than what the user chose to pay for.
 
 If you need finer control over charging, you can access call <ApiLink to="class/Actor#get_charging_manager">`Actor.get_charging_manager()`</ApiLink> to access the <ApiLink to="class/ChargingManager">`ChargingManager`</ApiLink>, which can provide more detailed information - for example how many events of each type can be charged before reaching the configured limit.
+
+### Handling the charge limit
+
+While the SDK automatically prevents overcharging by limiting how many events are charged and how many items are pushed, **it does not stop your Actor from running**. When the charge limit is reached, <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> and `Actor.push_data` will silently stop charging and pushing data, but your Actor will keep running — potentially doing expensive work (scraping pages, calling APIs) for no purpose. This means your Actor may never terminate on its own if you don't check the charge limit yourself.
+
+To avoid this, you should check the `event_charge_limit_reached` field in the result returned by <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> or `Actor.push_data` and stop your Actor when the limit is reached. You can also use the `chargeable_within_limit` field from the result to plan ahead — it tells you how many events of each type can still be charged within the remaining budget.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ChargeLimitCheckSource}
+</RunnableCodeBlock>
+
+Alternatively, you can periodically check the remaining budget via <ApiLink to="class/Actor#get_charging_manager">`Actor.get_charging_manager()`</ApiLink> instead of inspecting every `ChargeResult`. This can be useful when charging happens in multiple places across your code, or when using a crawler where you don't directly control the main loop.
+
+:::caution
+Always check the charge limit in your Actor, whether through `ChargeResult` return values or the `ChargingManager`. Without this check, your Actor will continue running and consuming platform resources after the budget is exhausted, producing no output.
+:::
 
 ## Transitioning from a different pricing model
 
