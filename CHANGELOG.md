@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Fix f-string bugs in charging log message ([#817](https://github.com/apify/apify-sdk-python/pull/817)) ([bcb4050](https://github.com/apify/apify-sdk-python/commit/bcb4050b3f5ade0e577dd7499979dc65c0ba815e)) by [@vdusek](https://github.com/vdusek)
 - Fix BeforeValidator treating 0 as falsy in configuration fields ([#819](https://github.com/apify/apify-sdk-python/pull/819)) ([72efe88](https://github.com/apify/apify-sdk-python/commit/72efe883574ef0d05795934337c7f1c8c0d11877)) by [@vdusek](https://github.com/vdusek)
 - Clamp negative timedelta in _get_remaining_time() ([#818](https://github.com/apify/apify-sdk-python/pull/818)) ([69b8af9](https://github.com/apify/apify-sdk-python/commit/69b8af9b8d245cfed76875f983f374e05d93bba8)) by [@vdusek](https://github.com/vdusek)
+- **scrapy:** Close AsyncThread on scheduler open() failure ([#820](https://github.com/apify/apify-sdk-python/pull/820)) ([7dfaf1a](https://github.com/apify/apify-sdk-python/commit/7dfaf1a5c5af44743bd448a91140d9b074ac44bf)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
