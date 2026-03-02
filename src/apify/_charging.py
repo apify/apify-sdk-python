@@ -279,8 +279,8 @@ class ChargingManagerImplementation(ChargingManager):
         if charged_count < count:
             subject = 'instance' if count == 1 else 'instances'
             logger.info(
-                f"Charging {count} ${subject} of '{event_name}' event would exceed max_total_charge_usd "
-                '- only {charged_count} events were charged'
+                f"Charging {count} {subject} of '{event_name}' event would exceed max_total_charge_usd "
+                f'- only {charged_count} events were charged'
             )
 
         max_charge_count = self.calculate_max_event_charge_count_within_limit(event_name)
