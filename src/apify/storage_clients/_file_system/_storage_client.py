@@ -7,6 +7,7 @@ from typing_extensions import override
 from crawlee.configuration import Configuration
 from crawlee.storage_clients import FileSystemStorageClient
 
+from ._dataset_client import ApifyFileSystemDatasetClient
 from ._key_value_store_client import ApifyFileSystemKeyValueStoreClient
 
 if TYPE_CHECKING:
@@ -48,3 +49,20 @@ class ApifyFileSystemStorageClient(FileSystemStorageClient):
         )
         await self._purge_if_needed(client, configuration)
         return client
+
+    @override
+    async def create_dataset_client(
+        self,
+        *,
+        id: str | None = None,
+        name: str | None = None,
+        alias: str | None = None,
+        configuration: Configuration | None = None,
+    ) -> ApifyFileSystemDatasetClient:
+        configuration = configuration or Configuration.get_global_configuration()
+        return await ApifyFileSystemDatasetClient.open(
+            id=id,
+            name=name,
+            alias=alias,
+            configuration=configuration,
+        )
