@@ -631,15 +631,15 @@ class _ActorType:
         if charged_event_name and charged_event_name.startswith('apify-'):
             raise ValueError(f'Cannot charge for synthetic event "{charged_event_name}" manually')
 
-        # No charging, just push the data without locking.
-        if charged_event_name is None:
-            dataset = await self.open_dataset()
-            await dataset.push_data(data)
-            return None
-
-        # If charging is requested, acquire the charge lock to prevent race conditions between concurrent
+        # Acquire the charge lock to prevent race conditions between concurrent
         # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
         async with self._charge_lock:
+            # No explicit charging requested; synthetic events are handled within dataset.push_data.
+            if charged_event_name is None:
+                dataset = await self.open_dataset()
+                await dataset.push_data(data)
+                return None
+
             pushed_items_count = self.get_charging_manager().calculate_push_data_limit(
                 items_count=len(data),
                 event_name=charged_event_name,

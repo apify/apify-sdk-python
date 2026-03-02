@@ -60,9 +60,11 @@ class ApifyFileSystemStorageClient(FileSystemStorageClient):
         configuration: Configuration | None = None,
     ) -> ApifyFileSystemDatasetClient:
         configuration = configuration or Configuration.get_global_configuration()
-        return await ApifyFileSystemDatasetClient.open(
+        client = await ApifyFileSystemDatasetClient.open(
             id=id,
             name=name,
             alias=alias,
             configuration=configuration,
         )
+        await self._purge_if_needed(client, configuration)
+        return client

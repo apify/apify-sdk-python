@@ -49,7 +49,8 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
         Preferably use the `ApifyDatasetClient.open` class method to create a new instance.
         """
-        super().__init__()
+        DatasetClient.__init__(self)
+        DatasetClientPpeMixin.__init__(self)
 
         self._api_client = api_client
         """The Apify dataset client for API operations."""
@@ -117,7 +118,9 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             lock=asyncio.Lock(),
         )
 
-        dataset_client.is_default_dataset = (await dataset_client.get_metadata()).id == configuration.default_dataset_id
+        dataset_client.is_default_dataset = (
+            alias is None and name is None and (id is None or id == configuration.default_dataset_id)
+        )
 
         return dataset_client
 
@@ -141,7 +144,7 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
         async with self._lock:
             items = data if isinstance(data, list) else [data]
-            limit = await self._calculate_limit_for_push(len(items))
+            limit = self._calculate_limit_for_push(len(items))
             items = items[:limit]
 
             async for chunk in self._chunk_by_size(payloads_generator(items)):
