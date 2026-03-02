@@ -5,7 +5,7 @@ class DatasetClientPpeMixin:
     """A mixin for dataset clients to add support for PPE pricing model and tracking synthetic events."""
 
     def __init__(self) -> None:
-        self._is_default_dataset: bool = False
+        self._is_default_dataset = False
 
     @property
     def is_default_dataset(self) -> bool:
