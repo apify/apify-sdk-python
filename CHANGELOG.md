@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.3.1 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Fix f-string bugs in charging log message ([#817](https://github.com/apify/apify-sdk-python/pull/817)) ([bcb4050](https://github.com/apify/apify-sdk-python/commit/bcb4050b3f5ade0e577dd7499979dc65c0ba815e)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.3.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.0) (2026-02-25)
 
 ### 🚀 Features
