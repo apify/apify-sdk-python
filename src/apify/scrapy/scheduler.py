@@ -61,6 +61,7 @@ class ApifyScheduler(BaseScheduler):
         try:
             self._rq = self._async_thread.run_coro(open_rq())
         except Exception:
+            self._async_thread.close()
             traceback.print_exc()
             raise
 
