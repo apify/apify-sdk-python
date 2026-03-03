@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import math
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -52,6 +53,9 @@ class ChargingManager(Protocol):
     - Apify platform documentation: https://docs.apify.com/platform/actors/publishing/monetize
     """
 
+    charge_lock: asyncio.Lock
+    """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
+
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
@@ -88,14 +92,14 @@ class ChargingManager(Protocol):
     def get_max_total_charge_usd(self) -> Decimal:
         """Get the configured maximum total charge for this Actor run."""
 
-    def calculate_push_data_limit(
+    def compute_push_data_limit(
         self,
         items_count: int,
         event_name: str,
         *,
         is_default_dataset: bool,
     ) -> int:
-        """Calculate how many items can be pushed and charged within the current budget.
+        """Compute how many items can be pushed and charged within the current budget.
 
         Accounts for both the explicit event and the synthetic `DEFAULT_DATASET_ITEM_EVENT` event,
         so that the combined cost per item does not exceed the remaining budget.
@@ -165,6 +169,8 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._not_ppe_warning_printed = False
         self.active = False
+
+        self.charge_lock = asyncio.Lock()
 
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
@@ -370,7 +376,7 @@ class ChargingManagerImplementation(ChargingManager):
         return self._max_total_charge_usd
 
     @_ensure_context
-    def calculate_push_data_limit(
+    def compute_push_data_limit(
         self,
         items_count: int,
         event_name: str,

@@ -381,14 +381,6 @@ class _ActorType:
         return ChargingManagerImplementation(self.configuration, self.apify_client)
 
     @cached_property
-    def _charge_lock(self) -> asyncio.Lock:
-        """Lock to synchronize charge operations.
-
-        Prevents race conditions between Actor.charge and Actor.push_data calls.
-        """
-        return asyncio.Lock()
-
-    @cached_property
     def _storage_client(self) -> SmartApifyStorageClient:
         """Storage client used by the Actor.
 
@@ -642,16 +634,18 @@ class _ActorType:
         if charged_event_name and charged_event_name.startswith('apify-'):
             raise ValueError(f'Cannot charge for synthetic event "{charged_event_name}" manually')
 
+        charging_manager = self.get_charging_manager()
+
         # Acquire the charge lock to prevent race conditions between concurrent
         # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
-        async with self._charge_lock:
+        async with charging_manager.charge_lock:
             # No explicit charging requested; synthetic events are handled within dataset.push_data.
             if charged_event_name is None:
                 dataset = await self.open_dataset()
                 await dataset.push_data(data)
                 return None
 
-            pushed_items_count = self.get_charging_manager().calculate_push_data_limit(
+            pushed_items_count = self.get_charging_manager().compute_push_data_limit(
                 items_count=len(data),
                 event_name=charged_event_name,
                 is_default_dataset=True,
@@ -730,8 +724,9 @@ class _ActorType:
             count: Number of events to charge for.
         """
         # Acquire lock to prevent race conditions with concurrent charge/push_data calls.
-        async with self._charge_lock:
-            return await self.get_charging_manager().charge(event_name, count)
+        charging_manager = self.get_charging_manager()
+        async with charging_manager.charge_lock:
+            return await charging_manager.charge(event_name, count)
 
     @overload
     def on(

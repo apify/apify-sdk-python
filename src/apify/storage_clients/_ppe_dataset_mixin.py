@@ -1,4 +1,12 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
+
 from apify._charging import DEFAULT_DATASET_ITEM_EVENT, charging_manager_ctx
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 class DatasetClientPpeMixin:
@@ -7,7 +15,7 @@ class DatasetClientPpeMixin:
     def __init__(self) -> None:
         self.is_default_dataset = False
 
-    def _calculate_limit_for_push(self, items_count: int) -> int:
+    def _compute_limit_for_push(self, items_count: int) -> int:
         if self.is_default_dataset and (charging_manager := charging_manager_ctx.get()):
             max_charged_count = charging_manager.calculate_max_event_charge_count_within_limit(
                 event_name=DEFAULT_DATASET_ITEM_EVENT
@@ -21,3 +29,18 @@ class DatasetClientPpeMixin:
                 event_name=DEFAULT_DATASET_ITEM_EVENT,
                 count=count_items,
             )
+
+    @asynccontextmanager
+    async def _charge_lock(self) -> AsyncIterator[None]:
+        """Context manager to acquire the charge lock if PPE charging manager is active."""
+        charging_manager = charging_manager_ctx.get()
+        if charging_manager:
+            if charging_manager.charge_lock.locked():
+                # If the charge lock is already locked, it means we're called from within Actor.push_data which
+                # already holds the lock. asyncio.Lock is not reentrant, so re-acquiring would deadlock.
+                yield
+            else:
+                async with charging_manager.charge_lock:
+                    yield
+        else:
+            yield
