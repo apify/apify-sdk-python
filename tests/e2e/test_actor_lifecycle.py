@@ -118,24 +118,24 @@ async def test_actor_sequential_contexts(make_actor: MakeActorFunction, run_acto
     async def main() -> None:
         async with Actor as actor:
             actor._exit_process = False
-            assert actor.active is True
+            assert actor._active is True
 
         # Actor after Actor.
         async with Actor as actor:
             actor._exit_process = False
-            assert actor.active is True
+            assert actor._active is True
 
         # Actor() after Actor.
         async with Actor(exit_process=False) as actor:
-            assert actor.active is True
+            assert actor._active is True
 
         # Actor() after Actor().
         async with Actor(exit_process=False) as actor:
-            assert actor.active is True
+            assert actor._active is True
 
         # Actor after Actor().
         async with Actor as actor:
-            assert actor.active is True
+            assert actor._active is True
 
     actor = await make_actor(label='actor-sequential-contexts', main_func=main)
     run_result = await run_actor(actor)

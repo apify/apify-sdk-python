@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import TypeAdapter
 
-from crawlee._utils.context import ensure_context
-
 from apify._models import (
     ActorRun,
     FlatPricePerMonthActorPricingInfo,
@@ -18,7 +16,7 @@ from apify._models import (
     PricePerDatasetItemActorPricingInfo,
     PricingModel,
 )
-from apify._utils import docs_group
+from apify._utils import docs_group, ensure_context
 from apify.log import logger
 from apify.storages import Dataset
 
@@ -30,6 +28,8 @@ if TYPE_CHECKING:
     from apify._configuration import Configuration
 
 run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
+
+_ensure_context = ensure_context('active')
 
 
 @docs_group('Charging')
@@ -201,7 +201,7 @@ class ChargingManagerImplementation(ChargingManager):
 
         self.active = False
 
-    @ensure_context
+    @_ensure_context
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         def calculate_chargeable() -> dict[str, int | None]:
             """Calculate the maximum number of events of each type that can be charged within the current budget."""
@@ -291,14 +291,14 @@ class ChargingManagerImplementation(ChargingManager):
             chargeable_within_limit=calculate_chargeable(),
         )
 
-    @ensure_context
+    @_ensure_context
     def calculate_total_charged_amount(self) -> Decimal:
         return sum(
             (item.total_charged_amount for item in self._charging_state.values()),
             start=Decimal(),
         )
 
-    @ensure_context
+    @_ensure_context
     def calculate_max_event_charge_count_within_limit(self, event_name: str) -> int | None:
         pricing_info = self._pricing_info.get(event_name)
 
@@ -315,7 +315,7 @@ class ChargingManagerImplementation(ChargingManager):
         result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / price
         return max(0, math.floor(result)) if result.is_finite() else None
 
-    @ensure_context
+    @_ensure_context
     def get_pricing_info(self) -> ActorPricingInfo:
         return ActorPricingInfo(
             pricing_model=self._pricing_model,
@@ -328,12 +328,12 @@ class ChargingManagerImplementation(ChargingManager):
             },
         )
 
-    @ensure_context
+    @_ensure_context
     def get_charged_event_count(self, event_name: str) -> int:
         item = self._charging_state.get(event_name)
         return item.charge_count if item is not None else 0
 
-    @ensure_context
+    @_ensure_context
     def get_max_total_charge_usd(self) -> Decimal:
         return self._max_total_charge_usd
 
