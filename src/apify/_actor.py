@@ -32,7 +32,7 @@ from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._models import ActorRun
 from apify._proxy_configuration import ProxyConfiguration
-from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
+from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
@@ -52,6 +52,8 @@ if TYPE_CHECKING:
     from apify._models import Webhook
 
 MainReturnType = TypeVar('MainReturnType')
+
+_ensure_context = ensure_context('_active')
 
 
 @docs_name('Actor')
@@ -139,8 +141,8 @@ class _ActorType:
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
 
-        self._is_initialized = False
-        """Whether any Actor instance is currently initialized."""
+        self._active = False
+        """Whether the Actor instance is currently active (initialized and within context)."""
 
         self._is_rebooting = False
         """Whether the Actor is currently rebooting."""
@@ -161,7 +163,7 @@ class _ActorType:
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
         active Actor instances is not standard usage and may lead to warnings or unexpected behavior.
         """
-        if self._is_initialized:
+        if self._active:
             raise RuntimeError('The Actor was already initialized!')
 
         # Initialize configuration first - it's required for the next steps.
@@ -198,7 +200,7 @@ class _ActorType:
         self.log.debug('Charging manager initialized')
 
         # Mark initialization as complete and update global state.
-        self._is_initialized = True
+        self._active = True
 
         if not Actor.is_at_home():
             # Make sure that the input related KVS is initialized to ensure that the input aware client is used
@@ -225,7 +227,8 @@ class _ActorType:
         if self._is_exiting:
             return
 
-        self._raise_if_not_initialized()
+        if not self._active:
+            raise RuntimeError('The _ActorType is not active. Use it within the async context.')
 
         if exc_value and not is_running_in_ipython():
             # In IPython, we don't run `sys.exit()` during Actor exits,
@@ -257,7 +260,7 @@ class _ActorType:
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
-            self._is_initialized = False
+            self._active = False
 
         if self._exit_process:
             sys.exit(self.exit_code)
@@ -513,6 +516,7 @@ class _ActorType:
             timeout_secs=int(timeout.total_seconds()) if timeout else None,
         )
 
+    @_ensure_context
     async def open_dataset(
         self,
         *,
@@ -540,7 +544,6 @@ class _ActorType:
         Returns:
             An instance of the `Dataset` class for the given ID or name.
         """
-        self._raise_if_not_initialized()
         return await Dataset.open(
             id=id,
             name=name,
@@ -548,6 +551,7 @@ class _ActorType:
             storage_client=self._storage_client.get_suitable_storage_client(force_cloud=force_cloud),
         )
 
+    @_ensure_context
     async def open_key_value_store(
         self,
         *,
@@ -574,7 +578,6 @@ class _ActorType:
         Returns:
             An instance of the `KeyValueStore` class for the given ID or name.
         """
-        self._raise_if_not_initialized()
         return await KeyValueStore.open(
             id=id,
             name=name,
@@ -582,6 +585,7 @@ class _ActorType:
             storage_client=self._storage_client.get_suitable_storage_client(force_cloud=force_cloud),
         )
 
+    @_ensure_context
     async def open_request_queue(
         self,
         *,
@@ -610,7 +614,6 @@ class _ActorType:
         Returns:
             An instance of the `RequestQueue` class for the given ID or name.
         """
-        self._raise_if_not_initialized()
         return await RequestQueue.open(
             id=id,
             name=name,
@@ -622,6 +625,7 @@ class _ActorType:
     async def push_data(self, data: dict | list[dict]) -> None: ...
     @overload
     async def push_data(self, data: dict | list[dict], charged_event_name: str) -> ChargeResult: ...
+    @_ensure_context
     async def push_data(self, data: dict | list[dict], charged_event_name: str | None = None) -> ChargeResult | None:
         """Store an object or a list of objects to the default dataset of the current Actor run.
 
@@ -630,8 +634,6 @@ class _ActorType:
             charged_event_name: If provided and if the Actor uses the pay-per-event pricing model,
                 the method will attempt to charge for the event for each pushed item.
         """
-        self._raise_if_not_initialized()
-
         if not data:
             return None
 
@@ -665,10 +667,9 @@ class _ActorType:
                 count=pushed_items_count,
             )
 
+    @_ensure_context
     async def get_input(self) -> Any:
         """Get the Actor input value from the default key-value store associated with the current Actor run."""
-        self._raise_if_not_initialized()
-
         input_value = await self.get_value(self.configuration.input_key)
         input_secrets_private_key = self.configuration.input_secrets_private_key_file
         input_secrets_key_passphrase = self.configuration.input_secrets_private_key_passphrase
@@ -681,6 +682,7 @@ class _ActorType:
 
         return input_value
 
+    @_ensure_context
     async def get_value(self, key: str, default_value: Any = None) -> Any:
         """Get a value from the default key-value store associated with the current Actor run.
 
@@ -688,11 +690,10 @@ class _ActorType:
             key: The key of the record which to retrieve.
             default_value: Default value returned in case the record does not exist.
         """
-        self._raise_if_not_initialized()
-
         key_value_store = await self.open_key_value_store()
         return await key_value_store.get_value(key, default_value)
 
+    @_ensure_context
     async def set_value(
         self,
         key: str,
@@ -707,16 +708,15 @@ class _ActorType:
             value: The value of the record which to set, or None, if the record should be deleted.
             content_type: The content type which should be set to the value.
         """
-        self._raise_if_not_initialized()
-
         key_value_store = await self.open_key_value_store()
         return await key_value_store.set_value(key, value, content_type=content_type)
 
+    @_ensure_context
     def get_charging_manager(self) -> ChargingManager:
         """Retrieve the charging manager to access granular pricing information."""
-        self._raise_if_not_initialized()
         return self._charging_manager_implementation
 
+    @_ensure_context
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
@@ -726,7 +726,6 @@ class _ActorType:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
         """
-        self._raise_if_not_initialized()
         # Acquire lock to prevent race conditions with concurrent charge/push_data calls.
         async with self._charge_lock:
             return await self.get_charging_manager().charge(event_name, count)
@@ -754,6 +753,7 @@ class _ActorType:
     @overload
     def on(self, event_name: Event, listener: EventListener[None]) -> EventListener[Any]: ...
 
+    @_ensure_context
     def on(self, event_name: Event, listener: EventListener[Any]) -> EventListener[Any]:
         """Add an event listener to the Actor's event manager.
 
@@ -778,8 +778,6 @@ class _ActorType:
             event_name: The Actor event to listen for.
             listener: The function to be called when the event is emitted (can be async).
         """
-        self._raise_if_not_initialized()
-
         self.event_manager.on(event=event_name, listener=listener)
         return listener
 
@@ -796,6 +794,7 @@ class _ActorType:
     @overload
     def off(self, event_name: Event, listener: EventListener[None]) -> None: ...
 
+    @_ensure_context
     def off(self, event_name: Event, listener: Callable | None = None) -> None:
         """Remove a listener, or all listeners, from an Actor event.
 
@@ -804,14 +803,13 @@ class _ActorType:
             listener: The listener which is supposed to be removed. If not passed, all listeners of this event
                 are removed.
         """
-        self._raise_if_not_initialized()
-
         self.event_manager.off(event=event_name, listener=listener)
 
     def is_at_home(self) -> bool:
         """Return `True` when the Actor is running on the Apify platform, and `False` otherwise (e.g. local run)."""
         return self.configuration.is_at_home
 
+    @_ensure_context
     def get_env(self) -> dict:
         """Return a dictionary with information parsed from all the `APIFY_XXX` environment variables.
 
@@ -819,8 +817,6 @@ class _ActorType:
         [Actor documentation](https://docs.apify.com/actors/development/environment-variables). If some variables
         are not defined or are invalid, the corresponding value in the resulting dictionary will be None.
         """
-        self._raise_if_not_initialized()
-
         config = dict[str, Any]()
         for field_name, field in Configuration.model_fields.items():
             if field.deprecated:
@@ -841,6 +837,7 @@ class _ActorType:
         env_vars = {env_var.value.lower(): env_var.name.lower() for env_var in [*ActorEnvVars, *ApifyEnvVars]}
         return {option_name: config[env_var] for env_var, option_name in env_vars.items() if env_var in config}
 
+    @_ensure_context
     async def start(
         self,
         actor_id: str,
@@ -879,8 +876,6 @@ class _ActorType:
         Returns:
             Info about the started Actor run
         """
-        self._raise_if_not_initialized()
-
         client = self.new_client(token=token) if token else self.apify_client
 
         if webhooks:
@@ -919,6 +914,7 @@ class _ActorType:
 
         return ActorRun.model_validate(api_result)
 
+    @_ensure_context
     async def abort(
         self,
         run_id: str,
@@ -942,8 +938,6 @@ class _ActorType:
         Returns:
             Info about the aborted Actor run.
         """
-        self._raise_if_not_initialized()
-
         client = self.new_client(token=token) if token else self.apify_client
 
         if status_message:
@@ -953,6 +947,7 @@ class _ActorType:
 
         return ActorRun.model_validate(api_result)
 
+    @_ensure_context
     async def call(
         self,
         actor_id: str,
@@ -995,8 +990,6 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
-        self._raise_if_not_initialized()
-
         client = self.new_client(token=token) if token else self.apify_client
 
         if webhooks:
@@ -1037,6 +1030,7 @@ class _ActorType:
 
         return ActorRun.model_validate(api_result)
 
+    @_ensure_context
     async def call_task(
         self,
         task_id: str,
@@ -1077,8 +1071,6 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
-        self._raise_if_not_initialized()
-
         client = self.new_client(token=token) if token else self.apify_client
 
         if webhooks:
@@ -1108,6 +1100,7 @@ class _ActorType:
 
         return ActorRun.model_validate(api_result)
 
+    @_ensure_context
     async def metamorph(
         self,
         target_actor_id: str,
@@ -1132,8 +1125,6 @@ class _ActorType:
             content_type: The content type of the input.
             custom_after_sleep: How long to sleep for after the metamorph, to wait for the container to be stopped.
         """
-        self._raise_if_not_initialized()
-
         if not self.is_at_home():
             self.log.error('Actor.metamorph() is only supported when running on the Apify platform.')
             return
@@ -1155,6 +1146,7 @@ class _ActorType:
         if custom_after_sleep:
             await asyncio.sleep(custom_after_sleep.total_seconds())
 
+    @_ensure_context
     async def reboot(
         self,
         *,
@@ -1169,8 +1161,6 @@ class _ActorType:
             event_listeners_timeout: How long should the Actor wait for Actor event listeners to finish before exiting.
             custom_after_sleep: How long to sleep for after the reboot, to wait for the container to be stopped.
         """
-        self._raise_if_not_initialized()
-
         if not self.is_at_home():
             self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
             return
@@ -1210,6 +1200,7 @@ class _ActorType:
         if custom_after_sleep:
             await asyncio.sleep(custom_after_sleep.total_seconds())
 
+    @_ensure_context
     async def add_webhook(
         self,
         webhook: Webhook,
@@ -1237,8 +1228,6 @@ class _ActorType:
         Returns:
             The created webhook.
         """
-        self._raise_if_not_initialized()
-
         if not self.is_at_home():
             self.log.error('Actor.add_webhook() is only supported when running on the Apify platform.')
             return
@@ -1257,6 +1246,7 @@ class _ActorType:
             idempotency_key=idempotency_key,
         )
 
+    @_ensure_context
     async def set_status_message(
         self,
         status_message: str,
@@ -1272,8 +1262,6 @@ class _ActorType:
         Returns:
             The updated Actor run object.
         """
-        self._raise_if_not_initialized()
-
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
             self.log.info(f'[{title}]: {status_message}')
@@ -1289,6 +1277,7 @@ class _ActorType:
 
         return ActorRun.model_validate(api_result)
 
+    @_ensure_context
     async def create_proxy_configuration(
         self,
         *,
@@ -1321,8 +1310,6 @@ class _ActorType:
             ProxyConfiguration object with the passed configuration, or None, if no proxy should be used based
             on the configuration.
         """
-        self._raise_if_not_initialized()
-
         if actor_proxy_input is not None:
             if actor_proxy_input.get('useApifyProxy', False):
                 country_code = country_code or actor_proxy_input.get('apifyProxyCountry')
@@ -1346,6 +1333,7 @@ class _ActorType:
 
         return proxy_configuration
 
+    @_ensure_context
     async def use_state(
         self,
         default_value: dict[str, JsonSerializable] | None = None,
@@ -1365,8 +1353,6 @@ class _ActorType:
         Returns:
             The state dictionary with automatic persistence.
         """
-        self._raise_if_not_initialized()
-
         self._use_state_stores.add(kvs_name)
         kvs = await self.open_key_value_store(name=kvs_name)
         return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
@@ -1375,10 +1361,6 @@ class _ActorType:
         for kvs_name in self._use_state_stores:
             store = await self.open_key_value_store(name=kvs_name)
             await store.persist_autosaved_values()
-
-    def _raise_if_not_initialized(self) -> None:
-        if not self._is_initialized:
-            raise RuntimeError('The Actor was not initialized!')
 
     def _get_default_exit_process(self) -> bool:
         """Return False for IPython and Scrapy environments, True otherwise."""
