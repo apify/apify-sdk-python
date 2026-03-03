@@ -36,7 +36,7 @@ DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 
 # Context variable to hold the current `ChargingManager` instance, if any. This allows PPE-aware dataset clients to
 # access the charging manager without needing to pass it explicitly.
-charging_manager_ctx: ContextVar[ChargingManagerImplementation | None] = ContextVar(
+charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar(
     'charging_manager_ctx', default=None
 )
 
