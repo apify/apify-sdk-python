@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import math
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -29,6 +31,12 @@ if TYPE_CHECKING:
 
 run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
 
+DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
+
+# Context variable to hold the current `ChargingManager` instance, if any. This allows PPE-aware dataset clients to
+# access the charging manager without needing to pass it explicitly.
+charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
+
 _ensure_context = ensure_context('active')
 
 
@@ -44,6 +52,9 @@ class ChargingManager(Protocol):
 
     - Apify platform documentation: https://docs.apify.com/platform/actors/publishing/monetize
     """
+
+    charge_lock: asyncio.Lock
+    """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
@@ -80,6 +91,28 @@ class ChargingManager(Protocol):
 
     def get_max_total_charge_usd(self) -> Decimal:
         """Get the configured maximum total charge for this Actor run."""
+
+    def compute_push_data_limit(
+        self,
+        items_count: int,
+        event_name: str,
+        *,
+        is_default_dataset: bool,
+    ) -> int:
+        """Compute how many items can be pushed and charged within the current budget.
+
+        Accounts for both the explicit event and the synthetic `DEFAULT_DATASET_ITEM_EVENT` event,
+        so that the combined cost per item does not exceed the remaining budget.
+
+        Args:
+            items_count: The number of items to be pushed.
+            event_name: The explicit event name to charge for each item.
+            is_default_dataset: Whether the data is pushed to the default dataset.
+                If True, the synthetic event cost is included in the combined price.
+
+        Returns:
+            Max number of items that can be pushed within the budget.
+        """
 
 
 @docs_group('Charging')
@@ -137,6 +170,8 @@ class ChargingManagerImplementation(ChargingManager):
         self._not_ppe_warning_printed = False
         self.active = False
 
+        self.charge_lock = asyncio.Lock()
+
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
         # Validate config
@@ -190,6 +225,11 @@ class ChargingManagerImplementation(ChargingManager):
 
             self._charging_log_dataset = await Dataset.open(name=self.LOCAL_CHARGING_LOG_DATASET_NAME)
 
+        # if the Actor runs with the pay-per-event pricing model, set the context variable so that PPE-aware dataset
+        # clients can access the charging manager and charge for synthetic events.
+        if self._pricing_model == 'PAY_PER_EVENT':
+            charging_manager_ctx.set(self)
+
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
@@ -199,6 +239,7 @@ class ChargingManagerImplementation(ChargingManager):
         if not self.active:
             raise RuntimeError('Exiting an uninitialized ChargingManager')
 
+        charging_manager_ctx.set(None)
         self.active = False
 
     @_ensure_context
@@ -258,7 +299,11 @@ class ChargingManagerImplementation(ChargingManager):
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not configured')
 
-            if event_name in self._pricing_info:
+            if event_name.startswith('apify-'):
+                # Synthetic events (e.g. apify-default-dataset-item) are tracked internally only,
+                # the platform handles them automatically based on dataset writes.
+                pass
+            elif event_name in self._pricing_info:
                 await self._client.run(self._actor_run_id).charge(event_name, charged_count)
             else:
                 logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
@@ -300,14 +345,7 @@ class ChargingManagerImplementation(ChargingManager):
 
     @_ensure_context
     def calculate_max_event_charge_count_within_limit(self, event_name: str) -> int | None:
-        pricing_info = self._pricing_info.get(event_name)
-
-        if pricing_info is not None:
-            price = pricing_info.price
-        elif not self._is_at_home:
-            price = Decimal(1)  # Use a nonzero price for local development so that the maximum budget can be reached
-        else:
-            price = Decimal()
+        price = self._get_event_price(event_name)
 
         if not price:
             return None
@@ -336,6 +374,25 @@ class ChargingManagerImplementation(ChargingManager):
     @_ensure_context
     def get_max_total_charge_usd(self) -> Decimal:
         return self._max_total_charge_usd
+
+    @_ensure_context
+    def compute_push_data_limit(
+        self,
+        items_count: int,
+        event_name: str,
+        *,
+        is_default_dataset: bool,
+    ) -> int:
+        explicit_price = self._get_event_price(event_name)
+        synthetic_price = self._get_event_price(DEFAULT_DATASET_ITEM_EVENT) if is_default_dataset else Decimal(0)
+        combined_price = explicit_price + synthetic_price
+
+        if not combined_price:
+            return items_count
+
+        result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / combined_price
+        max_count = max(0, math.floor(result)) if result.is_finite() else items_count
+        return min(items_count, max_count)
 
     async def _fetch_pricing_info(self) -> _FetchedPricingInfoDict:
         """Fetch pricing information from environment variables or API."""
@@ -369,6 +426,12 @@ class ChargingManagerImplementation(ChargingManager):
             charged_event_counts={},
             max_total_charge_usd=self._configuration.max_total_charge_usd or Decimal('inf'),
         )
+
+    def _get_event_price(self, event_name: str) -> Decimal:
+        pricing_info = self._pricing_info.get(event_name)
+        if pricing_info is not None:
+            return pricing_info.price
+        return Decimal(0) if self._is_at_home else Decimal(1)
 
 
 @dataclass
