@@ -130,11 +130,11 @@ All notable changes to this project will be documented in this file.
 - Use same `client_key` for `Actor` created `request_queue` and improve its metadata estimation ([#552](https://github.com/apify/apify-sdk-python/pull/552)) ([7e4e5da](https://github.com/apify/apify-sdk-python/commit/7e4e5da81dd87e84ebeef2bd336c6c1d422cb9a7)) by [@Pijukatel](https://github.com/Pijukatel), closes [#536](https://github.com/apify/apify-sdk-python/issues/536)
 - Properly process pre-existing Actor input file ([#591](https://github.com/apify/apify-sdk-python/pull/591)) ([cc5075f](https://github.com/apify/apify-sdk-python/commit/cc5075fab8c72ca5711cfd97932037b34e6997cd)) by [@Pijukatel](https://github.com/Pijukatel), closes [#590](https://github.com/apify/apify-sdk-python/issues/590)
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - [**breaking**] Update apify-client and apify-shared to v2.0 ([#548](https://github.com/apify/apify-sdk-python/pull/548)) ([8ba084d](https://github.com/apify/apify-sdk-python/commit/8ba084ded6cd018111343f2219260b481c8d4e35)) by [@vdusek](https://github.com/vdusek)
 
-### Refactor
+### 🚜 Refactor
 
 - [**breaking**] Adapt to the Crawlee v1.0 ([#470](https://github.com/apify/apify-sdk-python/pull/470)) ([f7e3320](https://github.com/apify/apify-sdk-python/commit/f7e33206cf3e4767faacbdc43511b45b6785f929)) by [@vdusek](https://github.com/vdusek), closes [#469](https://github.com/apify/apify-sdk-python/issues/469), [#540](https://github.com/apify/apify-sdk-python/issues/540)
 - [**breaking**] Replace `httpx` with `impit` ([#560](https://github.com/apify/apify-sdk-python/pull/560)) ([cca3869](https://github.com/apify/apify-sdk-python/commit/cca3869e85968865e56aafcdcb36fbccba27aef0)) by [@Mantisus](https://github.com/Mantisus), closes [#558](https://github.com/apify/apify-sdk-python/issues/558)
@@ -298,11 +298,11 @@ All notable changes to this project will be documented in this file.
 - Possible infinity loop in Apify-Scrapy proxy middleware ([#259](https://github.com/apify/apify-sdk-python/pull/259)) ([8647a94](https://github.com/apify/apify-sdk-python/commit/8647a94289423528f2940d9f7174f81682fbb407)) by [@vdusek](https://github.com/vdusek)
 - Hotfix for batch_add_requests batch size limit ([#261](https://github.com/apify/apify-sdk-python/pull/261)) ([61d7a39](https://github.com/apify/apify-sdk-python/commit/61d7a392d182a752c91193170dca351f4cb0fbf3)) by [@janbuchar](https://github.com/janbuchar)
 
-### Refactor
+### 🚜 Refactor
 
 - [**breaking**] Preparation for v2 release ([#210](https://github.com/apify/apify-sdk-python/pull/210)) ([2f9dcc5](https://github.com/apify/apify-sdk-python/commit/2f9dcc559414f31e3f4fc87e72417a36494b9c84)) by [@janbuchar](https://github.com/janbuchar), closes [#135](https://github.com/apify/apify-sdk-python/issues/135), [#137](https://github.com/apify/apify-sdk-python/issues/137), [#138](https://github.com/apify/apify-sdk-python/issues/138), [#147](https://github.com/apify/apify-sdk-python/issues/147), [#149](https://github.com/apify/apify-sdk-python/issues/149), [#237](https://github.com/apify/apify-sdk-python/issues/237)
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - [**breaking**] Drop support for Python 3.8
 
@@ -337,7 +337,7 @@ All notable changes to this project will be documented in this file.
 
 - Update of Scrapy integration, fixes in `ApifyScheduler`, `to_apify_request` and `apply_apify_settings`.
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Remove `ApifyRetryMiddleware` and stay with the Scrapy's default one
 
@@ -369,7 +369,7 @@ All notable changes to this project will be documented in this file.
 
 - Add missing import check to `ApifyHttpProxyMiddleware`
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Create a new subpackage for Scrapy pipelines
 - Remove some noqas thanks to the new Ruff release
@@ -379,7 +379,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.5.1](https://github.com/apify/apify-sdk-python/releases/tag/v1.5.1) (2024-01-10)
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Allowed running integration tests from PRs from forks, after maintainer approval
 - Do not close `nested_event_loop` in the `Scheduler.__del__`
@@ -398,14 +398,14 @@ All notable changes to this project will be documented in this file.
 
 - Resolve issue in `ApifyRetryMiddleware.process_exception()`, where requests were getting stuck in the request queue
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Fix type hint problems for resource clients
 
 
 ## [1.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v1.4.0) (2023-12-05)
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Migrate from Autopep8 and Flake8 to Ruff
 
@@ -423,7 +423,7 @@ All notable changes to this project will be documented in this file.
 
 - Add support for Python 3.12
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Fix lint error (E721) in unit tests (for instance checks use `isinstance()`)
 
@@ -434,7 +434,7 @@ All notable changes to this project will be documented in this file.
 
 - Update the Apify log formatter to contain an option for adding the logger name
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Rewrite documentation publication to use Docusaurus
 - Remove PR Toolkit workflow
@@ -446,7 +446,7 @@ All notable changes to this project will be documented in this file.
 
 - Resolve issue with querying request queue head multiple times in parallel
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Fix integration tests for Actor logger
 - Remove `pytest-randomly` Pytest plugin
@@ -455,7 +455,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.1.3](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.3) (2023-08-25)
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Unify indentation in configuration files
 - Update the `Actor.reboot` method to use the new reboot endpoint
@@ -463,7 +463,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.1.2](https://github.com/apify/apify-sdk-python/releases/tag/v1.1.2) (2023-08-02)
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Start importing general constants and utilities from the `apify-shared` library
 - Simplify code via `flake8-simplify`
@@ -491,7 +491,7 @@ All notable changes to this project will be documented in this file.
 - Start enforcing local storage to always use the UTF-8 encoding
 - Fix saving key-value store values to local storage with the right extension for a given content type
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Switch from `setup.py` to `pyproject.toml` for specifying project setup
 
@@ -502,7 +502,7 @@ All notable changes to this project will be documented in this file.
 
 - Fix `RequestQueue` not loading requests from an existing queue properly
 
-### Chore
+### ⚙️ Miscellaneous Tasks
 
 - Update to `apify-client` 1.0.0
 - Start triggering base Docker image builds when releasing a new version
