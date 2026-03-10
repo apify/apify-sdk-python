@@ -111,7 +111,7 @@ async def create_storage_api_client(
     # Handle different opening scenarios
     match (alias, name, id, default_id):
         # Normalize unnamed default storage to unnamed storage aliased as `__default__`.
-        case (None, None, None, None):
+        case (None | 'default', None, None, None):
             return await open_by_alias(
                 alias='__default__',
                 storage_type=storage_type,

@@ -195,7 +195,7 @@ class AliasResolver:
         """
         # First try to find the alias in the configuration mapping to avoid any API calls.
         # This mapping is maintained by the Apify platform and does not have to be maintained in the default KVS.
-        if self._configuration.actor_storages and self._alias != 'default':
+        if self._configuration.actor_storages:
             storage_maps = {
                 'Dataset': self._configuration.actor_storages['datasets'],
                 'KeyValueStore': self._configuration.actor_storages['key_value_stores'],
