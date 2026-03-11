@@ -26,7 +26,7 @@ from crawlee.events import (
     EventSystemInfoData,
 )
 
-from apify._charging import ChargeResult, ChargingManager, ChargingManagerImplementation
+from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -613,12 +613,8 @@ class _ActorType:
             storage_client=self._storage_client.get_suitable_storage_client(force_cloud=force_cloud),
         )
 
-    @overload
-    async def push_data(self, data: dict | list[dict]) -> None: ...
-    @overload
-    async def push_data(self, data: dict | list[dict], charged_event_name: str) -> ChargeResult: ...
     @_ensure_context
-    async def push_data(self, data: dict | list[dict], charged_event_name: str | None = None) -> ChargeResult | None:
+    async def push_data(self, data: dict | list[dict], charged_event_name: str | None = None) -> ChargeResult:
         """Store an object or a list of objects to the default dataset of the current Actor run.
 
         Args:
@@ -626,32 +622,46 @@ class _ActorType:
             charged_event_name: If provided and if the Actor uses the pay-per-event pricing model,
                 the method will attempt to charge for the event for each pushed item.
         """
-        if not data:
-            return None
-
-        data = data if isinstance(data, list) else [data]
-
         if charged_event_name and charged_event_name.startswith('apify-'):
             raise ValueError(f'Cannot charge for synthetic event "{charged_event_name}" manually')
 
         charging_manager = self.get_charging_manager()
 
+        if not data:
+            charged_event_name = charged_event_name or DEFAULT_DATASET_ITEM_EVENT
+            charge_limit_reached = charging_manager.is_event_charge_limit_reached(charged_event_name)
+
+            return ChargeResult(
+                event_charge_limit_reached=charge_limit_reached,
+                charged_count=0,
+                chargeable_within_limit=charging_manager.compute_chargeable(),
+            )
+
+        data = data if isinstance(data, list) else [data]
+
+        dataset = await self.open_dataset()
+
         # Acquire the charge lock to prevent race conditions between concurrent
         # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
-        async with charging_manager.charge_lock:
-            # No explicit charging requested; synthetic events are handled within dataset.push_data.
+        async with charging_manager.charge_lock():
+            # Synthetic events are handled within dataset.push_data, only get data for `ChargeResult`.
             if charged_event_name is None:
-                dataset = await self.open_dataset()
+                before = charging_manager.get_charged_event_count(DEFAULT_DATASET_ITEM_EVENT)
                 await dataset.push_data(data)
-                return None
+                after = charging_manager.get_charged_event_count(DEFAULT_DATASET_ITEM_EVENT)
+                return ChargeResult(
+                    event_charge_limit_reached=charging_manager.is_event_charge_limit_reached(
+                        DEFAULT_DATASET_ITEM_EVENT
+                    ),
+                    charged_count=after - before,
+                    chargeable_within_limit=charging_manager.compute_chargeable(),
+                )
 
-            pushed_items_count = self.get_charging_manager().compute_push_data_limit(
+            pushed_items_count = charging_manager.compute_push_data_limit(
                 items_count=len(data),
                 event_name=charged_event_name,
                 is_default_dataset=True,
             )
-
-            dataset = await self.open_dataset()
 
             if pushed_items_count < len(data):
                 await dataset.push_data(data[:pushed_items_count])
@@ -659,7 +669,7 @@ class _ActorType:
                 await dataset.push_data(data)
 
             # Only charge explicit events; synthetic events will be processed within the client.
-            return await self.get_charging_manager().charge(
+            return await charging_manager.charge(
                 event_name=charged_event_name,
                 count=pushed_items_count,
             )
@@ -723,10 +733,9 @@ class _ActorType:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
         """
-        # Acquire lock to prevent race conditions with concurrent charge/push_data calls.
+        # charging_manager.charge() acquires charge_lock internally.
         charging_manager = self.get_charging_manager()
-        async with charging_manager.charge_lock:
-            return await charging_manager.charge(event_name, count)
+        return await charging_manager.charge(event_name, count)
 
     @overload
     def on(

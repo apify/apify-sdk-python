@@ -48,20 +48,10 @@ class ApifyFileSystemDatasetClient(FileSystemDatasetClient, DatasetClientPpeMixi
 
     @override
     async def push_data(self, data: list[dict[str, Any]] | dict[str, Any]) -> None:
-        async with self._lock, self._charge_lock():
+        async with self._charge_lock():
             items = data if isinstance(data, list) else [data]
             limit = self._compute_limit_for_push(len(items))
 
-            new_item_count = self._metadata.item_count
-            for item in items[:limit]:
-                new_item_count += 1
-                await self._push_item(item, new_item_count)
-
-            # now update metadata under the same lock
-            await self._update_metadata(
-                update_accessed_at=True,
-                update_modified_at=True,
-                new_item_count=new_item_count,
-            )
+            await super().push_data(items[:limit])
 
             await self._charge_for_items(limit)

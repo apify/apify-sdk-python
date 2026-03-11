@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import math
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -18,7 +17,7 @@ from apify._models import (
     PricePerDatasetItemActorPricingInfo,
     PricingModel,
 )
-from apify._utils import docs_group, ensure_context
+from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.log import logger
 from apify.storages import Dataset
 
@@ -53,7 +52,7 @@ class ChargingManager(Protocol):
     - Apify platform documentation: https://docs.apify.com/platform/actors/publishing/monetize
     """
 
-    charge_lock: asyncio.Lock
+    charge_lock: ReentrantLock
     """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
 
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
@@ -114,6 +113,12 @@ class ChargingManager(Protocol):
             Max number of items that can be pushed within the budget.
         """
 
+    def is_event_charge_limit_reached(self, event_name: str) -> bool:
+        """Return True if the remaining budget is insufficient to charge even a single event of the given type."""
+
+    def compute_chargeable(self) -> dict[str, int | None]:
+        """Compute the maximum number of events of each type that can be charged within the current budget."""
+
 
 @docs_group('Charging')
 @dataclass(frozen=True)
@@ -170,7 +175,7 @@ class ChargingManagerImplementation(ChargingManager):
         self._not_ppe_warning_printed = False
         self.active = False
 
-        self.charge_lock = asyncio.Lock()
+        self.charge_lock = ReentrantLock()
 
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
@@ -244,13 +249,6 @@ class ChargingManagerImplementation(ChargingManager):
 
     @_ensure_context
     async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
-        def calculate_chargeable() -> dict[str, int | None]:
-            """Calculate the maximum number of events of each type that can be charged within the current budget."""
-            return {
-                event_name: self.calculate_max_event_charge_count_within_limit(event_name)
-                for event_name in self._pricing_info
-            }
-
         # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
             if not self._not_ppe_warning_printed:
@@ -262,79 +260,81 @@ class ChargingManagerImplementation(ChargingManager):
             return ChargeResult(
                 event_charge_limit_reached=False,
                 charged_count=0,
-                chargeable_within_limit=calculate_chargeable(),
+                chargeable_within_limit=self.compute_chargeable(),
             )
 
-        # START OF CRITICAL SECTION - no awaits here
-
-        # Determine the maximum amount of events that can be charged within the budget
-        max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
-        charged_count = min(count, max_chargeable if max_chargeable is not None else count)
-
-        if charged_count == 0:
+        if count <= 0:
             return ChargeResult(
-                event_charge_limit_reached=True,
+                event_charge_limit_reached=self.is_event_charge_limit_reached(event_name),
                 charged_count=0,
-                chargeable_within_limit=calculate_chargeable(),
+                chargeable_within_limit=self.compute_chargeable(),
             )
 
-        pricing_info = self._pricing_info.get(
-            event_name,
-            PricingInfoItem(
-                # Use a nonzero price for local development so that the maximum budget can be reached.
-                price=Decimal() if self._is_at_home else Decimal(1),
-                title=f"Unknown event '{event_name}'",
-            ),
-        )
+        async with self.charge_lock():
+            # Determine the maximum amount of events that can be charged within the budget
+            max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
+            charged_count = min(count, max_chargeable if max_chargeable is not None else count)
 
-        # Update the charging state
-        self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
-        self._charging_state[event_name].charge_count += charged_count
-        self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
+            if charged_count == 0:
+                return ChargeResult(
+                    event_charge_limit_reached=True,
+                    charged_count=0,
+                    chargeable_within_limit=self.compute_chargeable(),
+                )
 
-        # END OF CRITICAL SECTION
-
-        # If running on the platform, call the charge endpoint
-        if self._is_at_home:
-            if self._actor_run_id is None:
-                raise RuntimeError('Actor run ID not configured')
-
-            if event_name.startswith('apify-'):
-                # Synthetic events (e.g. apify-default-dataset-item) are tracked internally only,
-                # the platform handles them automatically based on dataset writes.
-                pass
-            elif event_name in self._pricing_info:
-                await self._client.run(self._actor_run_id).charge(event_name, charged_count)
-            else:
-                logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
-
-        # Log the charged operation (if enabled)
-        if self._charging_log_dataset:
-            await self._charging_log_dataset.push_data(
-                {
-                    'event_name': event_name,
-                    'event_title': pricing_info.title,
-                    'event_price_usd': round(pricing_info.price, 3),
-                    'charged_count': charged_count,
-                    'timestamp': datetime.now(timezone.utc).isoformat(),
-                }
+            pricing_info = self._pricing_info.get(
+                event_name,
+                PricingInfoItem(
+                    # Use a nonzero price for local development so that the maximum budget can be reached.
+                    price=Decimal() if self._is_at_home else Decimal(1),
+                    title=f"Unknown event '{event_name}'",
+                ),
             )
 
-        # If it is not possible to charge the full amount, log that fact
-        if charged_count < count:
-            subject = 'instance' if count == 1 else 'instances'
-            logger.info(
-                f"Charging {count} {subject} of '{event_name}' event would exceed max_total_charge_usd "
-                f'- only {charged_count} events were charged'
+            # Update the charging state
+            self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
+            self._charging_state[event_name].charge_count += charged_count
+            self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
+
+            # If running on the platform, call the charge endpoint
+            if self._is_at_home:
+                if self._actor_run_id is None:
+                    raise RuntimeError('Actor run ID not configured')
+
+                if event_name.startswith('apify-'):
+                    # Synthetic events (e.g. apify-default-dataset-item) are tracked internally only,
+                    # the platform handles them automatically based on dataset writes.
+                    pass
+                elif event_name in self._pricing_info:
+                    await self._client.run(self._actor_run_id).charge(event_name, charged_count)
+                else:
+                    logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
+
+            # Log the charged operation (if enabled)
+            if self._charging_log_dataset:
+                await self._charging_log_dataset.push_data(
+                    {
+                        'event_name': event_name,
+                        'event_title': pricing_info.title,
+                        'event_price_usd': round(pricing_info.price, 3),
+                        'charged_count': charged_count,
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+
+            # If it is not possible to charge the full amount, log that fact
+            if charged_count < count:
+                subject = 'instance' if count == 1 else 'instances'
+                logger.info(
+                    f"Charging {count} {subject} of '{event_name}' event would exceed max_total_charge_usd "
+                    f'- only {charged_count} events were charged'
+                )
+
+            return ChargeResult(
+                event_charge_limit_reached=self.is_event_charge_limit_reached(event_name),
+                charged_count=charged_count,
+                chargeable_within_limit=self.compute_chargeable(),
             )
-
-        max_charge_count = self.calculate_max_event_charge_count_within_limit(event_name)
-
-        return ChargeResult(
-            event_charge_limit_reached=max_charge_count is not None and max_charge_count <= 0,
-            charged_count=charged_count,
-            chargeable_within_limit=calculate_chargeable(),
-        )
 
     @_ensure_context
     def calculate_total_charged_amount(self) -> Decimal:
@@ -393,6 +393,18 @@ class ChargingManagerImplementation(ChargingManager):
         result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / combined_price
         max_count = max(0, math.floor(result)) if result.is_finite() else items_count
         return min(items_count, max_count)
+
+    @_ensure_context
+    def is_event_charge_limit_reached(self, event_name: str) -> bool:
+        max_charge_count = self.calculate_max_event_charge_count_within_limit(event_name)
+        return max_charge_count is not None and max_charge_count <= 0
+
+    @_ensure_context
+    def compute_chargeable(self) -> dict[str, int | None]:
+        return {
+            event_name: self.calculate_max_event_charge_count_within_limit(event_name)
+            for event_name in self._pricing_info
+        }
 
     async def _fetch_pricing_info(self) -> _FetchedPricingInfoDict:
         """Fetch pricing information from environment variables or API."""

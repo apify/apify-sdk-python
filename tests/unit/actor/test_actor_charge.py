@@ -19,11 +19,15 @@ class MockedChargingSetup(NamedTuple):
 
 
 @asynccontextmanager
-async def setup_mocked_charging(configuration: Configuration) -> AsyncGenerator[MockedChargingSetup]:
+async def setup_mocked_charging(
+    configuration: Configuration, pricing_info: dict[str, Decimal]
+) -> AsyncGenerator[MockedChargingSetup]:
     """Context manager that sets up an Actor with mocked charging on Apify platform.
 
     Usage:
-        async with setup_mocked_charging(Decimal('10.0')) as setup:
+        configuration = Configuration( max_total_charge_usd=Decimal('1.5'), test_pay_per_event=True)
+        pricing_info = {'event': Decimal('1.0')}
+        async with setup_mocked_charging(configuration, pricing_info) as setup:
             # Add pricing info for events
             setup.charging_mgr._pricing_info['event'] = PricingInfoItem(Decimal('1.0'), 'Event')
 
@@ -47,11 +51,16 @@ async def setup_mocked_charging(configuration: Configuration) -> AsyncGenerator[
             patch.object(charging_mgr_impl, '_actor_run_id', 'test-run-id'),
             patch.object(charging_mgr_impl, '_client', mock_client),
         ):
-            yield MockedChargingSetup(
+            setup = MockedChargingSetup(
                 charging_mgr=charging_mgr_impl,  # ty: ignore[invalid-argument-type]
                 mock_charge=mock_charge,
                 mock_client=mock_client,
             )
+
+            for event_name, price in pricing_info.items():
+                setup.charging_mgr._pricing_info[event_name] = PricingInfoItem(price, title=event_name.title())
+
+            yield setup
 
 
 async def test_actor_charge_push_data_with_no_remaining_budget() -> None:
@@ -60,12 +69,9 @@ async def test_actor_charge_push_data_with_no_remaining_budget() -> None:
     When push_data can't afford to charge for any items, it correctly avoids calling the API.
     """
     async with setup_mocked_charging(
-        Configuration(max_total_charge_usd=Decimal('1.5'), test_pay_per_event=True)
+        Configuration(max_total_charge_usd=Decimal('1.5'), test_pay_per_event=True),
+        {'some-event': Decimal('1.0'), 'another-event': Decimal('1.0')},
     ) as setup:
-        # Add pricing info for the events
-        setup.charging_mgr._pricing_info['some-event'] = PricingInfoItem(Decimal('1.0'), 'Some Event')
-        setup.charging_mgr._pricing_info['another-event'] = PricingInfoItem(Decimal('1.0'), 'Another Event')
-
         # Exhaust most of the budget (events cost $1 each)
         result1 = await Actor.charge('some-event', count=1)  # Costs $1, leaving $0.5
 
@@ -96,11 +102,8 @@ async def test_actor_charge_push_data_with_no_remaining_budget() -> None:
 async def test_actor_charge_api_call_verification() -> None:
     """Verify that charge() makes API calls correctly."""
     async with setup_mocked_charging(
-        Configuration(max_total_charge_usd=Decimal('10.0'), test_pay_per_event=True)
+        Configuration(max_total_charge_usd=Decimal('10.0'), test_pay_per_event=True), {'test-event': Decimal('1.0')}
     ) as setup:
-        # Add pricing info for the event
-        setup.charging_mgr._pricing_info['test-event'] = PricingInfoItem(Decimal('1.0'), 'Test Event')
-
         # Call charge directly with count=0 - this should NOT call the API
         result1 = await Actor.charge('test-event', count=0)
         setup.mock_charge.assert_not_called()
@@ -139,7 +142,7 @@ async def test_max_event_charge_count_within_limit_tolerates_overdraw() -> None:
         test_pay_per_event=True,
     )
 
-    async with setup_mocked_charging(configuration) as setup:
+    async with setup_mocked_charging(configuration, {}) as setup:
         max_count = setup.charging_mgr.calculate_max_event_charge_count_within_limit('event')
         assert max_count == 0
 
@@ -147,13 +150,9 @@ async def test_max_event_charge_count_within_limit_tolerates_overdraw() -> None:
 async def test_push_data_combined_price_limits_items() -> None:
     """Test that push_data limits items when the combined explicit + synthetic event price exceeds the budget."""
     async with setup_mocked_charging(
-        Configuration(max_total_charge_usd=Decimal('3.00'), test_pay_per_event=True)
-    ) as setup:
-        setup.charging_mgr._pricing_info['scrape'] = PricingInfoItem(Decimal('1.00'), 'Scrape')
-        setup.charging_mgr._pricing_info['apify-default-dataset-item'] = PricingInfoItem(
-            Decimal('1.00'), 'Default dataset item'
-        )
-
+        Configuration(max_total_charge_usd=Decimal('3.00'), test_pay_per_event=True),
+        {'scrape': Decimal('1.00'), 'apify-default-dataset-item': Decimal('1.00')},
+    ):
         data = [{'id': i} for i in range(5)]
         result = await Actor.push_data(data, 'scrape')
 
@@ -169,13 +168,9 @@ async def test_push_data_combined_price_limits_items() -> None:
 async def test_push_data_charges_synthetic_event_for_default_dataset() -> None:
     """Test that push_data charges both the explicit event and the synthetic apify-default-dataset-item event."""
     async with setup_mocked_charging(
-        Configuration(max_total_charge_usd=Decimal('10.00'), test_pay_per_event=True)
+        Configuration(max_total_charge_usd=Decimal('10.00'), test_pay_per_event=True),
+        {'test': Decimal('0.10'), 'apify-default-dataset-item': Decimal('0.05')},
     ) as setup:
-        setup.charging_mgr._pricing_info['test'] = PricingInfoItem(Decimal('0.10'), 'Test')
-        setup.charging_mgr._pricing_info['apify-default-dataset-item'] = PricingInfoItem(
-            Decimal('0.05'), 'Dataset item'
-        )
-
         data = [{'id': i} for i in range(3)]
         result = await Actor.push_data(data, 'test')
 
@@ -190,13 +185,9 @@ async def test_push_data_charges_synthetic_event_for_default_dataset() -> None:
 async def test_charge_lock_concurrent_actor_and_dataset_push() -> None:
     """Test that charge_lock properly synchronizes concurrent Actor.push_data and dataset.push_data calls."""
     async with setup_mocked_charging(
-        Configuration(max_total_charge_usd=Decimal('10.00'), test_pay_per_event=True)
+        Configuration(max_total_charge_usd=Decimal('10.00'), test_pay_per_event=True),
+        {'event': Decimal('0.10'), 'apify-default-dataset-item': Decimal('0.10')},
     ) as setup:
-        setup.charging_mgr._pricing_info['event'] = PricingInfoItem(Decimal('0.10'), 'Event')
-        setup.charging_mgr._pricing_info['apify-default-dataset-item'] = PricingInfoItem(
-            Decimal('0.10'), 'Dataset item'
-        )
-
         dataset = await Actor.open_dataset()
 
         # Run concurrent pushes - Actor.push_data and direct dataset.push_data
@@ -219,13 +210,9 @@ async def test_charge_lock_concurrent_actor_and_dataset_push() -> None:
 async def test_charge_lock_concurrent_with_limited_budget() -> None:
     """Test that charge_lock correctly limits items when concurrent pushes compete for limited budget."""
     async with setup_mocked_charging(
-        Configuration(max_total_charge_usd=Decimal('0.50'), test_pay_per_event=True)
+        Configuration(max_total_charge_usd=Decimal('0.50'), test_pay_per_event=True),
+        {'apify-default-dataset-item': Decimal('0.10')},
     ) as setup:
-        # Each default dataset item costs $0.10, so max 5 items total
-        setup.charging_mgr._pricing_info['apify-default-dataset-item'] = PricingInfoItem(
-            Decimal('0.10'), 'Dataset item'
-        )
-
         dataset = await Actor.open_dataset()
 
         # Both try to push 5 items, but budget only allows 5 total
@@ -266,7 +253,7 @@ async def test_charge_with_overdrawn_budget() -> None:
         test_pay_per_event=True,
     )
 
-    async with setup_mocked_charging(configuration) as setup:
+    async with setup_mocked_charging(configuration, {}) as setup:
         charge_result = await Actor.charge('event', 1)
         assert charge_result.charged_count == 0  # The budget doesn't allow another event
 

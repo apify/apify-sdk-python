@@ -142,7 +142,7 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             for index, item in enumerate(items):
                 yield await self._check_and_serialize(item, index)
 
-        async with self._lock, self._charge_lock():
+        async with self._charge_lock(), self._lock:
             items = data if isinstance(data, list) else [data]
             limit = self._compute_limit_for_push(len(items))
             items = items[:limit]

@@ -35,12 +35,7 @@ class DatasetClientPpeMixin:
         """Context manager to acquire the charge lock if PPE charging manager is active."""
         charging_manager = charging_manager_ctx.get()
         if charging_manager:
-            if charging_manager.charge_lock.locked():
-                # If the charge lock is already locked, it means we're called from within Actor.push_data which
-                # already holds the lock. asyncio.Lock is not reentrant, so re-acquiring would deadlock.
+            async with charging_manager.charge_lock():
                 yield
-            else:
-                async with charging_manager.charge_lock:
-                    yield
         else:
             yield
