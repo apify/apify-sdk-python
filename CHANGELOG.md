@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.3.1 - **not yet released**
+## [3.3.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.1) (2026-03-11)
 
 ### 🐛 Bug Fixes
 
@@ -14,7 +13,6 @@ All notable changes to this project will be documented in this file.
 - Keep track of synthetic apify-default-dataset-item events ([#814](https://github.com/apify/apify-sdk-python/pull/814)) ([50c4b6c](https://github.com/apify/apify-sdk-python/commit/50c4b6ce80b45da5348a74c559b8790edbeae04a)) by [@Mantisus](https://github.com/Mantisus), closes [#705](https://github.com/apify/apify-sdk-python/issues/705), [#760](https://github.com/apify/apify-sdk-python/issues/760)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.3.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.0) (2026-02-25)
 
 ### 🚀 Features
