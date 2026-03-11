@@ -9,6 +9,7 @@ from crawlee.storages import Dataset, KeyValueStore, RequestQueue
 
 from apify import Actor, Configuration
 from apify.storage_clients import ApifyStorageClient, MemoryStorageClient, SmartApifyStorageClient
+from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 
 @pytest.mark.parametrize(
@@ -125,3 +126,11 @@ async def test_actor_implicit_storage_init(apify_token: str) -> None:
         assert await Actor.open_dataset() is not await Actor.open_dataset(force_cloud=True)
         assert await Actor.open_key_value_store() is not await Actor.open_key_value_store(force_cloud=True)
         assert await Actor.open_request_queue() is not await Actor.open_request_queue(force_cloud=True)
+
+
+async def test_default_storage(apify_token: str) -> None:
+    service_locator.set_configuration(Configuration(token=apify_token))
+    async with Actor:
+        dataset_1 = await Actor.open_dataset(force_cloud=True)
+        dataset_2 = await Actor.open_dataset(force_cloud=True, alias=AliasResolver.default_storage_key)
+        assert dataset_1.id == dataset_2.id
