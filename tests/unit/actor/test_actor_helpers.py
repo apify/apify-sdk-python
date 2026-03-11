@@ -184,13 +184,13 @@ async def test_set_terminal_status_message_locally(caplog: pytest.LogCaptureFixt
 
 
 async def test_push_data_with_empty_data() -> None:
-    """Test that push_data returns None when data is empty."""
+    """Test that push_data returns result with `charged_count` 0 when data is empty."""
     async with Actor:
         result = await Actor.push_data([])
-        assert result is None
+        assert result.charged_count == 0
 
         result = await Actor.push_data({})
-        assert result is None
+        assert result.charged_count == 0
 
 
 async def test_off_removes_event_listener(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -247,6 +247,78 @@ async def test_get_max_total_charge_usd(mock_client: MagicMock) -> None:
         assert cm.get_max_total_charge_usd() == Decimal('42.50')
 
 
+async def test_compute_push_data_limit_no_ppe(mock_client: MagicMock) -> None:
+    """Returns items_count when no PPE pricing is configured (prices are zero)."""
+    config = _make_config(actor_pricing_info=None, charged_event_counts={})
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        result = cm.compute_push_data_limit(10, 'some-event', is_default_dataset=True)
+        assert result == 10
+
+
+async def test_compute_push_data_limit_within_budget(mock_client: MagicMock) -> None:
+    """Returns full items_count when combined budget is sufficient for all items."""
+    pricing_info = _make_ppe_pricing_info({'click': Decimal('0.01'), 'apify-default-dataset-item': Decimal('0.01')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('10.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        # combined price = 0.02/item, budget = 10.00, max = 500
+        result = cm.compute_push_data_limit(5, 'click', is_default_dataset=True)
+        assert result == 5
+
+
+async def test_compute_push_data_limit_budget_exceeded(mock_client: MagicMock) -> None:
+    """Returns capped count when combined price (explicit + synthetic) exceeds budget."""
+    pricing_info = _make_ppe_pricing_info({'scrape': Decimal('1.00'), 'apify-default-dataset-item': Decimal('1.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('3.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        # combined price = 2.00/item, budget = 3.00, max = floor(3/2) = 1
+        result = cm.compute_push_data_limit(5, 'scrape', is_default_dataset=True)
+        assert result == 1
+
+
+async def test_compute_push_data_limit_without_default_dataset(mock_client: MagicMock) -> None:
+    """When not pushing to the default dataset, only explicit event price is considered."""
+    pricing_info = _make_ppe_pricing_info({'scrape': Decimal('1.00'), 'apify-default-dataset-item': Decimal('1.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('3.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        # explicit price only = 1.00/item, budget = 3.00, max = floor(3/1) = 3
+        result = cm.compute_push_data_limit(5, 'scrape', is_default_dataset=False)
+        assert result == 3
+
+
+async def test_compute_push_data_limit_exhausted_budget(mock_client: MagicMock) -> None:
+    """Returns 0 when the budget is fully exhausted before the push."""
+    pricing_info = _make_ppe_pricing_info({'scrape': Decimal('1.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={'scrape': 3},
+        max_total_charge_usd=Decimal('3.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        result = cm.compute_push_data_limit(5, 'scrape', is_default_dataset=False)
+        assert result == 0
+
+
 async def test_charge_limit_reached(mock_client: MagicMock) -> None:
     """Test that event_charge_limit_reached is True when budget is exhausted."""
     pricing_info = _make_ppe_pricing_info({'search': Decimal('5.00')})
@@ -265,3 +337,75 @@ async def test_charge_limit_reached(mock_client: MagicMock) -> None:
         result2 = await cm.charge('search', count=1)
         assert result2.charged_count == 0
         assert result2.event_charge_limit_reached is True
+
+
+async def test_is_event_charge_limit_reached_within_budget(mock_client: MagicMock) -> None:
+    """Test that is_event_charge_limit_reached returns False when budget allows at least one more charge."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('5.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        assert cm.is_event_charge_limit_reached('search') is False
+        await cm.charge('search', count=3)
+        assert cm.is_event_charge_limit_reached('search') is False
+
+
+async def test_is_event_charge_limit_reached_budget_exhausted(mock_client: MagicMock) -> None:
+    """Test that is_event_charge_limit_reached returns True when budget can no longer cover a single event."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('5.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('5.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        assert cm.is_event_charge_limit_reached('search') is False
+        await cm.charge('search', count=1)
+        assert cm.is_event_charge_limit_reached('search') is True
+
+
+async def test_compute_chargeable_returns_all_known_events(mock_client: MagicMock) -> None:
+    """Test that compute_chargeable returns entries for all known event types."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00'), 'scrape': Decimal('2.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('10.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        chargeable = cm.compute_chargeable()
+        assert set(chargeable.keys()) == {'search', 'scrape'}
+        assert chargeable['search'] == 10
+        assert chargeable['scrape'] == 5
+
+
+async def test_compute_chargeable_updates_after_charge(mock_client: MagicMock) -> None:
+    """Test that compute_chargeable reflects remaining budget after charging."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00'), 'scrape': Decimal('2.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('10.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        chargeable = cm.compute_chargeable()
+        assert chargeable['search'] == 10
+        assert chargeable['scrape'] == 5
+
+        await cm.charge('search', count=4)
+        chargeable = cm.compute_chargeable()
+
+        # $6.00 remaining: search=$1.00 → 6, scrape=$2.00 → 3
+        assert chargeable['search'] == 6
+        assert chargeable['scrape'] == 3
