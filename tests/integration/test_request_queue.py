@@ -592,12 +592,7 @@ async def test_large_batch_operations(
     # Process all in chunks to test performance.
     processed_count = 0
 
-    while not await call_with_exp_backoff(rq.is_empty, rq_access_mode=rq_access_mode):
-        next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
-
-        # The RQ is_empty should ensure we don't get None
-        assert next_request is not None, f'next_request={next_request}'
-
+    while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         await rq.mark_request_as_handled(next_request)
         processed_count += 1
 
@@ -707,13 +702,9 @@ async def test_persistence_across_operations(
 
     # Process remaining.
     remaining_processed = 0
-    while not await call_with_exp_backoff(rq.is_finished, rq_access_mode=rq_access_mode):
-        next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
-        if next_request:
-            remaining_processed += 1
-            await rq.mark_request_as_handled(next_request)
-        else:
-            break
+    while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
+        remaining_processed += 1
+        await rq.mark_request_as_handled(next_request)
 
     Actor.log.info(f'Processed {remaining_processed} remaining requests')
     is_finished = await call_with_exp_backoff(rq.is_finished, rq_access_mode=rq_access_mode)
@@ -1385,13 +1376,9 @@ async def test_concurrent_processing_simulation(apify_token: str, monkeypatch: p
             assert total_after_workers == 20
 
             remaining_count = 0
-            while not await call_with_exp_backoff(rq.is_finished, rq_access_mode='shared'):
-                request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode='shared')
-                if request:
-                    remaining_count += 1
-                    await rq.mark_request_as_handled(request)
-                else:
-                    break
+            while request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode='shared'):
+                remaining_count += 1
+                await rq.mark_request_as_handled(request)
 
             final_handled = await rq.get_handled_count()
             final_total = await rq.get_total_count()
