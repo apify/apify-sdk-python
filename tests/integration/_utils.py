@@ -13,13 +13,23 @@ if TYPE_CHECKING:
 T = TypeVar('T')
 
 
-async def call_with_exp_backoff(fn: Callable[[], Awaitable[T]], *, max_retries: int = 3) -> T | None:
+async def call_with_exp_backoff(
+    fn: Callable[[], Awaitable[T]],
+    *,
+    rq_access_mode: str | None = None,
+    max_retries: int = 3,
+) -> T | None:
     """Call an async callable with exponential backoff retries until it returns a truthy value.
 
     In shared request queue mode, there is a propagation delay before newly added, reclaimed, or handled requests
     become visible in the API (see https://github.com/apify/apify-sdk-python/issues/808). This helper retries with
     exponential backoff to handle that delay in integration tests.
+
+    When `rq_access_mode` is provided and is not `'shared'`, the function is called once without retries.
     """
+    if rq_access_mode is not None and rq_access_mode != 'shared':
+        return await fn()
+
     result = None
 
     for attempt in range(max_retries):
