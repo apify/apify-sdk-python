@@ -131,7 +131,7 @@ class AliasResolver:
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
-    default_storage_key: ClassVar[str] = '__default_unnamed__'
+    default_storage_key: ClassVar[str] = '__default__'
 
     def __init__(
         self,
