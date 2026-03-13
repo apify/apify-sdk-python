@@ -92,7 +92,6 @@ def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
     assert apify_request is None
 
 
-@pytest.mark.xfail(reason='CrawleeRequestData object leaks into UserData extras after two roundtrips')
 def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
     """Reproduce: CrawleeRequestData() argument after ** must be a mapping, not CrawleeRequestData.
 
