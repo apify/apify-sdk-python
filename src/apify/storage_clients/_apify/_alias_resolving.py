@@ -76,7 +76,7 @@ async def open_by_alias(
     The alias mapping is stored in the default key-value store for persistence across Actor runs.
 
     Args:
-        alias: The alias name for the storage (e.g., '__default__', 'my-storage').
+        alias: The alias name for the storage (e.g., 'my-storage').
         storage_type: The type of storage to open.
         collection_client: The Apify API collection client for the storage type.
         get_resource_client_by_id: A callable that takes a storage ID and returns the resource client.
@@ -130,6 +130,8 @@ class AliasResolver:
 
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
+
+    default_storage_key: ClassVar[str] = '__default__'
 
     def __init__(
         self,
@@ -195,7 +197,7 @@ class AliasResolver:
         """
         # First try to find the alias in the configuration mapping to avoid any API calls.
         # This mapping is maintained by the Apify platform and does not have to be maintained in the default KVS.
-        if self._configuration.actor_storages and self._alias != 'default':
+        if self._configuration.actor_storages:
             storage_maps = {
                 'Dataset': self._configuration.actor_storages['datasets'],
                 'KeyValueStore': self._configuration.actor_storages['key_value_stores'],
