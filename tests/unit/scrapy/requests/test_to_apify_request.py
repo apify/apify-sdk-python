@@ -6,7 +6,7 @@ from scrapy.http.headers import Headers
 
 from crawlee._types import HttpHeaders
 
-from apify.scrapy.requests import to_apify_request
+from apify.scrapy.requests import to_apify_request, to_scrapy_request
 
 
 class DummySpider(Spider):
@@ -90,3 +90,37 @@ def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
 
     apify_request = to_apify_request(scrapy_request, spider)  # ty: ignore[invalid-argument-type]
     assert apify_request is None
+
+
+def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
+    """Reproduce: CrawleeRequestData() argument after ** must be a mapping, not CrawleeRequestData.
+
+    After two roundtrips through to_apify_request/to_scrapy_request with userData propagation,
+    Request.from_url() writes a CrawleeRequestData object into UserData.__pydantic_extra__['__crawlee'].
+    On the next roundtrip, this CrawleeRequestData object is found by user_data_dict.get('__crawlee')
+    and passed to CrawleeRequestData(**obj), which fails because CrawleeRequestData is not a mapping.
+    """
+    # Step 1: Initial request -> first roundtrip
+    initial_scrapy_request = Request(url='https://example.com/page')
+    apify_request_1 = to_apify_request(initial_scrapy_request, spider)
+    assert apify_request_1 is not None
+    scrapy_request_1 = to_scrapy_request(apify_request_1, spider)
+
+    # Step 2: Spider yields follow-up with propagated userData -> second roundtrip
+    follow_up_1 = Request(
+        url='https://example.com/page2',
+        meta={'userData': scrapy_request_1.meta['userData']},
+    )
+    apify_request_2 = to_apify_request(follow_up_1, spider)
+    assert apify_request_2 is not None
+    scrapy_request_2 = to_scrapy_request(apify_request_2, spider)
+
+    # Step 3: Spider yields another follow-up with propagated userData from 2nd roundtrip.
+    # This fails because userData now has __crawlee as CrawleeRequestData in __pydantic_extra__.
+    follow_up_2 = Request(
+        url='https://example.com/image.png',
+        meta={'userData': scrapy_request_2.meta['userData']},
+    )
+    follow_up_apify_request = to_apify_request(follow_up_2, spider)
+    assert follow_up_apify_request is not None
+    assert follow_up_apify_request.url == 'https://example.com/image.png'

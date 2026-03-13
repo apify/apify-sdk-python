@@ -10,6 +10,7 @@ from scrapy import Spider
 from scrapy.http.headers import Headers
 from scrapy.utils.request import request_from_dict
 
+from crawlee._request import UserData
 from crawlee._types import HttpHeaders
 
 from apify import Request as ApifyRequest
@@ -52,7 +53,19 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
             if scrapy_request.meta.get('apify_request_id'):
                 request_kwargs['id'] = scrapy_request.meta['apify_request_id']
 
-        request_kwargs['user_data'] = scrapy_request.meta.get('userData', {})
+        user_data = scrapy_request.meta.get('userData', {})
+
+        # Convert UserData Pydantic model to a plain dict to prevent CrawleeRequestData objects
+        # from leaking into Request.from_url() during Scrapy-Apify roundtrips.
+        if isinstance(user_data, UserData):
+            user_data = user_data.model_dump(by_alias=True)
+
+        # Remove internal Crawlee data since it's managed by Request.from_url() and values
+        # from previous roundtrips cause incorrect state.
+        if isinstance(user_data, dict):
+            user_data.pop('__crawlee', None)
+
+        request_kwargs['user_data'] = user_data if isinstance(user_data, dict) else {}
 
         # Convert Scrapy's headers to a HttpHeaders and store them in the apify_request
         if isinstance(scrapy_request.headers, Headers):
