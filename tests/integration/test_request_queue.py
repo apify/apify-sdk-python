@@ -199,6 +199,9 @@ async def test_request_unique_key_behavior(request_queue_apify: RequestQueue) ->
     result1 = await rq.add_request(req1)
     result2 = await rq.add_request(req2)
     result3 = await rq.add_request(req3)
+    assert result1 is not None
+    assert result2 is not None
+    assert result3 is not None
 
     Actor.log.info(
         f'Added requests - was_already_present: [{result1.was_already_present}, '
@@ -378,6 +381,7 @@ async def test_get_request_by_unique_key(request_queue_apify: RequestQueue) -> N
 
     # Add a request and get its unique_key
     add_result = await rq.add_request('https://example.com/test')
+    assert add_result is not None
     request_unique_key = add_result.unique_key
     Actor.log.info(f'Request added with unique_key: {request_unique_key}')
 
@@ -752,6 +756,7 @@ async def test_request_deduplication_edge_cases(
     results = list[bool]()
     for url, expected_duplicate in urls_and_deduplication_expectations:
         result = await rq.add_request(url)
+        assert result is not None
         results.append(result.was_already_present)
         assert result.was_already_present == expected_duplicate, (
             f'url={url}',
@@ -1038,6 +1043,7 @@ async def test_rq_long_url(
     request_id = unique_key_to_request_id(long_url_request.unique_key)
 
     processed_request = await rq.add_request(long_url_request)
+    assert processed_request is not None
     assert processed_request.id == request_id
 
     request_obtained = await rq.fetch_next_request()
@@ -1083,6 +1089,7 @@ async def test_force_cloud(
 ) -> None:
     request_queue_id = (await request_queue_apify.get_metadata()).id
     request_info = await request_queue_apify.add_request(Request.from_url('http://example.com'))
+    assert request_info is not None
     assert request_info.id is not None
     request_queue_client = apify_client_async.request_queue(request_queue_id)
 
