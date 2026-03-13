@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 
     from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
 
+# In shared mode, there is a propagation delay between operations so we use test helper
+# `call_with_exp_backoff` for exponential backoff. See https://github.com/apify/apify-sdk-python/issues/808.
+
 
 async def test_add_and_fetch_requests(
     request_queue_apify: RequestQueue,
@@ -42,8 +45,6 @@ async def test_add_and_fetch_requests(
         Actor.log.info(f'Adding request {i}...')
         await rq.add_request(f'https://example.com/{i}')
 
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     handled_request_count = 0
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         Actor.log.info('Fetching next request...')
@@ -79,8 +80,6 @@ async def test_add_requests_in_batches(
     total_count = await rq.get_total_count()
     Actor.log.info(f'Added {desired_request_count} requests in batch, total in queue: {total_count}')
 
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     handled_request_count = 0
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         if handled_request_count % 20 == 0:
@@ -120,8 +119,6 @@ async def test_add_non_unique_requests_in_batch(
     total_count = await rq.get_total_count()
     Actor.log.info(f'Added {desired_request_count} requests with duplicate unique keys, total in queue: {total_count}')
 
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     handled_request_count = 0
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         if handled_request_count % 20 == 0:
@@ -166,8 +163,6 @@ async def test_forefront_requests_ordering(
     Actor.log.info(f'Added 2 forefront requests, total in queue: {total_count}')
 
     # Fetch requests and verify order.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     fetched_urls = []
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         Actor.log.info(f'Fetched request: {next_request.url}')
@@ -221,8 +216,6 @@ async def test_request_unique_key_behavior(
     assert result3.was_already_present is False, f'result3.was_already_present={result3.was_already_present}'
 
     # Only 2 requests should be fetchable.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     fetched_count = 0
     fetched_requests = []
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
@@ -256,8 +249,6 @@ async def test_request_reclaim_functionality(
     Actor.log.info('Added test request')
 
     # Fetch and reclaim the request.
-    # In shared mode, there is a propagation delay before the newly added request becomes visible
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     fetched_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
     assert fetched_request is not None
     Actor.log.info(f'Fetched request: {fetched_request.url}')
@@ -270,8 +261,6 @@ async def test_request_reclaim_functionality(
     Actor.log.info('Request reclaimed successfully')
 
     # Should be able to fetch the same request again.
-    # In shared mode, there is a propagation delay before the reclaimed request becomes visible
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     request2 = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
 
     assert request2 is not None
@@ -303,8 +292,6 @@ async def test_request_reclaim_with_forefront(
     Actor.log.info('Added 3 requests')
 
     # Fetch first request.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     first_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
     assert first_request is not None
     Actor.log.info(f'Fetched first request: {first_request.url}')
@@ -314,8 +301,6 @@ async def test_request_reclaim_with_forefront(
     Actor.log.info('Request reclaimed to forefront')
 
     # The reclaimed request should be fetched first again.
-    # In shared mode, there is a propagation delay before the reclaimed request becomes visible
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
 
     assert next_request is not None
@@ -356,8 +341,6 @@ async def test_complex_request_objects(
     Actor.log.info(f'Added complex request: {complex_request.url} with method {complex_request.method}')
 
     # Fetch and verify all properties are preserved.
-    # In shared mode, there is a propagation delay before the newly added request becomes visible
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     fetched_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
     assert fetched_request is not None, f'fetched_request={fetched_request}'
     Actor.log.info(f'Fetched request: {fetched_request.url}')
@@ -437,20 +420,12 @@ async def test_metadata_tracking(
     assert handled_after_add == 0, f'handled_after_add={handled_after_add}'
 
     # Process some requests.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
-    next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
-    handled = 0
-    if next_request:
-        await rq.mark_request_as_handled(next_request)
-        handled += 1
-    for _ in range(2):
-        next_request = await rq.fetch_next_request()
+    for _ in range(3):
+        next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
         if next_request:
             await rq.mark_request_as_handled(next_request)
-            handled += 1
 
-    Actor.log.info(f'Processed {handled} requests')
+    Actor.log.info('Processed 3 requests')
 
     # Check counts after processing
     final_total = await rq.get_total_count()
@@ -486,8 +461,6 @@ async def test_batch_operations_performance(
     assert handled_count == 0, f'handled_count={handled_count}'
 
     # Process all requests.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     processed_count = 0
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         processed_count += 1
@@ -522,17 +495,11 @@ async def test_state_consistency(
     Actor.log.info(f'Initial total count: {initial_total}')
 
     # Simulate some requests being processed and others being reclaimed.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     processed_requests = []
     reclaimed_requests = []
 
-    next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
-    if next_request:
-        await rq.mark_request_as_handled(next_request)
-        processed_requests.append(next_request)
-    for i in range(1, 5):
-        next_request = await rq.fetch_next_request()
+    for i in range(5):
+        next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
         if next_request:
             if i % 2 == 0:  # Process even indices
                 await rq.mark_request_as_handled(next_request)
@@ -558,8 +525,6 @@ async def test_state_consistency(
     assert current_total == 10, f'current_total={current_total}'
 
     # Process remaining requests.
-    # In shared mode, there is a propagation delay before the reclaimed requests become visible
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     remaining_count = 0
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         remaining_count += 1
@@ -570,23 +535,24 @@ async def test_state_consistency(
     assert is_finished is True, f'is_finished={is_finished}'
 
 
-async def test_empty_rq_behavior(request_queue_apify: RequestQueue) -> None:
+async def test_empty_rq_behavior(request_queue_apify: RequestQueue, request: pytest.FixtureRequest) -> None:
     """Test behavior with empty queues."""
+    rq_access_mode = request.node.callspec.params.get('request_queue_apify')
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Test empty queue operations
-    is_empty = await rq.is_empty()
-    is_finished = await rq.is_finished()
+    is_empty = await call_with_exp_backoff(rq.is_empty, rq_access_mode=rq_access_mode)
+    is_finished = await call_with_exp_backoff(rq.is_finished, rq_access_mode=rq_access_mode)
     Actor.log.info(f'Empty queue - is_empty: {is_empty}, is_finished: {is_finished}')
     assert is_empty is True, f'is_empty={is_empty}'
     assert is_finished is True, f'is_finished={is_finished}'
 
     # Fetch from empty queue
-    request = await rq.fetch_next_request()
-    Actor.log.info(f'Fetch result from empty queue: {request}')
-    assert request is None, f'request={request}'
+    next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
+    Actor.log.info(f'Fetch result from empty queue: {next_request}')
+    assert next_request is None, f'request={next_request}'
 
     # Check metadata for empty queue
     metadata = await rq.get_metadata()
@@ -624,11 +590,14 @@ async def test_large_batch_operations(
     assert total_count == 500, f'total_count={total_count}'
 
     # Process all in chunks to test performance.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     processed_count = 0
 
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
+    while not await call_with_exp_backoff(rq.is_empty, rq_access_mode=rq_access_mode):
+        next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
+
+        # The RQ is_empty should ensure we don't get None
+        assert next_request is not None, f'next_request={next_request}'
+
         await rq.mark_request_as_handled(next_request)
         processed_count += 1
 
@@ -672,8 +641,6 @@ async def test_mixed_string_and_request_objects(
     Actor.log.info(f'Total requests in queue: {total_count}')
 
     # Fetch and verify all types work.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     fetched_requests = []
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         fetched_requests.append(next_request)
@@ -713,15 +680,9 @@ async def test_persistence_across_operations(
     Actor.log.info(f'Total count after initial batch: {initial_total}')
 
     # Process some requests.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     processed_count = 0
-    next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
-    if next_request:
-        await rq.mark_request_as_handled(next_request)
-        processed_count += 1
-    for _ in range(4):
-        next_request = await rq.fetch_next_request()
+    for _ in range(5):
+        next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
         if next_request:
             await rq.mark_request_as_handled(next_request)
             processed_count += 1
@@ -745,15 +706,17 @@ async def test_persistence_across_operations(
     assert handled_after_additional == 5, f'handled_after_additional={handled_after_additional}'
 
     # Process remaining.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     remaining_processed = 0
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
-        remaining_processed += 1
-        await rq.mark_request_as_handled(next_request)
+    while not await call_with_exp_backoff(rq.is_finished, rq_access_mode=rq_access_mode):
+        next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
+        if next_request:
+            remaining_processed += 1
+            await rq.mark_request_as_handled(next_request)
+        else:
+            break
 
     Actor.log.info(f'Processed {remaining_processed} remaining requests')
-    is_finished = await rq.is_finished()
+    is_finished = await call_with_exp_backoff(rq.is_finished, rq_access_mode=rq_access_mode)
     final_total = await rq.get_total_count()
     final_handled = await rq.get_handled_count()
 
@@ -836,8 +799,6 @@ async def test_request_ordering_with_mixed_operations(
     Actor.log.info('Added initial requests')
 
     # Fetch one and reclaim to forefront.
-    # In shared mode, there is a propagation delay before the newly added requests become available
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     request1 = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
     assert request1 is not None, f'request1={request1}'
     assert request1.url == 'https://example.com/1', f'request1.url={request1.url}'
@@ -851,7 +812,6 @@ async def test_request_ordering_with_mixed_operations(
     Actor.log.info('Added new forefront request')
 
     # Fetch all requests and verify forefront behavior.
-    # In shared mode, there is a propagation delay before the reclaimed/added requests become visible.
     urls_ordered = list[str]()
     while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode):
         urls_ordered.append(next_request.url)
@@ -1118,8 +1078,6 @@ async def test_pre_existing_request_with_user_data(
     await rq_client.add_request(req.model_dump(by_alias=True))
 
     # Fetch the request by the client under test.
-    # In shared mode, there is a propagation delay before the newly added request becomes visible
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     request_obtained = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
     assert request_obtained is not None
     # Test that custom_data is preserved in user_data (custom_data should be subset of obtained user_data)
@@ -1154,8 +1112,6 @@ async def test_request_queue_is_finished(
     await request_queue_apify.add_request(Request.from_url('http://example.com'))
     assert not await request_queue_apify.is_finished()
 
-    # In shared mode, there is a propagation delay before the newly added request becomes visible
-    # (see https://github.com/apify/apify-sdk-python/issues/808).
     fetched = await call_with_exp_backoff(request_queue_apify.fetch_next_request, rq_access_mode=rq_access_mode)
     assert fetched is not None
     assert not await request_queue_apify.is_finished(), (
@@ -1428,12 +1384,14 @@ async def test_concurrent_processing_simulation(apify_token: str, monkeypatch: p
             total_after_workers = await rq.get_total_count()
             assert total_after_workers == 20
 
-            # In shared mode, there is a propagation delay before the reclaimed requests become visible
-            # (see https://github.com/apify/apify-sdk-python/issues/808).
             remaining_count = 0
-            while next_request := await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode='shared'):
-                remaining_count += 1
-                await rq.mark_request_as_handled(next_request)
+            while not await call_with_exp_backoff(rq.is_finished, rq_access_mode='shared'):
+                request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode='shared')
+                if request:
+                    remaining_count += 1
+                    await rq.mark_request_as_handled(request)
+                else:
+                    break
 
             final_handled = await rq.get_handled_count()
             final_total = await rq.get_total_count()

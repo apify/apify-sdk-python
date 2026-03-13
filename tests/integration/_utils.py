@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeVar
 
 from crawlee._utils.crypto import crypto_random_object_id
 
@@ -16,7 +16,7 @@ T = TypeVar('T')
 async def call_with_exp_backoff(
     fn: Callable[[], Awaitable[T]],
     *,
-    rq_access_mode: str | None = None,
+    rq_access_mode: Literal['single', 'shared'],
     max_retries: int = 3,
 ) -> T | None:
     """Call an async callable with exponential backoff retries until it returns a truthy value.
@@ -25,24 +25,27 @@ async def call_with_exp_backoff(
     become visible in the API (see https://github.com/apify/apify-sdk-python/issues/808). This helper retries with
     exponential backoff to handle that delay in integration tests.
 
-    When `rq_access_mode` is provided and is not `'shared'`, the function is called once without retries.
+    When `rq_access_mode` is `'single'`, the function is called once without retries.
     """
-    if rq_access_mode is not None and rq_access_mode != 'shared':
+    if rq_access_mode == 'single':
         return await fn()
 
-    result = None
+    if rq_access_mode == 'shared':
+        result = None
 
-    for attempt in range(max_retries):
-        result = await fn()
+        for attempt in range(max_retries):
+            result = await fn()
 
-        if result:
-            return result
+            if result:
+                return result
 
-        delay = 2**attempt
-        Actor.log.info(f'{fn} returned {result!r}, retrying in {delay}s (attempt {attempt + 1}/{max_retries})')
-        await asyncio.sleep(delay)
+            delay = 2**attempt
+            Actor.log.info(f'{fn} returned {result!r}, retrying in {delay}s (attempt {attempt + 1}/{max_retries})')
+            await asyncio.sleep(delay)
 
-    return result
+        return result
+
+    raise ValueError(f'Invalid rq_access_mode: {rq_access_mode}')
 
 
 def generate_unique_resource_name(label: str) -> str:
