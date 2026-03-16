@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.3.2 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- **scrapy:** Resolve Crawlee&#x27;s request data round-trip failure in request conversion ([#832](https://github.com/apify/apify-sdk-python/pull/832)) ([3b9d588](https://github.com/apify/apify-sdk-python/commit/3b9d5888611597a522300c742014c06cc0b857b9)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.3.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.1) (2026-03-11)
 
 ### 🐛 Bug Fixes
