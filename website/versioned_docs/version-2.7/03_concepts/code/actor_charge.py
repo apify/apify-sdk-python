@@ -4,7 +4,7 @@ from apify import Actor
 async def main() -> None:
     async with Actor:
         # highlight-start
-        # Charge for a single occurence of an event
+        # Charge for a single occurrence of an event
         await Actor.charge(event_name='init')
         # highlight-end
 

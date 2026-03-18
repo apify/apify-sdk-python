@@ -336,7 +336,7 @@
                 "summary": [
                     {
                         "kind": "text",
-                        "text": "{\"content\": [\"Rename a directory. Checks for existence of soruce directory and removes destination directory if it exists.\"]}"
+                        "text": "{\"content\": [\"Rename a directory. Checks for existence of source directory and removes destination directory if it exists.\"]}"
                     }
                 ]
             },
@@ -364,7 +364,7 @@
                         "summary": [
                             {
                                 "kind": "text",
-                                "text": "{\"content\": [\"Rename a directory. Checks for existence of soruce directory and removes destination directory if it exists.\"]}"
+                                "text": "{\"content\": [\"Rename a directory. Checks for existence of source directory and removes destination directory if it exists.\"]}"
                             }
                         ]
                     },
@@ -3773,7 +3773,7 @@
                         "summary": [
                             {
                                 "kind": "text",
-                                "text": "{\"content\": [\"Retrive the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
+                                "text": "{\"content\": [\"Retrieve the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
                             }
                         ]
                     },
@@ -3799,7 +3799,7 @@
                                 "summary": [
                                     {
                                         "kind": "text",
-                                        "text": "{\"content\": [\"Retrive the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
+                                        "text": "{\"content\": [\"Retrieve the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
                                     }
                                 ]
                             },
