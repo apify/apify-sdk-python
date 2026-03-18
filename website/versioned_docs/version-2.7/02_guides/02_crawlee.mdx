@@ -1,0 +1,37 @@
+---
+id: crawlee
+title: Using Crawlee
+---
+
+import CodeBlock from '@theme/CodeBlock';
+
+import CrawleeBeautifulSoupExample from '!!raw-loader!./code/02_crawlee_beautifulsoup.py';
+import CrawleePlaywrightExample from '!!raw-loader!./code/02_crawlee_playwright.py';
+
+In this guide you'll learn how to use the [Crawlee](https://crawlee.dev/python) library in your Apify Actors.
+
+## Introduction
+
+`Crawlee` is a Python library for web scraping and browser automation that provides a robust and flexible framework for building web scraping tasks. It seamlessly integrates with the Apify platform and supports a variety of scraping techniques, from static HTML parsing to dynamic JavaScript-rendered content handling. Crawlee offers a range of crawlers, including HTTP-based crawlers like [`HttpCrawler`](https://crawlee.dev/python/api/class/HttpCrawler), [`BeautifulSoupCrawler`](https://crawlee.dev/python/api/class/BeautifulSoupCrawler) and [`ParselCrawler`](https://crawlee.dev/python/api/class/ParselCrawler), and browser-based crawlers like [`PlaywrightCrawler`](https://crawlee.dev/python/api/class/PlaywrightCrawler), to suit different scraping needs.
+
+In this guide, you'll learn how to use Crawlee with `BeautifulSoupCrawler` and `PlaywrightCrawler` to build Apify Actors for web scraping.
+
+## Actor with BeautifulSoupCrawler
+
+The `BeautifulSoupCrawler` is ideal for extracting data from static HTML pages. It uses `BeautifulSoup` for parsing and [`HttpxHttpClient`](https://crawlee.dev/python/api/class/HttpxHttpClient) for HTTP communication, ensuring efficient and lightweight scraping. If you do not need to execute JavaScript on the page, `BeautifulSoupCrawler` is a great choice for your scraping tasks. Below is an example of how to use `BeautifulSoupCrawler` in an Apify Actor.
+
+<CodeBlock className="language-python">
+    {CrawleeBeautifulSoupExample}
+</CodeBlock>
+
+## Actor with PlaywrightCrawler
+
+The `PlaywrightCrawler` is built for handling dynamic web pages that rely on JavaScript for content generation. Using the [Playwright](https://playwright.dev/) library, it provides a browser-based automation environment to interact with complex websites. Below is an example of how to use `PlaywrightCrawler` in an Apify Actor.
+
+<CodeBlock className="language-python">
+    {CrawleePlaywrightExample}
+</CodeBlock>
+
+## Conclusion
+
+In this guide, you learned how to use the `Crawlee` library in your Apify Actors. By using the `BeautifulSoupCrawler` and `PlaywrightCrawler` crawlers, you can efficiently scrape static or dynamic web pages, making it easy to build web scraping tasks in Python. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!

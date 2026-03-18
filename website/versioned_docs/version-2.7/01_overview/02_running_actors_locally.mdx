@@ -1,0 +1,66 @@
+---
+id: running-actors-locally
+title: Running Actors locally
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import CodeBlock from '@theme/CodeBlock';
+
+In this page, you'll learn how to create and run Apify Actors locally on your computer.
+
+## Requirements
+
+The Apify SDK requires Python version 3.9 or above to run Python Actors locally.
+
+## Creating your first Actor
+
+To create a new Apify Actor on your computer, you can use the [Apify CLI](https://docs.apify.com/cli), and select one of the [Python Actor templates](https://apify.com/templates/categories/python).
+
+For example, to create an Actor from the Python SDK template, you can use the [`apify create`](https://docs.apify.com/cli/docs/reference#apify-create-actorname) command.
+
+```bash
+apify create my-first-actor --template python-start
+```
+
+This will create a new folder called `my-first-actor`, download and extract the "Getting started with Python" Actor template there, create a virtual environment in `my-first-actor/.venv`, and install the Actor dependencies in it.
+
+## Running the Actor
+
+To run the Actor, you can use the [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command:
+
+```bash
+cd my-first-actor
+apify run
+```
+
+This will activate the virtual environment in `.venv` (if no other virtual environment is activated yet), then start the Actor, passing the right environment variables for local running, and configure it to use local storages from the `storage` folder.
+
+The Actor input, for example, will be in `storage/key_value_stores/default/INPUT.json`.
+
+## Adding dependencies
+
+Adding dependencies into the Actor is simple.
+
+First, add them in the [`requirements.txt`](https://pip.pypa.io/en/stable/reference/requirements-file-format/) file in the Actor source folder.
+
+Then activate the virtual environment in `.venv`:
+
+<Tabs groupId="operating-systems">
+    <TabItem value="unix" label="Linux / macOS" default>
+        <CodeBlock language="bash">{
+`source .venv/bin/activate`
+        }</CodeBlock>
+    </TabItem>
+    <TabItem value="win" label="Windows">
+        <CodeBlock language="powershell">{
+`.venv\\Scripts\\activate`
+        }</CodeBlock>
+    </TabItem>
+</Tabs>
+
+Then install the dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```

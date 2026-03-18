@@ -1,0 +1,110 @@
+---
+title: Using Selenium
+sidebar_label: Using Selenium
+---
+
+[Selenium](https://www.selenium.dev/) is a tool for web automation and testing that can also be used for web scraping.
+It allows you to control a web browser programmatically and interact with web pages just as a human would.
+
+Some of the key features of Selenium for web scraping include:
+
+- **Cross-browser support** - Selenium supports the latest versions of major browsers like Chrome, Firefox, and Safari,
+so you can choose the one that suits your needs the best.
+- **Headless mode** - Selenium can run in headless mode,
+meaning that the browser window is not visible on your screen while it is scraping,
+which can be useful for running scraping tasks in the background or in containers without a display.
+- **Powerful selectors** - Selenium provides a variety of powerful selectors that allow you to target specific elements on a web page,
+including CSS selectors, XPath, and text matching.
+- **Emulation of user interactions** - Selenium allows you to emulate user interactions like clicking, scrolling, filling out forms,
+and even typing in text, which can be useful for scraping websites that have dynamic content or require user input.
+
+## Using Selenium in Actors
+
+To create Actors which use Selenium, start from the [Selenium & Python](https://apify.com/templates?category=python) Actor template.
+
+On the Apify platform, the Actor will already have Selenium and the necessary browsers preinstalled in its Docker image,
+including the tools and setup necessary to run browsers in headful mode.
+
+When running the Actor locally, you'll need to install the Selenium browser drivers yourself.
+Refer to the [Selenium documentation](https://www.selenium.dev/documentation/webdriver/getting_started/install_drivers/) for installation instructions.
+
+## Example Actor
+
+This is a simple Actor that recursively scrapes titles from all linked websites,
+up to a maximum depth, starting from URLs in the Actor input.
+
+It uses Selenium ChromeDriver to open the pages in an automated Chrome browser,
+and to extract the title and anchor elements after the pages load.
+
+```python title="src/main.py"
+from urllib.parse import urljoin
+
+from apify import Actor
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.common.by import By
+
+
+async def main():
+    async with Actor:
+        # Read the Actor input
+        actor_input = await Actor.get_input() or {}
+        start_urls = actor_input.get('start_urls', [{ 'url': 'https://apify.com' }])
+        max_depth = actor_input.get('max_depth', 1)
+
+        if not start_urls:
+            Actor.log.info('No start URLs specified in actor input, exiting...')
+            await Actor.exit()
+
+        # Enqueue the starting URLs in the default request queue
+        default_queue = await Actor.open_request_queue()
+        for start_url in start_urls:
+            url = start_url.get('url')
+            Actor.log.info(f'Enqueuing {url} ...')
+            await default_queue.add_request({ 'url': url, 'userData': { 'depth': 0 }})
+
+        # Launch a new Selenium Chrome WebDriver
+        Actor.log.info('Launching Chrome WebDriver...')
+        chrome_options = ChromeOptions()
+        if Actor.config.headless:
+            chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        driver = webdriver.Chrome(options=chrome_options)
+
+        driver.get('http://www.example.com')
+        assert driver.title == 'Example Domain'
+
+        # Process the requests in the queue one by one
+        while request := await default_queue.fetch_next_request():
+            url = request['url']
+            depth = request['userData']['depth']
+            Actor.log.info(f'Scraping {url} ...')
+
+            try:
+                # Open the URL in the Selenium WebDriver
+                driver.get(url)
+
+                # If we haven't reached the max depth,
+                # look for nested links and enqueue their targets
+                if depth < max_depth:
+                    for link in driver.find_elements(By.TAG_NAME, 'a'):
+                        link_href = link.get_attribute('href')
+                        link_url = urljoin(url, link_href)
+                        if link_url.startswith(('http://', 'https://')):
+                            Actor.log.info(f'Enqueuing {link_url} ...')
+                            await default_queue.add_request({
+                                'url': link_url,
+                                'userData': {'depth': depth + 1 },
+                            })
+
+                # Push the title of the page into the default dataset
+                title = driver.title
+                await Actor.push_data({ 'url': url, 'title': title })
+            except:
+                Actor.log.exception(f'Cannot extract data from {url}.')
+            finally:
+                await default_queue.mark_request_as_handled(request)
+
+        driver.quit()
+```

@@ -1,0 +1,57 @@
+---
+id: playwright
+title: Using Playwright
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import PlaywrightExample from '!!raw-loader!roa-loader!./code/03_playwright.py';
+
+[Playwright](https://playwright.dev) is a tool for web automation and testing that can also be used for web scraping. It allows you to control a web browser programmatically and interact with web pages just as a human would.
+
+Some of the key features of Playwright for web scraping include:
+
+- **Cross-browser support** - Playwright supports the latest versions of major browsers like Chrome, Firefox, and Safari, so you can choose the one that suits your needs the best.
+- **Headless mode** - Playwright can run in headless mode, meaning that the browser window is not visible on your screen while it is scraping, which can be useful for running scraping tasks in the background or in containers without a display.
+- **Powerful selectors** - Playwright provides a variety of powerful selectors that allow you to target specific elements on a web page, including CSS selectors, XPath, and text matching.
+- **Emulation of user interactions** - Playwright allows you to emulate user interactions like clicking, scrolling, filling out forms, and even typing in text, which can be useful for scraping websites that have dynamic content or require user input.
+
+## Using Playwright in Actors
+
+To create Actors which use Playwright, start from the [Playwright & Python](https://apify.com/templates/categories/python) Actor template.
+
+On the Apify platform, the Actor will already have Playwright and the necessary browsers preinstalled in its Docker image, including the tools and setup necessary to run browsers in headful mode.
+
+When running the Actor locally, you'll need to finish the Playwright setup yourself before you can run the Actor.
+
+<Tabs groupId="operating-systems">
+    <TabItem value="unix" label="Linux / macOS" default>
+        <CodeBlock language="bash">{
+`source .venv/bin/activate
+playwright install --with-deps`
+        }</CodeBlock>
+    </TabItem>
+    <TabItem value="win" label="Windows">
+        <CodeBlock language="powershell">{
+`.venv\\Scripts\\activate
+playwright install --with-deps`
+        }</CodeBlock>
+    </TabItem>
+</Tabs>
+
+## Example Actor
+
+This is a simple Actor that recursively scrapes titles from all linked websites, up to a maximum depth, starting from URLs in the Actor input.
+
+It uses Playwright to open the pages in an automated Chrome browser, and to extract the title and anchor elements after the pages load.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {PlaywrightExample}
+</RunnableCodeBlock>
+
+## Conclusion
+
+In this guide you learned how to create Actors that use Playwright to scrape websites. Playwright is a powerful tool that can be used to manage browser instances and scrape websites that require JavaScript execution. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!

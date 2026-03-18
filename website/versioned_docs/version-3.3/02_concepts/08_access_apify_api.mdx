@@ -1,0 +1,31 @@
+---
+id: access-apify-api
+title: Accessing Apify API
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import ActorClientExample from '!!raw-loader!roa-loader!./code/08_actor_client.py';
+import ActorNewClientExample from '!!raw-loader!roa-loader!./code/08_actor_new_client.py';
+
+The Apify SDK contains many useful features for making Actor development easier. However, it does not cover all the features the Apify API offers.
+
+For working with the Apify API directly, you can use the provided instance of the [Apify API Client](https://docs.apify.com/api/client/python) library.
+
+## Actor client
+
+To access the provided instance of [`ApifyClientAsync`](https://docs.apify.com/api/client/python/reference/class/ApifyClientAsync), you can use the [`Actor.apify_client`](../../reference/class/Actor#apify_client) property.
+
+For example, to get the details of your user, you can use this snippet:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ActorClientExample}
+</RunnableCodeBlock>
+
+## Actor new client
+
+If you want to create a completely new instance of the client, for example, to get a client for a different user or change the configuration of the client,you can use the [`Actor.new_client`](../../reference/class/Actor#new_client) method:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ActorNewClientExample}
+</RunnableCodeBlock>

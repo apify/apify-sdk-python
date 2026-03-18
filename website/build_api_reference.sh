@@ -1,4 +1,21 @@
 #!/bin/bash
 
+# On macOS, sed requires a space between -i and '' to specify no backup should be done
+# On Linux, sed requires no space between -i and '' to specify no backup should be done
+sed_no_backup() {
+    if [[ $(uname) = "Darwin" ]]; then
+        sed -i '' "$@"
+    else
+        sed -i'' "$@"
+    fi
+}
+
+# Create docspec dump of this package's source code through pydoc-markdown
+pydoc-markdown --quiet --dump > docspec-dump.jsonl
+sed_no_backup "s#${PWD}/..#REPO_ROOT_PLACEHOLDER#g" docspec-dump.jsonl
+
 # Generate import shortcuts from the modules
 python generate_module_shortcuts.py
+
+# Transform the docspec dumps into Typedoc-compatible docs tree
+node transformDocs.js

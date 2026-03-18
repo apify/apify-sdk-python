@@ -1,0 +1,31 @@
+---
+id: webhooks
+title: Creating webhooks
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import WebhookExample from '!!raw-loader!roa-loader!./code/07_webhook.py';
+import WebhookPreventingExample from '!!raw-loader!roa-loader!./code/07_webhook_preventing.py';
+
+Webhooks allow you to configure the Apify platform to perform an action when a certain event occurs. For example, you can use them to start another Actor when the current run finishes or fails.
+
+You can learn more in the [documentation for webhooks](https://docs.apify.com/platform/integrations/webhooks).
+
+## Creating an ad-hoc webhook dynamically
+
+Besides creating webhooks manually in Apify Console, or through the Apify API,you can also create [ad-hoc webhooks](https://docs.apify.com/platform/integrations/webhooks/ad-hoc-webhooks) dynamically from the code of your Actor using the [`Actor.add_webhook`](../../reference/class/Actor#add_webhook) method:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {WebhookExample}
+</RunnableCodeBlock>
+
+Note that webhooks are only supported when running on the Apify platform. When running the Actor locally, the method will print a warning and have no effect.
+
+## Preventing duplicate webhooks
+
+To ensure that duplicate ad-hoc webhooks won't get created in a case of Actor restart, you can use the `idempotency_key` parameter. The idempotency key must be unique across all the webhooks of a user so that only one webhook gets created for a given value. You can use, for example, the Actor run ID as the idempotency key:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {WebhookPreventingExample}
+</RunnableCodeBlock>

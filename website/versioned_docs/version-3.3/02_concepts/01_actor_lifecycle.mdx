@@ -1,0 +1,101 @@
+---
+id: actor-lifecycle
+title: Actor lifecycle
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+import ClassContextExample from '!!raw-loader!roa-loader!./code/01_class_context.py';
+import ClassManualExample from '!!raw-loader!roa-loader!./code/01_class_manual.py';
+import InstanceContextExample from '!!raw-loader!roa-loader!./code/01_instance_context.py';
+import InstanceManualExample from '!!raw-loader!roa-loader!./code/01_instance_manual.py';
+
+import ErrorHandlingContextExample from '!!raw-loader!roa-loader!./code/01_error_handling_context.py';
+import ErrorHandlingManualExample from '!!raw-loader!roa-loader!./code/01_error_handling_manual.py';
+
+import RebootExample from '!!raw-loader!roa-loader!./code/01_reboot.py';
+
+import StatusMessageExample from '!!raw-loader!roa-loader!./code/01_status_message.py';
+
+This guide explains how an **Apify Actor** starts, runs, and shuts down, describing the complete Actor lifecycle. For information about the core concepts such as Actors, the Apify Console, storages, and events, check out the [Apify platform documentation](https://docs.apify.com/platform).
+
+## Actor initialization
+
+During initialization, the SDK prepares all the components required to integrate with the Apify platform. It loads configuration from environment variables, initializes access to platform storages such as the [key-value store, dataset, and request queue](https://docs.apify.com/platform/storage), sets up event handling for [platform events](https://docs.apify.com/platform/integrations/webhooks/events), and configures logging.
+
+The recommended approach in Python is to use the global [`Actor`](https://docs.apify.com/sdk/python/reference/class/Actor) class as an asynchronous context manager. This approach automatically manages setup and teardown and keeps your code concise. When entering the context, the SDK loads configuration and initializes clients lazily—for example, a dataset is opened only when it is first accessed. If the Actor runs on the Apify platform, it also begins listening for platform events.
+
+When the Actor exits, either normally or due to an exception, the SDK performs a graceful shutdown. It persists the final Actor state, stops event handling, and sets the terminal exit code together with the [status message](https://docs.apify.com/platform/actors/development/programming-interface/status-messages).
+
+<Tabs groupId="request_queue">
+    <TabItem value="actor_class_with_context_manager" label="Actor class with context manager" default>
+        <RunnableCodeBlock className="language-python" language="python">
+            {ClassContextExample}
+        </RunnableCodeBlock>
+    </TabItem>
+    <TabItem value="actor_class_with_manual_init_exit" label="Actor class with manual init/exit">
+        <RunnableCodeBlock className="language-python" language="python">
+            {ClassManualExample}
+        </RunnableCodeBlock>
+    </TabItem>
+</Tabs>
+
+You can also create an [`Actor`](https://docs.apify.com/sdk/python/reference/class/Actor) instance directly. This does not change its capabilities but allows you to specify optional parameters during initialization, such as disabling automatic `sys.exit()` calls or customizing timeouts. The choice between using a context manager or manual initialization depends on how much control you require over the Actor's startup and shutdown sequence.
+
+<Tabs groupId="request_queue">
+    <TabItem value="actor_instance_with_context_manager" label="Actor instance with context manager" default>
+        <RunnableCodeBlock className="language-python" language="python">
+            {InstanceContextExample}
+        </RunnableCodeBlock>
+    </TabItem>
+    <TabItem value="actor_instance_with_manual_init_exit" label="Actor instance with manual init/exit">
+        <RunnableCodeBlock className="language-python" language="python">
+            {InstanceManualExample}
+        </RunnableCodeBlock>
+    </TabItem>
+</Tabs>
+
+## Error handling
+
+Good error handling lets your Actor fail fast on critical errors, retry transient issues safely, and keep data consistent. Normally you rely on the `async with Actor:` block—if it finishes, the run succeeds (exit code 0); if an unhandled exception occurs, the run fails (exit code 1).
+
+The SDK provides helper methods for explicit control:
+
+- [`Actor.exit`](https://docs.apify.com/sdk/python/reference/class/Actor#exit) -  terminates the run successfully (default exit code 0).
+- [`Actor.fail`](https://docs.apify.com/sdk/python/reference/class/Actor#fail) -  marks the run as failed (default exit code 1).
+
+Any non-zero exit code is treated as a `FAILED` run. You rarely need to call these methods directly unless you want to perform a controlled shutdown or customize the exit behavior.
+
+Catch exceptions only when necessary - for example, to retry network timeouts or map specific errors to exit codes. Keep retry loops bounded with backoff and re-raise once exhausted. Make your processing idempotent so that restarts don't corrupt results. Both [`Actor.exit`](https://docs.apify.com/sdk/python/reference/class/Actor#exit) and [`Actor.fail`](https://docs.apify.com/sdk/python/reference/class/Actor#fail) perform the same cleanup, so complete any long-running persistence before calling them.
+
+Below is a minimal context-manager example where an unhandled exception automatically fails the run, followed by a manual pattern giving you more control.
+
+<RunnableCodeBlock className="language-python" language="python">{ErrorHandlingContextExample}</RunnableCodeBlock>
+
+If you need explicit control over exit codes or status messages, you can manage the Actor manually using [`Actor.init`](https://docs.apify.com/sdk/python/reference/class/Actor#init), [`Actor.exit`](https://docs.apify.com/sdk/python/reference/class/Actor#exit), and [`Actor.fail`](https://docs.apify.com/sdk/python/reference/class/Actor#fail).
+
+<RunnableCodeBlock className="language-python" language="python">{ErrorHandlingManualExample}</RunnableCodeBlock>
+
+## Reboot
+
+Rebooting (available on the Apify platform only) instructs the platform worker to restart your Actor from the beginning of its execution. Use this mechanism only for transient conditions that are likely to resolve after a fresh start — for example, rotating a blocked proxy pool or recovering from a stuck browser environment.
+
+Before triggering a reboot, persist any essential state externally (e.g., to the key-value store or dataset), as all in-memory data is lost after reboot. The example below tracks a reboot counter in the default key-value store and allows at most three restarts before exiting normally.
+
+<RunnableCodeBlock className="language-python" language="python">{RebootExample}</RunnableCodeBlock>
+
+## Status message
+
+[Status messages](https://docs.apify.com/platform/actors/development/programming-interface/status-messages) are lightweight, human-readable progress indicators displayed with the Actor run on the Apify platform (separate from logs). Use them to communicate high-level phases or milestones, such as "Fetching list", "Processed 120/500 pages", or "Uploading results".
+
+Update the status only when the user's understanding of progress changes - avoid frequent updates for every processed item. Detailed information should go to logs or storages (dataset, key-value store) instead.
+
+The SDK optimizes updates by sending an API request only when the message text changes, so repeating the same message incurs no additional cost.
+
+<RunnableCodeBlock className="language-python" language="python">{StatusMessageExample}</RunnableCodeBlock>
+
+## Conclusion
+
+This page has presented the full Actor lifecycle: initialization, execution, error handling, rebooting, shutdown and status messages. You've seen how the SDK supports both context-based and manual control patterns. For deeper dives, explore the [reference docs](https://docs.apify.com/sdk/python/reference), [guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx), and [platform documentation](https://docs.apify.com/platform).
