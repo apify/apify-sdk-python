@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useVersions, useActiveDocContext, useDocsVersionCandidates } from '@docusaurus/plugin-content-docs/client';
 import { useDocsPreferredVersion } from '@docusaurus/theme-common';
 import { translate } from '@docusaurus/Translate';
@@ -8,18 +8,6 @@ import DefaultNavbarItem from '@theme/NavbarItem/DefaultNavbarItem';
 import DropdownNavbarItem from '@theme/NavbarItem/DropdownNavbarItem';
 
 const getVersionMainDoc = (version) => version.docs.find((doc) => doc.id === version.mainDocId);
-
-function getApiLinks(props, pathname, baseUrl) {
-    if (!pathname.startsWith(`${baseUrl}reference`)) {
-        return [];
-    }
-
-    try {
-        return JSON.parse(props['data-api-links']);
-    } catch {
-        return [];
-    }
-}
 
 /* eslint-disable react/prop-types */
 export default function DocsVersionDropdownNavbarItem({
@@ -33,7 +21,16 @@ export default function DocsVersionDropdownNavbarItem({
     const { search, hash, pathname } = useLocation();
     const { siteConfig } = useDocusaurusContext();
     const baseUrl = siteConfig.baseUrl.endsWith('/') ? siteConfig.baseUrl : `${siteConfig.baseUrl}/`;
-    const apiLinks = getApiLinks(props, pathname, baseUrl);
+    const apiLinks = useMemo(() => {
+        if (!pathname.startsWith(`${baseUrl}reference`)) {
+            return [];
+        }
+        try {
+            return JSON.parse(props['data-api-links']);
+        } catch {
+            return [];
+        }
+    }, [props['data-api-links'], pathname, baseUrl]);
 
     const activeDocContext = useActiveDocContext(docsPluginId);
     const versions = useVersions(docsPluginId);

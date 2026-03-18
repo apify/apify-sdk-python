@@ -140,13 +140,9 @@ function inferTypedocType(docspecType) {
 
 // Sorts the groups of a Typedoc member, and sorts the children of each group
 function sortChildren(typedocMember) {
+    const idToName = new Map(typedocMember.children.map(c => [c.id, c.name]));
     for (let group of typedocMember.groups) {
-        group.children
-            .sort((a, b) => {
-                const firstName = typedocMember.children.find(x => x.id === a).name;
-                const secondName = typedocMember.children.find(x => x.id === b).name;
-                return firstName.localeCompare(secondName);
-            });
+        group.children.sort((a, b) => idToName.get(a).localeCompare(idToName.get(b)));
     }
     typedocMember.groups.sort((a, b) => groupSort(a.title, b.title));
 }

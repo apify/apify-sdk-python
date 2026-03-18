@@ -3,27 +3,8 @@ const { join, resolve } = require('node:path');
 const { config } = require('@apify/docs-theme');
 
 const { externalLinkProcessor } = require('./tools/utils/externalLink');
+const { groupSort } = require('./transformDocs');
 const versions = require('./versions.json');
-
-const GROUP_ORDER = [
-    'Actor',
-    'Charging',
-    'Configuration',
-    'Event data',
-    'Event managers',
-    'Events',
-    'Request loaders',
-    'Storage clients',
-    'Storage data',
-    'Storages',
-];
-
-const groupSort = (g1, g2) => {
-    if (GROUP_ORDER.includes(g1) && GROUP_ORDER.includes(g2)) {
-        return GROUP_ORDER.indexOf(g1) - GROUP_ORDER.indexOf(g2);
-    }
-    return g1.localeCompare(g2);
-};
 
 const { absoluteUrl } = config;
 
