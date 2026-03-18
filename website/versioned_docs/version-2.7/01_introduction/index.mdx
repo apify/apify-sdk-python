@@ -1,0 +1,45 @@
+---
+id: introduction
+title: Overview
+sidebar_label: Overview
+slug: /overview
+description: 'The official library for creating Apify Actors in Python, providing tools for web scraping, automation, and data storage integration.'
+---
+
+import CodeBlock from '@theme/CodeBlock';
+
+import IntroductionExample from '!!raw-loader!./code/01_introduction.py';
+
+The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) using Python.
+
+<CodeBlock className="language-python">
+    {IntroductionExample}
+</CodeBlock>
+
+## What are Actors?
+
+Actors are serverless cloud programs capable of performing tasks in a web browser, similar to what a human can do. These tasks can range from simple operations, such as filling out forms or unsubscribing from services, to complex jobs like scraping and processing large numbers of web pages.
+
+Actors can be executed locally or on the [Apify platform](https://docs.apify.com/platform/), which provides features for running them at scale, monitoring, scheduling, and even publishing and monetizing them.
+
+If you're new to Apify, refer to the Apify platform documentation to learn [what Apify is](https://docs.apify.com/platform/about).
+
+## Quick start
+
+To create and run Actors using Apify Console, check out [Apify Console documentation](https://docs.apify.com/platform/console). For creating and running Python Actors locally, refer to the [quick start guide](./quick-start).
+
+Explore the Guides section in the sidebar for a deeper understanding of the SDK's features and best practices.
+
+## Installation
+
+The Apify SDK for Python requires Python version 3.9 or above. It is typically installed when you create a new Actor project using the [Apify CLI](https://docs.apify.com/cli). To install it manually in an existing project, use:
+
+```bash
+pip install apify
+```
+
+:::note API client alternative
+
+If you need to interact with the Apify API programmatically without creating Actors, use the [Apify API client for Python](https://docs.apify.com/api/client/python) instead.
+
+:::

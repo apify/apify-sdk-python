@@ -72,19 +72,21 @@ module.exports = {
                     title: 'SDK for Python',
                     items: [
                         {
-                            to: 'docs/overview',
+                            type: 'doc',
+                            docId: 'introduction/introduction',
                             label: 'Docs',
                             position: 'left',
                             activeBaseRegex: '/docs(?!/changelog)',
                         },
                         {
-                            to: '/reference',
+                            type: 'custom-versioned-reference',
                             label: 'Reference',
                             position: 'left',
                             activeBaseRegex: '/reference',
                         },
                         {
-                            to: 'docs/changelog',
+                            type: 'doc',
+                            docId: 'changelog',
                             label: 'Changelog',
                             position: 'left',
                             activeBaseRegex: '/docs/changelog',
