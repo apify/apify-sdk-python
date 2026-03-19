@@ -3,6 +3,7 @@ const { join, resolve } = require('node:path');
 const { config } = require('@apify/docs-theme');
 
 const { externalLinkProcessor } = require('./tools/utils/externalLink');
+const versions = require('./versions.json');
 
 const GROUP_ORDER = [
     'Actor',
@@ -18,9 +19,14 @@ const GROUP_ORDER = [
 ];
 
 const groupSort = (g1, g2) => {
-    if (GROUP_ORDER.includes(g1) && GROUP_ORDER.includes(g2)) {
-        return GROUP_ORDER.indexOf(g1) - GROUP_ORDER.indexOf(g2);
-    }
+    const i1 = GROUP_ORDER.indexOf(g1);
+    const i2 = GROUP_ORDER.indexOf(g2);
+    // Both known – sort by defined order
+    if (i1 !== -1 && i2 !== -1) return i1 - i2;
+    // Unknown groups go after known ones
+    if (i1 !== -1) return -1;
+    if (i2 !== -1) return 1;
+    // Both unknown – alphabetical
     return g1.localeCompare(g2);
 };
 
@@ -66,19 +72,21 @@ module.exports = {
                     title: 'SDK for Python',
                     items: [
                         {
-                            to: 'docs/overview',
+                            type: 'doc',
+                            docId: 'introduction/introduction',
                             label: 'Docs',
                             position: 'left',
                             activeBaseRegex: '/docs(?!/changelog)',
                         },
                         {
-                            to: '/reference',
+                            type: 'custom-versioned-reference',
                             label: 'Reference',
                             position: 'left',
                             activeBaseRegex: '/reference',
                         },
                         {
-                            to: 'docs/changelog',
+                            type: 'doc',
+                            docId: 'changelog',
                             label: 'Changelog',
                             position: 'left',
                             activeBaseRegex: '/docs/changelog',
@@ -87,6 +95,17 @@ module.exports = {
                             href: 'https://github.com/apify/apify-sdk-python',
                             label: 'GitHub',
                             position: 'left',
+                        },
+                        {
+                            type: 'docsVersionDropdown',
+                            position: 'left',
+                            className: 'navbar__item',
+                            'data-api-links': JSON.stringify([
+                                'reference/next',
+                                ...versions.map((version, i) => (i === 0 ? 'reference' : `reference/${version}`)),
+                            ]),
+                            dropdownItemsBefore: [],
+                            dropdownItemsAfter: [],
                         },
                     ],
                 },
@@ -280,6 +299,12 @@ module.exports = {
                     includeGeneratedIndex: false,
                     includePages: true,
                     relativePaths: false,
+                    excludeRoutes: [
+                        '/sdk/python/reference/[0-9]*/**',
+                        '/sdk/python/reference/[0-9]*',
+                        '/sdk/python/reference/next/**',
+                        '/sdk/python/reference/next',
+                    ],
                 },
             },
         ],
@@ -287,6 +312,7 @@ module.exports = {
     ],
     themeConfig: {
         ...config.themeConfig,
+        versions,
         tableOfContents: {
             ...config.themeConfig.tableOfContents,
             maxHeadingLevel: 5,

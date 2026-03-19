@@ -1,0 +1,173 @@
+---
+id: storages
+title: Working with storages
+---
+
+import CodeBlock from '@theme/CodeBlock';
+
+import OpeningStoragesExample from '!!raw-loader!./code/03_opening_storages.py';
+import DeletingStoragesExample from '!!raw-loader!./code/03_deleting_storages.py';
+import DatasetReadWriteExample from '!!raw-loader!./code/03_dataset_read_write.py';
+import DatasetExportsExample from '!!raw-loader!./code/03_dataset_exports.py';
+import KvsReadWriteExample from '!!raw-loader!./code/03_kvs_read_write.py';
+import KvsIteratingExample from '!!raw-loader!./code/03_kvs_iterating.py';
+import KvsPublicRecordExample from '!!raw-loader!./code/03_kvs_public_url.py';
+import RqExample from '!!raw-loader!./code/03_rq.py';
+
+The `Actor` class provides methods to work either with the default storages of the Actor, or with any other storage, named or unnamed.
+
+## Types of storages
+
+There are three types of storages available to Actors.
+
+First are [datasets](https://docs.apify.com/platform/storage/dataset), which are append-only tables for storing the results of your Actors. You can open a dataset through the [`Actor.open_dataset`](../../reference/class/Actor#open_dataset) method, and work with it through the resulting [`Dataset`](../../reference/class/Dataset) class instance.
+
+Next there are [key-value stores](https://docs.apify.com/platform/storage/key-value-store), which function as a read/write storage for storing file-like objects, typically the Actor state or binary results. You can open a key-value store through the [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store) method, and work with it through the resulting [`KeyValueStore`](../../reference/class/KeyValueStore) class instance.
+
+Finally, there are [request queues](https://docs.apify.com/platform/storage/request-queue). These are queues into which you can put the URLs you want to scrape, and from which the Actor can dequeue them and process them. You can open a request queue through the [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) method, and work with it through the resulting [`RequestQueue`](../../reference/class/RequestQueue) class instance.
+
+Each Actor run has its default dataset, default key-value store and default request queue.
+
+## Local storage emulation
+
+To be able to develop Actors locally, the storages that the Apify platform provides are emulated on the local filesystem.
+
+The storage contents are loaded from and saved to the `storage` folder in the Actor's main folder. Each storage type is stored in its own subfolder, so for example datasets are stored in the `storage/datasets` folder.
+
+Each storage is then stored in its own folder, named after the storage, or called `default` if it's the default storage. For example, a request queue with the name `my-queue` would be stored in `storage/request_queues/my-queue`.
+
+Each dataset item, key-value store record, or request in a request queue is then stored in its own file in the storage folder. Dataset items and request queue requests are always JSON files, and key-value store records can be any file type, based on its content type. For example, the Actor input is typically stored in `storage/key_value_stores/default/INPUT.json`.
+
+## Local Actor run with remote storage
+
+When developing locally, opening any storage will by default use local storage. To change this behavior and to use remote storage you have to use `force_cloud=True` argument in [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) or [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store). Proper use of this argument allows you to work with both local and remote storages.
+
+Calling another remote Actor and accessing its default storage is typical use-case for using `force-cloud=True` argument to open remote Actor's storages.
+
+### Local storage persistence
+
+By default, the storage contents are persisted across multiple Actor runs. To clean up the Actor storages before the running the Actor, use the `--purge` flag of the [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command of the Apify CLI.
+
+```bash
+apify run --purge
+```
+
+## Convenience methods for working with default storages
+
+There are several methods for directly working with the default key-value store or default dataset of the Actor.
+
+- [`Actor.get_value('my-record')`](../../reference/class/Actor#get_value) reads a record from the default key-value store of the Actor.
+- [`Actor.set_value('my-record', 'my-value')`](../../reference/class/Actor#set_value) saves a new value to the record in the default key-value store.
+- [`Actor.get_input`](../../reference/class/Actor#get_input) reads the Actor input from the default key-value store of the Actor.
+- [`Actor.push_data([{'result': 'Hello, world!'}, ...])`](../../reference/class/Actor#push_data) saves results to the default dataset of the Actor.
+
+## Opening named and unnamed storages
+
+The [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store) and [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) methods can be used to open any storage for reading and writing. You can either use them without arguments to open the default storages, or you can pass a storage ID or name to open another storage.
+
+<CodeBlock className="language-python">
+    {OpeningStoragesExample}
+</CodeBlock>
+
+## Deleting storages
+
+To delete a storage, you can use the [`Dataset.drop`](../../reference/class/Dataset#drop),
+[`KeyValueStore.drop`](../../reference/class/KeyValueStore#drop) or [`RequestQueue.drop`](../../reference/class/RequestQueue#drop) methods.
+
+<CodeBlock className="language-python">
+    {DeletingStoragesExample}
+</CodeBlock>
+
+## Working with datasets
+
+In this section we will show you how to work with [datasets](https://docs.apify.com/platform/storage/dataset).
+
+### Reading & writing items
+
+To write data into a dataset, you can use the [`Dataset.push_data`](../../reference/class/Dataset#push_data) method.
+
+To read data from a dataset, you can use the [`Dataset.get_data`](../../reference/class/Dataset#get_data) method.
+
+To get an iterator of the data, you can use the [`Dataset.iterate_items`](../../reference/class/Dataset#iterate_items) method.
+
+<CodeBlock className="language-python">
+    {DatasetReadWriteExample}
+</CodeBlock>
+
+### Exporting items
+
+You can also export the dataset items into a key-value store, as either a CSV or a JSON record,
+using the [`Dataset.export_to_csv`](../../reference/class/Dataset#export_to_csv)
+or [`Dataset.export_to_json`](../../reference/class/Dataset#export_to_json) method.
+
+<CodeBlock className="language-python">
+    {DatasetExportsExample}
+</CodeBlock>
+
+## Working with key-value stores
+
+In this section we will show you how to work with [key-value stores](https://docs.apify.com/platform/storage/key-value-store).
+
+### Reading and writing records
+
+To read records from a key-value store, you can use the [`KeyValueStore.get_value`](../../reference/class/KeyValueStore#get_value) method.
+
+To write records into a key-value store, you can use the [`KeyValueStore.set_value`](../../reference/class/KeyValueStore#set_value) method.
+You can set the content type of a record with the `content_type` argument.
+To delete a record, set its value to `None`.
+
+<CodeBlock className="language-python">
+    {KvsReadWriteExample}
+</CodeBlock>
+
+### Iterating keys
+
+To get an iterator of the key-value store record keys,
+you can use the [`KeyValueStore.iterate_keys`](../../reference/class/KeyValueStore#iterate_keys) method.
+
+<CodeBlock className="language-python">
+    {KvsIteratingExample}
+</CodeBlock>
+
+### Public URLs of records
+
+To get a publicly accessible URL of a key-value store record,
+you can use the [`KeyValueStore.get_public_url`](../../reference/class/KeyValueStore#get_public_url) method.
+
+<CodeBlock className="language-python">
+    {KvsPublicRecordExample}
+</CodeBlock>
+
+## Working with request queues
+
+In this section we will show you how to work with [request queues](https://docs.apify.com/platform/storage/request-queue).
+
+### Adding requests to a queue
+
+To add a request into the queue, you can use the [`RequestQueue.add_request`](../../reference/class/RequestQueue#add_request) method.
+
+You can use the `forefront` boolean argument to specify whether the request should go to the beginning of the queue, or to the end.
+
+You can use the `unique_key` of the request to uniquely identify a request. If you try to add more requests with the same unique key, only the first one will be added.
+
+Check out the [`Request`](../../reference/class/Request) for more information on how to create requests and what properties they have.
+
+### Reading requests
+
+To fetch the next request from the queue for processing, you can use the [`RequestQueue.fetch_next_request`](../../reference/class/RequestQueue#fetch_next_request) method.
+
+To get info about a specific request from the queue, you can use the [`RequestQueue.get_request`](../../reference/class/RequestQueue#get_request) method.
+
+### Handling requests
+
+To mark a request as handled, you can use the [`RequestQueue.mark_request_as_handled`](../../reference/class/RequestQueue#mark_request_as_handled) method.
+
+To mark a request as not handled, so that it gets retried, you can use the [`RequestQueue.reclaim_request`](../../reference/class/RequestQueue#reclaim_request) method.
+
+To check if all the requests in the queue are handled, you can use the [`RequestQueue.is_finished`](../../reference/class/RequestQueue#is_finished) method.
+
+### Full example
+
+<CodeBlock className="language-python">
+    {RqExample}
+</CodeBlock>

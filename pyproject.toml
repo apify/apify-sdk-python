@@ -99,6 +99,9 @@ allow-direct-references = true
 [tool.ruff]
 line-length = 120
 include = ["src/**/*.py", "tests/**/*.py", "docs/**/*.py", "website/**/*.py"]
+exclude = [
+    "website/versioned_docs/**",
+]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -201,6 +204,7 @@ python-version = "3.10"
 
 [tool.ty.src]
 include = ["src", "tests", "scripts", "docs", "website"]
+exclude = ["website/versioned_docs"]
 
 [[tool.ty.overrides]]
 include = [

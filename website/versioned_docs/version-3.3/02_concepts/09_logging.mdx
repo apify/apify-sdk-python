@@ -1,0 +1,114 @@
+---
+id: logging
+title: Logging
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import LogConfigExample from '!!raw-loader!roa-loader!./code/09_log_config.py';
+import LoggerUsageExample from '!!raw-loader!roa-loader!./code/09_logger_usage.py';
+import RedirectLog from '!!raw-loader!roa-loader!./code/09_redirect_log.py';
+import RedirectLogExistingRun from '!!raw-loader!roa-loader!./code/09_redirect_log_existing_run.py';
+
+The Apify SDK is logging useful information through the [`logging`](https://docs.python.org/3/library/logging.html) module from Python's standard library, into the logger with the name `apify`.
+
+## Automatic configuration
+
+When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger,which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../reference/class/ActorLogFormatter).
+
+## Manual configuration
+
+### Configuring the log level
+
+In Python's default behavior, if you don't configure the logger otherwise, only logs with level `WARNING` or higher are printed out to the standard output, without any formatting. To also have logs with `DEBUG` and `INFO` level printed out, you need to call the [`Logger.setLevel`](https://docs.python.org/3/library/logging.html#logging.Logger.setLevel) method on the logger, with the desired minimum level as an argument.
+
+### Configuring the log formatting
+
+By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out,you can use the [`ActorLogFormatter`](../../reference/class/ActorLogFormatter) class from the `apify.log` module.
+
+### Example log configuration
+
+To configure and test the logger, you can use this snippet:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {LogConfigExample}
+</RunnableCodeBlock>
+
+This configuration will cause all levels of messages to be printed to the standard output, with some pretty formatting.
+
+## Logger usage
+
+Here you can see how all the log levels would look like.
+
+You can use the `extra` argument for all log levels, it's not specific to the warning level. When you use `Logger.exception`, there is no need to pass the Exception object to the log manually, it will automatiacally infer it from the current execution context and print the exception details.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {LoggerUsageExample}
+</RunnableCodeBlock>
+
+Result:
+
+<!-- TODO: This is an ugly ugly hack, we should make a component for this in the docs theme -->
+<!-- markdownlint-disable no-inline-html -->
+<style>{`
+.actor-log-block .ansi-blue-fg {
+    color: rgb(0, 160, 228);
+}
+.actor-log-block .ansi-green-fg {
+    color: rgb(0, 162, 82);
+}
+.actor-log-block .ansi-red-fg {
+    color: rgb(219, 45, 32);
+}
+.actor-log-block .ansi-yellow-fg {
+    color: rgb(255, 201, 0);
+}
+.actor-log-block .ansi-bright-black-fg {
+    color: rgb(128, 128, 128);
+}
+[data-theme='dark'] .actor-log-block .ansi-yellow-fg {
+    color: rgb(253, 237, 0);
+}
+
+`}</style>
+<pre className="actor-log-block">
+    <div><span class="ansi-blue-fg">DEBUG</span> This is a debug message</div>
+    <div><span class="ansi-green-fg">INFO </span> This is an info message</div>
+    <div><span class="ansi-yellow-fg">WARN </span> This is a warning message <span class="ansi-bright-black-fg">{`({"reason": "Bad Actor!"})`}</span></div>
+    <div><span class="ansi-red-fg">ERROR</span> This is an error message</div>
+    <div><span class="ansi-red-fg">ERROR</span> This is an exceptional message</div>
+    <div>      Traceback (most recent call last):</div>
+    <div>        File "main.py", line 6, in &lt;module&gt;</div>
+    <div>          raise RuntimeError('Ouch!')</div>
+    <div>      RuntimeError: Ouch!</div>
+</pre>
+
+<!-- markdownlint-enable no-inline-html -->
+
+## Redirect logs from other Actor runs
+
+In some situations, one Actor is going to start one or more other Actors and wait for them to finish and produce some results. In such cases, you might want to redirect the logs and status messages of the started Actors runs back to the parent Actor run, so that you can see the progress of the started Actors' runs in the parent Actor's logs. This guide will show possibilities on how to do it.
+
+### Redirecting logs from Actor.call
+
+Typical use case for log redirection is to call another Actor using the [`Actor.call`](../../reference/class/Actor#call) method. This method has an optional `logger` argument, which is by default set to the `default` literal. This means that the logs of the called Actor will be automatically redirected to the parent Actor's logs with default formatting and filtering. If you set the `logger` argument to `None`, then no log redirection happens. The third option is to pass your own `Logger` instance with the possibility to define your own formatter, filter, and handler. Below you can see those three possible ways of log redirection when starting another Actor run through [`Actor.call`](../../reference/class/Actor#call).
+
+<RunnableCodeBlock className="language-python" language="python">
+    {RedirectLog}
+</RunnableCodeBlock>
+
+Each default redirect logger log entry will have a specific format. After the timestamp, it will contain cyan colored text that will contain the redirect information - the other actor's name and the run ID. The rest of the log message will be printed in the same manner as the parent Actor's logger is configured.
+
+The log redirection can be deep, meaning that if the other actor also starts another actor and is redirecting logs from it, then in the top-level Actor, you can see it as well. See the following example screenshot of the Apify log console when one actor recursively starts itself (there are 2 levels of recursion in the example).
+
+![Console with redirected logs](/img/guides/redirected_logs_example.webp 'Example of console with redirected logs from recursively started actor.')
+
+### Redirecting logs from already running Actor run
+
+In some cases, you might want to connect to an already running Actor run and redirect its logs to your current Actor run. This can be done using the [ApifyClient](../../reference/class/Actor#apify_client) and getting the streamed log from a specific Actor run. You can then use it as a context manager, and the log redirection will be active in the context, or you can control the log redirection manually by explicitly calling `start` and `stop` methods.
+
+You can further decide whether you want to redirect just new logs of the ongoing Actor run, or if you also want to redirect historical logs from that Actor's run, so all logs it has produced since it was started. Both options are shown in the example code below.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {RedirectLogExistingRun}
+</RunnableCodeBlock>

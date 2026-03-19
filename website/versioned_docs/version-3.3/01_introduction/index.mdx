@@ -1,0 +1,48 @@
+---
+id: introduction
+title: Overview
+sidebar_label: Overview
+slug: /overview
+description: 'The official library for creating Apify Actors in Python, providing tools for web scraping, automation, and data storage integration.'
+---
+
+The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor event handling.
+
+```python
+from apify import Actor
+from bs4 import BeautifulSoup
+import requests
+
+async def main():
+    async with Actor:
+        input = await Actor.get_input()
+        response = requests.get(input['url'])
+        soup = BeautifulSoup(response.content, 'html.parser')
+        await Actor.push_data({ 'url': input['url'], 'title': soup.title.string })
+```
+
+## What are Actors
+
+Actors are serverless cloud programs capable of performing tasks in a web browser, similar to what a human can do. These tasks can range from simple operations, such as filling out forms or unsubscribing from services, to complex jobs like scraping and processing large numbers of web pages.
+
+Actors can be executed locally or on the [Apify platform](https://docs.apify.com/platform). The Apify platform lets you run Actors at scale and provides features for monitoring, scheduling, publishing, and monetizing them.
+
+## Quick start
+
+To create and run Actors using Apify Console, check out [Apify Console documentation](https://docs.apify.com/platform/console). For creating and running Python Actors locally, refer to the [quick start guide](./quick-start).
+
+Explore the Guides section in the sidebar for a deeper understanding of the SDK's features and best practices.
+
+## Installation
+
+The Apify SDK for Python requires Python version 3.10 or above. It is typically installed when you create a new Actor project using the [Apify CLI](https://docs.apify.com/cli). To install it manually in an existing project, use:
+
+```bash
+pip install apify
+```
+
+:::note API client alternative
+
+If you need to interact with the Apify API programmatically without creating Actors, use the [Apify API client for Python](https://docs.apify.com/api/client/python) instead.
+
+:::

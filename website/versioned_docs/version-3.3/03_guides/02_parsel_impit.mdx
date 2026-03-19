@@ -1,0 +1,28 @@
+---
+id: parsel-impit
+title: Using Parsel with Impit
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import ParselImpitExample from '!!raw-loader!roa-loader!./code/02_parsel_impit.py';
+
+In this guide, you'll learn how to combine the [Parsel](https://github.com/scrapy/parsel) and [Impit](https://github.com/apify/impit) libraries when building Apify Actors.
+
+## Introduction
+
+[Parsel](https://github.com/scrapy/parsel) is a Python library for extracting data from HTML and XML documents using CSS selectors and [XPath](https://en.wikipedia.org/wiki/XPath) expressions. It offers an intuitive API for navigating and extracting structured data, making it a popular choice for web scraping. Compared to [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/), it also delivers better performance.
+
+[Impit](https://github.com/apify/impit) is Apify's high-performance HTTP client for Python. It supports both synchronous and asynchronous workflows and is built for large-scale web scraping, where making thousands of requests efficiently is essential. With built-in browser impersonation and anti-blocking features, it simplifies handling modern websites.
+
+## Example Actor
+
+The following example shows a simple Actor that recursively scrapes titles from linked pages, up to a user-defined maximum depth. It uses [Impit](https://github.com/apify/impit) to fetch pages and [Parsel](https://github.com/scrapy/parsel) to extract titles and discover new links.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ParselImpitExample}
+</RunnableCodeBlock>
+
+## Conclusion
+
+In this guide, you learned how to use [Parsel](https://github.com/scrapy/parsel) with [Impit](https://github.com/apify/impit) in your Apify Actors. By combining these libraries, you get a powerful and efficient solution for web scraping: [Parsel](https://github.com/scrapy/parsel) provides excellent CSS selector and XPath support for data extraction, while [Impit](https://github.com/apify/impit) offers a fast and simple HTTP client built by Apify. This combination makes it easy to build scalable web scraping tasks in Python. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
