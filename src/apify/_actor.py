@@ -1194,10 +1194,15 @@ class _ActorType:
             (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
         )
 
-        await asyncio.gather(
+        results = await asyncio.gather(
             *[listener(EventPersistStateData(is_migrating=True)) for listener in persist_state_listeners],
             *[listener(EventMigratingData()) for listener in migrating_listeners],
+            return_exceptions=True,
         )
+
+        for result in results:
+            if isinstance(result, Exception):
+                self.log.exception('A pre-reboot event listener failed', exc_info=result)
 
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
