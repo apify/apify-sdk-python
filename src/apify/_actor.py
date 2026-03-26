@@ -249,11 +249,20 @@ class _ActorType:
             if self._event_listeners_timeout:
                 await self.event_manager.wait_for_all_listeners_to_complete(timeout=self._event_listeners_timeout)
 
-            await self.event_manager.__aexit__(None, None, None)
-            await self._charging_manager_implementation.__aexit__(None, None, None)
+            for cleanup_step in [
+                self.event_manager.__aexit__,
+                self._charging_manager_implementation.__aexit__,
+            ]:
+                try:
+                    await cleanup_step(None, None, None)
+                except Exception:
+                    self.log.exception(f'Cleanup step failed: {cleanup_step}')
 
             # Persist Actor state
-            await self._save_actor_state()
+            try:
+                await self._save_actor_state()
+            except Exception:
+                self.log.exception('Failed to save Actor state')
 
         try:
             await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
