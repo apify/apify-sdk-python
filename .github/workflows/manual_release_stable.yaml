@@ -162,7 +162,7 @@ jobs:
 
       - name: Commit and push versioned docs
         id: commit_versioned_docs
-        uses: EndBug/add-and-commit@v9
+        uses: EndBug/add-and-commit@v10
         with:
           add: "website/versioned_docs website/versioned_sidebars website/versions.json"
           message: "docs: version ${{ needs.release_prepare.outputs.version_number }} docs [skip ci]"
