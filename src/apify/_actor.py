@@ -249,14 +249,15 @@ class _ActorType:
             if self._event_listeners_timeout:
                 await self.event_manager.wait_for_all_listeners_to_complete(timeout=self._event_listeners_timeout)
 
-            for cleanup_step in [
-                self.event_manager.__aexit__,
-                self._charging_manager_implementation.__aexit__,
-            ]:
-                try:
-                    await cleanup_step(None, None, None)
-                except Exception:
-                    self.log.exception(f'Cleanup step failed: {cleanup_step}')
+            try:
+                await self.event_manager.__aexit__(None, None, None)
+            except Exception:
+                self.log.exception('Failed to exit event manager')
+
+            try:
+                await self._charging_manager_implementation.__aexit__(None, None, None)
+            except Exception:
+                self.log.exception('Failed to exit charging manager')
 
             # Persist Actor state
             try:
