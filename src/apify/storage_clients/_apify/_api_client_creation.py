@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, overload
 from apify_client import ApifyClientAsync
 from crawlee._utils.crypto import crypto_random_object_id
 
-from apify.storage_clients._apify._alias_resolving import open_by_alias
+from apify.storage_clients._apify._alias_resolving import AliasResolver, open_by_alias
 
 if TYPE_CHECKING:
     from apify_client.clients import DatasetClientAsync, KeyValueStoreClientAsync, RequestQueueClientAsync
@@ -113,7 +113,7 @@ async def create_storage_api_client(
         # Normalize unnamed default storage to unnamed storage aliased as `__default__`.
         case (None, None, None, None):
             return await open_by_alias(
-                alias='__default__',
+                alias=AliasResolver.default_storage_key,
                 storage_type=storage_type,
                 collection_client=collection_client,
                 get_resource_client_by_id=get_resource_client,
