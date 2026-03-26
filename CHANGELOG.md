@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - **scrapy:** Resolve Crawlee&#x27;s request data round-trip failure in request conversion ([#832](https://github.com/apify/apify-sdk-python/pull/832)) ([3b9d588](https://github.com/apify/apify-sdk-python/commit/3b9d5888611597a522300c742014c06cc0b857b9)) by [@vdusek](https://github.com/vdusek)
+- Treat `default` alias as default storage when in schema ([#827](https://github.com/apify/apify-sdk-python/pull/827)) ([1610d0d](https://github.com/apify/apify-sdk-python/commit/1610d0dda40ba30bd3b4dea28d9fef04c9b7c839)) by [@Pijukatel](https://github.com/Pijukatel)
 
 
 <!-- git-cliff-unreleased-end -->
