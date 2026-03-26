@@ -141,6 +141,8 @@ class ReentrantLock:
     async def __call__(self) -> AsyncIterator[None]:
         """Acquire the lock if it's not already owned by the current task, otherwise proceed without acquiring."""
         me = asyncio.current_task()
+        if me is None:
+            raise RuntimeError('ReentrantLock must be used within an asyncio.Task')
         if self._owner is me:
             yield
             return
