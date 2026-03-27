@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from datetime import datetime, timezone
 from logging import getLogger
@@ -95,6 +96,12 @@ class ApifyRequestQueueSingleClient:
         Initialization is performed lazily when deduplication is first needed (during add_batch_of_requests).
         """
 
+        self._ensure_head_lock = asyncio.Lock()
+        """Lock to avoid multiple ensure_head calls at the same time (Optimization to avoid unnecessary API calls)."""
+
+        self._head_up_to_date: bool = False
+        """Flag indicating whether the local head estimation is up to date with the platform."""
+
     async def add_batch_of_requests(
         self,
         requests: Sequence[Request],
@@ -158,6 +165,7 @@ class ApifyRequestQueueSingleClient:
             api_response = AddRequestsResponse.model_validate(
                 await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
             )
+            self._head_up_to_date = False
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
             # Remove unprocessed requests from the cache
@@ -271,14 +279,28 @@ class ApifyRequestQueueSingleClient:
 
     async def is_empty(self) -> bool:
         """Specific implementation of this method for the RQ single access mode."""
-        # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
+        if self._requests_in_progress:
+            return False
         await self._ensure_head_is_non_empty()
-        return not self._head_requests and not self._requests_in_progress
+        return not self._head_requests
+
+    """
+    async def is_finished(self) -> bool:
+        return not self._requests_in_progress and await self.is_empty()
+    """
+
+    async def is_finished(self) -> bool:
+        return not self._requests_in_progress and await self.is_empty()
+
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
-        if len(self._head_requests) <= 1:
-            await self._list_head()
+        async with self._ensure_head_lock:
+            if len(self._head_requests) <= 1:
+                if not self._head_up_to_date:
+                    await self._list_head()
+                logger.warning(len(self._head_requests))
+                self._head_up_to_date = True
 
     async def _list_head(self) -> None:
         desired_new_head_items = 200
@@ -368,6 +390,7 @@ class ApifyRequestQueueSingleClient:
             request=request_dict,
             forefront=forefront,
         )
+        self._head_up_to_date = False
 
         return ProcessedRequest.model_validate(
             {'uniqueKey': request.unique_key} | response,

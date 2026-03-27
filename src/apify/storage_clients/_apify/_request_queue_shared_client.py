@@ -293,6 +293,9 @@ class ApifyRequestQueueSharedClient:
             head = await self._list_head(limit=1)
             return len(head.items) == 0 and not self._queue_has_locked_requests
 
+    async def is_finished(self) -> bool:
+        return await self.is_empty()
+
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.
 
