@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.3.2 - **not yet released**
+## [3.3.2](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.2) (2026-03-27)
 
 ### 🐛 Bug Fixes
 
@@ -14,7 +13,6 @@ All notable changes to this project will be documented in this file.
 - Handle exceptions in pre-reboot event listeners via `return_exceptions` ([#843](https://github.com/apify/apify-sdk-python/pull/843)) ([ed13597](https://github.com/apify/apify-sdk-python/commit/ed13597d7ce0d1f0c5ff5cd0d6796c96555a55ae)) by [@vdusek](https://github.com/vdusek)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.3.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.1) (2026-03-11)
 
 ### 🐛 Bug Fixes
