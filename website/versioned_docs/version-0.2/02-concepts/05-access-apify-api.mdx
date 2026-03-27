@@ -1,0 +1,21 @@
+---
+title: Direct access to the Apify API
+sidebar_label: Apify API access
+---
+
+If you need to access the Apify API directly, you can use the pre-configured Apify API client, available in the `Actor.apify_client` property, without having to set the API token manually.
+
+```python
+import asyncio
+from apify import Actor
+
+async def main():
+    async with Actor:
+        client = Actor.apify_client
+        me = await client.user('me').get()
+        print(me)
+
+asyncio.run(main())
+```
+
+The Apify API client is an instance of the [`ApifyClientAsync`](https://docs.apify.com/api/client/python) class from the `apify-client` package. See its documentation for more information on how to use it.

@@ -1,0 +1,81 @@
+---
+title: Actor lifecycle
+sidebar_label: Actor lifecycle
+---
+
+## Lifecycle methods
+
+### Initialization and cleanup
+
+At the start of its runtime, the Actor needs to initialize itself, its event manager and its storages,
+and at the end of the runtime it needs to close these cleanly.
+The Apify SDK provides several options on how to manage this.
+
+#### `Actor.init()` and `Actor.exit()`
+
+The `Actor.init()` method initializes the Actor,
+the event manager which processes the Actor events from the platform event websocket,
+and the storage client used in the execution environment.
+It should be called before performing any other Actor operations.
+
+The `Actor.exit()` method then exits the Actor cleanly,
+tearing down the event manager and the storage client.
+There is also the `Actor.fail()` method, which exits the Actor while marking it as failed.
+
+```python title="src/main.py"
+import asyncio
+from apify import Actor
+from apify.consts import ActorExitCodes
+
+async def main():
+    await Actor.init()
+    try:
+        print('Actor input:', await Actor.get_input())
+        await Actor.set_value('OUTPUT', 'Hello, world!')
+        await Actor.exit()
+    except Exception as e:
+        print('Error while running Actor', e)
+        await Actor.fail(exit_code=ActorExitCodes.ERROR_USER_FUNCTION_THREW, exception=e)
+
+asyncio.run(main())
+```
+
+#### Context manager
+
+So that you don't have to call the lifecycle methods manually, the `Actor` class provides a context manager,
+which calls the `Actor.init()` method on enter,
+the `Actor.exit()` method on a clean exit,
+and the `Actor.fail()` method when there is an exception during the run of the Actor.
+
+This is the recommended way to work with the `Actor` class.
+
+```python title="src/main.py"
+import asyncio
+from apify import Actor
+
+async def main():
+    async with Actor:
+        print('Actor input:', await Actor.get_input())
+        await Actor.set_value('OUTPUT', 'Hello, world!')
+
+asyncio.run(main())
+```
+
+#### Main function
+
+Another option is to pass a function to the Actor via the `Actor.main(main_func)` method,
+which causes the Actor to initialize, run the main function, and exit, catching any runtime errors in the passed function.
+
+```python title="src/main.py"
+import asyncio
+from apify import Actor
+
+async def actor_main_func():
+    print('Actor input:', await Actor.get_input())
+    await Actor.set_value('OUTPUT', 'Hello, world!')
+
+async def main():
+    await Actor.main(actor_main_func)
+
+asyncio.run(main())
+```
