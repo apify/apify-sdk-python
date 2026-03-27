@@ -7,9 +7,9 @@ processed_items = 0
 http_server = None
 
 
-# Just a simple handler that will print the number of processed items so far
-# on every GET request.
 class RequestHandler(BaseHTTPRequestHandler):
+    """A handler that prints the number of processed items on every GET request."""
+
     def do_get(self) -> None:
         self.log_request()
         self.send_response(200)
@@ -18,8 +18,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
 def run_server() -> None:
-    # Start the HTTP server on the provided port,
-    # and save a reference to the server.
+    """Start the HTTP server on the provided port, and save a reference to the server."""
     global http_server
     with ThreadingHTTPServer(
         ('', Actor.config.web_server_port), RequestHandler

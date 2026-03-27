@@ -1,11 +1,15 @@
 ---
 id: running-webserver
-title: Running webserver in your Actor
+title: Running webserver
 ---
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import WebserverExample from '!!raw-loader!roa-loader!./code/07_webserver.py';
+
+In this guide, you'll learn how to run a web server inside your Apify Actor. This is useful for monitoring Actor progress, creating custom APIs, or serving content during the Actor run.
+
+## Introduction
 
 Each Actor run on the Apify platform is assigned a unique hard-to-guess URL (for example `https://8segt5i81sokzm.runs.apify.net`), which enables HTTP access to an optional web server running inside the Actor run's container.
 
@@ -17,10 +21,18 @@ The URL is available in the following places:
 
 The web server running inside the container must listen at the port defined by the `Actor.configuration.container_port` property. When running Actors locally, the port defaults to `4321`, so the web server will be accessible at `http://localhost:4321`.
 
-## Example
+## Example Actor
 
-The following example demonstrates how to start a simple web server in your Actor,which will respond to every GET request with the number of items that the Actor has processed so far:
+The following example demonstrates how to start a simple web server in your Actor, which will respond to every GET request with the number of items that the Actor has processed so far:
 
 <RunnableCodeBlock className="language-python" language="python">
     {WebserverExample}
 </RunnableCodeBlock>
+
+## Conclusion
+
+In this guide, you learned how to run a web server inside your Apify Actor. By leveraging the container URL and port provided by the platform, you can expose HTTP endpoints for monitoring, reporting, or serving content during Actor execution. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU).
+
+## Additional resources
+
+- [Apify templates: Standby Python project](https://apify.com/templates/python-standby)

@@ -10,6 +10,10 @@ import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import PlaywrightExample from '!!raw-loader!roa-loader!./code/03_playwright.py';
 
+In this guide, you'll learn how to use [Playwright](https://playwright.dev) for web scraping in your Apify Actors.
+
+## Introduction
+
 [Playwright](https://playwright.dev) is a tool for web automation and testing that can also be used for web scraping. It allows you to control a web browser programmatically and interact with web pages just as a human would.
 
 Some of the key features of Playwright for web scraping include:
@@ -18,8 +22,6 @@ Some of the key features of Playwright for web scraping include:
 - **Headless mode** - Playwright can run in headless mode, meaning that the browser window is not visible on your screen while it is scraping, which can be useful for running scraping tasks in the background or in containers without a display.
 - **Powerful selectors** - Playwright provides a variety of powerful selectors that allow you to target specific elements on a web page, including CSS selectors, XPath, and text matching.
 - **Emulation of user interactions** - Playwright allows you to emulate user interactions like clicking, scrolling, filling out forms, and even typing in text, which can be useful for scraping websites that have dynamic content or require user input.
-
-## Using Playwright in Actors
 
 To create Actors which use Playwright, start from the [Playwright & Python](https://apify.com/templates/categories/python) Actor template.
 
@@ -55,3 +57,9 @@ It uses Playwright to open the pages in an automated Chrome browser, and to extr
 ## Conclusion
 
 In this guide you learned how to create Actors that use Playwright to scrape websites. Playwright is a powerful tool that can be used to manage browser instances and scrape websites that require JavaScript execution. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+
+## Additional resources
+
+- [Apify templates: Playwright + Chrome](https://apify.com/templates/python-playwright)
+- [Apify templates: Crawlee + Playwright + Chrome](https://apify.com/templates/python-crawlee-playwright)
+- [Playwright: Official documentation](https://playwright.dev/python/)
