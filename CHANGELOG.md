@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Treat `default` alias as default storage when in schema ([#827](https://github.com/apify/apify-sdk-python/pull/827)) ([1610d0d](https://github.com/apify/apify-sdk-python/commit/1610d0dda40ba30bd3b4dea28d9fef04c9b7c839)) by [@Pijukatel](https://github.com/Pijukatel)
 - Guard ReentrantLock against None task context ([#841](https://github.com/apify/apify-sdk-python/pull/841)) ([193de10](https://github.com/apify/apify-sdk-python/commit/193de10910946ca0ce93bc2fc7c741a26e9f6e9c)) by [@vdusek](https://github.com/vdusek)
 - Isolate cleanup steps in Actor `__aexit__` to prevent cascading failures ([#842](https://github.com/apify/apify-sdk-python/pull/842)) ([68c2acf](https://github.com/apify/apify-sdk-python/commit/68c2acf3dba71b78f893fc6f1e816e3a3148f0c9)) by [@vdusek](https://github.com/vdusek)
+- Handle exceptions in pre-reboot event listeners via `return_exceptions` ([#843](https://github.com/apify/apify-sdk-python/pull/843)) ([ed13597](https://github.com/apify/apify-sdk-python/commit/ed13597d7ce0d1f0c5ff5cd0d6796c96555a55ae)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
