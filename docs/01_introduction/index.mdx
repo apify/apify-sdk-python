@@ -6,20 +6,15 @@ slug: /overview
 description: 'The official library for creating Apify Actors in Python, providing tools for web scraping, automation, and data storage integration.'
 ---
 
+import CodeBlock from '@theme/CodeBlock';
+
+import IntroductionExample from '!!raw-loader!./code/01_introduction.py';
+
 The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor event handling.
 
-```python
-from apify import Actor
-from bs4 import BeautifulSoup
-import requests
-
-async def main():
-    async with Actor:
-        input = await Actor.get_input()
-        response = requests.get(input['url'])
-        soup = BeautifulSoup(response.content, 'html.parser')
-        await Actor.push_data({ 'url': input['url'], 'title': soup.title.string })
-```
+<CodeBlock className="language-python">
+    {IntroductionExample}
+</CodeBlock>
 
 ## What are Actors
 

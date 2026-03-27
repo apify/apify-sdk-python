@@ -13,6 +13,9 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import CodeBlock from '@theme/CodeBlock';
 
+import MainExample from '!!raw-loader!./code/actor_structure/main.py';
+import UnderscoreMainExample from '!!raw-loader!./code/actor_structure/__main__.py';
+
 ## Step 1: Create Actors
 
 To create and run Actors through Apify Console, see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template).
@@ -59,33 +62,14 @@ The Actor's source code is in the `src` folder. This folder contains two importa
 
 <Tabs>
     <TabItem value="main.py" label="main.py" default>
-        <CodeBlock language="python">{
-`from apify import Actor
-${''}
-async def main():
-    async with Actor:
-        Actor.log.info('Actor input:', await Actor.get_input())
-        await Actor.set_value('OUTPUT', 'Hello, world!')`
-        }</CodeBlock>
+        <CodeBlock className="language-python">
+            {MainExample}
+        </CodeBlock>
     </TabItem>
     <TabItem value="__main__.py" label="__main.py__">
-        <CodeBlock language="python">{
-`import asyncio
-import logging
-${''}
-from apify.log import ActorLogFormatter
-${''}
-from .main import main
-${''}
-handler = logging.StreamHandler()
-handler.setFormatter(ActorLogFormatter())
-${''}
-apify_logger = logging.getLogger('apify')
-apify_logger.setLevel(logging.DEBUG)
-apify_logger.addHandler(handler)
-${''}
-asyncio.run(main())`
-        }</CodeBlock>
+        <CodeBlock className="language-python">
+            {UnderscoreMainExample}
+        </CodeBlock>
     </TabItem>
 </Tabs>
 
@@ -120,21 +104,28 @@ python -m pip install -r requirements.txt
 
 ## Next steps
 
+### Concepts
+
+To learn more about the features of the Apify SDK and how to use them, check out the Concepts section in the sidebar:
+
+- [Actor lifecycle](../concepts/actor-lifecycle)
+- [Actor input](../concepts/actor-input)
+- [Working with storages](../concepts/storages)
+- [Handling Actor events & persisting state](../concepts/actor-events)
+- [Proxy management](../concepts/proxy-management)
+- [Interacting with other Actors](../concepts/interacting-with-other-actors)
+- [Creating webhooks](../concepts/webhooks)
+- [Accessing the Apify API](../concepts/access-apify-api)
+- [Logging](../concepts/logging)
+- [Actor configuration and environment variables](../concepts/configuration)
+
 ### Guides
 
-To see how you can integrate the Apify SDK with some of the most popular web scraping libraries, check out our guides for working with:
+To see how you can integrate the Apify SDK with popular web scraping libraries, check out our guides:
 
-- [Requests or HTTPX](../guides/requests-and-httpx)
+- [Requests and HTTPX](../guides/requests-and-httpx)
 - [Beautiful Soup](../guides/beautiful-soup)
 - [Playwright](../guides/playwright)
 - [Selenium](../guides/selenium)
 - [Scrapy](../guides/scrapy)
-
-### Concepts
-
-To learn more about the features of the Apify SDK and how to use them, check out the Concepts section in the sidebar, especially the guides for:
-
-- [Actor lifecycle](../concepts/actor-lifecycle)
-- [Working with storages](../concepts/storages)
-- [Handling Actor events](../concepts/actor-events)
-- [How to use proxies](../concepts/proxy-management)
+- [Running webserver](../guides/running-webserver)

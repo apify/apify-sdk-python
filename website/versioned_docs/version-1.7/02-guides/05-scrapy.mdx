@@ -3,6 +3,10 @@ title: Using Scrapy
 sidebar_label: Using Scrapy
 ---
 
+In this guide, you'll learn how to use the [Scrapy](https://scrapy.org/) framework in your Apify Actors.
+
+## Introduction
+
 :::tip
 
 Our CLI now has native support for running Scrapy spiders on Apify! Check out the [Scrapy migration guide](https://docs.apify.com/cli/docs/integrating-scrapy) for more information.
@@ -21,8 +25,6 @@ including how to follow links, how to handle pagination, and how to parse the da
 - **Built-in data extraction** - Scrapy includes built-in support for data extraction using XPath and CSS selectors,
 allowing you to easily extract data from HTML and XML documents.
 - **Integration with other tool** - Scrapy can be integrated with other Python tools like BeautifulSoup and Selenium for more advanced scraping tasks.
-
-## Using Scrapy in Actors
 
 To create Actors which use Scrapy, start from the [Scrapy & Python](https://apify.com/templates?category=python) Actor template.
 
@@ -109,3 +111,13 @@ async def main():
         process.crawl(TitleSpider, start_urls=start_urls)
         process.start()
 ```
+
+## Conclusion
+
+In this guide, you learned how to use Scrapy in Apify Actors. You can now start building your own web scraping projects using Scrapy and host them on the Apify platform. See the [Actor templates](https://apify.com/templates?category=python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+
+## Additional resources
+
+- [Apify templates: Scrapy](https://apify.com/templates/python-scrapy)
+- [Apify CLI: Integrating Scrapy projects](https://docs.apify.com/cli/docs/integrating-scrapy)
+- [Scrapy: Official documentation](https://docs.scrapy.org/)

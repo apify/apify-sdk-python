@@ -3,11 +3,13 @@ title: Using Beautiful Soup
 sidebar_label: Using Beautiful Soup
 ---
 
+In this guide, you'll learn how to use [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) for web scraping in your Apify Actors.
+
+## Introduction
+
 [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) is a Python library for pulling data out of HTML and XML files.
 It provides simple methods and Pythonic idioms for navigating, searching, and modifying a website's element tree,
 allowing you to quickly extract the data you need.
-
-## Using BeautifulSoup in Actors
 
 To create Actors which use BeautifulSoup, start from the [BeautifulSoup & Python](https://apify.com/templates?category=python) Actor template.
 
@@ -79,3 +81,12 @@ async def main():
                 # Mark the request as handled so it's not processed again
                 await default_queue.mark_request_as_handled(request)
 ```
+
+## Conclusion
+
+In this guide, you learned how to use Beautiful Soup for web scraping in your Apify Actors. Beautiful Soup makes it easy to parse HTML and XML documents and extract the data you need. See the [Actor templates](https://apify.com/templates?category=python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+
+## Additional resources
+
+- [Apify templates: BeautifulSoup](https://apify.com/templates/python-beautifulsoup)
+- [Beautiful Soup: Official documentation](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)

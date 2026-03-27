@@ -13,6 +13,9 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import CodeBlock from '@theme/CodeBlock';
 
+import MainExample from '!!raw-loader!./code/actor_structure/main.py';
+import UnderscoreMainExample from '!!raw-loader!./code/actor_structure/__main__.py';
+
 ## Step 1: Create Actors
 
 To create and run Actors in Apify Console, refer to the [Console documentation](/platform/actors/development/quick-start/web-ide).
@@ -61,33 +64,14 @@ The Actor's source code is in the `src` folder. This folder contains two importa
 
 <Tabs>
     <TabItem value="main.py" label="main.py" default>
-        <CodeBlock language="python">{
-`from apify import Actor
-${''}
-async def main():
-    async with Actor:
-        Actor.log.info('Actor input:', await Actor.get_input())
-        await Actor.set_value('OUTPUT', 'Hello, world!')`
-        }</CodeBlock>
+        <CodeBlock className="language-python">
+            {MainExample}
+        </CodeBlock>
     </TabItem>
     <TabItem value="__main__.py" label="__main.py__">
-        <CodeBlock language="python">{
-`import asyncio
-import logging
-${''}
-from apify.log import ActorLogFormatter
-${''}
-from .main import main
-${''}
-handler = logging.StreamHandler()
-handler.setFormatter(ActorLogFormatter())
-${''}
-apify_logger = logging.getLogger('apify')
-apify_logger.setLevel(logging.DEBUG)
-apify_logger.addHandler(handler)
-${''}
-asyncio.run(main())`
-        }</CodeBlock>
+        <CodeBlock className="language-python">
+            {UnderscoreMainExample}
+        </CodeBlock>
     </TabItem>
 </Tabs>
 
@@ -96,21 +80,30 @@ We recommend keeping the entrypoint for the Actor in the `src/__main__.py` file.
 
 ## Next steps
 
-### Guides
+### Concepts
 
-To see how you can integrate the Apify SDK with some of the most popular web scraping libraries, check out our guides for working with:
-
-- [Requests or HTTPX](../guides/requests-and-httpx)
-- [Beautiful Soup](../guides/beautiful-soup)
-- [Playwright](../guides/playwright)
-- [Selenium](../guides/selenium)
-- [Scrapy](../guides/scrapy)
-
-### Usage concepts
-
-To learn more about the features of the Apify SDK and how to use them, check out the Usage Concepts section in the sidebar, especially the guides for:
+To learn more about the features of the Apify SDK and how to use them, check out the Concepts section in the sidebar:
 
 - [Actor lifecycle](../concepts/actor-lifecycle)
+- [Actor input](../concepts/actor-input)
 - [Working with storages](../concepts/storages)
-- [Handling Actor events](../concepts/actor-events)
-- [How to use proxies](../concepts/proxy-management)
+- [Actor events & state persistence](../concepts/actor-events)
+- [Proxy management](../concepts/proxy-management)
+- [Interacting with other Actors](../concepts/interacting-with-other-actors)
+- [Creating webhooks](../concepts/webhooks)
+- [Accessing Apify API](../concepts/access-apify-api)
+- [Logging](../concepts/logging)
+- [Actor configuration](../concepts/actor-configuration)
+- [Pay-per-event monetization](../concepts/pay-per-event)
+
+### Guides
+
+To see how you can integrate the Apify SDK with popular web scraping libraries, check out our guides:
+
+- [BeautifulSoup with HTTPX](../guides/beautifulsoup-httpx)
+- [Parsel with Impit](../guides/parsel-impit)
+- [Playwright](../guides/playwright)
+- [Selenium](../guides/selenium)
+- [Crawlee](../guides/crawlee)
+- [Scrapy](../guides/scrapy)
+- [Running webserver](../guides/running-webserver)
