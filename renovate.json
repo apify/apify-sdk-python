@@ -1,6 +1,6 @@
 {
     "extends": ["config:base", ":semanticCommitTypeAll(chore)"],
-    "ignorePaths": ["docs/**"],
+    "ignorePaths": ["docs/**", "website/versioned_docs/**"],
     "pinVersions": false,
     "separateMajorMinor": false,
     "dependencyDashboard": false,
