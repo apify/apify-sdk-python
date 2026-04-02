@@ -1,6 +1,6 @@
 ---
 id: playwright
-title: Using Playwright
+title: Use Playwright
 description: Build an Apify Actor that scrapes dynamic web pages using Playwright browser automation.
 ---
 
@@ -19,10 +19,11 @@ In this guide, you'll learn how to use [Playwright](https://playwright.dev) for 
 
 Some of the key features of Playwright for web scraping include:
 
-- **Cross-browser support** - Playwright supports the latest versions of major browsers like Chrome, Firefox, and Safari, so you can choose the one that suits your needs the best.
-- **Headless mode** - Playwright can run in headless mode, meaning that the browser window is not visible on your screen while it is scraping, which can be useful for running scraping tasks in the background or in containers without a display.
-- **Powerful selectors** - Playwright provides a variety of powerful selectors that allow you to target specific elements on a web page, including CSS selectors, XPath, and text matching.
-- **Emulation of user interactions** - Playwright allows you to emulate user interactions like clicking, scrolling, filling out forms, and even typing in text, which can be useful for scraping websites that have dynamic content or require user input.
+- **Cross-browser support** - Playwright supports Chromium, Firefox, and WebKit with a single API, ensuring consistent behavior across all browsers.
+- **Auto-waiting** - Playwright automatically waits for elements to be ready before performing actions, reducing flaky scripts and eliminating the need for manual sleep calls.
+- **Headless and headful modes** - Playwright can run with or without a visible browser window, making it suitable for both local development and containerized environments.
+- **Powerful selectors** - Playwright provides CSS selectors, XPath, text matching, and its own resilient locator API for targeting elements on a page.
+- **Network interception** - Playwright can intercept and modify network requests, allowing you to block unnecessary resources or mock API responses during scraping.
 
 To create Actors which use Playwright, start from the [Playwright & Python](https://apify.com/templates/categories/python) Actor template.
 
