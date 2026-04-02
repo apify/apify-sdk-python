@@ -1,6 +1,7 @@
 ---
 id: access-apify-api
 title: Accessing Apify API
+description: Use the built-in Apify API client to access platform features not covered by the SDK.
 ---
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
@@ -24,7 +25,7 @@ For example, to get the details of your user, you can use this snippet:
 
 ## Actor new client
 
-If you want to create a completely new instance of the client, for example, to get a client for a different user or change the configuration of the client,you can use the [`Actor.new_client`](../../reference/class/Actor#new_client) method:
+If you want to create a completely new instance of the client, for example, to get a client for a different user or change the configuration of the client, you can use the [`Actor.new_client`](../../reference/class/Actor#new_client) method:
 
 <RunnableCodeBlock className="language-python" language="python">
     {ActorNewClientExample}

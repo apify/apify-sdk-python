@@ -77,7 +77,7 @@ async def main() -> None:
 
             # Extract the desired data.
             data = {
-                'url': actor_input['url'],
+                'url': request.url,
                 'title': soup.title.string,
                 'h1s': [h1.text for h1 in soup.find_all('h1')],
                 'h2s': [h2.text for h2 in soup.find_all('h2')],
@@ -165,10 +165,11 @@ To create and run Python Actors locally, check the documentation for
 
 To see how you can use the Apify SDK with other popular libraries used for web scraping,
 check out our guides for using
-[Requests and HTTPX](https://docs.apify.com/sdk/python/docs/guides/requests-and-httpx),
-[Beautiful Soup](https://docs.apify.com/sdk/python/docs/guides/beautiful-soup),
+[BeautifulSoup with HTTPX](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx),
+[Parsel with Impit](https://docs.apify.com/sdk/python/docs/guides/parsel-impit),
 [Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright),
 [Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium),
+[Crawlee](https://docs.apify.com/sdk/python/docs/guides/crawlee),
 or [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy).
 
 ## Usage concepts

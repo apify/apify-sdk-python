@@ -1,6 +1,7 @@
 ---
 id: proxy-management
 title: Proxy management
+description: Configure Apify Proxy or your own proxies for IP rotation and session management.
 ---
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
@@ -39,7 +40,7 @@ All your proxy needs are managed by the [`ProxyConfiguration`](../../reference/c
 
 ### Apify proxy vs. your own proxies
 
-The `ProxyConfiguration` class covers both Apify Proxy and custom proxy URLs, so that you can easily switch between proxy providers. However, some features of the class are available only to Apify Proxy users, mainly because Apify Proxy is what one would call a super-proxy. It's not a single proxy server, but an API endpoint that allows connectionthrough millions of different IP addresses. So the class essentially has two modes: Apify Proxy or Your proxy.
+The `ProxyConfiguration` class covers both Apify Proxy and custom proxy URLs, so that you can easily switch between proxy providers. However, some features of the class are available only to Apify Proxy users, mainly because Apify Proxy is what one would call a super-proxy. It's not a single proxy server, but an API endpoint that allows connection through millions of different IP addresses. So the class essentially has two modes: Apify Proxy or Your proxy.
 
 The difference is easy to remember. Using the `proxy_url` or `new_url_function` arguments enables use of your custom proxy URLs, whereas all the other options are there to configure Apify Proxy. Visit the [Apify Proxy docs](https://docs.apify.com/proxy) for more info on how these parameters work.
 
