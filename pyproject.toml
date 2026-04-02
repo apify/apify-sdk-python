@@ -214,7 +214,6 @@ include = [
 
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"
-invalid-argument-type = "ignore"
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
