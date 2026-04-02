@@ -7,8 +7,9 @@ description: Customize Actor behavior through the Configuration class or environ
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import ConfigExample from '!!raw-loader!roa-loader!./code/10_config.py';
+import ApiLink from '@site/src/components/ApiLink';
 
-The [`Actor`](../../reference/class/Actor) class is configured through the [`Configuration`](../../reference/class/Configuration) class, which reads its settings from environment variables. When running on the Apify platform or through the Apify CLI, configuration is automatic — manual setup is only needed for custom requirements.
+The <ApiLink to="class/Actor">`Actor`</ApiLink> class is configured through the <ApiLink to="class/Configuration">`Configuration`</ApiLink> class, which reads its settings from environment variables. When running on the Apify platform or through the Apify CLI, configuration is automatic — manual setup is only needed for custom requirements.
 
 If you need some special configuration, you can adjust it either through the `Configuration` class directly, or by setting environment variables when running the Actor locally.
 
@@ -32,4 +33,4 @@ This Actor run will not persist its local storages to the filesystem:
 APIFY_PERSIST_STORAGE=0 apify run
 ```
 
-For the full list of configuration options, see the [`Configuration`](../../reference/class/Configuration) API reference.
+For the full list of configuration options, see the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference.

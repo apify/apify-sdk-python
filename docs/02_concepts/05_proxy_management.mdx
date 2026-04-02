@@ -13,8 +13,9 @@ import ApifyProxyConfig from '!!raw-loader!roa-loader!./code/05_apify_proxy_conf
 import CustomProxyFunctionExample from '!!raw-loader!roa-loader!./code/05_custom_proxy_function.py';
 import ProxyActorInputExample from '!!raw-loader!roa-loader!./code/05_proxy_actor_input.py';
 import ProxyHttpxExample from '!!raw-loader!roa-loader!./code/05_proxy_httpx.py';
+import ApiLink from '@site/src/components/ApiLink';
 
-The Apify SDK provides built-in proxy management through the [`ProxyConfiguration`](../../reference/class/ProxyConfiguration) class, supporting both [Apify Proxy](https://apify.com/proxy) and custom proxy servers. Proxies are essential for web scraping to avoid [IP address blocking](https://en.wikipedia.org/wiki/IP_address_blocking) and distribute requests across multiple addresses.
+The Apify SDK provides built-in proxy management through the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class, supporting both [Apify Proxy](https://apify.com/proxy) and custom proxy servers. Proxies are essential for web scraping to avoid [IP address blocking](https://en.wikipedia.org/wiki/IP_address_blocking) and distribute requests across multiple addresses.
 
 ## Quick start
 
@@ -106,4 +107,4 @@ Make sure you have the `httpx` library installed:
 pip install httpx
 ```
 
-For full details on proxy configuration options, see the [`ProxyConfiguration`](../../reference/class/ProxyConfiguration) API reference and the [Apify Proxy documentation](https://docs.apify.com/proxy).
+For full details on proxy configuration options, see the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> API reference and the [Apify Proxy documentation](https://docs.apify.com/proxy).
