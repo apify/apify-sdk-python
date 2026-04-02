@@ -1,6 +1,7 @@
 ---
 id: logging
 title: Logging
+description: Configure log levels, formatting, and log redirection between Actor runs.
 ---
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
@@ -14,7 +15,7 @@ The Apify SDK is logging useful information through the [`logging`](https://docs
 
 ## Automatic configuration
 
-When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger,which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../reference/class/ActorLogFormatter).
+When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger, which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../reference/class/ActorLogFormatter).
 
 ## Manual configuration
 
@@ -24,7 +25,7 @@ In Python's default behavior, if you don't configure the logger otherwise, only 
 
 ### Configuring the log formatting
 
-By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out,you can use the [`ActorLogFormatter`](../../reference/class/ActorLogFormatter) class from the `apify.log` module.
+By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out, you can use the [`ActorLogFormatter`](../../reference/class/ActorLogFormatter) class from the `apify.log` module.
 
 ### Example log configuration
 
@@ -40,7 +41,7 @@ This configuration will cause all levels of messages to be printed to the standa
 
 Here you can see how all the log levels would look like.
 
-You can use the `extra` argument for all log levels, it's not specific to the warning level. When you use `Logger.exception`, there is no need to pass the Exception object to the log manually, it will automatiacally infer it from the current execution context and print the exception details.
+You can use the `extra` argument for all log levels, it's not specific to the warning level. When you use `Logger.exception`, there is no need to pass the Exception object to the log manually, it will automatically infer it from the current execution context and print the exception details.
 
 <RunnableCodeBlock className="language-python" language="python">
     {LoggerUsageExample}
