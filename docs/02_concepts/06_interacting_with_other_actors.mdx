@@ -10,8 +10,9 @@ import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacti
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
+import ApiLink from '@site/src/components/ApiLink';
 
-There are several methods that interact with other Actors and Actor tasks on the Apify platform.
+The Apify SDK lets you start, call, and transform (metamorph) other Actors directly from your Actor code. This is useful for composing complex workflows from smaller, reusable Actors.
 
 ## Actor start
 
@@ -50,3 +51,5 @@ For example, imagine you have an Actor that accepts a hotel URL on input, and th
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingMetamorphExample}
 </RunnableCodeBlock>
+
+For the full list of methods for interacting with other Actors, see the <ApiLink to="class/Actor">`Actor`</ApiLink> API reference.

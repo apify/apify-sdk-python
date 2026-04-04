@@ -9,9 +9,7 @@ import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 import ActorClientExample from '!!raw-loader!roa-loader!./code/08_actor_client.py';
 import ActorNewClientExample from '!!raw-loader!roa-loader!./code/08_actor_new_client.py';
 
-The Apify SDK contains many useful features for making Actor development easier. However, it does not cover all the features the Apify API offers.
-
-For working with the Apify API directly, you can use the provided instance of the [Apify API Client](https://docs.apify.com/api/client/python) library.
+The Apify SDK provides a built-in instance of the [Apify API Client](https://docs.apify.com/api/client/python) for accessing Apify platform features beyond what the SDK covers directly.
 
 ## Actor client
 
@@ -30,3 +28,5 @@ If you want to create a completely new instance of the client, for example, to g
 <RunnableCodeBlock className="language-python" language="python">
     {ActorNewClientExample}
 </RunnableCodeBlock>
+
+For the full API client documentation, see the [Apify API Client for Python](https://docs.apify.com/api/client/python).
