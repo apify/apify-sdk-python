@@ -10,6 +10,7 @@ import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacti
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
+import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
 import ApiLink from '@site/src/components/ApiLink';
 
 The Apify SDK lets you start, call, and transform (metamorph) other Actors directly from your Actor code. This is useful for composing complex workflows from smaller, reusable Actors.
@@ -52,4 +53,14 @@ For example, imagine you have an Actor that accepts a hotel URL on input, and th
     {InteractingMetamorphExample}
 </RunnableCodeBlock>
 
-For the full list of methods for interacting with other Actors, see the <ApiLink to="class/Actor">`Actor`</ApiLink> API reference.
+## Aborting an Actor run
+
+The [`Actor.abort`](../../reference/class/Actor#abort) method aborts a running Actor on the Apify platform. You can use it to cancel a long-running Actor that is no longer needed.
+
+When you set `gracefully=True`, the platform sends `ABORTING` and `PERSIST_STATE` events to the target Actor, giving it time to save its state, and then force-stops it after 30 seconds. Without the `gracefully` flag, the Actor is stopped immediately.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingAbortExample}
+</RunnableCodeBlock>
+
+For the full list of methods for interacting with other Actors, see the <ApiLink to="class/Actor">`Actor`</ApiLink> API reference. For more details on running Actors and Actor tasks on the platform, see the [Actors](https://docs.apify.com/platform/actors) and [Actor tasks](https://docs.apify.com/platform/actors/tasks) documentation.

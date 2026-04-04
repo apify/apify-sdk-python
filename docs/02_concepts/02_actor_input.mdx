@@ -7,6 +7,8 @@ description: Read and validate input data passed to your Actor at runtime.
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import InputExample from '!!raw-loader!roa-loader!./code/02_input.py';
+import RequestListExample from '!!raw-loader!roa-loader!./code/02_request_list.py';
+import ApiLink from '@site/src/components/ApiLink';
 
 The Actor gets its [input](https://docs.apify.com/platform/actors/running/input) from the input record in its default [key-value store](https://docs.apify.com/platform/storage/key-value-store).
 
@@ -17,3 +19,19 @@ For example, if an Actor received a JSON input with two fields, `{ "firstNumber"
 <RunnableCodeBlock className="language-python" language="python">
     {InputExample}
 </RunnableCodeBlock>
+
+## Loading URLs from Actor input
+
+Actors commonly receive a list of URLs to process via their input. The <ApiLink to="class/ApifyRequestList">`ApifyRequestList`</ApiLink> class (from `apify.request_loaders`) can parse the standard Apify input format for URL sources. It supports both direct URL objects (`{"url": "https://example.com"}`) and remote URL lists (`{"requestsFromUrl": "https://example.com/urls.txt"}`), where the remote file contains one URL per line.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {RequestListExample}
+</RunnableCodeBlock>
+
+## Secret input fields
+
+The Apify platform supports [secret input fields](https://docs.apify.com/platform/actors/development/secret-input) that are encrypted before being stored. When you mark an input field as `"isSecret": true` in your Actor's [input schema](https://docs.apify.com/platform/actors/development/input-schema), the platform encrypts the value with the Actor's public key.
+
+No special handling is needed in your code — when you call [`Actor.get_input`](../../reference/class/Actor#get_input), encrypted fields are automatically decrypted using the Actor's private key, which is provided by the platform via environment variables. You receive the plaintext values directly.
+
+For more details on Actor input and how to define input schemas, see the [Actor input](https://docs.apify.com/platform/actors/running/input) and [input schema](https://docs.apify.com/platform/actors/development/input-schema) documentation on the Apify platform.

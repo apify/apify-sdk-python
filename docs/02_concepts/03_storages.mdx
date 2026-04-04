@@ -7,6 +7,8 @@ description: Use datasets, key-value stores, and request queues to persist Actor
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import OpeningStoragesExample from '!!raw-loader!roa-loader!./code/03_opening_storages.py';
+import OpeningStoragesAliasExample from '!!raw-loader!roa-loader!./code/03_opening_storages_alias.py';
+import ApiLink from '@site/src/components/ApiLink';
 import DeletingStoragesExample from '!!raw-loader!roa-loader!./code/03_deleting_storages.py';
 import DatasetReadWriteExample from '!!raw-loader!roa-loader!./code/03_dataset_read_write.py';
 import DatasetExportsExample from '!!raw-loader!roa-loader!./code/03_dataset_exports.py';
@@ -60,7 +62,7 @@ There are several methods for directly working with the default key-value store 
 - [`Actor.get_value('my-record')`](../../reference/class/Actor#get_value) reads a record from the default key-value store of the Actor.
 - [`Actor.set_value('my-record', 'my-value')`](../../reference/class/Actor#set_value) saves a new value to the record in the default key-value store.
 - [`Actor.get_input`](../../reference/class/Actor#get_input) reads the Actor input from the default key-value store of the Actor.
-- [`Actor.push_data([{'result': 'Hello, world!'}, ...])`](../../reference/class/Actor#push_data) saves results to the default dataset of the Actor.
+- [`Actor.push_data([{'result': 'Hello, world!'}, ...])`](../../reference/class/Actor#push_data) saves results to the default dataset of the Actor. When using the [pay-per-event pricing model](./pay-per-event), `push_data` returns a `ChargeResult` object that indicates whether the charge limit has been reached. You can also pass a `charged_event_name` parameter to charge for a custom event for each pushed item.
 
 ## Opening named and unnamed storages
 
@@ -68,6 +70,12 @@ The [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.op
 
 <RunnableCodeBlock className="language-python" language="python">
     {OpeningStoragesExample}
+</RunnableCodeBlock>
+
+Besides `id` and `name`, the `open_*` methods also accept an `alias` parameter. An alias creates an unnamed storage scoped to the current Actor run — it does not persist across runs, but lets you reference the same storage within a single run using a human-readable label. The `alias` parameter is mutually exclusive with `id` and `name`.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {OpeningStoragesAliasExample}
 </RunnableCodeBlock>
 
 ## Deleting storages
@@ -172,3 +180,16 @@ To check if all the requests in the queue are handled, you can use the [`Request
 <RunnableCodeBlock className="language-python" language="python">
     {RqExample}
 </RunnableCodeBlock>
+
+## Storage clients
+
+Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The SDK automatically selects the appropriate client based on the runtime environment:
+
+- **`SmartApifyStorageClient`** (default on the Apify platform) — a hybrid client that writes to both the Apify API and the local filesystem for resilience.
+- **`ApifyStorageClient`** — communicates directly with the Apify platform API for cloud storage.
+- **`FileSystemStorageClient`** — stores data on the local filesystem (in the `storage/` directory). Used when running locally.
+- **`MemoryStorageClient`** (from Crawlee) — stores data in memory. Useful for testing.
+
+For most use cases, the default storage client selection is sufficient. All storage clients are available from the `apify.storage_clients` module. For details, see the <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink> API reference.
+
+For comprehensive information about storage on the Apify platform, see the [storage documentation](https://docs.apify.com/platform/storage), including the pages on [datasets](https://docs.apify.com/platform/storage/dataset), [key-value stores](https://docs.apify.com/platform/storage/key-value-store), and [request queues](https://docs.apify.com/platform/storage/request-queue).
