@@ -6,6 +6,7 @@ description: Configure log levels, formatting, and log redirection between Actor
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
+import ApiLink from '@site/src/components/ApiLink';
 import LogConfigExample from '!!raw-loader!roa-loader!./code/09_log_config.py';
 import LoggerUsageExample from '!!raw-loader!roa-loader!./code/09_logger_usage.py';
 import RedirectLog from '!!raw-loader!roa-loader!./code/09_redirect_log.py';
@@ -15,7 +16,7 @@ The Apify SDK logs through Python's standard [`logging`](https://docs.python.org
 
 ## Automatic configuration
 
-When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger, which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../reference/class/ActorLogFormatter).
+When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger, which sets the logger level to `DEBUG` and the log formatter to <ApiLink to="class/ActorLogFormatter">`ActorLogFormatter`</ApiLink>.
 
 ## Manual configuration
 
@@ -25,7 +26,7 @@ In Python's default behavior, if you don't configure the logger otherwise, only 
 
 ### Configuring the log formatting
 
-By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out, you can use the [`ActorLogFormatter`](../../reference/class/ActorLogFormatter) class from the `apify.log` module.
+By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out, you can use the <ApiLink to="class/ActorLogFormatter">`ActorLogFormatter`</ApiLink> class from the `apify.log` module.
 
 ### Example log configuration
 
@@ -92,7 +93,7 @@ In some situations, one Actor is going to start one or more other Actors and wai
 
 ### Redirecting logs from Actor.call
 
-Typical use case for log redirection is to call another Actor using the [`Actor.call`](../../reference/class/Actor#call) method. This method has an optional `logger` argument, which is by default set to the `default` literal. This means that the logs of the called Actor will be automatically redirected to the parent Actor's logs with default formatting and filtering. If you set the `logger` argument to `None`, then no log redirection happens. The third option is to pass your own `Logger` instance with the possibility to define your own formatter, filter, and handler. Below you can see those three possible ways of log redirection when starting another Actor run through [`Actor.call`](../../reference/class/Actor#call).
+Typical use case for log redirection is to call another Actor using the <ApiLink to="class/Actor#call">`Actor.call`</ApiLink> method. This method has an optional `logger` argument, which is by default set to the `default` literal. This means that the logs of the called Actor will be automatically redirected to the parent Actor's logs with default formatting and filtering. If you set the `logger` argument to `None`, then no log redirection happens. The third option is to pass your own `Logger` instance with the possibility to define your own formatter, filter, and handler. Below you can see those three possible ways of log redirection when starting another Actor run through <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>.
 
 <RunnableCodeBlock className="language-python" language="python">
     {RedirectLog}
@@ -106,7 +107,7 @@ The log redirection can be deep, meaning that if the other actor also starts ano
 
 ### Redirecting logs from already running Actor run
 
-In some cases, you might want to connect to an already running Actor run and redirect its logs to your current Actor run. This can be done using the [ApifyClient](../../reference/class/Actor#apify_client) and getting the streamed log from a specific Actor run. You can then use it as a context manager, and the log redirection will be active in the context, or you can control the log redirection manually by explicitly calling `start` and `stop` methods.
+In some cases, you might want to connect to an already running Actor run and redirect its logs to your current Actor run. This can be done using the <ApiLink to="class/Actor#apify_client">`Actor.apify_client`</ApiLink> and getting the streamed log from a specific Actor run. You can then use it as a context manager, and the log redirection will be active in the context, or you can control the log redirection manually by explicitly calling `start` and `stop` methods.
 
 You can further decide whether you want to redirect just new logs of the ongoing Actor run, or if you also want to redirect historical logs from that Actor's run, so all logs it has produced since it was started. Both options are shown in the example code below.
 
