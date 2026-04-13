@@ -51,16 +51,7 @@ Always check the charge limit in your Actor, whether through `ChargeResult` retu
 
 ## Advanced charging management
 
-The <ApiLink to="class/ChargingManager">`ChargingManager`</ApiLink> (accessed via <ApiLink to="class/Actor#get_charging_manager">`Actor.get_charging_manager()`</ApiLink>) provides methods for fine-grained budget control:
-
-- `get_max_total_charge_usd()` — the configured budget limit for this run.
-- `calculate_total_charged_amount()` — total USD charged so far.
-- `calculate_max_event_charge_count_within_limit(event_name)` — how many more events of this type can be charged before reaching the limit.
-- `get_charged_event_count(event_name)` — how many events of this type have been charged.
-- `is_event_charge_limit_reached(event_name)` — whether the remaining budget is too low for even one more event of this type.
-- `compute_chargeable()` — a dict of all event types and how many can still be charged.
-
-These methods are useful for budget-aware crawling strategies, where you want to plan work based on the remaining budget rather than discovering the limit after the fact.
+For budget-aware crawling strategies, the <ApiLink to="class/ChargingManager">`ChargingManager`</ApiLink> (accessed via <ApiLink to="class/Actor#get_charging_manager">`Actor.get_charging_manager()`</ApiLink>) provides methods for querying the remaining budget, total charged amount, and per-event charge counts. This lets you plan work based on the remaining budget rather than discovering the limit after the fact. See the <ApiLink to="class/ChargingManager">`ChargingManager`</ApiLink> API reference for the full list of available methods.
 
 <RunnableCodeBlock className="language-python" language="python">
     {AdvancedChargingExample}
