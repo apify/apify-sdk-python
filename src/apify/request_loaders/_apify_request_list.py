@@ -39,9 +39,30 @@ url_input_adapter = TypeAdapter(list[_RequestsFromUrlInput | _SimpleUrlInput])
 
 @docs_group('Request loaders')
 class ApifyRequestList(RequestList):
-    """Extends crawlee RequestList.
+    """A request list that can be constructed from the standard Apify `requestListSources` Actor input format.
 
-    Method open is used to create RequestList from actor's requestListSources input.
+    This extends the Crawlee `RequestList` with the ability to parse the request list sources input commonly
+    used in Apify Actors. It supports two kinds of entries:
+
+    - **Direct URLs** - entries with a `url` key are converted to requests directly.
+    - **Remote URL lists** - entries with a `requestsFromUrl` key point to a remote resource (e.g. a plain-text
+      file). The resource is fetched and all URLs found in the response body are extracted and converted to requests.
+
+    Both kinds of entries can optionally specify `method`, `payload`, `headers`, and `userData` fields that will be
+    applied to every request created from that entry.
+
+    ### Usage
+
+    ```python
+    from apify import Actor
+    from apify.request_loaders import ApifyRequestList
+
+    async with Actor:
+        actor_input = await Actor.get_input() or {}
+        request_list = await ApifyRequestList.open(
+            request_list_sources_input=actor_input.get('requestListSources', []),
+        )
+    ```
     """
 
     @classmethod
@@ -52,27 +73,22 @@ class ApifyRequestList(RequestList):
         request_list_sources_input: list[dict[str, Any]] | None = None,
         http_client: HttpClient | None = None,
     ) -> ApifyRequestList:
-        """Initialize a new instance from request list source input.
+        """Create a new `ApifyRequestList` from the standard Apify request list sources input.
+
+        Each entry in `request_list_sources_input` is a dict with either a `url` key (for a direct URL) or
+        a `requestsFromUrl` key (for a remote resource whose response body is scanned for URLs). Optional keys
+        `method`, `payload`, `headers`, and `userData` are applied to every request produced from that entry.
 
         Args:
-            name: Name of the returned RequestList.
-            request_list_sources_input: List of dicts with either url key or requestsFromUrl key.
-            http_client: Client that will be used to send get request to urls defined by value of requestsFromUrl keys.
+            name: An optional name for the request list, used for state persistence.
+            request_list_sources_input: A list of request source dicts in the standard Apify format. Each dict must
+                contain either a `url` key or a `requestsFromUrl` key. If `None` or empty, an empty request list
+                is returned.
+            http_client: HTTP client used to fetch remote URL lists (entries with `requestsFromUrl`). Defaults to
+                `ImpitHttpClient` if not provided.
 
         Returns:
-            RequestList created from request_list_sources_input.
-
-        ### Usage
-
-        ```python
-        example_input = [
-            # Gather urls from response body.
-            {'requestsFromUrl': 'https://crawlee.dev/file.txt', 'method': 'GET'},
-            # Directly include this url.
-            {'url': 'https://crawlee.dev', 'method': 'GET'}
-        ]
-        request_list = await RequestList.open(request_list_sources_input=example_input)
-        ```
+            A new `ApifyRequestList` populated with the resolved requests.
         """
         request_list_sources_input = request_list_sources_input or []
 
@@ -95,11 +111,11 @@ class ApifyRequestList(RequestList):
         remote_url_requests_inputs: list[_RequestsFromUrlInput],
         http_client: HttpClient,
     ) -> list[Request]:
-        """Create list of requests from url.
+        """Fetch all remote URL sources concurrently and return the extracted requests.
 
-        Send GET requests to urls defined in each requests_from_url of remote_url_requests_inputs. Extract links from
-        each response body using URL_NO_COMMAS_REGEX regex. Create list of Requests from collected links and additional
-        inputs stored in other attributes of each remote_url_requests_inputs.
+        For each entry, a GET request is sent to the `requests_from_url` URL. All URLs matching `URL_NO_COMMAS_REGEX`
+        are extracted from the response body and turned into `Request` objects, inheriting `method`, `payload`,
+        `headers`, and `user_data` from the source entry.
         """
         tasks = [cls._process_remote_url(request_input, http_client) for request_input in remote_url_requests_inputs]
         results = await asyncio.gather(*tasks)

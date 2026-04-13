@@ -6,6 +6,7 @@ description: Set up webhooks to trigger actions when Actor run events occur.
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
+import ApiLink from '@site/src/components/ApiLink';
 import WebhookExample from '!!raw-loader!roa-loader!./code/07_webhook.py';
 import WebhookPreventingExample from '!!raw-loader!roa-loader!./code/07_webhook_preventing.py';
 
@@ -15,7 +16,7 @@ You can learn more in the [documentation for webhooks](https://docs.apify.com/pl
 
 ## Creating an ad-hoc webhook dynamically
 
-Besides creating webhooks manually in Apify Console, or through the Apify API, you can also create [ad-hoc webhooks](https://docs.apify.com/platform/integrations/webhooks/ad-hoc-webhooks) dynamically from the code of your Actor using the [`Actor.add_webhook`](../../reference/class/Actor#add_webhook) method:
+Besides creating webhooks manually in Apify Console, or through the Apify API, you can also create [ad-hoc webhooks](https://docs.apify.com/platform/integrations/webhooks/ad-hoc-webhooks) dynamically from the code of your Actor using the <ApiLink to="class/Actor#add_webhook">`Actor.add_webhook`</ApiLink> method:
 
 <RunnableCodeBlock className="language-python" language="python">
     {WebhookExample}

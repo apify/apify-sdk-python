@@ -7,6 +7,8 @@ description: Use datasets, key-value stores, and request queues to persist Actor
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import OpeningStoragesExample from '!!raw-loader!roa-loader!./code/03_opening_storages.py';
+import OpeningStoragesAliasExample from '!!raw-loader!roa-loader!./code/03_opening_storages_alias.py';
+import ApiLink from '@site/src/components/ApiLink';
 import DeletingStoragesExample from '!!raw-loader!roa-loader!./code/03_deleting_storages.py';
 import DatasetReadWriteExample from '!!raw-loader!roa-loader!./code/03_dataset_read_write.py';
 import DatasetExportsExample from '!!raw-loader!roa-loader!./code/03_dataset_exports.py';
@@ -21,11 +23,11 @@ The `Actor` class provides methods to work either with the default storages of t
 
 There are three types of storages available to Actors.
 
-First are [datasets](https://docs.apify.com/platform/storage/dataset), which are append-only tables for storing the results of your Actors. You can open a dataset through the [`Actor.open_dataset`](../../reference/class/Actor#open_dataset) method, and work with it through the resulting [`Dataset`](../../reference/class/Dataset) class instance.
+First are [datasets](https://docs.apify.com/platform/storage/dataset), which are append-only tables for storing the results of your Actors. You can open a dataset through the <ApiLink to="class/Actor#open_dataset">`Actor.open_dataset`</ApiLink> method, and work with it through the resulting <ApiLink to="class/Dataset">`Dataset`</ApiLink> class instance.
 
-Next there are [key-value stores](https://docs.apify.com/platform/storage/key-value-store), which function as a read/write storage for storing file-like objects, typically the Actor state or binary results. You can open a key-value store through the [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store) method, and work with it through the resulting [`KeyValueStore`](../../reference/class/KeyValueStore) class instance.
+Next there are [key-value stores](https://docs.apify.com/platform/storage/key-value-store), which function as a read/write storage for storing file-like objects, typically the Actor state or binary results. You can open a key-value store through the <ApiLink to="class/Actor#open_key_value_store">`Actor.open_key_value_store`</ApiLink> method, and work with it through the resulting <ApiLink to="class/KeyValueStore">`KeyValueStore`</ApiLink> class instance.
 
-Finally, there are [request queues](https://docs.apify.com/platform/storage/request-queue). These are queues into which you can put the URLs you want to scrape, and from which the Actor can dequeue them and process them. You can open a request queue through the [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) method, and work with it through the resulting [`RequestQueue`](../../reference/class/RequestQueue) class instance.
+Finally, there are [request queues](https://docs.apify.com/platform/storage/request-queue). These are queues into which you can put the URLs you want to scrape, and from which the Actor can dequeue them and process them. You can open a request queue through the <ApiLink to="class/Actor#open_request_queue">`Actor.open_request_queue`</ApiLink> method, and work with it through the resulting <ApiLink to="class/RequestQueue">`RequestQueue`</ApiLink> class instance.
 
 Each Actor run has its default dataset, default key-value store and default request queue.
 
@@ -41,7 +43,7 @@ Each dataset item, key-value store record, or request in a request queue is then
 
 ## Local Actor run with remote storage
 
-When developing locally, opening any storage will by default use local storage. To change this behavior and to use remote storage you have to use `force_cloud=True` argument in [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) or [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store). Proper use of this argument allows you to work with both local and remote storages.
+When developing locally, opening any storage will by default use local storage. To change this behavior and to use remote storage you have to use `force_cloud=True` argument in <ApiLink to="class/Actor#open_dataset">`Actor.open_dataset`</ApiLink>, <ApiLink to="class/Actor#open_request_queue">`Actor.open_request_queue`</ApiLink> or <ApiLink to="class/Actor#open_key_value_store">`Actor.open_key_value_store`</ApiLink>. Proper use of this argument allows you to work with both local and remote storages.
 
 Calling another remote Actor and accessing its default storage is typical use-case for using `force-cloud=True` argument to open remote Actor's storages.
 
@@ -57,23 +59,29 @@ apify run --purge
 
 There are several methods for directly working with the default key-value store or default dataset of the Actor.
 
-- [`Actor.get_value('my-record')`](../../reference/class/Actor#get_value) reads a record from the default key-value store of the Actor.
-- [`Actor.set_value('my-record', 'my-value')`](../../reference/class/Actor#set_value) saves a new value to the record in the default key-value store.
-- [`Actor.get_input`](../../reference/class/Actor#get_input) reads the Actor input from the default key-value store of the Actor.
-- [`Actor.push_data([{'result': 'Hello, world!'}, ...])`](../../reference/class/Actor#push_data) saves results to the default dataset of the Actor.
+- <ApiLink to="class/Actor#get_value">`Actor.get_value('my-record')`</ApiLink> reads a record from the default key-value store of the Actor.
+- <ApiLink to="class/Actor#set_value">`Actor.set_value('my-record', 'my-value')`</ApiLink> saves a new value to the record in the default key-value store.
+- <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink> reads the Actor input from the default key-value store of the Actor.
+- <ApiLink to="class/Actor#push_data">`Actor.push_data([{'result': 'Hello, world!'}, ...])`</ApiLink> saves results to the default dataset of the Actor. When using the [pay-per-event pricing model](./pay-per-event), `push_data` returns a `ChargeResult` object that indicates whether the charge limit has been reached. You can also pass a `charged_event_name` parameter to charge for a custom event for each pushed item.
 
 ## Opening named and unnamed storages
 
-The [`Actor.open_dataset`](../../reference/class/Actor#open_dataset), [`Actor.open_key_value_store`](../../reference/class/Actor#open_key_value_store) and [`Actor.open_request_queue`](../../reference/class/Actor#open_request_queue) methods can be used to open any storage for reading and writing. You can either use them without arguments to open the default storages, or you can pass a storage ID or name to open another storage.
+The <ApiLink to="class/Actor#open_dataset">`Actor.open_dataset`</ApiLink>, <ApiLink to="class/Actor#open_key_value_store">`Actor.open_key_value_store`</ApiLink> and <ApiLink to="class/Actor#open_request_queue">`Actor.open_request_queue`</ApiLink> methods can be used to open any storage for reading and writing. You can either use them without arguments to open the default storages, or you can pass a storage ID or name to open another storage.
 
 <RunnableCodeBlock className="language-python" language="python">
     {OpeningStoragesExample}
 </RunnableCodeBlock>
 
+Besides `id` and `name`, the `open_*` methods also accept an `alias` parameter. An alias creates an unnamed storage scoped to the current Actor run — it does not persist across runs, but lets you reference the same storage within a single run using a human-readable label. The `alias` parameter is mutually exclusive with `id` and `name`.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {OpeningStoragesAliasExample}
+</RunnableCodeBlock>
+
 ## Deleting storages
 
-To delete a storage, you can use the [`Dataset.drop`](../../reference/class/Dataset#drop),
-[`KeyValueStore.drop`](../../reference/class/KeyValueStore#drop) or [`RequestQueue.drop`](../../reference/class/RequestQueue#drop) methods.
+To delete a storage, you can use the <ApiLink to="class/Dataset#drop">`Dataset.drop`</ApiLink>,
+<ApiLink to="class/KeyValueStore#drop">`KeyValueStore.drop`</ApiLink> or <ApiLink to="class/RequestQueue#drop">`RequestQueue.drop`</ApiLink> methods.
 
 <RunnableCodeBlock className="language-python" language="python">
     {DeletingStoragesExample}
@@ -85,11 +93,11 @@ In this section we will show you how to work with [datasets](https://docs.apify.
 
 ### Reading & writing items
 
-To write data into a dataset, you can use the [`Dataset.push_data`](../../reference/class/Dataset#push_data) method.
+To write data into a dataset, you can use the <ApiLink to="class/Dataset#push_data">`Dataset.push_data`</ApiLink> method.
 
-To read data from a dataset, you can use the [`Dataset.get_data`](../../reference/class/Dataset#get_data) method.
+To read data from a dataset, you can use the <ApiLink to="class/Dataset#get_data">`Dataset.get_data`</ApiLink> method.
 
-To get an iterator of the data, you can use the [`Dataset.iterate_items`](../../reference/class/Dataset#iterate_items) method.
+To get an iterator of the data, you can use the <ApiLink to="class/Dataset#iterate_items">`Dataset.iterate_items`</ApiLink> method.
 
 <RunnableCodeBlock className="language-python" language="python">
     {DatasetReadWriteExample}
@@ -98,8 +106,8 @@ To get an iterator of the data, you can use the [`Dataset.iterate_items`](../../
 ### Exporting items
 
 You can also export the dataset items into a key-value store, as either a CSV or a JSON record,
-using the [`Dataset.export_to_csv`](../../reference/class/Dataset#export_to_csv)
-or [`Dataset.export_to_json`](../../reference/class/Dataset#export_to_json) method.
+using the <ApiLink to="class/Dataset#export_to_csv">`Dataset.export_to_csv`</ApiLink>
+or <ApiLink to="class/Dataset#export_to_json">`Dataset.export_to_json`</ApiLink> method.
 
 <RunnableCodeBlock className="language-python" language="python">
     {DatasetExportsExample}
@@ -111,9 +119,9 @@ In this section we will show you how to work with [key-value stores](https://doc
 
 ### Reading and writing records
 
-To read records from a key-value store, you can use the [`KeyValueStore.get_value`](../../reference/class/KeyValueStore#get_value) method.
+To read records from a key-value store, you can use the <ApiLink to="class/KeyValueStore#get_value">`KeyValueStore.get_value`</ApiLink> method.
 
-To write records into a key-value store, you can use the [`KeyValueStore.set_value`](../../reference/class/KeyValueStore#set_value) method.
+To write records into a key-value store, you can use the <ApiLink to="class/KeyValueStore#set_value">`KeyValueStore.set_value`</ApiLink> method.
 You can set the content type of a record with the `content_type` argument.
 To delete a record, set its value to `None`.
 
@@ -124,7 +132,7 @@ To delete a record, set its value to `None`.
 ### Iterating keys
 
 To get an iterator of the key-value store record keys,
-you can use the [`KeyValueStore.iterate_keys`](../../reference/class/KeyValueStore#iterate_keys) method.
+you can use the <ApiLink to="class/KeyValueStore#iterate_keys">`KeyValueStore.iterate_keys`</ApiLink> method.
 
 <RunnableCodeBlock className="language-python" language="python">
     {KvsIteratingExample}
@@ -133,7 +141,7 @@ you can use the [`KeyValueStore.iterate_keys`](../../reference/class/KeyValueSto
 ### Public URLs of records
 
 To get a publicly accessible URL of a key-value store record,
-you can use the [`KeyValueStore.get_public_url`](../../reference/class/KeyValueStore#get_public_url) method.
+you can use the <ApiLink to="class/KeyValueStore#get_public_url">`KeyValueStore.get_public_url`</ApiLink> method.
 
 <RunnableCodeBlock className="language-python" language="python">
     {KvsPublicRecordExample}
@@ -145,30 +153,36 @@ In this section we will show you how to work with [request queues](https://docs.
 
 ### Adding requests to a queue
 
-To add a request into the queue, you can use the [`RequestQueue.add_request`](../../reference/class/RequestQueue#add_request) method.
+To add a request into the queue, you can use the <ApiLink to="class/RequestQueue#add_request">`RequestQueue.add_request`</ApiLink> method.
 
 You can use the `forefront` boolean argument to specify whether the request should go to the beginning of the queue, or to the end.
 
 You can use the `unique_key` of the request to uniquely identify a request. If you try to add more requests with the same unique key, only the first one will be added.
 
-Check out the [`Request`](../../reference/class/Request) for more information on how to create requests and what properties they have.
+Check out the <ApiLink to="class/Request">`Request`</ApiLink> for more information on how to create requests and what properties they have.
 
 ### Reading requests
 
-To fetch the next request from the queue for processing, you can use the [`RequestQueue.fetch_next_request`](../../reference/class/RequestQueue#fetch_next_request) method.
+To fetch the next request from the queue for processing, you can use the <ApiLink to="class/RequestQueue#fetch_next_request">`RequestQueue.fetch_next_request`</ApiLink> method.
 
-To get info about a specific request from the queue, you can use the [`RequestQueue.get_request`](../../reference/class/RequestQueue#get_request) method.
+To get info about a specific request from the queue, you can use the <ApiLink to="class/RequestQueue#get_request">`RequestQueue.get_request`</ApiLink> method.
 
 ### Handling requests
 
-To mark a request as handled, you can use the [`RequestQueue.mark_request_as_handled`](../../reference/class/RequestQueue#mark_request_as_handled) method.
+To mark a request as handled, you can use the <ApiLink to="class/RequestQueue#mark_request_as_handled">`RequestQueue.mark_request_as_handled`</ApiLink> method.
 
-To mark a request as not handled, so that it gets retried, you can use the [`RequestQueue.reclaim_request`](../../reference/class/RequestQueue#reclaim_request) method.
+To mark a request as not handled, so that it gets retried, you can use the <ApiLink to="class/RequestQueue#reclaim_request">`RequestQueue.reclaim_request`</ApiLink> method.
 
-To check if all the requests in the queue are handled, you can use the [`RequestQueue.is_finished`](../../reference/class/RequestQueue#is_finished) method.
+To check if all the requests in the queue are handled, you can use the <ApiLink to="class/RequestQueue#is_finished">`RequestQueue.is_finished`</ApiLink> method.
 
 ### Full example
 
 <RunnableCodeBlock className="language-python" language="python">
     {RqExample}
 </RunnableCodeBlock>
+
+## Storage clients
+
+Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The appropriate client is selected automatically based on the runtime environment — on the Apify platform, data is persisted via the Apify API, while local runs use the filesystem. For most use cases, you don't need to think about storage clients at all. If you want to learn more about how storage clients work, the available implementations, or how to configure them, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients). The Apify-specific clients are available in the `apify.storage_clients` module.
+
+For comprehensive information about storage on the Apify platform, see the [storage documentation](https://docs.apify.com/platform/storage), including the pages on [datasets](https://docs.apify.com/platform/storage/dataset), [key-value stores](https://docs.apify.com/platform/storage/key-value-store), and [request queues](https://docs.apify.com/platform/storage/request-queue).

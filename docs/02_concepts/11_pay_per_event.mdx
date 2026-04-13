@@ -7,6 +7,7 @@ description: Monetize your Actors using the pay-per-event pricing model
 import ActorChargeSource from '!!raw-loader!roa-loader!./code/11_actor_charge.py';
 import ConditionalActorChargeSource from '!!raw-loader!roa-loader!./code/11_conditional_actor_charge.py';
 import ChargeLimitCheckSource from '!!raw-loader!roa-loader!./code/11_charge_limit_check.py';
+import AdvancedChargingExample from '!!raw-loader!roa-loader!./code/11_advanced_charging.py';
 import ApiLink from '@site/src/components/ApiLink';
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
@@ -48,6 +49,14 @@ Alternatively, you can periodically check the remaining budget via <ApiLink to="
 Always check the charge limit in your Actor, whether through `ChargeResult` return values or the `ChargingManager`. Without this check, your Actor will continue running and consuming platform resources after the budget is exhausted, producing no output.
 :::
 
+## Advanced charging management
+
+For budget-aware crawling strategies, the <ApiLink to="class/ChargingManager">`ChargingManager`</ApiLink> (accessed via <ApiLink to="class/Actor#get_charging_manager">`Actor.get_charging_manager()`</ApiLink>) provides methods for querying the remaining budget, total charged amount, and per-event charge counts. This lets you plan work based on the remaining budget rather than discovering the limit after the fact. See the <ApiLink to="class/ChargingManager">`ChargingManager`</ApiLink> API reference for the full list of available methods.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {AdvancedChargingExample}
+</RunnableCodeBlock>
+
 ## Transitioning from a different pricing model
 
 When you plan to start using the pay-per-event pricing model for an Actor that is already monetized with a different pricing model, your source code will need support both pricing models during the transition period enforced by the Apify platform. Arguably the most frequent case is the transition from the pay-per-result model which utilizes the `ACTOR_MAX_PAID_DATASET_ITEMS` environment variable to prevent returning unpaid dataset items. The following is an example how to handle such scenarios. The key part is the <ApiLink to="class/ChargingManager#get_pricing_info">`ChargingManager.get_pricing_info()`</ApiLink> method which returns information about the current pricing model.
@@ -67,3 +76,5 @@ ACTOR_TEST_PAY_PER_EVENT=true python -m youractor
 If you also wish to see a log of all the events charged throughout the run, the Apify SDK keeps a log of charged events in a so called charging dataset. Your charging dataset can be found under the `charging-log` name (unless you change your storage settings, this dataset is stored in `storage/datasets/charging-log/`). Please note that this log is not available when running the Actor in production on the Apify platform.
 
 Because pricing configuration is stored by the Apify platform, all events will have a default price of $1.
+
+For comprehensive details on pay-per-event pricing and Actor monetization, see the [pay-per-event](https://docs.apify.com/platform/actors/publishing/monetize/pay-per-event) and [monetization](https://docs.apify.com/platform/actors/publishing/monetize) documentation on the Apify platform.

@@ -6,6 +6,7 @@ description: Use the built-in Apify API client to access platform features not c
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
+import ApiLink from '@site/src/components/ApiLink';
 import ActorClientExample from '!!raw-loader!roa-loader!./code/08_actor_client.py';
 import ActorNewClientExample from '!!raw-loader!roa-loader!./code/08_actor_new_client.py';
 
@@ -13,7 +14,7 @@ The Apify SDK provides a built-in instance of the [Apify API Client](https://doc
 
 ## Actor client
 
-To access the provided instance of [`ApifyClientAsync`](https://docs.apify.com/api/client/python/reference/class/ApifyClientAsync), you can use the [`Actor.apify_client`](../../reference/class/Actor#apify_client) property.
+To access the provided instance of [`ApifyClientAsync`](https://docs.apify.com/api/client/python/reference/class/ApifyClientAsync), you can use the <ApiLink to="class/Actor#apify_client">`Actor.apify_client`</ApiLink> property.
 
 For example, to get the details of your user, you can use this snippet:
 
@@ -23,7 +24,7 @@ For example, to get the details of your user, you can use this snippet:
 
 ## Actor new client
 
-If you want to create a completely new instance of the client, for example, to get a client for a different user or change the configuration of the client, you can use the [`Actor.new_client`](../../reference/class/Actor#new_client) method:
+If you want to create a completely new instance of the client, for example, to get a client for a different user or change the configuration of the client, you can use the <ApiLink to="class/Actor#new_client">`Actor.new_client`</ApiLink> method:
 
 <RunnableCodeBlock className="language-python" language="python">
     {ActorNewClientExample}

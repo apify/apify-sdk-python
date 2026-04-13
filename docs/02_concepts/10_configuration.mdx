@@ -7,6 +7,8 @@ description: Customize Actor behavior through the Configuration class or environ
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import ConfigExample from '!!raw-loader!roa-loader!./code/10_config.py';
+import GetEnvExample from '!!raw-loader!roa-loader!./code/10_get_env.py';
+import PlatformDetectionExample from '!!raw-loader!roa-loader!./code/10_platform_detection.py';
 import ApiLink from '@site/src/components/ApiLink';
 
 The <ApiLink to="class/Actor">`Actor`</ApiLink> class is configured through the <ApiLink to="class/Configuration">`Configuration`</ApiLink> class, which reads its settings from environment variables. When running on the Apify platform or through the Apify CLI, configuration is automatic — manual setup is only needed for custom requirements.
@@ -25,7 +27,7 @@ This will cause the Actor to persist its state every 10 seconds:
 
 ## Configuring via environment variables
 
-All the configuration options can be set via environment variables. The environment variables are prefixed with `APIFY_`, and the configuration options are in uppercase, with underscores as separators. See the [`Configuration`](../../reference/class/Configuration) API reference for the full list of configuration options.
+All the configuration options can be set via environment variables. The environment variables are prefixed with `APIFY_`, and the configuration options are in uppercase, with underscores as separators. See the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference for the full list of configuration options.
 
 This Actor run will not persist its local storages to the filesystem:
 
@@ -33,4 +35,20 @@ This Actor run will not persist its local storages to the filesystem:
 APIFY_PERSIST_STORAGE=0 apify run
 ```
 
-For the full list of configuration options, see the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference.
+## Reading the runtime environment
+
+The <ApiLink to="class/Actor#get_env">`Actor.get_env`</ApiLink> method returns a dictionary with all `APIFY_*` environment variables parsed into their typed values. This is useful for inspecting the Actor's runtime context, such as the Actor ID, run ID, or default storage IDs. Variables that are not set or are invalid will have a value of `None`.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {GetEnvExample}
+</RunnableCodeBlock>
+
+## Platform detection
+
+The <ApiLink to="class/Actor#is_at_home">`Actor.is_at_home`</ApiLink> method returns `True` when the Actor is running on the Apify platform, and `False` when running locally. This is useful for branching behavior based on the environment, such as using different storage backends or skipping proxy configuration during local development.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {PlatformDetectionExample}
+</RunnableCodeBlock>
+
+For the full list of configuration options, see the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference. For a complete list of environment variables available on the platform, see the [environment variables](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) documentation.

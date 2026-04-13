@@ -13,6 +13,7 @@ import ApifyProxyConfig from '!!raw-loader!roa-loader!./code/05_apify_proxy_conf
 import CustomProxyFunctionExample from '!!raw-loader!roa-loader!./code/05_custom_proxy_function.py';
 import ProxyActorInputExample from '!!raw-loader!roa-loader!./code/05_proxy_actor_input.py';
 import ProxyHttpxExample from '!!raw-loader!roa-loader!./code/05_proxy_httpx.py';
+import TieredProxyExample from '!!raw-loader!roa-loader!./code/05_tiered_proxy.py';
 import ApiLink from '@site/src/components/ApiLink';
 
 The Apify SDK provides built-in proxy management through the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class, supporting both [Apify Proxy](https://apify.com/proxy) and custom proxy servers. Proxies are essential for web scraping to avoid [IP address blocking](https://en.wikipedia.org/wiki/IP_address_blocking) and distribute requests across multiple addresses.
@@ -35,7 +36,7 @@ If you want to use Apify Proxy locally, make sure that you run your Actors via t
 
 ## Proxy configuration
 
-All your proxy needs are managed by the [`ProxyConfiguration`](../../reference/class/ProxyConfiguration) class. You create an instance using the [`Actor.create_proxy_configuration()`](../../reference/class/Actor#create_proxy_configuration) method. Then you generate proxy URLs using the [`ProxyConfiguration.new_url()`](../../reference/class/ProxyConfiguration#new_url) method.
+All your proxy needs are managed by the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class. You create an instance using the <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration()`</ApiLink> method. Then you generate proxy URLs using the <ApiLink to="class/ProxyConfiguration#new_url">`ProxyConfiguration.new_url()`</ApiLink> method.
 
 ### Apify proxy vs. your own proxies
 
@@ -79,6 +80,18 @@ Or you can pass it a method (accepting one optional argument, the session ID), t
 
 <RunnableCodeBlock className="language-python" language="python">
     {CustomProxyFunctionExample}
+</RunnableCodeBlock>
+
+### Tiered proxy rotation
+
+<ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> supports tiered proxy URLs via the `tiered_proxy_urls` parameter. This accepts a list of lists of proxy URLs, where each inner list represents a tier. The proxy rotator starts with the first (cheapest) tier and automatically escalates to higher tiers when lower-tier proxies get blocked. This is useful for optimizing proxy costs — you use cheap datacenter proxies for most requests and only switch to expensive residential proxies when necessary.
+
+:::info
+The `tiered_proxy_urls` parameter is only available when constructing `ProxyConfiguration` directly. It is not supported by `Actor.create_proxy_configuration()`.
+:::
+
+<RunnableCodeBlock className="language-python" language="python">
+    {TieredProxyExample}
 </RunnableCodeBlock>
 
 ### Configuring proxy based on Actor input
