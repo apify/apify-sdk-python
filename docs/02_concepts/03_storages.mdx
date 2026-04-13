@@ -183,13 +183,6 @@ To check if all the requests in the queue are handled, you can use the [`Request
 
 ## Storage clients
 
-Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The SDK automatically selects the appropriate client based on the runtime environment:
-
-- **`SmartApifyStorageClient`** (default on the Apify platform) — a hybrid client that writes to both the Apify API and the local filesystem for resilience.
-- **`ApifyStorageClient`** — communicates directly with the Apify platform API for cloud storage.
-- **`FileSystemStorageClient`** — stores data on the local filesystem (in the `storage/` directory). Used when running locally.
-- **`MemoryStorageClient`** (from Crawlee) — stores data in memory. Useful for testing.
-
-For most use cases, the default storage client selection is sufficient. All storage clients are available from the `apify.storage_clients` module. For details, see the <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink> API reference.
+Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The appropriate client is selected automatically based on the runtime environment — on the Apify platform, data is persisted via the Apify API, while local runs use the filesystem. For most use cases, you don't need to think about storage clients at all. If you want to learn more about how storage clients work, the available implementations, or how to configure them, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients). The Apify-specific clients are available in the `apify.storage_clients` module.
 
 For comprehensive information about storage on the Apify platform, see the [storage documentation](https://docs.apify.com/platform/storage), including the pages on [datasets](https://docs.apify.com/platform/storage/dataset), [key-value stores](https://docs.apify.com/platform/storage/key-value-store), and [request queues](https://docs.apify.com/platform/storage/request-queue).
