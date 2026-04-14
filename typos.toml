@@ -16,6 +16,6 @@ extend-exclude = [
     "*.lock",
     "*.min.js",
     "*.min.css",
-    "CHANGELOG.md",
-    "website/versioned_docs/*/changelog.md",
+    "**/CHANGELOG.md",
+    "**/changelog.md",
 ]
