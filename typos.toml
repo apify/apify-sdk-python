@@ -17,4 +17,5 @@ extend-exclude = [
     "*.min.js",
     "*.min.css",
     "CHANGELOG.md",
+    "website/versioned_docs/*/changelog.md",
 ]

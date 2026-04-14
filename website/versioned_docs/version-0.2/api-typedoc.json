@@ -3008,7 +3008,7 @@
                         "summary": [
                             {
                                 "kind": "text",
-                                "text": "{\"content\": [\"Retrive the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
+                                "text": "{\"content\": [\"Retrieve the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
                             }
                         ]
                     },
@@ -3033,7 +3033,7 @@
                                 "summary": [
                                     {
                                         "kind": "text",
-                                        "text": "{\"content\": [\"Retrive the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
+                                        "text": "{\"content\": [\"Retrieve the global configuration.\\n\\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\\nAlso accessible via `Actor.config`.\"]}"
                                     }
                                 ]
                             },
