@@ -1,0 +1,45 @@
+---
+title: Proxy management
+sidebar_label: Proxy management
+---
+
+To work with proxies in your Actor, you can use the `Actor.create_proxy_configuration()` method, which allows you to generate proxy URLs either for the Apify Proxy, or even for your own proxies, with automatic proxy rotation and support for sessions.
+
+```python
+import asyncio
+import httpx
+from apify import Actor
+
+async def main():
+    async with Actor:
+        # You can either set the proxy config manually
+        proxy_configuration = await Actor.create_proxy_configuration(
+            groups=['RESIDENTIAL'],
+            country_code='US',
+        )
+
+        # --- OR ---
+        # You can get the proxy config from the Actor input
+        actor_input = await Actor.get_input()
+        selected_proxy_config = actor_input['proxyConfiguration']
+        proxy_configuration = await Actor.create_proxy_configuration(
+            actor_proxy_input=selected_proxy_config,
+        )
+
+        # --- OR ---
+        # You can use your own proxy servers
+        proxy_configuration = await Actor.create_proxy_configuration(
+            proxy_urls=[
+                'http://my-proxy.com:8000',
+                'http://my-other-proxy.com:8000',
+            ],
+        )
+
+        proxy_url = await proxy_configuration.new_url(session_id='my_session')
+
+        async with httpx.AsyncClient(proxies=proxy_url) as client:
+            response = await client.get('http://example.com')
+            await Actor.set_value('OUTPUT', response.text)
+
+asyncio.run(main())
+```

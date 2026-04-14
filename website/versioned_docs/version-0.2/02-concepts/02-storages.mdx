@@ -1,0 +1,40 @@
+---
+title: Working with storages
+sidebar_label: Storages
+---
+
+The `Actor` class provides methods to work either with the default storages of the Actor, or with any other storage, named or unnamed.
+
+## Convenience methods for default storages
+
+There are several methods for directly working with the default key-value store or default dataset of the Actor.
+
+- `Actor.get_value('my-record')` reads a record from the default key-value store of the Actor.
+- `Actor.set_value('my-record', 'my-value')` saves a new value to the record in the default key-value store.
+- `Actor.get_input()` reads the Actor input from the default key-value store of the Actor.
+- `Actor.push_data([{'result': 'Hello, world!'}, ...])` saves results to the default dataset of the Actor.
+
+## Opening other storages
+
+The `Actor.open_dataset()`, `Actor.open_key_value_store()` and `Actor.open_request_queue()` methods can be used to open any storage for reading and writing. You can either use them without arguments to open the default storages, or you can pass a storage ID or name to open another storage.
+
+```python
+import asyncio
+from apify import Actor
+
+async def main():
+    async with Actor:
+        # Work with the default dataset of the Actor
+        dataset = await Actor.open_dataset()
+        await dataset.push_data({'result': 'Hello, world!'})
+
+        # Work with the key-value store with ID 'mIJVZsRQrDQf4rUAf'
+        key_value_store = await Actor.open_key_value_store(id='mIJVZsRQrDQf4rUAf')
+        await key_value_store.set_value('record', 'Hello, world!')
+
+        # Work with the request queue with name 'my-queue'
+        request_queue = await Actor.open_request_queue(name='my-queue')
+        await request_queue.add_request({'uniqueKey': 'v0Ngr', 'url': 'https://example.com'})
+
+asyncio.run(main())
+```

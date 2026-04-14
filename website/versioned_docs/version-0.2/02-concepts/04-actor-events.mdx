@@ -1,0 +1,52 @@
+---
+title: Actor events
+sidebar_label: Actor events
+---
+
+The Apify platform sends several events to the Actor. If you want to work with them, you can use the `Actor.on()` and `Actor.off()` methods.
+
+## Available events
+
+- **`ActorEventTypes.SYSTEM_INFO`** — Emitted every minute, the event data contains info about the resource usage of the Actor.
+- **`ActorEventTypes.MIGRATING`** — Emitted when the Actor running on the Apify platform is going to be migrated to another worker server soon. You can use it to persist the state of the Actor and abort the run, to speed up the migration.
+- **`ActorEventTypes.PERSIST_STATE`** — Emitted in regular intervals (by default 60 seconds) to notify the Actor that it should persist its state, in order to avoid repeating all work when the Actor restarts.
+- **`ActorEventTypes.ABORTING`** — When a user aborts an Actor run on the Apify platform, they can choose to abort gracefully to allow the Actor some time before getting terminated.
+
+## Example
+
+```python
+import asyncio
+from pprint import pprint
+from apify import Actor
+from apify.consts import ActorEventTypes
+
+async def print_system_info(event_data):
+    print('Actor system info from platform:')
+    pprint(event_data)
+
+async def react_to_abort(event_data):
+    print('The Actor is aborting!')
+    pprint(event_data)
+
+async def persist_state(event_data):
+    print('The Actor should persist its state!')
+    pprint(event_data)
+    # Add your state persisting logic here
+
+async def main():
+    async with Actor:
+        Actor.on(ActorEventTypes.SYSTEM_INFO, print_system_info)
+        Actor.on(ActorEventTypes.ABORTING, react_to_abort)
+        Actor.on(ActorEventTypes.PERSIST_STATE, persist_state)
+
+        # Do some work here
+        ...
+
+        # Remove the event handler when no longer needed
+        Actor.off(ActorEventTypes.SYSTEM_INFO, print_system_info)
+
+        # Do some more work here
+        ...
+
+asyncio.run(main())
+```

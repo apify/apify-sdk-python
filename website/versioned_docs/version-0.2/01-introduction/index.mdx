@@ -1,0 +1,67 @@
+---
+id: introduction
+title: Overview
+sidebar_label: Overview
+slug: /overview
+description: 'The official library for creating Apify Actors in Python, providing tools for web scraping, automation, and data storage integration.'
+---
+
+The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python.
+It provides useful features like automatic retries and convenience functions that improve the experience of using the Apify API.
+
+```python
+import asyncio
+from apify import Actor
+
+async def main():
+    async with Actor:
+        actor_input = await Actor.get_input()
+        print('Actor input:', actor_input)
+        await Actor.push_data([{'result': 'Hello, world!'}])
+        await Actor.set_value('OUTPUT', 'Done!')
+
+asyncio.run(main())
+```
+
+## What are Actors?
+
+Actors are serverless cloud programs that can do almost anything a human can do in a web browser. They can do anything from small tasks such as filling in forms or unsubscribing from online services, all the way up to scraping and processing vast numbers of web pages.
+
+Actors can be run either locally, or on the [Apify platform](https://docs.apify.com/platform/), where you can run them at scale, monitor them, schedule them, and even publish and monetize them.
+
+If you're new to Apify, learn [what is Apify](https://docs.apify.com/platform/about) in the Apify platform documentation.
+
+## Quick start
+
+To create and run Actors through Apify Console, see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template). For creating and running Python Actors locally, refer to the [quick start guide](./quick-start).
+
+## Installation
+
+The Apify SDK for Python requires Python 3.8 or above. You can install it from [PyPI](https://pypi.org/project/apify/):
+
+```bash
+pip install apify
+```
+
+## Features
+
+### Local storage emulation
+
+When running Actors locally, the Apify SDK performs storage operations like `Actor.push_data()` or `Actor.set_value()` on the local filesystem, in the `storage` folder in the Actor project directory.
+
+### Automatic configuration
+
+When running Actors on the Apify platform, the SDK automatically configures the Actor using the environment variables the platform provides to the Actor's container. This means you don't have to specify your Apify API token, your Apify Proxy password, or the default storage IDs manually.
+
+### Interacting with other Actors
+
+You can interact with other Actors with useful API wrappers:
+- `Actor.start(other_actor_id, run_input=...)` starts a run of another Actor.
+- `Actor.call(other_actor_id, run_input=...)` starts a run and waits for it to finish.
+- `Actor.call_task(actor_task_id)` starts an Actor task run and waits for it to finish.
+
+:::note API client alternative
+
+If you need to interact with the Apify API programmatically without creating Actors, use the [Apify API client for Python](https://docs.apify.com/api/client/python) instead.
+
+:::
