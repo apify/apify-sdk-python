@@ -19,9 +19,14 @@
             "groupSlug": "dev-dependencies",
             "automerge": true,
             "automergeType": "branch"
+        },
+        {
+            "matchPackageNames": ["@apify/*", "@crawlee/*"],
+            "minimumReleaseAge": "0 days"
         }
     ],
     "minimumReleaseAge": "1 day",
+    "internalChecksFilter": "strict",
     "schedule": ["before 7am every weekday"],
     "ignoreDeps": ["apify", "docusaurus-plugin-typedoc-api"]
 }
