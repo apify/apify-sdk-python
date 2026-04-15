@@ -1,6 +1,7 @@
 ---
 id: interacting-with-other-actors
 title: Interacting with other Actors
+description: Start, call, and metamorph other Actors from within your Actor code.
 ---
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
@@ -9,12 +10,14 @@ import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacti
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
+import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
+import ApiLink from '@site/src/components/ApiLink';
 
-There are several methods that interact with other Actors and Actor tasks on the Apify platform.
+The Apify SDK lets you start, call, and transform (metamorph) other Actors directly from your Actor code. This is useful for composing complex workflows from smaller, reusable Actors.
 
 ## Actor start
 
-The [`Actor.start`](../../reference/class/Actor#start) method starts another Actor on the Apify platform, and immediately returns the details of the started Actor run.
+The <ApiLink to="class/Actor#start">`Actor.start`</ApiLink> method starts another Actor on the Apify platform, and immediately returns the details of the started Actor run.
 
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingStartExample}
@@ -22,7 +25,7 @@ The [`Actor.start`](../../reference/class/Actor#start) method starts another Act
 
 ## Actor call
 
-The [`Actor.call`](../../reference/class/Actor#call) method starts another Actor on the Apify platform, and waits for the started Actor run to finish.
+The <ApiLink to="class/Actor#call">`Actor.call`</ApiLink> method starts another Actor on the Apify platform, and waits for the started Actor run to finish.
 
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingCallExample}
@@ -30,7 +33,7 @@ The [`Actor.call`](../../reference/class/Actor#call) method starts another Actor
 
 ## Actor call task
 
-The [`Actor.call_task`](../../reference/class/Actor#call_task) method starts an [Actor task](https://docs.apify.com/platform/actors/tasks) on the Apify platform, and waits for the started Actor run to finish.
+The <ApiLink to="class/Actor#call_task">`Actor.call_task`</ApiLink> method starts an [Actor task](https://docs.apify.com/platform/actors/tasks) on the Apify platform, and waits for the started Actor run to finish.
 
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingCallTaskExample}
@@ -38,14 +41,26 @@ The [`Actor.call_task`](../../reference/class/Actor#call_task) method starts an 
 
 ## Actor metamorph
 
-The [`Actor.metamorph`](../../reference/class/Actor#metamorph) operation transforms an Actor run into a run of another Actor with a new input. This feature is useful if you want to use another Actor to finish the work of your current Actor, instead of internally starting a new Actor run and waiting for its finish. With metamorph, you can easily create new Actors on top of existing ones, and give your users nicer input structure and user interface for the final Actor. For the users of your Actors, the metamorph operation is completely transparent; they will just see your Actor got the work done.
+The <ApiLink to="class/Actor#metamorph">`Actor.metamorph`</ApiLink> operation transforms an Actor run into a run of another Actor with a new input. This feature is useful if you want to use another Actor to finish the work of your current Actor, instead of internally starting a new Actor run and waiting for its finish. With metamorph, you can easily create new Actors on top of existing ones, and give your users nicer input structure and user interface for the final Actor. For the users of your Actors, the metamorph operation is completely transparent; they will just see your Actor got the work done.
 
-Internally, the system stops the container corresponding to the original Actor run and starts a new container using a different container image. All the default storages are preserved,and the new Actor input is stored under the `INPUT-METAMORPH-1` key in the same default key-value store.
+Internally, the system stops the container corresponding to the original Actor run and starts a new container using a different container image. All the default storages are preserved, and the new Actor input is stored under the `INPUT-METAMORPH-1` key in the same default key-value store.
 
-To make you Actor compatible with the metamorph operation, use [`Actor.get_input`](../../reference/class/Actor#get_input) instead of [`Actor.get_value('INPUT')`](../../reference/class/Actor#get_value) to read your Actor input. This method will fetch the input using the right key in a case of metamorphed run.
+To make your Actor compatible with the metamorph operation, use <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink> instead of <ApiLink to="class/Actor#get_value">`Actor.get_value('INPUT')`</ApiLink> to read your Actor input. This method will fetch the input using the right key in a case of metamorphed run.
 
 For example, imagine you have an Actor that accepts a hotel URL on input, and then internally uses the [`apify/web-scraper`](https://apify.com/apify/web-scraper) public Actor to scrape all the hotel reviews. The metamorphing code would look as follows:
 
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingMetamorphExample}
 </RunnableCodeBlock>
+
+## Aborting an Actor run
+
+The <ApiLink to="class/Actor#abort">`Actor.abort`</ApiLink> method aborts a running Actor on the Apify platform. You can use it to cancel a long-running Actor that is no longer needed.
+
+When you set `gracefully=True`, the platform sends `ABORTING` and `PERSIST_STATE` events to the target Actor, giving it time to save its state, and then force-stops it after 30 seconds. Without the `gracefully` flag, the Actor is stopped immediately.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingAbortExample}
+</RunnableCodeBlock>
+
+For the full list of methods for interacting with other Actors, see the <ApiLink to="class/Actor">`Actor`</ApiLink> API reference. For more details on running Actors and Actor tasks on the platform, see the [Actors](https://docs.apify.com/platform/actors) and [Actor tasks](https://docs.apify.com/platform/actors/tasks) documentation.

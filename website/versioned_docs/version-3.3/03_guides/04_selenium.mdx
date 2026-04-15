@@ -1,6 +1,7 @@
 ---
 id: selenium
-title: Using Selenium
+title: Use Selenium
+description: Build an Apify Actor that scrapes dynamic web pages using Selenium WebDriver.
 ---
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
@@ -15,15 +16,11 @@ In this guide, you'll learn how to use [Selenium](https://www.selenium.dev/) for
 
 Some of the key features of Selenium for web scraping include:
 
-- **Cross-browser support** - Selenium supports the latest versions of major browsers like Chrome, Firefox, and Safari,
-so you can choose the one that suits your needs the best.
-- **Headless mode** - Selenium can run in headless mode,
-meaning that the browser window is not visible on your screen while it is scraping,
-which can be useful for running scraping tasks in the background or in containers without a display.
-- **Powerful selectors** - Selenium provides a variety of powerful selectors that allow you to target specific elements on a web page,
-including CSS selectors, XPath, and text matching.
-- **Emulation of user interactions** - Selenium allows you to emulate user interactions like clicking, scrolling, filling out forms,
-and even typing in text, which can be useful for scraping websites that have dynamic content or require user input.
+- **Broad ecosystem** - Selenium has a large community and extensive documentation, with support for multiple programming languages beyond Python.
+- **WebDriver protocol** - Selenium uses the W3C WebDriver protocol, providing standardized browser automation that works with Chrome, Firefox, Edge, and Safari.
+- **Headless and headful modes** - Selenium can run with or without a visible browser window, making it suitable for both local development and containerized environments.
+- **Flexible element selection** - Selenium provides CSS selectors, XPath, ID, class name, and other strategies for locating elements on a page.
+- **User interaction emulation** - Selenium allows you to emulate user actions like clicking, scrolling, filling out forms, and typing, which is useful for scraping dynamic websites.
 
 To create Actors which use Selenium, start from the [Selenium & Python](https://apify.com/templates/categories/python) Actor template.
 

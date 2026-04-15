@@ -1,6 +1,7 @@
 ---
 id: upgrading-to-v2
 title: Upgrading to v2
+description: Breaking changes and migration guide from Apify SDK v1.x to v2.0.
 ---
 
 This page summarizes the breaking changes between Apify Python SDK v1.x and v2.0.

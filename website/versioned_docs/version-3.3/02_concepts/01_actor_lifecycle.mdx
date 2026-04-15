@@ -1,6 +1,7 @@
 ---
 id: actor-lifecycle
 title: Actor lifecycle
+description: How an Apify Actor starts, runs, and shuts down, including context manager and manual control patterns.
 ---
 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
@@ -42,7 +43,15 @@ When the Actor exits, either normally or due to an exception, the SDK performs a
     </TabItem>
 </Tabs>
 
-You can also create an [`Actor`](https://docs.apify.com/sdk/python/reference/class/Actor) instance directly. This does not change its capabilities but allows you to specify optional parameters during initialization, such as disabling automatic `sys.exit()` calls or customizing timeouts. The choice between using a context manager or manual initialization depends on how much control you require over the Actor's startup and shutdown sequence.
+You can also create an [`Actor`](https://docs.apify.com/sdk/python/reference/class/Actor) instance directly. This does not change its capabilities but allows you to specify optional parameters during initialization. The key parameters are:
+
+- `configuration` — a custom [`Configuration`](https://docs.apify.com/sdk/python/reference/class/Configuration) instance to control storage paths, API URLs, and other settings.
+- `configure_logging` — whether to set up default logging configuration (default `True`). Set to `False` if you configure logging yourself.
+- `exit_process` — whether the Actor calls `sys.exit()` when the context manager exits. Defaults to `True`, except in IPython, Pytest, and Scrapy environments.
+- `event_listeners_timeout` — maximum time to wait for Actor event listeners to complete before exiting.
+- `cleanup_timeout` — maximum time to wait for cleanup tasks to finish (default 30 seconds).
+
+The choice between using a context manager or manual initialization depends on how much control you require over the Actor's startup and shutdown sequence.
 
 <Tabs groupId="request_queue">
     <TabItem value="actor_instance_with_context_manager" label="Actor instance with context manager" default>
