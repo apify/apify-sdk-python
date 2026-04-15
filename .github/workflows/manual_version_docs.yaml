@@ -61,10 +61,14 @@ jobs:
       - name: Install Python dependencies
         run: uv run poe install-dev
 
-      - name: Install pnpm and website dependencies
-        uses: ./.github/actions/pnpm-install
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4.1.0
         with:
-          working-directory: website
+          run_install: false
+
+      - name: Install website dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+        working-directory: website
 
       - name: Snapshot the current version
         id: snapshot
