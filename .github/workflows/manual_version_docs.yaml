@@ -36,7 +36,21 @@ jobs:
     permissions:
       contents: write
 
+    defaults:
+      run:
+        working-directory: website
+
     steps:
+      - name: Determine checkout ref
+        id: resolve_ref
+        working-directory: .
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          REF="${INPUT_REF:-$DEFAULT_BRANCH}"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
@@ -60,21 +74,14 @@ jobs:
 
       - name: Install Python dependencies
         run: uv run poe install-dev
+        working-directory: .
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4.1.0
-        with:
-          run_install: false
-
-      - name: Install website dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
-        working-directory: website
+      - name: Install pnpm and website dependencies
+        uses: apify/workflows/pnpm-install@main
 
       - name: Snapshot the current version
         id: snapshot
         run: |
-          cd website
-
           # Extract version from pyproject.toml.
           FULL_VERSION="$(uv version --short)"
           MAJOR_MINOR_VERSION="$(echo "$FULL_VERSION" | cut -d. -f1-2)"
