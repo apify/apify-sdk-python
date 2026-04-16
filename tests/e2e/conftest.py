@@ -314,7 +314,7 @@ def make_actor(
                 {
                     'versionNumber': '0.0',
                     'buildTag': 'latest',
-                    'sourceType': VersionSourceType.SOURCE_FILES.value,
+                    'sourceType': VersionSourceType.SOURCE_FILES,
                     'sourceFiles': source_files_for_api,
                 }
             ],

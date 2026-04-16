@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from unittest import mock
 from unittest.mock import AsyncMock, Mock
@@ -245,7 +245,7 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
                     'id': 'asdf',
                     'actId': 'asdf',
                     'userId': 'adsf',
-                    'startedAt': datetime.now(timezone.utc).isoformat(),
+                    'startedAt': datetime.now(UTC).isoformat(),
                     'status': 'RUNNING',
                     'meta': {'origin': 'DEVELOPMENT'},
                     'buildId': 'hjkl',

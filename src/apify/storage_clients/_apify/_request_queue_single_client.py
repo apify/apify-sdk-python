@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Final
 
@@ -211,7 +211,7 @@ class ApifyRequestQueueSingleClient:
             cached_request.handled_at = request.handled_at
 
         if request.handled_at is None:
-            request.handled_at = datetime.now(tz=timezone.utc)
+            request.handled_at = datetime.now(tz=UTC)
             self.metadata.handled_request_count += 1
             self.metadata.pending_request_count -= 1
 
@@ -390,8 +390,11 @@ class ApifyRequestQueueSingleClient:
         """
         response = await self._api_client.list_requests(limit=10_000)
         for request_data in response.items:
-            request = to_crawlee_request(request_data)
             request_id = request_data.id
+            if request_id is None:
+                continue
+
+            request = to_crawlee_request(request_data)
 
             if request.was_already_handled:
                 # Cache just id for deduplication

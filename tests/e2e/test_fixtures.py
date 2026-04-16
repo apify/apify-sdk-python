@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from crawlee._utils.crypto import crypto_random_object_id
@@ -64,7 +64,7 @@ async def test_actor_from_source_files(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    test_started_at = datetime.now(timezone.utc)
+    test_started_at = datetime.now(UTC)
     actor_source_files = {
         'src/utils.py': """
             from datetime import datetime, timezone
@@ -93,7 +93,7 @@ async def test_actor_from_source_files(
 
     output_datetime = datetime.fromisoformat(output_record['value'])
     assert output_datetime > test_started_at
-    assert output_datetime < datetime.now(timezone.utc)
+    assert output_datetime < datetime.now(UTC)
 
 
 async def test_apify_client_async_works(apify_client_async: ApifyClientAsync) -> None:

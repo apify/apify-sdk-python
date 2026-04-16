@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest_asyncio
 
 from apify import Actor
-from apify._models import ActorRun
+from apify._models import ActorJobStatus, ActorRun
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -54,7 +54,7 @@ async def ppe_push_data_actor_build(make_actor: MakeActorFunction) -> str:
     actor = await actor_client.get()
 
     assert actor is not None
-    return str(actor['id'])
+    return actor.id
 
 
 @pytest_asyncio.fixture(scope='function', loop_scope='module')

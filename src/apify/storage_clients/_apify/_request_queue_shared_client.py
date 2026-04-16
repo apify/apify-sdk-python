@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Final
 
@@ -214,7 +214,7 @@ class ApifyRequestQueueSharedClient:
         request_id = unique_key_to_request_id(request.unique_key)
         # Set the handled_at timestamp if not already set
         if request.handled_at is None:
-            request.handled_at = datetime.now(tz=timezone.utc)
+            request.handled_at = datetime.now(tz=UTC)
 
         if cached_request := self._requests_cache.get(request_id):
             cached_request.was_already_handled = request.was_already_handled

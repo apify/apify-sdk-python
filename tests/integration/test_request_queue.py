@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal, cast
 from unittest import mock
 
@@ -980,7 +980,7 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
     request_queue_name = generate_unique_resource_name('request_queue')
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
-    requests = [Request.from_url(f'http://example.com/{i}', handled_at=datetime.now(timezone.utc)) for i in range(10)]
+    requests = [Request.from_url(f'http://example.com/{i}', handled_at=datetime.now(UTC)) for i in range(10)]
 
     async with Actor:
         rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)

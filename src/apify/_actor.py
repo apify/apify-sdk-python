@@ -4,7 +4,7 @@ import asyncio
 import sys
 import warnings
 from contextlib import suppress
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
@@ -43,8 +43,7 @@ if TYPE_CHECKING:
     import logging
     from collections.abc import Callable
     from types import TracebackType
-
-    from typing_extensions import Self
+    from typing import Self
 
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
@@ -506,7 +505,7 @@ class _ActorType:
                 (increases exponentially from this value).
             timeout: The socket timeout of the HTTP requests sent to the Apify API.
         """
-        kwargs = {
+        kwargs: dict[str, Any] = {
             'token': token or self.configuration.token,
             'api_url': api_url or self.configuration.api_base_url,
         }
@@ -520,7 +519,7 @@ class _ActorType:
         if timeout is not None:
             kwargs['timeout_secs'] = int(timeout.total_seconds())
 
-        return ApifyClientAsync(**kwargs)  # ty: ignore[invalid-argument-type]
+        return ApifyClientAsync(**kwargs)
 
     @_ensure_context
     async def open_dataset(
@@ -929,7 +928,7 @@ class _ActorType:
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout=actor_start_timeout,
+            timeout=actor_start_timeout if actor_start_timeout is not None else 'medium',
             wait_for_finish=wait_for_finish,
             webhooks=serialized_webhooks,
         )
@@ -1052,7 +1051,7 @@ class _ActorType:
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout=actor_call_timeout,
+            timeout=actor_call_timeout if actor_call_timeout is not None else 'no_timeout',
             webhooks=serialized_webhooks,
             wait_duration=wait,
             logger=logger,
@@ -1127,7 +1126,7 @@ class _ActorType:
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout=task_call_timeout,
+            timeout=task_call_timeout if task_call_timeout is not None else 'no_timeout',
             webhooks=serialized_webhooks,
             wait_duration=wait,
         )
@@ -1436,7 +1435,7 @@ class _ActorType:
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
         if self.is_at_home() and self.configuration.timeout_at:
-            return max(self.configuration.timeout_at - datetime.now(tz=timezone.utc), timedelta(0))
+            return max(self.configuration.timeout_at - datetime.now(tz=UTC), timedelta(0))
 
         self.log.warning(
             'Using `inherit` or `RemainingTime` argument is only possible when the Actor'

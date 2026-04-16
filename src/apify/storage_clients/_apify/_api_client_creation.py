@@ -179,5 +179,4 @@ def _create_api_client(configuration: Configuration) -> ApifyClientAsync:
         api_public_url=configuration.api_public_base_url,
         max_retries=8,
         min_delay_between_retries=timedelta(milliseconds=500),
-        timeout=timedelta(seconds=360),
     )

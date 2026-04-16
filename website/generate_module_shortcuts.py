@@ -50,7 +50,7 @@ for module_name in ['apify', 'apify_client', 'apify_shared']:
         module = importlib.import_module(module_name)
         module_shortcuts = get_module_shortcuts(module)
         shortcuts.update(module_shortcuts)
-    except ModuleNotFoundError:  # noqa: PERF203
+    except ModuleNotFoundError:
         pass
 
 resolve_shortcuts(shortcuts)

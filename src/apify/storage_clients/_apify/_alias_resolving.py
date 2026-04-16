@@ -259,7 +259,6 @@ class AliasResolver:
             api_url=configuration.api_base_url,
             max_retries=8,
             min_delay_between_retries=timedelta(milliseconds=500),
-            timeout=timedelta(seconds=360),
         )
 
         if not configuration.default_key_value_store_id:

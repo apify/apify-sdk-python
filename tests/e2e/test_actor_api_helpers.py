@@ -452,7 +452,7 @@ async def test_actor_adds_webhook_and_receives_event(
 
             await Actor.add_webhook(
                 Webhook(
-                    event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED.value],
+                    event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED],
                     request_url=server_actor_container_url,
                 )
             )

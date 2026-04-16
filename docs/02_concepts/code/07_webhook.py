@@ -1,6 +1,6 @@
 import asyncio
 
-from apify import Actor, Webhook, WebhookEventType
+from apify import Actor, Webhook
 
 
 async def main() -> None:

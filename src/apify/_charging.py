@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
@@ -320,7 +320,7 @@ class ChargingManagerImplementation(ChargingManager):
                         'event_title': pricing_info.title,
                         'event_price_usd': round(pricing_info.price, 3),
                         'charged_count': charged_count,
-                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                        'timestamp': datetime.now(UTC).isoformat(),
                     }
                 )
 
