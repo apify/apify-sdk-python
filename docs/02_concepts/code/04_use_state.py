@@ -14,7 +14,7 @@ async def main() -> None:
         Actor.log.info(f'Resuming from item {start_index}')
 
         # Do some work and update the state — it is persisted automatically
-        for i in range(start_index, 100):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        for i in range(start_index, 100):  # ty: ignore[invalid-argument-type]
             Actor.log.info(f'Processing item {i}...')
             state['processed_items'] = i + 1
             await asyncio.sleep(0.1)

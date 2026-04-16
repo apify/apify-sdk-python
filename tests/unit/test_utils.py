@@ -14,14 +14,14 @@ def test_ipython_detection_when_active() -> None:
 
     original = getattr(builtins, '__IPYTHON__', None)
     try:
-        builtins.__IPYTHON__ = True  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        builtins.__IPYTHON__ = True  # ty: ignore[unresolved-attribute]
         assert is_running_in_ipython() is True
     finally:
         if original is None:
             if hasattr(builtins, '__IPYTHON__'):
                 del builtins.__IPYTHON__
         else:
-            builtins.__IPYTHON__ = original  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            builtins.__IPYTHON__ = original  # ty: ignore[unresolved-attribute]
 
 
 @pytest.mark.parametrize(
