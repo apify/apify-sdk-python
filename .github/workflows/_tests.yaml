@@ -16,7 +16,7 @@ jobs:
     uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
     secrets: inherit
     with:
-      python_versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+      python_versions: '["3.11", "3.12", "3.13", "3.14"]'
       operating_systems: '["ubuntu-latest", "windows-latest"]'
       python_version_for_codecov: "3.14"
       operating_system_for_codecov: ubuntu-latest
@@ -34,7 +34,7 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.11", "3.14"]
 
     runs-on: ${{ matrix.os }}
 
@@ -91,7 +91,7 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.11", "3.14"]
 
     runs-on: ${{ matrix.os }}
 
