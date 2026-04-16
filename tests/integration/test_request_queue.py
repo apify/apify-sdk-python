@@ -9,12 +9,12 @@ from unittest import mock
 import pytest
 
 from apify_client._models import BatchAddResult, RequestDraft
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 
 from ._utils import call_with_exp_backoff, generate_unique_resource_name, poll_until_condition
 from apify import Actor, Request
+from apify._consts import ApifyEnvVars
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify import ApifyRequestQueueClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id

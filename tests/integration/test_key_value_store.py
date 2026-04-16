@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
+from apify._consts import ApifyEnvVars
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 from apify.storages import KeyValueStore

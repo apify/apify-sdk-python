@@ -14,10 +14,10 @@ import websockets
 import websockets.asyncio.server
 import websockets.exceptions
 
-from apify_shared.consts import ActorEnvVars
 from crawlee.events._types import Event
 
 from apify import Configuration
+from apify._consts import ActorEnvVars
 from apify.events import ApifyEventManager
 from apify.events._types import SystemInfoEventData
 

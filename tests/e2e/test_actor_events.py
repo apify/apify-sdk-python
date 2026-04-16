@@ -3,9 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from apify_shared.consts import ActorEventTypes
-
 from apify import Actor
+from apify._consts import ActorEventTypes
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
@@ -22,8 +21,9 @@ async def test_emit_and_capture_interval_events(
         from datetime import datetime
         from typing import Any
 
-        from apify_shared.consts import ActorEventTypes, ApifyEnvVars
         from crawlee.events._types import Event, EventSystemInfoData
+
+        from apify._consts import ActorEventTypes, ApifyEnvVars
 
         os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
@@ -81,8 +81,9 @@ async def test_event_listener_can_be_removed_successfully(
         import os
         from typing import Any
 
-        from apify_shared.consts import ApifyEnvVars
         from crawlee.events._types import Event
+
+        from apify._consts import ApifyEnvVars
 
         os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '100'
 

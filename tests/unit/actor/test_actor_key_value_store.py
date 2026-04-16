@@ -4,12 +4,11 @@ import asyncio
 
 import pytest
 
-from apify_shared.consts import ApifyEnvVars
 from crawlee._utils.file import json_dumps
 
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 from apify import Actor
-from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX
+from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX, ApifyEnvVars
 from apify._crypto import public_encrypt
 
 

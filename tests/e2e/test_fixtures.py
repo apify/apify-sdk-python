@@ -20,7 +20,7 @@ async def test_actor_from_main_func(
     async def main() -> None:
         import os
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         async with Actor:
             await Actor.set_value('OUTPUT', os.getenv(ActorEnvVars.ID))

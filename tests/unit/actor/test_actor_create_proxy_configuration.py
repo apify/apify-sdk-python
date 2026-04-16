@@ -6,9 +6,9 @@ from unittest.mock import Mock
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 
 from apify import Actor
+from apify._consts import ApifyEnvVars
 
 if TYPE_CHECKING:
     from pytest_httpserver import HTTPServer

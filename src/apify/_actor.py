@@ -13,7 +13,6 @@ from more_itertools import flatten
 from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from crawlee import service_locator
 from crawlee.errors import ServiceConflictError
 from crawlee.events import (
@@ -28,7 +27,7 @@ from crawlee.events import (
 
 from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
-from apify._consts import EVENT_LISTENERS_TIMEOUT
+from apify._consts import EVENT_LISTENERS_TIMEOUT, ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._models import ActorRun
 from apify._proxy_configuration import ProxyConfiguration

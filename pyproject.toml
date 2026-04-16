@@ -35,7 +35,6 @@ keywords = [
 ]
 dependencies = [
     "apify-client @ git+https://github.com/apify/apify-client-python.git@master",
-    "apify-shared>=2.0.0,<3.0.0",
     "crawlee>=1.0.4,<2.0.0",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
@@ -187,7 +186,7 @@ builtins-ignorelist = ["id"]
 
 [tool.ruff.lint.isort]
 known-local-folder = ["apify"]
-known-first-party = ["apify_client", "apify_shared", "crawlee"]
+known-first-party = ["apify_client", "crawlee"]
 
 [tool.ruff.lint.pylint]
 max-branches = 18

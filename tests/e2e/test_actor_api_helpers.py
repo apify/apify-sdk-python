@@ -63,7 +63,7 @@ async def test_actor_creates_new_client_instance(
     async def main() -> None:
         import os
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         async with Actor:
             new_client = Actor.new_client()
@@ -316,7 +316,7 @@ async def test_actor_metamorphs_into_another_actor(
     async def main_inner() -> None:
         import os
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         async with Actor:
             assert os.getenv(ActorEnvVars.INPUT_KEY) is not None
@@ -414,7 +414,7 @@ async def test_actor_adds_webhook_and_receives_event(
         import os
         from http.server import BaseHTTPRequestHandler, HTTPServer
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         webhook_body = ''
 

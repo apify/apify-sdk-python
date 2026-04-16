@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
 from apify import Actor
+from apify._consts import ApifyEnvVars
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 from apify.storages import RequestQueue

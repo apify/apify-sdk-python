@@ -34,7 +34,6 @@ version = "3.3.3"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client" },
-    { name = "apify-shared" },
     { name = "cachetools" },
     { name = "crawlee" },
     { name = "cryptography" },
@@ -79,7 +78,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "apify-client", git = "https://github.com/apify/apify-client-python.git?rev=master" },
-    { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", specifier = ">=1.0.4,<2.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
@@ -127,15 +125,6 @@ dependencies = [
     { name = "impit" },
     { name = "more-itertools" },
     { name = "pydantic", extra = ["email"] },
-]
-
-[[package]]
-name = "apify-shared"
-version = "2.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ec/88/8833a8bba9044ce134bb2e57fbb626f1ddbeecac964bc2e2b652a50fadd1/apify_shared-2.2.0.tar.gz", hash = "sha256:ad48a96084e3c38faa1bac723a47929a1bb2c771544da2f0cb503eabdecfc79a", size = 45534, upload-time = "2026-01-15T10:17:14.592Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/75/7c/9607852e2bb324fa40a5b967e162dea1b3c76b429cf90b602e4a202c101a/apify_shared-2.2.0-py3-none-any.whl", hash = "sha256:667d4d00ac3cf8091702640547387ac5c72a1df402bbb3923f7a401bc25d9d50", size = 16408, upload-time = "2026-01-15T10:17:13.103Z" },
 ]
 
 [[package]]

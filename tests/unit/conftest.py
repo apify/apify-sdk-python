@@ -12,11 +12,11 @@ import pytest
 from pytest_httpserver import HTTPServer
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
 import apify.log
+from apify._consts import ApifyEnvVars
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 if TYPE_CHECKING:

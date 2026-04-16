@@ -15,11 +15,11 @@ from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
 from apify_client._models import ActorPermissionLevel, VersionSourceType
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
 from ._utils import generate_unique_resource_name
+from apify._consts import ApifyEnvVars
 from apify._models import ActorRun
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 

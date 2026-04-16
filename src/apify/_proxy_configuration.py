@@ -11,12 +11,12 @@ from urllib.parse import urljoin, urlparse
 import impit
 from yarl import URL
 
-from apify_shared.consts import ApifyEnvVars
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
 from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
 from crawlee.proxy_configuration import _NewUrlFunction
 
 from apify._configuration import Configuration
+from apify._consts import ApifyEnvVars
 from apify._utils import docs_group
 from apify.log import logger
 

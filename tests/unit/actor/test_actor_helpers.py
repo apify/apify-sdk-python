@@ -10,11 +10,11 @@ import pytest
 
 from apify_client import ApifyClientAsync
 from apify_client._models import Run, WebhookEventType
-from apify_shared.consts import ApifyEnvVars
 from crawlee.events._types import Event
 
 from apify import Actor, Webhook
 from apify._actor import _ActorType
+from apify._consts import ApifyEnvVars
 
 if TYPE_CHECKING:
     from ..conftest import ApifyClientAsyncPatcher
