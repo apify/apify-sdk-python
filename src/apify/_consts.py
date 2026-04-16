@@ -3,25 +3,20 @@ from __future__ import annotations
 import re
 from datetime import timedelta
 from enum import Enum, StrEnum
-from typing import Literal, get_args
 
 EVENT_LISTENERS_TIMEOUT = timedelta(seconds=5)
+"""Timeout for waiting on event listeners to finish during Actor exit."""
 
-BASE64_REGEXP = '[-A-Za-z0-9+/]*={0,3}'
 ENCRYPTED_STRING_VALUE_PREFIX = 'ENCRYPTED_VALUE'
+"""Prefix for encrypted string values in Actor input."""
+
 ENCRYPTED_JSON_VALUE_PREFIX = 'ENCRYPTED_JSON'
+"""Prefix for encrypted JSON values in Actor input."""
+
 ENCRYPTED_INPUT_VALUE_REGEXP = re.compile(
-    f'^({ENCRYPTED_STRING_VALUE_PREFIX}|{ENCRYPTED_JSON_VALUE_PREFIX}):(?:({BASE64_REGEXP}):)?({BASE64_REGEXP}):({BASE64_REGEXP})$'
+    r'^(ENCRYPTED_VALUE|ENCRYPTED_JSON):(?:([-A-Za-z0-9+/]*={0,3}):)?([-A-Za-z0-9+/]*={0,3}):([-A-Za-z0-9+/]*={0,3})$'
 )
-
-
-class ActorEventTypes(StrEnum):
-    """Event types that can be sent to Actors during execution."""
-
-    SYSTEM_INFO = 'systemInfo'
-    MIGRATING = 'migrating'
-    PERSIST_STATE = 'persistState'
-    ABORTING = 'aborting'
+"""Regex matching encrypted input values with base64-encoded components."""
 
 
 class ActorEnvVars(StrEnum):
@@ -91,88 +86,3 @@ class ActorExitCodes(int, Enum):
 
     SUCCESS = 0
     ERROR_USER_FUNCTION_THREW = 91
-
-
-# Environment variable type classification lists.
-
-INTEGER_ENV_VARS_TYPE = Literal[
-    ActorEnvVars.MAX_PAID_DATASET_ITEMS,
-    ActorEnvVars.MEMORY_MBYTES,
-    ActorEnvVars.STANDBY_PORT,
-    ActorEnvVars.WEB_SERVER_PORT,
-    ApifyEnvVars.DEDICATED_CPUS,
-    ApifyEnvVars.LOG_LEVEL,
-    ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS,
-    ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS,
-    ApifyEnvVars.PROXY_PORT,
-    ApifyEnvVars.SYSTEM_INFO_INTERVAL_MILLIS,
-]
-
-INTEGER_ENV_VARS: list[INTEGER_ENV_VARS_TYPE] = list(get_args(INTEGER_ENV_VARS_TYPE))
-
-FLOAT_ENV_VARS_TYPE = Literal[
-    ActorEnvVars.MAX_TOTAL_CHARGE_USD,
-    ApifyEnvVars.MAX_USED_CPU_RATIO,
-]
-
-FLOAT_ENV_VARS: list[FLOAT_ENV_VARS_TYPE] = list(get_args(FLOAT_ENV_VARS_TYPE))
-
-BOOL_ENV_VARS_TYPE = Literal[
-    ApifyEnvVars.DISABLE_BROWSER_SANDBOX,
-    ApifyEnvVars.DISABLE_OUTDATED_WARNING,
-    ApifyEnvVars.HEADLESS,
-    ApifyEnvVars.IS_AT_HOME,
-    ApifyEnvVars.PERSIST_STORAGE,
-    ApifyEnvVars.PURGE_ON_START,
-    ApifyEnvVars.USER_IS_PAYING,
-]
-
-BOOL_ENV_VARS: list[BOOL_ENV_VARS_TYPE] = list(get_args(BOOL_ENV_VARS_TYPE))
-
-DATETIME_ENV_VARS_TYPE = Literal[
-    ActorEnvVars.STARTED_AT,
-    ActorEnvVars.TIMEOUT_AT,
-]
-
-DATETIME_ENV_VARS: list[DATETIME_ENV_VARS_TYPE] = list(get_args(DATETIME_ENV_VARS_TYPE))
-
-STRING_ENV_VARS_TYPE = Literal[
-    ActorEnvVars.BUILD_ID,
-    ActorEnvVars.BUILD_NUMBER,
-    ActorEnvVars.DEFAULT_DATASET_ID,
-    ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID,
-    ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID,
-    ActorEnvVars.EVENTS_WEBSOCKET_URL,
-    ActorEnvVars.FULL_NAME,
-    ActorEnvVars.ID,
-    ActorEnvVars.INPUT_KEY,
-    ActorEnvVars.PERMISSION_LEVEL,
-    ActorEnvVars.RUN_ID,
-    ActorEnvVars.STANDBY_URL,
-    ActorEnvVars.TASK_ID,
-    ActorEnvVars.WEB_SERVER_URL,
-    ApifyEnvVars.API_BASE_URL,
-    ApifyEnvVars.API_PUBLIC_BASE_URL,
-    ApifyEnvVars.DEFAULT_BROWSER_PATH,
-    ApifyEnvVars.FACT,
-    ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_FILE,
-    ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_PASSPHRASE,
-    ApifyEnvVars.LOCAL_STORAGE_DIR,
-    ApifyEnvVars.LOG_FORMAT,
-    ApifyEnvVars.META_ORIGIN,
-    ApifyEnvVars.PROXY_HOSTNAME,
-    ApifyEnvVars.PROXY_PASSWORD,
-    ApifyEnvVars.PROXY_STATUS_URL,
-    ApifyEnvVars.SDK_LATEST_VERSION,
-    ApifyEnvVars.TOKEN,
-    ApifyEnvVars.USER_ID,
-    ApifyEnvVars.WORKFLOW_KEY,
-]
-
-STRING_ENV_VARS: list[STRING_ENV_VARS_TYPE] = list(get_args(STRING_ENV_VARS_TYPE))
-
-COMMA_SEPARATED_LIST_ENV_VARS_TYPE = Literal[ActorEnvVars.BUILD_TAGS]
-
-COMMA_SEPARATED_LIST_ENV_VARS: list[COMMA_SEPARATED_LIST_ENV_VARS_TYPE] = list(
-    get_args(COMMA_SEPARATED_LIST_ENV_VARS_TYPE)
-)

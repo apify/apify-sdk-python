@@ -4,7 +4,6 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from apify import Actor
-from apify._consts import ActorEventTypes
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
@@ -23,28 +22,28 @@ async def test_emit_and_capture_interval_events(
 
         from crawlee.events._types import Event, EventSystemInfoData
 
-        from apify._consts import ActorEventTypes, ApifyEnvVars
+        from apify._consts import ApifyEnvVars
 
         os.environ[ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS] = '900'
 
         was_system_info_emitted = False
         system_infos = list[EventSystemInfoData]()
 
-        def on_event(event_type: ActorEventTypes) -> Callable:
+        def on_event(event_type: str) -> Callable:
             async def log_event(data: Any) -> None:
                 nonlocal was_system_info_emitted
                 nonlocal system_infos
                 print(f'Got actor event ({event_type=}, {data=})')
                 await Actor.push_data({'event_type': event_type, 'data': data})
-                if event_type == ActorEventTypes.SYSTEM_INFO:
+                if event_type == 'systemInfo':
                     was_system_info_emitted = True
                     system_infos.append(data)
 
             return log_event
 
         async with Actor:
-            Actor.on(Event.SYSTEM_INFO, on_event(ActorEventTypes.SYSTEM_INFO))
-            Actor.on(Event.PERSIST_STATE, on_event(ActorEventTypes.PERSIST_STATE))
+            Actor.on(Event.SYSTEM_INFO, on_event('systemInfo'))
+            Actor.on(Event.PERSIST_STATE, on_event('persistState'))
             await asyncio.sleep(3)
 
             # The SYSTEM_INFO event sometimes takes a while to appear, let's wait for it for a while longer.
@@ -63,12 +62,8 @@ async def test_emit_and_capture_interval_events(
     assert run_result.status.value == 'SUCCEEDED'
 
     dataset_items_page = await actor.last_run().dataset().list_items()
-    persist_state_events = [
-        item for item in dataset_items_page.items if item['event_type'] == ActorEventTypes.PERSIST_STATE
-    ]
-    system_info_events = [
-        item for item in dataset_items_page.items if item['event_type'] == ActorEventTypes.SYSTEM_INFO
-    ]
+    persist_state_events = [item for item in dataset_items_page.items if item['event_type'] == 'persistState']
+    system_info_events = [item for item in dataset_items_page.items if item['event_type'] == 'systemInfo']
     assert len(persist_state_events) > 2
     assert len(system_info_events) > 0
 

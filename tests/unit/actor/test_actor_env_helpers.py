@@ -9,16 +9,77 @@ from typing import TYPE_CHECKING, Any
 from pydantic_core import TzInfo
 
 from apify import Actor
-from apify._consts import (
-    BOOL_ENV_VARS,
-    COMMA_SEPARATED_LIST_ENV_VARS,
-    DATETIME_ENV_VARS,
-    FLOAT_ENV_VARS,
-    INTEGER_ENV_VARS,
-    STRING_ENV_VARS,
-    ActorEnvVars,
-    ApifyEnvVars,
-)
+from apify._consts import ActorEnvVars, ApifyEnvVars
+
+INTEGER_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
+    ActorEnvVars.MAX_PAID_DATASET_ITEMS,
+    ActorEnvVars.MEMORY_MBYTES,
+    ActorEnvVars.STANDBY_PORT,
+    ActorEnvVars.WEB_SERVER_PORT,
+    ApifyEnvVars.DEDICATED_CPUS,
+    ApifyEnvVars.LOG_LEVEL,
+    ApifyEnvVars.METAMORPH_AFTER_SLEEP_MILLIS,
+    ApifyEnvVars.PERSIST_STATE_INTERVAL_MILLIS,
+    ApifyEnvVars.PROXY_PORT,
+    ApifyEnvVars.SYSTEM_INFO_INTERVAL_MILLIS,
+]
+
+FLOAT_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
+    ActorEnvVars.MAX_TOTAL_CHARGE_USD,
+    ApifyEnvVars.MAX_USED_CPU_RATIO,
+]
+
+BOOL_ENV_VARS: list[ApifyEnvVars] = [
+    ApifyEnvVars.DISABLE_BROWSER_SANDBOX,
+    ApifyEnvVars.DISABLE_OUTDATED_WARNING,
+    ApifyEnvVars.HEADLESS,
+    ApifyEnvVars.IS_AT_HOME,
+    ApifyEnvVars.PERSIST_STORAGE,
+    ApifyEnvVars.PURGE_ON_START,
+    ApifyEnvVars.USER_IS_PAYING,
+]
+
+DATETIME_ENV_VARS: list[ActorEnvVars] = [
+    ActorEnvVars.STARTED_AT,
+    ActorEnvVars.TIMEOUT_AT,
+]
+
+STRING_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
+    ActorEnvVars.BUILD_ID,
+    ActorEnvVars.BUILD_NUMBER,
+    ActorEnvVars.DEFAULT_DATASET_ID,
+    ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID,
+    ActorEnvVars.DEFAULT_REQUEST_QUEUE_ID,
+    ActorEnvVars.EVENTS_WEBSOCKET_URL,
+    ActorEnvVars.FULL_NAME,
+    ActorEnvVars.ID,
+    ActorEnvVars.INPUT_KEY,
+    ActorEnvVars.PERMISSION_LEVEL,
+    ActorEnvVars.RUN_ID,
+    ActorEnvVars.STANDBY_URL,
+    ActorEnvVars.TASK_ID,
+    ActorEnvVars.WEB_SERVER_URL,
+    ApifyEnvVars.API_BASE_URL,
+    ApifyEnvVars.API_PUBLIC_BASE_URL,
+    ApifyEnvVars.DEFAULT_BROWSER_PATH,
+    ApifyEnvVars.FACT,
+    ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_FILE,
+    ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_PASSPHRASE,
+    ApifyEnvVars.LOCAL_STORAGE_DIR,
+    ApifyEnvVars.LOG_FORMAT,
+    ApifyEnvVars.META_ORIGIN,
+    ApifyEnvVars.PROXY_HOSTNAME,
+    ApifyEnvVars.PROXY_PASSWORD,
+    ApifyEnvVars.PROXY_STATUS_URL,
+    ApifyEnvVars.SDK_LATEST_VERSION,
+    ApifyEnvVars.TOKEN,
+    ApifyEnvVars.USER_ID,
+    ApifyEnvVars.WORKFLOW_KEY,
+]
+
+COMMA_SEPARATED_LIST_ENV_VARS: list[ActorEnvVars] = [
+    ActorEnvVars.BUILD_TAGS,
+]
 
 if TYPE_CHECKING:
     from pathlib import Path
