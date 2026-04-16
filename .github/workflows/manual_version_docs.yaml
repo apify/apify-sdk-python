@@ -78,6 +78,8 @@ jobs:
 
       - name: Install pnpm and website dependencies
         uses: apify/workflows/pnpm-install@main
+        with:
+          working-directory: website
 
       - name: Snapshot the current version
         id: snapshot
