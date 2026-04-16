@@ -9,13 +9,14 @@ from cachetools import LRUCache
 
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
-from ._utils import unique_key_to_request_id
-from apify import Request
+from ._utils import to_crawlee_request, unique_key_to_request_id
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
+    from apify_client._resource_clients import RequestQueueClientAsync
+
+    from apify import Request
 
 logger = getLogger(__name__)
 
@@ -147,22 +148,20 @@ class ApifyRequestQueueSingleClient:
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
-            requests_dict = [
-                request.model_dump(
-                    by_alias=True,
-                )
-                for request in new_requests
-            ]
+            requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
 
             # Send requests to API.
-            api_response = AddRequestsResponse.model_validate(
-                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
-            )
+            batch_response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+            batch_response_dict = batch_response.model_dump(by_alias=True)
+            api_response = AddRequestsResponse.model_validate(batch_response_dict)
+
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
+
             # Remove unprocessed requests from the cache
             for unprocessed_request in api_response.unprocessed_requests:
-                self._requests_cache.pop(unique_key_to_request_id(unprocessed_request.unique_key), None)
+                request_id = unique_key_to_request_id(unprocessed_request.unique_key)
+                self._requests_cache.pop(request_id, None)
 
         else:
             api_response = AddRequestsResponse(
@@ -288,16 +287,16 @@ class ApifyRequestQueueSingleClient:
 
         # Update metadata
         # Check if there is another client working with the RequestQueue
-        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        self.metadata.had_multiple_clients = response.had_multiple_clients
         # Should warn once? This might be outside expected context if the other consumers consumes at the same time
 
-        if modified_at := response.get('queueModifiedAt'):
-            self.metadata.modified_at = max(self.metadata.modified_at, modified_at)
+        if response.queue_modified_at:
+            self.metadata.modified_at = max(self.metadata.modified_at, response.queue_modified_at)
 
         # Update the cached data
-        for request_data in response.get('items', []):
-            request = Request.model_validate(request_data)
-            request_id = request_data['id']
+        for request_data in response.items:
+            request = to_crawlee_request(request_data)
+            request_id = request_data.id
 
             if request_id in self._requests_in_progress:
                 # Ignore requests that are already in progress, we will not process them again.
@@ -333,7 +332,7 @@ class ApifyRequestQueueSingleClient:
         if response is None:
             return None
 
-        request = Request.model_validate(response)
+        request = to_crawlee_request(response)
 
         # Updated local caches
         if id in self._requests_in_progress:
@@ -370,7 +369,7 @@ class ApifyRequestQueueSingleClient:
         )
 
         return ProcessedRequest.model_validate(
-            {'uniqueKey': request.unique_key} | response,
+            {'uniqueKey': request.unique_key} | response.model_dump(by_alias=True),
         )
 
     async def _init_caches(self) -> None:
@@ -383,9 +382,9 @@ class ApifyRequestQueueSingleClient:
         Local deduplication is cheaper, it takes 1 API call for whole cache and 1 read operation per request.
         """
         response = await self._api_client.list_requests(limit=10_000)
-        for request_data in response.get('items', []):
-            request = Request.model_validate(request_data)
-            request_id = request_data['id']
+        for request_data in response.items:
+            request = to_crawlee_request(request_data)
+            request_id = request_data.id
 
             if request.was_already_handled:
                 # Cache just id for deduplication
