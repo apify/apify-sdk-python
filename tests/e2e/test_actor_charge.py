@@ -171,7 +171,6 @@ async def test_actor_push_data_charges_both_events(
     """Test that push_data charges both the explicit event and the synthetic apify-default-dataset-item event."""
     run = await run_actor(ppe_push_data_actor)
 
-    # Refetch until the platform gets its act together.
     # Use a longer retry window (120 attempts x 1 s) for synthetic events like `apify-default-dataset-item`:
     # the platform computes them from dataset writes asynchronously, so they propagate more slowly than
     # explicit charges (which are reflected immediately via the charge endpoint).
@@ -203,7 +202,6 @@ async def test_actor_push_data_combined_budget_limit(
     """
     run = await run_actor(ppe_push_data_actor, max_total_charge_usd=Decimal('0.20'))
 
-    # Refetch until the platform gets its act together.
     # Use a longer retry window (120 attempts x 1 s) for synthetic events like `apify-default-dataset-item`:
     # the platform computes them from dataset writes asynchronously, so they propagate more slowly than
     # explicit charges (which are reflected immediately via the charge endpoint).
