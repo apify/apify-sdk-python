@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC
 from typing import TYPE_CHECKING
 
 from apify import Actor
@@ -20,7 +19,7 @@ async def test_actor_start_inherit_timeout(
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor start."""
 
     async def main() -> None:
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}
@@ -70,7 +69,7 @@ async def test_actor_call_inherit_timeout(
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor call."""
 
     async def main() -> None:
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}

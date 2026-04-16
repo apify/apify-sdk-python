@@ -351,7 +351,15 @@ def make_actor(
         if actor is not None and actor.pricing_infos is not None:
             # Convert Pydantic models to dicts before mixing with plain dict
             existing_pricing_infos = [pi.model_dump(by_alias=True, exclude_none=True) for pi in actor.pricing_infos]
-            new_pricing_infos = [*existing_pricing_infos, {'pricingModel': 'FREE'}]
+            new_pricing_infos = [
+                *existing_pricing_infos,
+                {
+                    'pricingModel': 'FREE',
+                    'apifyMarginPercentage': 0.0,
+                    'createdAt': '2024-01-01T00:00:00.000Z',
+                    'startedAt': '2024-01-01T00:00:00.000Z',
+                },
+            ]
             actor_client.update(pricing_infos=new_pricing_infos)
 
         actor_client.delete()

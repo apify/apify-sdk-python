@@ -34,6 +34,9 @@ async def ppe_push_data_actor_build(make_actor: MakeActorFunction) -> str:
         pricing_infos=[
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'push-item': {
@@ -84,6 +87,9 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
         pricing_infos=[
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'foobar': {
