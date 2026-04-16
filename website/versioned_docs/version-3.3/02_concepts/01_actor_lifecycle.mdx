@@ -97,7 +97,7 @@ Before triggering a reboot, persist any essential state externally (e.g., to the
 
 ## Status message
 
-[Status messages](https://docs.apify.com/platform/actors/development/programming-interface/status-messages) are lightweight, human-readable progress indicators displayed with the Actor run in the Apify Console. Use them to communicate high-level phases or milestones, such as "Fetching list", "Processed 120/500 pages", or "Uploading results". When running locally, the SDK logs the status message instead of sending it to the platform.
+[Status messages](https://docs.apify.com/platform/actors/development/programming-interface/status-messages) are lightweight, human-readable progress indicators displayed with the Actor run in Apify Console. Use them to communicate high-level phases or milestones, such as "Fetching list", "Processed 120/500 pages", or "Uploading results". When running locally, the SDK logs the status message instead of sending it to the platform.
 
 Update the status only when the user's understanding of progress changes - avoid frequent updates for every processed item. Detailed information should go to logs or storages (dataset, key-value store) instead.
 
