@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,6 +9,9 @@ from crawlee.storage_clients.models import KeyValueStoreMetadata, RequestQueueMe
 
 from apify import Request
 from apify._utils import docs_group
+
+if TYPE_CHECKING:
+    from apify_client._models import LockedRequestQueueHead
 
 
 @docs_group('Storage data')
@@ -58,6 +61,22 @@ class RequestQueueHead(BaseModel):
 
     items: Annotated[list[Request], Field(alias='items', default_factory=list[Request])]
     """The list of request objects retrieved from the beginning of the queue."""
+
+    @classmethod
+    def from_client_locked_head(cls, client_locked_head: LockedRequestQueueHead) -> RequestQueueHead:
+        """Create a `RequestQueueHead` from an Apify API client's `LockedRequestQueueHead` model.
+
+        Args:
+            client_locked_head: `LockedRequestQueueHead` instance from Apify API client.
+
+        Returns:
+            `RequestQueueHead` instance with properly converted types.
+        """
+        # Dump to dict with mode='json' to serialize special types like AnyUrl
+        head_dict = client_locked_head.model_dump(by_alias=True, mode='json')
+
+        # Validate and construct RequestQueueHead from the serialized dict
+        return cls.model_validate(head_dict)
 
 
 class KeyValueStoreKeyInfo(BaseModel):

@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from apify_shared.consts import ActorJobStatus, MetaOrigin, WebhookEventType
+from apify_client._models import ActorJobStatus, Run
 from crawlee._utils.urls import validate_http_url
 
 from apify._utils import docs_group
@@ -53,7 +53,7 @@ class Webhook(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     event_types: Annotated[
-        list[WebhookEventType],
+        list[str],
         Field(alias='eventTypes', description='Event types that should trigger the webhook'),
     ]
     request_url: Annotated[
@@ -84,7 +84,7 @@ class Webhook(BaseModel):
 class ActorRunMeta(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
-    origin: Annotated[MetaOrigin, Field()]
+    origin: Annotated[str, Field()]
     client_ip: Annotated[str | None, Field(alias='clientIp')] = None
     user_agent: Annotated[str | None, Field(alias='userAgent')] = None
     schedule_id: Annotated[str | None, Field(alias='scheduleId')] = None
@@ -224,33 +224,85 @@ class PayPerEventActorPricingInfo(CommonActorPricingInfo):
 
 @docs_group('Actor')
 class ActorRun(BaseModel):
+    """Represents an Actor run and its associated data."""
+
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     id: Annotated[str, Field(alias='id')]
+    """Unique identifier of the Actor run."""
+
     act_id: Annotated[str, Field(alias='actId')]
+    """ID of the Actor that was run."""
+
     user_id: Annotated[str, Field(alias='userId')]
+    """ID of the user who started the run."""
+
     actor_task_id: Annotated[str | None, Field(alias='actorTaskId')] = None
+    """ID of the Actor task, if the run was started from a task."""
+
     started_at: Annotated[datetime, Field(alias='startedAt')]
+    """Time when the Actor run started."""
+
     finished_at: Annotated[datetime | None, Field(alias='finishedAt')] = None
+    """Time when the Actor run finished."""
+
     status: Annotated[ActorJobStatus, Field(alias='status')]
+    """Current status of the Actor run."""
+
     status_message: Annotated[str | None, Field(alias='statusMessage')] = None
+    """Detailed message about the run status."""
+
     is_status_message_terminal: Annotated[bool | None, Field(alias='isStatusMessageTerminal')] = None
+    """Whether the status message is terminal (final)."""
+
     meta: Annotated[ActorRunMeta, Field(alias='meta')]
+    """Metadata about the Actor run."""
+
     stats: Annotated[ActorRunStats, Field(alias='stats')]
+    """Statistics of the Actor run."""
+
     options: Annotated[ActorRunOptions, Field(alias='options')]
+    """Configuration options for the Actor run."""
+
     build_id: Annotated[str, Field(alias='buildId')]
+    """ID of the Actor build used for this run."""
+
     exit_code: Annotated[int | None, Field(alias='exitCode')] = None
+    """Exit code of the Actor run process."""
+
     general_access: Annotated[str | None, Field(alias='generalAccess')] = None
+    """General access level for the Actor run."""
+
     default_key_value_store_id: Annotated[str, Field(alias='defaultKeyValueStoreId')]
+    """ID of the default key-value store for this run."""
+
     default_dataset_id: Annotated[str, Field(alias='defaultDatasetId')]
+    """ID of the default dataset for this run."""
+
     default_request_queue_id: Annotated[str, Field(alias='defaultRequestQueueId')]
+    """ID of the default request queue for this run."""
+
     build_number: Annotated[str | None, Field(alias='buildNumber')] = None
+    """Build number of the Actor build used for this run."""
+
     container_url: Annotated[str | None, Field(alias='containerUrl')] = None
+    """URL of the container running the Actor."""
+
     is_container_server_ready: Annotated[bool | None, Field(alias='isContainerServerReady')] = None
+    """Whether the container's HTTP server is ready to accept requests."""
+
     git_branch_name: Annotated[str | None, Field(alias='gitBranchName')] = None
+    """Name of the git branch used for the Actor build."""
+
     usage: Annotated[ActorRunUsage | None, Field(alias='usage')] = None
+    """Resource usage statistics for the run."""
+
     usage_total_usd: Annotated[float | None, Field(alias='usageTotalUsd')] = None
+    """Total cost of the run in USD."""
+
     usage_usd: Annotated[ActorRunUsageUsd | None, Field(alias='usageUsd')] = None
+    """Resource usage costs in USD."""
+
     pricing_info: Annotated[
         FreeActorPricingInfo
         | FlatPricePerMonthActorPricingInfo
@@ -259,8 +311,29 @@ class ActorRun(BaseModel):
         | None,
         Field(alias='pricingInfo', discriminator='pricing_model'),
     ] = None
+    """Pricing information for the Actor."""
+
     charged_event_counts: Annotated[
         dict[str, int] | None,
         Field(alias='chargedEventCounts'),
     ] = None
+    """Count of charged events for pay-per-event pricing model."""
+
     metamorphs: Annotated[list[Metamorph] | None, Field(alias='metamorphs')] = None
+    """List of metamorph events that occurred during the run."""
+
+    @classmethod
+    def from_client_actor_run(cls, client_actor_run: Run) -> ActorRun:
+        """Create an `ActorRun` from an Apify API client's `Run` model.
+
+        Args:
+            client_actor_run: `Run` instance from Apify API client.
+
+        Returns:
+            `ActorRun` instance with properly converted types.
+        """
+        # Dump to dict first with mode='json' to serialize special types
+        client_actor_run_dict = client_actor_run.model_dump(by_alias=True, mode='json')
+
+        # Validate and construct ActorRun from the serialized dict
+        return cls.model_validate(client_actor_run_dict)

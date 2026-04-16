@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from apify_shared.consts import ActorPermissionLevel
+from apify_client._models import ActorPermissionLevel
 
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
@@ -40,7 +40,7 @@ async def test_actor_scrapy_title_spider(
         force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
     )
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     items = await actor.last_run().dataset().list_items()
 
