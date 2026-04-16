@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
+from apify_client._models import ActorJobStatus
+
 from apify import Actor
-from apify._models import ActorJobStatus, ActorRun
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -132,7 +133,7 @@ async def test_actor_charge_basic(
         updated_run = await run_client.get()
         assert updated_run is not None, 'Updated run should not be None'
 
-        run = ActorRun.from_client_actor_run(updated_run)
+        run = updated_run
 
         try:
             assert run.status.value == 'SUCCEEDED'
@@ -158,7 +159,7 @@ async def test_actor_charge_limit(
         updated_run = await run_client.get()
         assert updated_run is not None, 'Updated run should not be None'
 
-        run_result = ActorRun.from_client_actor_run(updated_run)
+        run_result = updated_run
 
         try:
             assert run_result.status.value == 'SUCCEEDED'
@@ -183,7 +184,8 @@ async def test_actor_push_data_charges_both_events(
     for is_last_attempt, _ in retry_counter(120):
         await asyncio.sleep(1)
         updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+        assert updated_run is not None
+        run = updated_run
 
         try:
             assert run.status == ActorJobStatus.SUCCEEDED
@@ -214,7 +216,8 @@ async def test_actor_push_data_combined_budget_limit(
     for is_last_attempt, _ in retry_counter(120):
         await asyncio.sleep(1)
         updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+        assert updated_run is not None
+        run = updated_run
 
         try:
             assert run.status == ActorJobStatus.SUCCEEDED

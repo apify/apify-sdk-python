@@ -4,9 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from apify_client._models import Run
     from apify_client._resource_clients import ActorClientAsync
-
-    from apify._models import ActorRun
 
 _ACTOR_SOURCE_DIR = Path(__file__).parent / 'actor_source'
 
@@ -43,7 +42,7 @@ _EXPECTED_PRODUCTS = {
 
 async def verify_spider_results(
     actor: ActorClientAsync,
-    run_result: ActorRun,
+    run_result: Run,
     *,
     expected_products: dict[str, dict[str, str]] | None = None,
 ) -> None:

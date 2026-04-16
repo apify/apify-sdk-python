@@ -4,7 +4,6 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from apify import Actor
-from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -43,7 +42,7 @@ async def test_request_queue_not_had_multiple_clients_platform_resurrection(
         raw_run_result = await run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
         assert raw_run_result is not None
 
-        run_result = ActorRun.from_client_actor_run(raw_run_result)
+        run_result = raw_run_result
         assert run_result.status == 'SUCCEEDED'
 
 

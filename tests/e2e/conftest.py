@@ -14,13 +14,12 @@ import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
-from apify_client._models import ActorPermissionLevel, VersionSourceType
+from apify_client._models import ActorPermissionLevel, Run, VersionSourceType
 from crawlee import service_locator
 
 import apify._actor
 from ._utils import generate_unique_resource_name
 from apify._consts import ApifyEnvVars
-from apify._models import ActorRun
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 if TYPE_CHECKING:
@@ -368,7 +367,7 @@ class RunActorFunction(Protocol):
         run_input: Any = None,
         max_total_charge_usd: Decimal | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
-    ) -> Coroutine[None, None, ActorRun]:
+    ) -> Coroutine[None, None, Run]:
         """Initiate an Actor run and wait for its completion.
 
         Args:
@@ -395,7 +394,7 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         run_input: Any = None,
         max_total_charge_usd: Decimal | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         call_result = await actor.call(
             run_input=run_input,
             max_total_charge_usd=max_total_charge_usd,
@@ -409,6 +408,6 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
 
         assert client_actor_run is not None, 'Actor run did not finish successfully within the expected time.'
 
-        return ActorRun.from_client_actor_run(client_actor_run)
+        return client_actor_run
 
     return _run_actor

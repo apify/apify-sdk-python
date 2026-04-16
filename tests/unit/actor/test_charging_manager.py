@@ -6,12 +6,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from apify._charging import ChargingManagerImplementation
-from apify._configuration import Configuration
-from apify._models import (
+from apify_client._models import (
     ActorChargeEvent,
     PayPerEventActorPricingInfo,
 )
+
+from apify._charging import ChargingManagerImplementation
+from apify._configuration import Configuration
 
 
 def _make_config(**kwargs: Any) -> Configuration:
@@ -49,12 +50,17 @@ def _make_ppe_pricing_info(events: dict[str, Decimal] | None = None) -> PayPerEv
     if events is None:
         events = {'search': Decimal('0.01'), 'scrape': Decimal('0.05')}
     charge_events = {
-        name: ActorChargeEvent.model_validate({'eventPriceUsd': price, 'eventTitle': f'{name} event'})
+        name: ActorChargeEvent.model_validate(
+            {'eventPriceUsd': price, 'eventTitle': f'{name} event', 'eventDescription': f'{name} event description'}
+        )
         for name, price in events.items()
     }
     return PayPerEventActorPricingInfo.model_validate(
         {
             'pricingModel': 'PAY_PER_EVENT',
+            'apifyMarginPercentage': 0.0,
+            'createdAt': '2024-01-01T00:00:00.000Z',
+            'startedAt': '2024-01-01T00:00:00.000Z',
             'pricingPerEvent': {
                 'actorChargeEvents': {name: event.model_dump(by_alias=True) for name, event in charge_events.items()}
             },

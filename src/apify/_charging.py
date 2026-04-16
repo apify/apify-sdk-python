@@ -7,16 +7,13 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
-from pydantic import TypeAdapter
-
-from apify._models import (
-    ActorRun,
+from apify_client._models import (
     FlatPricePerMonthActorPricingInfo,
     FreeActorPricingInfo,
     PayPerEventActorPricingInfo,
     PricePerDatasetItemActorPricingInfo,
-    PricingModel,
 )
+
 from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.log import logger
 from apify.storages import Dataset
@@ -27,8 +24,7 @@ if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
     from apify._configuration import Configuration
-
-run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
+    from apify._models import PricingModel
 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 
@@ -432,15 +428,10 @@ class ChargingManagerImplementation(ChargingManager):
             if run is None:
                 raise RuntimeError('Actor run not found')
 
-            actor_run = ActorRun.from_client_actor_run(run)
-
-            if actor_run is None:
-                raise RuntimeError('Actor run not found')
-
-            max_charge = actor_run.options.max_total_charge_usd
+            max_charge = run.options.max_total_charge_usd
             return _FetchedPricingInfoDict(
-                pricing_info=actor_run.pricing_info,
-                charged_event_counts=actor_run.charged_event_counts or {},
+                pricing_info=run.pricing_info,
+                charged_event_counts=run.charged_event_counts or {},
                 max_total_charge_usd=Decimal(str(max_charge)) if max_charge is not None else Decimal('inf'),
             )
 

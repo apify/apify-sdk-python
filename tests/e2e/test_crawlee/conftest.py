@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from apify_client._models import Run
     from apify_client._resource_clients import ActorClientAsync
-
-    from apify._models import ActorRun
 
 _PYTHON_VERSION = f'{sys.version_info[0]}.{sys.version_info[1]}'
 
@@ -34,7 +33,7 @@ _EXPECTED_PRODUCTS = {
 
 async def verify_crawler_results(
     actor: ActorClientAsync,
-    run_result: ActorRun,
+    run_result: Run,
     expected_crawler_type: str,
 ) -> None:
     """Verify dataset items and KVS record after a crawler Actor run."""

@@ -10,7 +10,6 @@ from crawlee._utils.crypto import crypto_random_object_id
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
-from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -301,7 +300,7 @@ async def test_actor_aborts_another_actor_run(
     if inner_actor_run is None:
         raise AssertionError('Failed to get inner actor run after aborting it.')
 
-    inner_actor_last_run = ActorRun.from_client_actor_run(inner_actor_run)
+    inner_actor_last_run = inner_actor_run
 
     assert inner_actor_last_run.status.value == 'ABORTED'
 
@@ -483,7 +482,7 @@ async def test_actor_adds_webhook_and_receives_event(
     if sa_run_client_run is None:
         raise AssertionError('Failed to get server actor run after waiting for finish.')
 
-    sa_run_result = ActorRun.from_client_actor_run(sa_run_client_run)
+    sa_run_result = sa_run_client_run
 
     assert sa_run_result.status.value == 'SUCCEEDED'
 

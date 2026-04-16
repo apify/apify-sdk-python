@@ -29,7 +29,6 @@ from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingMa
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
-from apify._models import ActorRun
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
@@ -44,6 +43,7 @@ if TYPE_CHECKING:
     from types import TracebackType
     from typing import Self
 
+    from apify_client._models import Run
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
@@ -869,7 +869,7 @@ class _ActorType:
         timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         """Run an Actor on the Apify platform.
 
         Unlike `Actor.call`, this method just starts the run without waiting for finish.
@@ -935,7 +935,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to start Actor with ID "{actor_id}".')
 
-        return ActorRun.from_client_actor_run(run)
+        return run
 
     @_ensure_context
     async def abort(
@@ -945,7 +945,7 @@ class _ActorType:
         token: str | None = None,
         status_message: str | None = None,
         gracefully: bool | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         """Abort given Actor run on the Apify platform using the current user account.
 
         The user account is determined by the `APIFY_TOKEN` environment variable.
@@ -972,7 +972,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to abort Actor run with ID "{run_id}".')
 
-        return ActorRun.from_client_actor_run(run)
+        return run
 
     @_ensure_context
     async def call(
@@ -988,7 +988,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | None | Literal['default'] = 'default',
-    ) -> ActorRun | None:
+    ) -> Run | None:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1059,7 +1059,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
 
-        return ActorRun.from_client_actor_run(run)
+        return run
 
     @_ensure_context
     async def call_task(
@@ -1073,7 +1073,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
-    ) -> ActorRun | None:
+    ) -> Run | None:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1133,7 +1133,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
 
-        return ActorRun.from_client_actor_run(run)
+        return run
 
     @_ensure_context
     async def metamorph(
@@ -1299,7 +1299,7 @@ class _ActorType:
         status_message: str,
         *,
         is_terminal: bool | None = None,
-    ) -> ActorRun | None:
+    ) -> Run | None:
         """Set the status message for the current Actor run.
 
         Args:
@@ -1329,7 +1329,7 @@ class _ActorType:
                 f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
             )
 
-        return ActorRun.from_client_actor_run(run)
+        return run
 
     @_ensure_context
     async def create_proxy_configuration(

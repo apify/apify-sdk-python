@@ -320,8 +320,17 @@ def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -
     pricing_json = json.dumps(
         {
             'pricingModel': 'PAY_PER_EVENT',
+            'apifyMarginPercentage': 0.0,
+            'createdAt': '2024-01-01T00:00:00.000Z',
+            'startedAt': '2024-01-01T00:00:00.000Z',
             'pricingPerEvent': {
-                'actorChargeEvents': {'search': {'eventPriceUsd': '0.01', 'eventTitle': 'Search event'}}
+                'actorChargeEvents': {
+                    'search': {
+                        'eventPriceUsd': '0.01',
+                        'eventTitle': 'Search event',
+                        'eventDescription': 'Search event description',
+                    }
+                }
             },
         }
     )

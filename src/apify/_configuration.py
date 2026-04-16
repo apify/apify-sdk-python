@@ -10,17 +10,17 @@ from typing import Annotated, Any, Self
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import TypedDict, deprecated
 
-from crawlee import service_locator
-from crawlee._utils.models import timedelta_ms
-from crawlee._utils.urls import validate_http_url
-from crawlee.configuration import Configuration as CrawleeConfiguration
-
-from apify._models import (
+from apify_client._models import (
     FlatPricePerMonthActorPricingInfo,
     FreeActorPricingInfo,
     PayPerEventActorPricingInfo,
     PricePerDatasetItemActorPricingInfo,
 )
+from crawlee import service_locator
+from crawlee._utils.models import timedelta_ms
+from crawlee._utils.urls import validate_http_url
+from crawlee.configuration import Configuration as CrawleeConfiguration
+
 from apify._utils import docs_group
 
 logger = getLogger(__name__)
