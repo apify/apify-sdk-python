@@ -340,6 +340,28 @@ def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -
     assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'
 
 
+def test_actor_pricing_info_env_var_tolerates_platform_omissions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The platform env var may omit fields that apify-client models require; they should be injected with defaults."""
+
+    pricing_json = json.dumps(
+        {
+            'pricingModel': 'PAY_PER_EVENT',
+            'pricingPerEvent': {
+                'actorChargeEvents': {
+                    'search': {
+                        'eventPriceUsd': '0.01',
+                        'eventTitle': 'Search event',
+                    }
+                }
+            },
+        }
+    )
+    monkeypatch.setenv('APIFY_ACTOR_PRICING_INFO', pricing_json)
+    config = ApifyConfiguration()
+    assert config.actor_pricing_info is not None
+    assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'
+
+
 def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that actor_storages_json is parsed from JSON env var."""
     datasets = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}

@@ -71,6 +71,34 @@ def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None
     }
 
 
+def _normalize_actor_pricing_info(data: Any) -> Any:
+    """Parse and normalize the `APIFY_ACTOR_PRICING_INFO` env var for the apify-client pricing models.
+
+    The platform-provided env var omits some fields that are required by the apify-client pydantic models
+    (`apifyMarginPercentage`, `createdAt`, `startedAt`, and per-event `eventDescription`). Inject safe
+    defaults for those so validation succeeds on the Actor side.
+    """
+    if data is None or data == '':
+        return None
+    pricing_info = json.loads(data) if isinstance(data, str) else data
+    if not isinstance(pricing_info, dict):
+        return pricing_info
+
+    pricing_info.setdefault('apifyMarginPercentage', 0.0)
+    pricing_info.setdefault('createdAt', '1970-01-01T00:00:00.000Z')
+    pricing_info.setdefault('startedAt', '1970-01-01T00:00:00.000Z')
+
+    pricing_per_event = pricing_info.get('pricingPerEvent')
+    if isinstance(pricing_per_event, dict):
+        actor_charge_events = pricing_per_event.get('actorChargeEvents')
+        if isinstance(actor_charge_events, dict):
+            for event in actor_charge_events.values():
+                if isinstance(event, dict):
+                    event.setdefault('eventDescription', '')
+
+    return pricing_info
+
+
 @docs_group('Configuration')
 class Configuration(CrawleeConfiguration):
     """A class for specifying the configuration of an Actor.
@@ -471,7 +499,7 @@ class Configuration(CrawleeConfiguration):
             description='JSON string with prising info of the actor',
             discriminator='pricing_model',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+        BeforeValidator(_normalize_actor_pricing_info),
     ] = None
 
     charged_event_counts: Annotated[

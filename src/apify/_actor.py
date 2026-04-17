@@ -927,7 +927,7 @@ class _ActorType:
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout=actor_start_timeout if actor_start_timeout is not None else 'medium',
+            run_timeout=actor_start_timeout,
             wait_for_finish=wait_for_finish,
             webhooks=serialized_webhooks,
         )
@@ -1050,7 +1050,7 @@ class _ActorType:
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout=actor_call_timeout if actor_call_timeout is not None else 'no_timeout',
+            run_timeout=actor_call_timeout,
             webhooks=serialized_webhooks,
             wait_duration=wait,
             logger=logger,
@@ -1125,7 +1125,7 @@ class _ActorType:
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout=task_call_timeout if task_call_timeout is not None else 'no_timeout',
+            run_timeout=task_call_timeout,
             webhooks=serialized_webhooks,
             wait_duration=wait,
         )

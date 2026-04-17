@@ -268,7 +268,7 @@ async def test_remote_method_with_timedelta_timeout(
     calls = apify_client_async_patcher.calls[client_resource][client_method]
     assert len(calls) == 1
     _, kwargs = calls[0][0], calls[0][1]
-    assert kwargs.get('timeout') == timedelta(seconds=120)
+    assert kwargs.get('run_timeout') == timedelta(seconds=120)
 
 
 async def test_call_actor_with_remaining_time_deprecation(
