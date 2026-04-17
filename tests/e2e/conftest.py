@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import textwrap
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -351,13 +351,16 @@ def make_actor(
         if actor is not None and actor.pricing_infos is not None:
             # Convert Pydantic models to dicts before mixing with plain dict
             existing_pricing_infos = [pi.model_dump(by_alias=True, exclude_none=True) for pi in actor.pricing_infos]
+            # The API requires the new record to start strictly after all existing records.
+            latest_started_at = max(pi.started_at for pi in actor.pricing_infos)
+            new_started_at = max(latest_started_at, datetime.now(tz=UTC)) + timedelta(seconds=1)
             new_pricing_infos = [
                 *existing_pricing_infos,
                 {
                     'pricingModel': 'FREE',
                     'apifyMarginPercentage': 0.0,
-                    'createdAt': '2024-01-01T00:00:00.000Z',
-                    'startedAt': '2024-01-01T00:00:00.000Z',
+                    'createdAt': new_started_at.isoformat(),
+                    'startedAt': new_started_at.isoformat(),
                 },
             ]
             actor_client.update(pricing_infos=new_pricing_infos)
