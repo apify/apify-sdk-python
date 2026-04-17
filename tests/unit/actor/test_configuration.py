@@ -362,6 +362,17 @@ def test_actor_pricing_info_env_var_tolerates_platform_omissions(monkeypatch: py
     assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'
 
 
+@pytest.mark.parametrize('env_value', ['', '{}'])
+def test_actor_pricing_info_env_var_empty_becomes_none(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """Platform sends `APIFY_ACTOR_PRICING_INFO={}` for Actors without a pricing model.
+
+    Without a `pricingModel` discriminator, the pydantic union cannot resolve — treat it as no pricing info.
+    """
+    monkeypatch.setenv('APIFY_ACTOR_PRICING_INFO', env_value)
+    config = ApifyConfiguration()
+    assert config.actor_pricing_info is None
+
+
 def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that actor_storages_json is parsed from JSON env var."""
     datasets = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}

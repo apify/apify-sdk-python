@@ -76,13 +76,20 @@ def _normalize_actor_pricing_info(data: Any) -> Any:
 
     The platform-provided env var omits some fields that are required by the apify-client pydantic models
     (`apifyMarginPercentage`, `createdAt`, `startedAt`, and per-event `eventDescription`). Inject safe
-    defaults for those so validation succeeds on the Actor side.
+    defaults for those so validation succeeds on the Actor side. Treat an empty env value or an empty/
+    discriminator-less JSON object as "no pricing info" to match the platform's behavior for Actors
+    without a configured pricing model.
     """
     if data is None or data == '':
         return None
     pricing_info = json.loads(data) if isinstance(data, str) else data
     if not isinstance(pricing_info, dict):
+        # Already a parsed pydantic model (or some other non-dict) - pass through for pydantic to validate.
         return pricing_info
+    if not pricing_info.get('pricingModel'):
+        # Platform sets `APIFY_ACTOR_PRICING_INFO={}` for Actors without a configured pricing model;
+        # without the discriminator, treat it as absent rather than letting the pydantic union fail.
+        return None
 
     pricing_info.setdefault('apifyMarginPercentage', 0.0)
     pricing_info.setdefault('createdAt', '1970-01-01T00:00:00.000Z')
