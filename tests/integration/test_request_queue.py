@@ -366,8 +366,12 @@ async def test_complex_request_objects(
     Actor.log.info('Complex request test completed')
 
 
-async def test_get_request_by_unique_key(request_queue_apify: RequestQueue) -> None:
+async def test_get_request_by_unique_key(
+    request_queue_apify: RequestQueue,
+    request: pytest.FixtureRequest,
+) -> None:
     """Test retrieving specific requests by their unique_key."""
+    rq_access_mode = request.node.callspec.params.get('request_queue_apify')
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -378,8 +382,10 @@ async def test_get_request_by_unique_key(request_queue_apify: RequestQueue) -> N
     request_unique_key = add_result.unique_key
     Actor.log.info(f'Request added with unique_key: {request_unique_key}')
 
-    # Retrieve the request by unique_key
-    retrieved_request = await rq.get_request(request_unique_key)
+    retrieved_request = await call_with_exp_backoff(
+        lambda: rq.get_request(request_unique_key),
+        rq_access_mode=rq_access_mode,
+    )
     assert retrieved_request is not None, f'retrieved_request={retrieved_request}'
     assert retrieved_request.url == 'https://example.com/test', f'retrieved_request.url={retrieved_request.url}'
     assert retrieved_request.unique_key == request_unique_key, (f'{request_unique_key=}',)
