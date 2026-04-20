@@ -216,7 +216,7 @@ class ApifyRequestQueueSharedClient:
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=timezone.utc)
 
-        if cached_request := self._requests_cache[request_id]:
+        if cached_request := self._requests_cache.get(request_id):
             cached_request.was_already_handled = request.was_already_handled
         try:
             # Update the request in the API
