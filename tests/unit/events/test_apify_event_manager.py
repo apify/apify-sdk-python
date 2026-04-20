@@ -30,14 +30,12 @@ async def _platform_ws_server(
 ) -> AsyncGenerator[tuple[set[websockets.asyncio.server.ServerConnection], asyncio.Event]]:
     """Create a local WebSocket server that simulates Apify platform events.
 
-    Binds explicitly to ``127.0.0.1`` instead of ``localhost`` so that only a
-    single IPv4 socket is created.  On Windows, ``localhost`` resolves to both
-    ``127.0.0.1`` *and* ``::1``, and the OS may assign **different** random
-    ports to each address — causing the client to connect to the wrong port.
+    Binds explicitly to `127.0.0.1` instead of `localhost` so that only a single IPv4 socket is created. On Windows,
+    `localhost` resolves to both `127.0.0.1` *and* `::1`, and the OS may assign **different** random ports to each
+    address — causing the client to connect to the wrong port.
 
-    Yields a ``(connected_ws_clients, client_connected_event)`` tuple.  After
-    opening an `ApifyEventManager`, ``await client_connected_event.wait()``
-    before sending any messages to guarantee the server handler has registered
+    Yields a `(connected_ws_clients, client_connected_event)` tuple. After opening an `ApifyEventManager`,
+    `await client_connected_event.wait()` before sending any messages to guarantee the server handler has registered
     the connection.
     """
     connected_ws_clients: set[websockets.asyncio.server.ServerConnection] = set()
@@ -314,6 +312,33 @@ async def test_migrating_event_triggers_persist_state(monkeypatch: pytest.Monkey
         # MIGRATING should also trigger a PERSIST_STATE with is_migrating=True
         migration_persist_events = [c for c in persist_calls if hasattr(c, 'is_migrating') and c.is_migrating]
         assert len(migration_persist_events) >= 1
+
+
+async def test_websocket_mid_stream_disconnect_does_not_raise_invalid_state_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: a mid-stream websocket disconnect after a successful connect must not raise InvalidStateError.
+
+    The `_connected_to_platform_websocket` future is resolved to `True` on successful connect. If the websocket
+    later drops, the outer `except` in `_process_platform_messages` must not call `set_result(False)` on the
+    already-resolved future.
+    """
+    async with (
+        _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected),
+        ApifyEventManager(Configuration.get_global_configuration()) as event_manager,
+    ):
+        await client_connected.wait()
+
+        # Force an abnormal close from the server so the client's `async for` raises ConnectionClosedError.
+        for ws in list(connected_ws_clients):
+            await ws.close(code=1011, reason='Simulated server error')
+
+        task = event_manager._process_platform_messages_task
+        assert task is not None
+        await asyncio.wait_for(asyncio.shield(task), timeout=2.0)
+
+        exc = task.exception()
+        assert not isinstance(exc, asyncio.InvalidStateError), f'Task raised InvalidStateError: {exc}'
 
 
 async def test_malformed_message_logs_exception(
