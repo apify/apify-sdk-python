@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-04-14T13:23:40.899705395Z"
+exclude-newer = "2026-04-19T13:51:26.313002068Z"
 exclude-newer-span = "PT24H"
 
 [[package]]
@@ -31,7 +31,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "3.3.2"
+version = "3.3.3"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client" },

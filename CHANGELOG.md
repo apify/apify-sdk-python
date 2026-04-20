@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.3.3 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Cap `_list_head` request limit at `_MAX_HEAD_ITEMS` ([#869](https://github.com/apify/apify-sdk-python/pull/869)) ([1716a2a](https://github.com/apify/apify-sdk-python/commit/1716a2aa55e86769cf9deb665c02c4ba176067d7)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.3.2](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.2) (2026-03-27)
 
 ### 🐛 Bug Fixes
