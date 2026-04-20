@@ -283,7 +283,7 @@ class ApifyRequestQueueSingleClient:
     async def _list_head(self) -> None:
         desired_new_head_items = 200
         # The head will contain in progress requests as well, so we need to fetch more, to get some new ones.
-        requested_head_items = max(self._MAX_HEAD_ITEMS, desired_new_head_items + len(self._requests_in_progress))
+        requested_head_items = min(self._MAX_HEAD_ITEMS, desired_new_head_items + len(self._requests_in_progress))
         response = await self._api_client.list_head(limit=requested_head_items)
 
         # Update metadata

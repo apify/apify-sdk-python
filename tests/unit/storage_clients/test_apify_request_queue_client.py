@@ -1,6 +1,35 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock
+
 import pytest
 
+from crawlee.storage_clients.models import RequestQueueMetadata
+
+from apify.storage_clients._apify._request_queue_single_client import ApifyRequestQueueSingleClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
+
+
+def _make_single_client(
+    api_client: AsyncMock | None = None,
+) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
+    if api_client is None:
+        api_client = AsyncMock()
+    now = datetime.now(tz=timezone.utc)
+    metadata = RequestQueueMetadata(
+        id='test-rq-id',
+        name='test-rq',
+        accessed_at=now,
+        created_at=now,
+        modified_at=now,
+        had_multiple_clients=False,
+        handled_request_count=0,
+        pending_request_count=0,
+        total_request_count=0,
+    )
+    client = ApifyRequestQueueSingleClient(api_client=api_client, metadata=metadata, cache_size=100)
+    return client, api_client
 
 
 def test_unique_key_to_request_id_length() -> None:
@@ -36,3 +65,22 @@ def test_unique_key_to_request_id_consistency() -> None:
 def test_unique_key_to_request_id_matches_known_values(unique_key: str, expected_request_id: str) -> None:
     request_id = unique_key_to_request_id(unique_key)
     assert request_id == expected_request_id, f'Unique key "{unique_key}" should produce the expected request ID.'
+
+
+@pytest.mark.parametrize(
+    ('in_progress_count', 'expected_limit'),
+    [
+        (0, 200),
+        (300, 500),
+        (900, ApifyRequestQueueSingleClient._MAX_HEAD_ITEMS),
+    ],
+    ids=['no_in_progress', 'pads_by_in_progress', 'caps_at_max_head_items'],
+)
+async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> None:
+    client, api_client = _make_single_client()
+    api_client.list_head = AsyncMock(return_value={'items': [], 'hadMultipleClients': False})
+    client._requests_in_progress = {f'req_{i}' for i in range(in_progress_count)}
+
+    await client._list_head()
+
+    api_client.list_head.assert_awaited_once_with(limit=expected_limit)
