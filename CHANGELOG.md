@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Cap `_list_head` request limit at `_MAX_HEAD_ITEMS` ([#869](https://github.com/apify/apify-sdk-python/pull/869)) ([1716a2a](https://github.com/apify/apify-sdk-python/commit/1716a2aa55e86769cf9deb665c02c4ba176067d7)) by [@vdusek](https://github.com/vdusek)
+- Preserve `max_total_charge_usd=0` instead of treating it as unlimited ([#870](https://github.com/apify/apify-sdk-python/pull/870)) ([714334c](https://github.com/apify/apify-sdk-python/commit/714334c00df91bf4526de26b14ecdfea05464268)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
