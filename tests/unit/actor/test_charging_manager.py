@@ -247,6 +247,36 @@ async def test_get_max_total_charge_usd(mock_client: MagicMock) -> None:
         assert cm.get_max_total_charge_usd() == Decimal('42.50')
 
 
+async def test_max_total_charge_usd_zero_blocks_charging(mock_client: MagicMock) -> None:
+    """Test max_total_charge_usd=0 is preserved and blocks all charging (not silently converted to inf)."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('0.01')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal(0),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        assert cm.get_max_total_charge_usd() == Decimal(0)
+        assert cm.is_event_charge_limit_reached('search') is True
+        result = await cm.charge('search', count=5)
+        assert result.charged_count == 0
+        assert result.event_charge_limit_reached is True
+
+
+async def test_max_total_charge_usd_zero_preserved_without_pricing(mock_client: MagicMock) -> None:
+    """Test max_total_charge_usd=0 is preserved through the no-pricing fallback path."""
+    config = _make_config(
+        max_total_charge_usd=Decimal(0),
+        actor_pricing_info=None,
+        charged_event_counts={},
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        assert cm.get_max_total_charge_usd() == Decimal(0)
+
+
 async def test_compute_push_data_limit_no_ppe(mock_client: MagicMock) -> None:
     """Returns items_count when no PPE pricing is configured (prices are zero)."""
     config = _make_config(actor_pricing_info=None, charged_event_counts={})
