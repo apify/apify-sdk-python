@@ -140,7 +140,7 @@ class ApifyRequestList(RequestList):
         """Fetch a remote URL and extract links from the response body."""
         http_response = await http_client.send_request(method='GET', url=request_input.requests_from_url)
         response_body = await http_response.read()
-        matches = re.finditer(URL_NO_COMMAS_REGEX, response_body.decode('utf-8'))
+        matches = re.finditer(URL_NO_COMMAS_REGEX, response_body.decode('utf-8', errors='replace'))
 
         return [
             Request.from_url(
