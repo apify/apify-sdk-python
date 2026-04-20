@@ -75,6 +75,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
 
         # Reset the AliasResolver class state.
         AliasResolver._alias_map = {}
+        AliasResolver._alias_map_loaded = False
         AliasResolver._alias_init_lock = None
 
         # Verify that the test environment was set up correctly.
