@@ -1213,7 +1213,7 @@ class _ActorType:
                 ),
                 timeout=event_listeners_timeout.total_seconds() if event_listeners_timeout else None,
             )
-        except TimeoutError:
+        except asyncio.TimeoutError:
             self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
             results = []
 
