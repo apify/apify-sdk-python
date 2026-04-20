@@ -159,7 +159,9 @@ class ChargingManagerImplementation(ChargingManager):
     LOCAL_CHARGING_LOG_DATASET_NAME = 'charging-log'
 
     def __init__(self, configuration: Configuration, client: ApifyClientAsync) -> None:
-        self._max_total_charge_usd = configuration.max_total_charge_usd or Decimal('inf')
+        self._max_total_charge_usd = (
+            configuration.max_total_charge_usd if configuration.max_total_charge_usd is not None else Decimal('inf')
+        )
         self._configuration = configuration
         self._is_at_home = configuration.is_at_home
         self._actor_run_id = configuration.actor_run_id
@@ -413,7 +415,11 @@ class ChargingManagerImplementation(ChargingManager):
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
                 charged_event_counts=self._configuration.charged_event_counts,
-                max_total_charge_usd=self._configuration.max_total_charge_usd or Decimal('inf'),
+                max_total_charge_usd=(
+                    self._configuration.max_total_charge_usd
+                    if self._configuration.max_total_charge_usd is not None
+                    else Decimal('inf')
+                ),
             )
 
         # Fall back to API call
@@ -436,7 +442,11 @@ class ChargingManagerImplementation(ChargingManager):
         return _FetchedPricingInfoDict(
             pricing_info=None,
             charged_event_counts={},
-            max_total_charge_usd=self._configuration.max_total_charge_usd or Decimal('inf'),
+            max_total_charge_usd=(
+                self._configuration.max_total_charge_usd
+                if self._configuration.max_total_charge_usd is not None
+                else Decimal('inf')
+            ),
         )
 
     def _get_event_price(self, event_name: str) -> Decimal:
