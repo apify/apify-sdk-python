@@ -18,7 +18,7 @@ async def call_with_exp_backoff(
     fn: Callable[[], Awaitable[T]],
     *,
     rq_access_mode: Literal['single', 'shared'],
-    max_retries: int = 3,
+    max_retries: int = 5,
 ) -> T | None:
     """Call an async callable with exponential backoff retries until it returns a truthy value.
 
