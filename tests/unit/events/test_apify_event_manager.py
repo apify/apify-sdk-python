@@ -12,6 +12,7 @@ from unittest.mock import Mock
 import pytest
 import websockets
 import websockets.asyncio.server
+import websockets.exceptions
 
 from apify_shared.consts import ActorEnvVars
 from crawlee.events._types import Event
@@ -315,7 +316,7 @@ async def test_migrating_event_triggers_persist_state(monkeypatch: pytest.Monkey
 
 
 async def test_websocket_mid_stream_disconnect_does_not_raise_invalid_state_error(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Regression: a mid-stream websocket disconnect after a successful connect must not raise InvalidStateError.
 
@@ -339,6 +340,13 @@ async def test_websocket_mid_stream_disconnect_does_not_raise_invalid_state_erro
 
         exc = task.exception()
         assert not isinstance(exc, asyncio.InvalidStateError), f'Task raised InvalidStateError: {exc}'
+
+        # Confirm the test actually exercised the disconnect path — the outer `except` in
+        # `_process_platform_messages` should have logged a `ConnectionClosedError`.
+        logged_exc_types = [
+            record.exc_info[0] for record in caplog.records if record.exc_info and record.exc_info[0] is not None
+        ]
+        assert any(issubclass(exc_type, websockets.exceptions.ConnectionClosedError) for exc_type in logged_exc_types)
 
 
 async def test_malformed_message_logs_exception(
