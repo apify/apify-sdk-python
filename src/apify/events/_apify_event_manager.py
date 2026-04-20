@@ -136,5 +136,5 @@ class ApifyEventManager(EventManager):
                         logger.exception('Cannot parse Actor event', extra={'raw_message': message})
         except Exception:
             logger.exception('Error in websocket connection')
-            if self._connected_to_platform_websocket is not None:
+            if self._connected_to_platform_websocket is not None and not self._connected_to_platform_websocket.done():
                 self._connected_to_platform_websocket.set_result(False)
