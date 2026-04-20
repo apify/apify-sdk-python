@@ -1167,7 +1167,7 @@ class _ActorType:
     async def reboot(
         self,
         *,
-        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,  # noqa: ARG002
+        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         custom_after_sleep: timedelta | None = None,
     ) -> None:
         """Internally reboot this Actor.
@@ -1204,11 +1204,18 @@ class _ActorType:
             (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
         )
 
-        results = await asyncio.gather(
-            *[listener(EventPersistStateData(is_migrating=True)) for listener in persist_state_listeners],
-            *[listener(EventMigratingData()) for listener in migrating_listeners],
-            return_exceptions=True,
-        )
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(
+                    *[listener(EventPersistStateData(is_migrating=True)) for listener in persist_state_listeners],
+                    *[listener(EventMigratingData()) for listener in migrating_listeners],
+                    return_exceptions=True,
+                ),
+                timeout=event_listeners_timeout.total_seconds() if event_listeners_timeout else None,
+            )
+        except TimeoutError:
+            self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
+            results = []
 
         for result in results:
             if isinstance(result, Exception):
