@@ -37,6 +37,18 @@ class ApifyRequestQueueSharedClient:
     _DEFAULT_LOCK_TIME: Final[timedelta] = timedelta(minutes=3)
     """The default lock time for requests in the queue."""
 
+    _SAFE_TO_USE_LOCAL: Final[timedelta] = timedelta(seconds=5)
+    """This is the time that the new request that was added to the request queue is considered safe to be used from
+     local cache.
+
+     Due to propagation delay and communication delay with API it safe to assume that request that was previously not
+     in the request queue and was added by this client is not editable to other clients for at least few seconds. This
+     means that we can safely use local cache for requests that were added by this client in the last few seconds
+     without worrying about other clients locking or handling them in the meantime.
+     """
+
+    _SAFE_TO_USE_LOCAL_CACHE_SIZE: Final[int] = 1000
+
     def __init__(
         self,
         *,
@@ -69,6 +81,11 @@ class ApifyRequestQueueSharedClient:
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """LRU cache storing request objects, keyed by request ID."""
+
+        self._recently_added_request_times: LRUCache[str, CachedRequest] = LRUCache(
+            maxsize=self._SAFE_TO_USE_LOCAL_CACHE_SIZE
+        )
+        """LRU cache storing timestamps when the requests  were added by this client, keyed by request ID."""
 
         self._queue_has_locked_requests: bool | None = None
         """Whether the queue contains requests currently locked by other clients."""
@@ -154,9 +171,11 @@ class ApifyRequestQueueSharedClient:
 
         # Update assumed total count for newly added requests.
         new_request_count = 0
+        now = datetime.now(tz=timezone.utc)
         for processed_request in api_response.processed_requests:
             if not processed_request.was_already_present and not processed_request.was_already_handled:
                 new_request_count += 1
+                self._recently_added_request_times[processed_request.id] = now
 
         self.metadata.total_request_count += new_request_count
         self.metadata.pending_request_count += new_request_count
@@ -307,6 +326,11 @@ class ApifyRequestQueueSharedClient:
         return self.metadata
 
     async def _get_request_by_id(self, request_id: str) -> Request | None:
+        if (request:=self._requests_cache.get(request_id)) and (added_at:=self._recently_added_request_times.get(request_id)):
+            if datetime.now(tz=timezone.utc) - added_at < self._SAFE_TO_USE_LOCAL:
+                # New requests that were not previously present and not handled are safe to be used from local cache for
+                # some time.
+                return request
         response = await self._api_client.get_request(request_id)
 
         if response is None:
