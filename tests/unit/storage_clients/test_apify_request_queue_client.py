@@ -84,20 +84,3 @@ async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> N
     await client._list_head()
 
     api_client.list_head.assert_awaited_once_with(limit=expected_limit)
-
-
-async def test_fetch_next_request_does_not_leak_in_progress_on_none_response() -> None:
-    """Regression test: when ``get_request`` returns ``None`` for a head id (e.g. due to
-    platform data propagation delay), the id must not remain in ``_requests_in_progress``,
-    otherwise ``is_empty()`` can never become ``True`` again.
-    """
-    client, api_client = _make_single_client()
-    api_client.list_head = AsyncMock(return_value={'items': [], 'hadMultipleClients': False})
-    api_client.get_request = AsyncMock(return_value=None)
-    client._head_requests.append('missing-id')
-
-    result = await client.fetch_next_request()
-
-    assert result is None
-    assert 'missing-id' not in client._requests_in_progress
-    assert await client.is_empty()

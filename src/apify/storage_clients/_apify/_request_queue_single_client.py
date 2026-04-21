@@ -194,8 +194,9 @@ class ApifyRequestQueueSingleClient:
                 self._requests_in_progress.add(request_id)
                 request = await self._get_request_by_id(request_id)
                 if request is None:
-                    # Platform could not return the request (e.g. data propagation delay); do not
-                    # leak the id into `_requests_in_progress`, or `is_empty()` would never be True.
+                    # Defensive guard against an unexpected `None` from the platform: leaving the id in
+                    # `_requests_in_progress` would make `is_empty()` never settle and filter the id out of future
+                    # head reconciliations, with no recovery path for the caller.
                     self._requests_in_progress.discard(request_id)
                     continue
                 return request
