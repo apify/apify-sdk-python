@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.3.3 - **not yet released**
+## [3.3.3](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.3) (2026-04-21)
 
 ### 🐛 Bug Fixes
 
@@ -15,7 +14,6 @@ All notable changes to this project will be documented in this file.
 - Honor `event_listeners_timeout` in `Actor.reboot` ([#872](https://github.com/apify/apify-sdk-python/pull/872)) ([03e73d3](https://github.com/apify/apify-sdk-python/commit/03e73d3885030d63795063a4d1acd8abad11cd19)) by [@vdusek](https://github.com/vdusek)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.3.2](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.2) (2026-03-27)
 
 ### 🐛 Bug Fixes
