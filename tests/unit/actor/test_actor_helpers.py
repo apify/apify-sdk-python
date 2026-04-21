@@ -399,3 +399,33 @@ async def test_reboot_runs_all_listeners_even_when_one_fails(
 
     # The reboot API call was still made.
     assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
+
+
+async def test_reboot_proceeds_when_event_listener_exceeds_timeout(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a hanging pre-reboot event listener does not block reboot beyond the timeout."""
+    apify_client_async_patcher.patch('run', 'reboot', return_value=None)
+
+    async def hanging_listener(*_args: object) -> None:
+        await asyncio.sleep(60)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+
+        listeners_map = Actor.event_manager._listeners_to_wrappers
+        listeners_map[Event.PERSIST_STATE] = {hanging_listener: [hanging_listener]}
+
+        with caplog.at_level(logging.WARNING):
+            await Actor.reboot(
+                event_listeners_timeout=timedelta(milliseconds=50),
+                custom_after_sleep=timedelta(milliseconds=1),
+            )
+
+    # The timeout was honored and logged.
+    assert any('Pre-reboot event listeners did not finish within timeout' in r.message for r in caplog.records)
+
+    # The reboot API call proceeded despite the hanging listener.
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
