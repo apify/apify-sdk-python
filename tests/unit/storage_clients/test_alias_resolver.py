@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 from apify._configuration import Configuration
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
@@ -76,6 +78,40 @@ async def test_get_alias_map_returns_in_memory_map() -> None:
     AliasResolver._alias_map = {}
     result = await AliasResolver._get_alias_map(config)
     assert result == {}
+
+
+async def test_get_alias_map_loads_from_kvs_only_once_when_empty() -> None:
+    """An empty KVS response must not trigger repeat fetches on subsequent calls."""
+    config = Configuration(is_at_home=True, token='test-token', default_key_value_store_id='default-kvs-id')
+
+    fake_kvs_client = AsyncMock()
+    fake_kvs_client.get_record = AsyncMock(return_value=None)
+
+    with patch.object(AliasResolver, '_get_default_kvs_client', return_value=fake_kvs_client):
+        await AliasResolver._get_alias_map(config)
+        await AliasResolver._get_alias_map(config)
+        await AliasResolver._get_alias_map(config)
+
+    assert fake_kvs_client.get_record.await_count == 1
+    assert AliasResolver._alias_map == {}
+
+
+async def test_store_mapping_uses_injected_configuration_is_at_home() -> None:
+    """`store_mapping` gates on the injected configuration's `is_at_home`, not the global one."""
+    # Global `is_at_home` defaults to False; injected config says True — the KVS write must still happen.
+    config = Configuration(is_at_home=True, token='test-token', default_key_value_store_id='default-kvs-id')
+    resolver = AliasResolver(storage_type='Dataset', alias='test-alias', configuration=config)
+
+    fake_kvs_client = AsyncMock()
+    fake_kvs_client.get_record = AsyncMock(return_value=None)
+    fake_kvs_client.set_record = AsyncMock(return_value=None)
+    fake_kvs_client.get = AsyncMock(return_value={'id': 'default-kvs-id'})
+
+    with patch.object(AliasResolver, '_get_default_kvs_client', return_value=fake_kvs_client):
+        await resolver.store_mapping(storage_id='new-id-789')
+
+    fake_kvs_client.set_record.assert_awaited_once()
+    assert AliasResolver._alias_map[resolver._storage_key] == 'new-id-789'
 
 
 async def test_configuration_storages_alias_resolving() -> None:
