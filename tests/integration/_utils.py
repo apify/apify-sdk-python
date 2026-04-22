@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import TYPE_CHECKING, Literal, TypeVar
 
 from crawlee._utils.crypto import crypto_random_object_id
@@ -17,7 +18,7 @@ async def call_with_exp_backoff(
     fn: Callable[[], Awaitable[T]],
     *,
     rq_access_mode: Literal['single', 'shared'],
-    max_retries: int = 3,
+    max_retries: int = 5,
 ) -> T | None:
     """Call an async callable with exponential backoff retries until it returns a truthy value.
 
@@ -46,6 +47,32 @@ async def call_with_exp_backoff(
         return result
 
     raise ValueError(f'Invalid rq_access_mode: {rq_access_mode}')
+
+
+async def poll_until_condition(
+    fn: Callable[[], Awaitable[T]],
+    condition: Callable[[T], bool],
+    *,
+    timeout: float = 60,
+    poll_interval: float = 5,
+) -> T:
+    """Poll `fn` until `condition(result)` is True or the timeout expires.
+
+    Polls `fn` at `poll_interval`-second intervals until `condition` is satisfied or `timeout` seconds have elapsed.
+    Returns the last polled result regardless of whether the condition was met.
+
+    Use this instead of a fixed `asyncio.sleep` when waiting for eventually-consistent API state (e.g. request queue
+    stats) that may take a variable amount of time to propagate.
+    """
+    deadline = time.monotonic() + timeout
+    result = await fn()
+    while not condition(result):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(poll_interval, remaining))
+        result = await fn()
+    return result
 
 
 def generate_unique_resource_name(label: str) -> str:

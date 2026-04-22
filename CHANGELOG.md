@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.3](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.3) (2026-04-21)
+
+### 🐛 Bug Fixes
+
+- Cap `_list_head` request limit at `_MAX_HEAD_ITEMS` ([#869](https://github.com/apify/apify-sdk-python/pull/869)) ([1716a2a](https://github.com/apify/apify-sdk-python/commit/1716a2aa55e86769cf9deb665c02c4ba176067d7)) by [@vdusek](https://github.com/vdusek)
+- Preserve `max_total_charge_usd=0` instead of treating it as unlimited ([#870](https://github.com/apify/apify-sdk-python/pull/870)) ([714334c](https://github.com/apify/apify-sdk-python/commit/714334c00df91bf4526de26b14ecdfea05464268)) by [@vdusek](https://github.com/vdusek)
+- Avoid InvalidStateError on mid-stream platform websocket disconnect ([#867](https://github.com/apify/apify-sdk-python/pull/867)) ([4dbbd3f](https://github.com/apify/apify-sdk-python/commit/4dbbd3f82dd45c26ca6f53d16f60b3b3e045bbc6)) by [@vdusek](https://github.com/vdusek)
+- Tolerate non-UTF-8 bodies in ApifyRequestList remote sources ([#871](https://github.com/apify/apify-sdk-python/pull/871)) ([737b0dd](https://github.com/apify/apify-sdk-python/commit/737b0ddbfdd3277a01fa24c3215ddf4572bf1121)) by [@vdusek](https://github.com/vdusek)
+- Use load sentinel and injected config in AliasResolver ([#874](https://github.com/apify/apify-sdk-python/pull/874)) ([2d129ad](https://github.com/apify/apify-sdk-python/commit/2d129adafe1005fb987bf19614fc22009cb39140)) by [@vdusek](https://github.com/vdusek)
+- Honor `event_listeners_timeout` in `Actor.reboot` ([#872](https://github.com/apify/apify-sdk-python/pull/872)) ([03e73d3](https://github.com/apify/apify-sdk-python/commit/03e73d3885030d63795063a4d1acd8abad11cd19)) by [@vdusek](https://github.com/vdusek)
+
+
 ## [3.3.2](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.2) (2026-03-27)
 
 ### 🐛 Bug Fixes

@@ -192,7 +192,14 @@ class ApifyRequestQueueSingleClient:
             request_id = self._head_requests.pop()
             if request_id not in self._requests_in_progress and request_id not in self._requests_already_handled:
                 self._requests_in_progress.add(request_id)
-                return await self._get_request_by_id(request_id)
+                request = await self._get_request_by_id(request_id)
+                if request is None:
+                    # Defensive guard against an unexpected `None` from the platform: leaving the id in
+                    # `_requests_in_progress` would make `is_empty()` never settle and filter the id out of future
+                    # head reconciliations, with no recovery path for the caller.
+                    self._requests_in_progress.discard(request_id)
+                    continue
+                return request
         # No request locally and the ones returned from the platform are already in progress.
         return None
 
@@ -283,7 +290,7 @@ class ApifyRequestQueueSingleClient:
     async def _list_head(self) -> None:
         desired_new_head_items = 200
         # The head will contain in progress requests as well, so we need to fetch more, to get some new ones.
-        requested_head_items = max(self._MAX_HEAD_ITEMS, desired_new_head_items + len(self._requests_in_progress))
+        requested_head_items = min(self._MAX_HEAD_ITEMS, desired_new_head_items + len(self._requests_in_progress))
         response = await self._api_client.list_head(limit=requested_head_items)
 
         # Update metadata

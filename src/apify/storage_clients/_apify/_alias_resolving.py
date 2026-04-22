@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, ClassVar, Literal, overload
 from apify_client import ApifyClientAsync
 
 from ._utils import hash_api_base_url_and_token
-from apify._configuration import Configuration
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,6 +22,8 @@ if TYPE_CHECKING:
         RequestQueueClientAsync,
         RequestQueueCollectionClientAsync,
     )
+
+    from apify._configuration import Configuration
 
 logger = getLogger(__name__)
 
@@ -128,6 +129,9 @@ class AliasResolver:
     _alias_map: ClassVar[dict[str, str]] = {}
     """Map containing pre-existing alias storages and their ids. Global for all instances."""
 
+    _alias_map_loaded: ClassVar[bool] = False
+    """Tracks whether `_alias_map` was fetched from the default KVS — an empty map is a valid loaded state."""
+
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
@@ -181,11 +185,12 @@ class AliasResolver:
         Returns:
             Map of aliases and storage ids.
         """
-        if not cls._alias_map and Configuration.get_global_configuration().is_at_home:
+        if not cls._alias_map_loaded and configuration.is_at_home:
             default_kvs_client = await cls._get_default_kvs_client(configuration)
 
             record = await default_kvs_client.get_record(cls._ALIAS_MAPPING_KEY)
             cls._alias_map = record.get('value', {}) if record else {}
+            cls._alias_map_loaded = True
 
         return cls._alias_map
 
@@ -215,7 +220,7 @@ class AliasResolver:
         alias_map = await self._get_alias_map(self._configuration)
         alias_map[self._storage_key] = storage_id
 
-        if not Configuration.get_global_configuration().is_at_home:
+        if not self._configuration.is_at_home:
             logging.getLogger(__name__).debug(
                 '_AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
             )

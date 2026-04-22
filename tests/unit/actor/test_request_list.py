@@ -190,6 +190,22 @@ async def test_request_list_open_from_url_additional_inputs(httpserver: HTTPServ
     assert request.user_data == expected_user_data
 
 
+async def test_request_list_open_from_url_non_utf8_body(httpserver: HTTPServer) -> None:
+    """Test that a non-UTF-8 response body does not crash ApifyRequestList.open."""
+    expected_url = 'https://www.someurl.com'
+    # latin-1 encoded body containing non-ASCII bytes (0xE9 = 'é') that would raise
+    # UnicodeDecodeError under strict utf-8 decoding.
+    response_body = f'café {expected_url} naïve'.encode('latin-1')
+    httpserver.expect_oneshot_request('/file.txt').respond_with_data(status=200, response_data=response_body)
+
+    request_list = await ApifyRequestList.open(
+        request_list_sources_input=[{'requestsFromUrl': httpserver.url_for('/file.txt'), 'method': 'GET'}]
+    )
+    request = await request_list.fetch_next_request()
+    assert request is not None
+    assert request.url == expected_url
+
+
 async def test_request_list_open_name() -> None:
     name = 'some_name'
     request_list = await ApifyRequestList.open(name=name)
