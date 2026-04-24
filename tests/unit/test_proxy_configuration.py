@@ -88,6 +88,13 @@ def test_invalid_arguments() -> None:
         with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(country_code=invalid_country_code)  # ty: ignore[invalid-argument-type]
 
+    for invalid_subdivision_code in ['C', 'California']:
+        with pytest.raises(ValueError, match=r'of argument subdivision_code is'):
+            ProxyConfiguration(country_code='US', subdivision_code=invalid_subdivision_code)
+
+    with pytest.raises(ValueError, match=r'Cannot set "subdivision_code" without "country_code"'):
+        ProxyConfiguration(subdivision_code='CA')
+
     with pytest.raises(ValueError, match=r'Exactly one of .* must be specified'):
         ProxyConfiguration(
             proxy_urls=['http://proxy.com:1111'],
@@ -105,6 +112,9 @@ def test_invalid_arguments() -> None:
             new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222', groups=['GROUP1']
         )
 
+    with pytest.raises(ValueError, match=r'Cannot combine custom proxies with Apify Proxy'):
+        ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], country_code='US', subdivision_code='CA')
+
 
 async def test_new_url_basic() -> None:
     groups = ['GROUP1', 'GROUP2']
@@ -118,6 +128,26 @@ async def test_new_url_basic() -> None:
     proxy_url = await proxy_configuration.new_url()
 
     expected_username = f'groups-{"+".join(groups)},country-{country_code}'
+    expected_hostname = 'proxy.apify.com'
+    expected_port = 8000
+
+    assert proxy_url == f'http://{expected_username}:{password}@{expected_hostname}:{expected_port}'
+
+
+async def test_new_url_with_subdivision() -> None:
+    groups = ['RESIDENTIAL']
+    password = 'abcd1234'
+    country_code = 'US'
+    subdivision = 'CA'
+    proxy_configuration = ProxyConfiguration(
+        groups=groups,
+        password=password,
+        country_code=country_code,
+        subdivision_code=subdivision,
+    )
+    proxy_url = await proxy_configuration.new_url()
+
+    expected_username = f'groups-{"+".join(groups)},country-{country_code}_{subdivision}'
     expected_hostname = 'proxy.apify.com'
     expected_port = 8000
 
@@ -287,6 +317,7 @@ async def test_new_proxy_info_basic_construction() -> None:
         'port': expected_port,
         'groups': groups,
         'country_code': country_code,
+        'subdivision_code': None,
         'username': expected_username,
         'password': password,
         'proxy_tier': None,
