@@ -155,11 +155,11 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
         if subdivision_code:
             if not country_code:
-                raise ValueError('Cannot set "subdivision_code" without "country_code".')
+                raise ValueError('ProxyConfiguration: Cannot set "subdivision_code" without "country_code".')
             subdivision_code = str(subdivision_code)
             _check(subdivision_code, label='subdivision_code', pattern=SUBDIVISION_CODE_REGEX)
 
-        if (proxy_urls or new_url_function or tiered_proxy_urls) and (groups or country_code or subdivision_code):
+        if (proxy_urls or new_url_function or tiered_proxy_urls) and (groups or country_code):
             raise ValueError(
                 'Cannot combine custom proxies with Apify Proxy!'
                 ' It is not allowed to set "proxy_urls" or "new_url_function" combined with'
