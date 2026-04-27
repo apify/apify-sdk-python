@@ -88,8 +88,10 @@ def test_invalid_arguments() -> None:
         with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(country_code=invalid_country_code)  # ty: ignore[invalid-argument-type]
 
-    for invalid_subdivision_code in ['C', 'California']:
-        with pytest.raises(ValueError, match=r'of argument subdivision_code is'):
+    for invalid_subdivision_code in ['California', 'ca', 'ABCD', 'A1b']:
+        escaped = re.escape(str(invalid_subdivision_code))
+        match_pattern = f'Value {escaped} of argument subdivision_code does not match pattern'
+        with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(country_code='US', subdivision_code=invalid_subdivision_code)
 
     with pytest.raises(ValueError, match=r'Cannot set "subdivision_code" without "country_code"'):

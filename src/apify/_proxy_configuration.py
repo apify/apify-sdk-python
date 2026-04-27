@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
+SUBDIVISION_CODE_REGEX = re.compile(r'^[A-Z0-9]{1,3}$')
 SESSION_ID_MAX_LENGTH = 50
 
 
@@ -91,9 +92,9 @@ class ProxyInfo(CrawleeProxyInfo):
 
     subdivision_code: str | None = None
     """If set, the proxy will use IP addresses geolocated to the specified subdivision (e.g. US state).
-    Requires `country_code` to be set. The subdivision code must be a two-character ISO 3166-2 code
-    (e.g. `CA` for California). Currently only supported for the
-    United States (`country_code='US'`).
+    Requires `country_code` to be set. The subdivision code must be a 1-3 character ISO 3166-2 code
+    consisting of uppercase letters and digits (e.g. `CA` for California). Currently only supported for
+    the United States (`country_code='US'`).
     """
 
 
@@ -135,7 +136,8 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             groups: Proxy groups which the Apify Proxy should use, if provided.
             country_code: Country which the Apify Proxy should use, if provided.
             subdivision_code: Subdivision (e.g. US state) which the Apify Proxy should use, if provided.
-                Requires `country_code` to be set. Two-letter ISO 3166-2 code (e.g. `CA` for California).
+                Requires `country_code` to be set. 1-3 character ISO 3166-2 code of uppercase letters/digits
+                (e.g. `CA` for California).
             proxy_urls: Custom proxy server URLs which should be rotated through.
             new_url_function: Function which returns a custom proxy URL to be used.
             tiered_proxy_urls: Proxy URLs arranged into tiers
@@ -155,7 +157,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             if not country_code:
                 raise ValueError('Cannot set "subdivision_code" without "country_code".')
             subdivision_code = str(subdivision_code)
-            _check(subdivision_code, label='subdivision_code', min_length=2, max_length=2)
+            _check(subdivision_code, label='subdivision_code', pattern=SUBDIVISION_CODE_REGEX)
 
         if (proxy_urls or new_url_function or tiered_proxy_urls) and (groups or country_code or subdivision_code):
             raise ValueError(
