@@ -8,6 +8,7 @@ async def main() -> None:
         proxy_cfg = await Actor.create_proxy_configuration(
             groups=['RESIDENTIAL'],
             country_code='US',
+            subdivision_code='CA',
         )
 
         if not proxy_cfg:
