@@ -1,10 +1,11 @@
 {
-    "name": "apify-sdk-python",
+    "name": "apify-sdk-python-website",
+    "private": true,
     "scripts": {
         "clean": "rimraf .docusaurus build",
-        "build": "yarn clean && docusaurus build",
-        "start": "yarn clean && docusaurus start",
-        "deploy": "yarn clean && docusaurus deploy",
+        "build": "pnpm clean && docusaurus build",
+        "start": "pnpm clean && docusaurus start",
+        "deploy": "pnpm clean && docusaurus deploy",
         "docusaurus": "docusaurus",
         "publish-gh-pages": "docusaurus-publish",
         "rename-version": "docusaurus rename-version",
@@ -12,10 +13,11 @@
         "version": "docusaurus version",
         "write-translations": "docusaurus write-translations",
         "prettify": "prettier --write --config ./tools/docs-prettier.config.js ../docs/*.md ../docs/*.mdx",
-        "lint": "yarn lint:code",
-        "lint:fix": "yarn lint:code:fix",
+        "lint": "pnpm lint:code",
+        "lint:fix": "pnpm lint:code:fix",
         "lint:code": "eslint .",
-        "lint:code:fix": "eslint . --fix"
+        "lint:code:fix": "eslint . --fix",
+        "preinstall": "npx only-allow pnpm"
     },
     "dependencies": {
         "@apify/docs-theme": "^1.0.243",
@@ -47,5 +49,5 @@
         "rimraf": "^6.0.0",
         "typescript": "^6.0.0"
     },
-    "packageManager": "yarn@4.13.0"
+    "packageManager": "pnpm@10.24.0"
 }
