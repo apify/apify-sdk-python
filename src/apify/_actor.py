@@ -4,7 +4,7 @@ import asyncio
 import sys
 import warnings
 from contextlib import suppress
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
@@ -13,7 +13,6 @@ from more_itertools import flatten
 from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from crawlee import service_locator
 from crawlee.errors import ServiceConflictError
 from crawlee.events import (
@@ -28,9 +27,8 @@ from crawlee.events import (
 
 from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
-from apify._consts import EVENT_LISTENERS_TIMEOUT
+from apify._consts import EVENT_LISTENERS_TIMEOUT, ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
-from apify._models import ActorRun
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
@@ -43,9 +41,9 @@ if TYPE_CHECKING:
     import logging
     from collections.abc import Callable
     from types import TracebackType
+    from typing import Self
 
-    from typing_extensions import Self
-
+    from apify_client._models_generated import Run
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
@@ -506,17 +504,21 @@ class _ActorType:
                 (increases exponentially from this value).
             timeout: The socket timeout of the HTTP requests sent to the Apify API.
         """
-        token = token or self.configuration.token
-        api_url = api_url or self.configuration.api_base_url
-        return ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=max_retries,
-            min_delay_between_retries_millis=int(min_delay_between_retries.total_seconds() * 1000)
-            if min_delay_between_retries is not None
-            else None,
-            timeout_secs=int(timeout.total_seconds()) if timeout else None,
-        )
+        kwargs: dict[str, Any] = {
+            'token': token or self.configuration.token,
+            'api_url': api_url or self.configuration.api_base_url,
+        }
+
+        if max_retries is not None:
+            kwargs['max_retries'] = max_retries
+
+        if min_delay_between_retries is not None:
+            kwargs['min_delay_between_retries_millis'] = int(min_delay_between_retries.total_seconds() * 1000)
+
+        if timeout is not None:
+            kwargs['timeout_secs'] = int(timeout.total_seconds())
+
+        return ApifyClientAsync(**kwargs)
 
     @_ensure_context
     async def open_dataset(
@@ -867,7 +869,7 @@ class _ActorType:
         timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         """Run an Actor on the Apify platform.
 
         Unlike `Actor.call`, this method just starts the run without waiting for finish.
@@ -919,17 +921,21 @@ class _ActorType:
                 f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
             )
 
-        api_result = await client.actor(actor_id).start(
+        actor_client = client.actor(actor_id)
+        run = await actor_client.start(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(actor_start_timeout.total_seconds()) if actor_start_timeout is not None else None,
+            run_timeout=actor_start_timeout,
             wait_for_finish=wait_for_finish,
             webhooks=serialized_webhooks,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to start Actor with ID "{actor_id}".')
+
+        return run
 
     @_ensure_context
     async def abort(
@@ -939,7 +945,7 @@ class _ActorType:
         token: str | None = None,
         status_message: str | None = None,
         gracefully: bool | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         """Abort given Actor run on the Apify platform using the current user account.
 
         The user account is determined by the `APIFY_TOKEN` environment variable.
@@ -956,13 +962,17 @@ class _ActorType:
             Info about the aborted Actor run.
         """
         client = self.new_client(token=token) if token else self.apify_client
+        run_client = client.run(run_id)
 
         if status_message:
-            await client.run(run_id).update(status_message=status_message)
+            await run_client.update(status_message=status_message)
 
-        api_result = await client.run(run_id).abort(gracefully=gracefully)
+        run = await run_client.abort(gracefully=gracefully)
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to abort Actor run with ID "{run_id}".')
+
+        return run
 
     @_ensure_context
     async def call(
@@ -978,7 +988,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | None | Literal['default'] = 'default',
-    ) -> ActorRun | None:
+    ) -> Run | None:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1034,18 +1044,22 @@ class _ActorType:
                 f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
             )
 
-        api_result = await client.actor(actor_id).call(
+        actor_client = client.actor(actor_id)
+        run = await actor_client.call(
             run_input=run_input,
             content_type=content_type,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(actor_call_timeout.total_seconds()) if actor_call_timeout is not None else None,
+            run_timeout=actor_call_timeout,
             webhooks=serialized_webhooks,
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            wait_duration=wait,
             logger=logger,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
+
+        return run
 
     @_ensure_context
     async def call_task(
@@ -1059,7 +1073,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
-    ) -> ActorRun | None:
+    ) -> Run | None:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1106,16 +1120,20 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        api_result = await client.task(task_id).call(
+        task_client = client.task(task_id)
+        run = await task_client.call(
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(task_call_timeout.total_seconds()) if task_call_timeout is not None else None,
+            run_timeout=task_call_timeout,
             webhooks=serialized_webhooks,
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            wait_duration=wait,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
+
+        return run
 
     @_ensure_context
     async def metamorph(
@@ -1213,7 +1231,7 @@ class _ActorType:
                 ),
                 timeout=event_listeners_timeout.total_seconds() if event_listeners_timeout else None,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
             results = []
 
@@ -1281,7 +1299,7 @@ class _ActorType:
         status_message: str,
         *,
         is_terminal: bool | None = None,
-    ) -> ActorRun | None:
+    ) -> Run | None:
         """Set the status message for the current Actor run.
 
         Args:
@@ -1300,11 +1318,18 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        api_result = await self.apify_client.run(self.configuration.actor_run_id).update(
-            status_message=status_message, is_status_message_terminal=is_terminal
+        run_client = self.apify_client.run(self.configuration.actor_run_id)
+        run = await run_client.update(
+            status_message=status_message,
+            is_status_message_terminal=is_terminal,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(
+                f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
+            )
+
+        return run
 
     @_ensure_context
     async def create_proxy_configuration(
@@ -1409,7 +1434,7 @@ class _ActorType:
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
         if self.is_at_home() and self.configuration.timeout_at:
-            return max(self.configuration.timeout_at - datetime.now(tz=timezone.utc), timedelta(0))
+            return max(self.configuration.timeout_at - datetime.now(tz=UTC), timedelta(0))
 
         self.log.warning(
             'Using `inherit` or `RemainingTime` argument is only possible when the Actor'

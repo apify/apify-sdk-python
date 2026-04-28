@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
 
+from apify_client._models_generated import RequestQueueHead
 from crawlee.storage_clients.models import RequestQueueMetadata
 
 from apify.storage_clients._apify._request_queue_single_client import ApifyRequestQueueSingleClient
@@ -16,7 +17,7 @@ def _make_single_client(
 ) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
     if api_client is None:
         api_client = AsyncMock()
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     metadata = RequestQueueMetadata(
         id='test-rq-id',
         name='test-rq',
@@ -78,7 +79,14 @@ def test_unique_key_to_request_id_matches_known_values(unique_key: str, expected
 )
 async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> None:
     client, api_client = _make_single_client()
-    api_client.list_head = AsyncMock(return_value={'items': [], 'hadMultipleClients': False})
+    api_client.list_head = AsyncMock(
+        return_value=RequestQueueHead(
+            limit=expected_limit,
+            queue_modified_at=datetime.now(tz=UTC),
+            had_multiple_clients=False,
+            items=[],
+        )
+    )
     client._requests_in_progress = {f'req_{i}' for i in range(in_progress_count)}
 
     await client._list_head()

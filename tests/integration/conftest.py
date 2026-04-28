@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
 from apify import Actor
+from apify._consts import ApifyEnvVars
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 from apify.storages import RequestQueue
@@ -37,8 +37,7 @@ def apify_token() -> str:
 def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync."""
     api_url = os.getenv(_API_URL_ENV_VAR)
-
-    return ApifyClientAsync(apify_token, api_url=api_url)
+    return ApifyClientAsync(apify_token) if api_url is None else ApifyClientAsync(apify_token, api_url=api_url)
 
 
 @pytest.fixture

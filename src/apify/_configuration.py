@@ -5,22 +5,22 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
-from typing_extensions import Self, TypedDict, deprecated
+from typing_extensions import TypedDict, deprecated
 
-from crawlee import service_locator
-from crawlee._utils.models import timedelta_ms
-from crawlee._utils.urls import validate_http_url
-from crawlee.configuration import Configuration as CrawleeConfiguration
-
-from apify._models import (
+from apify_client._models_generated import (
     FlatPricePerMonthActorPricingInfo,
     FreeActorPricingInfo,
     PayPerEventActorPricingInfo,
     PricePerDatasetItemActorPricingInfo,
 )
+from crawlee import service_locator
+from crawlee._utils.models import timedelta_ms
+from crawlee._utils.urls import validate_http_url
+from crawlee.configuration import Configuration as CrawleeConfiguration
+
 from apify._utils import docs_group
 
 logger = getLogger(__name__)
@@ -69,6 +69,41 @@ def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None
         'datasets': storage_mapping.get('datasets', storage_mapping.get('datasets', {})),
         'request_queues': storage_mapping.get('requestQueues', storage_mapping.get('request_queues', {})),
     }
+
+
+def _normalize_actor_pricing_info(data: Any) -> Any:
+    """Parse and normalize the `APIFY_ACTOR_PRICING_INFO` env var for the apify-client pricing models.
+
+    The platform-provided env var omits some fields that are required by the apify-client pydantic models
+    (`apifyMarginPercentage`, `createdAt`, `startedAt`, and per-event `eventDescription`). Inject safe
+    defaults for those so validation succeeds on the Actor side. Treat an empty env value or an empty/
+    discriminator-less JSON object as "no pricing info" to match the platform's behavior for Actors
+    without a configured pricing model.
+    """
+    if data is None or data == '':
+        return None
+    pricing_info = json.loads(data) if isinstance(data, str) else data
+    if not isinstance(pricing_info, dict):
+        # Already a parsed pydantic model (or some other non-dict) - pass through for pydantic to validate.
+        return pricing_info
+    if not pricing_info.get('pricingModel'):
+        # Platform sets `APIFY_ACTOR_PRICING_INFO={}` for Actors without a configured pricing model;
+        # without the discriminator, treat it as absent rather than letting the pydantic union fail.
+        return None
+
+    pricing_info.setdefault('apifyMarginPercentage', 0.0)
+    pricing_info.setdefault('createdAt', '1970-01-01T00:00:00.000Z')
+    pricing_info.setdefault('startedAt', '1970-01-01T00:00:00.000Z')
+
+    pricing_per_event = pricing_info.get('pricingPerEvent')
+    if isinstance(pricing_per_event, dict):
+        actor_charge_events = pricing_per_event.get('actorChargeEvents')
+        if isinstance(actor_charge_events, dict):
+            for event in actor_charge_events.values():
+                if isinstance(event, dict):
+                    event.setdefault('eventDescription', '')
+
+    return pricing_info
 
 
 @docs_group('Configuration')
@@ -471,7 +506,7 @@ class Configuration(CrawleeConfiguration):
             description='JSON string with prising info of the actor',
             discriminator='pricing_model',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+        BeforeValidator(_normalize_actor_pricing_info),
     ] = None
 
     charged_event_counts: Annotated[

@@ -11,8 +11,8 @@ from unittest.mock import Mock
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 
+from apify._consts import ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, is_url
 
 if TYPE_CHECKING:
@@ -26,15 +26,7 @@ DUMMY_PASSWORD = 'DUMMY_PASSWORD'
 
 @pytest.fixture
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
-    apify_client_async_patcher.patch(
-        'user',
-        'get',
-        return_value={
-            'proxy': {
-                'password': DUMMY_PASSWORD,
-            },
-        },
-    )
+    apify_client_async_patcher.patch('user', 'get', return_value=Mock(proxy=Mock(password=DUMMY_PASSWORD)))
     return ApifyClientAsync()
 
 

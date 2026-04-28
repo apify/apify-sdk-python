@@ -11,12 +11,12 @@ from urllib.parse import urljoin, urlparse
 import impit
 from yarl import URL
 
-from apify_shared.consts import ApifyEnvVars
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
 from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
 from crawlee.proxy_configuration import _NewUrlFunction
 
 from apify._configuration import Configuration
+from apify._consts import ApifyEnvVars
 from apify._utils import docs_group
 from apify.log import logger
 
@@ -265,9 +265,8 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
         if token and self._apify_client:
             user_info = await self._apify_client.user().get()
-            if user_info:
-                password = user_info['proxy']['password']
-                self._password = password
+            if user_info and (proxy := getattr(user_info, 'proxy', None)):
+                self._password = proxy.password
 
     async def _check_access(self) -> None:
         proxy_status_url = f'{self._configuration.proxy_status_url}/?format=json'

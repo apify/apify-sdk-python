@@ -320,8 +320,17 @@ def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -
     pricing_json = json.dumps(
         {
             'pricingModel': 'PAY_PER_EVENT',
+            'apifyMarginPercentage': 0.0,
+            'createdAt': '2024-01-01T00:00:00.000Z',
+            'startedAt': '2024-01-01T00:00:00.000Z',
             'pricingPerEvent': {
-                'actorChargeEvents': {'search': {'eventPriceUsd': '0.01', 'eventTitle': 'Search event'}}
+                'actorChargeEvents': {
+                    'search': {
+                        'eventPriceUsd': '0.01',
+                        'eventTitle': 'Search event',
+                        'eventDescription': 'Search event description',
+                    }
+                }
             },
         }
     )
@@ -329,6 +338,39 @@ def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -
     config = ApifyConfiguration()
     assert config.actor_pricing_info is not None
     assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'
+
+
+def test_actor_pricing_info_env_var_tolerates_platform_omissions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The platform env var may omit fields that apify-client models require; they should be injected with defaults."""
+
+    pricing_json = json.dumps(
+        {
+            'pricingModel': 'PAY_PER_EVENT',
+            'pricingPerEvent': {
+                'actorChargeEvents': {
+                    'search': {
+                        'eventPriceUsd': '0.01',
+                        'eventTitle': 'Search event',
+                    }
+                }
+            },
+        }
+    )
+    monkeypatch.setenv('APIFY_ACTOR_PRICING_INFO', pricing_json)
+    config = ApifyConfiguration()
+    assert config.actor_pricing_info is not None
+    assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'
+
+
+@pytest.mark.parametrize('env_value', ['', '{}'])
+def test_actor_pricing_info_env_var_empty_becomes_none(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """Platform sends `APIFY_ACTOR_PRICING_INFO={}` for Actors without a pricing model.
+
+    Without a `pricingModel` discriminator, the pydantic union cannot resolve — treat it as no pricing info.
+    """
+    monkeypatch.setenv('APIFY_ACTOR_PRICING_INFO', env_value)
+    config = ApifyConfiguration()
+    assert config.actor_pricing_info is None
 
 
 def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:

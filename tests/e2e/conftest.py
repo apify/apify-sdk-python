@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -13,19 +14,19 @@ import pytest
 from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
-from apify_shared.consts import ActorJobStatus, ActorPermissionLevel, ActorSourceType, ApifyEnvVars
+from apify_client._models_generated import ActorPermissionLevel, Run, VersionSourceType
 from crawlee import service_locator
 
 import apify._actor
 from ._utils import generate_unique_resource_name
-from apify._models import ActorRun
+from apify._consts import ApifyEnvVars
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine, Iterator, Mapping
     from decimal import Decimal
 
-    from apify_client.clients.resource_clients import ActorClientAsync
+    from apify_client._resource_clients import ActorClientAsync
 
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
@@ -47,7 +48,9 @@ def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync."""
     api_url = os.getenv(_API_URL_ENV_VAR)
 
-    return ApifyClientAsync(apify_token, api_url=api_url)
+    if api_url is not None:
+        return ApifyClientAsync(apify_token, api_url=api_url)
+    return ApifyClientAsync(apify_token)
 
 
 @pytest.fixture
@@ -236,7 +239,13 @@ def make_actor(
         if (main_func and main_py) or (main_func and source_files) or (main_py and source_files):
             raise TypeError('Cannot specify more than one of `main_func`, `main_py` and `source_files` arguments')
 
-        client = ApifyClientAsync(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR))
+        api_url = os.getenv(_API_URL_ENV_VAR)
+        client = (
+            ApifyClientAsync(token=apify_token)
+            if api_url is None
+            else ApifyClientAsync(token=apify_token, api_url=api_url)
+        )
+
         actor_name = generate_unique_resource_name(label)
 
         # Get the source of main_func and convert it into a reasonable main_py file.
@@ -299,30 +308,30 @@ def make_actor(
             name=actor_name,
             default_run_build='latest',
             default_run_memory_mbytes=memory_mbytes,
-            default_run_timeout_secs=600,
+            default_run_timeout=timedelta(seconds=600),
             versions=[
                 {
                     'versionNumber': '0.0',
                     'buildTag': 'latest',
-                    'sourceType': ActorSourceType.SOURCE_FILES,
+                    'sourceType': VersionSourceType.SOURCE_FILES,
                     'sourceFiles': source_files_for_api,
                 }
             ],
         )
 
-        actor_client = client.actor(created_actor['id'])
+        actor_client = client.actor(created_actor.id)
 
         print(f'Building Actor {actor_name}...')
         build_result = await actor_client.build(version_number='0.0')
-        build_client = client.build(build_result['id'])
-        build_client_result = await build_client.wait_for_finish(wait_secs=600)
+        build_client = client.build(build_result.id)
+        build_client_result = await build_client.wait_for_finish(wait_duration=timedelta(seconds=600))
 
         assert build_client_result is not None
-        assert build_client_result['status'] == ActorJobStatus.SUCCEEDED
+        assert build_client_result.status.value == 'SUCCEEDED'
 
         # We only mark the client for cleanup if the build succeeded, so that if something goes wrong here,
         # you have a chance to check the error.
-        actors_for_cleanup.append(created_actor['id'])
+        actors_for_cleanup.append(created_actor.id)
 
         return actor_client
 
@@ -330,17 +339,31 @@ def make_actor(
 
     # Delete all the generated Actors.
     for actor_id in actors_for_cleanup:
-        actor_client = ApifyClient(token=apify_token, api_url=os.getenv(_API_URL_ENV_VAR)).actor(actor_id)
+        api_url = os.getenv(_API_URL_ENV_VAR)
 
-        if (actor := actor_client.get()) is not None:
-            actor_client.update(
-                pricing_infos=[
-                    *actor.get('pricingInfos', []),
-                    {
-                        'pricingModel': 'FREE',
-                    },
-                ]
-            )
+        apify_client = (
+            ApifyClient(token=apify_token) if api_url is None else ApifyClient(token=apify_token, api_url=api_url)
+        )
+
+        actor_client = apify_client.actor(actor_id)
+        actor = actor_client.get()
+
+        if actor is not None and actor.pricing_infos is not None:
+            # Convert Pydantic models to dicts before mixing with plain dict
+            existing_pricing_infos = [pi.model_dump(by_alias=True, exclude_none=True) for pi in actor.pricing_infos]
+            # The API requires the new record to start strictly after all existing records.
+            latest_started_at = max(pi.started_at for pi in actor.pricing_infos)
+            new_started_at = max(latest_started_at, datetime.now(tz=UTC)) + timedelta(seconds=1)
+            new_pricing_infos = [
+                *existing_pricing_infos,
+                {
+                    'pricingModel': 'FREE',
+                    'apifyMarginPercentage': 0.0,
+                    'createdAt': new_started_at.isoformat(),
+                    'startedAt': new_started_at.isoformat(),
+                },
+            ]
+            actor_client.update(pricing_infos=new_pricing_infos)
 
         actor_client.delete()
 
@@ -355,7 +378,7 @@ class RunActorFunction(Protocol):
         run_input: Any = None,
         max_total_charge_usd: Decimal | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
-    ) -> Coroutine[None, None, ActorRun]:
+    ) -> Coroutine[None, None, Run]:
         """Initiate an Actor run and wait for its completion.
 
         Args:
@@ -382,19 +405,20 @@ def run_actor(apify_client_async: ApifyClientAsync) -> RunActorFunction:
         run_input: Any = None,
         max_total_charge_usd: Decimal | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         call_result = await actor.call(
             run_input=run_input,
             max_total_charge_usd=max_total_charge_usd,
             force_permission_level=force_permission_level,
         )
 
-        assert isinstance(call_result, dict), 'The result of ActorClientAsync.call() is not a dictionary.'
-        assert 'id' in call_result, 'The result of ActorClientAsync.call() does not contain an ID.'
+        assert call_result is not None, 'Failed to start Actor run: missing run ID in the response.'
 
-        run_client = apify_client_async.run(call_result['id'])
-        run_result = await run_client.wait_for_finish(wait_secs=600)
+        run_client = apify_client_async.run(call_result.id)
+        client_actor_run = await run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
 
-        return ActorRun.model_validate(run_result)
+        assert client_actor_run is not None, 'Actor run did not finish successfully within the expected time.'
+
+        return client_actor_run
 
     return _run_actor

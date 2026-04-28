@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 from ._utils import generate_unique_resource_name
 from apify import Actor
+from apify._consts import ApifyEnvVars
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 from apify.storages import KeyValueStore
@@ -156,7 +156,7 @@ async def test_force_cloud(
     try:
         key_value_store_details = await key_value_store_client.get()
         assert key_value_store_details is not None
-        assert key_value_store_details.get('name') == key_value_store_name
+        assert key_value_store_details.name == key_value_store_name
 
         key_value_store_record = await key_value_store_client.get_record('foo')
         assert key_value_store_record is not None

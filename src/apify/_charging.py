@@ -3,20 +3,17 @@ from __future__ import annotations
 import math
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
-from pydantic import TypeAdapter
-
-from apify._models import (
-    ActorRun,
+from apify_client._models_generated import (
     FlatPricePerMonthActorPricingInfo,
     FreeActorPricingInfo,
     PayPerEventActorPricingInfo,
     PricePerDatasetItemActorPricingInfo,
-    PricingModel,
 )
+
 from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.log import logger
 from apify.storages import Dataset
@@ -27,8 +24,7 @@ if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
     from apify._configuration import Configuration
-
-run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
+    from apify._models import PricingModel
 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 
@@ -308,7 +304,7 @@ class ChargingManagerImplementation(ChargingManager):
                     # the platform handles them automatically based on dataset writes.
                     pass
                 elif event_name in self._pricing_info:
-                    await self._client.run(self._actor_run_id).charge(event_name, charged_count)
+                    await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 
@@ -320,7 +316,7 @@ class ChargingManagerImplementation(ChargingManager):
                         'event_title': pricing_info.title,
                         'event_price_usd': round(pricing_info.price, 3),
                         'charged_count': charged_count,
-                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                        'timestamp': datetime.now(UTC).isoformat(),
                     }
                 )
 
@@ -427,7 +423,8 @@ class ChargingManagerImplementation(ChargingManager):
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
 
-            run = run_validator.validate_python(await self._client.run(self._actor_run_id).get())
+            run = await self._client.run(self._actor_run_id).get()
+
             if run is None:
                 raise RuntimeError('Actor run not found')
 

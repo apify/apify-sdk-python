@@ -9,14 +9,13 @@ description = "Apify SDK for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -35,15 +34,14 @@ keywords = [
     "scraping",
 ]
 dependencies = [
-    "apify-client>=2.3.0,<3.0.0",
-    "apify-shared>=2.0.0,<3.0.0",
+    "apify-client @ git+https://github.com/apify/apify-client-python.git@master",
     "crawlee>=1.0.4,<2.0.0",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
     "impit>=0.8.0",
     "lazy-object-proxy>=1.11.0",
     "more_itertools>=10.2.0",
-    "pydantic>=2.11.0",
+    "pydantic[email]>=2.11.0",
     "typing-extensions>=4.1.0",
     "websockets>=14.0",
     "yarl>=1.18.0",
@@ -188,7 +186,7 @@ builtins-ignorelist = ["id"]
 
 [tool.ruff.lint.isort]
 known-local-folder = ["apify"]
-known-first-party = ["apify_client", "apify_shared", "crawlee"]
+known-first-party = ["apify_client", "crawlee"]
 
 [tool.ruff.lint.pylint]
 max-branches = 18
@@ -200,7 +198,7 @@ asyncio_mode = "auto"
 timeout = 1800
 
 [tool.ty.environment]
-python-version = "3.10"
+python-version = "3.11"
 
 [tool.ty.src]
 include = ["src", "tests", "scripts", "docs", "website"]

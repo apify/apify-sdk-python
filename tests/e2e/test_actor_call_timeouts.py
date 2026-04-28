@@ -19,7 +19,7 @@ async def test_actor_start_inherit_timeout(
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor start."""
 
     async def main() -> None:
-        from datetime import datetime, timedelta, timezone
+        from datetime import UTC, datetime, timedelta
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}
@@ -42,7 +42,7 @@ async def test_actor_start_inherit_timeout(
                 assert Actor.configuration.timeout_at is not None
                 assert Actor.configuration.started_at is not None
 
-                remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=timezone.utc)
+                remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=UTC)
 
                 other_timeout = timedelta(seconds=other_run_data.options.timeout_secs)
                 total_timeout = Actor.configuration.timeout_at - Actor.configuration.started_at
@@ -56,7 +56,7 @@ async def test_actor_start_inherit_timeout(
     actor = await make_actor(label='inherit-timeout', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
 
 async def test_actor_call_inherit_timeout(
@@ -69,7 +69,7 @@ async def test_actor_call_inherit_timeout(
     Timeout should be the remaining time of the first Actor run calculated at the moment of the other Actor call."""
 
     async def main() -> None:
-        from datetime import datetime, timedelta, timezone
+        from datetime import UTC, datetime, timedelta
 
         async with Actor:
             actor_input = (await Actor.get_input()) or {}
@@ -94,7 +94,7 @@ async def test_actor_call_inherit_timeout(
                 assert Actor.configuration.timeout_at is not None
                 assert Actor.configuration.started_at is not None
 
-                remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=timezone.utc)
+                remaining_time_after_actor_start = Actor.configuration.timeout_at - datetime.now(tz=UTC)
 
                 other_timeout = timedelta(seconds=other_run_data.options.timeout_secs)
                 total_timeout = Actor.configuration.timeout_at - Actor.configuration.started_at
@@ -108,4 +108,4 @@ async def test_actor_call_inherit_timeout(
     actor = await make_actor(label='remaining-timeout', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'

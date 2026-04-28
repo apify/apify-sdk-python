@@ -4,10 +4,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from apify_shared.consts import ApifyEnvVars
-
 from ._utils import generate_unique_resource_name
 from apify import Actor
+from apify._consts import ApifyEnvVars
 from apify.storage_clients import ApifyStorageClient
 from apify.storages import Dataset
 
@@ -117,7 +116,7 @@ async def test_force_cloud(
     try:
         dataset_details = await dataset_client.get()
         assert dataset_details is not None
-        assert dataset_details.get('name') == dataset_name
+        assert dataset_details.name == dataset_name
 
         dataset_items = await dataset_client.list_items()
         assert dataset_items.items == [dataset_item]

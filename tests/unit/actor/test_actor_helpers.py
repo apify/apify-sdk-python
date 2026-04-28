@@ -3,62 +3,66 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars, WebhookEventType
+from apify_client._models_generated import Run, WebhookEventType
 from crawlee.events._types import Event
 
 from apify import Actor, Webhook
 from apify._actor import _ActorType
+from apify._consts import ApifyEnvVars
 
 if TYPE_CHECKING:
     from ..conftest import ApifyClientAsyncPatcher
 
 
 @pytest.fixture
-def fake_actor_run() -> dict:
-    return {
-        'id': 'asdfasdf',
-        'buildId': '3ads35',
-        'buildNumber': '3.4.5',
-        'actId': 'actor_id',
-        'actorId': 'actor_id',
-        'userId': 'user_id',
-        'startedAt': '2024-08-08 12:12:44',
-        'status': 'RUNNING',
-        'meta': {'origin': 'API'},
-        'containerUrl': 'http://0.0.0.0:3333',
-        'defaultDatasetId': 'dhasdrfughaerguoi',
-        'defaultKeyValueStoreId': 'asjkldhguiofg',
-        'defaultRequestQueueId': 'lkjgklserjghios',
-        'stats': {
-            'inputBodyLen': 0,
-            'restartCount': 0,
-            'resurrectCount': 0,
-            'memAvgBytes': 0,
-            'memMaxBytes': 0,
-            'memCurrentBytes': 0,
-            'cpuAvgUsage': 0,
-            'cpuMaxUsage': 0,
-            'cpuCurrentUsage': 0,
-            'netRxBytes': 0,
-            'netTxBytes': 0,
-            'durationMillis': 3333,
-            'runTimeSecs': 33,
-            'metamorph': 0,
-            'computeUnits': 4.33,
-        },
-        'options': {
-            'build': '',
-            'timeoutSecs': 44,
-            'memoryMbytes': 4096,
-            'diskMbytes': 16384,
-        },
-    }
+def fake_actor_run() -> Run:
+    return Run.model_validate(
+        {
+            'id': 'asdfasdf',
+            'buildId': '3ads35',
+            'buildNumber': '3.4.5',
+            'actId': 'actor_id',
+            'actorId': 'actor_id',
+            'userId': 'user_id',
+            'startedAt': '2024-08-08T12:12:44Z',
+            'status': 'RUNNING',
+            'meta': {'origin': 'API'},
+            'containerUrl': 'http://0.0.0.0:3333',
+            'defaultDatasetId': 'dhasdrfughaerguoi',
+            'defaultKeyValueStoreId': 'asjkldhguiofg',
+            'defaultRequestQueueId': 'lkjgklserjghios',
+            'generalAccess': 'RESTRICTED',
+            'stats': {
+                'inputBodyLen': 0,
+                'restartCount': 0,
+                'resurrectCount': 0,
+                'memAvgBytes': 0,
+                'memMaxBytes': 0,
+                'memCurrentBytes': 0,
+                'cpuAvgUsage': 0,
+                'cpuMaxUsage': 0,
+                'cpuCurrentUsage': 0,
+                'netRxBytes': 0,
+                'netTxBytes': 0,
+                'durationMillis': 3333,
+                'runTimeSecs': 33,
+                'metamorph': 0,
+                'computeUnits': 4.33,
+            },
+            'options': {
+                'build': '',
+                'timeoutSecs': 44,
+                'memoryMbytes': 4096,
+                'diskMbytes': 16384,
+            },
+        }
+    )
 
 
 async def test_new_client_config_creation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -79,7 +83,7 @@ async def test_new_client_config_creation(monkeypatch: pytest.MonkeyPatch) -> No
     await my_actor.exit()
 
 
-async def test_call_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict) -> None:
+async def test_call_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
     actor_id = 'some-actor-id'
 
@@ -91,7 +95,7 @@ async def test_call_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, f
     assert apify_client_async_patcher.calls['actor']['call'][0][0][0].resource_id == actor_id
 
 
-async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict) -> None:
+async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
     task_id = 'some-task-id'
 
@@ -102,7 +106,7 @@ async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatch
     assert apify_client_async_patcher.calls['task']['call'][0][0][0].resource_id == task_id
 
 
-async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict) -> None:
+async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
     actor_id = 'some-id'
 
@@ -113,7 +117,7 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
     assert apify_client_async_patcher.calls['actor']['start'][0][0][0].resource_id == actor_id
 
 
-async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict) -> None:
+async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     apify_client_async_patcher.patch('run', 'abort', return_value=fake_actor_run)
     run_id = 'some-run-id'
 
@@ -264,7 +268,7 @@ async def test_remote_method_with_timedelta_timeout(
     calls = apify_client_async_patcher.calls[client_resource][client_method]
     assert len(calls) == 1
     _, kwargs = calls[0][0], calls[0][1]
-    assert kwargs.get('timeout_secs') == 120
+    assert kwargs.get('run_timeout') == timedelta(seconds=120)
 
 
 async def test_call_actor_with_remaining_time_deprecation(
@@ -328,7 +332,7 @@ async def test_get_remaining_time_clamps_negative_to_zero() -> None:
     """Test that _get_remaining_time returns timedelta(0) instead of a negative value when timeout is in the past."""
     async with Actor:
         Actor.configuration.is_at_home = True
-        Actor.configuration.timeout_at = datetime.now(tz=timezone.utc) - timedelta(minutes=5)
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
 
         result = Actor._get_remaining_time()
         assert result is not None
@@ -339,7 +343,7 @@ async def test_get_remaining_time_returns_positive_when_timeout_in_future() -> N
     """Test that _get_remaining_time returns a positive timedelta when timeout is in the future."""
     async with Actor:
         Actor.configuration.is_at_home = True
-        Actor.configuration.timeout_at = datetime.now(tz=timezone.utc) + timedelta(minutes=5)
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) + timedelta(minutes=5)
 
         result = Actor._get_remaining_time()
         assert result is not None

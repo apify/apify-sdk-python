@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from crawlee._utils.crypto import crypto_random_object_id
@@ -20,7 +20,7 @@ async def test_actor_from_main_func(
     async def main() -> None:
         import os
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         async with Actor:
             await Actor.set_value('OUTPUT', os.getenv(ActorEnvVars.ID))
@@ -28,7 +28,7 @@ async def test_actor_from_main_func(
     actor = await make_actor(label='make-actor-main-func', main_func=main)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
 
@@ -52,7 +52,7 @@ async def test_actor_from_main_py(
     actor = await make_actor(label='make-actor-main-py', main_py=main_py_source)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
 
@@ -64,7 +64,7 @@ async def test_actor_from_source_files(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    test_started_at = datetime.now(timezone.utc)
+    test_started_at = datetime.now(UTC)
     actor_source_files = {
         'src/utils.py': """
             from datetime import datetime, timezone
@@ -86,14 +86,14 @@ async def test_actor_from_source_files(
     actor = await make_actor(label='make-actor-source-files', source_files=actor_source_files)
     run_result = await run_actor(actor)
 
-    assert run_result.status == 'SUCCEEDED'
+    assert run_result.status.value == 'SUCCEEDED'
 
     output_record = await actor.last_run().key_value_store().get_record('OUTPUT')
     assert output_record is not None
 
     output_datetime = datetime.fromisoformat(output_record['value'])
     assert output_datetime > test_started_at
-    assert output_datetime < datetime.now(timezone.utc)
+    assert output_datetime < datetime.now(UTC)
 
 
 async def test_apify_client_async_works(apify_client_async: ApifyClientAsync) -> None:

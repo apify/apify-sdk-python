@@ -12,11 +12,11 @@ import pytest
 from pytest_httpserver import HTTPServer
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
 import apify.log
+from apify._consts import ApifyEnvVars
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 if TYPE_CHECKING:
@@ -62,6 +62,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
     def _prepare_test_env() -> None:
         if hasattr(apify._actor.Actor, '__wrapped__'):
             delattr(apify._actor.Actor, '__wrapped__')
+
         apify._actor.Actor._active = False
 
         # Set the environment variable for the local storage directory to the temporary path.
