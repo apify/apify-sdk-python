@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
+# ISO 3166-2 subdivision codes are 1-3 uppercase alphanumeric characters, e.g. 'CA', 'NSW', '9' (Wien, AT-9)
 SUBDIVISION_CODE_REGEX = re.compile(r'^[A-Z0-9]{1,3}$')
 SESSION_ID_MAX_LENGTH = 50
 
