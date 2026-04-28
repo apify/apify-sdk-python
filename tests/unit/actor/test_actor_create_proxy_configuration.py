@@ -146,7 +146,22 @@ async def test_proxy_configuration_with_actor_proxy_input(
         == f'http://groups-{"+".join(groups)},country-{country_code}:{DUMMY_PASSWORD}@proxy.apify.com:8000'
     )
 
-    assert len(patched_apify_client.calls['user']['get']) == 2  # ty: ignore[unresolved-attribute]
-    assert call_mock.call_count == 2
+    subdivision = 'CA'
+    proxy_configuration = await Actor.create_proxy_configuration(
+        actor_proxy_input={
+            'useApifyProxy': True,
+            'apifyProxyGroups': groups,
+            'apifyProxyCountry': country_code,
+            'apifyProxySubdivision': subdivision,
+        }
+    )
+    assert proxy_configuration is not None
+    assert (
+        await proxy_configuration.new_url()
+        == f'http://groups-{"+".join(groups)},country-{country_code}_{subdivision}:{DUMMY_PASSWORD}@proxy.apify.com:8000'
+    )
+
+    assert len(patched_apify_client.calls['user']['get']) == 3  # ty: ignore[unresolved-attribute]
+    assert call_mock.call_count == 3
 
     await Actor.exit()

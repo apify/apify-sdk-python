@@ -56,13 +56,13 @@ When no `session_id` is provided, your custom proxy URLs are rotated round-robin
 
 ### Apify proxy configuration
 
-With Apify Proxy, you can select specific proxy groups to use, or countries to connect from. This allows you to get better proxy performance after some initial research.
+With Apify Proxy, you can select specific proxy groups to use, or countries to connect from. For even finer control, you can also target a specific subdivision (e.g. a US state) using the `subdivision_code` parameter alongside `country_code`. This allows you to get better proxy performance after some initial research.
 
 <RunnableCodeBlock className="language-python" language="python">
     {ApifyProxyConfig}
 </RunnableCodeBlock>
 
-Now your connections using proxy_url will use only Residential proxies from the US. Note that you must first get access to a proxy group before you are able to use it. You can find your available proxy groups in the [proxy dashboard](https://console.apify.com/proxy).
+Now your connections using proxy_url will use only Residential proxies from California, US. The `subdivision_code` accepts a 1–3 character ISO 3166-2 code (e.g. `CA` for California) and currently only works for the United States (`country_code='US'`). Note that you must first get access to a proxy group before you are able to use it. You can find your available proxy groups in the [proxy dashboard](https://console.apify.com/proxy).
 
 If you don't specify any proxy groups, automatic proxy selection will be used.
 

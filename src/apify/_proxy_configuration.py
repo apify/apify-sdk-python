@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
+# ISO 3166-2 subdivision codes are 1-3 uppercase alphanumeric characters, e.g. 'CA', 'NSW', '9' (Wien, AT-9)
+SUBDIVISION_CODE_REGEX = re.compile(r'^[A-Z0-9]{1,3}$')
 SESSION_ID_MAX_LENGTH = 50
 
 
@@ -89,6 +91,13 @@ class ProxyInfo(CrawleeProxyInfo):
     This parameter is optional, by default, the proxy uses all available proxy servers from all countries.
     """
 
+    subdivision_code: str | None = None
+    """If set, the proxy will use IP addresses geolocated to the specified subdivision (e.g. US state).
+    Requires `country_code` to be set. The subdivision code must be a 1-3 character ISO 3166-2 code
+    consisting of uppercase letters and digits (e.g. `CA` for California). Currently only supported for
+    the United States (`country_code='US'`).
+    """
+
 
 @docs_group('Configuration')
 class ProxyConfiguration(CrawleeProxyConfiguration):
@@ -111,6 +120,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         password: str | None = None,
         groups: list[str] | None = None,
         country_code: str | None = None,
+        subdivision_code: str | None = None,
         proxy_urls: list[str | None] | None = None,
         new_url_function: _NewUrlFunction | None = None,
         tiered_proxy_urls: list[list[str | None]] | None = None,
@@ -126,6 +136,9 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                 if available.
             groups: Proxy groups which the Apify Proxy should use, if provided.
             country_code: Country which the Apify Proxy should use, if provided.
+            subdivision_code: Subdivision (e.g. US state) which the Apify Proxy should use, if provided.
+                Requires `country_code` to be set. 1-3 character ISO 3166-2 code of uppercase letters/digits
+                (e.g. `CA` for California).
             proxy_urls: Custom proxy server URLs which should be rotated through.
             new_url_function: Function which returns a custom proxy URL to be used.
             tiered_proxy_urls: Proxy URLs arranged into tiers
@@ -141,11 +154,17 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             country_code = str(country_code)
             _check(country_code, label='country_code', pattern=COUNTRY_CODE_REGEX)
 
+        if subdivision_code:
+            if not country_code:
+                raise ValueError('ProxyConfiguration: Cannot set "subdivision_code" without "country_code".')
+            subdivision_code = str(subdivision_code)
+            _check(subdivision_code, label='subdivision_code', pattern=SUBDIVISION_CODE_REGEX)
+
         if (proxy_urls or new_url_function or tiered_proxy_urls) and (groups or country_code):
             raise ValueError(
                 'Cannot combine custom proxies with Apify Proxy!'
                 ' It is not allowed to set "proxy_urls" or "new_url_function" combined with'
-                ' "groups" or "country_code".'
+                ' "groups", "country_code", or "subdivision_code".'
             )
 
         if proxy_urls and any('apify.com' in (url or '') for url in proxy_urls):
@@ -176,6 +195,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
         self._groups = list(groups) if groups else []
         self._country_code = country_code
+        self._subdivision_code = subdivision_code
 
     async def initialize(self) -> None:
         """Check if using proxy, if so, check the access.
@@ -247,6 +267,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                 proxy_tier=proxy_info.proxy_tier,
                 groups=self._groups,
                 country_code=self._country_code or None,
+                subdivision_code=self._subdivision_code or None,
             )
 
         return ProxyInfo(
@@ -309,7 +330,10 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         if session_id is not None:
             parts.append(f'session-{session_id}')
         if self._country_code:
-            parts.append(f'country-{self._country_code}')
+            if self._subdivision_code:
+                parts.append(f'country-{self._country_code}_{self._subdivision_code}')
+            else:
+                parts.append(f'country-{self._country_code}')
 
         if not parts:
             return 'auto'
