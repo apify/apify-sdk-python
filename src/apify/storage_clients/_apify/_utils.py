@@ -10,8 +10,8 @@ from crawlee._utils.crypto import compute_short_hash
 from apify import Request
 
 if TYPE_CHECKING:
-    from apify_client._models import HeadRequest, LockedHeadRequest
-    from apify_client._models import Request as ClientRequest
+    from apify_client._models_generated import HeadRequest, LockedHeadRequest
+    from apify_client._models_generated import Request as ClientRequest
 
     from apify import Configuration
 

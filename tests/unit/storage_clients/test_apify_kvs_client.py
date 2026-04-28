@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import ListOfKeys
+from apify_client._models_generated import ListOfKeys
 
 from apify.storage_clients._apify._key_value_store_client import ApifyKeyValueStoreClient
 

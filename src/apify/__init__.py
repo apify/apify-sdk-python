@@ -1,6 +1,6 @@
 from importlib import metadata
 
-from apify_client._models import WebhookEventType
+from apify_client._models_generated import WebhookEventType
 from crawlee import Request
 from crawlee.events import (
     Event,

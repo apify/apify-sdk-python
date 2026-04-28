@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from apify_client._models import BatchAddResult, RequestDraft
+from apify_client._models_generated import BatchAddResult, RequestDraft
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 

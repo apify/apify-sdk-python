@@ -10,7 +10,7 @@ from typing import Annotated, Any, Self
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import TypedDict, deprecated
 
-from apify_client._models import (
+from apify_client._models_generated import (
     FlatPricePerMonthActorPricingInfo,
     FreeActorPricingInfo,
     PayPerEventActorPricingInfo,

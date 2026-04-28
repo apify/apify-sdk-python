@@ -13,7 +13,7 @@ import pytest
 import websockets
 import websockets.asyncio.server
 
-from apify_client._models import Run
+from apify_client._models_generated import Run
 from crawlee.events._types import Event, EventPersistStateData
 
 from apify import Actor

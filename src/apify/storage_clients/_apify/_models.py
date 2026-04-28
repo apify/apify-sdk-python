@@ -11,7 +11,7 @@ from apify import Request
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
-    from apify_client._models import LockedRequestQueueHead
+    from apify_client._models_generated import LockedRequestQueueHead
 
 
 @docs_group('Storage data')

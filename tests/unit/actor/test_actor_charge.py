@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
 
-from apify_client._models import PayPerEventActorPricingInfo
+from apify_client._models_generated import PayPerEventActorPricingInfo
 
 from apify import Actor, Configuration
 from apify._charging import ChargingManagerImplementation, PricingInfoItem
@@ -33,7 +33,7 @@ async def setup_mocked_charging(
             setup.charging_mgr._pricing_info['event'] = PricingInfoItem(Decimal('1.0'), 'Event')
 
             result = await Actor.charge('event', count=1)
-            setup.mock_charge.assert_called_once_with('event', 1)
+            setup.mock_charge.assert_called_once_with('event', count=1)
     """
     # Mock the ApifyClientAsync
     mock_client = Mock()
@@ -77,7 +77,7 @@ async def test_actor_charge_push_data_with_no_remaining_budget() -> None:
         result1 = await Actor.charge('some-event', count=1)  # Costs $1, leaving $0.5
 
         # Verify the first charge call was made correctly
-        setup.mock_charge.assert_called_once_with('some-event', 1)
+        setup.mock_charge.assert_called_once_with('some-event', count=1)
         setup.mock_charge.reset_mock()
 
         assert result1.charged_count == 1
@@ -112,7 +112,7 @@ async def test_actor_charge_api_call_verification() -> None:
 
         # Call charge with count=1 - this SHOULD call the API
         result2 = await Actor.charge('test-event', count=1)
-        setup.mock_charge.assert_called_once_with('test-event', 1)
+        setup.mock_charge.assert_called_once_with('test-event', count=1)
         assert result2.charged_count == 1
 
 

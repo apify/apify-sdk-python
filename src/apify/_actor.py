@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from types import TracebackType
     from typing import Self
 
-    from apify_client._models import Run
+    from apify_client._models_generated import Run
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
@@ -1231,7 +1231,7 @@ class _ActorType:
                 ),
                 timeout=event_listeners_timeout.total_seconds() if event_listeners_timeout else None,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
             results = []
 

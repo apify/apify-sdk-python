@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from apify_client._models import Run
+    from apify_client._models_generated import Run
     from apify_client._resource_clients import ActorClientAsync
 
 _PYTHON_VERSION = f'{sys.version_info[0]}.{sys.version_info[1]}'

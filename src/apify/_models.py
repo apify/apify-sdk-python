@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from apify_client._models import (
+from apify_client._models_generated import (
     ExampleWebhookDispatch,
     WebhookCondition,
     WebhookStats,

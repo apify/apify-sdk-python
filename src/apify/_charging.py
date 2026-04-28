@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
-from apify_client._models import (
+from apify_client._models_generated import (
     FlatPricePerMonthActorPricingInfo,
     FreeActorPricingInfo,
     PayPerEventActorPricingInfo,
@@ -304,7 +304,7 @@ class ChargingManagerImplementation(ChargingManager):
                     # the platform handles them automatically based on dataset writes.
                     pass
                 elif event_name in self._pricing_info:
-                    await self._client.run(self._actor_run_id).charge(event_name, charged_count)
+                    await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 

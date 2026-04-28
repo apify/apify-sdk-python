@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from apify_client._models import (
+from apify_client._models_generated import (
     ActorChargeEvent,
     PayPerEventActorPricingInfo,
 )
