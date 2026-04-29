@@ -986,9 +986,13 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
         try:
             await rq.add_requests(requests)
 
-            # Check that it is correctly in the API
-            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
-            metadata = cast('ApifyRequestQueueMetadata', await rq.get_metadata())
+            async def _get_rq_metadata() -> ApifyRequestQueueMetadata:
+                return cast('ApifyRequestQueueMetadata', await rq.get_metadata())
+
+            metadata = await poll_until_condition(
+                _get_rq_metadata,
+                lambda m: m.stats.write_count >= len(requests),
+            )
             stats_before = metadata.stats
             Actor.log.info(stats_before)
 
@@ -999,8 +1003,10 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
             rq = await Actor.open_request_queue(name=request_queue_name, force_cloud=True)
             await rq.add_requests(requests)
 
-            await asyncio.sleep(10)  # Wait to be sure that metadata are updated
-            metadata = cast('ApifyRequestQueueMetadata', await rq.get_metadata())
+            metadata = await poll_until_condition(
+                _get_rq_metadata,
+                lambda m: m.stats.read_count - stats_before.read_count >= len(requests),
+            )
             stats_after = metadata.stats
             Actor.log.info(stats_after)
 
