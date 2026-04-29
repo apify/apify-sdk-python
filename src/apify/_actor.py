@@ -1315,6 +1315,7 @@ class _ActorType:
         password: str | None = None,
         groups: list[str] | None = None,
         country_code: str | None = None,
+        subdivision_code: str | None = None,
         proxy_urls: list[str | None] | None = None,
         new_url_function: _NewUrlFunction | None = None,
     ) -> ProxyConfiguration | None:
@@ -1332,6 +1333,8 @@ class _ActorType:
                 if available.
             groups: Proxy groups which the Apify Proxy should use, if provided.
             country_code: Country which the Apify Proxy should use, if provided.
+            subdivision_code: Subdivision (e.g. US state) which the Apify Proxy should use, if provided.
+                Requires `country_code` to be set. Two-letter ISO 3166-2 code (e.g. `CA` for California).
             proxy_urls: Custom proxy server URLs which should be rotated through.
             new_url_function: Function which returns a custom proxy URL to be used.
 
@@ -1342,6 +1345,7 @@ class _ActorType:
         if actor_proxy_input is not None:
             if actor_proxy_input.get('useApifyProxy', False):
                 country_code = country_code or actor_proxy_input.get('apifyProxyCountry')
+                subdivision_code = subdivision_code or actor_proxy_input.get('apifyProxySubdivision')
                 groups = groups or actor_proxy_input.get('apifyProxyGroups')
             else:
                 proxy_urls = actor_proxy_input.get('proxyUrls', [])
@@ -1352,6 +1356,7 @@ class _ActorType:
             password=password,
             groups=groups,
             country_code=country_code,
+            subdivision_code=subdivision_code,
             proxy_urls=proxy_urls,
             new_url_function=new_url_function,
             _actor_config=self.configuration,
