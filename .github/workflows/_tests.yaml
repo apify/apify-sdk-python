@@ -28,7 +28,8 @@ jobs:
     if: >-
       ${{
         (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/master')
+        (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+        github.event_name == 'workflow_dispatch'
       }}
 
     strategy:
@@ -85,7 +86,8 @@ jobs:
     if: >-
       ${{
         (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/master')
+        (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+        github.event_name == 'workflow_dispatch'
       }}
 
     strategy:
