@@ -44,7 +44,7 @@ module.exports = {
     scripts: ['/js/custom.js', ...(config.scripts ?? [])],
     githubHost: 'github.com',
     future: {
-        experimental_faster: {
+        faster: {
             // ssgWorkerThreads: true,
             swcJsLoader: true,
             swcJsMinimizer: true,
