@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.3.4 - **not yet released**
+
+### 🚀 Features
+
+- Add subdivision code to proxy configuration ([#878](https://github.com/apify/apify-sdk-python/pull/878)) ([b2e4006](https://github.com/apify/apify-sdk-python/commit/b2e4006bf29961ef10870877abba88fa1e8f6962)) by [@daniil-poletaev](https://github.com/daniil-poletaev)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.3.3](https://github.com/apify/apify-sdk-python/releases/tag/v3.3.3) (2026-04-21)
 
 ### 🐛 Bug Fixes
