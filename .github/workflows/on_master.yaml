@@ -45,6 +45,9 @@ jobs:
     uses: ./.github/workflows/_tests.yaml
     secrets: inherit
 
+  # The beta release is dispatched as a separate workflow run (instead of calling `manual_release_beta.yaml` via `uses:`)
+  # because PyPI's Trusted Publishing does not currently support reusable workflows.
+  # See: https://docs.pypi.org/trusted-publishers/troubleshooting/#reusable-workflows-on-github
   beta_release:
     # Run this only for "feat", "fix", "perf", "refactor" and "style" commits.
     if: >-
@@ -55,9 +58,11 @@ jobs:
       startsWith(github.event.head_commit.message, 'style')
     name: Beta release
     needs: [code_checks, tests]
+    runs-on: ubuntu-latest
     permissions:
-      contents: write
-      id-token: write
-      pages: write
-    uses: ./.github/workflows/manual_release_beta.yaml
-    secrets: inherit
+      actions: write # Required by execute-workflow.
+    steps:
+      - name: Dispatch beta release workflow
+        uses: apify/workflows/execute-workflow@main
+        with:
+          workflow: manual_release_beta.yaml

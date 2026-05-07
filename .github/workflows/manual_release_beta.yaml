@@ -1,11 +1,16 @@
 name: Beta release
 
 on:
-  # Runs when manually triggered from the GitHub UI.
+  # Runs when manually triggered from the GitHub UI, or dispatched from `on_master.yaml`
+  # via the `apify/workflows/execute-workflow` action for the automatic beta release on push to master.
+  # Note: This workflow is intentionally NOT a reusable workflow (no `workflow_call`) because PyPI's
+  # Trusted Publishing does not currently support reusable workflows.
+  # See: https://docs.pypi.org/trusted-publishers/troubleshooting/#reusable-workflows-on-github
   workflow_dispatch:
 
-  # Runs when invoked by another workflow.
-  workflow_call:
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -16,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version_number: ${{ steps.release_prepare.outputs.version_number }}
-      tag_name: ${{ steps.release_prepare.outputs.tag_name }}
       changelog: ${{ steps.release_prepare.outputs.changelog }}
     steps:
       - uses: apify/workflows/git-cliff-release@main
