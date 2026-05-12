@@ -93,6 +93,16 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/apify"]
 
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "src/apify",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "pyproject.toml",
+]
+
 [tool.hatch.metadata]
 allow-direct-references = true
 
