@@ -98,6 +98,11 @@ jobs:
           version_number: ${{ needs.release_prepare.outputs.version_number }}
           ref: ${{ needs.changelog_update.outputs.changelog_commitish }}
 
+      - name: Verify built package
+        uses: apify/workflows/python-package-check@main
+        with:
+          package_name: apify
+
       # Publish the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
