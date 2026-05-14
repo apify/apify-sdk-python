@@ -643,7 +643,7 @@
                         "summary": [
                             {
                                 "kind": "text",
-                                "text": "Retrive the global configuration.\n\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\nAlso accessible via `Actor.config`."
+                                "text": "Retrieve the global configuration.\n\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\nAlso accessible via `Actor.config`."
                             }
                         ]
                     },
@@ -658,7 +658,7 @@
                     "module": "config",
                     "name": "get_global_configuration",
                     "parsedDocstring": {
-                        "text": "Retrive the global configuration.\n\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\nAlso accessible via `Actor.config`."
+                        "text": "Retrieve the global configuration.\n\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\nAlso accessible via `Actor.config`."
                     },
                     "sources": [
                         {
@@ -678,7 +678,7 @@
                                 "summary": [
                                     {
                                         "kind": "text",
-                                        "text": "Retrive the global configuration.\n\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\nAlso accessible via `Actor.config`."
+                                        "text": "Retrieve the global configuration.\n\nThe global configuration applies when you call actor methods via their static versions, e.g. `Actor.init()`.\nAlso accessible via `Actor.config`."
                                     }
                                 ]
                             },
