@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@apify/docs-theme':
-        specifier: ^1.0.246
-        version: 1.0.246(@algolia/client-search@5.50.1)(@babel/core@7.29.0)(@docusaurus/plugin-content-docs@3.10.0(@docusaurus/faster@3.10.0(@docusaurus/types@3.10.0(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))(@rspack/core@1.7.11)(@swc/core@1.15.24)(@types/react@19.2.14)(clsx@2.1.1)(postcss@8.5.9)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(search-insights@2.17.3)(styled-components@5.3.11(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5))(webpack@5.106.1(@swc/core@1.15.24))
+        specifier: ^1.0.247
+        version: 1.0.247(@algolia/client-search@5.50.1)(@babel/core@7.29.0)(@docusaurus/plugin-content-docs@3.10.0(@docusaurus/faster@3.10.0(@docusaurus/types@3.10.0(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))(@rspack/core@1.7.11)(@swc/core@1.15.24)(@types/react@19.2.14)(clsx@2.1.1)(postcss@8.5.9)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(search-insights@2.17.3)(styled-components@5.3.11(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5))(webpack@5.106.1(@swc/core@1.15.24))
       '@apify/docusaurus-plugin-typedoc-api':
         specifier: ^5.1.6
         version: 5.1.6(b5d850f32c50aa67ed4d2687a57dffc8)
@@ -243,8 +243,8 @@ packages:
       react: '> 18.0.0'
       react-dom: '> 18.0.0'
 
-  '@apify/docs-theme@1.0.246':
-    resolution: {integrity: sha512-Z+T4aqrYkUwRNUNqJBX6pOFSKw8Sa6pTSMvJ/pb0EEC5TZxg4wkIcdS6y394wtQcH3im9r3G5RrKuB8/Kgx+5A==}
+  '@apify/docs-theme@1.0.247':
+    resolution: {integrity: sha512-0ow7dG/9zg4xx6QxnQ9HqP7HGMdYQu+rWNzTSPfbneOL2ryBuCIJbPzLDtNe7uz3fk2pNuYQ4ODw8Ehn3XvbZQ==}
     peerDependencies:
       clsx: '*'
       react: '*'
@@ -3182,9 +3182,6 @@ packages:
     resolution: {integrity: sha512-hsU18Ae8CDTR6Kgu9DYf0EbCr/a5iGL0rytQDobUcdpYOKokk8LEjVphnXkDkgpi0wYVsqrXuP0bZxJaTqdgoA==}
     engines: {node: '>= 0.4'}
 
-  asynckit@0.4.0:
-    resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
-
   autoprefixer@10.4.27:
     resolution: {integrity: sha512-NP9APE+tO+LuJGn7/9+cohklunJsXWiaWEfV3si4Gi/XHDwVNgkwr1J3RQYFIvPy76GmJ9/bW8vyoU1LcxwKHA==}
     engines: {node: ^10 || ^12 || >=14}
@@ -3199,9 +3196,6 @@ packages:
   axe-core@4.11.2:
     resolution: {integrity: sha512-byD6KPdvo72y/wj2T/4zGEvvlis+PsZsn/yPS3pEO+sFpcrqRpX/TJCxvVaEsNeMrfQbCr7w163YqoD9IYwHXw==}
     engines: {node: '>=4'}
-
-  axios@1.16.0:
-    resolution: {integrity: sha512-6hp5CwvTPlN2A31g5dxnwAX0orzM7pmCRDLnZSX772mv8WDqICwFjowHuPs04Mc8deIld1+ejhtaMn5vp6b+1w==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -3480,10 +3474,6 @@ packages:
   combine-promises@1.2.0:
     resolution: {integrity: sha512-VcQB1ziGD0NXrhKxiwyNbCDmRzs/OShMs2GqW2DlU2A/Sd0nQxE1oWDAE5O0ygSx5mgQOn9eIFh7yKPgFRVkPQ==}
     engines: {node: '>=10'}
-
-  combined-stream@1.0.8:
-    resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
-    engines: {node: '>= 0.8'}
 
   comma-separated-tokens@2.0.3:
     resolution: {integrity: sha512-Fu4hJdvzeylCfQPp9SGWidpzrMs7tTrlu6Vb8XGaRGck8QSNZJJp538Wrb60Lax4fPwR64ViY468OIUTbRlGZg==}
@@ -3845,10 +3835,6 @@ packages:
   define-properties@1.2.1:
     resolution: {integrity: sha512-8QmQKqEASLd5nx0U1B1okLElbUuuttJ/AnYmRXbbbGDWh6uS208EjD4Xqq/I9wK7u0v6O08XhTWnt5XtEbR6Dg==}
     engines: {node: '>= 0.4'}
-
-  delayed-stream@1.0.0:
-    resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
-    engines: {node: '>=0.4.0'}
 
   depd@1.1.2:
     resolution: {integrity: sha512-7emPTl6Dpo6JRXOXjLRxck+FlLRX5847cLKEn00PLAgc3g2hTZZgr+e4c2v6QpSmLeFP3n5yUo7ft6avBK/5jQ==}
@@ -4384,10 +4370,6 @@ packages:
     resolution: {integrity: sha512-yDYSgNMraqvnxiEXO4hi88+YZxaHC6QKzb5N84iRCTDeRO7ZALpir/lVmf/uXUhnwUr2O4HU8s/n6x+yNjQkHw==}
     engines: {node: '>= 14.17'}
 
-  form-data@4.0.5:
-    resolution: {integrity: sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==}
-    engines: {node: '>= 6'}
-
   format@0.2.2:
     resolution: {integrity: sha512-wzsgA6WOq+09wrU1tsJ09udeR/YZRaeArL9e1wPbFg3GG2yDnC2ldKpxs4xunpFF9DgqCqOIra3bc1HWrJ37Ww==}
     engines: {node: '>=0.4.x'}
@@ -4560,10 +4542,6 @@ packages:
 
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
-    engines: {node: '>= 0.4'}
-
-  hasown@2.0.3:
-    resolution: {integrity: sha512-ej4AhfhfL2Q2zpMmLo7U1Uv9+PyhIZpgQLGT1F9miIGmiCJIoCgSmczFdrc97mWT4kVY72KA+WnnhJ5pghSvSg==}
     engines: {node: '>= 0.4'}
 
   hast-util-embedded@3.0.0:
@@ -6466,10 +6444,6 @@ packages:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
     engines: {node: '>= 0.10'}
 
-  proxy-from-env@2.1.0:
-    resolution: {integrity: sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==}
-    engines: {node: '>=10'}
-
   punycode.js@2.3.1:
     resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
     engines: {node: '>=6'}
@@ -7923,7 +7897,7 @@ snapshots:
       - search-insights
       - supports-color
 
-  '@apify/docs-theme@1.0.246(@algolia/client-search@5.50.1)(@babel/core@7.29.0)(@docusaurus/plugin-content-docs@3.10.0(@docusaurus/faster@3.10.0(@docusaurus/types@3.10.0(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))(@rspack/core@1.7.11)(@swc/core@1.15.24)(@types/react@19.2.14)(clsx@2.1.1)(postcss@8.5.9)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(search-insights@2.17.3)(styled-components@5.3.11(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5))(webpack@5.106.1(@swc/core@1.15.24))':
+  '@apify/docs-theme@1.0.247(@algolia/client-search@5.50.1)(@babel/core@7.29.0)(@docusaurus/plugin-content-docs@3.10.0(@docusaurus/faster@3.10.0(@docusaurus/types@3.10.0(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)))(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.5))(@rspack/core@1.7.11)(@swc/core@1.15.24)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2))(@rspack/core@1.7.11)(@swc/core@1.15.24)(@types/react@19.2.14)(clsx@2.1.1)(postcss@8.5.9)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(search-insights@2.17.3)(styled-components@5.3.11(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5))(webpack@5.106.1(@swc/core@1.15.24))':
     dependencies:
       '@apify/docs-search-modal': 1.3.6(@algolia/client-search@5.50.1)(@babel/core@7.29.0)(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(search-insights@2.17.3)
       '@apify/ui-icons': 1.34.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -7932,7 +7906,6 @@ snapshots:
       '@stackql/docusaurus-plugin-hubspot': 1.1.0
       algoliasearch: 5.50.1
       algoliasearch-helper: 3.28.1(algoliasearch@5.50.1)
-      axios: 1.16.0
       babel-loader: 10.1.1(@babel/core@7.29.0)(@rspack/core@1.7.11)(webpack@5.106.1(@swc/core@1.15.24))
       clsx: 2.1.1
       docusaurus-gtm-plugin: 0.0.2
@@ -7953,7 +7926,6 @@ snapshots:
       - '@swc/core'
       - '@types/react'
       - '@types/react-dom'
-      - debug
       - esbuild
       - postcss
       - react-is
@@ -11904,8 +11876,6 @@ snapshots:
 
   async-function@1.0.0: {}
 
-  asynckit@0.4.0: {}
-
   autoprefixer@10.4.27(postcss@8.5.9):
     dependencies:
       browserslist: 4.28.2
@@ -11920,14 +11890,6 @@ snapshots:
       possible-typed-array-names: 1.1.0
 
   axe-core@4.11.2: {}
-
-  axios@1.16.0:
-    dependencies:
-      follow-redirects: 1.16.0
-      form-data: 4.0.5
-      proxy-from-env: 2.1.0
-    transitivePeerDependencies:
-      - debug
 
   axobject-query@4.1.0: {}
 
@@ -12253,10 +12215,6 @@ snapshots:
   colorette@2.0.20: {}
 
   combine-promises@1.2.0: {}
-
-  combined-stream@1.0.8:
-    dependencies:
-      delayed-stream: 1.0.0
 
   comma-separated-tokens@2.0.3: {}
 
@@ -12615,8 +12573,6 @@ snapshots:
       define-data-property: 1.1.4
       has-property-descriptors: 1.0.2
       object-keys: 1.1.1
-
-  delayed-stream@1.0.0: {}
 
   depd@1.1.2: {}
 
@@ -13362,14 +13318,6 @@ snapshots:
 
   form-data-encoder@2.1.4: {}
 
-  form-data@4.0.5:
-    dependencies:
-      asynckit: 0.4.0
-      combined-stream: 1.0.8
-      es-set-tostringtag: 2.1.0
-      hasown: 2.0.3
-      mime-types: 2.1.35
-
   format@0.2.2: {}
 
   forwarded@0.2.0: {}
@@ -13553,10 +13501,6 @@ snapshots:
   has-yarn@3.0.0: {}
 
   hasown@2.0.2:
-    dependencies:
-      function-bind: 1.1.2
-
-  hasown@2.0.3:
     dependencies:
       function-bind: 1.1.2
 
@@ -15976,8 +15920,6 @@ snapshots:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
-
-  proxy-from-env@2.1.0: {}
 
   punycode.js@2.3.1: {}
 
