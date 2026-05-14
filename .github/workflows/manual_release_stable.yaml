@@ -102,6 +102,9 @@ jobs:
         uses: apify/workflows/python-package-check@main
         with:
           package_name: apify
+          src_package_dir: src/apify
+          dist_dir: dist
+          python_version: "3.14"
 
       # Publish the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
