@@ -67,6 +67,10 @@ jobs:
           src_package_dir: src/apify
           dist_dir: dist
           python_version: "3.14"
+          smoke_code: |
+            from apify import Actor, Configuration, ProxyConfiguration
+            Configuration()
+            ProxyConfiguration()
 
       # Publish the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
