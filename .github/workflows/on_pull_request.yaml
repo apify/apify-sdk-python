@@ -27,7 +27,10 @@ jobs:
 
   package_check:
     name: Package check
-    uses: ./.github/workflows/_check_package.yaml
+    uses: apify/workflows/.github/workflows/python_package_check.yaml@main
+    with:
+      package_name: apify
+      src_package_dir: src/apify
 
   tests:
     name: Tests
