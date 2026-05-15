@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import warnings
 from logging import getLogger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
@@ -16,7 +16,7 @@ from ._api_client_creation import create_storage_api_client
 from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Mapping, Sequence
 
     from apify_client.clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
@@ -137,13 +137,13 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             await self._api_client.delete()
 
     @override
-    async def push_data(self, data: list[Any] | dict[str, Any]) -> None:
-        async def payloads_generator(items: list[Any]) -> AsyncIterator[str]:
+    async def push_data(self, data: Sequence[Mapping[str, JsonSerializable]] | Mapping[str, JsonSerializable]) -> None:
+        async def payloads_generator(items: Sequence[Mapping[str, JsonSerializable]]) -> AsyncIterator[str]:
             for index, item in enumerate(items):
                 yield await self._check_and_serialize(item, index)
 
         async with self._charge_lock(), self._lock:
-            items = data if isinstance(data, list) else [data]
+            items = data if self._is_sequence_of_items(data) else [data]
             limit = self._compute_limit_for_push(len(items))
             items = items[:limit]
 
@@ -211,7 +211,7 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             yield item
 
     @classmethod
-    async def _check_and_serialize(cls, item: JsonSerializable, index: int | None = None) -> str:
+    async def _check_and_serialize(cls, item: Mapping[str, JsonSerializable], index: int | None = None) -> str:
         """Serialize a given item to JSON, checks its serializability and size against a limit.
 
         Args:

@@ -88,7 +88,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.3.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", specifier = ">=1.0.4,<2.0.0" },
+    { name = "crawlee", git = "https://github.com/Mantisus//crawlee-python.git?rev=up-json-serializavle-typing" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.8.0" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
@@ -609,8 +609,8 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "1.6.3"
-source = { registry = "https://pypi.org/simple" }
+version = "1.6.4"
+source = { git = "https://github.com/Mantisus//crawlee-python.git?rev=up-json-serializavle-typing#413ee179214f44efce04b278cb1bc25c7a4e4aba" }
 dependencies = [
     { name = "async-timeout" },
     { name = "cachetools" },
@@ -625,10 +625,6 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/35/1d/3f3652c8cf889053b795934a4d6268e805793a30be11001603c5a7f4b46e/crawlee-1.6.3.tar.gz", hash = "sha256:9cbb243071186daa2f9e9572a8bfb966c81537bc86ef6e3bc8572602d659b159", size = 25869502, upload-time = "2026-04-27T16:33:56.51Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/86/83/e9adf980396829edc8a2979892bdec1bbd203443c513a791255ab59aab53/crawlee-1.6.3-py3-none-any.whl", hash = "sha256:551a4c54de70aeb4eaf079bb44f63aaa45d94e6e143c1fd72924a92b46ded505", size = 343055, upload-time = "2026-04-27T16:33:54.019Z" },
 ]
 
 [package.optional-dependencies]
