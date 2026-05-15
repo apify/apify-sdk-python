@@ -57,22 +57,12 @@ jobs:
       - name: Update docs theme
         run: uv run poe update-docs-theme
 
-      - name: Stage updated package.json and lockfile
-        id: stage
-        run: |
-          git pull --rebase --autostash
-          git add website/package.json website/pnpm-lock.yaml
-          if git diff --cached --quiet; then
-            echo "has-changes=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has-changes=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Commit the updated package.json and lockfile
-        if: steps.stage.outputs.has-changes == 'true'
-        uses: apify/workflows/commit@v0.44.0
+        uses: apify/actions/signed-commit@v1.0.0
         with:
-          commit-message: "chore: Automatic docs theme update [skip ci]"
+          message: "chore: Automatic docs theme update [skip ci]"
+          add: 'website/package.json website/pnpm-lock.yaml'
+          pull: '--rebase --autostash'
           github-token: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
 
       - name: Build docs
