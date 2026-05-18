@@ -43,7 +43,7 @@ jobs:
       changelog: ${{ steps.release_prepare.outputs.changelog }}
       release_notes: ${{ steps.release_prepare.outputs.release_notes }}
     steps:
-      - uses: apify/workflows/git-cliff-release@main
+      - uses: apify/actions/git-cliff-release@v1.1.2
         name: Release prepare
         id: release_prepare
         with:
@@ -91,12 +91,23 @@ jobs:
       url: https://pypi.org/project/apify
     steps:
       - name: Prepare distribution
-        uses: apify/workflows/prepare-pypi-distribution@main
+        uses: apify/actions/prepare-pypi-distribution@v1.1.2
         with:
           package_name: apify
           is_prerelease: ""
           version_number: ${{ needs.release_prepare.outputs.version_number }}
           ref: ${{ needs.changelog_update.outputs.changelog_commitish }}
+
+      - name: Verify built package
+        uses: apify/actions/python-package-check@v1.1.0
+        with:
+          package_name: apify
+          dist_dir: dist
+          python_version: "3.14"
+          smoke_code: |
+            from apify import Actor, Configuration, ProxyConfiguration
+            Configuration()
+            ProxyConfiguration()
 
       # Publish the package to PyPI using PyPA official GitHub action with OIDC authentication.
       - name: Publish package to PyPI
@@ -108,9 +119,6 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/manual_version_docs.yaml
-    with:
-      # Commit the version docs changes on top of the changelog commit.
-      ref: ${{ needs.changelog_update.outputs.changelog_commitish }}
     secrets: inherit
 
   doc_release:
@@ -121,9 +129,6 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/manual_release_docs.yaml
-    with:
-      # Commit the docs release changes on top of the version docs commit.
-      ref: ${{ needs.version_docs.outputs.version_docs_commitish }}
     secrets: inherit
 
   trigger_docker_build:

@@ -25,9 +25,6 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/manual_release_docs.yaml
-    with:
-      # Use the same ref as the one that triggered the workflow.
-      ref: ${{ github.ref }}
     secrets: inherit
 
   code_checks:
@@ -59,6 +56,6 @@ jobs:
       actions: write # Required by execute-workflow.
     steps:
       - name: Dispatch beta release workflow
-        uses: apify/workflows/execute-workflow@main
+        uses: apify/actions/execute-workflow@v1.1.2
         with:
           workflow: manual_release_beta.yaml
