@@ -7,6 +7,7 @@ description: How an Apify Actor starts, runs, and shuts down, including context 
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import ApiLink from '@theme/ApiLink';
 
 import ClassContextExample from '!!raw-loader!roa-loader!./code/01_class_context.py';
 import ClassManualExample from '!!raw-loader!roa-loader!./code/01_class_manual.py';
@@ -26,7 +27,7 @@ This guide explains how an **Apify Actor** starts, runs, and shuts down, describ
 
 During initialization, the SDK prepares all the components required to integrate with the Apify platform. It loads configuration from environment variables, initializes access to platform storages such as the [key-value store, dataset, and request queue](https://docs.apify.com/platform/storage), sets up event handling for [platform events](https://docs.apify.com/platform/integrations/webhooks/events), and configures logging.
 
-The recommended approach in Python is to use the global [`Actor`](https://docs.apify.com/sdk/python/reference/class/Actor) class as an asynchronous context manager. This approach automatically manages setup and teardown and keeps your code concise. When entering the context, the SDK loads configuration and initializes clients lazily—for example, a dataset is opened only when it is first accessed. If the Actor runs on the Apify platform, it also begins listening for platform events.
+The recommended approach in Python is to use the global <ApiLink to="class/Actor">`Actor`</ApiLink> class as an asynchronous context manager. This approach automatically manages setup and teardown and keeps your code concise. When entering the context, the SDK loads configuration and initializes clients lazily—for example, a dataset is opened only when it is first accessed. If the Actor runs on the Apify platform, it also begins listening for platform events.
 
 When the Actor exits, either normally or due to an exception, the SDK performs a graceful shutdown. It persists the final Actor state, stops event handling, and sets the terminal exit code together with the [status message](https://docs.apify.com/platform/actors/development/programming-interface/status-messages).
 
@@ -43,9 +44,9 @@ When the Actor exits, either normally or due to an exception, the SDK performs a
     </TabItem>
 </Tabs>
 
-You can also create an [`Actor`](https://docs.apify.com/sdk/python/reference/class/Actor) instance directly. This does not change its capabilities but allows you to specify optional parameters during initialization. The key parameters are:
+You can also create an <ApiLink to="class/Actor">`Actor`</ApiLink> instance directly. This does not change its capabilities but allows you to specify optional parameters during initialization. The key parameters are:
 
-- `configuration` — a custom [`Configuration`](https://docs.apify.com/sdk/python/reference/class/Configuration) instance to control storage paths, API URLs, and other settings.
+- `configuration` — a custom <ApiLink to="class/Configuration">`Configuration`</ApiLink> instance to control storage paths, API URLs, and other settings.
 - `configure_logging` — whether to set up default logging configuration (default `True`). Set to `False` if you configure logging yourself.
 - `exit_process` — whether the Actor calls `sys.exit()` when the context manager exits. Defaults to `True`, except in IPython, Pytest, and Scrapy environments.
 - `event_listeners_timeout` — maximum time to wait for Actor event listeners to complete before exiting.
@@ -72,18 +73,18 @@ Good error handling lets your Actor fail fast on critical errors, retry transien
 
 The SDK provides helper methods for explicit control:
 
-- [`Actor.exit`](https://docs.apify.com/sdk/python/reference/class/Actor#exit) -  terminates the run successfully (default exit code 0).
-- [`Actor.fail`](https://docs.apify.com/sdk/python/reference/class/Actor#fail) -  marks the run as failed (default exit code 1).
+- <ApiLink to="class/Actor#exit">`Actor.exit`</ApiLink> -  terminates the run successfully (default exit code 0).
+- <ApiLink to="class/Actor#fail">`Actor.fail`</ApiLink> -  marks the run as failed (default exit code 1).
 
 Any non-zero exit code is treated as a `FAILED` run. You rarely need to call these methods directly unless you want to perform a controlled shutdown or customize the exit behavior.
 
-Catch exceptions only when necessary - for example, to retry network timeouts or map specific errors to exit codes. Keep retry loops bounded with backoff and re-raise once exhausted. Make your processing idempotent so that restarts don't corrupt results. Both [`Actor.exit`](https://docs.apify.com/sdk/python/reference/class/Actor#exit) and [`Actor.fail`](https://docs.apify.com/sdk/python/reference/class/Actor#fail) perform the same cleanup, so complete any long-running persistence before calling them.
+Catch exceptions only when necessary - for example, to retry network timeouts or map specific errors to exit codes. Keep retry loops bounded with backoff and re-raise once exhausted. Make your processing idempotent so that restarts don't corrupt results. Both <ApiLink to="class/Actor#exit">`Actor.exit`</ApiLink> and <ApiLink to="class/Actor#fail">`Actor.fail`</ApiLink> perform the same cleanup, so complete any long-running persistence before calling them.
 
 Below is a minimal context-manager example where an unhandled exception automatically fails the run, followed by a manual pattern giving you more control.
 
 <RunnableCodeBlock className="language-python" language="python">{ErrorHandlingContextExample}</RunnableCodeBlock>
 
-If you need explicit control over exit codes or status messages, you can manage the Actor manually using [`Actor.init`](https://docs.apify.com/sdk/python/reference/class/Actor#init), [`Actor.exit`](https://docs.apify.com/sdk/python/reference/class/Actor#exit), and [`Actor.fail`](https://docs.apify.com/sdk/python/reference/class/Actor#fail).
+If you need explicit control over exit codes or status messages, you can manage the Actor manually using <ApiLink to="class/Actor#init">`Actor.init`</ApiLink>, <ApiLink to="class/Actor#exit">`Actor.exit`</ApiLink>, and <ApiLink to="class/Actor#fail">`Actor.fail`</ApiLink>.
 
 <RunnableCodeBlock className="language-python" language="python">{ErrorHandlingManualExample}</RunnableCodeBlock>
 
@@ -105,4 +106,4 @@ Update the status only when the user's understanding of progress changes - avoid
 
 ## Conclusion
 
-This page has presented the full Actor lifecycle: initialization, execution, error handling, rebooting, shutdown and status messages. You've seen how the SDK supports both context-based and manual control patterns. For deeper dives, explore the [reference docs](https://docs.apify.com/sdk/python/reference), [guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx), and [platform documentation](https://docs.apify.com/platform).
+This page has presented the full Actor lifecycle: initialization, execution, error handling, rebooting, shutdown and status messages. You've seen how the SDK supports both context-based and manual control patterns. For deeper dives, explore the <ApiLink to="">reference docs</ApiLink>, [guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx), and [platform documentation](https://docs.apify.com/platform).
