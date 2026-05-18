@@ -55,7 +55,7 @@ jobs:
         working-directory: .
 
       - name: Install pnpm and website dependencies
-        uses: apify/workflows/pnpm-install@main
+        uses: apify/actions/pnpm-install@v1.0.0
         with:
           working-directory: website
 
