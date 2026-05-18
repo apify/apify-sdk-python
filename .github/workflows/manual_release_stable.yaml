@@ -99,10 +99,9 @@ jobs:
           ref: ${{ needs.changelog_update.outputs.changelog_commitish }}
 
       - name: Verify built package
-        uses: apify/workflows/python-package-check@main
+        uses: apify/actions/python-package-check@feat/python-package-check-action
         with:
           package_name: apify
-          src_package_dir: src/apify
           dist_dir: dist
           python_version: "3.14"
           smoke_code: |
