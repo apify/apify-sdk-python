@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 3.4.1 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Forward missing run kwargs in Actor.start&#x2F;call&#x2F;call_task ([#906](https://github.com/apify/apify-sdk-python/pull/906)) ([7a13809](https://github.com/apify/apify-sdk-python/commit/7a13809898f5579138febbb077f7ab7e4e72cbe1)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [3.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.4.0) (2026-05-05)
 
 ### 🚀 Features
