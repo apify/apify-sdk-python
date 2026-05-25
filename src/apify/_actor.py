@@ -42,10 +42,12 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 if TYPE_CHECKING:
     import logging
     from collections.abc import Callable, MutableMapping
+    from decimal import Decimal
     from types import TracebackType
 
     from typing_extensions import Self
 
+    from apify_shared.consts import ActorPermissionLevel
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
@@ -863,8 +865,11 @@ class _ActorType:
         token: str | None = None,
         content_type: str | None = None,
         build: str | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
+        force_permission_level: ActorPermissionLevel | None = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
     ) -> ActorRun:
@@ -879,11 +884,16 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
+                a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
                 other Actor to the time remaining from this Actor timeout.
+            force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
+                with permissions configured in the Actor settings.
             wait_for_finish: The maximum number of seconds the server waits for the run to finish. By default,
                 it is 0, the maximum value is 300.
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
@@ -923,8 +933,11 @@ class _ActorType:
             run_input=run_input,
             content_type=content_type,
             build=build,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(actor_start_timeout.total_seconds()) if actor_start_timeout is not None else None,
+            force_permission_level=force_permission_level,
             wait_for_finish=wait_for_finish,
             webhooks=serialized_webhooks,
         )
@@ -973,8 +986,11 @@ class _ActorType:
         token: str | None = None,
         content_type: str | None = None,
         build: str | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
+        force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | None | Literal['default'] = 'default',
@@ -990,11 +1006,16 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
+                a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
                 other Actor to the time remaining from this Actor timeout.
+            force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
+                with permissions configured in the Actor settings.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
@@ -1038,8 +1059,11 @@ class _ActorType:
             run_input=run_input,
             content_type=content_type,
             build=build,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(actor_call_timeout.total_seconds()) if actor_call_timeout is not None else None,
+            force_permission_level=force_permission_level,
             webhooks=serialized_webhooks,
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
             logger=logger,
@@ -1054,6 +1078,7 @@ class _ActorType:
         task_input: dict | None = None,
         *,
         build: str | None = None,
+        restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | None | Literal['inherit'] = None,
         webhooks: list[Webhook] | None = None,
@@ -1074,6 +1099,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            restart_on_error: If true, the Task run process will be restarted whenever it exits with
+                a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
@@ -1109,6 +1136,7 @@ class _ActorType:
         api_result = await client.task(task_id).call(
             task_input=task_input,
             build=build,
+            restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             timeout_secs=int(task_call_timeout.total_seconds()) if task_call_timeout is not None else None,
             webhooks=serialized_webhooks,
