@@ -117,9 +117,12 @@ class ApifyRequestList(RequestList):
         are extracted from the response body and turned into `Request` objects, inheriting `method`, `payload`,
         `headers`, and `user_data` from the source entry.
         """
-        tasks = [cls._process_remote_url(request_input, http_client) for request_input in remote_url_requests_inputs]
-        results = await asyncio.gather(*tasks)
-        return list(chain.from_iterable(results))
+        async with asyncio.TaskGroup() as tg:
+            tasks = [
+                tg.create_task(cls._process_remote_url(request_input, http_client))
+                for request_input in remote_url_requests_inputs
+            ]
+        return list(chain.from_iterable(task.result() for task in tasks))
 
     @staticmethod
     def _create_requests_from_input(simple_url_inputs: list[_SimpleUrlInput]) -> list[Request]:

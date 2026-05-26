@@ -1231,22 +1231,21 @@ class _ActorType:
             (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
         )
 
+        async def safe_dispatch(listener: Any, data: Any) -> None:
+            try:
+                await listener(data)
+            except Exception:
+                self.log.exception('A pre-reboot event listener failed')
+
+        timeout = event_listeners_timeout.total_seconds() if event_listeners_timeout else None
         try:
-            results = await asyncio.wait_for(
-                asyncio.gather(
-                    *[listener(EventPersistStateData(is_migrating=True)) for listener in persist_state_listeners],
-                    *[listener(EventMigratingData()) for listener in migrating_listeners],
-                    return_exceptions=True,
-                ),
-                timeout=event_listeners_timeout.total_seconds() if event_listeners_timeout else None,
-            )
+            async with asyncio.timeout(timeout), asyncio.TaskGroup() as tg:
+                for listener in persist_state_listeners:
+                    tg.create_task(safe_dispatch(listener, EventPersistStateData(is_migrating=True)))
+                for listener in migrating_listeners:
+                    tg.create_task(safe_dispatch(listener, EventMigratingData()))
         except TimeoutError:
             self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
-            results = []
-
-        for result in results:
-            if isinstance(result, Exception):
-                self.log.exception('A pre-reboot event listener failed', exc_info=result)
 
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
