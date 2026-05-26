@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Forward missing run kwargs in Actor.start&#x2F;call&#x2F;call_task ([#906](https://github.com/apify/apify-sdk-python/pull/906)) ([7a13809](https://github.com/apify/apify-sdk-python/commit/7a13809898f5579138febbb077f7ab7e4e72cbe1)) by [@vdusek](https://github.com/vdusek)
+- Update `push_data` annotation with `JsonSerializable` instead of Any ([#899](https://github.com/apify/apify-sdk-python/pull/899)) ([b4f5485](https://github.com/apify/apify-sdk-python/commit/b4f5485175cfd248893bc8a2b3017fa797d1000e)) by [@Mantisus](https://github.com/Mantisus)
 
 
 <!-- git-cliff-unreleased-end -->
