@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -328,7 +328,7 @@ async def test_get_remaining_time_clamps_negative_to_zero() -> None:
     """Test that _get_remaining_time returns timedelta(0) instead of a negative value when timeout is in the past."""
     async with Actor:
         Actor.configuration.is_at_home = True
-        Actor.configuration.timeout_at = datetime.now(tz=timezone.utc) - timedelta(minutes=5)
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
 
         result = Actor._get_remaining_time()
         assert result is not None
@@ -339,7 +339,7 @@ async def test_get_remaining_time_returns_positive_when_timeout_in_future() -> N
     """Test that _get_remaining_time returns a positive timedelta when timeout is in the future."""
     async with Actor:
         Actor.configuration.is_at_home = True
-        Actor.configuration.timeout_at = datetime.now(tz=timezone.utc) + timedelta(minutes=5)
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) + timedelta(minutes=5)
 
         result = Actor._get_remaining_time()
         assert result is not None

@@ -4,7 +4,7 @@ import asyncio
 import sys
 import warnings
 from contextlib import suppress
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
@@ -44,8 +44,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, MutableMapping
     from decimal import Decimal
     from types import TracebackType
-
-    from typing_extensions import Self
+    from typing import Self
 
     from apify_shared.consts import ActorPermissionLevel
     from crawlee._types import JsonSerializable
@@ -1241,7 +1240,7 @@ class _ActorType:
                 ),
                 timeout=event_listeners_timeout.total_seconds() if event_listeners_timeout else None,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
             results = []
 
@@ -1442,7 +1441,7 @@ class _ActorType:
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
         if self.is_at_home() and self.configuration.timeout_at:
-            return max(self.configuration.timeout_at - datetime.now(tz=timezone.utc), timedelta(0))
+            return max(self.configuration.timeout_at - datetime.now(tz=UTC), timedelta(0))
 
         self.log.warning(
             'Using `inherit` or `RemainingTime` argument is only possible when the Actor'

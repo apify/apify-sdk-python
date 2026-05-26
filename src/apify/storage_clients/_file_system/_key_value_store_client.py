@@ -3,8 +3,9 @@ import json
 import logging
 from itertools import chain
 from pathlib import Path
+from typing import Self
 
-from typing_extensions import Self, override
+from typing_extensions import override
 
 from crawlee._consts import METADATA_FILENAME
 from crawlee._utils.file import atomic_write, infer_mime_type, json_dumps

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Self
 
 import websockets.asyncio.client
 from pydantic import Discriminator, TypeAdapter
-from typing_extensions import Self, Unpack, override
+from typing_extensions import Unpack, override
 
 from crawlee.events import EventManager
 from crawlee.events._types import Event, EventPersistStateData

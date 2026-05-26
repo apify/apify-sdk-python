@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Final
 
@@ -212,7 +212,7 @@ class ApifyRequestQueueSingleClient:
             cached_request.handled_at = request.handled_at
 
         if request.handled_at is None:
-            request.handled_at = datetime.now(tz=timezone.utc)
+            request.handled_at = datetime.now(tz=UTC)
             self.metadata.handled_request_count += 1
             self.metadata.pending_request_count -= 1
 
