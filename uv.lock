@@ -88,7 +88,7 @@ requires-dist = [
     { name = "apify-client", specifier = ">=2.3.0,<3.0.0" },
     { name = "apify-shared", specifier = ">=2.0.0,<3.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", git = "https://github.com/apify/crawlee-python.git?rev=master" },
+    { name = "crawlee", specifier = ">=1.0.4,<2.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.8.0" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
@@ -610,7 +610,7 @@ toml = [
 [[package]]
 name = "crawlee"
 version = "1.7.1"
-source = { git = "https://github.com/apify/crawlee-python.git?rev=master#c3a58e70a88e0074a59c0d5472ca1fac7256fe4b" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-timeout" },
     { name = "cachetools" },
@@ -625,6 +625,10 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9f/99/909066bd4c4c56130d04c4196b5d893a52934790731d18c71499838f4ad1/crawlee-1.7.1.tar.gz", hash = "sha256:aec67a6fefa297834b60b0283ba943287c5580ba07f21f377135a72b455f768c", size = 287576, upload-time = "2026-05-26T07:11:45.523Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/5f/38b07ebd7c1dd0496a61e79309743dc1d04f61d5ee7edf12adfdffe08b89/crawlee-1.7.1-py3-none-any.whl", hash = "sha256:4d3ea5c95b0970324cbddd9d2ca48530d29d67b1f3dcd5fba70fb8a576d6bab0", size = 370720, upload-time = "2026-05-26T07:11:42.979Z" },
 ]
 
 [package.optional-dependencies]
