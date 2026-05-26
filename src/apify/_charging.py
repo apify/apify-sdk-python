@@ -318,7 +318,7 @@ class ChargingManagerImplementation(ChargingManager):
                     {
                         'event_name': event_name,
                         'event_title': pricing_info.title,
-                        'event_price_usd': round(pricing_info.price, 3),
+                        'event_price_usd': float(round(pricing_info.price, 3)),
                         'charged_count': charged_count,
                         'timestamp': datetime.now(timezone.utc).isoformat(),
                     }

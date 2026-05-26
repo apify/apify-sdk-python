@@ -41,7 +41,7 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Callable
+    from collections.abc import Callable, MutableMapping
     from decimal import Decimal
     from types import TracebackType
 
@@ -1401,7 +1401,7 @@ class _ActorType:
         default_value: dict[str, JsonSerializable] | None = None,
         key: str | None = None,
         kvs_name: str | None = None,
-    ) -> dict[str, JsonSerializable]:
+    ) -> MutableMapping[str, JsonSerializable]:
         """Easily create and manage state values. All state values are automatically persisted.
 
         Values can be modified by simply using the assignment operator.
