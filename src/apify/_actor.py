@@ -1418,9 +1418,16 @@ class _ActorType:
         return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
 
     async def _save_actor_state(self) -> None:
-        for kvs_name in self._use_state_stores:
-            store = await self.open_key_value_store(name=kvs_name)
-            await store.persist_autosaved_values()
+        async def safe_persist(kvs_name: str | None) -> None:
+            try:
+                store = await self.open_key_value_store(name=kvs_name)
+                await store.persist_autosaved_values()
+            except Exception:
+                self.log.exception('Failed to persist auto-saved values', extra={'kvs_name': kvs_name})
+
+        async with asyncio.TaskGroup() as tg:
+            for kvs_name in self._use_state_stores:
+                tg.create_task(safe_persist(kvs_name))
 
     def _get_default_exit_process(self) -> bool:
         """Return False for IPython and Scrapy environments, True otherwise."""
