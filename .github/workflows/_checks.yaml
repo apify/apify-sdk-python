@@ -1,18 +1,61 @@
-name: Tests
+name: Checks
 
 on:
   # Runs when manually triggered from the GitHub UI.
   workflow_dispatch:
+    inputs:
+      run_tests:
+        description: Whether to run the test suites (unit, integration, E2E).
+        required: false
+        type: boolean
+        default: true
 
   # Runs when invoked by another workflow.
   workflow_call:
+    inputs:
+      run_tests:
+        description: Whether to run the test suites (unit, integration, E2E).
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
+  actions_lint_check:
+    name: Actions lint check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Run actionlint
+        uses: rhysd/actionlint@v1.7.11
+
+  spell_check:
+    name: Spell check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Check spelling with typos
+        uses: crate-ci/typos@v1
+
+  lint_check:
+    name: Lint check
+    uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
+    with:
+      python_versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+
+  type_check:
+    name: Type check
+    uses: apify/workflows/.github/workflows/python_type_check.yaml@main
+    with:
+      python_versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+
   unit_tests:
     name: Unit tests
+    if: inputs.run_tests
     uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
     secrets: inherit
     with:
@@ -27,9 +70,11 @@ jobs:
 
     if: >-
       ${{
-        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
-        github.event_name == 'workflow_dispatch'
+        inputs.run_tests && (
+          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+          github.event_name == 'workflow_dispatch'
+        )
       }}
 
     strategy:
@@ -85,9 +130,11 @@ jobs:
 
     if: >-
       ${{
-        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
-        github.event_name == 'workflow_dispatch'
+        inputs.run_tests && (
+          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login == 'apify') ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+          github.event_name == 'workflow_dispatch'
+        )
       }}
 
     strategy:
@@ -137,3 +184,33 @@ jobs:
           token: ${{ env.CODECOV_TOKEN }}
           files: coverage-e2e.xml
           flags: e2e
+
+  package_check:
+    name: Package check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up uv package manager
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Build sdist and wheel
+        run: uv run poe build
+
+      - name: Verify built package
+        uses: apify/actions/python-package-check@v1.1.0
+        with:
+          package_name: apify
+          dist_dir: dist
+          python_version: "3.14"
+          smoke_code: |
+            from apify import Actor, Configuration, ProxyConfiguration
+            Configuration()
+            ProxyConfiguration()
+
+  doc_check:
+    name: Doc check
+    uses: apify/workflows/.github/workflows/python_docs_check.yaml@main
