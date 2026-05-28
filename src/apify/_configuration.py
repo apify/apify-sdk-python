@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
-from typing_extensions import Self, TypedDict, deprecated
+from typing_extensions import TypedDict, deprecated
 
 from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
 from unittest.mock import AsyncMock
@@ -38,7 +38,7 @@ async def test_get_additional_cache_key(
     additional cache key."""
 
     def create_metadata(id: str) -> StorageMetadata:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         return StorageMetadata(id=id, name=None, accessed_at=now, created_at=now, modified_at=now)
 
     storage_ids = iter(['1', '2', '3', '1', '3'])

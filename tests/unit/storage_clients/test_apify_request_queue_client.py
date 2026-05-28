@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -16,7 +16,7 @@ def _make_single_client(
 ) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
     if api_client is None:
         api_client = AsyncMock()
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     metadata = RequestQueueMetadata(
         id='test-rq-id',
         name='test-rq',
