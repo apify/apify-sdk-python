@@ -12,32 +12,47 @@ Support for Python 3.10 has been dropped. The Apify Python SDK v4.x now requires
 
 ## Removal of deprecated APIs
 
-APIs that had been deprecated in v3 are removed in v4.
+Methods and arguments that had been deprecated in v3 are removed in v4.
 
 ### `api_public_base_url` argument of storage clients
 
-The deprecated `api_public_base_url` argument has been removed from the `__init__` methods of `ApifyDatasetClient` and `ApifyKeyValueStoreClient`. It had no effect already in v3 — passing it only emitted a `DeprecationWarning`. Drop it from your call sites. The public base URL is now taken from `Configuration.api_public_base_url`, which is unchanged.
-
-### `RemainingTime` timeout literal
-
-The deprecated `'RemainingTime'` value of the `timeout` argument has been removed from `Actor.start()` and `Actor.call()`. Use `'inherit'` instead — the behavior is identical.
+The deprecated `api_public_base_url` argument has been removed from `ApifyDatasetClient` and `ApifyKeyValueStoreClient`. It had no effect already in v3 — passing it only emitted a `DeprecationWarning`. Drop it from your call sites. The public base URL is taken from `Configuration.api_public_base_url`, which is unchanged.
 
 Before (v3):
 
 ```python
-await Actor.call('some-actor-id', timeout='RemainingTime')
+client = ApifyDatasetClient(
+    api_client=api_client,
+    api_public_base_url='https://api.apify.com',
+    lock=lock,
+)
 ```
 
 After (v4):
 
 ```python
-await Actor.call('some-actor-id', timeout='inherit')
+client = ApifyDatasetClient(
+    api_client=api_client,
+    lock=lock,
+)
+```
+
+### `Actor.start` and `Actor.call`: `RemainingTime`
+
+The deprecated `RemainingTime` value of the `timeout` argument has been removed from `Actor.start()` and `Actor.call()`. Use `inherit` instead — the signature and behavior are identical.
+
+Before (v3):
+
+```python
+run = await Actor.call('user/actor', timeout='RemainingTime')
+```
+
+After (v4):
+
+```python
+run = await Actor.call('user/actor', timeout='inherit')
 ```
 
 ### Deprecated `Configuration` fields
 
-The following deprecated `Configuration` fields have been removed:
-
-- `latest_sdk_version` (`APIFY_SDK_LATEST_VERSION`) — SDK version checking is not supported for the Python SDK.
-- `log_format` (`APIFY_LOG_FORMAT`) — adjust the log format in code instead.
-- `standby_port` (`ACTOR_STANDBY_PORT`) — use `web_server_port` instead.
+The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields have been removed from `Configuration`. Use `web_server_port` in place of `standby_port`; the other two have no replacement — SDK version checking is not supported for the Python SDK, and the log format should be adjusted in code instead.
