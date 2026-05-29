@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.4.1 - **not yet released**
+## [3.4.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.4.1) (2026-05-29)
 
 ### 🐛 Bug Fixes
 
@@ -11,7 +10,6 @@ All notable changes to this project will be documented in this file.
 - Update `push_data` annotation with `JsonSerializable` instead of Any ([#899](https://github.com/apify/apify-sdk-python/pull/899)) ([b4f5485](https://github.com/apify/apify-sdk-python/commit/b4f5485175cfd248893bc8a2b3017fa797d1000e)) by [@Mantisus](https://github.com/Mantisus)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [3.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.4.0) (2026-05-05)
 
 ### 🚀 Features
