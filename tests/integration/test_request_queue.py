@@ -743,11 +743,9 @@ async def test_request_deduplication_edge_cases(request_queue_apify: RequestQueu
 
     results = list[bool]()
     for url, expected_duplicate in urls_and_deduplication_expectations:
-        # add_request may transiently return None due to platform-side issues, retry up to 3 times.
-        for _ in range(3):
-            result = await rq.add_request(url)
-            if result is not None:
-                break  # Successfully added.
+        # In shared mode, `add_request` may transiently return None until the operation propagates,
+        # so poll with backoff until it returns a result.
+        result = await poll_until_condition(lambda url=url: rq.add_request(url), lambda result: result is not None)
 
         assert result is not None
         results.append(result.was_already_present)
