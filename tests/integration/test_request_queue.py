@@ -260,8 +260,9 @@ async def test_request_reclaim_functionality(
 
     Actor.log.info('Request reclaimed successfully')
 
-    # Should be able to fetch the same request again.
-    request2 = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
+    # Should be able to fetch the same request again. A reclaimed request may take a moment to reappear
+    # at the queue head (eventually-consistent API state), even in single mode, so poll until it does.
+    request2 = await poll_until_condition(rq.fetch_next_request, lambda result: result is not None)
 
     assert request2 is not None
     assert request2.url == fetched_request.url
