@@ -60,7 +60,7 @@ jobs:
         run: uv run poe install-dev
 
       - name: Install pnpm and website dependencies
-        uses: apify/actions/pnpm-install@v1.1.2
+        uses: apify/actions/pnpm-install@v1.2.0
         with:
           working-directory: website
 
@@ -68,7 +68,7 @@ jobs:
         run: uv run poe update-docs-theme
 
       - name: Commit the updated package.json and lockfile
-        uses: apify/actions/signed-commit@v1.0.0
+        uses: apify/actions/signed-commit@v1.2.0
         with:
           message: "chore: Automatic docs theme update [skip ci]"
           add: 'website/package.json website/pnpm-lock.yaml'
