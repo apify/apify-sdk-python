@@ -20,7 +20,7 @@ async def main() -> None:
         ]
         # highlight-start
         # Shortcut for charging for each pushed dataset item
-        await Actor.push_data(result, 'result-item')
+        await Actor.push_data(result, charged_event_name='result-item')
         # highlight-end
 
         # highlight-start

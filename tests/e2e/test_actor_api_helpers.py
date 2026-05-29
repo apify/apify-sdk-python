@@ -360,7 +360,7 @@ async def test_actor_reboots_successfully(
     async def main() -> None:
         async with Actor:
             print('Starting...')
-            cnt = await Actor.get_value('reboot_counter', 0)
+            cnt = await Actor.get_value('reboot_counter', default_value=0)
 
             if cnt < 2:
                 print(f'Rebooting (cnt = {cnt})...')

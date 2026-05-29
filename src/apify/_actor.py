@@ -625,7 +625,7 @@ class _ActorType:
         )
 
     @_ensure_context
-    async def push_data(self, data: dict | list[dict], charged_event_name: str | None = None) -> ChargeResult:
+    async def push_data(self, data: dict | list[dict], *, charged_event_name: str | None = None) -> ChargeResult:
         """Store an object or a list of objects to the default dataset of the current Actor run.
 
         Args:
@@ -701,7 +701,7 @@ class _ActorType:
         return input_value
 
     @_ensure_context
-    async def get_value(self, key: str, default_value: Any = None) -> Any:
+    async def get_value(self, key: str, *, default_value: Any = None) -> Any:
         """Get a value from the default key-value store associated with the current Actor run.
 
         Args:
@@ -735,7 +735,7 @@ class _ActorType:
         return self._charging_manager_implementation
 
     @_ensure_context
-    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -746,7 +746,7 @@ class _ActorType:
         """
         # charging_manager.charge() acquires charge_lock internally.
         charging_manager = self.get_charging_manager()
-        return await charging_manager.charge(event_name, count)
+        return await charging_manager.charge(event_name, count=count)
 
     @overload
     def on(
@@ -1397,6 +1397,7 @@ class _ActorType:
     async def use_state(
         self,
         default_value: dict[str, JsonSerializable] | None = None,
+        *,
         key: str | None = None,
         kvs_name: str | None = None,
     ) -> MutableMapping[str, JsonSerializable]:
