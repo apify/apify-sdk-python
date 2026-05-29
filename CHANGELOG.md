@@ -3,14 +3,23 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
-## 3.4.2 - **not yet released**
+
+## 4.0.0 - **not yet released**
 
 ### ⚙️ Miscellaneous Tasks
 
 - [**breaking**] Drop Python 3.10 support ([#908](https://github.com/apify/apify-sdk-python/pull/908)) ([a67788e](https://github.com/apify/apify-sdk-python/commit/a67788e4d7845445a3e80a30af70580d2ab84f32)) by [@vdusek](https://github.com/vdusek), closes [#757](https://github.com/apify/apify-sdk-python/issues/757)
 
-
 <!-- git-cliff-unreleased-end -->
+
+## [3.4.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.4.1) (2026-05-29)
+
+### 🐛 Bug Fixes
+
+- Forward missing run kwargs in Actor.start&#x2F;call&#x2F;call_task ([#906](https://github.com/apify/apify-sdk-python/pull/906)) ([7a13809](https://github.com/apify/apify-sdk-python/commit/7a13809898f5579138febbb077f7ab7e4e72cbe1)) by [@vdusek](https://github.com/vdusek)
+- Update `push_data` annotation with `JsonSerializable` instead of Any ([#899](https://github.com/apify/apify-sdk-python/pull/899)) ([b4f5485](https://github.com/apify/apify-sdk-python/commit/b4f5485175cfd248893bc8a2b3017fa797d1000e)) by [@Mantisus](https://github.com/Mantisus)
+
+
 ## [3.4.0](https://github.com/apify/apify-sdk-python/releases/tag/v3.4.0) (2026-05-05)
 
 ### 🚀 Features
