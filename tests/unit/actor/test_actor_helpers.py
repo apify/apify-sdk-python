@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import warnings
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -267,21 +266,6 @@ async def test_remote_method_with_timedelta_timeout(
     assert kwargs.get('timeout_secs') == 120
 
 
-async def test_call_actor_with_remaining_time_deprecation(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: dict
-) -> None:
-    """Test that call() with RemainingTime emits deprecation warning."""
-    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
-
-    async with Actor:
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
-            await Actor.call('some-actor-id', timeout='RemainingTime')
-            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
-            assert len(deprecation_warnings) == 1
-            assert 'RemainingTime' in str(deprecation_warnings[0].message)
-
-
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
 async def test_remote_method_with_invalid_timeout(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
@@ -321,7 +305,7 @@ async def test_get_remaining_time_warns_when_not_at_home(caplog: pytest.LogCaptu
         # Actor is not at home, so _get_remaining_time should return None and log warning
         result = Actor._get_remaining_time()
         assert result is None
-    assert any('inherit' in msg or 'RemainingTime' in msg for msg in caplog.messages)
+    assert any('inherit' in msg for msg in caplog.messages)
 
 
 async def test_get_remaining_time_clamps_negative_to_zero() -> None:
