@@ -301,8 +301,9 @@ async def test_request_reclaim_with_forefront(
     await rq.reclaim_request(first_request, forefront=True)
     Actor.log.info('Request reclaimed to forefront')
 
-    # The reclaimed request should be fetched first again.
-    next_request = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
+    # The reclaimed request should be fetched first again. A reclaimed request may take a moment to reappear
+    # at the queue head (eventually-consistent API state), even in single mode, so poll until it does.
+    next_request = await poll_until_condition(rq.fetch_next_request, lambda result: result is not None)
 
     assert next_request is not None
     assert next_request.url == first_request.url
