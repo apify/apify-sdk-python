@@ -723,14 +723,8 @@ async def test_persistence_across_operations(
     assert final_handled == 15, f'final_handled={final_handled}'
 
 
-async def test_request_deduplication_edge_cases(
-    request_queue_apify: RequestQueue, request: pytest.FixtureRequest
-) -> None:
+async def test_request_deduplication_edge_cases(request_queue_apify: RequestQueue) -> None:
     """Test edge cases in request deduplication."""
-    rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    if rq_access_mode == 'shared':
-        pytest.skip(reason='Test is flaky, see https://github.com/apify/apify-sdk-python/issues/786')
-
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
@@ -749,7 +743,10 @@ async def test_request_deduplication_edge_cases(
 
     results = list[bool]()
     for url, expected_duplicate in urls_and_deduplication_expectations:
-        result = await rq.add_request(url)
+        # In shared mode, `add_request` may transiently return None until the operation propagates,
+        # so poll with backoff until it returns a result.
+        result = await poll_until_condition(lambda url=url: rq.add_request(url), lambda result: result is not None)
+
         assert result is not None
         results.append(result.was_already_present)
         assert result.was_already_present == expected_duplicate, (
