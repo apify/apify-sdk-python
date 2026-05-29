@@ -75,11 +75,12 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
             files_to_keep = {self._input_key_filename, f'{self._input_key_filename}.{METADATA_FILENAME}'}
             files_to_keep.add(METADATA_FILENAME)
 
-            for file_path in self.path_to_kvs.glob('*'):
-                if file_path.name in files_to_keep:
-                    continue
-                if file_path.is_file():
-                    await asyncio.to_thread(file_path.unlink, missing_ok=True)
+            async with asyncio.TaskGroup() as tg:
+                for file_path in self.path_to_kvs.glob('*'):
+                    if file_path.name in files_to_keep:
+                        continue
+                    if file_path.is_file():
+                        tg.create_task(asyncio.to_thread(file_path.unlink, missing_ok=True))
 
             await self._update_metadata(
                 update_accessed_at=True,
