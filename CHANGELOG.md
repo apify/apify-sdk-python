@@ -3,12 +3,16 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
+## 3.4.2 - **not yet released**
 
-## 4.0.0 - **not yet released**
+### 🚜 Refactor
+
+- [**breaking**] Remove deprecated APIs ([#918](https://github.com/apify/apify-sdk-python/pull/918)) ([3e5728d](https://github.com/apify/apify-sdk-python/commit/3e5728d94cb8fd879d5a76e33a03d55792d835d5)) by [@vdusek](https://github.com/vdusek), closes [#635](https://github.com/apify/apify-sdk-python/issues/635)
 
 ### ⚙️ Miscellaneous Tasks
 
 - [**breaking**] Drop Python 3.10 support ([#908](https://github.com/apify/apify-sdk-python/pull/908)) ([a67788e](https://github.com/apify/apify-sdk-python/commit/a67788e4d7845445a3e80a30af70580d2ab84f32)) by [@vdusek](https://github.com/vdusek), closes [#757](https://github.com/apify/apify-sdk-python/issues/757)
+
 
 <!-- git-cliff-unreleased-end -->
 
