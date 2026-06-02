@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import sys
-import warnings
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -867,7 +866,7 @@ class _ActorType:
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
+        timeout: timedelta | None | Literal['inherit'] = None,
         force_permission_level: ActorPermissionLevel | None = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
@@ -889,8 +888,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
-                other Actor to the time remaining from this Actor timeout.
+                the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor
+                to the time remaining from this Actor timeout.
             force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
                 with permissions configured in the Actor settings.
             wait_for_finish: The maximum number of seconds the server waits for the run to finish. By default,
@@ -911,22 +910,14 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
-        if timeout in {'inherit', 'RemainingTime'}:
-            if timeout == 'RemainingTime':
-                warnings.warn(
-                    '`RemainingTime` is deprecated and will be removed in version 4.0.0. Use `inherit` instead.',
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
+        if timeout == 'inherit':
             actor_start_timeout = self._get_remaining_time()
         elif timeout is None:
             actor_start_timeout = None
         elif isinstance(timeout, timedelta):
             actor_start_timeout = timeout
         else:
-            raise ValueError(
-                f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
-            )
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
         api_result = await client.actor(actor_id).start(
             run_input=run_input,
@@ -988,7 +979,7 @@ class _ActorType:
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
+        timeout: timedelta | None | Literal['inherit'] = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
@@ -1011,8 +1002,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
-                other Actor to the time remaining from this Actor timeout.
+                the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor
+                to the time remaining from this Actor timeout.
             force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
                 with permissions configured in the Actor settings.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
@@ -1036,23 +1027,14 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
-        if timeout in {'inherit', 'RemainingTime'}:
-            if timeout == 'RemainingTime':
-                warnings.warn(
-                    '`RemainingTime` is deprecated and will be removed in version 4.0.0. Use `inherit` instead.',
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-
+        if timeout == 'inherit':
             actor_call_timeout = self._get_remaining_time()
         elif timeout is None:
             actor_call_timeout = None
         elif isinstance(timeout, timedelta):
             actor_call_timeout = timeout
         else:
-            raise ValueError(
-                f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
-            )
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
         api_result = await client.actor(actor_id).call(
             run_input=run_input,
@@ -1450,7 +1432,7 @@ class _ActorType:
             return max(self.configuration.timeout_at - datetime.now(tz=UTC), timedelta(0))
 
         self.log.warning(
-            'Using `inherit` or `RemainingTime` argument is only possible when the Actor'
+            'Using `inherit` argument is only possible when the Actor'
             ' is running on the Apify platform and when the timeout for the Actor run is set. '
             f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
         )
