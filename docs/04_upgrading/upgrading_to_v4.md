@@ -14,7 +14,7 @@ Support for Python 3.10 has been dropped. The Apify Python SDK v4.x now requires
 
 Methods and arguments that had been deprecated in v3 are removed in v4.
 
-### `api_public_base_url` argument of storage clients
+### api_public_base_url argument of storage clients
 
 The deprecated `api_public_base_url` argument has been removed from `ApifyDatasetClient` and `ApifyKeyValueStoreClient`. It had no effect already in v3, passing it emitted only a `DeprecationWarning`. Drop it from your call sites. The public base URL is taken from `Configuration.api_public_base_url`, which is unchanged.
 
@@ -33,7 +33,7 @@ client = ApifyDatasetClient(
 )
 ```
 
-### `Actor.start` and `Actor.call`: `RemainingTime`
+### Actor.start and Actor.call: RemainingTime
 
 The deprecated `RemainingTime` value of the `timeout` argument has been removed from `Actor.start()` and `Actor.call()`. Use `inherit` instead, the signature and behavior are identical.
 
@@ -45,7 +45,7 @@ run = await Actor.call('user/actor', timeout='RemainingTime')
 run = await Actor.call('user/actor', timeout='inherit')
 ```
 
-### Deprecated `Configuration` fields
+### Deprecated Configuration fields
 
 The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields have been removed from `Configuration`:
 - In place of `standby_port`, use `web_server_port`.
