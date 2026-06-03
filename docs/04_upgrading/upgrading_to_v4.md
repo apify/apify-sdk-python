@@ -12,24 +12,21 @@ Support for Python 3.10 has been dropped. The Apify Python SDK v4.x now requires
 
 ## Keyword-only arguments
 
-Secondary parameters on these methods can no longer be passed positionally.
+Secondary parameters in these signatures can no longer be passed positionally:
+- `Actor` — `get_value`, `push_data`, `charge`, `use_state`.
+- `ChargingManager` — `charge`.
 
 ```python
-# Before
+# Before (v3)
 value = await Actor.get_value('my-key', default_value)
 await Actor.push_data(data, 'my-event')
 await Actor.charge('my-event', 5)
 
-# After
+# After (v4)
 value = await Actor.get_value('my-key', default_value=default_value)
 await Actor.push_data(data, charged_event_name='my-event')
 await Actor.charge('my-event', count=5)
 ```
-
-Affected signatures:
-
-- `Actor` — `get_value`, `push_data`, `charge`, `use_state`.
-- `ChargingManager` — `charge`.
 
 ## Removal of deprecated APIs
 
