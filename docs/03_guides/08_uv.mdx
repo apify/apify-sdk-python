@@ -84,6 +84,8 @@ Then add the Actor definition to `.actor/actor.json`:
 }
 ```
 
+The `dockerfile` field points to the project's `Dockerfile`, which doesn't exist yet - you'll create it in the [Use uv in the Dockerfile](#use-uv-in-the-dockerfile) section below.
+
 The final project structure looks like this:
 
 ```text
@@ -113,7 +115,7 @@ uv sync
 The [`uv sync`](https://docs.astral.sh/uv/reference/cli/#uv-sync) command creates the `.venv` virtual environment (if it doesn't exist yet) and installs the locked dependencies into it. Then run the Actor with the Apify CLI:
 
 ```bash
-apify run --purge
+apify run
 ```
 
 The [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command automatically detects the virtual environment in `.venv` and uses it to run the Actor as a module (`python -m my_actor`), with the environment set up to emulate the Apify platform locally - for example, the Actor input is read from `storage/key_value_stores/default/INPUT.json`.
