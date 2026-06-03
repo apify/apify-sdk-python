@@ -170,17 +170,30 @@ async def test_forefront_requests_ordering(
         await rq.mark_request_as_handled(next_request)
 
     # Forefront requests should come first (in reverse order of addition)
-    expected_order = [
-        'https://example.com/priority2',
-        'https://example.com/priority1',
-        'https://example.com/1',
-        'https://example.com/2',
-        'https://example.com/3',
-    ]
-    assert fetched_urls == expected_order, (
-        f'fetched_urls={fetched_urls}',
-        f'expected_order={expected_order}',
-    )
+    if rq_access_mode == 'shared':
+        # In shared access mode, the relative order of requests added close together is not guaranteed due to the
+        # API propagation delay (see https://github.com/apify/apify-sdk-python/issues/808). Only verify that the
+        # forefront requests come before the regular ones.
+        assert set(fetched_urls[:2]) == {'https://example.com/priority1', 'https://example.com/priority2'}, (
+            f'fetched_urls={fetched_urls}'
+        )
+        assert set(fetched_urls[2:]) == {
+            'https://example.com/1',
+            'https://example.com/2',
+            'https://example.com/3',
+        }, f'fetched_urls={fetched_urls}'
+    else:
+        expected_order = [
+            'https://example.com/priority2',
+            'https://example.com/priority1',
+            'https://example.com/1',
+            'https://example.com/2',
+            'https://example.com/3',
+        ]
+        assert fetched_urls == expected_order, (
+            f'fetched_urls={fetched_urls}',
+            f'expected_order={expected_order}',
+        )
 
 
 async def test_request_unique_key_behavior(
@@ -797,7 +810,14 @@ async def test_request_ordering_with_mixed_operations(
     # Fetch one and reclaim to forefront.
     request1 = await call_with_exp_backoff(rq.fetch_next_request, rq_access_mode=rq_access_mode)
     assert request1 is not None, f'request1={request1}'
-    assert request1.url == 'https://example.com/1', f'request1.url={request1.url}'
+    if rq_access_mode == 'shared':
+        # In shared access mode, the relative order of requests added close together is not guaranteed due to the
+        # API propagation delay (see https://github.com/apify/apify-sdk-python/issues/808), so the first fetched
+        # request may be either of the two initial ones.
+        assert request1.url in {'https://example.com/1', 'https://example.com/2'}, f'request1.url={request1.url}'
+    else:
+        assert request1.url == 'https://example.com/1', f'request1.url={request1.url}'
+    remaining_url = ({'https://example.com/1', 'https://example.com/2'} - {request1.url}).pop()
     Actor.log.info(f'Fetched request: {request1.url}')
 
     await rq.reclaim_request(request1, forefront=True)
@@ -834,7 +854,10 @@ async def test_request_ordering_with_mixed_operations(
             f'request1.url={request1.url}',
         )
 
-    assert urls_ordered[2] == 'https://example.com/2', f'urls_ordered[2]={urls_ordered[2]}'
+    assert urls_ordered[2] == remaining_url, (
+        f'urls_ordered[2]={urls_ordered[2]}',
+        f'remaining_url={remaining_url}',
+    )
     Actor.log.info('Request ordering verified successfully')
 
 
