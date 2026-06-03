@@ -818,11 +818,22 @@ async def test_request_ordering_with_mixed_operations(
     # Verify that we got all 3 requests
     assert len(urls_ordered) == 3, f'len(urls_ordered)={len(urls_ordered)}'
 
-    assert urls_ordered[0] == 'https://example.com/priority', f'urls_ordered[0]={urls_ordered[0]}'
-    assert urls_ordered[1] == request1.url, (
-        f'urls_ordered[1]={urls_ordered[1]}',
-        f'request1.url={request1.url}',
-    )
+    if rq_access_mode == 'shared':
+        # In shared access mode, the relative order of two forefront operations performed close together (the
+        # reclaim of request1 and the add of the priority request) is not guaranteed due to the API propagation
+        # delay (see https://github.com/apify/apify-sdk-python/issues/808). Only verify that both forefront
+        # requests come before the regular one.
+        assert set(urls_ordered[:2]) == {'https://example.com/priority', request1.url}, (
+            f'urls_ordered={urls_ordered}',
+            f'request1.url={request1.url}',
+        )
+    else:
+        assert urls_ordered[0] == 'https://example.com/priority', f'urls_ordered[0]={urls_ordered[0]}'
+        assert urls_ordered[1] == request1.url, (
+            f'urls_ordered[1]={urls_ordered[1]}',
+            f'request1.url={request1.url}',
+        )
+
     assert urls_ordered[2] == 'https://example.com/2', f'urls_ordered[2]={urls_ordered[2]}'
     Actor.log.info('Request ordering verified successfully')
 
