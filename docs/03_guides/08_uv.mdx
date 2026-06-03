@@ -25,7 +25,13 @@ The [Python Actor templates](https://apify.com/templates/categories/python) decl
 - Dependency installation during the Docker build is significantly faster than with pip, especially with a warm cache.
 - A single tool manages your Python interpreter, virtual environment, and dependencies, so the project works the same on every machine.
 
-To follow along, install [uv](https://docs.astral.sh/uv/getting-started/installation/) and the [Apify CLI](https://docs.apify.com/cli/docs/installation) first. If you prefer to start from a ready-made project instead of setting one up step by step, use the [uv Actor template](https://apify.com/templates/python-uv).
+:::info Actor templates don't support uv yet
+
+The [Apify Actor templates](https://apify.com/templates) currently support only pip with `requirements.txt`. Adding uv-based templates is planned - follow [apify/actor-templates#350](https://github.com/apify/actor-templates/issues/350) for updates.
+
+:::
+
+To follow along, install [uv](https://docs.astral.sh/uv/getting-started/installation/) and the [Apify CLI](https://docs.apify.com/cli/docs/installation) first.
 
 ## Create a new project
 
