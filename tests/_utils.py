@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 T = TypeVar('T')
 
 
-async def _maybe_await(value: Awaitable[T] | T) -> T:
+async def maybe_await(value: Awaitable[T] | T) -> T:
     """Await `value` if it is awaitable, otherwise return it unchanged.
 
     Lets `poll_until_condition` accept both sync and async callables.
@@ -62,14 +62,14 @@ async def poll_until_condition(
     """
     deadline = time.monotonic() + timeout
     delay = poll_interval
-    result = await _maybe_await(fn())
+    result = await maybe_await(fn())
     while not condition(result):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
         await asyncio.sleep(min(delay, remaining))
         delay *= backoff_factor
-        result = await _maybe_await(fn())
+        result = await maybe_await(fn())
     return result
 
 
