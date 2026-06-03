@@ -393,6 +393,7 @@ async def test_actor_adds_webhook_and_receives_event(
 ) -> None:
     async def main_server() -> None:
         import os
+        import time
         from http.server import BaseHTTPRequestHandler, HTTPServer
 
         from apify_shared.consts import ActorEnvVars
@@ -419,7 +420,12 @@ async def test_actor_adds_webhook_and_receives_event(
             container_port = int(os.getenv(ActorEnvVars.WEB_SERVER_PORT, ''))
             with HTTPServer(('', container_port), WebhookHandler) as server:
                 await Actor.set_value('INITIALIZED', value=True)
-                while not webhook_body:
+                # Bound the wait so that a webhook that never fires (e.g. one that did not propagate before the
+                # client run finished) surfaces as an empty WEBHOOK_BODY in the test instead of blocking here
+                # until the run times out.
+                server.timeout = 5
+                deadline = time.monotonic() + 300
+                while not webhook_body and time.monotonic() < deadline:
                     server.handle_request()
 
             await Actor.set_value('WEBHOOK_BODY', webhook_body)
@@ -478,7 +484,7 @@ async def test_actor_adds_webhook_and_receives_event(
 
     webhook_body_record = await server_actor.last_run().key_value_store().get_record('WEBHOOK_BODY')
     assert webhook_body_record is not None
-    assert webhook_body_record['value'] != ''
+    assert webhook_body_record['value'] != '', 'The ad-hoc webhook never fired (it likely did not propagate in time).'
     parsed_webhook_body = json.loads(webhook_body_record['value'])
 
     assert parsed_webhook_body['eventData']['actorId'] == ac_run_result.act_id

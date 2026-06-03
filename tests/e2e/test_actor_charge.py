@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from functools import partial
 from typing import TYPE_CHECKING
 
 import pytest_asyncio
@@ -16,6 +17,11 @@ if TYPE_CHECKING:
     from apify_client.clients import ActorClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
+
+
+async def _get_run(apify_client_async: ApifyClientAsync, run_id: str) -> ActorRun:
+    """Fetch the current state of the given run from the platform."""
+    return ActorRun.model_validate(await apify_client_async.run(run_id).get())
 
 
 @pytest_asyncio.fixture(scope='module', loop_scope='module')
@@ -116,14 +122,10 @@ async def test_actor_charge_basic(
     apify_client_async: ApifyClientAsync,
 ) -> None:
     run = await run_actor(ppe_actor)
-    run_id = run.id
-
-    async def get_run() -> ActorRun:
-        return ActorRun.model_validate(await apify_client_async.run(run_id).get())
 
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
-        get_run,
+        partial(_get_run, apify_client_async, run.id),
         lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == {'foobar': 4},
         timeout=30,
         poll_interval=1,
@@ -139,14 +141,10 @@ async def test_actor_charge_limit(
     apify_client_async: ApifyClientAsync,
 ) -> None:
     run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
-    run_id = run.id
-
-    async def get_run() -> ActorRun:
-        return ActorRun.model_validate(await apify_client_async.run(run_id).get())
 
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
-        get_run,
+        partial(_get_run, apify_client_async, run.id),
         lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == {'foobar': 2},
         timeout=30,
         poll_interval=1,
@@ -164,11 +162,6 @@ async def test_actor_push_data_charges_both_events(
     """Test that push_data charges both the explicit event and the synthetic apify-default-dataset-item event."""
     run = await run_actor(ppe_push_data_actor)
 
-    run_id = run.id
-
-    async def get_run() -> ActorRun:
-        return ActorRun.model_validate(await apify_client_async.run(run_id).get())
-
     expected_counts = {
         'push-item': 5,
         'apify-default-dataset-item': 5,
@@ -178,7 +171,7 @@ async def test_actor_push_data_charges_both_events(
     # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
     # reflected immediately via the charge endpoint).
     run = await poll_until_condition(
-        get_run,
+        partial(_get_run, apify_client_async, run.id),
         lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == expected_counts,
         timeout=120,
         poll_interval=1,
@@ -199,11 +192,6 @@ async def test_actor_push_data_combined_budget_limit(
     """
     run = await run_actor(ppe_push_data_actor, max_total_charge_usd=Decimal('0.20'))
 
-    run_id = run.id
-
-    async def get_run() -> ActorRun:
-        return ActorRun.model_validate(await apify_client_async.run(run_id).get())
-
     expected_counts = {
         'push-item': 2,
         'apify-default-dataset-item': 2,
@@ -213,7 +201,7 @@ async def test_actor_push_data_combined_budget_limit(
     # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
     # reflected immediately via the charge endpoint).
     run = await poll_until_condition(
-        get_run,
+        partial(_get_run, apify_client_async, run.id),
         lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == expected_counts,
         timeout=120,
         poll_interval=1,

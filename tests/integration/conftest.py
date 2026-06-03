@@ -94,6 +94,23 @@ async def request_queue_apify(
         await rq.drop()
 
 
+@pytest.fixture
+def rq_access_mode(request: pytest.FixtureRequest) -> str:
+    """Return the access mode (`single` or `shared`) of the parametrized `request_queue_apify` fixture."""
+    return request.node.callspec.params.get('request_queue_apify')
+
+
+@pytest.fixture
+def rq_poll_timeout(rq_access_mode: str) -> int:
+    """Return the `poll_until_condition` timeout matching the `request_queue_apify` access mode.
+
+    In single mode, reads are immediately consistent, so the caller should poll exactly once (`timeout=0`). In
+    shared mode, there is a propagation delay between operations, so reads are retried for up to 30 seconds.
+    See https://github.com/apify/apify-sdk-python/issues/808.
+    """
+    return 0 if rq_access_mode == 'single' else 30
+
+
 @pytest.fixture(autouse=True)
 def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
     """Isolate the testing environment by resetting global state before each test.
