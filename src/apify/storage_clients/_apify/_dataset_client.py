@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import warnings
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -42,7 +41,6 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         self,
         *,
         api_client: DatasetClientAsync,
-        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
@@ -57,14 +55,6 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
-
-        if api_public_base_url:
-            # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-            warnings.warn(
-                'api_public_base_url argument is deprecated and will be removed in version 4.0.0',
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
     @override
     async def get_metadata(self) -> DatasetMetadata:
@@ -114,7 +104,6 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
         dataset_client = cls(
             api_client=api_client,
-            api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
             lock=asyncio.Lock(),
         )
 

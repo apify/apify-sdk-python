@@ -68,7 +68,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Set up uv package manager
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -120,10 +120,12 @@ jobs:
             echo "No existing versions found for major $MAJOR_VERSION, nothing to remove"
           fi
 
-          # Build API reference and create Docusaurus version snapshots.
+          # Build API reference and create Docusaurus version snapshots. The Docusaurus commands must run
+          # through `uv run` so that the project virtual environment is on PATH — the typedoc-api plugin
+          # spawns `python` to generate the API reference dump and needs `pydoc-markdown` to be importable.
           bash build_api_reference.sh
-          pnpm exec docusaurus docs:version "$MAJOR_MINOR_VERSION"
-          pnpm exec docusaurus api:version "$MAJOR_MINOR_VERSION"
+          uv run pnpm exec docusaurus docs:version "$MAJOR_MINOR_VERSION"
+          uv run pnpm exec docusaurus api:version "$MAJOR_MINOR_VERSION"
 
       - name: Commit and push versioned docs
         uses: apify/actions/signed-commit@v1.2.0

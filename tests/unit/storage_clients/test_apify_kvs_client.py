@@ -19,7 +19,6 @@ def _make_kvs_client(
 
     return ApifyKeyValueStoreClient(
         api_client=api_client,
-        api_public_base_url='',
         lock=asyncio.Lock(),
         **kwargs,
     ), api_client
@@ -119,14 +118,3 @@ async def test_purge_raises_not_implemented() -> None:
     client, _ = _make_kvs_client()
     with pytest.raises(NotImplementedError, match='Purging key-value stores is not supported'):
         await client.purge()
-
-
-async def test_deprecated_api_public_base_url() -> None:
-    """Test that passing api_public_base_url triggers deprecation warning."""
-    api_client = AsyncMock()
-    with pytest.warns(DeprecationWarning, match='api_public_base_url argument is deprecated'):
-        ApifyKeyValueStoreClient(
-            api_client=api_client,
-            api_public_base_url='https://api.apify.com',
-            lock=asyncio.Lock(),
-        )

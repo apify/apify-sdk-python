@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any, Self
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
-from typing_extensions import TypedDict, deprecated
+from typing_extensions import TypedDict
 
 from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms
@@ -273,22 +273,6 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = False
 
-    latest_sdk_version: Annotated[
-        str | None,
-        Field(
-            alias='apify_sdk_latest_version',
-            description='Specifies the most recent release version of the Apify SDK for Javascript. Used for '
-            'checking for updates.',
-        ),
-        deprecated('SDK version checking is not supported for the Python SDK'),
-    ] = None
-
-    log_format: Annotated[
-        str | None,
-        Field(alias='apify_log_format'),
-        deprecated('Adjust the log format in code instead'),
-    ] = None
-
     max_paid_dataset_items: Annotated[
         int | None,
         Field(
@@ -385,15 +369,6 @@ class Configuration(CrawleeConfiguration):
         ),
         BeforeValidator(lambda val: val if val != '' else None),  # We should accept empty environment variables as well
     ] = None
-
-    standby_port: Annotated[
-        int,
-        Field(
-            alias='actor_standby_port',
-            description='TCP port for the Actor to start an HTTP server to receive messages in the Actor Standby mode',
-        ),
-        deprecated('Use `web_server_port` instead'),
-    ] = 4321
 
     standby_url: Annotated[
         str,
