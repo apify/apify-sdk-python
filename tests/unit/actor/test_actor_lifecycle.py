@@ -11,6 +11,7 @@ import pytest
 from apify_shared.consts import ActorExitCodes, ApifyEnvVars
 from crawlee.events._types import Event
 
+from ..._utils import poll_until_condition
 from apify import Actor
 
 if TYPE_CHECKING:
@@ -199,7 +200,8 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
         assert actor._active
         actor.on(Event.PERSIST_STATE, on_event(Event.PERSIST_STATE))
         actor.on(Event.SYSTEM_INFO, on_event(Event.SYSTEM_INFO))
-        await asyncio.sleep(1)
+        # Wait until both periodic events are emitted at least once (the emit interval is 100 ms).
+        await poll_until_condition(lambda: bool(on_persist) and bool(on_system_info), poll_interval=0.05)
 
     on_persist_count = len(on_persist)
     on_system_info_count = len(on_system_info)

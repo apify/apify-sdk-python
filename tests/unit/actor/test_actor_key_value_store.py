@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
 from apify_shared.consts import ApifyEnvVars
 from crawlee._utils.file import json_dumps
 
+from ..._utils import poll_until_condition
 from ..test_crypto import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY
 from apify import Actor
 from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX
@@ -119,10 +118,13 @@ async def test_use_state(monkeypatch: pytest.MonkeyPatch) -> None:
 
         state['state'] = 'first_state'
 
-        await asyncio.sleep(0.2)  # Wait for the state to be persisted
-
+        # Wait for the state to be persisted (the persist interval is 100 ms).
         kvs = await actor.open_key_value_store()
-        stored_state = await kvs.get_value('APIFY_GLOBAL_STATE')
+        stored_state = await poll_until_condition(
+            lambda: kvs.get_value('APIFY_GLOBAL_STATE'),
+            lambda value: value == {'state': 'first_state'},
+            poll_interval=0.05,
+        )
         assert stored_state == {'state': 'first_state'}
 
         state['state'] = 'finished_state'
@@ -142,10 +144,13 @@ async def test_use_state_non_default(monkeypatch: pytest.MonkeyPatch) -> None:
 
         state['state'] = 'first_state'
 
-        await asyncio.sleep(0.2)  # Wait for the state to be persisted
-
+        # Wait for the state to be persisted (the persist interval is 100 ms).
         kvs = await actor.open_key_value_store(name='custom-kvs')
-        stored_state = await kvs.get_value('custom_state_key')
+        stored_state = await poll_until_condition(
+            lambda: kvs.get_value('custom_state_key'),
+            lambda value: value == {'state': 'first_state'},
+            poll_interval=0.05,
+        )
         assert stored_state == {'state': 'first_state'}
 
         state['state'] = 'finished_state'

@@ -12,7 +12,7 @@ from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 
-from ._utils import call_with_exp_backoff, generate_unique_resource_name, poll_until_condition
+from .._utils import generate_unique_resource_name, poll_until_condition
 from apify import Actor, Request
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify import ApifyRequestQueueClient
@@ -26,10 +26,10 @@ if TYPE_CHECKING:
     from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
 
 # In shared mode, there is a propagation delay between operations, so we retry reads with the test helper
-# `call_with_exp_backoff` (`max_retries=5`). In single mode reads are immediately consistent, so we call once
-# (`max_retries=0`). The delay also means that the relative order of requests added or reclaimed close together
-# is not guaranteed, so order-sensitive tests wait for propagation and relax exact-order assertions in shared
-# mode. See https://github.com/apify/apify-sdk-python/issues/808.
+# `poll_until_condition` (`timeout=30`, exponential backoff). In single mode reads are immediately consistent,
+# so we call once (`timeout=0`). The delay also means that the relative order of requests added or reclaimed
+# close together is not guaranteed, so order-sensitive tests wait for propagation and relax exact-order
+# assertions in shared mode. See https://github.com/apify/apify-sdk-python/issues/808.
 
 # How long to wait in shared mode for forefront operations to propagate to the queue head before fetching.
 _SHARED_MODE_PROPAGATION_DELAY = 10
@@ -41,7 +41,7 @@ async def test_add_and_fetch_requests(
 ) -> None:
     """Test basic functionality of adding and fetching requests."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     desired_request_count = 100
     Actor.log.info('Opening request queue...')
@@ -53,7 +53,7 @@ async def test_add_and_fetch_requests(
         await rq.add_request(f'https://example.com/{i}')
 
     handled_request_count = 0
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         Actor.log.info('Fetching next request...')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
         assert queue_operation_info is not None, f'queue_operation_info={queue_operation_info}'
@@ -67,7 +67,7 @@ async def test_add_and_fetch_requests(
         f'desired_request_count={desired_request_count}',
     )
     Actor.log.info('Waiting for queue to be finished...')
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     assert is_finished is True, f'is_finished={is_finished}'
 
 
@@ -77,7 +77,7 @@ async def test_add_requests_in_batches(
 ) -> None:
     """Test adding multiple requests in a single batch operation."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     desired_request_count = 100
     rq = request_queue_apify
@@ -89,7 +89,7 @@ async def test_add_requests_in_batches(
     Actor.log.info(f'Added {desired_request_count} requests in batch, total in queue: {total_count}')
 
     handled_request_count = 0
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         if handled_request_count % 20 == 0:
             Actor.log.info(f'Processing request {handled_request_count + 1}...')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
@@ -103,7 +103,7 @@ async def test_add_requests_in_batches(
         f'handled_request_count={handled_request_count}',
         f'desired_request_count={desired_request_count}',
     )
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     assert is_finished is True, f'is_finished={is_finished}'
 
 
@@ -113,7 +113,7 @@ async def test_add_non_unique_requests_in_batch(
 ) -> None:
     """Test adding requests with duplicate unique keys in batch."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     desired_request_count = 100
     rq = request_queue_apify
@@ -129,7 +129,7 @@ async def test_add_non_unique_requests_in_batch(
     Actor.log.info(f'Added {desired_request_count} requests with duplicate unique keys, total in queue: {total_count}')
 
     handled_request_count = 0
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         if handled_request_count % 20 == 0:
             Actor.log.info(f'Processing request {handled_request_count + 1}: {next_request.url}')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
@@ -144,7 +144,7 @@ async def test_add_non_unique_requests_in_batch(
         f'handled_request_count={handled_request_count}',
         f'expected_count={expected_count}',
     )
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     Actor.log.info(f'Processed {handled_request_count}/{expected_count} requests, finished: {is_finished}')
     assert is_finished is True, f'is_finished={is_finished}'
 
@@ -155,7 +155,7 @@ async def test_forefront_requests_ordering(
 ) -> None:
     """Test that forefront requests are processed before regular requests."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -179,7 +179,7 @@ async def test_forefront_requests_ordering(
 
     # Fetch requests and verify order.
     fetched_urls = []
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         Actor.log.info(f'Fetched request: {next_request.url}')
         fetched_urls.append(next_request.url)
         await rq.mark_request_as_handled(next_request)
@@ -217,7 +217,7 @@ async def test_request_unique_key_behavior(
 ) -> None:
     """Test behavior of custom unique keys."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -247,7 +247,7 @@ async def test_request_unique_key_behavior(
     # Only 2 requests should be fetchable.
     fetched_count = 0
     fetched_requests = []
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         fetched_count += 1
         fetched_requests.append(next_request)
         await rq.mark_request_as_handled(next_request)
@@ -269,7 +269,7 @@ async def test_request_reclaim_functionality(
 ) -> None:
     """Test request reclaiming for failed processing."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -279,7 +279,7 @@ async def test_request_reclaim_functionality(
     Actor.log.info('Added test request')
 
     # Fetch and reclaim the request.
-    fetched_request = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+    fetched_request = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
     assert fetched_request is not None
     Actor.log.info(f'Fetched request: {fetched_request.url}')
 
@@ -292,7 +292,12 @@ async def test_request_reclaim_functionality(
 
     # Should be able to fetch the same request again. A reclaimed request may take a moment to reappear
     # at the queue head (eventually-consistent API state), even in single mode, so poll until it does.
-    request2 = await poll_until_condition(rq.fetch_next_request, lambda result: result is not None)
+    request2 = await poll_until_condition(
+        rq.fetch_next_request,
+        lambda result: result is not None,
+        timeout=60,
+        poll_interval=5,
+    )
 
     assert request2 is not None
     assert request2.url == fetched_request.url
@@ -301,7 +306,7 @@ async def test_request_reclaim_functionality(
 
     # Mark as handled this time
     await rq.mark_request_as_handled(request2)
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     assert is_finished is True
 
 
@@ -312,7 +317,7 @@ async def test_request_reclaim_with_forefront(
     """Test reclaiming requests to the front of the queue."""
 
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -324,7 +329,7 @@ async def test_request_reclaim_with_forefront(
     Actor.log.info('Added 3 requests')
 
     # Fetch first request.
-    first_request = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+    first_request = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
     assert first_request is not None
     Actor.log.info(f'Fetched first request: {first_request.url}')
 
@@ -339,7 +344,12 @@ async def test_request_reclaim_with_forefront(
 
     # The reclaimed request should be fetched first again. A reclaimed request may take a moment to reappear
     # at the queue head (eventually-consistent API state), even in single mode, so poll until it does.
-    next_request = await poll_until_condition(rq.fetch_next_request, lambda result: result is not None)
+    next_request = await poll_until_condition(
+        rq.fetch_next_request,
+        lambda result: result is not None,
+        timeout=60,
+        poll_interval=5,
+    )
 
     assert next_request is not None
     assert next_request.url == first_request.url
@@ -363,7 +373,7 @@ async def test_complex_request_objects(
 ) -> None:
     """Test handling complex Request objects with various properties."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -380,7 +390,7 @@ async def test_complex_request_objects(
     Actor.log.info(f'Added complex request: {complex_request.url} with method {complex_request.method}')
 
     # Fetch and verify all properties are preserved.
-    fetched_request = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+    fetched_request = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
     assert fetched_request is not None, f'fetched_request={fetched_request}'
     Actor.log.info(f'Fetched request: {fetched_request.url}')
 
@@ -411,7 +421,7 @@ async def test_get_request_by_unique_key(
 ) -> None:
     """Test retrieving specific requests by their unique_key."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -422,9 +432,10 @@ async def test_get_request_by_unique_key(
     request_unique_key = add_result.unique_key
     Actor.log.info(f'Request added with unique_key: {request_unique_key}')
 
-    retrieved_request = await call_with_exp_backoff(
+    retrieved_request = await poll_until_condition(
         lambda: rq.get_request(request_unique_key),
-        max_retries=max_retries,
+        timeout=timeout,
+        backoff_factor=2,
     )
     assert retrieved_request is not None, f'retrieved_request={retrieved_request}'
     assert retrieved_request.url == 'https://example.com/test', f'retrieved_request.url={retrieved_request.url}'
@@ -443,7 +454,7 @@ async def test_metadata_tracking(
 ) -> None:
     """Test request queue metadata and counts."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -468,7 +479,7 @@ async def test_metadata_tracking(
 
     # Process some requests.
     for _ in range(3):
-        next_request = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+        next_request = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
         if next_request:
             await rq.mark_request_as_handled(next_request)
 
@@ -488,7 +499,7 @@ async def test_batch_operations_performance(
 ) -> None:
     """Test batch operations vs individual operations."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -510,7 +521,7 @@ async def test_batch_operations_performance(
 
     # Process all requests.
     processed_count = 0
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         processed_count += 1
         await rq.mark_request_as_handled(next_request)
         if processed_count >= 50:  # Safety break
@@ -519,7 +530,7 @@ async def test_batch_operations_performance(
     Actor.log.info(f'Processing completed. Total processed: {processed_count}')
     assert processed_count == 50, f'processed_count={processed_count}'
 
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
 
     assert is_finished is True, f'is_finished={is_finished}'
 
@@ -530,7 +541,7 @@ async def test_state_consistency(
 ) -> None:
     """Test queue state consistency during concurrent operations."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -548,7 +559,7 @@ async def test_state_consistency(
     reclaimed_requests = []
 
     for i in range(5):
-        next_request = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+        next_request = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
         if next_request:
             if i % 2 == 0:  # Process even indices
                 await rq.mark_request_as_handled(next_request)
@@ -575,32 +586,32 @@ async def test_state_consistency(
 
     # Process remaining requests.
     remaining_count = 0
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         remaining_count += 1
         await rq.mark_request_as_handled(next_request)
 
     Actor.log.info(f'Processed {remaining_count} remaining requests')
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     assert is_finished is True, f'is_finished={is_finished}'
 
 
 async def test_empty_rq_behavior(request_queue_apify: RequestQueue, request: pytest.FixtureRequest) -> None:
     """Test behavior with empty queues."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
 
     # Test empty queue operations
-    is_empty = await call_with_exp_backoff(rq.is_empty, max_retries=max_retries)
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_empty = await poll_until_condition(rq.is_empty, timeout=timeout, backoff_factor=2)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     Actor.log.info(f'Empty queue - is_empty: {is_empty}, is_finished: {is_finished}')
     assert is_empty is True, f'is_empty={is_empty}'
     assert is_finished is True, f'is_finished={is_finished}'
 
     # Fetch from empty queue
-    next_request = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+    next_request = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
     Actor.log.info(f'Fetch result from empty queue: {next_request}')
     assert next_request is None, f'request={next_request}'
 
@@ -623,7 +634,7 @@ async def test_large_batch_operations(
 ) -> None:
     """Test handling large batches of requests."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -643,14 +654,14 @@ async def test_large_batch_operations(
     # Process all in chunks to test performance.
     processed_count = 0
 
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         await rq.mark_request_as_handled(next_request)
         processed_count += 1
 
     Actor.log.info(f'Processing completed. Total processed: {processed_count}')
     assert processed_count == 500, f'processed_count={processed_count}'
 
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     assert is_finished is True, f'is_finished={is_finished}'
 
 
@@ -660,7 +671,7 @@ async def test_mixed_string_and_request_objects(
 ) -> None:
     """Test adding both string URLs and Request objects."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -689,7 +700,7 @@ async def test_mixed_string_and_request_objects(
 
     # Fetch and verify all types work.
     fetched_requests = []
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         fetched_requests.append(next_request)
         await rq.mark_request_as_handled(next_request)
 
@@ -713,7 +724,7 @@ async def test_persistence_across_operations(
 ) -> None:
     """Test that queue state persists across different operations."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     # Open queue and add some requests
     rq = request_queue_apify
@@ -730,7 +741,7 @@ async def test_persistence_across_operations(
     # Process some requests.
     processed_count = 0
     for _ in range(5):
-        next_request = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+        next_request = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
         if next_request:
             await rq.mark_request_as_handled(next_request)
             processed_count += 1
@@ -755,12 +766,12 @@ async def test_persistence_across_operations(
 
     # Process remaining.
     remaining_processed = 0
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         remaining_processed += 1
         await rq.mark_request_as_handled(next_request)
 
     Actor.log.info(f'Processed {remaining_processed} remaining requests')
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     final_total = await rq.get_total_count()
     final_handled = await rq.get_handled_count()
 
@@ -792,7 +803,12 @@ async def test_request_deduplication_edge_cases(request_queue_apify: RequestQueu
     for url, expected_duplicate in urls_and_deduplication_expectations:
         # In shared mode, `add_request` may transiently return None until the operation propagates,
         # so poll with backoff until it returns a result.
-        result = await poll_until_condition(lambda url=url: rq.add_request(url), lambda result: result is not None)
+        result = await poll_until_condition(
+            lambda url=url: rq.add_request(url),
+            lambda result: result is not None,
+            timeout=60,
+            poll_interval=5,
+        )
 
         assert result is not None
         results.append(result.was_already_present)
@@ -830,7 +846,7 @@ async def test_request_ordering_with_mixed_operations(
 ) -> None:
     """Test request ordering with mixed add/reclaim operations."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     rq = request_queue_apify
     Actor.log.info('Request queue opened')
@@ -841,7 +857,7 @@ async def test_request_ordering_with_mixed_operations(
     Actor.log.info('Added initial requests')
 
     # Fetch one and reclaim to forefront.
-    request1 = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+    request1 = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
     assert request1 is not None, f'request1={request1}'
     if rq_access_mode == 'shared':
         # In shared mode, the relative order of requests added close together is not guaranteed (see the note at
@@ -866,7 +882,7 @@ async def test_request_ordering_with_mixed_operations(
 
     # Fetch all requests and verify forefront behavior.
     urls_ordered = list[str]()
-    while next_request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries):
+    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2):
         urls_ordered.append(next_request.url)
         await rq.mark_request_as_handled(next_request)
 
@@ -932,7 +948,12 @@ async def test_request_queue_metadata_another_client(
     await api_client.add_request(Request.from_url('http://example.com/1').model_dump(by_alias=True, exclude={'id'}))
 
     # Poll until the API has propagated the metadata change.
-    metadata = await poll_until_condition(rq.get_metadata, lambda m: m.total_request_count >= 1)
+    metadata = await poll_until_condition(
+        rq.get_metadata,
+        lambda m: m.total_request_count >= 1,
+        timeout=60,
+        poll_interval=5,
+    )
     assert metadata.total_request_count == 1
 
 
@@ -1033,6 +1054,8 @@ async def test_crawler_run_request_queue_variant_stats(
         metadata = await poll_until_condition(
             _get_rq_metadata,
             lambda m: m.stats.write_count >= expected_write_count,
+            timeout=60,
+            poll_interval=5,
         )
         Actor.log.info(f'{metadata.stats=}')
         assert metadata.stats.write_count == expected_write_count
@@ -1061,6 +1084,8 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
             metadata = await poll_until_condition(
                 _get_rq_metadata,
                 lambda m: m.stats.write_count >= len(requests),
+                timeout=60,
+                poll_interval=5,
             )
             stats_before = metadata.stats
             Actor.log.info(stats_before)
@@ -1075,6 +1100,8 @@ async def test_cache_initialization(apify_token: str, monkeypatch: pytest.Monkey
             metadata = await poll_until_condition(
                 _get_rq_metadata,
                 lambda m: m.stats.read_count - stats_before.read_count >= len(requests),
+                timeout=60,
+                poll_interval=5,
             )
             stats_after = metadata.stats
             Actor.log.info(stats_after)
@@ -1102,6 +1129,8 @@ async def test_request_queue_has_stats(request_queue_apify: RequestQueue) -> Non
     apify_metadata = await poll_until_condition(
         _get_rq_metadata,
         lambda m: m.stats.write_count >= add_request_count,
+        timeout=60,
+        poll_interval=5,
     )
 
     assert hasattr(apify_metadata, 'stats')
@@ -1114,7 +1143,7 @@ async def test_rq_long_url(
 ) -> None:
     """Test handling of requests with long URLs and extended unique keys."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
     rq = request_queue_apify
     long_url_request = Request.from_url(
         'https://portal.isoss.gov.cz/irj/portal/anonymous/mvrest?path=/eosm-public-offer&officeLabels=%7B%7D&page=1&pageSize=100000&sortColumn=zdatzvsm&sortOrder=-1',
@@ -1128,12 +1157,12 @@ async def test_rq_long_url(
     assert processed_request is not None
     assert processed_request.id == request_id
 
-    request_obtained = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+    request_obtained = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
     assert request_obtained is not None
 
     await rq.mark_request_as_handled(request_obtained)
 
-    is_finished = await call_with_exp_backoff(rq.is_finished, max_retries=max_retries)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=timeout, backoff_factor=2)
     assert is_finished
 
 
@@ -1146,7 +1175,7 @@ async def test_pre_existing_request_with_user_data(
 
     list_head does not return user data, so we need to test that fetching unknown requests is not relying on it."""
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
     custom_data = {'key': 'value'}
 
     rq = request_queue_apify
@@ -1160,7 +1189,7 @@ async def test_pre_existing_request_with_user_data(
     await rq_client.add_request(req.model_dump(by_alias=True))
 
     # Fetch the request by the client under test.
-    request_obtained = await call_with_exp_backoff(rq.fetch_next_request, max_retries=max_retries)
+    request_obtained = await poll_until_condition(rq.fetch_next_request, timeout=timeout, backoff_factor=2)
     assert request_obtained is not None
     # Test that custom_data is preserved in user_data (custom_data should be subset of obtained user_data)
     assert custom_data.items() <= request_obtained.user_data.items()
@@ -1190,19 +1219,19 @@ async def test_request_queue_is_finished(
     request: pytest.FixtureRequest,
 ) -> None:
     rq_access_mode = request.node.callspec.params.get('request_queue_apify')
-    max_retries = 0 if rq_access_mode == 'single' else 5
+    timeout = 0 if rq_access_mode == 'single' else 30
 
     await request_queue_apify.add_request(Request.from_url('http://example.com'))
     assert not await request_queue_apify.is_finished()
 
-    fetched = await call_with_exp_backoff(request_queue_apify.fetch_next_request, max_retries=max_retries)
+    fetched = await poll_until_condition(request_queue_apify.fetch_next_request, timeout=timeout, backoff_factor=2)
     assert fetched is not None
     assert not await request_queue_apify.is_finished(), (
         'RequestQueue should not be finished unless the request is marked as handled.'
     )
 
     await request_queue_apify.mark_request_as_handled(fetched)
-    assert await call_with_exp_backoff(request_queue_apify.is_finished, max_retries=max_retries)
+    assert await poll_until_condition(request_queue_apify.is_finished, timeout=timeout, backoff_factor=2)
 
 
 async def test_request_queue_deduplication_unprocessed_requests(
@@ -1253,6 +1282,8 @@ async def test_request_queue_deduplication_unprocessed_requests(
     stats_after = await poll_until_condition(
         _get_rq_stats,
         lambda s: s.get('writeCount', 0) - stats_before.get('writeCount', 0) >= 1,
+        timeout=60,
+        poll_interval=5,
     )
     Actor.log.info(stats_after)
 
@@ -1361,6 +1392,8 @@ async def test_request_queue_deduplication(
     stats_after = await poll_until_condition(
         _get_rq_stats,
         lambda s: s.get('writeCount', 0) - stats_before.get('writeCount', 0) >= 1,
+        timeout=60,
+        poll_interval=5,
     )
 
     assert (stats_after['writeCount'] - stats_before['writeCount']) == 1
@@ -1393,6 +1426,8 @@ async def test_request_queue_deduplication_use_extended_unique_key(
     stats_after = await poll_until_condition(
         _get_rq_stats,
         lambda s: s.get('writeCount', 0) - stats_before.get('writeCount', 0) >= 2,
+        timeout=60,
+        poll_interval=5,
     )
 
     assert (stats_after['writeCount'] - stats_before['writeCount']) == 2
@@ -1431,6 +1466,8 @@ async def test_request_queue_parallel_deduplication(
     stats_after = await poll_until_condition(
         _get_rq_stats,
         lambda s: s.get('writeCount', 0) - stats_before.get('writeCount', 0) >= len(requests),
+        timeout=60,
+        poll_interval=5,
     )
 
     assert (stats_after['writeCount'] - stats_before['writeCount']) == len(requests)
@@ -1488,7 +1525,7 @@ async def test_concurrent_processing_simulation(apify_token: str, monkeypatch: p
             assert total_after_workers == 20
 
             remaining_count = 0
-            while request := await call_with_exp_backoff(rq.fetch_next_request, max_retries=5):
+            while request := await poll_until_condition(rq.fetch_next_request, timeout=30, backoff_factor=2):
                 remaining_count += 1
                 await rq.mark_request_as_handled(request)
 

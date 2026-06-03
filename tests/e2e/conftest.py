@@ -17,7 +17,7 @@ from apify_shared.consts import ActorJobStatus, ActorPermissionLevel, ActorSourc
 from crawlee import service_locator
 
 import apify._actor
-from ._utils import generate_unique_resource_name
+from .._utils import generate_unique_resource_name
 from apify._models import ActorRun
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 

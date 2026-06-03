@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from apify_shared.consts import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
-from ._utils import generate_unique_resource_name
+from .._utils import generate_unique_resource_name, poll_until_condition
 from apify import Actor
 from apify._models import ActorRun
 
@@ -425,6 +425,8 @@ async def test_actor_adds_webhook_and_receives_event(
             await Actor.set_value('WEBHOOK_BODY', webhook_body)
 
     async def main_client() -> None:
+        import asyncio
+
         from apify import Webhook, WebhookEventType
 
         async with Actor:
@@ -438,6 +440,12 @@ async def test_actor_adds_webhook_and_receives_event(
                 )
             )
 
+            # Keep the run alive for a moment after registering the webhook. Without this, the run finishes
+            # just milliseconds later and the platform may process the run-succeeded event before the freshly
+            # added ad-hoc webhook has propagated, in which case the webhook never fires and the server Actor
+            # waits until it times out.
+            await asyncio.sleep(5)
+
     server_actor, client_actor = await asyncio.gather(
         make_actor(label='add-webhook-server', main_func=main_server),
         make_actor(label='add-webhook-client', main_func=main_client),
@@ -446,10 +454,15 @@ async def test_actor_adds_webhook_and_receives_event(
     server_actor_run = await server_actor.start()
     server_actor_container_url = server_actor_run['containerUrl']
 
-    server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
-    while not server_actor_initialized:
-        server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
-        await asyncio.sleep(1)
+    # Wait for the server Actor's container to start up and bind its HTTP server. The startup time is highly
+    # variable (image pull, container creation), so poll with a growing interval instead of a fixed sleep.
+    server_actor_initialized = await poll_until_condition(
+        lambda: server_actor.last_run().key_value_store().get_record('INITIALIZED'),
+        timeout=300,
+        poll_interval=1,
+        backoff_factor=1.5,
+    )
+    assert server_actor_initialized is not None, 'The server Actor did not initialize in time.'
 
     ac_run_result = await run_actor(
         client_actor,
