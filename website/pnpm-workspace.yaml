@@ -8,3 +8,8 @@ linkWorkspacePackages: true
 preferWorkspacePackages: true
 publicHoistPattern:
     - "*"
+allowBuilds:
+  '@apify/ui-icons': true
+  '@swc/core': true
+  core-js: false
+  unrs-resolver: true
