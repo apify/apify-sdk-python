@@ -1,0 +1,180 @@
+---
+id: uv
+title: Use uv
+description: Manage your Actor's Python version, dependencies, and virtual environment with the uv package and project manager.
+---
+
+import CodeBlock from '@theme/CodeBlock';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+import PyprojectExample from '!!raw-loader!./code/uv_project/pyproject.toml';
+import MainExample from '!!raw-loader!./code/uv_project/my_actor/main.py';
+import UnderscoreMainExample from '!!raw-loader!./code/uv_project/my_actor/__main__.py';
+import DockerfileExample from '!!raw-loader!./code/uv_project/Dockerfile';
+
+In this guide, you'll learn how to use [uv](https://docs.astral.sh/uv/) to manage your Apify Actor projects - from creating a new project, through running it locally, to building and deploying it on the Apify platform.
+
+## Introduction
+
+[uv](https://docs.astral.sh/uv/) is an extremely fast Python package and project manager. It replaces the combination of pip, virtualenv, and similar tools with a single binary that manages your project's Python version, virtual environment, and dependencies. It records the project metadata in the standard [`pyproject.toml`](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) file and the exact resolved versions of all dependencies in a [`uv.lock`](https://docs.astral.sh/uv/concepts/projects/sync/) lockfile.
+
+The [Python Actor templates](https://apify.com/templates/categories/python) declare their dependencies in a `requirements.txt` file, which is the default approach for Actors. Using uv instead brings a few advantages:
+
+- The lockfile guarantees that the dependencies installed in the Actor's Docker image are exactly the ones you developed and tested against locally.
+- Dependency installation during the Docker build is significantly faster than with pip, especially with a warm cache.
+- A single tool manages your Python interpreter, virtual environment, and dependencies, so the project works the same on every machine.
+
+To follow along, install [uv](https://docs.astral.sh/uv/getting-started/installation/) and the [Apify CLI](https://docs.apify.com/cli/docs/installation) first. If you prefer to start from a ready-made project instead of setting one up step by step, use the [uv Actor template](https://apify.com/templates/python-uv).
+
+## Create a new project
+
+Create a new uv project and add the Apify SDK to its dependencies:
+
+```bash
+uv init my-actor --bare
+cd my-actor
+uv python pin 3.14
+uv add apify
+```
+
+The [`uv init`](https://docs.astral.sh/uv/reference/cli/#uv-init) command with the `--bare` option creates just the `pyproject.toml` project manifest. The `uv python pin` command writes the project's Python version to the `.python-version` file - uv automatically downloads that Python version if it's not installed on your machine. Finally, [`uv add`](https://docs.astral.sh/uv/reference/cli/#uv-add) records the dependency in `pyproject.toml`, resolves the exact versions of the whole dependency tree into `uv.lock`, and installs everything into the project's virtual environment in `.venv`.
+
+The `uv add` command constrains the dependency to the latest version it resolved. You can edit the constraint as you see fit - this guide's example Actor allows any version of the SDK within the current major one:
+
+<CodeBlock className="language-toml" title="pyproject.toml">
+    {PyprojectExample}
+</CodeBlock>
+
+The `package = false` setting in the `[tool.uv]` section tells uv that the project is not a Python package that needs to be built and installed - the Actor just runs as a module straight from the source tree, and uv only manages its dependencies.
+
+## Add the Actor scaffolding
+
+For the project to be runnable as an Actor, it needs two more pieces: the source code as a runnable Python package, and the `.actor/` directory with the [Actor configuration](https://docs.apify.com/platform/actors/development/actor-definition/actor-json).
+
+Create a `my_actor` package with the Actor's source code:
+
+<Tabs>
+    <TabItem value="my_actor/main.py" label="my_actor/main.py" default>
+        <CodeBlock className="language-python">
+            {MainExample}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="my_actor/__main__.py" label="my_actor/__main__.py">
+        <CodeBlock className="language-python">
+            {UnderscoreMainExample}
+        </CodeBlock>
+    </TabItem>
+</Tabs>
+
+Don't forget to add an empty `my_actor/__init__.py` file, so that the directory is a regular Python package executable with `python -m my_actor`.
+
+Then add the Actor definition to `.actor/actor.json`:
+
+```json title=".actor/actor.json"
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "my-actor",
+    "title": "My uv Actor",
+    "description": "An Apify Actor with dependencies managed by uv.",
+    "version": "0.1",
+    "buildTag": "latest",
+    "dockerfile": "../Dockerfile"
+}
+```
+
+The final project structure looks like this:
+
+```text
+my-actor/
+├── .actor/
+│   └── actor.json
+├── my_actor/
+│   ├── __init__.py
+│   ├── __main__.py
+│   └── main.py
+├── .python-version
+├── Dockerfile
+├── pyproject.toml
+└── uv.lock
+```
+
+Make sure to commit `uv.lock` and `.python-version` to version control, so that every machine - and the Actor's Docker build - works with identical dependencies and Python version.
+
+## Run the Actor locally
+
+If you've just cloned the project (or skipped `uv add` above), install the dependencies first:
+
+```bash
+uv sync
+```
+
+The [`uv sync`](https://docs.astral.sh/uv/reference/cli/#uv-sync) command creates the `.venv` virtual environment (if it doesn't exist yet) and installs the locked dependencies into it. Then run the Actor with the Apify CLI:
+
+```bash
+apify run --purge
+```
+
+The [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command automatically detects the virtual environment in `.venv` and uses it to run the Actor as a module (`python -m my_actor`), with the environment set up to emulate the Apify platform locally - for example, the Actor input is read from `storage/key_value_stores/default/INPUT.json`.
+
+## Use uv in the Dockerfile
+
+On the Apify platform, the Actor runs as a Docker container built from the Dockerfile referenced in `.actor/actor.json`. The following Dockerfile installs the locked dependencies with uv on top of the [Apify Python base image](https://hub.docker.com/r/apify/actor-python):
+
+<CodeBlock className="language-docker" title="Dockerfile">
+    {DockerfileExample}
+</CodeBlock>
+
+A few details worth understanding:
+
+- The uv binary is copied from its [official Docker image](https://docs.astral.sh/uv/guides/integration/docker/), pinned to a minor version line, so builds are reproducible and there is no need to install uv with pip.
+- `uv sync --locked --no-dev` installs the dependencies exactly as recorded in `uv.lock` and skips development dependencies. If the lockfile is missing or out of sync with `pyproject.toml`, the build fails instead of silently resolving different versions.
+- The dependencies are installed in a separate layer before the source code is copied, so editing your code doesn't invalidate the dependency layer, and rebuilds are fast.
+- Putting `.venv/bin` first on `PATH` makes `python` resolve to the project's virtual environment, both during the build and when the Actor runs.
+
+Also create a `.dockerignore` file and exclude at least `.venv`, `.git`, and `storage` from the Docker build context - the local virtual environment must never be copied into the image, since it's recreated by `uv sync` during the build.
+
+## Deploy to the Apify platform
+
+Once the Actor works locally, log in and push it to the Apify platform:
+
+```bash
+apify login
+apify push
+```
+
+The [`apify push`](https://docs.apify.com/cli/docs/reference#apify-push) command uploads the project to the platform and builds the Docker image from the Dockerfile above. Thanks to the committed lockfile, the platform build installs exactly the dependency versions you ran locally.
+
+## Manage dependencies
+
+Day-to-day dependency management goes through uv as well:
+
+```bash
+# Add a dependency (records it in pyproject.toml and updates uv.lock).
+uv add httpx
+
+# Add a development-only dependency (skipped in the Docker build by --no-dev).
+uv add --dev ruff
+
+# Remove a dependency.
+uv remove httpx
+
+# Upgrade all dependencies to the latest versions allowed by pyproject.toml.
+uv lock --upgrade
+uv sync
+```
+
+Whenever the dependencies change, commit the updated `uv.lock` together with `pyproject.toml`.
+
+## Conclusion
+
+In this guide, you learned how to use uv to manage Apify Actor projects. You can now create a uv project with the Apify SDK, run it locally with the Apify CLI, install the locked dependencies with uv in the Actor's Docker image, and deploy the whole project to the Apify platform with reproducible builds. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy coding!
+
+## Additional resources
+
+- [uv: Official documentation](https://docs.astral.sh/uv/)
+- [uv: Working on projects](https://docs.astral.sh/uv/guides/projects/)
+- [uv: Using uv in Docker](https://docs.astral.sh/uv/guides/integration/docker/)
+- [Apify: Actor Dockerfile documentation](https://docs.apify.com/platform/actors/development/actor-definition/dockerfile)
+- [Apify templates: Python](https://apify.com/templates/categories/python)

@@ -1,0 +1,13 @@
+[project]
+name = "my-actor"
+version = "0.1.0"
+description = "An Apify Actor with dependencies managed by uv."
+requires-python = ">=3.14"
+dependencies = [
+    "apify>=3.0.0,<4.0.0",
+]
+
+[tool.uv]
+# The Actor runs straight from the source tree as a module. uv only manages
+# its dependencies, the project itself is not built and installed as a package.
+package = false
