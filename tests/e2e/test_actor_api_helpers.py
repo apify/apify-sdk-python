@@ -425,6 +425,8 @@ async def test_actor_adds_webhook_and_receives_event(
             await Actor.set_value('WEBHOOK_BODY', webhook_body)
 
     async def main_client() -> None:
+        import asyncio
+
         from apify import Webhook, WebhookEventType
 
         async with Actor:
@@ -437,6 +439,12 @@ async def test_actor_adds_webhook_and_receives_event(
                     request_url=server_actor_container_url,
                 )
             )
+
+            # Keep the run alive for a moment after registering the webhook. Without this, the run finishes
+            # just milliseconds later and the platform may process the run-succeeded event before the freshly
+            # added ad-hoc webhook has propagated, in which case the webhook never fires and the server Actor
+            # waits until it times out.
+            await asyncio.sleep(5)
 
     server_actor, client_actor = await asyncio.gather(
         make_actor(label='add-webhook-server', main_func=main_server),
