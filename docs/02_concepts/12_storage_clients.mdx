@@ -1,0 +1,72 @@
+---
+id: storage-clients
+title: Storage clients
+description: Choose and configure the backend the Actor uses for datasets, key-value stores, and request queues.
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+import ApiLink from '@theme/ApiLink';
+
+import SharedRequestQueueExample from '!!raw-loader!roa-loader!./code/12_shared_request_queue.py';
+import CustomStorageClientExample from '!!raw-loader!roa-loader!./code/12_custom_storage_client.py';
+
+Storage clients are the components that actually read and write your [storages](./storages) — datasets, key-value stores, and request queues. The Apify SDK selects an appropriate client automatically based on where the Actor runs, so for most Actors you never need to think about them. This page explains the available clients and how to customize them when you do.
+
+## How the Actor selects a storage client
+
+By default, the Actor uses a <ApiLink to="class/SmartApifyStorageClient">`SmartApifyStorageClient`</ApiLink> — a hybrid client that delegates to one of two underlying clients depending on the environment:
+
+- When running **on the Apify platform** (detected automatically), or when you pass `force_cloud=True`, it uses the **cloud** client — <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink>, which persists data through the Apify API.
+- When running **locally**, it uses the **local** client — <ApiLink to="class/FileSystemStorageClient">`FileSystemStorageClient`</ApiLink>, which emulates platform storages on your filesystem under the `storage` folder.
+
+This is what lets the same Actor code run unchanged both locally and on the platform.
+
+## Available storage clients
+
+The `apify.storage_clients` module provides the following clients:
+
+- <ApiLink to="class/SmartApifyStorageClient">`SmartApifyStorageClient`</ApiLink> — the default hybrid client described above. It wraps a `cloud_storage_client` and a `local_storage_client` and routes each call to the right one.
+- <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink> — talks to the Apify API. Used as the cloud client.
+- <ApiLink to="class/FileSystemStorageClient">`FileSystemStorageClient`</ApiLink> — persists data to the local filesystem. Used as the default local client.
+- <ApiLink to="class/MemoryStorageClient">`MemoryStorageClient`</ApiLink> — keeps everything in memory only; nothing is persisted. Useful for tests and short-lived runs.
+
+All of these implement Crawlee's <ApiLink to="class/StorageClient">`StorageClient`</ApiLink> interface, so any of them can be used as a sub-client of `SmartApifyStorageClient` — see [customizing the storage client](#customizing-the-storage-client) below.
+
+Crawlee additionally ships storage clients backed by a self-hosted database — a [`RedisStorageClient`](https://crawlee.dev/python/api/class/RedisStorageClient) and a [`SqlStorageClient`](https://crawlee.dev/python/api/class/SqlStorageClient). The Apify SDK does not re-export these, because they each require an extra dependency that the SDK does not install. To use one, install the matching Crawlee extra (for example `pip install 'crawlee[redis]'` or `crawlee[sql-postgres]` / `crawlee[sql-sqlite]`), import the client from `crawlee.storage_clients`, and pass it as a sub-client of `SmartApifyStorageClient`. See the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients) for details.
+
+## Single vs. shared request queue
+
+`ApifyStorageClient` supports two ways of accessing the Apify request queue, selected via its `request_queue_access` argument:
+
+- **`'single'`** (default) — optimized for a single consumer. It makes far fewer API calls, so it is cheaper and faster, but it does not support multiple clients consuming the same queue concurrently. This is the right choice for the majority of Actors.
+- **`'shared'`** — supports multiple consumers working on the same queue at the same time, at the cost of more API calls.
+
+To opt into the shared client, set it as the cloud client of the `SmartApifyStorageClient` in the [service locator](https://crawlee.dev/python/docs/guides/service-locator) before entering the Actor context:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {SharedRequestQueueExample}
+</RunnableCodeBlock>
+
+## Using cloud storage while running locally
+
+When developing locally, storages are read from and written to the local filesystem by default. To work with a storage on the Apify platform instead — for example, to read the output of a remote Actor run — pass `force_cloud=True` to <ApiLink to="class/Actor#open_dataset">`Actor.open_dataset`</ApiLink>, <ApiLink to="class/Actor#open_key_value_store">`Actor.open_key_value_store`</ApiLink>, or <ApiLink to="class/Actor#open_request_queue">`Actor.open_request_queue`</ApiLink>. This requires an Apify token, provided via the `APIFY_TOKEN` environment variable.
+
+## Customizing the storage client
+
+You can replace either of the underlying clients — for example, to keep all local data in memory instead of on disk. To do this, set a `SmartApifyStorageClient` with your chosen sub-clients in the service locator **before** entering the Actor context (or awaiting <ApiLink to="class/Actor#init">`Actor.init`</ApiLink>):
+
+<RunnableCodeBlock className="language-python" language="python">
+    {CustomStorageClientExample}
+</RunnableCodeBlock>
+
+:::note
+
+The Actor's storage client must be a `SmartApifyStorageClient`. Setting a bare `ApifyStorageClient` or `MemoryStorageClient` directly in the service locator raises an error — wrap it in a `SmartApifyStorageClient` as shown above.
+
+:::
+
+## Conclusion
+
+This page has explained how the Actor selects a storage client, the clients available in the `apify.storage_clients` module, the difference between the single and shared request-queue clients, and how to customize the client through the service locator.
+
+For a deeper look at how storage clients work and how to write your own, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients).

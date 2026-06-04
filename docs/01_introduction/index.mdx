@@ -9,7 +9,16 @@ import CodeBlock from '@theme/CodeBlock';
 
 import IntroductionExample from '!!raw-loader!./code/01_introduction.py';
 
-The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor event handling.
+The Apify SDK for Python is the official library for creating [Apify Actors](https://docs.apify.com/platform/actors) in Python. It gives you everything you need to build an Actor and run it both locally and on the [Apify platform](https://docs.apify.com/platform), including:
+
+- **Actor lifecycle management** — initialization, graceful shutdown, status messages, rebooting, and metamorphing.
+- **Storage access** — datasets, key-value stores, and request queues, with automatic local emulation when running outside the platform.
+- **Actor input** — convenient access to the Actor input, including automatic decryption of secret fields.
+- **Events & state persistence** — react to platform events (system info, migration, abort) and persist state across migrations and restarts.
+- **Proxy management** — Apify Proxy and custom proxies, with session and tiered-proxy support.
+- **Platform interaction** — start, call, and abort other Actors and tasks, create webhooks, and reach the full Apify API client.
+- **Monetization** — charge users with the pay-per-event pricing model.
+- **Framework integrations** — first-class support for [Crawlee](../guides/crawlee) and [Scrapy](../guides/scrapy), with guides for [Playwright](../guides/playwright) and others.
 
 <CodeBlock className="language-python">
     {IntroductionExample}
@@ -29,7 +38,7 @@ Explore the Guides section in the sidebar for a deeper understanding of the SDK'
 
 ## Installation
 
-The Apify SDK for Python requires Python version 3.10 or above. It is typically installed when you create a new Actor project using the [Apify CLI](https://docs.apify.com/cli). To install it manually in an existing project, use:
+The Apify SDK for Python requires Python version 3.11 or above. It is typically installed when you create a new Actor project using the [Apify CLI](https://docs.apify.com/cli). To install it manually in an existing project, use:
 
 ```bash
 pip install apify

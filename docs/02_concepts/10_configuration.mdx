@@ -27,13 +27,28 @@ This will cause the Actor to persist its state every 10 seconds:
 
 ## Configuring via environment variables
 
-All the configuration options can be set via environment variables. The environment variables are prefixed with `APIFY_`, and the configuration options are in uppercase, with underscores as separators. See the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference for the full list of configuration options.
+All configuration options can also be set via environment variables. Most options are read from an environment variable named after the option in uppercase; many options accept several aliases — commonly with an `APIFY_`, `ACTOR_`, or `CRAWLEE_` prefix. See the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference for the full list of configuration options.
 
-This Actor run will not persist its local storages to the filesystem:
+For example, this Actor run will keep the contents of its local storages instead of purging them on start:
 
 ```bash
-APIFY_PERSIST_STORAGE=0 apify run
+APIFY_PURGE_ON_START=0 apify run
 ```
+
+### Commonly used options
+
+The table below lists a few options you are most likely to set yourself. When running on the Apify platform or via the Apify CLI, the platform-related options are populated automatically.
+
+| Option | Environment variable | Default | Description |
+| --- | --- | --- | --- |
+| `token` | `APIFY_TOKEN` | `None` | API token used to authenticate calls to the Apify API. |
+| `proxy_password` | `APIFY_PROXY_PASSWORD` | `None` | Password for [Apify Proxy](https://docs.apify.com/proxy). |
+| `purge_on_start` | `APIFY_PURGE_ON_START` | `True` | Whether to purge local storages when the Actor starts. |
+| `persist_state_interval` | `APIFY_PERSIST_STATE_INTERVAL_MILLIS` | `1 min` | How often the `PERSIST_STATE` event is emitted (the variable is in milliseconds). |
+| `log_level` | `APIFY_LOG_LEVEL` | `'INFO'` | Minimum severity of log messages that are printed. |
+| `headless` | `APIFY_HEADLESS` | `True` | Whether to run browsers in headless mode. |
+| `storage_dir` | `APIFY_LOCAL_STORAGE_DIR` | `'./storage'` | Directory holding local storages when running outside the platform. |
+| `is_at_home` | `APIFY_IS_AT_HOME` | `False` | Set by the platform — `True` when the Actor runs on Apify. |
 
 ## Reading the runtime environment
 
@@ -50,5 +65,9 @@ The <ApiLink to="class/Actor#is_at_home">`Actor.is_at_home`</ApiLink> method ret
 <RunnableCodeBlock className="language-python" language="python">
     {PlatformDetectionExample}
 </RunnableCodeBlock>
+
+## Conclusion
+
+This page has shown how to configure an Actor through the <ApiLink to="class/Configuration">`Configuration`</ApiLink> class or environment variables, which options you are most likely to set yourself, and how to inspect the runtime environment with <ApiLink to="class/Actor#get_env">`Actor.get_env`</ApiLink> and <ApiLink to="class/Actor#is_at_home">`Actor.is_at_home`</ApiLink>.
 
 For the full list of configuration options, see the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference. For a complete list of environment variables available on the platform, see the [environment variables](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) documentation.

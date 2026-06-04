@@ -59,7 +59,7 @@ The Actor's runtime dependencies are specified in the `requirements.txt` file, w
 The Actor's source code is in the `src` folder. This folder contains two important files:
 
 - `main.py` - which contains the main function of the Actor
-- `__main__.py` - which is the entrypoint of the Actor package setting up the Actor [logger](../concepts/logging) and executing the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+- `__main__.py` - which is the entrypoint of the Actor package, executing the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
 
 <Tabs>
     <TabItem value="main.py" label="main.py" default>
@@ -67,7 +67,7 @@ The Actor's source code is in the `src` folder. This folder contains two importa
             {MainExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="__main__.py" label="__main.py__">
+    <TabItem value="__main__.py" label="__main__.py">
         <CodeBlock className="language-python">
             {UnderscoreMainExample}
         </CodeBlock>
@@ -79,13 +79,15 @@ We recommend keeping the entrypoint for the Actor in the `src/__main__.py` file.
 
 ## Next steps
 
+Now that you can create and run an Actor locally, explore the rest of the SDK's features and its framework integrations.
+
 ### Concepts
 
 To learn more about the features of the Apify SDK and how to use them, check out the Concepts section in the sidebar:
 
 - [Actor lifecycle](../concepts/actor-lifecycle)
 - [Actor input](../concepts/actor-input)
-- [Working with storages](../concepts/storages)
+- [Storages](../concepts/storages)
 - [Actor events & state persistence](../concepts/actor-events)
 - [Proxy management](../concepts/proxy-management)
 - [Interacting with other Actors](../concepts/interacting-with-other-actors)
@@ -94,6 +96,7 @@ To learn more about the features of the Apify SDK and how to use them, check out
 - [Logging](../concepts/logging)
 - [Actor configuration](../concepts/actor-configuration)
 - [Pay-per-event monetization](../concepts/pay-per-event)
+- [Storage clients](../concepts/storage-clients)
 
 ### Guides
 

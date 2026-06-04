@@ -20,6 +20,8 @@ When you create an Actor from an Apify-provided template, either in Apify Consol
 
 ## Manual configuration
 
+If you are not using an Apify template — or you want to override what it sets up — you can configure the log level and the log formatting yourself.
+
 ### Configuring the log level
 
 In Python's default behavior, if you don't configure the logger otherwise, only logs with level `WARNING` or higher are printed out to the standard output, without any formatting. To also have logs with `DEBUG` and `INFO` level printed out, you need to call the [`Logger.setLevel`](https://docs.python.org/3/library/logging.html#logging.Logger.setLevel) method on the logger, with the desired minimum level as an argument.
@@ -99,11 +101,11 @@ Typical use case for log redirection is to call another Actor using the <ApiLink
     {RedirectLog}
 </RunnableCodeBlock>
 
-Each default redirect logger log entry will have a specific format. After the timestamp, it will contain cyan colored text that will contain the redirect information - the other actor's name and the run ID. The rest of the log message will be printed in the same manner as the parent Actor's logger is configured.
+Each default redirect logger log entry will have a specific format. After the timestamp, it will contain cyan colored text that will contain the redirect information - the other Actor's name and the run ID. The rest of the log message will be printed in the same manner as the parent Actor's logger is configured.
 
-The log redirection can be deep, meaning that if the other actor also starts another actor and is redirecting logs from it, then in the top-level Actor, you can see it as well. See the following example screenshot of the Apify log console when one actor recursively starts itself (there are 2 levels of recursion in the example).
+The log redirection can be deep, meaning that if the other Actor also starts another Actor and is redirecting logs from it, then in the top-level Actor, you can see it as well. See the following example screenshot of the Apify log console when one Actor recursively starts itself (there are 2 levels of recursion in the example).
 
-![Console with redirected logs](/img/guides/redirected_logs_example.webp 'Example of console with redirected logs from recursively started actor.')
+![Console with redirected logs](/img/guides/redirected_logs_example.webp 'Example of console with redirected logs from recursively started Actor.')
 
 ### Redirecting logs from already running Actor run
 
@@ -114,3 +116,7 @@ You can further decide whether you want to redirect just new logs of the ongoing
 <RunnableCodeBlock className="language-python" language="python">
     {RedirectLogExistingRun}
 </RunnableCodeBlock>
+
+## Conclusion
+
+This page has covered how the SDK logs through the `apify` logger — setting the log level, formatting output with <ApiLink to="class/ActorLogFormatter">`ActorLogFormatter`</ApiLink>, using the logger at each level, and redirecting logs from other Actor runs back into the parent run. For more on the underlying logging machinery, see Python's standard [`logging`](https://docs.python.org/3/library/logging.html) module documentation.

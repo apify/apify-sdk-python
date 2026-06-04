@@ -32,4 +32,8 @@ To ensure that duplicate ad-hoc webhooks won't get created in a case of Actor re
     {WebhookPreventingExample}
 </RunnableCodeBlock>
 
+## Conclusion
+
+This page has shown how to create ad-hoc webhooks dynamically with <ApiLink to="class/Actor#add_webhook">`Actor.add_webhook`</ApiLink> and how to avoid creating duplicates across Actor restarts using the `idempotency_key` parameter.
+
 For more information about webhooks, including event types and payloads, see the [Apify webhooks documentation](https://docs.apify.com/platform/integrations/webhooks).
