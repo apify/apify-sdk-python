@@ -23,7 +23,7 @@ The [Python Actor templates](https://apify.com/templates/categories/python) decl
 
 - The lockfile guarantees that the dependencies installed in the Actor's Docker image are exactly the ones you developed and tested against locally.
 - Dependency installation during the Docker build is significantly faster than with pip, especially with a warm cache.
-- A single tool manages your Python interpreter, virtual environment, and dependencies, so the project works the same on every machine.
+- During local development, a single tool manages your Python version, virtual environment, and dependencies, so the project behaves the same on every developer's machine.
 
 :::info Actor templates don't support uv yet
 
@@ -52,7 +52,7 @@ The `uv add` command constrains the dependency to the latest version it resolved
     {PyprojectExample}
 </CodeBlock>
 
-The `package = false` setting in the `[tool.uv]` section tells uv that the project is not a Python package that needs to be built and installed - the Actor just runs as a module straight from the source tree, and uv only manages its dependencies.
+Note that the example has no `[build-system]` section. Without one, uv treats the project as a non-package ("virtual") project: it doesn't try to build and install the project itself, it only manages its dependencies. That's exactly what we want here - the Actor runs as a module straight from the source tree.
 
 ## Add the Actor scaffolding
 
@@ -108,7 +108,7 @@ my-actor/
 └── uv.lock
 ```
 
-Make sure to commit `uv.lock` and `.python-version` to version control, so that every machine - and the Actor's Docker build - works with identical dependencies and Python version.
+Make sure to commit `uv.lock` and `.python-version` to version control, so that every developer's machine works with identical dependencies and the same Python version. The Actor's Docker build gets its Python interpreter from the base image instead, so keep the base image tag (`apify/actor-python:3.14`) in sync with `.python-version`.
 
 ## Run the Actor locally
 
