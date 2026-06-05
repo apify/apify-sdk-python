@@ -42,6 +42,10 @@ The [`PlaywrightCrawler`](https://crawlee.dev/python/api/class/PlaywrightCrawler
     {CrawleePlaywrightExample}
 </RunnableCodeBlock>
 
+## Using Apify Proxy
+
+All three crawlers above route their requests through [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. `Actor.create_proxy_configuration` returns a Crawlee-compatible proxy configuration, which is passed to the crawler as `proxy_configuration`; Crawlee then rotates the proxy IP for every request on its own. Because the configuration is only available inside the running Actor, the crawler is created in `main` and the request handler is registered on a standalone [`Router`](https://crawlee.dev/python/api/class/Router) up front. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
+
 ## Conclusion
 
 In this guide, you learned how to use the [Crawlee](https://crawlee.dev/python) library in your Apify Actors. By using the [`BeautifulSoupCrawler`](https://crawlee.dev/python/api/class/BeautifulSoupCrawler), [`ParselCrawler`](https://crawlee.dev/python/api/class/ParselCrawler), and [`PlaywrightCrawler`](https://crawlee.dev/python/api/class/PlaywrightCrawler) crawlers, you can efficiently scrape static or dynamic web pages, making it easy to build web scraping tasks in Python. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!

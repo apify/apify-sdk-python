@@ -10,7 +10,7 @@ http_server = None
 class RequestHandler(BaseHTTPRequestHandler):
     """A handler that prints the number of processed items on every GET request."""
 
-    def do_get(self) -> None:
+    def do_GET(self) -> None:
         self.log_request()
         self.send_response(200)
         self.end_headers()

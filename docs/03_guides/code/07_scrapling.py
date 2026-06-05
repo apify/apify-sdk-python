@@ -53,8 +53,8 @@ async def main() -> None:
     async with Actor:
         # Retrieve the Actor input, and use default values if not provided.
         actor_input = await Actor.get_input() or {}
-        start_urls = actor_input.get('start_urls', [{'url': 'https://crawlee.dev'}])
-        max_depth = actor_input.get('max_depth', 1)
+        start_urls = actor_input.get('startUrls', [{'url': 'https://crawlee.dev'}])
+        max_depth = actor_input.get('maxDepth', 1)
 
         # Exit if no start URLs are provided.
         if not start_urls:
@@ -70,7 +70,7 @@ async def main() -> None:
         # Enqueue the start URLs. Their crawl depth defaults to 0.
         for start_url in start_urls:
             url = start_url.get('url')
-            Actor.log.info(f'Enqueuing {url} ...')
+            Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
         # Process the URLs from the request queue.
@@ -92,6 +92,10 @@ async def main() -> None:
 
                 # Store the extracted data to the default dataset.
                 await Actor.push_data(data)
+                Actor.log.info(
+                    f'Stored data from {url} '
+                    f'(title={data["title"]!r}, {len(links)} links found).'
+                )
 
                 # If we are not too deep yet, enqueue the links we found one
                 # level deeper than the current page.

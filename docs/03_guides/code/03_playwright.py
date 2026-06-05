@@ -1,6 +1,6 @@
 import asyncio
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from playwright.async_api import BrowserContext, async_playwright
 
@@ -10,6 +10,21 @@ from apify import Actor, Request
 # Run `playwright install --with-deps` in the Actor's virtual environment to install them.
 # When running on the Apify platform, these dependencies are already included
 # in the Actor's Docker image.
+
+
+def to_playwright_proxy(proxy_url: str) -> dict[str, str]:
+    """Convert an Apify Proxy URL into Playwright proxy settings.
+
+    Playwright wants the proxy as a `server` URL with the credentials in separate
+    `username` and `password` fields, so the single URL returned by
+    `ProxyConfiguration.new_url` has to be split into its parts.
+    """
+    parts = urlsplit(proxy_url)
+    return {
+        'server': f'{parts.scheme}://{parts.hostname}:{parts.port}',
+        'username': parts.username or '',
+        'password': parts.password or '',
+    }
 
 
 async def scrape_page(
@@ -29,6 +44,9 @@ async def scrape_page(
         data = {
             'url': url,
             'title': await page.title(),
+            'h1s': [await h1.text_content() for h1 in await page.locator('h1').all()],
+            'h2s': [await h2.text_content() for h2 in await page.locator('h2').all()],
+            'h3s': [await h3.text_content() for h3 in await page.locator('h3').all()],
         }
 
         # Collect absolute links found on the page so the caller can enqueue them.
@@ -50,13 +68,19 @@ async def main() -> None:
     async with Actor:
         # Retrieve the Actor input, and use default values if not provided.
         actor_input = await Actor.get_input() or {}
-        start_urls = actor_input.get('start_urls', [{'url': 'https://apify.com'}])
-        max_depth = actor_input.get('max_depth', 1)
+        start_urls = actor_input.get('startUrls', [{'url': 'https://crawlee.dev'}])
+        max_depth = actor_input.get('maxDepth', 1)
 
         # Exit if no start URLs are provided.
         if not start_urls:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
+
+        # Create a proxy configuration that routes the browser through Apify Proxy.
+        # Playwright applies the proxy at the browser level, so the whole run shares
+        # a single proxy URL rather than rotating it per request.
+        proxy_configuration = await Actor.create_proxy_configuration()
+        proxy_url = await proxy_configuration.new_url() if proxy_configuration else None
 
         # Open the default request queue for handling URLs to be processed.
         request_queue = await Actor.open_request_queue()
@@ -64,7 +88,7 @@ async def main() -> None:
         # Enqueue the start URLs. Their crawl depth defaults to 0.
         for start_url in start_urls:
             url = start_url.get('url')
-            Actor.log.info(f'Enqueuing {url} ...')
+            Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
         Actor.log.info('Launching Playwright...')
@@ -74,6 +98,7 @@ async def main() -> None:
             # Configure the browser to launch in headless mode as per Actor configuration.
             browser = await playwright.chromium.launch(
                 headless=Actor.configuration.headless,
+                proxy=to_playwright_proxy(proxy_url) if proxy_url else None,
                 args=['--disable-gpu'],
             )
             context = await browser.new_context()
@@ -92,6 +117,10 @@ async def main() -> None:
 
                     # Store the extracted data to the default dataset.
                     await Actor.push_data(data)
+                    Actor.log.info(
+                        f'Stored data from {url} '
+                        f'(title={data["title"]!r}, {len(links)} links found).'
+                    )
 
                     # If we are not too deep yet, enqueue the links we found.
                     if depth < max_depth:

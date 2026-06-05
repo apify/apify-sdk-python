@@ -18,11 +18,15 @@ In this guide, you'll learn how to combine the [Parsel](https://github.com/scrap
 
 ## Example Actor
 
-The following example shows a simple Actor that recursively scrapes titles from linked pages, up to a user-defined maximum depth. It uses [Impit](https://github.com/apify/impit) to fetch pages and [Parsel](https://github.com/scrapy/parsel) to extract titles and discover new links.
+The following example shows a simple Actor that recursively scrapes titles from linked pages, up to a user-defined maximum depth. It uses [Impit](https://github.com/apify/impit) to fetch pages through [Apify Proxy](https://docs.apify.com/platform/proxy) and [Parsel](https://github.com/scrapy/parsel) to extract the title, headings, and links.
 
 <RunnableCodeBlock className="language-python" language="python">
     {ParselImpitExample}
 </RunnableCodeBlock>
+
+## Using Apify Proxy
+
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. The example creates a proxy configuration with `Actor.create_proxy_configuration` and fetches a fresh proxy URL for every request, so each page goes through a different IP. A new Impit client is created per request to apply that URL. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
 
 ## Conclusion
 

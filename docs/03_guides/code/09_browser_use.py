@@ -84,7 +84,7 @@ async def main() -> None:
         actor_input = await Actor.get_input() or {}
         task = actor_input.get('task', DEFAULT_TASK)
         model = actor_input.get('model', 'gpt-4.1-mini')
-        max_steps = actor_input.get('max_steps', 25)
+        max_steps = actor_input.get('maxSteps', 25)
 
         # Read the LLM API key from the environment so it is never stored in the Actor
         # input. On the Apify platform, set it as a secret environment variable.
@@ -113,7 +113,9 @@ async def main() -> None:
             return
 
         # Store every extracted item as a separate row in the default dataset.
+        Actor.log.info(f'The agent returned {len(result.posts)} post(s); storing them.')
         for post in result.posts:
+            Actor.log.info(f'Storing post: {post.title!r} ({post.url})')
             await Actor.push_data(post.model_dump())
 
 

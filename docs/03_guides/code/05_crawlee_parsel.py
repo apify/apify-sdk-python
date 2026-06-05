@@ -1,20 +1,19 @@
 import asyncio
 
 from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
+from crawlee.router import Router
 
 from apify import Actor
 
-# Create a crawler.
-crawler = ParselCrawler(
-    # Limit the crawl to max requests. Remove or increase it for crawling all links.
-    max_requests_per_crawl=50,
-)
+# Define the request router up front, so the crawler itself can be created later
+# inside `main`, once the Apify Proxy configuration is available.
+router = Router[ParselCrawlingContext]()
 
 
 # Define a request handler, which will be called for every request.
-@crawler.router.default_handler
+@router.default_handler
 async def request_handler(context: ParselCrawlingContext) -> None:
-    Actor.log.info(f'Scraping {context.request.url}...')
+    Actor.log.info(f'Scraping {context.request.url} ...')
 
     # Extract the desired data.
     data = {
@@ -27,6 +26,7 @@ async def request_handler(context: ParselCrawlingContext) -> None:
 
     # Store the extracted data to the default dataset.
     await context.push_data(data)
+    Actor.log.info(f'Stored data from {context.request.url} (title={data["title"]!r}).')
 
     # Enqueue additional links found on the current page.
     await context.enqueue_links(strategy='same-domain')
@@ -39,13 +39,28 @@ async def main() -> None:
         actor_input = await Actor.get_input() or {}
         start_urls = [
             url.get('url')
-            for url in actor_input.get('start_urls', [{'url': 'https://apify.com'}])
+            for url in actor_input.get('startUrls', [{'url': 'https://crawlee.dev'}])
         ]
 
         # Exit if no start URLs are provided.
         if not start_urls:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
+
+        # Create a proxy configuration that routes requests through Apify Proxy.
+        # Crawlee rotates the proxy URL for every request on its own.
+        proxy_configuration = await Actor.create_proxy_configuration()
+        if proxy_configuration is None:
+            raise RuntimeError('Failed to create the proxy configuration.')
+
+        # Create a crawler that uses the router above and routes requests through
+        # Apify Proxy.
+        crawler = ParselCrawler(
+            proxy_configuration=proxy_configuration,
+            request_handler=router,
+            # Limit the crawl; remove or increase to follow all links.
+            max_requests_per_crawl=50,
+        )
 
         # Run the crawler with the starting requests.
         await crawler.run(start_urls)
