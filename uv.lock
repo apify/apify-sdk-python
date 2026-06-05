@@ -115,7 +115,7 @@ dev = [
     { name = "pytest-asyncio", specifier = "<2.0.0" },
     { name = "pytest-cov", specifier = "<8.0.0" },
     { name = "pytest-httpserver", specifier = "<2.0.0" },
-    { name = "pytest-rerunfailures", specifier = "<16.0.0" },
+    { name = "pytest-rerunfailures", specifier = "<17.0.0" },
     { name = "pytest-timeout", specifier = "<3.0.0" },
     { name = "pytest-xdist", specifier = "<4.0.0" },
     { name = "ruff", specifier = "~=0.15.0" },
