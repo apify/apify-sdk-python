@@ -142,9 +142,8 @@ async def test_actor_charge_limit(
 ) -> None:
     run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
 
-    # Reaching `max_total_charge_usd` makes the platform abort the run automatically, and that abort races with the
-    # Actor's own clean exit — so the terminal status is either SUCCEEDED or ABORTED. Both are valid here; the
-    # behavior under test is that the charge limit capped the run at exactly 2 of the 4 attempted events.
+    # Reaching `max_total_charge_usd` makes the platform auto-abort the run, racing with the Actor's clean exit, so
+    # the terminal status is either SUCCEEDED or ABORTED. What matters is that the limit capped it at 2 events.
     terminal_statuses = {ActorJobStatus.SUCCEEDED, ActorJobStatus.ABORTED}
 
     # Refetch until the charged event counts propagate on the platform.
