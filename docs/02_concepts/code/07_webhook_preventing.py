@@ -1,18 +1,19 @@
 import asyncio
 
-from apify import Actor, Webhook, WebhookEventType
+from apify import Actor, Webhook
 
 
 async def main() -> None:
     async with Actor:
-        # Create a webhook that will be triggered when the Actor run fails.
+        # Create a webhook with an idempotency key to prevent duplicates on retries.
         webhook = Webhook(
-            event_types=[WebhookEventType.ACTOR_RUN_FAILED],
+            event_types=['ACTOR.RUN.FAILED'],
             request_url='https://example.com/run-failed',
+            idempotency_key=Actor.configuration.actor_run_id,
         )
 
         # Add the webhook to the Actor.
-        await Actor.add_webhook(webhook, idempotency_key=Actor.configuration.actor_run_id)
+        await Actor.add_webhook(webhook)
 
         # Raise an error to simulate a failed run.
         raise RuntimeError('I am an error and I know it!')
