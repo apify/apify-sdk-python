@@ -24,21 +24,18 @@ async def main() -> None:
         # Open the default request queue for handling URLs to be processed.
         request_queue = await Actor.open_request_queue()
 
-        # Enqueue the start URLs with an initial crawl depth of 0.
+        # Enqueue the start URLs. Their crawl depth defaults to 0.
         for start_url in start_urls:
             url = start_url.get('url')
             Actor.log.info(f'Enqueuing {url} ...')
-            request = Request.from_url(url, user_data={'depth': 0})
-            await request_queue.add_request(request)
+            await request_queue.add_request(Request.from_url(url))
 
         # Process the URLs from the request queue.
         while request := await request_queue.fetch_next_request():
             url = request.url
 
-            if not isinstance(request.user_data['depth'], (str, int)):
-                raise TypeError('Request.depth is an unexpected type.')
-
-            depth = int(request.user_data['depth'])
+            # Read the crawl depth tracked by the request itself.
+            depth = request.crawl_depth
             Actor.log.info(f'Scraping {url} (depth={depth}) ...')
 
             try:
@@ -53,14 +50,13 @@ async def main() -> None:
                 # Store the extracted data to the default dataset.
                 await Actor.push_data(data)
 
-                # If we are not too deep yet, enqueue the links we found.
+                # If we are not too deep yet, enqueue the links we found one
+                # level deeper than the current page.
                 if depth < max_depth:
                     for link_url in links:
                         Actor.log.info(f'Enqueuing {link_url} ...')
-                        new_request = Request.from_url(
-                            link_url,
-                            user_data={'depth': depth + 1},
-                        )
+                        new_request = Request.from_url(link_url)
+                        new_request.crawl_depth = depth + 1
                         await request_queue.add_request(new_request)
 
             except Exception:
