@@ -20,6 +20,10 @@ For example, if an Actor received a JSON input with two fields, `{ "firstNumber"
     {InputExample}
 </RunnableCodeBlock>
 
+## Validating input
+
+Reading values straight out of the raw input dictionary works for simple cases, but it gives you no type guarantees, no constraint checks, and no clear error when the input is malformed. For anything beyond a couple of fields, validate the input with [Pydantic](https://docs.pydantic.dev/) so your code works with a typed, guaranteed-valid object instead. See the [Validate Actor input with Pydantic](../guides/input-validation) guide for the recommended approach.
+
 ## Loading URLs from Actor input
 
 Actors commonly receive a list of URLs to process via their input. The <ApiLink to="class/ApifyRequestList">`ApifyRequestList`</ApiLink> class (from `apify.request_loaders`) can parse the standard Apify input format for URL sources. It supports both direct URL objects (`{"url": "https://example.com"}`) and remote URL lists (`{"requestsFromUrl": "https://example.com/urls.txt"}`), where the remote file contains one URL per line.
