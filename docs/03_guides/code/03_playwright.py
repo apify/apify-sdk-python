@@ -1,7 +1,8 @@
 import asyncio
+from typing import Any
 from urllib.parse import urljoin
 
-from playwright.async_api import async_playwright
+from playwright.async_api import BrowserContext, async_playwright
 
 from apify import Actor, Request
 
@@ -9,6 +10,39 @@ from apify import Actor, Request
 # Run `playwright install --with-deps` in the Actor's virtual environment to install them.
 # When running on the Apify platform, these dependencies are already included
 # in the Actor's Docker image.
+
+
+async def scrape_page(
+    context: BrowserContext, url: str
+) -> tuple[dict[str, Any], list[str]]:
+    """Open a page in the browser, extract its data, and collect its links.
+
+    Keeping the page handling in this helper keeps the Actor's main loop shallow.
+    It returns the extracted data together with the links found on the page, so
+    `main` only has to decide what to store and what to enqueue.
+    """
+    page = await context.new_page()
+    try:
+        await page.goto(url)
+
+        # Extract the desired data.
+        data = {
+            'url': url,
+            'title': await page.title(),
+        }
+
+        # Collect absolute links found on the page so the caller can enqueue them.
+        links: list[str] = []
+        for link in await page.locator('a').all():
+            link_href = await link.get_attribute('href')
+            link_url = urljoin(url, link_href)
+            if link_url.startswith(('http://', 'https://')):
+                links.append(link_url)
+
+        return data, links
+
+    finally:
+        await page.close()
 
 
 async def main() -> None:
@@ -21,18 +55,17 @@ async def main() -> None:
 
         # Exit if no start URLs are provided.
         if not start_urls:
-            Actor.log.info('No start URLs specified in actor input, exiting...')
+            Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
         # Open the default request queue for handling URLs to be processed.
         request_queue = await Actor.open_request_queue()
 
-        # Enqueue the start URLs with an initial crawl depth of 0.
+        # Enqueue the start URLs. Their crawl depth defaults to 0.
         for start_url in start_urls:
             url = start_url.get('url')
             Actor.log.info(f'Enqueuing {url} ...')
-            new_request = Request.from_url(url, user_data={'depth': 0})
-            await request_queue.add_request(new_request)
+            await request_queue.add_request(Request.from_url(url))
 
         Actor.log.info('Launching Playwright...')
 
@@ -49,47 +82,30 @@ async def main() -> None:
             while request := await request_queue.fetch_next_request():
                 url = request.url
 
-                if not isinstance(request.user_data['depth'], (str, int)):
-                    raise TypeError('Request.depth is an unexpected type.')
-
-                depth = int(request.user_data['depth'])
+                # Read the crawl depth tracked by the request itself.
+                depth = request.crawl_depth
                 Actor.log.info(f'Scraping {url} (depth={depth}) ...')
 
                 try:
-                    # Open a new page in the browser context and navigate to the URL.
-                    page = await context.new_page()
-                    await page.goto(url)
-
-                    # If the current depth is less than max_depth, find nested links
-                    # and enqueue them.
-                    if depth < max_depth:
-                        for link in await page.locator('a').all():
-                            link_href = await link.get_attribute('href')
-                            link_url = urljoin(url, link_href)
-
-                            if link_url.startswith(('http://', 'https://')):
-                                Actor.log.info(f'Enqueuing {link_url} ...')
-                                new_request = Request.from_url(
-                                    link_url,
-                                    user_data={'depth': depth + 1},
-                                )
-                                await request_queue.add_request(new_request)
-
-                    # Extract the desired data.
-                    data = {
-                        'url': url,
-                        'title': await page.title(),
-                    }
+                    # Fetch the page and extract its data and nested links.
+                    data, links = await scrape_page(context, url)
 
                     # Store the extracted data to the default dataset.
                     await Actor.push_data(data)
+
+                    # If we are not too deep yet, enqueue the links we found.
+                    if depth < max_depth:
+                        for link_url in links:
+                            Actor.log.info(f'Enqueuing {link_url} ...')
+                            new_request = Request.from_url(link_url)
+                            new_request.crawl_depth = depth + 1
+                            await request_queue.add_request(new_request)
 
                 except Exception:
                     Actor.log.exception(f'Cannot extract data from {url}.')
 
                 finally:
-                    await page.close()
-                    # Mark the request as handled to ensure it is not processed again.
+                    # Mark the request as handled so it is not processed again.
                     await request_queue.mark_request_as_handled(request)
 
 
