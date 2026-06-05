@@ -1,0 +1,111 @@
+---
+id: crawl4ai
+title: Use Crawl4AI
+description: Build an Apify Actor that scrapes web pages into LLM-ready markdown using the Crawl4AI library.
+---
+
+import CodeBlock from '@theme/CodeBlock';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+import Crawl4aiMain from '!!raw-loader!./code/crawl4ai_project/my_actor/main.py';
+import Crawl4aiScraper from '!!raw-loader!./code/crawl4ai_project/my_actor/scraper.py';
+import Crawl4aiEntrypoint from '!!raw-loader!./code/crawl4ai_project/my_actor/__main__.py';
+import Crawl4aiDockerfile from '!!raw-loader!./code/crawl4ai_project/Dockerfile';
+
+In this guide, you'll learn how to use the [Crawl4AI](https://crawl4ai.com/) library in your Apify Actors.
+
+## Introduction
+
+[Crawl4AI](https://crawl4ai.com/) is an open-source, asynchronous web crawler built for LLM and AI workflows. It renders a page in a real browser and turns the result into clean, structured markdown that's ready to feed into a language model or a retrieval-augmented generation (RAG) pipeline, while still giving you the raw HTML, extracted links, and media when you need them.
+
+Some of the features that make Crawl4AI a good fit for Apify Actors:
+
+- **LLM-ready markdown** - Crawl4AI converts each page into clean markdown, stripping boilerplate and optionally filtering content, so the output can be fed straight into a language model.
+- **Real browser rendering** - Pages are loaded in a [Playwright](https://playwright.dev/)-driven browser, so JavaScript-heavy and dynamically rendered websites work out of the box.
+- **Built-in link and media extraction** - Every crawl returns the page's links already split into `internal` and `external` groups, together with the media it found, which makes recursive crawling straightforward.
+- **Flexible extraction strategies** - Beyond markdown, Crawl4AI can extract structured data with CSS/XPath schemas or with an LLM, all configured per request.
+- **First-class async support** - The `AsyncWebCrawler` is built on `asyncio`, which integrates naturally with the asyncio-based Apify SDK.
+- **Per-request proxy** - Each request can be routed through its own proxy, which pairs well with Apify Proxy and its rotating IP addresses.
+
+Crawl4AI drives a real browser through Playwright, so after installing the library you need to download the browser binaries once with the `crawl4ai-setup` command:
+
+```bash
+pip install crawl4ai
+crawl4ai-setup
+```
+
+## Example Actor
+
+The following Actor recursively crawls pages, starting from the URLs in the Actor input and following links up to a user-defined maximum depth. It uses Crawl4AI's `AsyncWebCrawler` to render each page through [Apify Proxy](https://docs.apify.com/platform/proxy), stores the page's markdown in the dataset, and follows the internal links that Crawl4AI discovers.
+
+The code is split into three small modules, following the structure of the Apify Python Actor templates:
+
+- `my_actor/main.py` - The Actor's main coroutine. It handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy) and the [request queue](https://docs.apify.com/platform/storage/request-queue), opens a single browser-backed crawler, and drives the crawl.
+- `my_actor/scraper.py` - The Crawl4AI-specific logic. A single `scrape_page` function crawls a page and returns the extracted data together with the links found on it.
+- `my_actor/__main__.py` - The entry point that runs the `main` coroutine with `asyncio`.
+
+<Tabs>
+    <TabItem value="main.py" label="my_actor/main.py">
+        <CodeBlock className="language-python">
+            {Crawl4aiMain}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="scraper.py" label="my_actor/scraper.py">
+        <CodeBlock className="language-python">
+            {Crawl4aiScraper}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="__main__.py" label="my_actor/__main__.py">
+        <CodeBlock className="language-python">
+            {Crawl4aiEntrypoint}
+        </CodeBlock>
+    </TabItem>
+</Tabs>
+
+A few things worth pointing out:
+
+- A single `AsyncWebCrawler` is opened once and reused for every request. The crawler manages one browser instance, so reusing it across the whole crawl is far cheaper than launching a new browser per page.
+- Keeping the crawling and parsing in `scrape_page` separates the Crawl4AI-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `my_actor/main.py` decides what to store and what to enqueue.
+- `result.markdown` is the rendered page as clean markdown, and `result.metadata` carries page-level fields such as the title - exactly the kind of output you want when preparing data for an LLM.
+- `result.links` already separates `internal` (same-site) links from `external` ones, so the example follows only the internal links to keep the crawl on the same website.
+- `CacheMode.BYPASS` tells Crawl4AI to always fetch a fresh copy of the page instead of serving it from its local cache.
+
+## Using Apify Proxy
+
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `my_actor/main.py` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `scrape_page` for every request, which forwards it to Crawl4AI's per-request `CrawlerRunConfig`.
+
+`ProxyConfig.from_string` parses the proxy URL returned by `ProxyConfiguration.new_url` (for example `http://groups-RESIDENTIAL:<password>@proxy.apify.com:8000`) into the server, username, and password that the browser needs - the browser cannot take the credentials embedded directly in the URL. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
+
+## Running on the Apify platform
+
+Because Crawl4AI renders pages in a real browser, the Actor image needs a browser and its system-level dependencies. Build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser - Crawl4AI reuses those binaries, so no separate browser-install step is required in the Dockerfile.
+
+Add `apify` and `crawl4ai` to your `requirements.txt`:
+
+```text
+apify
+crawl4ai
+```
+
+<Tabs>
+    <TabItem value="Dockerfile" label="Dockerfile">
+        <CodeBlock className="language-docker">
+            {Crawl4aiDockerfile}
+        </CodeBlock>
+    </TabItem>
+</Tabs>
+
+The example pins the Python 3.13 base image because some of Crawl4AI's dependencies do not yet publish wheels for the newest Python versions, which would otherwise force a slow source build during the image build.
+
+## Conclusion
+
+In this guide, you learned how to use Crawl4AI in your Apify Actors. You can now render pages in a real browser, turn them into LLM-ready markdown, follow the links Crawl4AI discovers, route requests through Apify Proxy, and run the whole thing on the Apify platform. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+
+## Additional resources
+
+- [Crawl4AI: Official documentation](https://docs.crawl4ai.com/)
+- [Crawl4AI: AsyncWebCrawler and configuration](https://docs.crawl4ai.com/api/async-webcrawler/)
+- [Crawl4AI: Proxy and security](https://docs.crawl4ai.com/advanced/proxy-security/)
+- [Crawl4AI: GitHub repository](https://github.com/unclecode/crawl4ai)
+- [Apify: Proxy management](https://docs.apify.com/platform/proxy)
