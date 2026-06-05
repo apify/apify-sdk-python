@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🚜 Refactor
 
 - [**breaking**] Remove deprecated APIs ([#918](https://github.com/apify/apify-sdk-python/pull/918)) ([3e5728d](https://github.com/apify/apify-sdk-python/commit/3e5728d94cb8fd879d5a76e33a03d55792d835d5)) by [@vdusek](https://github.com/vdusek), closes [#635](https://github.com/apify/apify-sdk-python/issues/635)
+- [**breaking**] Mark secondary arguments as keyword-only ([#917](https://github.com/apify/apify-sdk-python/pull/917)) ([eb94c99](https://github.com/apify/apify-sdk-python/commit/eb94c992ec4aba1cd7cf4dfd7a98731cb304651b)) by [@vdusek](https://github.com/vdusek), closes [#881](https://github.com/apify/apify-sdk-python/issues/881)
 
 ### ⚙️ Miscellaneous Tasks
 
