@@ -55,7 +55,7 @@ class ChargingManager(Protocol):
     charge_lock: ReentrantLock
     """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
 
-    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -250,7 +250,7 @@ class ChargingManagerImplementation(ChargingManager):
         self.active = False
 
     @_ensure_context
-    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
         # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
             if not self._not_ppe_warning_printed:
@@ -308,7 +308,7 @@ class ChargingManagerImplementation(ChargingManager):
                     # the platform handles them automatically based on dataset writes.
                     pass
                 elif event_name in self._pricing_info:
-                    await self._client.run(self._actor_run_id).charge(event_name, charged_count)
+                    await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 

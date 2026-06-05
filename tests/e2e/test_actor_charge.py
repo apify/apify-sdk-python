@@ -26,7 +26,7 @@ async def ppe_push_data_actor_build(make_actor: MakeActorFunction) -> str:
         async with Actor:
             await Actor.push_data(
                 [{'id': i} for i in range(5)],
-                'push-item',
+                charged_event_name='push-item',
             )
 
     actor_client = await make_actor('ppe-push-data', main_func=main)
