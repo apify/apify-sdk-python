@@ -4,14 +4,9 @@ title: Use Browser Use
 description: Build an Apify Actor that automates a browser with an LLM agent using the Browser Use library.
 ---
 
-import CodeBlock from '@theme/CodeBlock';
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import BrowserUseMain from '!!raw-loader!./code/browser_use_project/my_actor/main.py';
-import BrowserUseAgent from '!!raw-loader!./code/browser_use_project/my_actor/agent.py';
-import BrowserUseEntrypoint from '!!raw-loader!./code/browser_use_project/my_actor/__main__.py';
-import BrowserUseDockerfile from '!!raw-loader!./code/browser_use_project/Dockerfile';
+import BrowserUseExample from '!!raw-loader!roa-loader!./code/09_browser_use.py';
 
 In this guide, you'll learn how to use the [Browser Use](https://browser-use.com/) library in your Apify Actors.
 
@@ -41,7 +36,7 @@ Browser Use needs an LLM to drive the agent. You choose a provider wrapper, give
 - **`ChatAnthropic`** - Anthropic Claude models such as `claude-sonnet-4-5` or `claude-haiku-4-5`. Reads the key from `ANTHROPIC_API_KEY`.
 - **`ChatGoogle`** - Google Gemini models such as `gemini-2.5-flash`. Reads the key from `GOOGLE_API_KEY`.
 
-The example Actor in this guide uses `ChatOpenAI`, but switching providers is a one-line change in `my_actor/agent.py`. More capable models generally complete tasks in fewer steps and more reliably, while smaller models are cheaper per step.
+The example Actor in this guide uses `ChatOpenAI`, but switching providers is a one-line change in `run_agent_task`. More capable models generally complete tasks in fewer steps and more reliably, while smaller models are cheaper per step.
 
 Keep the API key out of the Actor input and source code. The example reads it from an environment variable, which on the Apify platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) (for example `OPENAI_API_KEY`), and locally you export in your shell.
 
@@ -49,54 +44,30 @@ Keep the API key out of the Actor input and source code. The example reads it fr
 
 The following Actor runs a Browser Use agent for a single task and stores its structured result in the default dataset. By default it opens [Hacker News](https://news.ycombinator.com) and returns the title and URL of the top five posts, but the task, model, and step limit are all configurable through the Actor input.
 
-The code is split into three small modules, following the structure of the Apify Python Actor templates:
+The whole Actor fits in a single file. A `run_agent_task` helper holds the Browser Use-specific logic - it defines the output schema and builds the LLM, browser, and agent - while the `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result:
 
-- `my_actor/main.py` - The Actor's main coroutine. It handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result.
-- `my_actor/agent.py` - The Browser Use-specific logic. It defines the output schema and a single `run_agent_task` function that builds the LLM, browser, and agent, then returns the agent's structured output.
-- `my_actor/__main__.py` - The entry point that runs the `main` coroutine with `asyncio`.
-
-<Tabs>
-    <TabItem value="main.py" label="my_actor/main.py">
-        <CodeBlock className="language-python">
-            {BrowserUseMain}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="agent.py" label="my_actor/agent.py">
-        <CodeBlock className="language-python">
-            {BrowserUseAgent}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="__main__.py" label="my_actor/__main__.py">
-        <CodeBlock className="language-python">
-            {BrowserUseEntrypoint}
-        </CodeBlock>
-    </TabItem>
-</Tabs>
+<RunnableCodeBlock className="language-python" language="python">
+    {BrowserUseExample}
+</RunnableCodeBlock>
 
 A few things worth pointing out:
 
-- Keeping the agent setup in `run_agent_task` separates the Browser Use-specific code from the Actor's orchestration logic. `my_actor/main.py` only decides what to read from the input and what to store.
-- Passing `output_model_schema=Posts` makes the agent return a validated `Posts` instance via `history.structured_output`, so `my_actor/main.py` can push each item straight to the dataset. Adapt the task and the `Post`/`Posts` models together to fit your own use case.
+- Keeping the agent setup in `run_agent_task` separates the Browser Use-specific code from the Actor's orchestration logic. `main` only decides what to read from the input and what to store.
+- Passing `output_model_schema=Posts` makes the agent return a validated `Posts` instance via `history.structured_output`, so `main` can push each item straight to the dataset. Adapt the task and the `Post`/`Posts` models together to fit your own use case.
 - `enable_signal_handler=False` leaves signal handling to the Actor, which manages the run's lifecycle. Without it, Browser Use would install its own handlers and interfere with a clean shutdown.
 - `headless=Actor.configuration.headless` runs the browser without a visible window, which is what you want on the platform.
 
 ## Using Apify Proxy
 
-Running on the Apify platform gives your agent access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `my_actor/main.py` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `run_agent_task`.
+Running on the Apify platform gives your agent access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `main` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `run_agent_task`.
 
-Browser Use expects the proxy as a `ProxySettings` object with separate `server`, `username`, and `password` fields, whereas `ProxyConfiguration.new_url` returns a single URL string (for example `http://user:pass@proxy.apify.com:8000`). The `_proxy_settings` helper in `my_actor/agent.py` splits that URL into the fields Browser Use expects. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
+Browser Use expects the proxy as a `ProxySettings` object with separate `server`, `username`, and `password` fields, whereas `ProxyConfiguration.new_url` returns a single URL string (for example `http://user:pass@proxy.apify.com:8000`). The `_proxy_settings` helper splits that URL into the fields Browser Use expects. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
 
 ## Running on the Apify platform
 
 Browser Use drives a real Chromium over CDP, so the Actor needs a browser binary available at runtime. The simplest way to provide one is to build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies. Browser Use discovers that browser automatically, so no extra install step is needed in the image.
 
-<Tabs>
-    <TabItem value="Dockerfile" label="Dockerfile">
-        <CodeBlock className="language-docker">
-            {BrowserUseDockerfile}
-        </CodeBlock>
-    </TabItem>
-</Tabs>
+Disable Browser Use's telemetry and cloud sync inside the Actor by setting the `ANONYMIZED_TELEMETRY=false` and `BROWSER_USE_CLOUD_SYNC=false` environment variables in your Dockerfile.
 
 When running the Actor locally, install the browser once with the `browser-use install` command, which downloads a Chromium build together with its dependencies:
 

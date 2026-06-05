@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 from typing import Any
 
-from scrapling.fetchers import AsyncFetcher
+from scrapling.fetchers import DynamicFetcher
 
 
 async def scrape_page(
@@ -10,20 +8,18 @@ async def scrape_page(
     *,
     proxy_url: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Fetch a single page with Scrapling and extract its data and links.
+    """Fetch a single page in a real browser and extract its data and links.
 
-    The page is fetched with Scrapling's asynchronous HTTP fetcher. The
-    `impersonate` and `stealthy_headers` options make the request look like it
-    comes from a real Chrome browser, which reduces the chance of being blocked.
-    The returned response is also a Scrapling selector, so it can be queried with
-    CSS selectors directly.
+    `DynamicFetcher` drives a real browser via Playwright, so it can render
+    JavaScript-heavy pages. `network_idle` waits until the page stops making
+    network requests before the HTML is captured. Apart from the fetcher call,
+    everything else - including the parsing - is identical to the HTTP version.
     """
-    response = await AsyncFetcher.get(
+    response = await DynamicFetcher.async_fetch(
         url,
         proxy=proxy_url,
-        impersonate='chrome',
-        stealthy_headers=True,
-        timeout=60,
+        headless=True,
+        network_idle=True,
     )
 
     # Extract the desired data using CSS selectors. The `::text` pseudo-element

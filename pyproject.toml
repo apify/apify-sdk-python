@@ -181,18 +181,6 @@ indent-style = "space"
     # Local imports in Scrapy project.
     "TID252", # Prefer absolute imports over relative imports from parent modules
 ]
-"**/docs/**/scrapling_project/**" = [
-    # Local imports are mixed up with the Apify SDK.
-    "I001", # Import block is un-sorted or un-formatted
-]
-"**/docs/**/browser_use_project/**" = [
-    # Local imports are mixed up with the Apify SDK.
-    "I001", # Import block is un-sorted or un-formatted
-]
-"**/docs/**/crawl4ai_project/**" = [
-    # Local imports are mixed up with the Apify SDK.
-    "I001", # Import block is un-sorted or un-formatted
-]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
