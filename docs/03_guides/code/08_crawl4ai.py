@@ -75,13 +75,20 @@ async def main() -> None:
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
+        # Limit the crawl; raise or remove the cap to follow more pages.
+        max_requests = 50
+        handled_requests = 0
+
         # Configure the headless browser that Crawl4AI drives.
         browser_config = BrowserConfig(headless=True)
 
         # Open a single browser-backed crawler and reuse it for every request.
         async with AsyncWebCrawler(config=browser_config) as crawler:
-            # Process the URLs from the request queue.
-            while request := await request_queue.fetch_next_request():
+            # Process the URLs from the request queue, up to the request limit.
+            while handled_requests < max_requests and (
+                request := await request_queue.fetch_next_request()
+            ):
+                handled_requests += 1
                 url = request.url
 
                 # Read the crawl depth tracked by the request itself.

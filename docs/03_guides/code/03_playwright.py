@@ -49,12 +49,15 @@ async def scrape_page(
             'h3s': [await h3.text_content() for h3 in await page.locator('h3').all()],
         }
 
-        # Collect absolute links found on the page so the caller can enqueue them.
+        # Collect absolute links on the same host so the crawl stays on this site.
         links: list[str] = []
+        host = urlsplit(url).netloc
         for link in await page.locator('a').all():
             link_href = await link.get_attribute('href')
             link_url = urljoin(url, link_href)
-            if link_url.startswith(('http://', 'https://')):
+            if not link_url.startswith(('http://', 'https://')):
+                continue
+            if urlsplit(link_url).netloc == host:
                 links.append(link_url)
 
         return data, links
@@ -91,6 +94,10 @@ async def main() -> None:
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
+        # Limit the crawl; raise or remove the cap to follow more pages.
+        max_requests = 50
+        handled_requests = 0
+
         Actor.log.info('Launching Playwright...')
 
         # Launch Playwright and open a new browser context.
@@ -99,12 +106,15 @@ async def main() -> None:
             browser = await playwright.chromium.launch(
                 headless=Actor.configuration.headless,
                 proxy=to_playwright_proxy(proxy_url) if proxy_url else None,
-                args=['--disable-gpu'],
+                args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             )
             context = await browser.new_context()
 
-            # Process the URLs from the request queue.
-            while request := await request_queue.fetch_next_request():
+            # Process the URLs from the request queue, up to the request limit.
+            while handled_requests < max_requests and (
+                request := await request_queue.fetch_next_request()
+            ):
+                handled_requests += 1
                 url = request.url
 
                 # Read the crawl depth tracked by the request itself.

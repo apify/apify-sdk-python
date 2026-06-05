@@ -1,6 +1,6 @@
 import asyncio
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import impit
 import parsel
@@ -37,11 +37,14 @@ async def scrape_page(
         'h3s': selector.css('h3::text').getall(),
     }
 
-    # Collect absolute links found on the page so the caller can enqueue them.
+    # Collect absolute links on the same host so the crawl stays on this site.
     links: list[str] = []
+    host = urlsplit(url).netloc
     for link_href in selector.css('a::attr(href)').getall():
         link_url = urljoin(url, link_href)
-        if link_url.startswith(('http://', 'https://')):
+        if not link_url.startswith(('http://', 'https://')):
+            continue
+        if urlsplit(link_url).netloc == host:
             links.append(link_url)
 
     return data, links
@@ -72,8 +75,15 @@ async def main() -> None:
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
-        # Process the URLs from the request queue.
-        while request := await request_queue.fetch_next_request():
+        # Limit the crawl; raise or remove the cap to follow more pages.
+        max_requests = 50
+        handled_requests = 0
+
+        # Process the URLs from the request queue, up to the request limit.
+        while handled_requests < max_requests and (
+            request := await request_queue.fetch_next_request()
+        ):
+            handled_requests += 1
             url = request.url
 
             # Read the crawl depth tracked by the request itself.

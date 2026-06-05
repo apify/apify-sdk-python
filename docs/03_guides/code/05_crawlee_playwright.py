@@ -53,6 +53,9 @@ async def main() -> None:
         if proxy_configuration is None:
             raise RuntimeError('Failed to create the proxy configuration.')
 
+        # Common Chrome flags for running the browser in a container.
+        browser_args = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+
         # Create a crawler that uses the router above and routes requests through
         # Apify Proxy.
         crawler = PlaywrightCrawler(
@@ -62,7 +65,7 @@ async def main() -> None:
             max_requests_per_crawl=50,
             # Run the browser in a headless mode.
             headless=True,
-            browser_launch_options={'args': ['--disable-gpu']},
+            browser_launch_options={'args': browser_args},
         )
 
         # Run the crawler with the starting requests.

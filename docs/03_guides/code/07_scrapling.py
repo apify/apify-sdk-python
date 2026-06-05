@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any
+from urllib.parse import urlsplit
 
 from scrapling.fetchers import AsyncFetcher
 
@@ -37,12 +38,16 @@ async def scrape_page(
         'h3s': response.css('h3::text').getall(),
     }
 
-    # Collect absolute links from the page. The `::attr(href)` pseudo-selector
-    # reads the attribute and `response.urljoin` resolves it against the page URL.
+    # Collect absolute links on the same host so the crawl stays on this site.
+    # The `::attr(href)` selector reads the attribute and `response.urljoin`
+    # resolves it against the page URL.
     links: list[str] = []
+    host = urlsplit(url).netloc
     for href in response.css('a::attr(href)').getall():
         link_url = response.urljoin(href)
-        if link_url.startswith(('http://', 'https://')):
+        if not link_url.startswith(('http://', 'https://')):
+            continue
+        if urlsplit(link_url).netloc == host:
             links.append(link_url)
 
     return data, links
@@ -73,8 +78,15 @@ async def main() -> None:
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
-        # Process the URLs from the request queue.
-        while request := await request_queue.fetch_next_request():
+        # Limit the crawl; raise or remove the cap to follow more pages.
+        max_requests = 50
+        handled_requests = 0
+
+        # Process the URLs from the request queue, up to the request limit.
+        while handled_requests < max_requests and (
+            request := await request_queue.fetch_next_request()
+        ):
+            handled_requests += 1
             url = request.url
 
             # Read the crawl depth tracked by the request itself.

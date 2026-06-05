@@ -28,7 +28,7 @@ class Posts(BaseModel):
     posts: list[Post]
 
 
-def _proxy_settings(proxy_url: str) -> ProxySettings:
+def to_browser_use_proxy(proxy_url: str) -> ProxySettings:
     """Convert an Apify Proxy URL into Browser Use `ProxySettings`."""
     parts = urlsplit(proxy_url)
     return ProxySettings(
@@ -61,7 +61,7 @@ async def run_agent_task(
     # Configure the browser. When a proxy URL is provided, route the browser through it.
     browser = Browser(
         headless=headless,
-        proxy=_proxy_settings(proxy_url) if proxy_url else None,
+        proxy=to_browser_use_proxy(proxy_url) if proxy_url else None,
     )
 
     # Create the agent and run it for at most `max_steps` steps.

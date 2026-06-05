@@ -46,7 +46,7 @@ The example Actor in this guide uses the HTTP `AsyncFetcher`, which is the simpl
 
 ## Example Actor
 
-The following Actor recursively scrapes titles from all linked pages, up to a user-defined maximum depth, starting from the URLs in the Actor input. It uses Scrapling's `AsyncFetcher` to fetch each page through [Apify Proxy](https://docs.apify.com/platform/proxy), and CSS selectors to extract the title, headings, and links.
+The following Actor recursively scrapes data from linked pages on the same site, up to a user-defined maximum depth, starting from the URLs in the Actor input. It uses Scrapling's `AsyncFetcher` to fetch each page through [Apify Proxy](https://docs.apify.com/platform/proxy), and CSS selectors to extract the title, headings, and links.
 
 The whole Actor fits in a single file. A `scrape_page` helper holds the Scrapling-specific fetching and parsing, while the `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy) and the [request queue](https://docs.apify.com/platform/storage/request-queue), and drives the crawl:
 

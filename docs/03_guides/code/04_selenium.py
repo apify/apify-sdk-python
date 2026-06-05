@@ -93,11 +93,14 @@ def scrape_page(driver: webdriver.Chrome, url: str) -> tuple[dict[str, Any], lis
         'h3s': [el.text for el in driver.find_elements(By.TAG_NAME, 'h3')],
     }
 
-    # Collect absolute links found on the page so the caller can enqueue them.
+    # Collect absolute links on the same host so the crawl stays on this site.
     links: list[str] = []
+    host = urlsplit(url).netloc
     for link in driver.find_elements(By.TAG_NAME, 'a'):
         link_url = urljoin(url, link.get_attribute('href'))
-        if link_url.startswith(('http://', 'https://')):
+        if not link_url.startswith(('http://', 'https://')):
+            continue
+        if urlsplit(link_url).netloc == host:
             links.append(link_url)
 
     return data, links
@@ -116,6 +119,11 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
+        # Create a proxy configuration that routes the browser through Apify Proxy.
+        # Selenium applies the proxy at the browser level, so the whole run shares
+        # a single proxy URL.
+        proxy_configuration = await Actor.create_proxy_configuration()
+
         # Open the default request queue for handling URLs to be processed.
         request_queue = await Actor.open_request_queue()
 
@@ -124,6 +132,10 @@ async def main() -> None:
             url = start_url.get('url')
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
+
+        # Limit the crawl; raise or remove the cap to follow more pages.
+        max_requests = 50
+        handled_requests = 0
 
         # Launch a new Selenium Chrome WebDriver and configure it.
         Actor.log.info('Launching Chrome WebDriver...')
@@ -135,10 +147,9 @@ async def main() -> None:
 
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
 
-        # Route the browser through Apify Proxy. Selenium applies the proxy at the
-        # browser level, so the whole run shares a single proxy URL.
-        proxy_configuration = await Actor.create_proxy_configuration()
+        # Route the browser through Apify Proxy via an authentication extension.
         if proxy_configuration and (proxy_url := await proxy_configuration.new_url()):
             chrome_options.add_extension(proxy_auth_extension(proxy_url))
             chrome_options.add_argument(
@@ -147,13 +158,11 @@ async def main() -> None:
 
         driver = webdriver.Chrome(options=chrome_options)
 
-        # Test WebDriver setup by navigating to an example page.
-        driver.get('https://example.com')
-        if driver.title != 'Example Domain':
-            raise ValueError('Failed to open example page.')
-
-        # Process the URLs from the request queue.
-        while request := await request_queue.fetch_next_request():
+        # Process the URLs from the request queue, up to the request limit.
+        while handled_requests < max_requests and (
+            request := await request_queue.fetch_next_request()
+        ):
+            handled_requests += 1
             url = request.url
 
             # Read the crawl depth tracked by the request itself.
