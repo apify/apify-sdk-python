@@ -36,10 +36,7 @@ def _encode_for_json(obj: Any) -> Any:
     if isinstance(obj, BaseModel):
         return _encode_for_json(obj.model_dump(by_alias=True))
     if isinstance(obj, dict):
-        return {
-            (k.decode('utf-8') if isinstance(k, bytes) else k): _encode_for_json(v)
-            for k, v in obj.items()
-        }
+        return {(k.decode('utf-8') if isinstance(k, bytes) else k): _encode_for_json(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_encode_for_json(v) for v in obj]
     # Handle enum values (e.g. RequestState)
@@ -174,8 +171,7 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
         # Scrapy's request_from_dict expects bytes keys in the headers dict.
         if 'headers' in scrapy_request_dict and isinstance(scrapy_request_dict['headers'], dict):
             scrapy_request_dict['headers'] = {
-                k.encode('utf-8') if isinstance(k, str) else k: v
-                for k, v in scrapy_request_dict['headers'].items()
+                k.encode('utf-8') if isinstance(k, str) else k: v for k, v in scrapy_request_dict['headers'].items()
             }
 
         if not isinstance(scrapy_request_dict, dict):

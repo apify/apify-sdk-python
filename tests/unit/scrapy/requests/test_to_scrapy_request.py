@@ -11,7 +11,7 @@ from scrapy import Request, Spider
 from crawlee._types import HttpHeaders
 
 from apify import Request as ApifyRequest
-from apify.scrapy.requests import _encode_for_json, to_apify_request, to_scrapy_request
+from apify.scrapy.requests import to_apify_request, to_scrapy_request
 
 
 class DummySpider(Spider):
