@@ -1,25 +1,19 @@
 import asyncio
 
 from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
+from crawlee.router import Router
 
 from apify import Actor
 
-# Create a crawler.
-crawler = PlaywrightCrawler(
-    # Limit the crawl to max requests. Remove or increase it for crawling all links.
-    max_requests_per_crawl=50,
-    # Run the browser in a headless mode.
-    headless=True,
-    browser_launch_options={'args': ['--disable-gpu']},
-)
+# Define the router up front; the crawler is created later in `main`.
+router = Router[PlaywrightCrawlingContext]()
 
 
-# Define a request handler, which will be called for every request.
-@crawler.router.default_handler
+# Handler called for every request.
+@router.default_handler
 async def request_handler(context: PlaywrightCrawlingContext) -> None:
-    Actor.log.info(f'Scraping {context.request.url}...')
+    Actor.log.info(f'Scraping {context.request.url} ...')
 
-    # Extract the desired data.
     data = {
         'url': context.request.url,
         'title': await context.page.title(),
@@ -28,29 +22,43 @@ async def request_handler(context: PlaywrightCrawlingContext) -> None:
         'h3s': [await h3.text_content() for h3 in await context.page.locator('h3').all()],
     }
 
-    # Store the extracted data to the default dataset.
     await context.push_data(data)
+    Actor.log.info(f'Stored data from {context.request.url} (title={data["title"]!r}).')
 
-    # Enqueue additional links found on the current page.
+    # Enqueue links found on the page.
     await context.enqueue_links(strategy='same-domain')
 
 
 async def main() -> None:
-    # Enter the context of the Actor.
     async with Actor:
-        # Retrieve the Actor input, and use default values if not provided.
+        # Read the Actor input.
         actor_input = await Actor.get_input() or {}
         start_urls = [
             url.get('url')
-            for url in actor_input.get('start_urls', [{'url': 'https://apify.com'}])
+            for url in actor_input.get('startUrls', [{'url': 'https://crawlee.dev'}])
         ]
 
-        # Exit if no start URLs are provided.
         if not start_urls:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Run the crawler with the starting requests.
+        # Crawlee rotates the proxy URL per request on its own.
+        proxy_configuration = await Actor.create_proxy_configuration()
+        if proxy_configuration is None:
+            raise RuntimeError('Failed to create the proxy configuration.')
+
+        # Common Chrome flags for running the browser in a container.
+        browser_args = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+
+        crawler = PlaywrightCrawler(
+            proxy_configuration=proxy_configuration,
+            request_handler=router,
+            # Cap the crawl; remove or increase to follow all links.
+            max_requests_per_crawl=50,
+            headless=True,
+            browser_launch_options={'args': browser_args},
+        )
+
         await crawler.run(start_urls)
 
 
