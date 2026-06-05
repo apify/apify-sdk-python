@@ -1,0 +1,119 @@
+---
+id: browser-use
+title: Use Browser Use
+description: Build an Apify Actor that automates a browser with an LLM agent using the Browser Use library.
+---
+
+import CodeBlock from '@theme/CodeBlock';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+import BrowserUseMain from '!!raw-loader!./code/browser_use_project/my_actor/main.py';
+import BrowserUseAgent from '!!raw-loader!./code/browser_use_project/my_actor/agent.py';
+import BrowserUseEntrypoint from '!!raw-loader!./code/browser_use_project/my_actor/__main__.py';
+import BrowserUseDockerfile from '!!raw-loader!./code/browser_use_project/Dockerfile';
+
+In this guide, you'll learn how to use the [Browser Use](https://browser-use.com/) library in your Apify Actors.
+
+## Introduction
+
+[Browser Use](https://browser-use.com/) is a Python library that lets an LLM control a real web browser. Instead of writing selectors and navigation steps by hand, you give an agent a natural-language task - such as "find the top post on Hacker News and return its title and URL" - and the agent decides which pages to open, what to click, and what to read until the task is done.
+
+Some of the features that make Browser Use a good fit for Apify Actors:
+
+- **Natural-language tasks** - Describe what you want in plain English; the agent figures out the steps. This is well suited to pages whose structure changes often or is hard to target with fixed selectors.
+- **Model-agnostic** - Browser Use ships wrappers for many providers (`ChatOpenAI`, `ChatAnthropic`, `ChatGoogle`, and more), so you can pick the model that fits your task and budget.
+- **Structured output** - Pass a [Pydantic](https://docs.pydantic.dev/) model as the output schema and the agent returns a validated object instead of free-form text, which maps cleanly onto an Apify dataset.
+- **Real browser via CDP** - The agent drives a real Chromium over the Chrome DevTools Protocol, so JavaScript-heavy pages render just like they would for a human.
+- **First-class async support** - The agent's `run` method is asynchronous, which integrates naturally with the asyncio-based Apify SDK.
+
+Browser Use needs only the `browser-use` package - install it with:
+
+```bash
+pip install browser-use
+```
+
+## Configuring the LLM
+
+Browser Use needs an LLM to drive the agent. You choose a provider wrapper, give it a model name, and supply the provider's API key:
+
+- **`ChatOpenAI`** - OpenAI models such as `gpt-4.1-mini` or `gpt-5-mini`. Reads the key from `OPENAI_API_KEY`, or accepts it via the `api_key` argument.
+- **`ChatAnthropic`** - Anthropic Claude models such as `claude-sonnet-4-5` or `claude-haiku-4-5`. Reads the key from `ANTHROPIC_API_KEY`.
+- **`ChatGoogle`** - Google Gemini models such as `gemini-2.5-flash`. Reads the key from `GOOGLE_API_KEY`.
+
+The example Actor in this guide uses `ChatOpenAI`, but switching providers is a one-line change in `my_actor/agent.py`. More capable models generally complete tasks in fewer steps and more reliably, while smaller models are cheaper per step.
+
+Keep the API key out of the Actor input and source code. The example reads it from an environment variable, which on the Apify platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) (for example `OPENAI_API_KEY`), and locally you export in your shell.
+
+## Example Actor
+
+The following Actor runs a Browser Use agent for a single task and stores its structured result in the default dataset. By default it opens [Hacker News](https://news.ycombinator.com) and returns the title and URL of the top five posts, but the task, model, and step limit are all configurable through the Actor input.
+
+The code is split into three small modules, following the structure of the Apify Python Actor templates:
+
+- `my_actor/main.py` - The Actor's main coroutine. It handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result.
+- `my_actor/agent.py` - The Browser Use-specific logic. It defines the output schema and a single `run_agent_task` function that builds the LLM, browser, and agent, then returns the agent's structured output.
+- `my_actor/__main__.py` - The entry point that runs the `main` coroutine with `asyncio`.
+
+<Tabs>
+    <TabItem value="main.py" label="my_actor/main.py">
+        <CodeBlock className="language-python">
+            {BrowserUseMain}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="agent.py" label="my_actor/agent.py">
+        <CodeBlock className="language-python">
+            {BrowserUseAgent}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="__main__.py" label="my_actor/__main__.py">
+        <CodeBlock className="language-python">
+            {BrowserUseEntrypoint}
+        </CodeBlock>
+    </TabItem>
+</Tabs>
+
+A few things worth pointing out:
+
+- Keeping the agent setup in `run_agent_task` separates the Browser Use-specific code from the Actor's orchestration logic. `my_actor/main.py` only decides what to read from the input and what to store.
+- Passing `output_model_schema=Posts` makes the agent return a validated `Posts` instance via `history.structured_output`, so `my_actor/main.py` can push each item straight to the dataset. Adapt the task and the `Post`/`Posts` models together to fit your own use case.
+- `enable_signal_handler=False` leaves signal handling to the Actor, which manages the run's lifecycle. Without it, Browser Use would install its own handlers and interfere with a clean shutdown.
+- `headless=Actor.configuration.headless` runs the browser without a visible window, which is what you want on the platform.
+
+## Using Apify Proxy
+
+Running on the Apify platform gives your agent access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `my_actor/main.py` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `run_agent_task`.
+
+Browser Use expects the proxy as a `ProxySettings` object with separate `server`, `username`, and `password` fields, whereas `ProxyConfiguration.new_url` returns a single URL string (for example `http://user:pass@proxy.apify.com:8000`). The `_proxy_settings` helper in `my_actor/agent.py` splits that URL into the fields Browser Use expects. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
+
+## Running on the Apify platform
+
+Browser Use drives a real Chromium over CDP, so the Actor needs a browser binary available at runtime. The simplest way to provide one is to build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies. Browser Use discovers that browser automatically, so no extra install step is needed in the image.
+
+<Tabs>
+    <TabItem value="Dockerfile" label="Dockerfile">
+        <CodeBlock className="language-docker">
+            {BrowserUseDockerfile}
+        </CodeBlock>
+    </TabItem>
+</Tabs>
+
+When running the Actor locally, install the browser once with the `browser-use install` command, which downloads a Chromium build together with its dependencies:
+
+```bash
+browser-use install
+```
+
+Remember to provide the LLM API key in both environments - as a secret environment variable on the platform, and exported in your shell when running locally.
+
+## Conclusion
+
+In this guide, you learned how to use Browser Use in your Apify Actors. You can now drive a real browser with an LLM agent, return its results as a validated Pydantic model, route the browser through Apify Proxy, and run the whole thing on the Apify platform. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own automation tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy automating!
+
+## Additional resources
+
+- [Browser Use: Official documentation](https://docs.browser-use.com/)
+- [Browser Use: Supported models](https://docs.browser-use.com/customize/supported-models)
+- [Browser Use: Structured output](https://docs.browser-use.com/customize/agent/output-format)
+- [Browser Use: GitHub repository](https://github.com/browser-use/browser-use)
+- [Apify: Proxy management](https://docs.apify.com/platform/proxy)
