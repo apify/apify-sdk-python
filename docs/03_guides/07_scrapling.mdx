@@ -1,20 +1,16 @@
 ---
 id: scrapling
-title: Use Scrapling
+title: Adaptive scraping with Scrapling
 description: Build an Apify Actor that scrapes web pages using the Scrapling adaptive web scraping library.
 ---
 
 import CodeBlock from '@theme/CodeBlock';
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
-import ScraplingMain from '!!raw-loader!./code/scrapling_project/my_actor/main.py';
-import ScraplingScraper from '!!raw-loader!./code/scrapling_project/my_actor/scraper.py';
-import ScraplingEntrypoint from '!!raw-loader!./code/scrapling_project/my_actor/__main__.py';
-import ScraplingBrowserScraper from '!!raw-loader!./code/scrapling_browser_project/my_actor/scraper.py';
-import ScraplingBrowserDockerfile from '!!raw-loader!./code/scrapling_browser_project/Dockerfile';
+import ScraplingExample from '!!raw-loader!roa-loader!./code/07_scrapling.py';
+import ScraplingBrowserScraper from '!!raw-loader!./code/07_scrapling_browser.py';
 
-In this guide, you'll learn how to use the [Scrapling](https://scrapling.readthedocs.io/) library in your Apify Actors.
+In this guide, you'll learn how to use the [Scrapling](https://scrapling.readthedocs.io/) library for adaptive web scraping in your Apify Actors.
 
 ## Introduction
 
@@ -50,42 +46,24 @@ The example Actor in this guide uses the HTTP `AsyncFetcher`, which is the simpl
 
 ## Example Actor
 
-The following Actor recursively scrapes titles from all linked pages, up to a user-defined maximum depth, starting from the URLs in the Actor input. It uses Scrapling's `AsyncFetcher` to fetch each page through [Apify Proxy](https://docs.apify.com/platform/proxy), and CSS selectors to extract the title, headings, and links.
+The following Actor recursively scrapes data from linked pages on the same site, up to a user-defined maximum depth, starting from the URLs in the Actor input. It uses Scrapling's `AsyncFetcher` to fetch each page through [Apify Proxy](https://docs.apify.com/platform/proxy), and CSS selectors to extract the title, headings, and links.
 
-The code is split into three small modules, following the structure of the Apify Python Actor templates:
+The whole Actor fits in a single file. A `scrape_page` helper holds the Scrapling-specific fetching and parsing, while the `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy) and the [request queue](https://docs.apify.com/platform/storage/request-queue), and drives the crawl:
 
-- `my_actor/main.py` - The Actor's main coroutine. It handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy) and the [request queue](https://docs.apify.com/platform/storage/request-queue), and drives the crawl.
-- `my_actor/scraper.py` - The Scrapling-specific logic. A single `scrape_page` function fetches a page and returns the extracted data together with the links found on it.
-- `my_actor/__main__.py` - The entry point that runs the `main` coroutine with `asyncio`.
-
-<Tabs>
-    <TabItem value="main.py" label="my_actor/main.py">
-        <CodeBlock className="language-python">
-            {ScraplingMain}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="scraper.py" label="my_actor/scraper.py">
-        <CodeBlock className="language-python">
-            {ScraplingScraper}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="__main__.py" label="my_actor/__main__.py">
-        <CodeBlock className="language-python">
-            {ScraplingEntrypoint}
-        </CodeBlock>
-    </TabItem>
-</Tabs>
+<RunnableCodeBlock className="language-python" language="python">
+    {ScraplingExample}
+</RunnableCodeBlock>
 
 A few things worth pointing out:
 
-- Keeping the fetching and parsing in `scrape_page` separates the Scrapling-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `my_actor/main.py` decides what to store and what to enqueue.
+- Keeping the fetching and parsing in `scrape_page` separates the Scrapling-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `main` decides what to store and what to enqueue.
 - The response of `AsyncFetcher.get` is a Scrapling selector, so `response.css('title::text').get()` reads the page title and `response.css('a::attr(href)').getall()` returns every link's `href` in one call.
 - `response.urljoin(link_href)` resolves relative links against the page URL, so you can enqueue them directly.
 - The `impersonate='chrome'` and `stealthy_headers=True` options make the request look like it comes from a real Chrome browser, which - combined with Apify Proxy - reduces the chance of being blocked.
 
 ## Using Apify Proxy
 
-Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `my_actor/main.py` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `scrape_page` for every request, which forwards it to Scrapling's `proxy` argument.
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `main` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `scrape_page` for every request, which forwards it to Scrapling's `proxy` argument.
 
 Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy.apify.com:8000`), which is exactly what `ProxyConfiguration.new_url` returns. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide. The browser-based fetchers accept the same `proxy` argument.
 
@@ -97,23 +75,13 @@ Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy
 scrapling install
 ```
 
-Switching the example Actor from HTTP to a real browser only takes two changes - the rest of the project, including `my_actor/main.py`, stays exactly the same:
+Switching the example Actor from HTTP to a real browser takes only one code change - swap the `AsyncFetcher.get` call in `scrape_page` for `DynamicFetcher.async_fetch`. The parsing API is identical, so the rest of the Actor stays exactly the same:
 
-1. Swap the fetcher call in `my_actor/scraper.py` for `DynamicFetcher.async_fetch`. The parsing API is identical, so the data extraction is unchanged.
-2. Build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies, and run `scrapling install` during the build to download the browser binaries that Scrapling expects.
+<CodeBlock className="language-python">
+    {ScraplingBrowserScraper}
+</CodeBlock>
 
-<Tabs>
-    <TabItem value="scraper.py" label="my_actor/scraper.py">
-        <CodeBlock className="language-python">
-            {ScraplingBrowserScraper}
-        </CodeBlock>
-    </TabItem>
-    <TabItem value="Dockerfile" label="Dockerfile">
-        <CodeBlock className="language-docker">
-            {ScraplingBrowserDockerfile}
-        </CodeBlock>
-    </TabItem>
-</Tabs>
+To run this on the Apify platform, build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies, and run `scrapling install` during the Docker build to download the browser binaries that Scrapling expects.
 
 ## Conclusion
 
