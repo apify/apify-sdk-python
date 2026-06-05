@@ -142,15 +142,20 @@ async def test_actor_charge_limit(
 ) -> None:
     run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
 
+    # Reaching `max_total_charge_usd` makes the platform abort the run automatically, and that abort races with the
+    # Actor's own clean exit — so the terminal status is either SUCCEEDED or ABORTED. Both are valid here; the
+    # behavior under test is that the charge limit capped the run at exactly 2 of the 4 attempted events.
+    terminal_statuses = {ActorJobStatus.SUCCEEDED, ActorJobStatus.ABORTED}
+
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == {'foobar': 2},
+        lambda r: r.status in terminal_statuses and r.charged_event_counts == {'foobar': 2},
         timeout=30,
         poll_interval=1,
     )
 
-    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.status in terminal_statuses
     assert run.charged_event_counts == {'foobar': 2}
 
 
