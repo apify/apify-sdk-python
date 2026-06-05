@@ -19,13 +19,7 @@ async def scrape_page(
     *,
     proxy_url: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Crawl a single page with Crawl4AI and extract its markdown and links.
-
-    The page is rendered in the browser managed by `crawler`, and Crawl4AI turns
-    the result into clean, LLM-ready markdown. Setting `proxy_config` on the
-    per-request `CrawlerRunConfig` routes this request through Apify Proxy, so
-    every page can use a fresh IP address.
-    """
+    """Crawl a page with Crawl4AI and return its markdown and same-site links."""
     run_config = CrawlerRunConfig(
         cache_mode=CacheMode.BYPASS,
         proxy_config=ProxyConfig.from_string(proxy_url) if proxy_url else None,
@@ -35,16 +29,13 @@ async def scrape_page(
     if not result.success:
         raise RuntimeError(result.error_message or f'Failed to crawl {url}')
 
-    # `result.markdown` is the rendered page as clean markdown, and
-    # `result.metadata` carries page-level fields such as the title.
     data = {
         'url': result.url,
         'title': (result.metadata or {}).get('title'),
         'markdown': str(result.markdown),
     }
 
-    # Crawl4AI already splits links into `internal` (same site) and `external`.
-    # We follow only the internal ones to keep the crawl on the same website.
+    # Crawl4AI already classifies links; follow only the internal ones.
     internal_links = result.links.get('internal', [])
     links = [link['href'] for link in internal_links if link.get('href')]
 
@@ -58,11 +49,7 @@ async def enqueue_links(
     depth: int,
     max_depth: int,
 ) -> None:
-    """Enqueue the given links one level deeper than the current page.
-
-    Nothing is enqueued once `depth` reaches `max_depth`, which keeps the crawl
-    bounded to the requested depth.
-    """
+    """Enqueue the links one level deeper, unless max_depth was reached."""
     if depth >= max_depth:
         return
 
@@ -74,67 +61,54 @@ async def enqueue_links(
 
 
 async def main() -> None:
-    # Enter the context of the Actor.
     async with Actor:
-        # Retrieve the Actor input, and use default values if not provided.
+        # Read the Actor input.
         actor_input = await Actor.get_input() or {}
         start_urls = actor_input.get('startUrls', [{'url': 'https://crawlee.dev'}])
         max_depth = actor_input.get('maxDepth', 1)
 
-        # Exit if no start URLs are provided.
         if not start_urls:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Create a proxy configuration that routes requests through Apify Proxy.
+        # Set up Apify Proxy and the request queue.
         proxy_configuration = await Actor.create_proxy_configuration()
-
-        # Open the default request queue for handling URLs to be processed.
         request_queue = await Actor.open_request_queue()
 
-        # Enqueue the start URLs. Their crawl depth defaults to 0.
+        # Enqueue the start URLs (crawl depth defaults to 0).
         for start_url in start_urls:
             url = start_url.get('url')
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
-        # Limit the crawl; raise or remove the cap to follow more pages.
+        # Cap the crawl; raise or remove to follow more pages.
         max_requests = 50
         handled_requests = 0
 
-        # Configure the headless browser that Crawl4AI drives.
+        # Reuse one headless browser-backed crawler for every request.
         browser_config = BrowserConfig(headless=True)
 
-        # Open a single browser-backed crawler and reuse it for every request.
         async with AsyncWebCrawler(config=browser_config) as crawler:
-            # Process the URLs from the request queue, up to the request limit.
             while handled_requests < max_requests and (
                 request := await request_queue.fetch_next_request()
             ):
                 handled_requests += 1
                 url = request.url
-
-                # Read the crawl depth tracked by the request itself.
                 depth = request.crawl_depth
                 Actor.log.info(f'Scraping {url} (depth={depth}) ...')
 
                 try:
-                    # Get a fresh proxy URL for each request (None if no proxy set up).
+                    # Fresh proxy URL per request (None if no proxy).
                     proxy_url = None
                     if proxy_configuration:
                         proxy_url = await proxy_configuration.new_url()
 
-                    # Crawl the page and extract its markdown and nested links.
                     data, links = await scrape_page(crawler, url, proxy_url=proxy_url)
-
-                    # Store the extracted data to the default dataset.
                     await Actor.push_data(data)
                     Actor.log.info(
                         f'Stored data from {url} '
                         f'(title={data["title"]!r}, {len(links)} links found).'
                     )
-
-                    # Enqueue the links found on the page, one level deeper.
                     await enqueue_links(
                         request_queue, links, depth=depth, max_depth=max_depth
                     )
@@ -143,7 +117,6 @@ async def main() -> None:
                     Actor.log.exception(f'Cannot extract data from {url}.')
 
                 finally:
-                    # Mark the request as handled so it is not processed again.
                     await request_queue.mark_request_as_handled(request)
 
 

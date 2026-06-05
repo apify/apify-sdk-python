@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from apify import Actor
 
-# The default task is aligned with the `Posts` output schema defined below.
+# Default task, aligned with the `Posts` schema below.
 DEFAULT_TASK = (
     'Open https://news.ycombinator.com and return the title and URL '
     'of the top 5 posts on the front page.'
@@ -47,24 +47,17 @@ async def run_agent_task(
     headless: bool = True,
     proxy_url: str | None = None,
 ) -> Posts | None:
-    """Run a Browser Use agent for a single task and return its structured output.
-
-    The agent is driven by an OpenAI model and a real Chromium browser. Passing
-    `output_model_schema` makes the agent return a validated `Posts` instance instead
-    of free-form text, and `enable_signal_handler=False` leaves signal handling to the
-    Actor.
-    """
-    # Configure the LLM that drives the agent. Swap `ChatOpenAI` for `ChatAnthropic`,
-    # `ChatGoogle`, or another provider to use a different model.
+    """Run a Browser Use agent for one task and return its structured output."""
+    # Configure the LLM. Swap `ChatOpenAI` for another provider if needed.
     llm = ChatOpenAI(model=model, api_key=llm_api_key)
 
-    # Configure the browser. When a proxy URL is provided, route the browser through it.
+    # Configure the browser, optionally routed through a proxy.
     browser = Browser(
         headless=headless,
         proxy=to_browser_use_proxy(proxy_url) if proxy_url else None,
     )
 
-    # Create the agent and run it for at most `max_steps` steps.
+    # `output_model_schema` returns a validated `Posts`; signals stay with the Actor.
     agent = Agent(
         task=task,
         llm=llm,
@@ -78,27 +71,24 @@ async def run_agent_task(
 
 
 async def main() -> None:
-    # Enter the context of the Actor.
     async with Actor:
-        # Retrieve the Actor input, and use default values if not provided.
+        # Read the Actor input.
         actor_input = await Actor.get_input() or {}
         task = actor_input.get('task', DEFAULT_TASK)
         model = actor_input.get('model', 'gpt-4.1-mini')
         max_steps = actor_input.get('maxSteps', 25)
 
-        # Read the LLM API key from the environment so it is never stored in the Actor
-        # input. On the Apify platform, set it as a secret environment variable.
+        # Read the LLM API key from the environment (set it as a secret on Apify).
         llm_api_key = os.environ.get('OPENAI_API_KEY')
         if not llm_api_key:
             raise RuntimeError('The OPENAI_API_KEY environment variable is not set.')
 
-        # Create a proxy configuration that routes the browser through Apify Proxy.
+        # Route the browser through Apify Proxy.
         proxy_configuration = await Actor.create_proxy_configuration()
         proxy_url = await proxy_configuration.new_url() if proxy_configuration else None
 
         Actor.log.info(f'Running the agent (model={model}) for task: {task}')
 
-        # Run the Browser Use agent and collect its structured output.
         result = await run_agent_task(
             task,
             model=model,
@@ -112,7 +102,7 @@ async def main() -> None:
             Actor.log.warning('The agent did not return any structured output.')
             return
 
-        # Store every extracted item as a separate row in the default dataset.
+        # Store each extracted item as a dataset row.
         Actor.log.info(f'The agent returned {len(result.posts)} post(s); storing them.')
         for post in result.posts:
             Actor.log.info(f'Storing post: {post.title!r} ({post.url})')

@@ -8,13 +8,8 @@ async def scrape_page(
     *,
     proxy_url: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Fetch a single page in a real browser and extract its data and links.
-
-    `DynamicFetcher` drives a real browser via Playwright, so it can render
-    JavaScript-heavy pages. `network_idle` waits until the page stops making
-    network requests before the HTML is captured. Apart from the fetcher call,
-    everything else - including the parsing - is identical to the HTTP version.
-    """
+    """Fetch a page in a real browser with Scrapling and return data and links."""
+    # `network_idle` waits until the page stops making network requests.
     response = await DynamicFetcher.async_fetch(
         url,
         proxy=proxy_url,
@@ -22,8 +17,6 @@ async def scrape_page(
         network_idle=True,
     )
 
-    # Extract the desired data using CSS selectors. The `::text` pseudo-element
-    # returns the text content of the matched elements.
     data = {
         'url': url,
         'title': response.css('title::text').get(),
@@ -32,8 +25,7 @@ async def scrape_page(
         'h3s': response.css('h3::text').getall(),
     }
 
-    # Collect absolute links from the page. The `::attr(href)` pseudo-selector
-    # reads the attribute and `response.urljoin` resolves it against the page URL.
+    # Collect absolute links from the page.
     links: list[str] = []
     for href in response.css('a::attr(href)').getall():
         link_url = response.urljoin(href)

@@ -13,14 +13,8 @@ async def scrape_page(
     *,
     proxy_url: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Fetch a single page with Scrapling and extract its data and links.
-
-    The page is fetched with Scrapling's asynchronous HTTP fetcher. The
-    `impersonate` and `stealthy_headers` options make the request look like it
-    comes from a real Chrome browser, which reduces the chance of being blocked.
-    The returned response is also a Scrapling selector, so it can be queried with
-    CSS selectors directly.
-    """
+    """Fetch a page with Scrapling's HTTP fetcher and return data and links."""
+    # `impersonate` and `stealthy_headers` make the request look like Chrome.
     response = await AsyncFetcher.get(
         url,
         proxy=proxy_url,
@@ -29,8 +23,6 @@ async def scrape_page(
         timeout=60,
     )
 
-    # Extract the desired data using CSS selectors. The `::text` pseudo-element
-    # returns the text content of the matched elements.
     data = {
         'url': url,
         'title': response.css('title::text').get(),
@@ -39,9 +31,7 @@ async def scrape_page(
         'h3s': response.css('h3::text').getall(),
     }
 
-    # Collect absolute links on the same host so the crawl stays on this site.
-    # The `::attr(href)` selector reads the attribute and `response.urljoin`
-    # resolves it against the page URL.
+    # Keep only absolute links on the same host.
     links: list[str] = []
     host = urlsplit(url).netloc
     for href in response.css('a::attr(href)').getall():
@@ -61,11 +51,7 @@ async def enqueue_links(
     depth: int,
     max_depth: int,
 ) -> None:
-    """Enqueue the given links one level deeper than the current page.
-
-    Nothing is enqueued once `depth` reaches `max_depth`, which keeps the crawl
-    bounded to the requested depth.
-    """
+    """Enqueue the links one level deeper, unless max_depth was reached."""
     if depth >= max_depth:
         return
 
@@ -77,62 +63,50 @@ async def enqueue_links(
 
 
 async def main() -> None:
-    # Enter the context of the Actor.
     async with Actor:
-        # Retrieve the Actor input, and use default values if not provided.
+        # Read the Actor input.
         actor_input = await Actor.get_input() or {}
         start_urls = actor_input.get('startUrls', [{'url': 'https://crawlee.dev'}])
         max_depth = actor_input.get('maxDepth', 1)
 
-        # Exit if no start URLs are provided.
         if not start_urls:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Create a proxy configuration that routes requests through Apify Proxy.
+        # Set up Apify Proxy and the request queue.
         proxy_configuration = await Actor.create_proxy_configuration()
-
-        # Open the default request queue for handling URLs to be processed.
         request_queue = await Actor.open_request_queue()
 
-        # Enqueue the start URLs. Their crawl depth defaults to 0.
+        # Enqueue the start URLs (crawl depth defaults to 0).
         for start_url in start_urls:
             url = start_url.get('url')
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
-        # Limit the crawl; raise or remove the cap to follow more pages.
+        # Cap the crawl; raise or remove to follow more pages.
         max_requests = 50
         handled_requests = 0
 
-        # Process the URLs from the request queue, up to the request limit.
         while handled_requests < max_requests and (
             request := await request_queue.fetch_next_request()
         ):
             handled_requests += 1
             url = request.url
-
-            # Read the crawl depth tracked by the request itself.
             depth = request.crawl_depth
             Actor.log.info(f'Scraping {url} (depth={depth}) ...')
 
             try:
-                # Get a fresh proxy URL for each request (None if no proxy set up).
+                # Fresh proxy URL per request (None if no proxy).
                 proxy_url = None
                 if proxy_configuration:
                     proxy_url = await proxy_configuration.new_url()
 
-                # Fetch the page and extract its data and nested links.
                 data, links = await scrape_page(url, proxy_url=proxy_url)
-
-                # Store the extracted data to the default dataset.
                 await Actor.push_data(data)
                 Actor.log.info(
                     f'Stored data from {url} '
                     f'(title={data["title"]!r}, {len(links)} links found).'
                 )
-
-                # Enqueue the links found on the page, one level deeper.
                 await enqueue_links(
                     request_queue, links, depth=depth, max_depth=max_depth
                 )
@@ -141,7 +115,6 @@ async def main() -> None:
                 Actor.log.exception(f'Cannot extract data from {url}.')
 
             finally:
-                # Mark the request as handled so it is not processed again.
                 await request_queue.mark_request_as_handled(request)
 
 
