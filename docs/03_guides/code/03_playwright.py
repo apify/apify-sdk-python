@@ -5,6 +5,7 @@ from urllib.parse import urljoin, urlsplit
 from playwright.async_api import BrowserContext, async_playwright
 
 from apify import Actor, Request
+from apify.storages import RequestQueue
 
 # Note: To run this Actor locally, ensure that Playwright browsers are installed.
 # Run `playwright install --with-deps` in the Actor's virtual environment to install them.
@@ -64,6 +65,28 @@ async def scrape_page(
 
     finally:
         await page.close()
+
+
+async def enqueue_links(
+    request_queue: RequestQueue,
+    links: list[str],
+    *,
+    depth: int,
+    max_depth: int,
+) -> None:
+    """Enqueue the given links one level deeper than the current page.
+
+    Nothing is enqueued once `depth` reaches `max_depth`, which keeps the crawl
+    bounded to the requested depth.
+    """
+    if depth >= max_depth:
+        return
+
+    for link_url in links:
+        Actor.log.info(f'Enqueuing {link_url} ...')
+        request = Request.from_url(link_url)
+        request.crawl_depth = depth + 1
+        await request_queue.add_request(request)
 
 
 async def main() -> None:
@@ -132,13 +155,10 @@ async def main() -> None:
                         f'(title={data["title"]!r}, {len(links)} links found).'
                     )
 
-                    # If we are not too deep yet, enqueue the links we found.
-                    if depth < max_depth:
-                        for link_url in links:
-                            Actor.log.info(f'Enqueuing {link_url} ...')
-                            new_request = Request.from_url(link_url)
-                            new_request.crawl_depth = depth + 1
-                            await request_queue.add_request(new_request)
+                    # Enqueue the links found on the page, one level deeper.
+                    await enqueue_links(
+                        request_queue, links, depth=depth, max_depth=max_depth
+                    )
 
                 except Exception:
                     Actor.log.exception(f'Cannot extract data from {url}.')

@@ -11,6 +11,7 @@ from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.common.by import By
 
 from apify import Actor, Request
+from apify.storages import RequestQueue
 
 # To run this Actor locally, you need to have the Selenium Chromedriver installed.
 # Follow the installation guide at:
@@ -74,6 +75,33 @@ def proxy_auth_extension(proxy_url: str) -> str:
     return str(extension_path)
 
 
+def build_chrome_driver(proxy_url: str | None = None) -> webdriver.Chrome:
+    """Create a headless Chrome WebDriver, optionally routed through a proxy.
+
+    When a proxy URL is given, the browser is configured with a small
+    authentication extension (see `proxy_auth_extension`), because Chrome ignores
+    the credentials passed via the `--proxy-server` flag.
+    """
+    chrome_options = ChromeOptions()
+
+    if Actor.configuration.headless:
+        # The new headless mode is required for the proxy extension to load.
+        chrome_options.add_argument('--headless=new')
+
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-gpu')
+
+    # Route the browser through Apify Proxy via an authentication extension.
+    if proxy_url:
+        chrome_options.add_extension(proxy_auth_extension(proxy_url))
+        chrome_options.add_argument(
+            '--disable-features=DisableLoadExtensionCommandLineSwitch'
+        )
+
+    return webdriver.Chrome(options=chrome_options)
+
+
 def scrape_page(driver: webdriver.Chrome, url: str) -> tuple[dict[str, Any], list[str]]:
     """Navigate to a page with Selenium, extract its data, and collect its links.
 
@@ -104,6 +132,28 @@ def scrape_page(driver: webdriver.Chrome, url: str) -> tuple[dict[str, Any], lis
             links.append(link_url)
 
     return data, links
+
+
+async def enqueue_links(
+    request_queue: RequestQueue,
+    links: list[str],
+    *,
+    depth: int,
+    max_depth: int,
+) -> None:
+    """Enqueue the given links one level deeper than the current page.
+
+    Nothing is enqueued once `depth` reaches `max_depth`, which keeps the crawl
+    bounded to the requested depth.
+    """
+    if depth >= max_depth:
+        return
+
+    for link_url in links:
+        Actor.log.info(f'Enqueuing {link_url} ...')
+        request = Request.from_url(link_url)
+        request.crawl_depth = depth + 1
+        await request_queue.add_request(request)
 
 
 async def main() -> None:
@@ -137,26 +187,14 @@ async def main() -> None:
         max_requests = 50
         handled_requests = 0
 
-        # Launch a new Selenium Chrome WebDriver and configure it.
+        # Get a proxy URL to route the browser through (None if no proxy set up).
+        proxy_url = None
+        if proxy_configuration:
+            proxy_url = await proxy_configuration.new_url()
+
+        # Launch and configure a Selenium Chrome WebDriver.
         Actor.log.info('Launching Chrome WebDriver...')
-        chrome_options = ChromeOptions()
-
-        if Actor.configuration.headless:
-            # The new headless mode is required for the proxy extension to load.
-            chrome_options.add_argument('--headless=new')
-
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-gpu')
-
-        # Route the browser through Apify Proxy via an authentication extension.
-        if proxy_configuration and (proxy_url := await proxy_configuration.new_url()):
-            chrome_options.add_extension(proxy_auth_extension(proxy_url))
-            chrome_options.add_argument(
-                '--disable-features=DisableLoadExtensionCommandLineSwitch'
-            )
-
-        driver = webdriver.Chrome(options=chrome_options)
+        driver = build_chrome_driver(proxy_url)
 
         # Process the URLs from the request queue, up to the request limit.
         while handled_requests < max_requests and (
@@ -181,13 +219,10 @@ async def main() -> None:
                     f'(title={data["title"]!r}, {len(links)} links found).'
                 )
 
-                # If we are not too deep yet, enqueue the links we found.
-                if depth < max_depth:
-                    for link_url in links:
-                        Actor.log.info(f'Enqueuing {link_url} ...')
-                        new_request = Request.from_url(link_url)
-                        new_request.crawl_depth = depth + 1
-                        await request_queue.add_request(new_request)
+                # Enqueue the links found on the page, one level deeper.
+                await enqueue_links(
+                    request_queue, links, depth=depth, max_depth=max_depth
+                )
 
             except Exception:
                 Actor.log.exception(f'Cannot extract data from {url}.')
