@@ -389,11 +389,9 @@ async def test_actor_reboots_successfully(
     assert reboot_counter['value'] == 2
 
 
-# This E2E test relies on the Apify platform delivering a webhook (fired by the client Actor's `ACTOR_RUN_SUCCEEDED`
-# event) to the server Actor's container. The server Actor blocks until that webhook arrives, so when platform-side
-# delivery is delayed past the run timeout, the server run ends as `TIMED-OUT` and the test fails. This is a
-# platform-timing flake outside the SDK's control, so we retry it a couple of times before giving up.
-@pytest.mark.flaky(reruns=2)
+# Flaky: the server Actor blocks until the platform delivers the client's `ACTOR_RUN_SUCCEEDED` webhook; when
+# delivery is delayed past the run timeout, the run ends as `TIMED-OUT`. Platform-side, outside our control, so retry.
+@pytest.mark.flaky(reruns=3)
 async def test_actor_adds_webhook_and_receives_event(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
