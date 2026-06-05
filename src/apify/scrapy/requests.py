@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import base64
 import codecs
-import pickle
+import json
 from logging import getLogger
 from typing import Any, cast
 
+from pydantic import BaseModel
 from scrapy import Request as ScrapyRequest
 from scrapy import Spider
 from scrapy.http.headers import Headers
@@ -16,6 +18,48 @@ from crawlee._types import HttpHeaders
 from apify import Request as ApifyRequest
 
 logger = getLogger(__name__)
+
+# Sentinel key used to wrap bytes values in JSON-safe dicts.
+_BYTES_SENTINEL = '__b64__'
+
+
+def _encode_for_json(obj: Any) -> Any:
+    """Recursively encode an object so it is JSON-serializable.
+
+    ``bytes`` values are replaced with ``{"__b64__": "<base64-ascii>"}``.
+    ``bytes`` dict keys are decoded to UTF-8 strings (Scrapy headers use bytes keys).
+    Pydantic ``BaseModel`` instances are converted via ``model_dump()``.
+    Enum members are replaced with their ``.value``.
+    """
+    if isinstance(obj, bytes):
+        return {_BYTES_SENTINEL: base64.b64encode(obj).decode('ascii')}
+    if isinstance(obj, BaseModel):
+        return _encode_for_json(obj.model_dump(by_alias=True))
+    if isinstance(obj, dict):
+        return {
+            (k.decode('utf-8') if isinstance(k, bytes) else k): _encode_for_json(v)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, (list, tuple)):
+        return [_encode_for_json(v) for v in obj]
+    # Handle enum values (e.g. RequestState)
+    if hasattr(obj, 'value') and not isinstance(obj, (str, int, float, bool)):
+        return obj.value
+    return obj
+
+
+def _decode_from_json(obj: Any) -> Any:
+    """Reverse :func:`_encode_for_json`.
+
+    Dicts of the form ``{"__b64__": "<data>"}`` are decoded back to ``bytes``.
+    """
+    if isinstance(obj, dict):
+        if _BYTES_SENTINEL in obj and len(obj) == 1:
+            return base64.b64decode(obj[_BYTES_SENTINEL])
+        return {k: _decode_from_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_decode_from_json(v) for v in obj]
+    return obj
 
 
 def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequest | None:
@@ -78,11 +122,12 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         apify_request = ApifyRequest.from_url(**request_kwargs)
 
         # Serialize the Scrapy ScrapyRequest and store it in the apify_request.
-        #   - This process involves converting the Scrapy ScrapyRequest object into a dictionary, encoding it to base64,
+        #   - This process involves converting the Scrapy ScrapyRequest object into a dictionary,
+        #     JSON-encoding it (with bytes values base64-wrapped), then base64-encoding the result,
         #     and storing it as 'scrapy_request' within the 'userData' dictionary of the apify_request.
-        #   - The serialization process can be referenced at: https://stackoverflow.com/questions/30469575/.
         scrapy_request_dict = scrapy_request.to_dict(spider=spider)
-        scrapy_request_dict_encoded = codecs.encode(pickle.dumps(scrapy_request_dict), 'base64').decode()
+        scrapy_request_json = json.dumps(_encode_for_json(scrapy_request_dict))
+        scrapy_request_dict_encoded = codecs.encode(scrapy_request_json.encode('utf-8'), 'base64').decode()
         apify_request.user_data['scrapy_request'] = scrapy_request_dict_encoded
 
     except Exception as exc:
@@ -123,7 +168,16 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
         if not isinstance(scrapy_request_dict_encoded, str):
             raise TypeError('scrapy_request_dict_encoded must be a string')
 
-        scrapy_request_dict = pickle.loads(codecs.decode(scrapy_request_dict_encoded.encode(), 'base64'))
+        scrapy_request_json = codecs.decode(scrapy_request_dict_encoded.encode(), 'base64').decode('utf-8')
+        scrapy_request_dict = _decode_from_json(json.loads(scrapy_request_json))
+
+        # Scrapy's request_from_dict expects bytes keys in the headers dict.
+        if 'headers' in scrapy_request_dict and isinstance(scrapy_request_dict['headers'], dict):
+            scrapy_request_dict['headers'] = {
+                k.encode('utf-8') if isinstance(k, str) else k: v
+                for k, v in scrapy_request_dict['headers'].items()
+            }
+
         if not isinstance(scrapy_request_dict, dict):
             raise TypeError('scrapy_request_dict must be a dictionary')
 
