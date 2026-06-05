@@ -4,6 +4,8 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
+import pytest
+
 from apify_shared.consts import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
@@ -387,6 +389,11 @@ async def test_actor_reboots_successfully(
     assert reboot_counter['value'] == 2
 
 
+# This E2E test relies on the Apify platform delivering a webhook (fired by the client Actor's `ACTOR_RUN_SUCCEEDED`
+# event) to the server Actor's container. The server Actor blocks until that webhook arrives, so when platform-side
+# delivery is delayed past the run timeout, the server run ends as `TIMED-OUT` and the test fails. This is a
+# platform-timing flake outside the SDK's control, so we retry it a couple of times before giving up.
+@pytest.mark.flaky(reruns=2)
 async def test_actor_adds_webhook_and_receives_event(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
