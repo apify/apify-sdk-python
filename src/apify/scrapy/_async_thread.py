@@ -14,13 +14,18 @@ logger = getLogger(__name__)
 
 
 class AsyncThread:
-    """Class for running an asyncio event loop in a separate thread.
+    """Run an asyncio event loop in a dedicated background thread.
 
-    This allows running asynchronous coroutines from synchronous code by executingthem on an event loop
-    that runs in its own dedicated thread.
+    This lets synchronous Scrapy callbacks drive asynchronous Apify and Crawlee coroutines. Each
+    consumer (the scheduler and the HTTP cache storage) owns its own `AsyncThread`, so the request
+    queue and the key-value store each live entirely on a single, separate event loop and are never
+    shared across loops. They do read the same global `Configuration`, which is read-only here, so
+    the isolation holds. A single shared loop would also work but would couple the otherwise
+    independent lifecycles of those Scrapy components.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, default_timeout: timedelta = timedelta(seconds=60)) -> None:
+        self._default_timeout = default_timeout
         self._eventloop = asyncio.new_event_loop()
 
         # Start the event loop in a dedicated daemon thread.
@@ -33,7 +38,7 @@ class AsyncThread:
     def run_coro(
         self,
         coro: Coroutine,
-        timeout: timedelta = timedelta(seconds=60),
+        timeout: timedelta | None = None,
     ) -> Any:
         """Run a coroutine on an event loop running in a separate thread.
 
@@ -42,7 +47,8 @@ class AsyncThread:
 
         Args:
             coro: The coroutine to run.
-            timeout: The maximum number of seconds to wait for the coroutine to finish.
+            timeout: The maximum time to wait for the coroutine to finish. Defaults to the
+                `default_timeout` passed to the constructor.
 
         Returns:
             The result returned by the coroutine.
@@ -52,6 +58,9 @@ class AsyncThread:
             TimeoutError: If the coroutine does not complete within the timeout.
             Exception: Any exception raised during coroutine execution.
         """
+        if timeout is None:
+            timeout = self._default_timeout
+
         if not self._eventloop.is_running():
             raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is not running.')
 
