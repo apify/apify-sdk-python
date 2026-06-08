@@ -183,10 +183,10 @@ To check if all the requests in the queue are handled, you can use the <ApiLink 
 
 ## Storage clients
 
-Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The appropriate client is selected automatically based on the runtime environment — on the Apify platform, data is persisted via the Apify API, while local runs use the filesystem. For most use cases, you don't need to think about storage clients at all. To learn about the available implementations, how to switch between a single and shared request queue, or how to configure a custom client, see the [Storage clients](./storage-clients) page. For a deeper look at how storage clients work internally, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients).
+Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The appropriate client is selected automatically based on the runtime environment. On the Apify platform, data is persisted via the Apify API, while local runs use the filesystem. For most use cases, you don't need to think about storage clients at all. To learn about the available implementations, how to switch between a single and shared request queue, or how to configure a custom client, see the [Storage clients](./storage-clients) page. For a deeper look at how storage clients work internally, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients).
 
 ## Conclusion
 
-This page has covered the three storage types — datasets, key-value stores, and request queues — how they are emulated on the local filesystem, how to open named and unnamed storages, and how to read from and write to each through the `Actor` shortcuts and the storage classes.
+This page has covered the three storage types (datasets, key-value stores, and request queues): how they are emulated on the local filesystem, how to open named and unnamed storages, and how to read from and write to each through the `Actor` shortcuts and the storage classes.
 
 For comprehensive information about storage on the Apify platform, see the [storage documentation](https://docs.apify.com/platform/storage), including the pages on [datasets](https://docs.apify.com/platform/storage/dataset), [key-value stores](https://docs.apify.com/platform/storage/key-value-store), and [request queues](https://docs.apify.com/platform/storage/request-queue).

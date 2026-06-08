@@ -106,7 +106,7 @@ You can then use that input to create the proxy configuration:
 
 ## Using the generated proxy URLs
 
-`ProxyConfiguration` only generates proxy URLs — it does not make requests itself. Pass a generated URL to whichever HTTP client your Actor uses to route requests through the proxy.
+`ProxyConfiguration` only generates proxy URLs. It does not make requests itself. Pass a generated URL to whichever HTTP client your Actor uses to route requests through the proxy.
 
 ### HTTPX
 
@@ -124,6 +124,6 @@ pip install httpx
 
 ## Conclusion
 
-This page has explained how to manage proxies with the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class — using Apify Proxy or your own servers, keeping sessions sticky across requests, configuring tiered proxy rotation, and feeding proxy settings from Actor input.
+This page has explained how to manage proxies with the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class: using Apify Proxy or your own servers, keeping sessions sticky across requests, configuring tiered proxy rotation, and feeding proxy settings from Actor input.
 
 For full details on proxy configuration options, see the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> API reference and the [Apify Proxy documentation](https://docs.apify.com/proxy).

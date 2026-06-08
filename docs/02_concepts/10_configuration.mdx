@@ -27,7 +27,7 @@ This will cause the Actor to persist its state every 10 seconds:
 
 ## Configuring via environment variables
 
-All configuration options can also be set via environment variables. Most options are read from an environment variable named after the option in uppercase; many options accept several aliases — commonly with an `APIFY_`, `ACTOR_`, or `CRAWLEE_` prefix. See the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference for the full list of configuration options.
+All configuration options can also be set via environment variables. Most options are read from an environment variable named after the option in uppercase; many options accept several aliases, commonly with an `APIFY_`, `ACTOR_`, or `CRAWLEE_` prefix. See the <ApiLink to="class/Configuration">`Configuration`</ApiLink> API reference for the full list of configuration options.
 
 For example, this Actor run will keep the contents of its local storages instead of purging them on start:
 
@@ -48,7 +48,7 @@ The table below lists a few options you are most likely to set yourself. When ru
 | `log_level` | `APIFY_LOG_LEVEL` | `'INFO'` | Minimum severity of log messages that are printed. |
 | `headless` | `APIFY_HEADLESS` | `True` | Whether to run browsers in headless mode. |
 | `storage_dir` | `APIFY_LOCAL_STORAGE_DIR` | `'./storage'` | Directory holding local storages when running outside the platform. |
-| `is_at_home` | `APIFY_IS_AT_HOME` | `False` | Set by the platform — `True` when the Actor runs on Apify. |
+| `is_at_home` | `APIFY_IS_AT_HOME` | `False` | Set by the platform. `True` when the Actor runs on Apify. |
 
 ## Reading the runtime environment
 

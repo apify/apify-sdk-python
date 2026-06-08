@@ -12,7 +12,7 @@ import ActorNewClientExample from '!!raw-loader!roa-loader!./code/08_actor_new_c
 
 The Apify SDK provides a built-in instance of the [Apify API Client](https://docs.apify.com/api/client/python) for accessing Apify platform features beyond what the SDK covers directly.
 
-The SDK wraps the most common operations — opening storages, reading input, charging, and starting other Actors — in convenient high-level methods. When you need something it does not expose directly, such as managing schedules, listing your Actors and runs, working with builds or webhook dispatches, or reading another run's dataset, you can reach the full [Apify API](https://docs.apify.com/api/v2) through the client. It provides a dedicated sub-client for each API resource — among them `dataset`, `key_value_store`, `request_queue`, `run`, `actor`, `task`, `schedule`, `webhook`, and `user` — and each operation returns plain Python data structures.
+The SDK wraps the most common operations (opening storages, reading input, charging, and starting other Actors) in convenient high-level methods. When you need something it does not expose directly, such as managing schedules, listing your Actors and runs, working with builds or webhook dispatches, or reading another run's dataset, you can reach the full [Apify API](https://docs.apify.com/api/v2) through the client. It provides a dedicated sub-client for each API resource (among them `dataset`, `key_value_store`, `request_queue`, `run`, `actor`, `task`, `schedule`, `webhook`, and `user`), and each operation returns plain Python data structures.
 
 ## Actor client
 
@@ -24,20 +24,20 @@ For example, to get the details of your user, you can use this snippet:
     {ActorClientExample}
 </RunnableCodeBlock>
 
-You select a resource with the matching method — for example `Actor.apify_client.dataset('<dataset_id>')` for a dataset or `Actor.apify_client.run('<run_id>')` for an Actor run — and then call the operation you need on the returned sub-client.
+You select a resource with the matching method (for example, `Actor.apify_client.dataset('<dataset_id>')` for a dataset or `Actor.apify_client.run('<run_id>')` for an Actor run), and then call the operation you need on the returned sub-client.
 
 ## Actor new client
 
-If you want to create a completely new instance of the client — for example, to use a different user's token or change the client configuration — you can use the <ApiLink to="class/Actor#new_client">`Actor.new_client`</ApiLink> method. It accepts an optional `token` and `api_url`, along with retry and timeout settings (`max_retries`, `min_delay_between_retries`, `timeout`), and returns a fresh `ApifyClientAsync`:
+If you want to create a completely new instance of the client (for example, to use a different user's token or change the client configuration), you can use the <ApiLink to="class/Actor#new_client">`Actor.new_client`</ApiLink> method. It accepts an optional `token` and `api_url`, along with retry and timeout settings (`max_retries`, `min_delay_between_retries`, `timeout`), and returns a fresh `ApifyClientAsync`:
 
 <RunnableCodeBlock className="language-python" language="python">
     {ActorNewClientExample}
 </RunnableCodeBlock>
 
-This is useful when the Actor's own token is not the right one — for instance, when acting on behalf of another user — or when you want different retry and timeout behavior than the shared `Actor.apify_client` instance.
+This is useful when the Actor's own token is not the right one, for instance when acting on behalf of another user, or when you want different retry and timeout behavior than the shared `Actor.apify_client` instance.
 
 ## Conclusion
 
-This page has shown how to reach the Apify API directly — through the built-in client exposed by <ApiLink to="class/Actor#apify_client">`Actor.apify_client`</ApiLink>, or a freshly configured one created with <ApiLink to="class/Actor#new_client">`Actor.new_client`</ApiLink> — for platform features the SDK does not wrap directly.
+This page has shown how to reach the Apify API directly for platform features the SDK does not wrap. You can use the built-in client exposed by <ApiLink to="class/Actor#apify_client">`Actor.apify_client`</ApiLink>, or a freshly configured one created with <ApiLink to="class/Actor#new_client">`Actor.new_client`</ApiLink>.
 
 For the full API client documentation, see the [Apify API Client for Python](https://docs.apify.com/api/client/python).
