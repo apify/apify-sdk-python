@@ -44,7 +44,7 @@ A few things worth pointing out:
 
 - A single `AsyncWebCrawler` is opened once and reused for every request. The crawler manages one browser instance, so reusing it across the whole crawl is far cheaper than launching a new browser per page.
 - Keeping the crawling and parsing in `scrape_page` separates the Crawl4AI-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `main` decides what to store and what to enqueue.
-- `result.markdown` is the rendered page as clean markdown, and `result.metadata` carries page-level fields such as the title - exactly the kind of output you want when preparing data for an LLM.
+- `result.markdown` is the rendered page as clean markdown, and `result.metadata` carries page-level fields such as the title. This is exactly the kind of output you want when preparing data for an LLM.
 - `result.links` already separates `internal` (same-site) links from `external` ones, so the example follows only the internal links to keep the crawl on the same website.
 - `CacheMode.BYPASS` tells Crawl4AI to always fetch a fresh copy of the page instead of serving it from its local cache.
 
@@ -52,11 +52,11 @@ A few things worth pointing out:
 
 Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `main` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `scrape_page` for every request, which forwards it to Crawl4AI's per-request `CrawlerRunConfig`.
 
-`ProxyConfig.from_string` parses the proxy URL returned by `ProxyConfiguration.new_url` (for example `http://groups-RESIDENTIAL:<password>@proxy.apify.com:8000`) into the server, username, and password that the browser needs - the browser cannot take the credentials embedded directly in the URL. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
+`ProxyConfig.from_string` parses the proxy URL returned by `ProxyConfiguration.new_url` (for example `http://groups-RESIDENTIAL:<password>@proxy.apify.com:8000`) into the server, username, and password that the browser needs. The browser cannot take the credentials embedded directly in the URL. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
 
 ## Running on the Apify platform
 
-Because Crawl4AI renders pages in a real browser, the Actor image needs a browser and its system-level dependencies. Build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser - Crawl4AI reuses those binaries, so no separate browser-install step is required in the Dockerfile.
+Because Crawl4AI renders pages in a real browser, the Actor image needs a browser and its system-level dependencies. Build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser. Crawl4AI reuses those binaries, so no separate browser-install step is required in the Dockerfile.
 
 Pin the Python 3.13 variant of that image (for example `apify/actor-python-playwright:3.13-1.60.0`), because some of Crawl4AI's dependencies do not yet publish wheels for the newest Python versions, which would otherwise force a slow source build during the image build.
 
