@@ -7,6 +7,9 @@ from enum import StrEnum
 EVENT_LISTENERS_TIMEOUT = timedelta(seconds=5)
 """Timeout for waiting on event listeners to finish during Actor exit."""
 
+BASE64_REGEXP = '[-A-Za-z0-9+/]*={0,3}'
+"""Regex fragment matching a single base64-encoded component."""
+
 ENCRYPTED_STRING_VALUE_PREFIX = 'ENCRYPTED_VALUE'
 """Prefix for encrypted string values in Actor input."""
 
@@ -14,7 +17,7 @@ ENCRYPTED_JSON_VALUE_PREFIX = 'ENCRYPTED_JSON'
 """Prefix for encrypted JSON values in Actor input."""
 
 ENCRYPTED_INPUT_VALUE_REGEXP = re.compile(
-    r'^(ENCRYPTED_VALUE|ENCRYPTED_JSON):(?:([-A-Za-z0-9+/]*={0,3}):)?([-A-Za-z0-9+/]*={0,3}):([-A-Za-z0-9+/]*={0,3})$'
+    f'^({ENCRYPTED_STRING_VALUE_PREFIX}|{ENCRYPTED_JSON_VALUE_PREFIX}):(?:({BASE64_REGEXP}):)?({BASE64_REGEXP}):({BASE64_REGEXP})$'
 )
 """Regex matching encrypted input values with base64-encoded components."""
 

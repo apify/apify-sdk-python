@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from asyncio import Lock
-from datetime import timedelta
 from functools import cached_property
 from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar, Literal, overload
@@ -258,7 +257,6 @@ class AliasResolver:
             token=configuration.token,
             api_url=configuration.api_base_url,
             max_retries=8,
-            min_delay_between_retries=timedelta(milliseconds=500),
         )
 
         if not configuration.default_key_value_store_id:

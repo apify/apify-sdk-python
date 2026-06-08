@@ -926,7 +926,7 @@ class _ActorType:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
         actor_client = client.actor(actor_id)
-        run = await actor_client.start(
+        return await actor_client.start(
             run_input=run_input,
             content_type=content_type,
             build=build,
@@ -938,11 +938,6 @@ class _ActorType:
             wait_for_finish=wait_for_finish,
             webhooks=to_client_representations(webhooks),
         )
-
-        if run is None:
-            raise RuntimeError(f'Failed to start Actor with ID "{actor_id}".')
-
-        return run
 
     @_ensure_context
     async def abort(
