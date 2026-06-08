@@ -83,9 +83,8 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Playwright proxies at the browser level, so one URL is shared per run.
+        # Set up the proxy configuration; a fresh proxy URL is fetched per request below.
         proxy_configuration = await Actor.create_proxy_configuration()
-        proxy_url = await proxy_configuration.new_url() if proxy_configuration else None
 
         # Open the request queue and enqueue the start URLs (crawl depth 0).
         request_queue = await Actor.open_request_queue()
@@ -103,10 +102,8 @@ async def main() -> None:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(
                 headless=Actor.configuration.headless,
-                proxy=to_playwright_proxy(proxy_url) if proxy_url else None,
                 args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             )
-            context = await browser.new_context()
 
             while handled_requests < max_requests and (
                 request := await request_queue.fetch_next_request()
@@ -115,6 +112,14 @@ async def main() -> None:
                 url = request.url
                 depth = request.crawl_depth
                 Actor.log.info(f'Scraping {url} (depth={depth}) ...')
+
+                # A new context with a fresh proxy URL per request rotates the proxy IP.
+                proxy_url = (
+                    await proxy_configuration.new_url() if proxy_configuration else None
+                )
+                context = await browser.new_context(
+                    proxy=to_playwright_proxy(proxy_url) if proxy_url else None,
+                )
 
                 try:
                     data, links = await scrape_page(context, url)
@@ -131,6 +136,7 @@ async def main() -> None:
                     Actor.log.exception(f'Cannot extract data from {url}.')
 
                 finally:
+                    await context.close()
                     await request_queue.mark_request_as_handled(request)
 
 
