@@ -24,8 +24,8 @@ An Actor reads its input with <ApiLink to="class/Actor#get_input">`Actor.get_inp
     {RawInputExample}
 </RunnableCodeBlock>
 
-- There are no type guarantees - `max_results` could just as easily arrive as the string `"10"` or `None`, and you'd only find out when something blows up later.
-- There's no validation - nothing stops `max_results` from being `0` or `-5`, or `search_terms` from being empty.
+- There are no type guarantees. `max_results` could just as easily arrive as the string `"10"` or `None`, and you'd only find out when something blows up later.
+- There's no validation. Nothing stops `max_results` from being `0` or `-5`, or `search_terms` from being empty.
 - A typo in a key (`maxResult` instead of `maxResults`) silently falls back to the default instead of failing.
 - Defaults are scattered across the codebase, and your editor can't autocomplete the fields or catch mistakes.
 
@@ -41,15 +41,15 @@ The following Actor declares its input as a Pydantic `BaseModel`, validates the 
 
 A few things worth pointing out about the **model**:
 
-- **Aliases bridge the naming conventions.** Apify input fields are conventionally `camelCase` (`maxResults`), while Python attributes are `snake_case` (`max_results`). Since every field follows that convention, `alias_generator=to_camel` derives the camelCase alias for the whole model at once, instead of spelling out `Field(alias=...)` on each field. `populate_by_name=True` lets the model accept either spelling - handy in tests.
+- **Aliases bridge the naming conventions.** Apify input fields are conventionally `camelCase` (`maxResults`), while Python attributes are `snake_case` (`max_results`). Since every field follows that convention, `alias_generator=to_camel` derives the camelCase alias for the whole model at once, instead of spelling out `Field(alias=...)` on each field. `populate_by_name=True` lets the model accept either spelling, which is handy in tests.
 - **Defaults and `required` fields are explicit.** A field without a default (`search_terms`) is required; one with a default (`max_results`) is optional. There's a single, obvious place where every default lives.
-- **Constraints are declarative.** `ge=1, le=100` enforces a numeric range, `min_length=1` rejects an empty list, and `Literal['json', 'csv']` restricts a field to a fixed set of choices - mirroring an `enum` in the input schema.
+- **Constraints are declarative.** `ge=1, le=100` enforces a numeric range, `min_length=1` rejects an empty list, and `Literal['json', 'csv']` restricts a field to a fixed set of choices, mirroring an `enum` in the input schema.
 - **Custom validators handle the rest.** The `field_validator` normalizes the search terms (trimming whitespace, dropping empties) and rejects input that has nothing left, so the rest of your code never has to repeat those checks.
 - **Unknown fields are ignored.** `extra='ignore'` means adding a new field to your input schema won't break an older Actor build that doesn't know about it yet. Use `extra='forbid'` instead if you'd rather reject anything unexpected.
 
 And about the **validation** itself:
 
-- `model_validate` parses the raw dictionary into a typed `ActorInput` instance, filling in defaults and guaranteeing every field is valid - or raising a `ValidationError` describing every problem at once.
+- `model_validate` parses the raw dictionary into a typed `ActorInput` instance, filling in defaults and guaranteeing every field is valid, or raising a `ValidationError` describing every problem at once.
 - Catching that error, logging a readable summary, and re-raising makes the Actor **fail fast** with a clear explanation right at the start, rather than crashing with an obscure error somewhere deep in the run. Because the body runs inside `async with Actor:`, the re-raised exception automatically marks the run as `FAILED`.
 - The error messages refer to the fields by their input-schema aliases. For invalid input like `{"searchTerms": [], "maxResults": 999, "outputFormat": "xml"}`, the log shows exactly what's wrong:
 
@@ -64,11 +64,11 @@ And about the **validation** itself:
     Input should be 'json' or 'csv' ...
   ```
 
-Once validation passes, the rest of `main` works with `actor_input.search_terms`, `actor_input.max_results`, and `actor_input.output_format` - all correctly typed, with editor autocompletion and static type checking.
+Once validation passes, the rest of `main` works with `actor_input.search_terms`, `actor_input.max_results`, and `actor_input.output_format`, all correctly typed, with editor autocompletion and static type checking.
 
 ## Relationship to the input schema
 
-Pydantic validation **complements** the Actor's [input schema](https://docs.apify.com/platform/actors/development/input-schema) (`.actor/input_schema.json`) - it doesn't replace it. The two serve different layers:
+Pydantic validation **complements** the Actor's [input schema](https://docs.apify.com/platform/actors/development/input-schema) (`.actor/input_schema.json`). It doesn't replace it. The two serve different layers:
 
 - The **input schema** drives the Apify Console form, documents the fields for your users, and lets the platform validate input before the run even starts. Keep declaring your fields there.
 - The **Pydantic model** validates the input again *inside your Python code*, where it gives you a typed object, IDE support, and richer rules (normalization, cross-field checks, custom formats) that the input schema can't express. It's also your safety net for runs started programmatically by [another Actor](../concepts/interacting-with-other-actors) or executed [locally](https://docs.apify.com/cli/docs/reference#apify-run), and for keeping the two definitions honest with each other.
