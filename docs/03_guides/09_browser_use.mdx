@@ -57,6 +57,8 @@ A few things worth pointing out:
 - `enable_signal_handler=False` leaves signal handling to the Actor, which manages the run's lifecycle. Without it, Browser Use would install its own handlers and interfere with a clean shutdown.
 - `headless=Actor.configuration.headless` runs the browser without a visible window, which is what you want on the platform.
 
+The example runs one agent per Actor run, so each browser profile stays isolated. If you parallelize tasks within a single Actor, give every agent its own `Browser` instance with its own `user_data_dir`. Several concurrent agents sharing one profile can corrupt it.
+
 ## Using Apify Proxy
 
 Running on the Apify platform gives your agent access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `main` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `run_agent_task`.
