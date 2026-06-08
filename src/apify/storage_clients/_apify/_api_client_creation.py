@@ -132,7 +132,7 @@ async def create_storage_api_client(
 
         # Open default storage.
         case (None, None, None, str()):
-            resource_client = get_resource_client(default_id)  # ty: ignore[invalid-argument-type]
+            resource_client = get_resource_client(default_id)
             raw_metadata = await resource_client.get()
             # Default storage does not exist. Create a new one.
             if not raw_metadata:
