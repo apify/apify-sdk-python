@@ -40,7 +40,7 @@ All of Scrapling's fetchers are importable from `scrapling.fetchers`. Pick the o
 
 The returned `Response` object is also a Scrapling selector, so you can call `.css()`, `.xpath()`, `.find_all()`, and the other parsing methods on it directly.
 
-The HTTP fetchers work with just the `scrapling[fetchers]` extra. The browser-based fetchers (`DynamicFetcher` and `StealthyFetcher`) additionally need browser binaries, which you download with the `scrapling install` command - see [Running browser-based fetchers](#running-browser-based-fetchers) below.
+The HTTP fetchers work with just the `scrapling[fetchers]` extra. The browser-based fetchers (`DynamicFetcher` and `StealthyFetcher`) additionally need browser binaries, which you download with the `scrapling install` command. See [Running browser-based fetchers](#running-browser-based-fetchers) below.
 
 The example Actor in this guide uses the HTTP `AsyncFetcher`, which is the simplest to deploy and pairs well with Apify Proxy.
 
@@ -59,7 +59,7 @@ A few things worth pointing out:
 - Keeping the fetching and parsing in `scrape_page` separates the Scrapling-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `main` decides what to store and what to enqueue.
 - The response of `AsyncFetcher.get` is a Scrapling selector, so `response.css('title::text').get()` reads the page title and `response.css('a::attr(href)').getall()` returns every link's `href` in one call.
 - `response.urljoin(link_href)` resolves relative links against the page URL, so you can enqueue them directly.
-- The `impersonate='chrome'` and `stealthy_headers=True` options make the request look like it comes from a real Chrome browser, which - combined with Apify Proxy - reduces the chance of being blocked.
+- The `impersonate='chrome'` and `stealthy_headers=True` options make the request look like it comes from a real Chrome browser, which, combined with Apify Proxy, reduces the chance of being blocked.
 
 ## Using Apify Proxy
 
@@ -75,7 +75,7 @@ Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy
 scrapling install
 ```
 
-Switching the example Actor from HTTP to a real browser takes only one code change - swap the `AsyncFetcher.get` call in `scrape_page` for `DynamicFetcher.async_fetch`. The parsing API is identical, so the rest of the Actor stays exactly the same:
+Switching the example Actor from HTTP to a real browser takes only one code change. Swap the `AsyncFetcher.get` call in `scrape_page` for `DynamicFetcher.async_fetch`. The parsing API is identical, so the rest of the Actor stays exactly the same:
 
 <CodeBlock className="language-python">
     {ScraplingBrowserScraper}
