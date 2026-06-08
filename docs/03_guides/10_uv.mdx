@@ -17,7 +17,7 @@ In this guide, you'll learn how to use [uv](https://docs.astral.sh/uv/) to manag
 
 ## Introduction
 
-[uv](https://docs.astral.sh/uv/) is a Python package and project manager. It replaces the combination of pip, virtualenv, and similar tools with a single binary that manages your project's Python version, virtual environment, and dependencies. It records the project metadata in the standard [`pyproject.toml`](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) file and the exact resolved versions of all dependencies in a [`uv.lock`](https://docs.astral.sh/uv/concepts/projects/sync/) lockfile.
+[uv](https://docs.astral.sh/uv/) is a modern project and package manager for Python. It replaces the combination of pip, virtualenv, and similar tools with a single binary that manages your project's Python version, virtual environment, and dependencies. It records the project metadata in the standard [`pyproject.toml`](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) file and the exact resolved versions of all dependencies in a [`uv.lock`](https://docs.astral.sh/uv/concepts/projects/sync/) lockfile.
 
 The [Python Actor templates](https://apify.com/templates/categories/python) declare their dependencies in a `requirements.txt` file, which is the default approach for Actors. Using uv instead brings a few advantages:
 
