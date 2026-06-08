@@ -40,8 +40,6 @@ charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_
 _ensure_context = ensure_context('active')
 
 
-# SDK-side Actor pricing-info models.
-#
 # These are thin subclasses of the `apify-client` pricing models. The Apify platform serializes Actor
 # pricing info into the `APIFY_ACTOR_PRICING_INFO` env var (parsed by `Configuration.actor_pricing_info`),
 # but omits several fields that `apify-client` v3 marks as required (`apifyMarginPercentage`, `createdAt`,
