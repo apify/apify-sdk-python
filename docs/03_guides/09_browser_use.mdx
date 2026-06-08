@@ -12,7 +12,7 @@ In this guide, you'll learn how to use the [Browser Use](https://browser-use.com
 
 ## Introduction
 
-[Browser Use](https://browser-use.com/) is a Python library that lets an LLM control a real web browser. Instead of writing selectors and navigation steps by hand, you give an agent a natural-language task - such as "find the top post on Hacker News and return its title and URL" - and the agent decides which pages to open, what to click, and what to read until the task is done.
+[Browser Use](https://browser-use.com/) is a Python library that lets an LLM control a real web browser. Instead of writing selectors and navigation steps by hand, you give an agent a natural-language task, such as "find the top post on Hacker News and return its title and URL". The agent then decides which pages to open, what to click, and what to read until the task is done.
 
 Some of the features that make Browser Use a good fit for Apify Actors:
 
@@ -44,7 +44,7 @@ Keep the API key out of the Actor input and source code. The example reads it fr
 
 The following Actor runs a Browser Use agent for a single task and stores its structured result in the default dataset. By default it opens [Hacker News](https://news.ycombinator.com) and returns the title and URL of the top five posts, but the task, model, and step limit are all configurable through the Actor input.
 
-The whole Actor fits in a single file. A `run_agent_task` helper holds the Browser Use-specific logic - it defines the output schema and builds the LLM, browser, and agent - while the `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result:
+The whole Actor fits in a single file. A `run_agent_task` helper holds the Browser Use-specific logic: it defines the output schema and builds the LLM, browser, and agent. The `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result:
 
 <RunnableCodeBlock className="language-python" language="python">
     {BrowserUseExample}
@@ -75,7 +75,7 @@ When running the Actor locally, install the browser once with the `browser-use i
 browser-use install
 ```
 
-Remember to provide the LLM API key in both environments - as a secret environment variable on the platform, and exported in your shell when running locally.
+Remember to provide the LLM API key in both environments: as a secret environment variable on the platform, and exported in your shell when running locally.
 
 ## Conclusion
 
