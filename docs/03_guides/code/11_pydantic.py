@@ -2,6 +2,7 @@ import asyncio
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic.alias_generators import to_camel
 
 from apify import Actor
 
@@ -9,17 +10,20 @@ from apify import Actor
 class ActorInput(BaseModel):
     """Typed and validated representation of the Actor input."""
 
-    # Accept both snake_case and the input schema's camelCase; ignore extras.
-    model_config = ConfigDict(populate_by_name=True, extra='ignore')
+    # Derive each field's camelCase alias (searchTerms, maxResults, ...) automatically;
+    # accept both spellings and ignore extras.
+    model_config = ConfigDict(
+        populate_by_name=True, extra='ignore', alias_generator=to_camel
+    )
 
     # Required: non-empty list of search terms (normalized below).
-    search_terms: list[str] = Field(alias='searchTerms', min_length=1)
+    search_terms: list[str] = Field(min_length=1)
 
     # Optional: 1-100, defaults to 10.
-    max_results: int = Field(alias='maxResults', default=10, ge=1, le=100)
+    max_results: int = Field(default=10, ge=1, le=100)
 
     # Optional: restricted to a fixed set of choices.
-    output_format: Literal['json', 'csv'] = Field(alias='outputFormat', default='json')
+    output_format: Literal['json', 'csv'] = Field(default='json')
 
     @field_validator('search_terms')
     @classmethod

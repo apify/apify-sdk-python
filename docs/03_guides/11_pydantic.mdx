@@ -12,6 +12,7 @@ import RawInputExample from '!!raw-loader!roa-loader!./code/11_raw_input.py';
 import PydanticExample from '!!raw-loader!roa-loader!./code/11_pydantic.py';
 import HttpUrlExample from '!!raw-loader!./code/11_http_url.py';
 import ModelValidatorExample from '!!raw-loader!./code/11_model_validator.py';
+import SecretStrExample from '!!raw-loader!./code/11_secret_str.py';
 
 In this guide, you'll learn how to validate your Apify Actor's input with [Pydantic](https://docs.pydantic.dev/), so that your code works with a typed, guaranteed-valid object instead of a raw dictionary.
 
@@ -40,7 +41,7 @@ The following Actor declares its input as a Pydantic `BaseModel`, validates the 
 
 A few things worth pointing out about the **model**:
 
-- **Aliases bridge the naming conventions.** Apify input fields are conventionally `camelCase` (`maxResults`), while Python attributes are `snake_case` (`max_results`). `Field(alias='maxResults')` maps one to the other, and `populate_by_name=True` lets the model accept either spelling - handy in tests.
+- **Aliases bridge the naming conventions.** Apify input fields are conventionally `camelCase` (`maxResults`), while Python attributes are `snake_case` (`max_results`). Since every field follows that convention, `alias_generator=to_camel` derives the camelCase alias for the whole model at once, instead of spelling out `Field(alias=...)` on each field. `populate_by_name=True` lets the model accept either spelling - handy in tests.
 - **Defaults and `required` fields are explicit.** A field without a default (`search_terms`) is required; one with a default (`max_results`) is optional. There's a single, obvious place where every default lives.
 - **Constraints are declarative.** `ge=1, le=100` enforces a numeric range, `min_length=1` rejects an empty list, and `Literal['json', 'csv']` restricts a field to a fixed set of choices - mirroring an `enum` in the input schema.
 - **Custom validators handle the rest.** The `field_validator` normalizes the search terms (trimming whitespace, dropping empties) and rejects input that has nothing left, so the rest of your code never has to repeat those checks.
@@ -90,7 +91,11 @@ Pydantic offers much more than the example uses. A few features that come up oft
     {ModelValidatorExample}
 </CodeBlock>
 
-**Secret input fields.** The platform decrypts [secret input fields](https://docs.apify.com/platform/actors/development/secret-input) for you before <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink> returns, so you receive plaintext. Wrap such fields in Pydantic's `SecretStr` to keep them from leaking into logs or `model_dump()` output.
+**Secret input fields.** The platform decrypts [secret input fields](https://docs.apify.com/platform/actors/development/secret-input) for you before <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink> returns, so you receive plaintext. Wrap such fields in Pydantic's `SecretStr` to keep them from leaking into logs or `model_dump()` output, and read the plaintext with `get_secret_value()` when you actually need it:
+
+<CodeBlock className="language-python">
+    {SecretStrExample}
+</CodeBlock>
 
 For the full set of types, constraints, and validators, see the [Pydantic documentation](https://docs.pydantic.dev/latest/concepts/models/).
 
