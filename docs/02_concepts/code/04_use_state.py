@@ -9,12 +9,14 @@ async def main() -> None:
         # On restart or migration, the state is loaded from the KVS.
         state = await Actor.use_state(default_value={'processed_items': 0})
 
-        # Resume from previous state
+        # Resume from the persisted state (stored as JSON, so narrow the type).
         start_index = state['processed_items']
+        if not isinstance(start_index, int):
+            start_index = 0
         Actor.log.info(f'Resuming from item {start_index}')
 
         # Do some work and update the state — it is persisted automatically
-        for i in range(start_index, 100):  # ty: ignore[invalid-argument-type]
+        for i in range(start_index, 100):
             Actor.log.info(f'Processing item {i}...')
             state['processed_items'] = i + 1
             await asyncio.sleep(0.1)

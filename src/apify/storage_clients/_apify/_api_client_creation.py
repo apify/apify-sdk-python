@@ -131,8 +131,8 @@ async def create_storage_api_client(
             )  # ty:ignore[no-matching-overload]
 
         # Open default storage.
-        case (None, None, None, str()):
-            resource_client = get_resource_client(default_id)  # ty: ignore[invalid-argument-type]
+        case (None, None, None, str() as default_id):
+            resource_client = get_resource_client(default_id)
             raw_metadata = await resource_client.get()
             # Default storage does not exist. Create a new one.
             if not raw_metadata:
@@ -146,8 +146,8 @@ async def create_storage_api_client(
             return get_resource_client(raw_metadata.id)
 
         # Open by ID.
-        case (None, None, str(), _):
-            resource_client = get_resource_client(id)  # ty: ignore[invalid-argument-type]
+        case (None, None, str() as id, _):
+            resource_client = get_resource_client(id)
             raw_metadata = await resource_client.get()
             if raw_metadata is None:
                 raise ValueError(f'Opening {storage_type} with id={id} failed.')

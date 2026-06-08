@@ -43,6 +43,7 @@ async def setup_mocked_charging(
 
     async with Actor(configuration):
         charging_mgr_impl = Actor.get_charging_manager()
+        assert isinstance(charging_mgr_impl, ChargingManagerImplementation)
 
         # Patch the charging manager to simulate running on Apify platform
         with (
@@ -51,7 +52,7 @@ async def setup_mocked_charging(
             patch.object(charging_mgr_impl, '_client', mock_client),
         ):
             setup = MockedChargingSetup(
-                charging_mgr=charging_mgr_impl,  # ty: ignore[invalid-argument-type]
+                charging_mgr=charging_mgr_impl,
                 mock_charge=mock_charge,
                 mock_client=mock_client,
             )

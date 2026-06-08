@@ -7,8 +7,11 @@ from apify import Actor, Request
 
 async def custom_new_url_function(
     session_id: str | None = None,
-    _: Request | None = None,
+    request: Request | None = None,
 ) -> str | None:
+    # Pick a proxy URL based on the session and/or the request being proxied.
+    if request is not None:
+        Actor.log.debug(f'Selecting a proxy URL for {request.url}.')
     if session_id is not None:
         return f'http://my-custom-proxy-supporting-sessions.com?session-id={session_id}'
     return 'http://my-custom-proxy-not-supporting-sessions.com'
@@ -17,7 +20,7 @@ async def custom_new_url_function(
 async def main() -> None:
     async with Actor:
         proxy_cfg = await Actor.create_proxy_configuration(
-            new_url_function=custom_new_url_function,  # ty: ignore[invalid-argument-type]
+            new_url_function=custom_new_url_function,
         )
 
         if not proxy_cfg:

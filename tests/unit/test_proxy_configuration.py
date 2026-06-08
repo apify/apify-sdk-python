@@ -61,24 +61,27 @@ def test_fallback_constructor(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_invalid_arguments() -> None:
-    for invalid_groups, bad_group_index in [
+    # The arguments are deliberately invalid, so the element types are `Any`.
+    invalid_group_cases: list[tuple[list[Any], int]] = [
         (['abc', 'de-f', 'geh'], 1),
         (['', 'def', 'geh'], 0),
         (['abc', 'DEF', 'geh$'], 2),
         ([111, 'DEF', 'geh$'], 2),
-    ]:
+    ]
+    for invalid_groups, bad_group_index in invalid_group_cases:
         bad_group = str(invalid_groups[bad_group_index])
 
         # Match the actual error message pattern that includes the value and argument name
         match_pattern = f'Value {re.escape(bad_group)} of argument groups does not match pattern'
 
         with pytest.raises(ValueError, match=match_pattern):
-            ProxyConfiguration(groups=invalid_groups)  # ty: ignore[invalid-argument-type]
+            ProxyConfiguration(groups=invalid_groups)
 
-    for invalid_country_code in ['CZE', 'aa', 'DDDD', 1111]:
+    invalid_country_codes: list[Any] = ['CZE', 'aa', 'DDDD', 1111]
+    for invalid_country_code in invalid_country_codes:
         match_pattern = f'Value {re.escape(str(invalid_country_code))} of argument country_code does not match pattern'
         with pytest.raises(ValueError, match=match_pattern):
-            ProxyConfiguration(country_code=invalid_country_code)  # ty: ignore[invalid-argument-type]
+            ProxyConfiguration(country_code=invalid_country_code)
 
     for invalid_subdivision_code in ['California', 'ca', 'ABCD', 'A1b']:
         escaped = re.escape(str(invalid_subdivision_code))
