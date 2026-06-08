@@ -1,3 +1,7 @@
+import gzip
+import io
+import json
+import pickle
 from time import time
 
 import pytest
@@ -6,9 +10,10 @@ from apify.scrapy.extensions._httpcache import from_gzip, get_kvs_name, read_gzi
 
 FIXTURE_DICT = {'name': 'Alice'}
 
+# Gzip-compressed JSON (the pickle-free format) of FIXTURE_DICT with mtime=0.
 FIXTURE_BYTES = (
-    b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xffk`\x99*\xcc\x00\x01\xb5SzX\xf2\x12s'
-    b'S\xa7\xf4\xb0:\xe6d&\xa7N)\xd6\x03\x00\x1c\xe8U\x9c\x1e\x00\x00\x00'
+    b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff\xabV\xcaK\xccMU\xb2RPr\xcc\xc9LNU'
+    b'\xaa\x05\x00\x03\x9a\x9d\xb0\x11\x00\x00\x00'
 )
 
 
@@ -37,6 +42,32 @@ def test_read_gzip_time_non_zero() -> None:
     data_bytes = to_gzip(FIXTURE_DICT, mtime=current_time)
 
     assert read_gzip_time(data_bytes) == current_time
+
+
+def test_gzip_round_trips_binary_response() -> None:
+    """A cached response with a binary body and Scrapy-style bytes headers round-trips."""
+    data = {
+        'status': 200,
+        'url': 'https://example.com',
+        'headers': {b'Content-Type': [b'text/html'], b'X-Bin': [b'\x00\xff']},
+        'body': b'<html>\xff\xfe</html>',
+    }
+
+    assert from_gzip(to_gzip(data)) == data
+
+
+def test_from_gzip_rejects_pickle_payload() -> None:
+    """Cache entries are stored as gzip-compressed JSON; a pickle payload is not valid JSON.
+
+    The loader must reject such a payload rather than load it.
+    """
+    with io.BytesIO() as byte_stream:
+        with gzip.GzipFile(fileobj=byte_stream, mode='wb') as gzip_file:
+            pickle.dump({'status': 200, 'body': b'x'}, gzip_file, protocol=4)
+        pickle_payload = byte_stream.getvalue()
+
+    with pytest.raises((UnicodeDecodeError, json.JSONDecodeError, ValueError)):
+        from_gzip(pickle_payload)
 
 
 @pytest.mark.parametrize(

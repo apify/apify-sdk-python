@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 import pytest
@@ -93,6 +94,22 @@ def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
 
     apify_request = to_apify_request(scrapy_request, spider)  # ty: ignore[invalid-argument-type]
     assert apify_request is None
+
+
+def test_non_json_serializable_meta_is_skipped(spider: Spider, caplog: pytest.LogCaptureFixture) -> None:
+    """A non-JSON-serializable value in meta is skipped loudly instead of crashing the crawl.
+
+    The serializer requires `meta`/`cb_kwargs` to be JSON-serializable. When they are not, the request
+    is skipped (None is returned, honoring the function's contract) and the failure is logged with a
+    full traceback, rather than the request being silently lost or the whole run crashing.
+    """
+    scrapy_request = Request(url='https://example.com', meta={'tags': {'a', 'b'}})
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.requests'):
+        apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is None
+    assert any('JSON-serializable' in record.getMessage() for record in caplog.records)
 
 
 def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
