@@ -29,7 +29,7 @@ An Actor reads its input with <ApiLink to="class/Actor#get_input">`Actor.get_inp
 - A typo in a key (`maxResult` instead of `maxResults`) silently falls back to the default instead of failing.
 - Defaults are scattered across the codebase, and your editor can't autocomplete the fields or catch mistakes.
 
-[Pydantic](https://docs.pydantic.dev/) solves all of this. You declare the shape of your input once as a model, and Pydantic parses the raw dictionary into a typed object, applying defaults, enforcing constraints, and producing clear error messages when the input doesn't match. Pydantic is already a dependency of the Apify SDK, so there's nothing extra to install.
+[Pydantic](https://docs.pydantic.dev/) solves all of this. You declare the shape of your input once as a model, and Pydantic parses the raw dictionary into a typed object, applying defaults, enforcing constraints, and producing clear error messages when the input doesn't match. Pydantic is already a dependency of the Apify SDK. There's nothing extra to install.
 
 ## Example Actor
 
@@ -39,13 +39,13 @@ The following Actor declares its input as a Pydantic `BaseModel`, validates the 
     {PydanticExample}
 </RunnableCodeBlock>
 
-A few things worth pointing out about the **model**:
+Note about the **model**:
 
-- **Aliases bridge the naming conventions.** Apify input fields are conventionally `camelCase` (`maxResults`), while Python attributes are `snake_case` (`max_results`). Since every field follows that convention, `alias_generator=to_camel` derives the camelCase alias for the whole model at once, instead of spelling out `Field(alias=...)` on each field. `populate_by_name=True` lets the model accept either spelling, which is handy in tests.
-- **Defaults and `required` fields are explicit.** A field without a default (`search_terms`) is required; one with a default (`max_results`) is optional. There's a single, obvious place where every default lives.
-- **Constraints are declarative.** `ge=1, le=100` enforces a numeric range, `min_length=1` rejects an empty list, and `Literal['json', 'csv']` restricts a field to a fixed set of choices, mirroring an `enum` in the input schema.
-- **Custom validators handle the rest.** The `field_validator` normalizes the search terms (trimming whitespace, dropping empties) and rejects input that has nothing left, so the rest of your code never has to repeat those checks.
-- **Unknown fields are ignored.** `extra='ignore'` means adding a new field to your input schema won't break an older Actor build that doesn't know about it yet. Use `extra='forbid'` instead if you'd rather reject anything unexpected.
+- Apify input fields are conventionally `camelCase` (`maxResults`), while Python attributes are `snake_case` (`max_results`). Since every field follows that convention, `alias_generator=to_camel` derives the camelCase alias for the whole model at once, instead of spelling out `Field(alias=...)` on each field. `populate_by_name=True` lets the model accept either spelling, which is handy in tests.
+- A field without a default (`search_terms`) is required; one with a default (`max_results`) is optional. There's a single, obvious place where every default lives.
+- `ge=1, le=100` enforces a numeric range, `min_length=1` rejects an empty list, and `Literal['json', 'csv']` restricts a field to a fixed set of choices, mirroring an `enum` in the input schema.
+- The `field_validator` normalizes the search terms (trimming whitespace, dropping empties) and rejects input that has nothing left. The rest of your code never has to repeat those checks.
+- `extra='ignore'` means adding a new field to your input schema won't break an older Actor build that doesn't know about it yet. Use `extra='forbid'` instead if you'd rather reject anything unexpected.
 
 And about the **validation** itself:
 
@@ -101,7 +101,7 @@ For the full set of types, constraints, and validators, see the [Pydantic docume
 
 ## Conclusion
 
-In this guide, you learned how to validate Actor input with Pydantic: declaring the input as a model with aliases, defaults, and constraints; parsing the raw input with `model_validate`; failing fast with a readable error when the input is invalid; and working with a typed object for the rest of the run. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own Actors. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy validating!
+In this guide, you learned how to validate Actor input with Pydantic: declaring the input as a model with aliases, defaults, and constraints; parsing the raw input with `model_validate`; failing fast with a readable error when the input is invalid; and working with a typed object for the rest of the run. To get started with your own Actors, see the [Actor templates](https://apify.com/templates/categories/python). If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy validating!
 
 ## Additional resources
 

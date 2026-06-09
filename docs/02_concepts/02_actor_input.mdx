@@ -22,7 +22,7 @@ For example, if an Actor received a JSON input with two fields, `{ "firstNumber"
 
 ## Validating input
 
-Reading values straight out of the raw input dictionary works for simple cases, but it gives you no type guarantees, no constraint checks, and no clear error when the input is malformed. For anything beyond a couple of fields, validate the input with [Pydantic](https://docs.pydantic.dev/) so your code works with a typed, guaranteed-valid object instead. See the [Validate Actor input with Pydantic](../guides/input-validation) guide for the recommended approach.
+Reading values straight out of the raw input dictionary works for simple cases, but it gives you no type guarantees, no constraint checks, and no clear error when the input is malformed. For anything beyond a couple of fields, validate the input with [Pydantic](https://docs.pydantic.dev/). Your code then works with a typed, guaranteed-valid object instead. For the recommended approach, see [Validate Actor input with Pydantic](../guides/input-validation).
 
 ## Loading URLs from Actor input
 
