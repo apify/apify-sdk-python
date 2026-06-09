@@ -48,14 +48,15 @@ class RequestQueueHead(BaseModel):
     queue_modified_at: datetime
     """The timestamp when the queue was last modified."""
 
-    # Accept both `lockSecs` (the lock duration in seconds, the key the API actually sends) and the camelCase
-    # `lockTime` that `to_camel` derives from the field name. Serialization keeps emitting `lockSecs` for backward
-    # compatibility. The field is named `lock_time` because Pydantic parses the value into a `timedelta`.
     lock_time: Annotated[
         timedelta | None,
         Field(validation_alias=AliasChoices('lockSecs', 'lockTime'), serialization_alias='lockSecs'),
     ] = None
-    """The duration for which the returned requests are locked and cannot be processed by other clients."""
+    """The duration for which the returned requests are locked and cannot be processed by other clients.
+
+    The platform's API names this field `lockSecs`, so it is serialized under that alias instead of the
+    `lockTime` that `to_camel` would derive from the field name.
+    """
 
     queue_has_locked_requests: bool | None = False
     """Indicates whether the queue contains any locked requests."""
