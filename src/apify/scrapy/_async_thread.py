@@ -5,7 +5,7 @@ import threading
 from concurrent import futures
 from datetime import timedelta
 from logging import getLogger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine
@@ -36,7 +36,7 @@ class AsyncThread:
     def run_coro(
         self,
         coro: Coroutine,
-        timeout: timedelta | None = None,
+        timeout: timedelta | Literal['default'] = 'default',
     ) -> Any:
         """Run a coroutine on an event loop running in a separate thread.
 
@@ -45,7 +45,7 @@ class AsyncThread:
 
         Args:
             coro: The coroutine to run.
-            timeout: The maximum time to wait for the coroutine to finish. Defaults to the
+            timeout: The maximum time to wait for the coroutine to finish. Pass `'default'` to use the
                 `default_timeout` passed to the constructor.
 
         Returns:
@@ -56,7 +56,7 @@ class AsyncThread:
             TimeoutError: If the coroutine does not complete within the timeout.
             Exception: Any exception raised during coroutine execution.
         """
-        if timeout is None:
+        if timeout == 'default':
             timeout = self._default_timeout
 
         if not self._eventloop.is_running():
