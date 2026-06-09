@@ -27,14 +27,31 @@ This is the Apify-specific subset of [`Event`][crawlee.events.Event] — for the
 
 @docs_group('Event data')
 class SystemInfoEventData(BaseModel):
+    """Resource usage metrics carried by a `systemInfo` event."""
+
     mem_avg_bytes: Annotated[float, Field(alias='memAvgBytes')]
+    """Average memory usage over the measured interval, in bytes."""
+
     mem_current_bytes: Annotated[float, Field(alias='memCurrentBytes')]
+    """Current memory usage, in bytes."""
+
     mem_max_bytes: Annotated[float, Field(alias='memMaxBytes')]
+    """Peak memory usage observed so far, in bytes."""
+
     cpu_avg_usage: Annotated[float, Field(alias='cpuAvgUsage')]
+    """Average CPU usage over the measured interval, in percent."""
+
     cpu_max_usage: Annotated[float, Field(alias='cpuMaxUsage')]
+    """Peak CPU usage observed so far, in percent."""
+
     cpu_current_usage: Annotated[float, Field(alias='cpuCurrentUsage')]
+    """Current CPU usage, in percent."""
+
     is_cpu_overloaded: Annotated[bool, Field(alias='isCpuOverloaded')]
+    """Whether the CPU is currently overloaded."""
+
     created_at: Annotated[datetime, Field(alias='createdAt')]
+    """Timestamp when the metrics were collected."""
 
     def to_crawlee_format(self, dedicated_cpus: float) -> EventSystemInfoData:
         return EventSystemInfoData.model_validate(
@@ -54,36 +71,63 @@ class SystemInfoEventData(BaseModel):
 
 @docs_group('Events')
 class PersistStateEvent(BaseModel):
+    """A `persistState` event instructing the Actor to persist its state."""
+
     name: Literal[Event.PERSIST_STATE]
+    """The event name."""
+
     data: Annotated[EventPersistStateData, Field(default_factory=lambda: EventPersistStateData(is_migrating=False))]
+    """The event payload."""
 
 
 @docs_group('Events')
 class SystemInfoEvent(BaseModel):
+    """A `systemInfo` event carrying the Actor's resource usage metrics."""
+
     name: Literal[Event.SYSTEM_INFO]
+    """The event name."""
+
     data: SystemInfoEventData
+    """The event payload."""
 
 
 @docs_group('Events')
 class MigratingEvent(BaseModel):
+    """A `migrating` event signalling the Actor is about to be migrated to another host."""
+
     name: Literal[Event.MIGRATING]
+    """The event name."""
+
     data: Annotated[EventMigratingData, Field(default_factory=EventMigratingData)]
+    """The event payload."""
 
 
 @docs_group('Events')
 class AbortingEvent(BaseModel):
+    """An `aborting` event signalling the Actor run is being aborted."""
+
     name: Literal[Event.ABORTING]
+    """The event name."""
+
     data: Annotated[EventAbortingData, Field(default_factory=EventAbortingData)]
+    """The event payload."""
 
 
 @docs_group('Events')
 class ExitEvent(BaseModel):
+    """An `exit` event signalling the Actor process is about to exit."""
+
     name: Literal[Event.EXIT]
+    """The event name."""
+
     data: Annotated[EventExitData, Field(default_factory=EventExitData)]
+    """The event payload."""
 
 
 @docs_group('Events')
 class EventWithoutData(BaseModel):
+    """A framework-level event that carries no payload (e.g. browser and page lifecycle events)."""
+
     name: Literal[
         Event.SESSION_RETIRED,
         Event.BROWSER_LAUNCHED,
@@ -92,19 +136,32 @@ class EventWithoutData(BaseModel):
         Event.PAGE_CREATED,
         Event.PAGE_CLOSED,
     ]
+    """The event name."""
+
     data: Any = None
+    """The event payload, always empty for this event."""
 
 
 @docs_group('Events')
 class DeprecatedEvent(BaseModel):
+    """A deprecated event kept for backward compatibility (e.g. `cpuInfo`)."""
+
     name: Literal['cpuInfo']
+    """The event name."""
+
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
+    """The event payload."""
 
 
 @docs_group('Events')
 class UnknownEvent(BaseModel):
+    """A fallback for any event whose name is not recognized by the SDK."""
+
     name: str
+    """The event name."""
+
     data: Annotated[dict[str, Any], Field(default_factory=dict)]
+    """The event payload."""
 
 
 EventMessage = PersistStateEvent | SystemInfoEvent | MigratingEvent | AbortingEvent | ExitEvent | EventWithoutData
