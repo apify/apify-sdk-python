@@ -5,18 +5,18 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, Annotated, Literal, Protocol, TypedDict
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field
 
-from apify._models import (
-    ActorRun,
-    FlatPricePerMonthActorPricingInfo,
-    FreeActorPricingInfo,
-    PayPerEventActorPricingInfo,
-    PricePerDatasetItemActorPricingInfo,
-    PricingModel,
-)
+import apify_client._models as _client_models
+from apify_client._models import ActorChargeEvent as ClientActorChargeEvent
+from apify_client._models import FlatPricePerMonthActorPricingInfo as ClientFlatPricePerMonth
+from apify_client._models import FreeActorPricingInfo as ClientFree
+from apify_client._models import PayPerEventActorPricingInfo as ClientPayPerEvent
+from apify_client._models import PricePerDatasetItemActorPricingInfo as ClientPricePerDatasetItem
+from apify_client._models import PricingPerEvent as ClientPricingPerEvent
+
 from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.log import logger
 from apify.storages import Dataset
@@ -28,7 +28,8 @@ if TYPE_CHECKING:
 
     from apify._configuration import Configuration
 
-run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
+PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
+"""Pricing model for an Actor."""
 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 
@@ -37,6 +38,80 @@ DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
 
 _ensure_context = ensure_context('active')
+
+
+# These are thin subclasses of the `apify-client` pricing models. The Apify platform serializes Actor
+# pricing info into the `APIFY_ACTOR_PRICING_INFO` env var (parsed by `Configuration.actor_pricing_info`),
+# but omits several fields that `apify-client` v3 marks as required (`apifyMarginPercentage`, `createdAt`,
+# `startedAt`, per-event `eventDescription`, and per-variant `trialMinutes` / `pricePerUnitUsd` / `unitName`).
+# Each subclass relaxes only those omitted fields to optional, so the env var deserializes without faking
+# values. Because every subclass is-a `apify-client` model, the API-returned `Run.pricing_info` (already an
+# `apify-client` instance) flows through the same code paths without conversion.
+
+
+class _RelaxedPricingMetadata(BaseModel):
+    """Mixin relaxing the `CommonActorPricingInfo` metadata fields the platform env var omits."""
+
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
+
+    apify_margin_percentage: Annotated[float | None, Field(alias='apifyMarginPercentage')] = None
+    created_at: Annotated[datetime | None, Field(alias='createdAt')] = None
+    started_at: Annotated[datetime | None, Field(alias='startedAt')] = None
+
+
+@docs_group('Charging')
+class ActorChargeEvent(ClientActorChargeEvent):
+    # `event_description` is required in apify-client but omitted from the env var.
+    event_description: Annotated[str | None, Field(alias='eventDescription')] = None
+
+
+@docs_group('Charging')
+class PricingPerEvent(ClientPricingPerEvent):
+    actor_charge_events: Annotated[dict[str, ActorChargeEvent] | None, Field(alias='actorChargeEvents')] = None
+
+
+@docs_group('Charging')
+class FreeActorPricingInfo(_RelaxedPricingMetadata, ClientFree):
+    pass
+
+
+@docs_group('Charging')
+class FlatPricePerMonthActorPricingInfo(_RelaxedPricingMetadata, ClientFlatPricePerMonth):
+    trial_minutes: Annotated[int | None, Field(alias='trialMinutes')] = None
+    price_per_unit_usd: Annotated[float | None, Field(alias='pricePerUnitUsd')] = None
+
+
+@docs_group('Charging')
+class PricePerDatasetItemActorPricingInfo(_RelaxedPricingMetadata, ClientPricePerDatasetItem):
+    unit_name: Annotated[str | None, Field(alias='unitName')] = None
+    # `price_per_unit_usd` is already optional in apify-client - inherited.
+
+
+@docs_group('Charging')
+class PayPerEventActorPricingInfo(_RelaxedPricingMetadata, ClientPayPerEvent):
+    # Re-typed to the relaxed element so an omitted `eventDescription` validates; the field stays required.
+    pricing_per_event: Annotated[PricingPerEvent, Field(alias='pricingPerEvent')]
+
+
+ActorPricingInfoModel = ClientFree | ClientFlatPricePerMonth | ClientPricePerDatasetItem | ClientPayPerEvent
+"""Common supertype of both env-var-parsed SDK subclasses and the API-returned `Run.pricing_info`."""
+
+# apify-client ships these models with deferred forward refs (`__pydantic_complete__` is False), so the
+# subclasses must be rebuilt - with the `TieredPricing*` names in scope - before the env-var discriminated
+# union can validate standalone.
+_pricing_rebuild_namespace = vars(_client_models) | {
+    'ActorChargeEvent': ActorChargeEvent,
+    'PricingPerEvent': PricingPerEvent,
+}
+for _pricing_model in (
+    ActorChargeEvent,
+    PricingPerEvent,
+    FreeActorPricingInfo,
+    FlatPricePerMonthActorPricingInfo,
+    PricePerDatasetItemActorPricingInfo,
+    PayPerEventActorPricingInfo,
+):
+    _pricing_model.model_rebuild(_types_namespace=_pricing_rebuild_namespace)
 
 
 @docs_group('Charging')
@@ -173,6 +248,7 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
+        self._tier_priced_events: set[str] = set()
 
         self._not_ppe_warning_printed = False
         self.active = False
@@ -202,10 +278,16 @@ class ChargingManagerImplementation(ChargingManager):
         else:
             self._pricing_model = pricing_info.pricing_model if pricing_info else None
 
-        # Load per-event pricing information
-        if pricing_info is not None and isinstance(pricing_info, PayPerEventActorPricingInfo):
+        # Load per-event pricing information. Check against the apify-client base so both env-var-parsed
+        # SDK subclasses and the API-returned model match.
+        if isinstance(pricing_info, ClientPayPerEvent):
             actor_charge_events = pricing_info.pricing_per_event.actor_charge_events or {}
             for event_name, event_pricing in actor_charge_events.items():
+                if event_pricing.event_price_usd is None:
+                    # Tier-priced event - not chargeable via the SDK's flat-price path; tracked so a later
+                    # charge attempt is reported accurately rather than as an "unknown event".
+                    self._tier_priced_events.add(event_name)
+                    continue
                 self._pricing_info[event_name] = PricingInfoItem(
                     price=Decimal(str(event_pricing.event_price_usd)),
                     title=event_pricing.event_title,
@@ -309,6 +391,10 @@ class ChargingManagerImplementation(ChargingManager):
                     pass
                 elif event_name in self._pricing_info:
                     await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
+                elif event_name in self._tier_priced_events:
+                    logger.warning(
+                        f"Event '{event_name}' is tier-priced and is not chargeable via the pay-per-event API."
+                    )
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 
@@ -427,7 +513,8 @@ class ChargingManagerImplementation(ChargingManager):
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
 
-            run = run_validator.validate_python(await self._client.run(self._actor_run_id).get())
+            run = await self._client.run(self._actor_run_id).get()
+
             if run is None:
                 raise RuntimeError('Actor run not found')
 
@@ -469,12 +556,6 @@ class PricingInfoItem:
 
 
 class _FetchedPricingInfoDict(TypedDict):
-    pricing_info: (
-        FreeActorPricingInfo
-        | FlatPricePerMonthActorPricingInfo
-        | PricePerDatasetItemActorPricingInfo
-        | PayPerEventActorPricingInfo
-        | None
-    )
+    pricing_info: ActorPricingInfoModel | None
     charged_event_counts: dict[str, int]
     max_total_charge_usd: Decimal
