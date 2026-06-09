@@ -13,10 +13,9 @@ _PRIMARY_LOGGERS = ['apify', 'apify_client', 'scrapy']
 _SUPPLEMENTAL_LOGGERS = ['filelock', 'hpack', 'httpcore', 'protego', 'twisted']
 _ALL_LOGGERS = _PRIMARY_LOGGERS + _SUPPLEMENTAL_LOGGERS
 
-# Mutable module state shared with the Scrapy logging monkey-patch installed by `initialize_logging`.
-# `initialize_logging` refreshes `level`/`handler` on each call, and the patch (installed at most
-# once) reads them so it always re-applies the latest configuration instead of values captured the
-# first time it ran. Stored in a dict so the patch can read them without rebinding module globals.
+# Mutable state shared with the Scrapy monkey-patch below. `initialize_logging` refreshes
+# `level`/`handler` on each call; the patch (installed once) reads them so it always applies the
+# latest configuration rather than values captured the first time it ran.
 _state: dict[str, Any] = {'level': 'INFO', 'handler': None, 'patched': False}
 
 
@@ -52,9 +51,8 @@ def initialize_logging() -> None:
     # Configure the root logger and all other defined loggers.
     _configure_all_loggers()
 
-    # Monkey-patch Scrapy's logging configuration to re-apply our settings whenever Scrapy
-    # reconfigures logging. Install the wrapper at most once; wrapping again on every call would
-    # nest wrappers on top of each other.
+    # Monkey-patch Scrapy's logging to re-apply our settings whenever it reconfigures logging.
+    # Install the wrapper at most once, otherwise repeated calls would nest wrappers.
     if _state['patched']:
         return
 
