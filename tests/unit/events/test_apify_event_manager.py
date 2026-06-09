@@ -14,10 +14,11 @@ import websockets
 import websockets.asyncio.server
 import websockets.exceptions
 
-from apify_shared.consts import ActorEnvVars
 from crawlee.events._types import Event
 
+from ..._utils import poll_until_condition
 from apify import Configuration
+from apify._consts import ActorEnvVars
 from apify.events import ApifyEventManager
 from apify.events._types import SystemInfoEventData
 
@@ -91,7 +92,7 @@ async def test_event_handling_local() -> None:
         # Test adding the handler
         event_manager.on(event=Event.SYSTEM_INFO, listener=handler_system_info)
         event_manager.emit(event=Event.SYSTEM_INFO, event_data=dummy_system_info)
-        await asyncio.sleep(0.1)
+        await poll_until_condition(lambda: bool(event_calls[Event.SYSTEM_INFO]), poll_interval=0.05)
         assert event_calls[Event.SYSTEM_INFO] == [(None, dummy_system_info)]
         event_calls[Event.SYSTEM_INFO].clear()
 
@@ -114,7 +115,7 @@ async def test_event_handling_local() -> None:
 
         # Test that they all work
         event_manager.emit(event=Event.PERSIST_STATE, event_data=dummy_persist_state)
-        await asyncio.sleep(0.1)
+        await poll_until_condition(lambda: len(event_calls[Event.PERSIST_STATE]) >= 3, poll_interval=0.05)
         assert set(event_calls[Event.PERSIST_STATE]) == {
             (1, dummy_persist_state),
             (2, dummy_persist_state),
@@ -125,7 +126,7 @@ async def test_event_handling_local() -> None:
         # Test that if you remove one, the others stay
         event_manager.off(event=Event.PERSIST_STATE, listener=handler_persist_state_3)
         event_manager.emit(event=Event.PERSIST_STATE, event_data=dummy_persist_state)
-        await asyncio.sleep(0.1)
+        await poll_until_condition(lambda: len(event_calls[Event.PERSIST_STATE]) >= 2, poll_interval=0.05)
         assert set(event_calls[Event.PERSIST_STATE]) == {
             (1, dummy_persist_state),
             (2, dummy_persist_state),
@@ -211,7 +212,7 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
 
             # Test sending event with data
             await send_platform_event(Event.SYSTEM_INFO, dummy_system_info)
-            await asyncio.sleep(0.1)
+            await poll_until_condition(lambda: len(event_calls) == 1, poll_interval=0.05)
             assert len(event_calls) == 1
             assert event_calls[0] is not None
             assert event_calls[0]['cpuInfo']['usedRatio'] == 0.0845549815498155
@@ -230,7 +231,8 @@ async def test_event_listener_removal_stops_counting() -> None:
             persist_state_counter += 1
 
         event_manager.on(event=Event.PERSIST_STATE, listener=handler)
-        await asyncio.sleep(1.5)
+        # Wait until at least one PERSIST_STATE event is handled (the persist interval is 500 ms).
+        await poll_until_condition(lambda: persist_state_counter > 0, poll_interval=0.05)
         first_count = persist_state_counter
         assert first_count > 0
 
@@ -275,7 +277,7 @@ async def test_unknown_event_is_logged(monkeypatch: pytest.MonkeyPatch, caplog: 
         # Send an unknown event
         unknown_message = json.dumps({'name': 'totallyNewEvent2099', 'data': {'foo': 'bar'}})
         websockets.broadcast(connected_ws_clients, unknown_message)
-        await asyncio.sleep(0.2)
+        await poll_until_condition(lambda: 'Unknown message received' in caplog.text, poll_interval=0.05)
 
         assert 'Unknown message received' in caplog.text
         assert 'totallyNewEvent2099' in caplog.text
@@ -307,7 +309,10 @@ async def test_migrating_event_triggers_persist_state(monkeypatch: pytest.Monkey
         # Send migrating event
         migrating_message = json.dumps({'name': 'migrating'})
         websockets.broadcast(connected_ws_clients, migrating_message)
-        await asyncio.sleep(0.2)
+        await poll_until_condition(
+            lambda: bool(migrating_calls) and any(getattr(c, 'is_migrating', False) for c in persist_calls),
+            poll_interval=0.05,
+        )
 
         assert len(migrating_calls) == 1
         # MIGRATING should also trigger a PERSIST_STATE with is_migrating=True
@@ -361,6 +366,6 @@ async def test_malformed_message_logs_exception(
 
         # Send malformed message
         websockets.broadcast(connected_ws_clients, 'this is not valid json{{{')
-        await asyncio.sleep(0.2)
+        await poll_until_condition(lambda: 'Cannot parse Actor event' in caplog.text, poll_interval=0.05)
 
         assert 'Cannot parse Actor event' in caplog.text

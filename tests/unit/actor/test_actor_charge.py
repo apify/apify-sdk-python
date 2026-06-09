@@ -6,8 +6,7 @@ from typing import NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
 
 from apify import Actor, Configuration
-from apify._charging import ChargingManagerImplementation, PricingInfoItem
-from apify._models import PayPerEventActorPricingInfo
+from apify._charging import ChargingManagerImplementation, PayPerEventActorPricingInfo, PricingInfoItem
 
 
 class MockedChargingSetup(NamedTuple):
@@ -32,7 +31,7 @@ async def setup_mocked_charging(
             setup.charging_mgr._pricing_info['event'] = PricingInfoItem(Decimal('1.0'), 'Event')
 
             result = await Actor.charge('event', count=1)
-            setup.mock_charge.assert_called_once_with('event', 1)
+            setup.mock_charge.assert_called_once_with('event', count=1)
     """
     # Mock the ApifyClientAsync
     mock_client = Mock()
@@ -44,6 +43,7 @@ async def setup_mocked_charging(
 
     async with Actor(configuration):
         charging_mgr_impl = Actor.get_charging_manager()
+        assert isinstance(charging_mgr_impl, ChargingManagerImplementation)
 
         # Patch the charging manager to simulate running on Apify platform
         with (
@@ -52,7 +52,7 @@ async def setup_mocked_charging(
             patch.object(charging_mgr_impl, '_client', mock_client),
         ):
             setup = MockedChargingSetup(
-                charging_mgr=charging_mgr_impl,  # ty: ignore[invalid-argument-type]
+                charging_mgr=charging_mgr_impl,
                 mock_charge=mock_charge,
                 mock_client=mock_client,
             )
@@ -76,14 +76,14 @@ async def test_actor_charge_push_data_with_no_remaining_budget() -> None:
         result1 = await Actor.charge('some-event', count=1)  # Costs $1, leaving $0.5
 
         # Verify the first charge call was made correctly
-        setup.mock_charge.assert_called_once_with('some-event', 1)
+        setup.mock_charge.assert_called_once_with('some-event', count=1)
         setup.mock_charge.reset_mock()
 
         assert result1.charged_count == 1
 
         # Now try to push data - we can't afford even 1 more event
         # This will call charge(event_name, count=0) because max_charged_count=0
-        result = await Actor.push_data([{'hello': 'world'} for _ in range(10)], 'another-event')
+        result = await Actor.push_data([{'hello': 'world'} for _ in range(10)], charged_event_name='another-event')
 
         # The API should NOT be called when count=0
         setup.mock_charge.assert_not_called()
@@ -111,7 +111,7 @@ async def test_actor_charge_api_call_verification() -> None:
 
         # Call charge with count=1 - this SHOULD call the API
         result2 = await Actor.charge('test-event', count=1)
-        setup.mock_charge.assert_called_once_with('test-event', 1)
+        setup.mock_charge.assert_called_once_with('test-event', count=1)
         assert result2.charged_count == 1
 
 
@@ -124,15 +124,20 @@ async def test_max_event_charge_count_within_limit_tolerates_overdraw() -> None:
         actor_pricing_info=PayPerEventActorPricingInfo.model_validate(
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'event': {
                             'eventPriceUsd': 0.0003,
                             'eventTitle': 'Event',
+                            'eventDescription': 'Event description',
                         },
                         'apify-actor-start': {
                             'eventPriceUsd': 0.00005,
                             'eventTitle': 'Actor start',
+                            'eventDescription': 'Actor start description',
                         },
                     }
                 },
@@ -154,7 +159,7 @@ async def test_push_data_combined_price_limits_items() -> None:
         {'scrape': Decimal('1.00'), 'apify-default-dataset-item': Decimal('1.00')},
     ):
         data = [{'id': i} for i in range(5)]
-        result = await Actor.push_data(data, 'scrape')
+        result = await Actor.push_data(data, charged_event_name='scrape')
 
         assert result is not None
         assert result.charged_count == 1
@@ -172,7 +177,7 @@ async def test_push_data_charges_synthetic_event_for_default_dataset() -> None:
         {'test': Decimal('0.10'), 'apify-default-dataset-item': Decimal('0.05')},
     ) as setup:
         data = [{'id': i} for i in range(3)]
-        result = await Actor.push_data(data, 'test')
+        result = await Actor.push_data(data, charged_event_name='test')
 
         assert result is not None
         assert result.charged_count == 3
@@ -192,7 +197,7 @@ async def test_charge_lock_concurrent_actor_and_dataset_push() -> None:
 
         # Run concurrent pushes - Actor.push_data and direct dataset.push_data
         await asyncio.gather(
-            Actor.push_data([{'source': 'actor', 'id': i} for i in range(5)], 'event'),
+            Actor.push_data([{'source': 'actor', 'id': i} for i in range(5)], charged_event_name='event'),
             dataset.push_data([{'source': 'dataset', 'id': i} for i in range(5)]),
         )
 
@@ -235,15 +240,20 @@ async def test_charge_with_overdrawn_budget() -> None:
         actor_pricing_info=PayPerEventActorPricingInfo.model_validate(
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'event': {
                             'eventPriceUsd': 0.0003,
                             'eventTitle': 'Event',
+                            'eventDescription': 'Event description',
                         },
                         'apify-actor-start': {
                             'eventPriceUsd': 0.00005,
                             'eventTitle': 'Actor start',
+                            'eventDescription': 'Actor start description',
                         },
                     }
                 },
@@ -254,10 +264,10 @@ async def test_charge_with_overdrawn_budget() -> None:
     )
 
     async with setup_mocked_charging(configuration, {}) as setup:
-        charge_result = await Actor.charge('event', 1)
+        charge_result = await Actor.charge('event', count=1)
         assert charge_result.charged_count == 0  # The budget doesn't allow another event
 
-        push_result = await Actor.push_data([{'hello': 'world'}], 'event')
+        push_result = await Actor.push_data([{'hello': 'world'}], charged_event_name='event')
         assert push_result.charged_count == 0  # Nor does the budget allow this
 
         setup.mock_charge.assert_not_called()

@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
 
 import apify._actor
 from apify import Actor
+from apify._consts import ApifyEnvVars
 from apify.storage_clients import ApifyStorageClient
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 from apify.storages import RequestQueue
@@ -37,8 +37,7 @@ def apify_token() -> str:
 def apify_client_async(apify_token: str) -> ApifyClientAsync:
     """Create an instance of the ApifyClientAsync."""
     api_url = os.getenv(_API_URL_ENV_VAR)
-
-    return ApifyClientAsync(apify_token, api_url=api_url)
+    return ApifyClientAsync(apify_token) if api_url is None else ApifyClientAsync(apify_token, api_url=api_url)
 
 
 @pytest.fixture
@@ -92,6 +91,23 @@ async def request_queue_apify(
         rq = await RequestQueue.open(storage_client=ApifyStorageClient(request_queue_access=request.param))
         yield rq
         await rq.drop()
+
+
+@pytest.fixture
+def rq_access_mode(request: pytest.FixtureRequest) -> str:
+    """Return the access mode (`single` or `shared`) of the parametrized `request_queue_apify` fixture."""
+    return request.node.callspec.params.get('request_queue_apify')
+
+
+@pytest.fixture
+def rq_poll_timeout(rq_access_mode: str) -> int:
+    """Return the `poll_until_condition` timeout matching the `request_queue_apify` access mode.
+
+    In single mode, reads are immediately consistent, so the caller should poll exactly once (`timeout=0`). In
+    shared mode, there is a propagation delay between operations, so reads are retried for up to 30 seconds.
+    See https://github.com/apify/apify-sdk-python/issues/808.
+    """
+    return 0 if rq_access_mode == 'single' else 30
 
 
 @pytest.fixture(autouse=True)

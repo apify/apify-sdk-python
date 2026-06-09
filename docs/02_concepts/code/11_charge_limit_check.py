@@ -17,7 +17,9 @@ async def main() -> None:
 
             # highlight-start
             # push_data returns a ChargeResult - check it to know if the budget ran out
-            charge_result = await Actor.push_data(result, 'result-item')
+            charge_result = await Actor.push_data(
+                result, charged_event_name='result-item'
+            )
 
             if charge_result.event_charge_limit_reached:
                 Actor.log.info('Charge limit reached, stopping the Actor')

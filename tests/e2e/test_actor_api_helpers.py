@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from apify_shared.consts import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
-from ._utils import generate_unique_resource_name
+from .._utils import generate_unique_resource_name, poll_until_condition
 from apify import Actor
-from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -62,7 +61,7 @@ async def test_actor_creates_new_client_instance(
     async def main() -> None:
         import os
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         async with Actor:
             new_client = Actor.new_client()
@@ -129,12 +128,15 @@ async def test_actor_starts_another_actor_instance(
 
             inner_run_status = await Actor.apify_client.actor(inner_actor_id).last_run().get()
             assert inner_run_status is not None
-            assert inner_run_status.get('status') in ['READY', 'RUNNING']
+            assert inner_run_status.status in {'READY', 'RUNNING'}
 
     inner_actor = await make_actor(label='start-inner', main_func=main_inner)
     outer_actor = await make_actor(label='start-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     run_result_outer = await run_actor(
@@ -144,7 +146,7 @@ async def test_actor_starts_another_actor_instance(
 
     assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=600)
+    await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -172,14 +174,18 @@ async def test_actor_calls_another_actor(
 
             await Actor.call(inner_actor_id, run_input={'test_value': test_value})
 
-            inner_run_status = await Actor.apify_client.actor(inner_actor_id).last_run().get()
-            assert inner_run_status is not None
-            assert inner_run_status.get('status') == 'SUCCEEDED'
+            run_result_inner = await Actor.apify_client.actor(inner_actor_id).last_run().get()
+
+            assert run_result_inner is not None
+            assert run_result_inner.status == 'SUCCEEDED'
 
     inner_actor = await make_actor(label='call-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     run_result_outer = await run_actor(
@@ -189,7 +195,7 @@ async def test_actor_calls_another_actor(
 
     assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=600)
+    await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
@@ -217,14 +223,18 @@ async def test_actor_calls_task(
 
             await Actor.call_task(inner_task_id)
 
-            inner_run_status = await Actor.apify_client.task(inner_task_id).last_run().get()
-            assert inner_run_status is not None
-            assert inner_run_status.get('status') == 'SUCCEEDED'
+            run_result_inner = await Actor.apify_client.task(inner_task_id).last_run().get()
+
+            assert run_result_inner is not None
+            assert run_result_inner.status == 'SUCCEEDED'
 
     inner_actor = await make_actor(label='call-task-inner', main_func=main_inner)
     outer_actor = await make_actor(label='call-task-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     task = await apify_client_async.tasks().create(
@@ -235,19 +245,19 @@ async def test_actor_calls_task(
 
     run_result_outer = await run_actor(
         outer_actor,
-        run_input={'test_value': test_value, 'inner_task_id': task['id']},
-        force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
+        run_input={'test_value': test_value, 'inner_task_id': task.id},
+        force_permission_level='FULL_PERMISSIONS',
     )
 
     assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=600)
+    await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
 
     inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
     assert inner_output_record is not None
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
-    await apify_client_async.task(task['id']).delete()
+    await apify_client_async.task(task.id).delete()
 
 
 async def test_actor_aborts_another_actor_run(
@@ -272,20 +282,24 @@ async def test_actor_aborts_another_actor_run(
     inner_actor = await make_actor(label='abort-inner', main_func=main_inner)
     outer_actor = await make_actor(label='abort-outer', main_func=main_outer)
 
-    run_result_inner = await inner_actor.start(force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS)
-    inner_run_id = run_result_inner['id']
+    run_result_inner = await inner_actor.start(force_permission_level='FULL_PERMISSIONS')
+    inner_run_id = run_result_inner.id
 
     run_result_outer = await run_actor(
         outer_actor,
         run_input={'inner_run_id': inner_run_id},
-        force_permission_level=ActorPermissionLevel.FULL_PERMISSIONS,
+        force_permission_level='FULL_PERMISSIONS',
     )
 
     assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_secs=600)
-    inner_actor_last_run_dict = await inner_actor.last_run().get()
-    inner_actor_last_run = ActorRun.model_validate(inner_actor_last_run_dict)
+    inner_actor_run_client = inner_actor.last_run()
+    inner_actor_run = await inner_actor_run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
+
+    if inner_actor_run is None:
+        raise AssertionError('Failed to get inner actor run after aborting it.')
+
+    inner_actor_last_run = inner_actor_run
 
     assert inner_actor_last_run.status == 'ABORTED'
 
@@ -300,7 +314,7 @@ async def test_actor_metamorphs_into_another_actor(
     async def main_inner() -> None:
         import os
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         async with Actor:
             assert os.getenv(ActorEnvVars.INPUT_KEY) is not None
@@ -331,7 +345,10 @@ async def test_actor_metamorphs_into_another_actor(
     inner_actor = await make_actor(label='metamorph-inner', main_func=main_inner)
     outer_actor = await make_actor(label='metamorph-outer', main_func=main_outer)
 
-    inner_actor_id = (await inner_actor.get() or {})['id']
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
     test_value = crypto_random_object_id()
 
     run_result_outer = await run_actor(
@@ -360,7 +377,7 @@ async def test_actor_reboots_successfully(
     async def main() -> None:
         async with Actor:
             print('Starting...')
-            cnt = await Actor.get_value('reboot_counter', 0)
+            cnt = await Actor.get_value('reboot_counter', default_value=0)
 
             if cnt < 2:
                 print(f'Rebooting (cnt = {cnt})...')
@@ -393,9 +410,10 @@ async def test_actor_adds_webhook_and_receives_event(
 ) -> None:
     async def main_server() -> None:
         import os
+        import time
         from http.server import BaseHTTPRequestHandler, HTTPServer
 
-        from apify_shared.consts import ActorEnvVars
+        from apify._consts import ActorEnvVars
 
         webhook_body = ''
 
@@ -419,13 +437,20 @@ async def test_actor_adds_webhook_and_receives_event(
             container_port = int(os.getenv(ActorEnvVars.WEB_SERVER_PORT, ''))
             with HTTPServer(('', container_port), WebhookHandler) as server:
                 await Actor.set_value('INITIALIZED', value=True)
-                while not webhook_body:
+                # Bound the wait so that a webhook that never fires (e.g. one that did not propagate before the
+                # client run finished) surfaces as an empty WEBHOOK_BODY in the test instead of blocking here
+                # until the run times out.
+                server.timeout = 5
+                deadline = time.monotonic() + 300
+                while not webhook_body and time.monotonic() < deadline:
                     server.handle_request()
 
             await Actor.set_value('WEBHOOK_BODY', webhook_body)
 
     async def main_client() -> None:
-        from apify import Webhook, WebhookEventType
+        import asyncio
+
+        from apify import Webhook
 
         async with Actor:
             actor_input = await Actor.get_input() or {}
@@ -433,10 +458,16 @@ async def test_actor_adds_webhook_and_receives_event(
 
             await Actor.add_webhook(
                 Webhook(
-                    event_types=[WebhookEventType.ACTOR_RUN_SUCCEEDED],
+                    event_types=['ACTOR.RUN.SUCCEEDED'],
                     request_url=server_actor_container_url,
                 )
             )
+
+            # Keep the run alive for a moment after registering the webhook. Without this, the run finishes
+            # just milliseconds later and the platform may process the run-succeeded event before the freshly
+            # added ad-hoc webhook has propagated, in which case the webhook never fires and the server Actor
+            # waits until it times out.
+            await asyncio.sleep(5)
 
     server_actor, client_actor = await asyncio.gather(
         make_actor(label='add-webhook-server', main_func=main_server),
@@ -444,12 +475,17 @@ async def test_actor_adds_webhook_and_receives_event(
     )
 
     server_actor_run = await server_actor.start()
-    server_actor_container_url = server_actor_run['containerUrl']
+    server_actor_container_url = server_actor_run.container_url
 
-    server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
-    while not server_actor_initialized:
-        server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
-        await asyncio.sleep(1)
+    # Wait for the server Actor's container to start up and bind its HTTP server. The startup time is highly
+    # variable (image pull, container creation), so poll with a growing interval instead of a fixed sleep.
+    server_actor_initialized = await poll_until_condition(
+        lambda: server_actor.last_run().key_value_store().get_record('INITIALIZED'),
+        timeout=300,
+        poll_interval=1,
+        backoff_factor=1.5,
+    )
+    assert server_actor_initialized is not None, 'The server Actor did not initialize in time.'
 
     ac_run_result = await run_actor(
         client_actor,
@@ -458,14 +494,19 @@ async def test_actor_adds_webhook_and_receives_event(
 
     assert ac_run_result.status == 'SUCCEEDED'
 
-    sa_run_result_dict = await server_actor.last_run().wait_for_finish(wait_secs=600)
-    sa_run_result = ActorRun.model_validate(sa_run_result_dict)
+    sa_run_client = server_actor.last_run()
+    sa_run_client_run = await sa_run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
+
+    if sa_run_client_run is None:
+        raise AssertionError('Failed to get server actor run after waiting for finish.')
+
+    sa_run_result = sa_run_client_run
 
     assert sa_run_result.status == 'SUCCEEDED'
 
     webhook_body_record = await server_actor.last_run().key_value_store().get_record('WEBHOOK_BODY')
     assert webhook_body_record is not None
-    assert webhook_body_record['value'] != ''
+    assert webhook_body_record['value'] != '', 'The ad-hoc webhook never fired (it likely did not propagate in time).'
     parsed_webhook_body = json.loads(webhook_body_record['value'])
 
     assert parsed_webhook_body['eventData']['actorId'] == ac_run_result.act_id
