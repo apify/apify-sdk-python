@@ -52,7 +52,7 @@ async def setup_mocked_charging(
             patch.object(charging_mgr_impl, '_client', mock_client),
         ):
             setup = MockedChargingSetup(
-                charging_mgr=charging_mgr_impl,  # ty: ignore[invalid-argument-type]
+                charging_mgr=charging_mgr_impl,
                 mock_charge=mock_charge,
                 mock_client=mock_client,
             )
