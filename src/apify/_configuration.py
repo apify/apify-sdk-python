@@ -15,7 +15,7 @@ from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
-from apify._models import (
+from apify._charging import (
     FlatPricePerMonthActorPricingInfo,
     FreeActorPricingInfo,
     PayPerEventActorPricingInfo,
@@ -69,6 +69,21 @@ def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None
         'datasets': storage_mapping.get('datasets', storage_mapping.get('datasets', {})),
         'request_queues': storage_mapping.get('requestQueues', storage_mapping.get('request_queues', {})),
     }
+
+
+def _parse_actor_pricing_info(data: Any) -> Any:
+    """Parse the raw `APIFY_ACTOR_PRICING_INFO` env var value into a pydantic-friendly form.
+
+    Deserializes a JSON string when needed. Treats `None`, an empty string, and an empty/
+    discriminator-less JSON object (`{}` - the value the platform sets for Actors without a configured
+    pricing model) as "no pricing info" so the union validator doesn't fail on a missing discriminator.
+    """
+    if data is None or data == '':
+        return None
+    pricing_info = json.loads(data) if isinstance(data, str) else data
+    if isinstance(pricing_info, dict) and not (pricing_info.get('pricingModel') or pricing_info.get('pricing_model')):
+        return None
+    return pricing_info
 
 
 @docs_group('Configuration')
@@ -446,7 +461,7 @@ class Configuration(CrawleeConfiguration):
             description='JSON string with prising info of the actor',
             discriminator='pricing_model',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+        BeforeValidator(_parse_actor_pricing_info),
     ] = None
 
     charged_event_counts: Annotated[

@@ -6,22 +6,22 @@ from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
-from apify_shared.consts import ActorJobStatus
-
 from .._utils import poll_until_condition
 from apify import Actor
-from apify._models import ActorRun
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
-    from apify_client.clients import ActorClientAsync
+    from apify_client._models import Run
+    from apify_client._resource_clients import ActorClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
 
 
-async def _get_run(apify_client_async: ApifyClientAsync, run_id: str) -> ActorRun:
+async def _get_run(apify_client_async: ApifyClientAsync, run_id: str) -> Run:
     """Fetch the current state of the given run from the platform."""
-    return ActorRun.model_validate(await apify_client_async.run(run_id).get())
+    run = await apify_client_async.run(run_id).get()
+    assert run is not None
+    return run
 
 
 @pytest_asyncio.fixture(scope='module', loop_scope='module')
@@ -39,6 +39,9 @@ async def ppe_push_data_actor_build(make_actor: MakeActorFunction) -> str:
         pricing_infos=[
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'push-item': {
@@ -60,7 +63,7 @@ async def ppe_push_data_actor_build(make_actor: MakeActorFunction) -> str:
     actor = await actor_client.get()
 
     assert actor is not None
-    return str(actor['id'])
+    return actor.id
 
 
 @pytest_asyncio.fixture(scope='function', loop_scope='module')
@@ -96,6 +99,9 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
         pricing_infos=[
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'foobar': {
@@ -106,13 +112,13 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
                     },
                 },
             },
-        ]
+        ],
     )
 
     actor = await actor_client.get()
 
     assert actor is not None
-    return str(actor['id'])
+    return str(actor.id)
 
 
 @pytest_asyncio.fixture(scope='function', loop_scope='module')
@@ -133,12 +139,12 @@ async def test_actor_charge_basic(
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == {'foobar': 4},
+        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == {'foobar': 4},
         timeout=30,
         poll_interval=1,
     )
 
-    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == {'foobar': 4}
 
 
@@ -154,12 +160,12 @@ async def test_actor_charge_limit(
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == ActorJobStatus.ABORTED and r.charged_event_counts == {'foobar': 2},
+        lambda r: r.status == 'ABORTED' and r.charged_event_counts == {'foobar': 2},
         timeout=30,
         poll_interval=1,
     )
 
-    assert run.status == ActorJobStatus.ABORTED
+    assert run.status == 'ABORTED'
     assert run.charged_event_counts == {'foobar': 2}
 
 
@@ -181,12 +187,12 @@ async def test_actor_push_data_charges_both_events(
     # reflected immediately via the charge endpoint).
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == expected_counts,
+        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
         timeout=120,
         poll_interval=1,
     )
 
-    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == expected_counts
 
 
@@ -211,10 +217,10 @@ async def test_actor_push_data_combined_budget_limit(
     # reflected immediately via the charge endpoint).
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == expected_counts,
+        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
         timeout=120,
         poll_interval=1,
     )
 
-    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == expected_counts

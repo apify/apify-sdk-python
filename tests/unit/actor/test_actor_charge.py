@@ -6,8 +6,7 @@ from typing import NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
 
 from apify import Actor, Configuration
-from apify._charging import ChargingManagerImplementation, PricingInfoItem
-from apify._models import PayPerEventActorPricingInfo
+from apify._charging import ChargingManagerImplementation, PayPerEventActorPricingInfo, PricingInfoItem
 
 
 class MockedChargingSetup(NamedTuple):
@@ -44,6 +43,7 @@ async def setup_mocked_charging(
 
     async with Actor(configuration):
         charging_mgr_impl = Actor.get_charging_manager()
+        assert isinstance(charging_mgr_impl, ChargingManagerImplementation)
 
         # Patch the charging manager to simulate running on Apify platform
         with (
@@ -52,7 +52,7 @@ async def setup_mocked_charging(
             patch.object(charging_mgr_impl, '_client', mock_client),
         ):
             setup = MockedChargingSetup(
-                charging_mgr=charging_mgr_impl,  # ty: ignore[invalid-argument-type]
+                charging_mgr=charging_mgr_impl,
                 mock_charge=mock_charge,
                 mock_client=mock_client,
             )
@@ -124,15 +124,20 @@ async def test_max_event_charge_count_within_limit_tolerates_overdraw() -> None:
         actor_pricing_info=PayPerEventActorPricingInfo.model_validate(
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'event': {
                             'eventPriceUsd': 0.0003,
                             'eventTitle': 'Event',
+                            'eventDescription': 'Event description',
                         },
                         'apify-actor-start': {
                             'eventPriceUsd': 0.00005,
                             'eventTitle': 'Actor start',
+                            'eventDescription': 'Actor start description',
                         },
                     }
                 },
@@ -235,15 +240,20 @@ async def test_charge_with_overdrawn_budget() -> None:
         actor_pricing_info=PayPerEventActorPricingInfo.model_validate(
             {
                 'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
                 'pricingPerEvent': {
                     'actorChargeEvents': {
                         'event': {
                             'eventPriceUsd': 0.0003,
                             'eventTitle': 'Event',
+                            'eventDescription': 'Event description',
                         },
                         'apify-actor-start': {
                             'eventPriceUsd': 0.00005,
                             'eventTitle': 'Actor start',
+                            'eventDescription': 'Actor start description',
                         },
                     }
                 },
