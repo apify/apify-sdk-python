@@ -13,12 +13,12 @@ The Apify SDK for Python is the official library for creating [Apify Actors](htt
 
 - **Actor lifecycle management** — initialization, graceful shutdown, status messages, rebooting, and metamorphing.
 - **Storage access** — datasets, key-value stores, and request queues, with automatic local emulation when running outside the platform.
-- **Actor input** — convenient access to the Actor input, including automatic decryption of secret fields.
+- **Actor input** — access to the Actor input, including automatic decryption of secret fields.
 - **Events & state persistence** — react to platform events (system info, migration, abort) and persist state across migrations and restarts.
 - **Proxy management** — Apify Proxy and custom proxies, with session and tiered-proxy support.
 - **Platform interaction** — start, call, and abort other Actors and tasks, create webhooks, and reach the full Apify API client.
 - **Monetization** — charge users with the pay-per-event pricing model.
-- **Framework integrations** — first-class support for [Crawlee](../guides/crawlee) and [Scrapy](../guides/scrapy), with guides for [Playwright](../guides/playwright) and others.
+- **Framework integrations** — support for [Crawlee](../guides/crawlee) and [Scrapy](../guides/scrapy), with guides for [Playwright](../guides/playwright) and others.
 
 <CodeBlock className="language-python">
     {IntroductionExample}

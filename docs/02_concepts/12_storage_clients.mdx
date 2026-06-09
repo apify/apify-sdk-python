@@ -10,7 +10,7 @@ import ApiLink from '@theme/ApiLink';
 import SharedRequestQueueExample from '!!raw-loader!roa-loader!./code/12_shared_request_queue.py';
 import CustomStorageClientExample from '!!raw-loader!roa-loader!./code/12_custom_storage_client.py';
 
-Storage clients are the components that actually read and write your [storages](./storages): datasets, key-value stores, and request queues. The Apify SDK selects an appropriate client automatically based on where the Actor runs, so for most Actors you never need to think about them. This page explains the available clients and how to customize them when you do.
+Storage clients are the components that actually read and write your [storages](./storages): datasets, key-value stores, and request queues. The Apify SDK selects an appropriate client automatically based on where the Actor runs. For most Actors you never need to think about them. This page explains the available clients and how to customize them when you do.
 
 ## How the Actor selects a storage client
 
@@ -38,7 +38,7 @@ Crawlee additionally ships storage clients backed by a self-hosted database: a [
 
 `ApifyStorageClient` supports two ways of accessing the Apify request queue, selected via its `request_queue_access` argument:
 
-- **`'single'`** (default) — optimized for a single consumer. It makes far fewer API calls, so it is cheaper and faster, but it does not support multiple clients consuming the same queue concurrently. This is the right choice for the majority of Actors.
+- **`'single'`** (default) — optimized for a single consumer. It makes fewer API calls, so it is cheaper and faster, but it does not support multiple clients consuming the same queue concurrently. This is the right choice for the majority of Actors.
 - **`'shared'`** — supports multiple consumers working on the same queue at the same time, at the cost of more API calls.
 
 To opt into the shared client, set it as the cloud client of the `SmartApifyStorageClient` in the [service locator](https://crawlee.dev/python/docs/guides/service-locator) before entering the Actor context:
