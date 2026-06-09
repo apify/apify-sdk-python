@@ -7,7 +7,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 from scrapy.exceptions import NotConfigured
 
 from apify import Actor, ProxyConfiguration
-from apify.scrapy import get_basic_auth_header
+from apify.scrapy.utils import get_basic_auth_header
 
 if TYPE_CHECKING:
     from scrapy import Request, Spider
@@ -30,7 +30,6 @@ class ApifyHttpProxyMiddleware:
 
         Args:
             proxy_settings: Dictionary containing proxy settings, provided by the Actor input.
-            auth_encoding: Encoding for basic authentication (default is 'latin-1').
         """
         self._proxy_settings = proxy_settings
         self._proxy_cfg_internal: ProxyConfiguration | None = None
@@ -111,7 +110,7 @@ class ApifyHttpProxyMiddleware:
         if isinstance(exception, TunnelError):
             Actor.log.warning(
                 f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", '
-                'reason="{exception}", skipping...'
+                f'reason="{exception}", skipping...'
             )
 
     async def _get_new_proxy_url(self) -> ParseResult:
