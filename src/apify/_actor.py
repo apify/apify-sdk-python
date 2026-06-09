@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import warnings
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -12,7 +13,6 @@ from more_itertools import flatten
 from pydantic import AliasChoices
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ActorEnvVars, ActorExitCodes, ApifyEnvVars
 from crawlee import service_locator
 from crawlee.errors import ServiceConflictError
 from crawlee.events import (
@@ -27,11 +27,11 @@ from crawlee.events import (
 
 from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingManager, ChargingManagerImplementation
 from apify._configuration import Configuration
-from apify._consts import EVENT_LISTENERS_TIMEOUT
+from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
-from apify._models import ActorRun
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
+from apify._webhook import to_client_representations
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
@@ -45,11 +45,12 @@ if TYPE_CHECKING:
     from types import TracebackType
     from typing import Self
 
-    from apify_shared.consts import ActorPermissionLevel
+    from apify_client._literals import ActorPermissionLevel
+    from apify_client._models import Run
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
-    from apify._models import Webhook
+    from apify._webhook import Webhook
 
 MainReturnType = TypeVar('MainReturnType')
 
@@ -234,7 +235,7 @@ class _ActorType:
             # In IPython, we don't run `sys.exit()` during Actor exits,
             # so the exception traceback will be printed on its own
             self.log.exception('Actor failed with an exception', exc_info=exc_value)
-            self.exit_code = ActorExitCodes.ERROR_USER_FUNCTION_THREW.value
+            self.exit_code = EXIT_CODE_ERROR_USER_FUNCTION_THREW
 
         self._is_exiting = True
         self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
@@ -504,19 +505,31 @@ class _ActorType:
             max_retries: How many times to retry a failed request at most.
             min_delay_between_retries: How long will the client wait between retrying requests
                 (increases exponentially from this value).
-            timeout: The socket timeout of the HTTP requests sent to the Apify API.
+            timeout: Baseline HTTP timeout for medium-duration API operations. The underlying client uses
+                separate timeout tiers for short/medium/long/max-duration calls; passing a value here scales
+                all four tiers proportionally (short = `timeout / 6`, long = `timeout * 12`,
+                max = `timeout * 12`).
         """
-        token = token or self.configuration.token
-        api_url = api_url or self.configuration.api_base_url
-        return ApifyClientAsync(
-            token=token,
-            api_url=api_url,
-            max_retries=max_retries,
-            min_delay_between_retries_millis=int(min_delay_between_retries.total_seconds() * 1000)
-            if min_delay_between_retries is not None
-            else None,
-            timeout_secs=int(timeout.total_seconds()) if timeout else None,
-        )
+        # Forward only the explicitly provided options; omitting the rest lets `ApifyClientAsync` apply its
+        # own defaults, so the SDK doesn't have to import and re-pass the client's private default constants.
+        client_kwargs: dict[str, Any] = {
+            'token': token or self.configuration.token,
+            'api_url': api_url or self.configuration.api_base_url,
+        }
+        if max_retries is not None:
+            client_kwargs['max_retries'] = max_retries
+        if min_delay_between_retries is not None:
+            client_kwargs['min_delay_between_retries'] = min_delay_between_retries
+        if timeout is not None:
+            # `apify-client` v3 splits the timeout into four tiers; scale them from the single baseline,
+            # mirroring the client's default ratios (medium = baseline, short = baseline / 6,
+            # long = max = baseline * 12).
+            client_kwargs['timeout_short'] = timeout / 6
+            client_kwargs['timeout_medium'] = timeout
+            client_kwargs['timeout_long'] = timeout * 12
+            client_kwargs['timeout_max'] = timeout * 12
+
+        return ApifyClientAsync(**client_kwargs)
 
     @_ensure_context
     async def open_dataset(
@@ -870,7 +883,7 @@ class _ActorType:
         force_permission_level: ActorPermissionLevel | None = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         """Run an Actor on the Apify platform.
 
         Unlike `Actor.call`, this method just starts the run without waiting for finish.
@@ -903,13 +916,6 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if webhooks:
-            serialized_webhooks = [
-                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
-            ]
-        else:
-            serialized_webhooks = None
-
         if timeout == 'inherit':
             actor_start_timeout = self._get_remaining_time()
         elif timeout is None:
@@ -919,20 +925,19 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        api_result = await client.actor(actor_id).start(
+        actor_client = client.actor(actor_id)
+        return await actor_client.start(
             run_input=run_input,
             content_type=content_type,
             build=build,
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(actor_start_timeout.total_seconds()) if actor_start_timeout is not None else None,
+            run_timeout=actor_start_timeout,
             force_permission_level=force_permission_level,
             wait_for_finish=wait_for_finish,
-            webhooks=serialized_webhooks,
+            webhooks=to_client_representations(webhooks),
         )
-
-        return ActorRun.model_validate(api_result)
 
     @_ensure_context
     async def abort(
@@ -942,7 +947,7 @@ class _ActorType:
         token: str | None = None,
         status_message: str | None = None,
         gracefully: bool | None = None,
-    ) -> ActorRun:
+    ) -> Run:
         """Abort given Actor run on the Apify platform using the current user account.
 
         The user account is determined by the `APIFY_TOKEN` environment variable.
@@ -959,13 +964,17 @@ class _ActorType:
             Info about the aborted Actor run.
         """
         client = self.new_client(token=token) if token else self.apify_client
+        run_client = client.run(run_id)
 
         if status_message:
-            await client.run(run_id).update(status_message=status_message)
+            await run_client.update(status_message=status_message)
 
-        api_result = await client.run(run_id).abort(gracefully=gracefully)
+        run = await run_client.abort(gracefully=gracefully)
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to abort Actor run with ID "{run_id}".')
+
+        return run
 
     @_ensure_context
     async def call(
@@ -984,7 +993,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | None | Literal['default'] = 'default',
-    ) -> ActorRun | None:
+    ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1020,13 +1029,6 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if webhooks:
-            serialized_webhooks = [
-                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
-            ]
-        else:
-            serialized_webhooks = None
-
         if timeout == 'inherit':
             actor_call_timeout = self._get_remaining_time()
         elif timeout is None:
@@ -1036,21 +1038,25 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        api_result = await client.actor(actor_id).call(
+        actor_client = client.actor(actor_id)
+        run = await actor_client.call(
             run_input=run_input,
             content_type=content_type,
             build=build,
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(actor_call_timeout.total_seconds()) if actor_call_timeout is not None else None,
+            run_timeout=actor_call_timeout,
             force_permission_level=force_permission_level,
-            webhooks=serialized_webhooks,
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            webhooks=to_client_representations(webhooks),
+            wait_duration=wait,
             logger=logger,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
+
+        return run
 
     @_ensure_context
     async def call_task(
@@ -1065,7 +1071,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
-    ) -> ActorRun | None:
+    ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1098,13 +1104,6 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if webhooks:
-            serialized_webhooks = [
-                hook.model_dump(by_alias=True, exclude_unset=True, exclude_defaults=True) for hook in webhooks
-            ]
-        else:
-            serialized_webhooks = None
-
         if timeout == 'inherit':
             task_call_timeout = self._get_remaining_time()
         elif timeout is None:
@@ -1114,17 +1113,21 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        api_result = await client.task(task_id).call(
+        task_client = client.task(task_id)
+        run = await task_client.call(
             task_input=task_input,
             build=build,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(task_call_timeout.total_seconds()) if task_call_timeout is not None else None,
-            webhooks=serialized_webhooks,
-            wait_secs=int(wait.total_seconds()) if wait is not None else None,
+            run_timeout=task_call_timeout,
+            webhooks=to_client_representations(webhooks),
+            wait_duration=wait,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
+
+        return run
 
     @_ensure_context
     async def metamorph(
@@ -1238,14 +1241,7 @@ class _ActorType:
             await asyncio.sleep(custom_after_sleep.total_seconds())
 
     @_ensure_context
-    async def add_webhook(
-        self,
-        webhook: Webhook,
-        *,
-        ignore_ssl_errors: bool | None = None,
-        do_not_retry: bool | None = None,
-        idempotency_key: str | None = None,
-    ) -> None:
+    async def add_webhook(self, webhook: Webhook, *, idempotency_key: str | None = None) -> None:
         """Create an ad-hoc webhook for the current Actor run.
 
         This webhook lets you receive a notification when the Actor run finished or failed.
@@ -1256,15 +1252,18 @@ class _ActorType:
         For more information about Apify Actor webhooks, please see the [documentation](https://docs.apify.com/webhooks).
 
         Args:
-            webhook: The webhook to be added
-            ignore_ssl_errors: Whether the webhook should ignore SSL errors returned by request_url
-            do_not_retry: Whether the webhook should retry sending the payload to request_url upon failure.
-            idempotency_key: A unique identifier of a webhook. You can use it to ensure that you won't create
-                the same webhook multiple times.
-
-        Returns:
-            The created webhook.
+            webhook: The webhook to be added. It is automatically bound to the current Actor run.
+            idempotency_key: Deprecated. Pass `idempotency_key` on the `Webhook` instance instead.
+                Will be removed in version 5.0.0.
         """
+        if idempotency_key is not None:
+            warnings.warn(
+                'Passing `idempotency_key` to `Actor.add_webhook()` is deprecated and will be removed in version '
+                '5.0.0. Set it on the `Webhook` instance instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if not self.is_at_home():
             self.log.error('Actor.add_webhook() is only supported when running on the Apify platform.')
             return
@@ -1278,9 +1277,11 @@ class _ActorType:
             event_types=webhook.event_types,
             request_url=webhook.request_url,
             payload_template=webhook.payload_template,
-            ignore_ssl_errors=ignore_ssl_errors,
-            do_not_retry=do_not_retry,
-            idempotency_key=idempotency_key,
+            headers_template=webhook.headers_template,
+            ignore_ssl_errors=webhook.ignore_ssl_errors,
+            do_not_retry=webhook.do_not_retry,
+            idempotency_key=idempotency_key if idempotency_key is not None else webhook.idempotency_key,
+            is_ad_hoc=True,
         )
 
     @_ensure_context
@@ -1289,7 +1290,7 @@ class _ActorType:
         status_message: str,
         *,
         is_terminal: bool | None = None,
-    ) -> ActorRun | None:
+    ) -> Run | None:
         """Set the status message for the current Actor run.
 
         Args:
@@ -1308,11 +1309,18 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        api_result = await self.apify_client.run(self.configuration.actor_run_id).update(
-            status_message=status_message, is_status_message_terminal=is_terminal
+        run_client = self.apify_client.run(self.configuration.actor_run_id)
+        run = await run_client.update(
+            status_message=status_message,
+            is_status_message_terminal=is_terminal,
         )
 
-        return ActorRun.model_validate(api_result)
+        if run is None:
+            raise RuntimeError(
+                f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
+            )
+
+        return run
 
     @_ensure_context
     async def create_proxy_configuration(

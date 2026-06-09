@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from types import TracebackType
 
-    from apify_client.clients import (
+    from apify_client._resource_clients import (
         DatasetClientAsync,
         DatasetCollectionClientAsync,
         KeyValueStoreClientAsync,
@@ -107,8 +107,8 @@ async def open_by_alias(
         # Create new unnamed storage and store alias mapping
         raw_metadata = await collection_client.get_or_create()
 
-        await alias_resolver.store_mapping(storage_id=raw_metadata['id'])
-        return get_resource_client_by_id(raw_metadata['id'])
+        await alias_resolver.store_mapping(storage_id=raw_metadata.id)
+        return get_resource_client_by_id(raw_metadata.id)
 
 
 class AliasResolver:
@@ -257,8 +257,6 @@ class AliasResolver:
             token=configuration.token,
             api_url=configuration.api_base_url,
             max_retries=8,
-            min_delay_between_retries_millis=500,
-            timeout_secs=360,
         )
 
         if not configuration.default_key_value_store_id:
