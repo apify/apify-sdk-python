@@ -86,11 +86,11 @@ class ApifyCacheStorage:
                         gzip_time = read_gzip_time(value)
                     except Exception as e:
                         logger.warning(f'Malformed cache item {item.key}: {e}')
-                        await self._kvs.set_value(item.key, None)
+                        await self._kvs.delete_value(item.key)
                     else:
                         if self._expiration_secs < current_time - gzip_time:
                             logger.debug(f'Expired cache item {item.key}')
-                            await self._kvs.set_value(item.key, None)
+                            await self._kvs.delete_value(item.key)
                         else:
                             logger.debug(f'Valid cache item {item.key}')
                     if i == self._expiration_max_items:
@@ -127,15 +127,23 @@ class ApifyCacheStorage:
 
         if current_time is None:
             current_time = int(time())
-        if 0 < self._expiration_secs < current_time - read_gzip_time(value):
-            logger.debug('Cache expired', extra={'request': request})
+
+        try:
+            if 0 < self._expiration_secs < current_time - read_gzip_time(value):
+                logger.debug('Cache expired', extra={'request': request})
+                return None
+
+            data = from_gzip(value)
+            url = data['url']
+            status = data['status']
+            headers = Headers(data['headers'])
+            body = data['body']
+        except Exception as e:
+            # A corrupt or incompatible cache item (e.g. a legacy or foreign serialization format) must
+            # degrade to a cache miss rather than break the whole download.
+            logger.warning(f'Ignoring malformed cache item {key}: {e}')
             return None
 
-        data = from_gzip(value)
-        url = data['url']
-        status = data['status']
-        headers = Headers(data['headers'])
-        body = data['body']
         respcls = responsetypes.from_args(headers=headers, url=url, body=body)
 
         logger.debug('Cache hit', extra={'request': request})
