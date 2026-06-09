@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from apify_shared.consts import ActorPermissionLevel
 from crawlee._utils.crypto import crypto_random_object_id
 
-from ._utils import generate_unique_resource_name
+from .._utils import generate_unique_resource_name, poll_until_condition
 from apify import Actor
 from apify._models import ActorRun
 
@@ -360,7 +360,7 @@ async def test_actor_reboots_successfully(
     async def main() -> None:
         async with Actor:
             print('Starting...')
-            cnt = await Actor.get_value('reboot_counter', 0)
+            cnt = await Actor.get_value('reboot_counter', default_value=0)
 
             if cnt < 2:
                 print(f'Rebooting (cnt = {cnt})...')
@@ -393,6 +393,7 @@ async def test_actor_adds_webhook_and_receives_event(
 ) -> None:
     async def main_server() -> None:
         import os
+        import time
         from http.server import BaseHTTPRequestHandler, HTTPServer
 
         from apify_shared.consts import ActorEnvVars
@@ -419,12 +420,19 @@ async def test_actor_adds_webhook_and_receives_event(
             container_port = int(os.getenv(ActorEnvVars.WEB_SERVER_PORT, ''))
             with HTTPServer(('', container_port), WebhookHandler) as server:
                 await Actor.set_value('INITIALIZED', value=True)
-                while not webhook_body:
+                # Bound the wait so that a webhook that never fires (e.g. one that did not propagate before the
+                # client run finished) surfaces as an empty WEBHOOK_BODY in the test instead of blocking here
+                # until the run times out.
+                server.timeout = 5
+                deadline = time.monotonic() + 300
+                while not webhook_body and time.monotonic() < deadline:
                     server.handle_request()
 
             await Actor.set_value('WEBHOOK_BODY', webhook_body)
 
     async def main_client() -> None:
+        import asyncio
+
         from apify import Webhook, WebhookEventType
 
         async with Actor:
@@ -438,6 +446,12 @@ async def test_actor_adds_webhook_and_receives_event(
                 )
             )
 
+            # Keep the run alive for a moment after registering the webhook. Without this, the run finishes
+            # just milliseconds later and the platform may process the run-succeeded event before the freshly
+            # added ad-hoc webhook has propagated, in which case the webhook never fires and the server Actor
+            # waits until it times out.
+            await asyncio.sleep(5)
+
     server_actor, client_actor = await asyncio.gather(
         make_actor(label='add-webhook-server', main_func=main_server),
         make_actor(label='add-webhook-client', main_func=main_client),
@@ -446,10 +460,15 @@ async def test_actor_adds_webhook_and_receives_event(
     server_actor_run = await server_actor.start()
     server_actor_container_url = server_actor_run['containerUrl']
 
-    server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
-    while not server_actor_initialized:
-        server_actor_initialized = await server_actor.last_run().key_value_store().get_record('INITIALIZED')
-        await asyncio.sleep(1)
+    # Wait for the server Actor's container to start up and bind its HTTP server. The startup time is highly
+    # variable (image pull, container creation), so poll with a growing interval instead of a fixed sleep.
+    server_actor_initialized = await poll_until_condition(
+        lambda: server_actor.last_run().key_value_store().get_record('INITIALIZED'),
+        timeout=300,
+        poll_interval=1,
+        backoff_factor=1.5,
+    )
+    assert server_actor_initialized is not None, 'The server Actor did not initialize in time.'
 
     ac_run_result = await run_actor(
         client_actor,
@@ -465,7 +484,7 @@ async def test_actor_adds_webhook_and_receives_event(
 
     webhook_body_record = await server_actor.last_run().key_value_store().get_record('WEBHOOK_BODY')
     assert webhook_body_record is not None
-    assert webhook_body_record['value'] != ''
+    assert webhook_body_record['value'] != '', 'The ad-hoc webhook never fired (it likely did not propagate in time).'
     parsed_webhook_body = json.loads(webhook_body_record['value'])
 
     assert parsed_webhook_body['eventData']['actorId'] == ac_run_result.act_id

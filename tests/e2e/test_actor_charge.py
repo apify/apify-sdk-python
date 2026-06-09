@@ -1,23 +1,27 @@
 from __future__ import annotations
 
-import asyncio
 from decimal import Decimal
+from functools import partial
 from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
 from apify_shared.consts import ActorJobStatus
 
+from .._utils import poll_until_condition
 from apify import Actor
 from apify._models import ActorRun
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from apify_client import ApifyClientAsync
     from apify_client.clients import ActorClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
+
+
+async def _get_run(apify_client_async: ApifyClientAsync, run_id: str) -> ActorRun:
+    """Fetch the current state of the given run from the platform."""
+    return ActorRun.model_validate(await apify_client_async.run(run_id).get())
 
 
 @pytest_asyncio.fixture(scope='module', loop_scope='module')
@@ -26,7 +30,7 @@ async def ppe_push_data_actor_build(make_actor: MakeActorFunction) -> str:
         async with Actor:
             await Actor.push_data(
                 [{'id': i} for i in range(5)],
-                'push-item',
+                charged_event_name='push-item',
             )
 
     actor_client = await make_actor('ppe-push-data', main_func=main)
@@ -112,13 +116,6 @@ async def ppe_actor(
     return apify_client_async.actor(ppe_actor_build)
 
 
-def retry_counter(total_attempts: int) -> Iterable[tuple[bool, int]]:
-    for retry in range(total_attempts - 1):
-        yield False, retry
-
-    yield True, total_attempts - 1
-
-
 async def test_actor_charge_basic(
     ppe_actor: ActorClientAsync,
     run_actor: RunActorFunction,
@@ -126,19 +123,16 @@ async def test_actor_charge_basic(
 ) -> None:
     run = await run_actor(ppe_actor)
 
-    # Refetch until the platform gets its act together
-    for is_last_attempt, _ in retry_counter(30):
-        await asyncio.sleep(1)
-        updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+    # Refetch until the charged event counts propagate on the platform.
+    run = await poll_until_condition(
+        partial(_get_run, apify_client_async, run.id),
+        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == {'foobar': 4},
+        timeout=30,
+        poll_interval=1,
+    )
 
-        try:
-            assert run.status == ActorJobStatus.SUCCEEDED
-            assert run.charged_event_counts == {'foobar': 4}
-            break
-        except AssertionError:
-            if is_last_attempt:
-                raise
+    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.charged_event_counts == {'foobar': 4}
 
 
 async def test_actor_charge_limit(
@@ -148,19 +142,16 @@ async def test_actor_charge_limit(
 ) -> None:
     run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
 
-    # Refetch until the platform gets its act together
-    for is_last_attempt, _ in retry_counter(30):
-        await asyncio.sleep(1)
-        updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+    # Refetch until the charged event counts propagate on the platform.
+    run = await poll_until_condition(
+        partial(_get_run, apify_client_async, run.id),
+        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == {'foobar': 2},
+        timeout=30,
+        poll_interval=1,
+    )
 
-        try:
-            assert run.status == ActorJobStatus.SUCCEEDED
-            assert run.charged_event_counts == {'foobar': 2}
-            break
-        except AssertionError:
-            if is_last_attempt:
-                raise
+    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.charged_event_counts == {'foobar': 2}
 
 
 async def test_actor_push_data_charges_both_events(
@@ -171,24 +162,23 @@ async def test_actor_push_data_charges_both_events(
     """Test that push_data charges both the explicit event and the synthetic apify-default-dataset-item event."""
     run = await run_actor(ppe_push_data_actor)
 
-    # Use a longer retry window (120 attempts x 1 s) for synthetic events like `apify-default-dataset-item`:
-    # the platform computes them from dataset writes asynchronously, so they propagate more slowly than
-    # explicit charges (which are reflected immediately via the charge endpoint).
-    for is_last_attempt, _ in retry_counter(120):
-        await asyncio.sleep(1)
-        updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+    expected_counts = {
+        'push-item': 5,
+        'apify-default-dataset-item': 5,
+    }
 
-        try:
-            assert run.status == ActorJobStatus.SUCCEEDED
-            assert run.charged_event_counts == {
-                'push-item': 5,
-                'apify-default-dataset-item': 5,
-            }
-            break
-        except AssertionError:
-            if is_last_attempt:
-                raise
+    # Use a longer timeout for synthetic events like `apify-default-dataset-item`: the platform computes them
+    # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
+    # reflected immediately via the charge endpoint).
+    run = await poll_until_condition(
+        partial(_get_run, apify_client_async, run.id),
+        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == expected_counts,
+        timeout=120,
+        poll_interval=1,
+    )
+
+    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.charged_event_counts == expected_counts
 
 
 async def test_actor_push_data_combined_budget_limit(
@@ -202,21 +192,20 @@ async def test_actor_push_data_combined_budget_limit(
     """
     run = await run_actor(ppe_push_data_actor, max_total_charge_usd=Decimal('0.20'))
 
-    # Use a longer retry window (120 attempts x 1 s) for synthetic events like `apify-default-dataset-item`:
-    # the platform computes them from dataset writes asynchronously, so they propagate more slowly than
-    # explicit charges (which are reflected immediately via the charge endpoint).
-    for is_last_attempt, _ in retry_counter(120):
-        await asyncio.sleep(1)
-        updated_run = await apify_client_async.run(run.id).get()
-        run = ActorRun.model_validate(updated_run)
+    expected_counts = {
+        'push-item': 2,
+        'apify-default-dataset-item': 2,
+    }
 
-        try:
-            assert run.status == ActorJobStatus.SUCCEEDED
-            assert run.charged_event_counts == {
-                'push-item': 2,
-                'apify-default-dataset-item': 2,
-            }
-            break
-        except AssertionError:
-            if is_last_attempt:
-                raise
+    # Use a longer timeout for synthetic events like `apify-default-dataset-item`: the platform computes them
+    # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
+    # reflected immediately via the charge endpoint).
+    run = await poll_until_condition(
+        partial(_get_run, apify_client_async, run.id),
+        lambda r: r.status == ActorJobStatus.SUCCEEDED and r.charged_event_counts == expected_counts,
+        timeout=120,
+        poll_interval=1,
+    )
+
+    assert run.status == ActorJobStatus.SUCCEEDED
+    assert run.charged_event_counts == expected_counts

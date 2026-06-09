@@ -69,7 +69,8 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
 
         # Convert Scrapy's headers to a HttpHeaders and store them in the apify_request
         if isinstance(scrapy_request.headers, Headers):
-            request_kwargs['headers'] = HttpHeaders(dict(scrapy_request.headers.to_unicode_dict()))
+            headers = cast('dict[str, str]', dict(scrapy_request.headers.to_unicode_dict()))
+            request_kwargs['headers'] = HttpHeaders(headers)
         else:
             logger.warning(
                 f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}'

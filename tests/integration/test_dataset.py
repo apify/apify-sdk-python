@@ -6,7 +6,7 @@ import pytest
 
 from apify_shared.consts import ApifyEnvVars
 
-from ._utils import generate_unique_resource_name
+from .._utils import generate_unique_resource_name
 from apify import Actor
 from apify.storage_clients import ApifyStorageClient
 from apify.storages import Dataset
