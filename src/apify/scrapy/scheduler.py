@@ -170,6 +170,13 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-        scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
+        # Reconstruct the Scrapy request. A malformed queue entry must not crash the whole run: it
+        # has already been marked handled above, so log it and skip it instead of propagating.
+        try:
+            scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
+        except Exception:
+            logger.exception(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it.')
+            return None
+
         logger.debug(f'Converted to scrapy_request: {scrapy_request}')
         return scrapy_request
