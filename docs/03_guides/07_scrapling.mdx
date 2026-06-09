@@ -16,15 +16,15 @@ In this guide, you'll learn how to use the [Scrapling](https://scrapling.readthe
 
 [Scrapling](https://scrapling.readthedocs.io/) is an adaptive web scraping library for Python that combines fetching and parsing behind a single, high-level API. It can fetch a page with fast HTTP requests or with a real browser, parse the result with familiar CSS selectors and XPath, and even relocate your selectors automatically when a website's structure changes.
 
-Some of the features that make Scrapling a good fit for Apify Actors:
+Scrapling is a great fit for Apify Actors:
 
-- **Multiple fetchers** - A single API exposes a fast HTTP client with browser TLS-fingerprint impersonation, as well as full browser automation for JavaScript-heavy or protected pages.
-- **Adaptive selectors** - Scrapling can remember the elements you scraped and find them again after a website redesign, so your scrapers keep working with fewer manual fixes.
-- **Anti-bot evasion** - Built-in stealth features (browser impersonation, realistic headers, and automatic Cloudflare Turnstile solving with the browser fetchers) help you avoid being blocked.
-- **Familiar parsing API** - Elements are selected with CSS selectors (including the `::text` and `::attr()` pseudo-elements) or XPath, with a Scrapy/Parsel-like `.get()` and `.getall()` interface.
-- **First-class async support** - Every fetcher has an asynchronous variant, which integrates naturally with the asyncio-based Apify SDK.
+- A single API exposes a fast HTTP client with browser TLS-fingerprint impersonation, as well as full browser automation for JavaScript-heavy or protected pages.
+- Scrapling can remember the elements you scraped and find them again after a website redesign. Your scrapers keep working with fewer manual fixes.
+- Built-in stealth features (browser impersonation, realistic headers, and automatic Cloudflare Turnstile solving with the browser fetchers) help you avoid being blocked.
+- Elements are selected with CSS selectors (including the `::text` and `::attr()` pseudo-elements) or XPath, with a Scrapy/Parsel-like `.get()` and `.getall()` interface.
+- Every fetcher has an asynchronous variant, which integrates naturally with the asyncio-based Apify SDK.
 
-Scrapling's parser works on its own, while the fetchers are an optional extra. Install Scrapling with the `fetchers` extra to get the HTTP and browser fetchers:
+Scrapling's parser works on its own. The fetchers are an optional extra. Install Scrapling with the `fetchers` extra to get the HTTP and browser fetchers:
 
 ```bash
 pip install "scrapling[fetchers]"
@@ -54,7 +54,7 @@ The whole Actor fits in a single file. A `scrape_page` helper holds the Scraplin
     {ScraplingExample}
 </RunnableCodeBlock>
 
-A few things worth pointing out:
+Note that:
 
 - Keeping the fetching and parsing in `scrape_page` separates the Scrapling-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `main` decides what to store and what to enqueue.
 - The response of `AsyncFetcher.get` is a Scrapling selector, so `response.css('title::text').get()` reads the page title and `response.css('a::attr(href)').getall()` returns every link's `href` in one call.
@@ -65,7 +65,7 @@ A few things worth pointing out:
 
 Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `main` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `scrape_page` for every request, which forwards it to Scrapling's `proxy` argument.
 
-Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy.apify.com:8000`), which is exactly what `ProxyConfiguration.new_url` returns. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide. The browser-based fetchers accept the same `proxy` argument.
+Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy.apify.com:8000`), which is exactly what `ProxyConfiguration.new_url` returns. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management). The browser-based fetchers accept the same `proxy` argument.
 
 ## Running browser-based fetchers
 
@@ -75,7 +75,7 @@ Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy
 scrapling install
 ```
 
-Switching the example Actor from HTTP to a real browser takes only one code change. Swap the `AsyncFetcher.get` call in `scrape_page` for `DynamicFetcher.async_fetch`. The parsing API is identical, so the rest of the Actor stays exactly the same:
+Switching the example Actor from HTTP to a real browser takes only one code change. Swap the `AsyncFetcher.get` call in `scrape_page` for `DynamicFetcher.async_fetch`. The parsing API is identical, so the rest of the Actor stays the same:
 
 <CodeBlock className="language-python">
     {ScraplingBrowserScraper}
@@ -85,7 +85,7 @@ To run this on the Apify platform, build on top of the [Apify Playwright base im
 
 ## Conclusion
 
-In this guide, you learned how to use Scrapling in your Apify Actors. You can now fetch pages with Scrapling's HTTP or browser-based fetchers, extract data with its CSS and XPath selectors, route requests through Apify Proxy, and run the whole thing on the Apify platform. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+In this guide, you learned how to use Scrapling in your Apify Actors. You can now fetch pages with Scrapling's HTTP or browser-based fetchers, extract data with its CSS and XPath selectors, route requests through Apify Proxy, and run the whole thing on the Apify platform. To get started with your own scraping tasks, see the [Actor templates](https://apify.com/templates/categories/python). If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
 
 ## Additional resources
 
