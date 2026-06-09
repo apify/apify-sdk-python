@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 from scrapy import Request, Spider
 from scrapy.http.headers import Headers
@@ -38,7 +40,8 @@ def test_handles_headers(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    assert apify_request.headers == HttpHeaders(dict(scrapy_request_headers.to_unicode_dict()))
+    expected_headers = cast('dict[str, str]', dict(scrapy_request_headers.to_unicode_dict()))
+    assert apify_request.headers == HttpHeaders(expected_headers)
 
 
 def test_without_id_and_unique_key(spider: Spider) -> None:

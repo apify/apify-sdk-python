@@ -81,12 +81,12 @@ def test_invalid_arguments() -> None:
         match_pattern = f'Value {re.escape(bad_group)} of argument groups does not match pattern'
 
         with pytest.raises(ValueError, match=match_pattern):
-            ProxyConfiguration(groups=invalid_groups)  # ty: ignore[invalid-argument-type]
+            ProxyConfiguration(groups=invalid_groups)
 
     for invalid_country_code in ['CZE', 'aa', 'DDDD', 1111]:
         match_pattern = f'Value {re.escape(str(invalid_country_code))} of argument country_code does not match pattern'
         with pytest.raises(ValueError, match=match_pattern):
-            ProxyConfiguration(country_code=invalid_country_code)  # ty: ignore[invalid-argument-type]
+            ProxyConfiguration(country_code=invalid_country_code)
 
     for invalid_subdivision_code in ['California', 'ca', 'ABCD', 'A1b']:
         escaped = re.escape(str(invalid_subdivision_code))
