@@ -1,12 +1,16 @@
+import asyncio
 import gzip
 import io
 import json
 import pickle
 from time import time
+from typing import Any
 
 import pytest
+from scrapy import Request
+from scrapy.settings import Settings
 
-from apify.scrapy.extensions._httpcache import from_gzip, get_kvs_name, read_gzip_time, to_gzip
+from apify.scrapy.extensions._httpcache import ApifyCacheStorage, from_gzip, get_kvs_name, read_gzip_time, to_gzip
 
 FIXTURE_DICT = {'name': 'Alice'}
 
@@ -68,6 +72,57 @@ def test_from_gzip_rejects_pickle_payload() -> None:
 
     with pytest.raises((UnicodeDecodeError, json.JSONDecodeError, ValueError)):
         from_gzip(pickle_payload)
+
+
+class _FakeAsyncThread:
+    def run_coro(self, coro: Any, *_: Any, **__: Any) -> Any:
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+
+class _FakeKvs:
+    def __init__(self, value: bytes | None) -> None:
+        self._value = value
+
+    async def get_value(self, _: str) -> bytes | None:
+        return self._value
+
+
+class _FakeFingerprinter:
+    def fingerprint(self, _: Request) -> bytes:
+        return b'\xab\xcd'
+
+
+def _make_storage(value: bytes | None) -> ApifyCacheStorage:
+    storage = ApifyCacheStorage(Settings({'HTTPCACHE_EXPIRATION_SECS': 0}))
+    storage._async_thread = _FakeAsyncThread()  # ty: ignore[invalid-assignment]
+    storage._kvs = _FakeKvs(value)  # ty: ignore[invalid-assignment]
+    storage._fingerprinter = _FakeFingerprinter()  # ty: ignore[invalid-assignment]
+    return storage
+
+
+def test_retrieve_response_returns_cached_response() -> None:
+    data = {'status': 200, 'url': 'https://example.com', 'headers': {}, 'body': b'hello'}
+    storage = _make_storage(to_gzip(data))
+    response = storage.retrieve_response(None, Request('https://example.com'))  # ty: ignore[invalid-argument-type]
+    assert response is not None
+    assert response.status == 200
+    assert response.body == b'hello'
+
+
+def test_retrieve_response_ignores_legacy_pickle_item() -> None:
+    # A gzip-wrapped pickle payload is the legacy (pre-JSON) cache format that the JSON reader cannot
+    # load. After the upgrade, such an item must degrade to a cache miss instead of raising and breaking
+    # the download, so the cache self-heals (re-fetch and re-store as JSON) rather than crashing.
+    with io.BytesIO() as byte_stream:
+        with gzip.GzipFile(fileobj=byte_stream, mode='wb') as gzip_file:
+            pickle.dump({'status': 200, 'body': b'x'}, gzip_file, protocol=4)
+        legacy_pickle = byte_stream.getvalue()
+    storage = _make_storage(legacy_pickle)
+    assert storage.retrieve_response(None, Request('https://example.com')) is None  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(
