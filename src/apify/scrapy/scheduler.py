@@ -170,9 +170,8 @@ class ApifyScheduler(BaseScheduler):
             traceback.print_exc()
             raise
 
-        # Reconstruct the Scrapy request. A malformed queue entry (e.g. an unknown `_class` or a
-        # payload that no longer parses) must not crash the whole run: it has already been marked
-        # handled above, so log it and skip it by returning None instead of propagating.
+        # Reconstruct the Scrapy request. A malformed queue entry must not crash the whole run: it
+        # has already been marked handled above, so log it and skip it instead of propagating.
         try:
             scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
         except Exception:
