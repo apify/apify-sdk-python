@@ -11,8 +11,8 @@ from unittest.mock import Mock
 import pytest
 
 from apify_client import ApifyClientAsync
-from apify_shared.consts import ApifyEnvVars
 
+from apify._consts import ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, is_url
 
 if TYPE_CHECKING:
@@ -26,15 +26,7 @@ DUMMY_PASSWORD = 'DUMMY_PASSWORD'
 
 @pytest.fixture
 def patched_apify_client(apify_client_async_patcher: ApifyClientAsyncPatcher) -> ApifyClientAsync:
-    apify_client_async_patcher.patch(
-        'user',
-        'get',
-        return_value={
-            'proxy': {
-                'password': DUMMY_PASSWORD,
-            },
-        },
-    )
+    apify_client_async_patcher.patch('user', 'get', return_value=Mock(proxy=Mock(password=DUMMY_PASSWORD)))
     return ApifyClientAsync()
 
 
@@ -69,12 +61,14 @@ def test_fallback_constructor(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_invalid_arguments() -> None:
-    for invalid_groups, bad_group_index in [
+    # The arguments are deliberately invalid, so the element types are `Any`.
+    invalid_group_cases: list[tuple[list[Any], int]] = [
         (['abc', 'de-f', 'geh'], 1),
         (['', 'def', 'geh'], 0),
         (['abc', 'DEF', 'geh$'], 2),
         ([111, 'DEF', 'geh$'], 2),
-    ]:
+    ]
+    for invalid_groups, bad_group_index in invalid_group_cases:
         bad_group = str(invalid_groups[bad_group_index])
 
         # Match the actual error message pattern that includes the value and argument name
@@ -83,7 +77,8 @@ def test_invalid_arguments() -> None:
         with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(groups=invalid_groups)
 
-    for invalid_country_code in ['CZE', 'aa', 'DDDD', 1111]:
+    invalid_country_codes: list[Any] = ['CZE', 'aa', 'DDDD', 1111]
+    for invalid_country_code in invalid_country_codes:
         match_pattern = f'Value {re.escape(str(invalid_country_code))} of argument country_code does not match pattern'
         with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(country_code=invalid_country_code)

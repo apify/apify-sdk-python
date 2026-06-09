@@ -6,12 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from apify._charging import ChargingManagerImplementation
+from apify._charging import ActorChargeEvent, ChargingManagerImplementation, PayPerEventActorPricingInfo
 from apify._configuration import Configuration
-from apify._models import (
-    ActorChargeEvent,
-    PayPerEventActorPricingInfo,
-)
 
 
 def _make_config(**kwargs: Any) -> Configuration:
@@ -49,12 +45,17 @@ def _make_ppe_pricing_info(events: dict[str, Decimal] | None = None) -> PayPerEv
     if events is None:
         events = {'search': Decimal('0.01'), 'scrape': Decimal('0.05')}
     charge_events = {
-        name: ActorChargeEvent.model_validate({'eventPriceUsd': price, 'eventTitle': f'{name} event'})
+        name: ActorChargeEvent.model_validate(
+            {'eventPriceUsd': price, 'eventTitle': f'{name} event', 'eventDescription': f'{name} event description'}
+        )
         for name, price in events.items()
     }
     return PayPerEventActorPricingInfo.model_validate(
         {
             'pricingModel': 'PAY_PER_EVENT',
+            'apifyMarginPercentage': 0.0,
+            'createdAt': '2024-01-01T00:00:00.000Z',
+            'startedAt': '2024-01-01T00:00:00.000Z',
             'pricingPerEvent': {
                 'actorChargeEvents': {name: event.model_dump(by_alias=True) for name, event in charge_events.items()}
             },
@@ -181,6 +182,32 @@ async def test_get_pricing_info_structure(mock_client: MagicMock) -> None:
         assert info.max_total_charge_usd == Decimal('10.00')
         assert 'search' in info.per_event_prices
         assert info.per_event_prices['search'] == Decimal('0.01')
+
+
+async def test_tier_priced_event_is_skipped(mock_client: MagicMock) -> None:
+    """A tier-priced PPE event (no eventPriceUsd) must parse and be skipped, not crash."""
+    pricing_info = PayPerEventActorPricingInfo.model_validate(
+        {
+            'pricingModel': 'PAY_PER_EVENT',
+            'pricingPerEvent': {
+                'actorChargeEvents': {
+                    'flat': {'eventPriceUsd': 0.02, 'eventTitle': 'Flat event'},
+                    'tiered': {'eventTitle': 'Tiered event', 'eventTieredPricingUsd': {}},
+                }
+            },
+        }
+    )
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('10.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        info = cm.get_pricing_info()
+        # The flat event is registered with its price; the tier-priced event is skipped.
+        assert info.per_event_prices == {'flat': Decimal('0.02')}
 
 
 async def test_get_charged_event_count_unknown_event(mock_client: MagicMock) -> None:
