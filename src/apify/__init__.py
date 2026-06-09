@@ -1,6 +1,6 @@
 from importlib import metadata
 
-from apify_shared.consts import WebhookEventType
+from apify_client._literals import WebhookEventType
 from crawlee import Request
 from crawlee.events import (
     Event,
@@ -14,13 +14,18 @@ from crawlee.events import (
 
 from apify._actor import Actor
 from apify._configuration import Configuration
-from apify._models import Webhook
+from apify._consts import ActorEnvVars, ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, ProxyInfo
+from apify._webhook import Webhook
+from apify.events._types import ActorEventTypes
 
 __version__ = metadata.version('apify')
 
 __all__ = [
     'Actor',
+    'ActorEnvVars',
+    'ActorEventTypes',
+    'ApifyEnvVars',
     'Configuration',
     'Event',
     'EventAbortingData',
