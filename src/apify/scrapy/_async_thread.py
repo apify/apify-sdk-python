@@ -16,12 +16,10 @@ logger = getLogger(__name__)
 class AsyncThread:
     """Run an asyncio event loop in a dedicated background thread.
 
-    This lets synchronous Scrapy callbacks drive asynchronous Apify and Crawlee coroutines. Each
-    consumer (the scheduler and the HTTP cache storage) owns its own `AsyncThread`, so the request
-    queue and the key-value store each live entirely on a single, separate event loop and are never
-    shared across loops. They do read the same global `Configuration`, which is read-only here, so
-    the isolation holds. A single shared loop would also work but would couple the otherwise
-    independent lifecycles of those Scrapy components.
+    This lets synchronous Scrapy callbacks drive asynchronous Apify and Crawlee coroutines. The
+    scheduler and the HTTP cache storage each own their own `AsyncThread`, so the request queue and
+    the key-value store never share an event loop; they only share the read-only global
+    `Configuration`. A single shared loop would also work but would couple their lifecycles.
     """
 
     def __init__(self, default_timeout: timedelta = timedelta(seconds=60)) -> None:
