@@ -58,7 +58,7 @@ It uses Playwright to open the pages in an automated Chrome browser, and to extr
 
 ## Using Apify Proxy
 
-Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. The example creates a proxy configuration with `Actor.create_proxy_configuration` and fetches a fresh proxy URL for every request. Playwright applies a proxy per browser context, so each request runs in its own new context to rotate the IP. The `to_playwright_proxy` helper splits that URL into the `server`, `username`, and `password` fields Playwright expects. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. The example creates a proxy configuration with `Actor.create_proxy_configuration` and fetches a fresh proxy URL for every request. Playwright applies a proxy per browser context. Each request runs in its own new context to rotate the IP. The `to_playwright_proxy` helper splits that URL into the `server`, `username`, and `password` fields Playwright expects. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management).
 
 ## Conclusion
 

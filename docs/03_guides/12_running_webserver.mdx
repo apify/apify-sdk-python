@@ -42,16 +42,16 @@ fastapi
 uvicorn[standard]
 ```
 
-The following Actor serves the same processed-items counter as before, but through a FastAPI endpoint. The key difference is that uvicorn runs inside the Actor's event loop as a background task, bound to `Actor.configuration.web_server_port` so the platform routes the container URL to it:
+The following Actor serves the same processed-items counter as before, but through a FastAPI endpoint. The key difference is that uvicorn runs inside the Actor's event loop as a background task, bound to `Actor.configuration.web_server_port`. The platform then routes the container URL to it:
 
 <RunnableCodeBlock className="language-python" language="python">
     {WebserverFastApiExample}
 </RunnableCodeBlock>
 
-A few things worth pointing out:
+Note that:
 
-- `uvicorn.Server(...).serve()` is a coroutine, so it runs as an `asyncio` task alongside the Actor's own work instead of blocking it. Setting `server.should_exit = True` triggers a graceful shutdown once the work is done.
-- The server binds to `0.0.0.0` (all interfaces) rather than `localhost`, so it's reachable through the container URL, not only from inside the container.
+- `uvicorn.Server(...).serve()` is a coroutine. It runs as an `asyncio` task alongside the Actor's own work instead of blocking it. Setting `server.should_exit = True` triggers a graceful shutdown once the work is done.
+- The server binds to `0.0.0.0` (all interfaces) rather than `localhost`. This makes it reachable through the container URL, not only from inside the container.
 - The same pattern powers an [Actor Standby](#actor-standby) service. Swap the one-off work loop for an Actor that just keeps serving requests.
 
 ## Actor Standby

@@ -44,7 +44,7 @@ The [`PlaywrightCrawler`](https://crawlee.dev/python/api/class/PlaywrightCrawler
 
 ## Using Apify Proxy
 
-All three crawlers above route their requests through [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. `Actor.create_proxy_configuration` returns a Crawlee-compatible proxy configuration, which is passed to the crawler as `proxy_configuration`; Crawlee then rotates the proxy IP for every request on its own. Because the configuration is only available inside the running Actor, the crawler is created in `main` and the request handler is registered on a standalone [`Router`](https://crawlee.dev/python/api/class/Router) up front. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For more details, see the [Proxy management](../concepts/proxy-management) guide.
+All three crawlers above route their requests through [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. `Actor.create_proxy_configuration` returns a Crawlee-compatible proxy configuration, which is passed to the crawler as `proxy_configuration`; Crawlee then rotates the proxy IP for every request on its own. Because the configuration is only available inside the running Actor, the crawler is created in `main` and the request handler is registered on a standalone [`Router`](https://crawlee.dev/python/api/class/Router) up front. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management).
 
 ## Conclusion
 
