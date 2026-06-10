@@ -198,3 +198,36 @@ await client.run('my-run').charge('my-event', count=5)
 ### Async `iterate_*` are no longer coroutine functions
 
 `DatasetClientAsync.iterate_items()` and `KeyValueStoreClientAsync.iterate_keys()` are now plain `def` functions returning `AsyncIterator[T]`. Consumer code (`async for ...`) is unchanged; if you annotate the call's return value, change `AsyncGenerator[T, None]` to `AsyncIterator[T]`.
+
+## Scrapy requests and HTTP cache stored as JSON
+
+This applies only if you use the Scrapy integration (`apify[scrapy]`).
+
+The integration now serializes data as JSON instead of pickle. `ApifyScheduler` stores Scrapy requests in the Apify request queue (under `user_data['scrapy_request']`), and `ApifyCacheStorage` stores HTTP cache entries in the key-value store. Both now hold JSON. Unlike pickle, JSON stays stable across Python and library versions.
+
+### Persisted data from before the upgrade is not read back
+
+Data written by an older SDK uses the pickle format, which v4 does not load. The two storages handle this differently:
+
+- HTTP cache: a legacy entry is treated as a cache miss. Scrapy re-fetches the page and re-stores it as JSON, so the cache heals itself. No action is needed.
+- Request queue: a request stored by an older SDK cannot be reconstructed, so it is skipped and the failure is logged. This matters only when pre-upgrade requests are still in the queue, for example after a run is migrated or restarted, or when you reuse a named request queue. A fresh run is not affected.
+
+### `meta` and `cb_kwargs` must be JSON-serializable
+
+Pickle could store arbitrary Python objects. JSON cannot, so the values in a request's `meta` and `cb_kwargs` are now subject to JSON's type system:
+
+- A `tuple` comes back as a `list`.
+- Non-string `dict` keys come back as strings, so `{1: 'a'}` becomes `{'1': 'a'}`.
+- A value JSON cannot represent (`datetime`, `set`, `Decimal`, a custom object) is no longer stored silently. The request is skipped and the failure is logged. Pydantic models are still supported and are dumped with `model_dump()`.
+
+Convert such values to a JSON-friendly form before yielding the request:
+
+```python
+from datetime import datetime
+
+# Before (v3): relied on pickle to store the datetime object.
+yield scrapy.Request(url, meta={'since': datetime(2024, 1, 1)})
+
+# After (v4): store a JSON-serializable value.
+yield scrapy.Request(url, meta={'since': datetime(2024, 1, 1).isoformat()})
+```
