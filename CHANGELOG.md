@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 - **scrapy:** Correct proxy middleware exception log and import ([#953](https://github.com/apify/apify-sdk-python/pull/953)) ([5bd6eb9](https://github.com/apify/apify-sdk-python/commit/5bd6eb9843d90844cec083372e932413bceedec9)) by [@vdusek](https://github.com/vdusek)
 - **scrapy:** Skip a request that fails to convert instead of crashing the run ([#952](https://github.com/apify/apify-sdk-python/pull/952)) ([db9444f](https://github.com/apify/apify-sdk-python/commit/db9444faeb0158c29aa394121cf733ff2e843f28)) by [@vdusek](https://github.com/vdusek)
+- **scrapy:** [**breaking**] Serialize requests and HTTP cache as JSON instead of pickle ([#951](https://github.com/apify/apify-sdk-python/pull/951)) ([a87e8d1](https://github.com/apify/apify-sdk-python/commit/a87e8d1597478b4f12fd5bb9b379f65f637d8e96)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 

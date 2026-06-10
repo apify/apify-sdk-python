@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import gzip
 import io
-import pickle
 import re
 import struct
 from logging import getLogger
@@ -14,6 +13,7 @@ from scrapy.responsetypes import responsetypes
 
 from apify import Configuration
 from apify.scrapy._async_thread import AsyncThread
+from apify.scrapy._serialization import decode_from_json, encode_to_json
 from apify.storage_clients import ApifyStorageClient
 from apify.storages import KeyValueStore
 
@@ -29,14 +29,14 @@ logger = getLogger(__name__)
 class ApifyCacheStorage:
     """A Scrapy cache storage that uses the Apify `KeyValueStore` to store responses.
 
-    It can be set as a storage for Scrapy's built-in `HttpCacheMiddleware`, which caches
-    responses to requests. See HTTPCache middleware settings (prefixed with `HTTPCACHE_`)
-    in the Scrapy documentation for more information. Requires the asyncio Twisted reactor
-    to be installed.
+    It can be set as a storage for Scrapy's built-in `HttpCacheMiddleware`, which caches responses to requests.
+    See HTTPCache middleware settings (prefixed with `HTTPCACHE_`) in the Scrapy documentation for more information.
+    Requires the asyncio Twisted reactor to be installed.
     """
 
     def __init__(self, settings: BaseSettings) -> None:
-        self._expiration_max_items = 100
+        # Upper bound on how many keys the per-spider-close cleanup sweeps (best-effort; `close_spider`).
+        self._expiration_max_items: int = settings.getint('APIFY_HTTPCACHE_EXPIRATION_MAX_ITEMS', 100)
         self._expiration_secs: int = settings.getint('HTTPCACHE_EXPIRATION_SECS')
         self._spider: Spider | None = None
         self._kvs: KeyValueStore | None = None
@@ -79,23 +79,26 @@ class ApifyCacheStorage:
             async def expire_kvs() -> None:
                 if self._kvs is None:
                     raise ValueError('Key value store not initialized')
-                i = 0
+                # Best-effort cleanup: at most `_expiration_max_items` keys per close, in no guaranteed order,
+                # so stale entries may linger. This only reclaims storage; `retrieve_response` already treats
+                # an expired entry as a cache miss.
+                processed = 0
                 async for item in self._kvs.iterate_keys():
+                    if processed >= self._expiration_max_items:
+                        break
+                    processed += 1
                     value = await self._kvs.get_value(item.key)
                     try:
                         gzip_time = read_gzip_time(value)
                     except Exception as e:
                         logger.warning(f'Malformed cache item {item.key}: {e}')
-                        await self._kvs.set_value(item.key, None)
+                        await self._kvs.delete_value(item.key)
                     else:
                         if self._expiration_secs < current_time - gzip_time:
                             logger.debug(f'Expired cache item {item.key}')
-                            await self._kvs.set_value(item.key, None)
+                            await self._kvs.delete_value(item.key)
                         else:
                             logger.debug(f'Valid cache item {item.key}')
-                    if i == self._expiration_max_items:
-                        break
-                    i += 1
 
             self._async_thread.run_coro(expire_kvs())
 
@@ -127,17 +130,25 @@ class ApifyCacheStorage:
 
         if current_time is None:
             current_time = int(time())
-        if 0 < self._expiration_secs < current_time - read_gzip_time(value):
-            logger.debug('Cache expired', extra={'request': request})
+
+        # A malformed or legacy cache entry must not crash retrieval; treat it as a cache miss so Scrapy re-fetches
+        # and re-stores it in the current format. The field reads stay inside the `try` as well: a value that decodes
+        # to a dict missing any expected key (a forward/older format, or a truncated-but-valid JSON payload) must
+        # also degrade to a miss rather than raising an uncaught `KeyError`.
+        try:
+            if 0 < self._expiration_secs < current_time - read_gzip_time(value):
+                logger.debug('Cache expired', extra={'request': request})
+                return None
+            data = from_gzip(value)
+            url = data['url']
+            status = data['status']
+            headers = Headers(data['headers'])
+            body = data['body']
+        except Exception as exc:
+            logger.warning(f'Ignoring malformed cache entry {key!r}: {exc}', extra={'request': request})
             return None
 
-        data = from_gzip(value)
-        url = data['url']
-        status = data['status']
-        headers = Headers(data['headers'])
-        body = data['body']
         respcls = responsetypes.from_args(headers=headers, url=url, body=body)
-
         logger.debug('Cache hit', extra={'request': request})
         return respcls(url=url, headers=headers, status=status, body=body)
 
@@ -162,18 +173,25 @@ class ApifyCacheStorage:
 
 
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:
-    """Dump a dictionary to a gzip-compressed byte stream."""
+    """Dump a dictionary to a gzip-compressed JSON byte stream.
+
+    Cache entries live in the Apify key-value store, which holds JSON, so they are serialized as JSON rather
+    than pickled. See `apify.scrapy._serialization` for the encoding.
+    """
+    payload = encode_to_json(data).encode('utf-8')
     with io.BytesIO() as byte_stream:
         with gzip.GzipFile(fileobj=byte_stream, mode='wb', mtime=mtime) as gzip_file:
-            pickle.dump(data, gzip_file, protocol=4)
+            gzip_file.write(payload)
         return byte_stream.getvalue()
 
 
 def from_gzip(gzip_bytes: bytes) -> dict:
-    """Load a dictionary from a gzip-compressed byte stream."""
+    """Load a dictionary from a gzip-compressed JSON byte stream."""
     with io.BytesIO(gzip_bytes) as byte_stream, gzip.GzipFile(fileobj=byte_stream, mode='rb') as gzip_file:
-        data: dict = pickle.load(gzip_file)
-        return data
+        data = decode_from_json(gzip_file.read().decode('utf-8'))
+    if not isinstance(data, dict):
+        raise TypeError(f'Expected a dict from the cached payload, got {type(data)}')
+    return data
 
 
 def read_gzip_time(gzip_bytes: bytes) -> int:
@@ -187,17 +205,15 @@ def read_gzip_time(gzip_bytes: bytes) -> int:
 def get_kvs_name(spider_name: str, max_length: int = 60) -> str:
     """Get the key value store name for a spider.
 
-    The key value store name is derived from the spider name by replacing all special characters
-    with hyphens and trimming leading and trailing hyphens. The resulting name is prefixed with
-    'httpcache-' and truncated to the maximum length.
+    The key value store name is derived from the spider name by replacing all special characters with hyphens
+    and trimming leading and trailing hyphens. The resulting name is prefixed with 'httpcache-' and truncated
+    to the maximum length.
 
-    The documentation
-    [about storages](https://docs.apify.com/platform/storage/usage#named-and-unnamed-storages)
+    The documentation [about storages](https://docs.apify.com/platform/storage/usage#named-and-unnamed-storages)
     mentions that names can be up to 63 characters long, so the default max length is set to 60.
 
-    Such naming isn't unique per spider, but should be sufficiently unique for most use cases.
-    The name of the key value store should indicate to which spider it belongs, e.g. in
-    the listing in the Apify's console.
+    Such naming isn't unique per spider, but should be sufficiently unique for most use cases. The name
+    of the key-value store should indicate to which spider it belongs, e.g. in the listing in the Apify's console.
 
     Args:
         spider_name: Value of the Spider instance's name attribute.
