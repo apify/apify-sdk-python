@@ -43,6 +43,16 @@ def test_bytes_headers_round_trip() -> None:
     assert _round_trip(data)['headers'] == {b'Content-Type': [b'text/html'], b'X-Bin': [b'\x00\xff']}
 
 
+def test_str_header_value_round_trips_to_bytes() -> None:
+    """A `str` header value is encoded as its UTF-8 bytes and comes back as `bytes` (Scrapy uses bytes)."""
+    assert _round_trip({'headers': {b'Content-Type': ['text/html']}})['headers'] == {b'Content-Type': [b'text/html']}
+
+
+def test_bare_header_value_is_normalized_to_list() -> None:
+    """A header value not wrapped in a list is normalized to a single-element list on round-trip."""
+    assert _round_trip({'headers': {b'X-Single': b'one'}})['headers'] == {b'X-Single': [b'one']}
+
+
 # --- non-ASCII text is kept as UTF-8 (ensure_ascii=False) ---
 
 

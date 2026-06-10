@@ -81,8 +81,9 @@ def decode_from_json(text: str) -> Any:
     if not isinstance(data, dict):
         return data
 
+    # `validate=True` makes a non-base64 body raise loudly instead of silently decoding to garbage.
     if isinstance(data.get('body'), str):
-        data['body'] = base64.b64decode(data['body'])
+        data['body'] = base64.b64decode(data['body'], validate=True)
 
     if isinstance(data.get('headers'), dict):
         data['headers'] = _decode_headers(data['headers'])
@@ -120,7 +121,7 @@ def _decode_headers(headers: dict[str, Any]) -> dict[bytes, list[bytes]]:
     for key, value in headers.items():
         bytes_key = key.encode('latin-1') if isinstance(key, str) else key
         values = value if isinstance(value, list) else [value]
-        decoded[bytes_key] = [base64.b64decode(item) for item in values]
+        decoded[bytes_key] = [base64.b64decode(item, validate=True) for item in values]
     return decoded
 
 
