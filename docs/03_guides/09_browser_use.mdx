@@ -16,13 +16,13 @@ In this guide, you'll learn how to use the [Browser Use](https://browser-use.com
 
 Browser Use is a great fit for Apify Actors:
 
-- Describe what you want in plain English; the agent figures out the steps. This is well suited to pages whose structure changes often or is hard to target with fixed selectors.
-- Browser Use ships wrappers for many providers (`ChatOpenAI`, `ChatAnthropic`, `ChatGoogle`, and more), so you can pick the model that fits your task and budget.
-- Pass a [Pydantic](https://docs.pydantic.dev/) model as the output schema and the agent returns a validated object instead of free-form text, which maps cleanly onto an Apify dataset.
+- Describe what you want in plain English and the agent figures out the steps. This is especially useful with pages whose structure changes often or is hard to target with fixed selectors.
+- Browser Use ships wrappers for many providers, for example `ChatOpenAI`, `ChatAnthropic`, or `ChatGoogle`. You can pick the model that fits your task and budget.
+- Pass a [Pydantic](https://docs.pydantic.dev/) model as the output schema and the agent returns a validated object that maps onto an Apify dataset.
 - The agent drives a real Chromium over the Chrome DevTools Protocol, so JavaScript-heavy pages render just like they would for a human.
 - The agent's `run` method is asynchronous, which integrates naturally with the asyncio-based Apify SDK.
 
-Browser Use needs only the `browser-use` package. Install it with:
+Browser Use needs only the `browser-use` package. To install it, use:
 
 ```bash
 pip install browser-use
@@ -42,7 +42,7 @@ Keep the API key out of the Actor input and source code. The example reads it fr
 
 ## Example Actor
 
-The following Actor runs a Browser Use agent for a single task and stores its structured result in the default dataset. By default it opens [Hacker News](https://news.ycombinator.com) and returns the title and URL of the top five posts, but the task, model, and step limit are all configurable through the Actor input.
+The following Actor runs a Browser Use agent for a single task and stores its structured result in the default dataset. By default, it opens [Hacker News](https://news.ycombinator.com) and returns the title and URL of the top five posts, but the task, model, and step limit are all configurable through the Actor input.
 
 The whole Actor fits in a single file. A `run_agent_task` helper holds the Browser Use-specific logic: it defines the output schema and builds the LLM, browser, and agent. The `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result:
 
@@ -69,7 +69,7 @@ Browser Use expects the proxy as a `ProxySettings` object with separate `server`
 
 Browser Use drives a real Chromium over CDP, so the Actor needs a browser binary available at runtime. The simplest way to provide one is to build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies. Browser Use discovers that browser automatically, so no extra install step is needed in the image.
 
-Disable Browser Use's telemetry and cloud sync inside the Actor by setting the `ANONYMIZED_TELEMETRY=false` and `BROWSER_USE_CLOUD_SYNC=false` environment variables in your Dockerfile.
+To disable Browser Use's telemetry and cloud sync inside the Actor, set the `ANONYMIZED_TELEMETRY=false` and `BROWSER_USE_CLOUD_SYNC=false` environment variables in your Dockerfile.
 
 When running the Actor locally, install the browser once with the `browser-use install` command, which downloads a Chromium build together with its dependencies:
 
