@@ -77,12 +77,8 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
     try:
         if scrapy_request.dont_filter:
             request_kwargs['always_enqueue'] = True
-        else:
-            if scrapy_request.meta.get('apify_request_unique_key'):
-                request_kwargs['unique_key'] = scrapy_request.meta['apify_request_unique_key']
-
-            if scrapy_request.meta.get('apify_request_id'):
-                request_kwargs['id'] = scrapy_request.meta['apify_request_id']
+        elif scrapy_request.meta.get('apify_request_unique_key'):
+            request_kwargs['unique_key'] = scrapy_request.meta['apify_request_unique_key']
 
         user_data = scrapy_request.meta.get('userData', {})
 
