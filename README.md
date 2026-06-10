@@ -1,47 +1,113 @@
-<h1 align=center>Apify SDK for Python</h1>
+<h1 align="center">Apify SDK for Python</h1>
 
 <p align="center">
-  <a href="https://badge.fury.io/py/apify" rel="nofollow"><img src="https://badge.fury.io/py/apify.svg" alt="PyPI package version"></a>
-  <a href="https://pypi.org/project/apify/" rel="nofollow"><img src="https://img.shields.io/pypi/dm/apify" alt="PyPI package downloads"></a>
-  <a href="https://codecov.io/gh/apify/apify-sdk-python"><img src="https://codecov.io/gh/apify/apify-sdk-python/graph/badge.svg?token=Y6JBIZQFT6" alt="Codecov report"></a>
-  <a href="https://pypi.org/project/apify/" rel="nofollow"><img src="https://img.shields.io/pypi/pyversions/apify" alt="PyPI Python version"></a>
-  <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>
+  <strong>The official Python SDK for building <a href="https://docs.apify.com/platform/actors">Apify Actors</a>.</strong>
 </p>
 
-The Apify SDK for Python is the official library to create [Apify Actors](https://docs.apify.com/platform/actors)
-in Python. It provides useful features like Actor lifecycle management, local storage emulation, and Actor
-event handling.
+<p align="center">
+  <a href="https://pypi.org/project/apify/"><img src="https://badge.fury.io/py/apify.svg" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/apify/"><img src="https://img.shields.io/pypi/dm/apify" alt="PyPI downloads"></a>
+  <a href="https://pypi.org/project/apify/"><img src="https://img.shields.io/pypi/pyversions/apify" alt="Python versions"></a>
+  <a href="https://codecov.io/gh/apify/apify-sdk-python"><img src="https://codecov.io/gh/apify/apify-sdk-python/graph/badge.svg?token=Y6JBIZQFT6" alt="Coverage"></a>
+  <a href="https://github.com/apify/apify-sdk-python/blob/master/LICENSE"><img src="https://img.shields.io/pypi/l/apify" alt="License"></a>
+  <a href="https://discord.gg/jyEM2PRvMU"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>
+</p>
 
-If you just need to access the [Apify API](https://docs.apify.com/api/v2) from your Python applications,
-check out the [Apify Client for Python](https://docs.apify.com/api/client/python) instead.
+`apify` is the official SDK for building [Apify Actors](https://docs.apify.com/platform/actors) in Python. Actors are serverless programs that run on the [Apify platform](https://apify.com), where you can scale them, schedule them, and monetize them. The SDK manages the Actor lifecycle, gives you access to [storages](https://docs.apify.com/platform/storage) (datasets, key-value stores, request queues), handles platform events, configures [Apify Proxy](https://docs.apify.com/platform/proxy), and supports pay-per-event monetization. It builds on the [Crawlee](https://crawlee.dev/python) web scraping framework and bundles the [Apify API client](https://docs.apify.com/api/client/python).
+
+> If you only need to **consume** the [Apify API](https://docs.apify.com/api/v2) from Python (running Actors, reading datasets, managing storages) rather than building Actors, use the [Apify API client for Python](https://docs.apify.com/api/client/python) instead. It comes bundled with this SDK.
+
+## Table of contents
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Features](#features)
+- [Usage examples](#usage-examples)
+- [What are Actors?](#what-are-actors)
+- [Documentation](#documentation)
+- [Related projects](#related-projects)
+- [Support and community](#support-and-community)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installation
 
-The Apify SDK for Python is available on PyPI as the `apify` package.
-For default installation, using Pip, run the following:
+The Apify SDK for Python requires **Python 3.11 or higher**. It is published on [PyPI](https://pypi.org/project/apify/) as the `apify` package and can be installed with [pip](https://pip.pypa.io/):
 
 ```bash
 pip install apify
 ```
 
-For users interested in integrating Apify with Scrapy, we provide a package extra called `scrapy`.
-To install Apify with the `scrapy` extra, use the following command:
+or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install apify[scrapy]
+uv add apify
 ```
 
-## Documentation
+To use the Scrapy integration, install the `scrapy` extra:
 
-For usage instructions, check the documentation on [Apify Docs](https://docs.apify.com/sdk/python/).
+```bash
+pip install 'apify[scrapy]'
+```
 
-## Examples
+## Quick start
 
-Below are few examples demonstrating how to use the Apify SDK with some web scraping-related libraries.
+An Actor is a Python program that runs inside the `async with Actor:` context. The context initializes the Actor when it starts and tears it down when it finishes. Here's a minimal Actor that reads its input and stores a result:
 
-### Apify SDK with HTTPX and BeautifulSoup
+```python
+from apify import Actor
 
-This example illustrates how to integrate the Apify SDK with [HTTPX](https://www.python-httpx.org/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/) to scrape data from web pages.
+
+async def main() -> None:
+    async with Actor:
+        actor_input = await Actor.get_input()
+        Actor.log.info('Actor input: %s', actor_input)
+        await Actor.set_value('OUTPUT', 'Hello, world!')
+```
+
+The quickest way to scaffold a full Actor project, with the `.actor` configuration, input schema, and Dockerfile already in place, is the [Apify CLI](https://docs.apify.com/cli):
+
+1. Install the CLI:
+
+    ```bash
+    npm install -g apify-cli
+    ```
+
+2. Create a new Actor from the Python "getting started" template:
+
+    ```bash
+    apify create my-actor --template python-start
+    ```
+
+3. Run it locally:
+
+    ```bash
+    cd my-actor
+    apify run
+    ```
+
+To create, run, and deploy your first Actor step by step, see the [Quick start guide](https://docs.apify.com/sdk/python/docs/quick-start).
+
+## Features
+
+- **Actor lifecycle management** — `async with Actor:` initializes the Actor, then handles exit, failure, status messages, and reboots ([Actor lifecycle](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle)).
+- **Typed Actor input** — read input validated against your input schema with `Actor.get_input()` ([Actor input](https://docs.apify.com/sdk/python/docs/concepts/actor-input)).
+- **Storage access** — read and write datasets, key-value stores, and request queues, both locally and on the platform ([Working with storages](https://docs.apify.com/sdk/python/docs/concepts/storages)).
+- **Platform events** — react to system info, migration, and abort events streamed over a WebSocket ([Actor events](https://docs.apify.com/sdk/python/docs/concepts/actor-events)).
+- **Proxy management** — route requests through Apify Proxy with residential or datacenter groups, country targeting, and rotation ([Proxy management](https://docs.apify.com/sdk/python/docs/concepts/proxy-management)).
+- **Actor orchestration** — start, call, abort, and metamorph other Actors and tasks, and register webhooks for run events ([Interacting with other Actors](https://docs.apify.com/sdk/python/docs/concepts/interacting-with-other-actors), [Webhooks](https://docs.apify.com/sdk/python/docs/concepts/webhooks)).
+- **Pay-per-event monetization** — charge for the events your Actor emits ([Pay-per-event](https://docs.apify.com/sdk/python/docs/concepts/pay-per-event)).
+- **Direct Apify API access** — reach the full [Apify API](https://docs.apify.com/api/v2) through a preconfigured [`ApifyClient`](https://docs.apify.com/api/client/python) ([Accessing the Apify API](https://docs.apify.com/sdk/python/docs/concepts/access-apify-api)).
+- **Built on Crawlee** — combine the SDK with [Crawlee](https://crawlee.dev/python) crawlers, or any HTTP or browser library you prefer ([Crawlee guide](https://docs.apify.com/sdk/python/docs/guides/crawlee)).
+- **Scrapy integration** — run existing Scrapy spiders as Apify Actors through the `apify[scrapy]` extra ([Scrapy guide](https://docs.apify.com/sdk/python/docs/guides/scrapy)).
+
+## Usage examples
+
+The SDK works with whatever scraping stack you prefer. The examples below show two common setups. For more, see the [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx).
+
+### HTTPX with BeautifulSoup
+
+Scrape pages with [HTTPX](https://www.python-httpx.org/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/), using the Actor's request queue to track URLs:
 
 ```python
 from bs4 import BeautifulSoup
@@ -88,9 +154,9 @@ async def main() -> None:
             await Actor.push_data(data)
 ```
 
-### Apify SDK with PlaywrightCrawler from Crawlee
+### PlaywrightCrawler from Crawlee
 
-This example demonstrates how to use the Apify SDK alongside `PlaywrightCrawler` from [Crawlee](https://crawlee.dev/python) to perform web scraping.
+Scrape pages with [Crawlee](https://crawlee.dev/python)'s `PlaywrightCrawler`, which handles queueing, concurrency, and browser automation for you:
 
 ```python
 from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
@@ -143,40 +209,47 @@ async def main() -> None:
 
 ## What are Actors?
 
-Actors are serverless cloud programs that can do almost anything a human can do in a web browser.
-They can do anything from small tasks such as filling in forms or unsubscribing from online services,
-all the way up to scraping and processing vast numbers of web pages.
+Actors are serverless cloud programs that can do almost anything a human can do in a web browser. They range from small tasks, such as filling in forms or unsubscribing from online services, all the way up to scraping and processing vast numbers of web pages.
 
-They can be run either locally, or on the [Apify platform](https://docs.apify.com/platform/),
-where you can run them at scale, monitor them, schedule them, or publish and monetize them.
+They run either locally or on the [Apify platform](https://docs.apify.com/platform/), where you can run them at scale, monitor them, schedule them, or publish and monetize them. If you're new to Apify, learn [what Apify is](https://docs.apify.com/platform/about) in the platform documentation.
 
-If you're new to Apify, learn [what is Apify](https://docs.apify.com/platform/about)
-in the Apify platform documentation.
+## Documentation
 
-## Creating Actors
+The full documentation lives at **[docs.apify.com/sdk/python](https://docs.apify.com/sdk/python)**.
 
-To create and run Actors through Apify Console,
-see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template).
+| Section | What you'll find |
+|---|---|
+| [Overview](https://docs.apify.com/sdk/python/docs/overview) | What the SDK is, what Actors are, and how the pieces fit together. |
+| [Quick start](https://docs.apify.com/sdk/python/docs/quick-start) | Create, run, and deploy your first Python Actor. |
+| [Concepts](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle) | Actor lifecycle, input, storages, events, proxy management, interacting with other Actors, webhooks, accessing the Apify API, logging, configuration, and pay-per-event. |
+| [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx) | Integrations with BeautifulSoup, Parsel, Playwright, Selenium, Crawlee, Scrapy, Crawl4AI, and Browser Use, plus running a web server and using uv. |
+| [Upgrading](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v4) | Migrating between major versions. |
+| [API reference](https://docs.apify.com/sdk/python/reference) | Generated reference for every class and method. |
+| [Changelog](https://docs.apify.com/sdk/python/docs/changelog) | Release history and breaking changes. |
 
-To create and run Python Actors locally, check the documentation for
-[how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/quick-start).
+## Related projects
 
-## Guides
+- **[Apify API client for Python](https://docs.apify.com/api/client/python)** — talk to the Apify API directly from Python (bundled with this SDK).
+- **[Crawlee for Python](https://crawlee.dev/python)** — the web scraping and browser automation framework the SDK builds on.
+- **[Apify SDK for JavaScript / TypeScript](https://docs.apify.com/sdk/js)** — the equivalent SDK for Node.js.
+- **[Apify API client for JavaScript / TypeScript](https://docs.apify.com/api/client/js)** — the equivalent API client for Node.js.
+- **[Crawlee for JavaScript / TypeScript](https://crawlee.dev)** — the original Node.js implementation of Crawlee.
+- **[Apify CLI](https://docs.apify.com/cli)** — command-line tool for creating, running, and deploying Actors locally and on the platform.
 
-To see how you can use the Apify SDK with other popular libraries used for web scraping,
-check out our guides for using
-[BeautifulSoup with HTTPX](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx),
-[Parsel with Impit](https://docs.apify.com/sdk/python/docs/guides/parsel-impit),
-[Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright),
-[Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium),
-[Crawlee](https://docs.apify.com/sdk/python/docs/guides/crawlee),
-or [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy).
+## Support and community
 
-## Usage concepts
+- **Discord** — chat with the team and other users on the [Apify Discord server](https://discord.gg/jyEM2PRvMU).
+- **GitHub issues** — report a bug or request a feature in the [issue tracker](https://github.com/apify/apify-sdk-python/issues).
 
-To learn more about the features of the Apify SDK and how to use them,
-check out the Usage Concepts section in the sidebar,
-particularly the guides for the [Actor lifecycle](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle),
-[working with storages](https://docs.apify.com/sdk/python/docs/concepts/storages),
-[handling Actor events](https://docs.apify.com/sdk/python/docs/concepts/actor-events)
-or [how to use proxies](https://docs.apify.com/sdk/python/docs/concepts/proxy-management).
+## Contributing
+
+Bug reports, fixes, and improvements are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup, coding standards, testing, and release process. The project uses [uv](https://docs.astral.sh/uv/) for project management and [Poe the Poet](https://poethepoet.natn.io/) as a task runner; the typical loop is:
+
+```bash
+uv run poe install-dev   # install dev dependencies and git hooks
+uv run poe check-code    # lint, type-check, and unit tests
+```
+
+## License
+
+Released under the [Apache License 2.0](./LICENSE).
