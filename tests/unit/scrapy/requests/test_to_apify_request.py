@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 import pytest
@@ -22,6 +23,7 @@ def spider() -> DummySpider:
 
 
 def test_creates_simple_request(spider: Spider) -> None:
+    """A simple Scrapy request converts to an Apify request carrying the serialized `scrapy_request`."""
     scrapy_request = Request(url='https://example.com')
 
     apify_request = to_apify_request(scrapy_request, spider)
@@ -34,6 +36,7 @@ def test_creates_simple_request(spider: Spider) -> None:
 
 
 def test_handles_headers(spider: Spider) -> None:
+    """Scrapy request headers are carried onto the Apify request as `HttpHeaders`."""
     scrapy_request_headers = Headers({'Authorization': 'Bearer access_token'})
     scrapy_request = Request(url='https://example.com', headers=scrapy_request_headers)
 
@@ -45,6 +48,7 @@ def test_handles_headers(spider: Spider) -> None:
 
 
 def test_without_id_and_unique_key(spider: Spider) -> None:
+    """A request without an id or unique key converts, preserving its user data."""
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -65,6 +69,7 @@ def test_without_id_and_unique_key(spider: Spider) -> None:
 
 
 def test_with_id_and_unique_key(spider: Spider) -> None:
+    """An explicit `apify_request_unique_key` in `meta` becomes the Apify request's unique key."""
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -89,20 +94,26 @@ def test_with_id_and_unique_key(spider: Spider) -> None:
 
 
 def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
+    """A non-Scrapy-request input returns None instead of raising."""
     scrapy_request = 'invalid_request'
 
     apify_request = to_apify_request(scrapy_request, spider)  # ty: ignore[invalid-argument-type]
     assert apify_request is None
 
 
-def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
-    """Reproduce: CrawleeRequestData() argument after ** must be a mapping, not CrawleeRequestData.
+def test_non_json_serializable_meta_is_skipped(spider: Spider, caplog: pytest.LogCaptureFixture) -> None:
+    """A non-JSON-serializable value in `meta` is skipped (returns None) and logged, not crashing the crawl."""
+    scrapy_request = Request(url='https://example.com', meta={'tags': {'a', 'b'}})
 
-    After two roundtrips through to_apify_request/to_scrapy_request with userData propagation,
-    Request.from_url() writes a CrawleeRequestData object into UserData.__pydantic_extra__['__crawlee'].
-    On the next roundtrip, this CrawleeRequestData object is found by user_data_dict.get('__crawlee')
-    and passed to CrawleeRequestData(**obj), which fails because CrawleeRequestData is not a mapping.
-    """
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.requests'):
+        apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is None
+    assert any('JSON-serializable' in record.getMessage() for record in caplog.records)
+
+
+def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
+    """Regression: propagating userData across repeated roundtrips must not fail on `__crawlee` data."""
     # Step 1: Initial request -> first roundtrip
     initial_scrapy_request = Request(url='https://example.com/page')
     apify_request_1 = to_apify_request(initial_scrapy_request, spider)
@@ -127,3 +138,29 @@ def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) ->
     follow_up_apify_request = to_apify_request(follow_up_2, spider)
     assert follow_up_apify_request is not None
     assert follow_up_apify_request.url == 'https://example.com/image.png'
+
+
+def test_dont_filter_request_is_always_enqueued(spider: Spider) -> None:
+    """A `dont_filter=True` request is always enqueued: each conversion gets a fresh unique key, bypassing dedup."""
+    first = to_apify_request(Request(url='https://example.com', dont_filter=True), spider)
+    second = to_apify_request(Request(url='https://example.com', dont_filter=True), spider)
+
+    assert first is not None
+    assert second is not None
+    # `always_enqueue` prefixes the unique key with a random token (`<random>|<key>`), so two otherwise-identical
+    # requests get distinct unique keys and neither is deduplicated against the other.
+    assert '|' in first.unique_key
+    assert first.unique_key != second.unique_key
+
+
+def test_apify_request_id_in_meta_is_ignored(spider: Spider) -> None:
+    """An `apify_request_id` in `meta` is ignored and does not break conversion; the unique key still applies."""
+    scrapy_request = Request(
+        url='https://example.com',
+        meta={'apify_request_id': 'myCustomId12345', 'apify_request_unique_key': 'https://example.com'},
+    )
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == 'https://example.com'
