@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import binascii
 import codecs
 import json
 import pickle
+import sys
 
 import pytest
 from scrapy import FormRequest, Request, Spider
@@ -11,6 +11,7 @@ from scrapy import FormRequest, Request, Spider
 from crawlee._types import HttpHeaders
 
 from apify import Request as ApifyRequest
+from apify.scrapy._serialization import encode_to_json
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
 
 
@@ -24,18 +25,29 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
-# Base64-encoded JSON fixture (the pickle-free format) for a GET request to https://apify.com.
-_SCRAPY_REQUEST_JSON_ENCODED = (
-    'eyJ1cmwiOiAiaHR0cHM6Ly9hcGlmeS5jb20iLCAiY2FsbGJhY2siOiBudWxsLCAiZXJyYmFjayI6\n'
-    'IG51bGwsICJoZWFkZXJzIjogeyJBY2NlcHQiOiBbImRHVjRkQzlvZEcxc0xHRndjR3hwWTJGMGFX\n'
-    'OXVMM2hvZEcxc0szaHRiQ3hoY0hCc2FXTmhkR2x2Ymk5NGJXdzdjVDB3TGprc0tpOHFPM0U5TUM0\n'
-    'NCJdLCAiQWNjZXB0LUxhbmd1YWdlIjogWyJaVzQ9Il0sICJVc2VyLUFnZW50IjogWyJVMk55WVhC\n'
-    'NUx6SXVNVEV1TUNBb0syaDBkSEJ6T2k4dmMyTnlZWEI1TG05eVp5az0iXSwgIkFjY2VwdC1FbmNv\n'
-    'ZGluZyI6IFsiWjNwcGNDd2daR1ZtYkdGMFpRPT0iXX0sICJib2R5IjogIiIsICJjb29raWVzIjog'
-    'e30sICJtZXRhIjogeyJhcGlmeV9yZXF1ZXN0X2lkIjogImZ2d3NjTzJVSkxkcjEwQiIsICJhcGlm'
-    'eV9yZXF1ZXN0X3VuaXF1ZV9rZXkiOiAiaHR0cHM6Ly9hcGlmeS5jb20ifSwgImVuY29kaW5nIjog'
-    'InV0Zi04IiwgImZsYWdzIjogW10sICJjYl9rd2FyZ3MiOiB7fSwgImRvbnRfZmlsdGVyIjogZmFs'
-    'c2UsICJtZXRob2QiOiAiR0VUIiwgInByaW9yaXR5IjogMH0=\n'
+# A JSON-encoded (pickle-free) Scrapy request for a GET request to https://apify.com, encoded exactly
+# the way `to_apify_request` stores it under `user_data['scrapy_request']` (JSON, no outer base64).
+_SCRAPY_REQUEST_JSON_ENCODED = encode_to_json(
+    {
+        'url': 'https://apify.com',
+        'callback': None,
+        'errback': None,
+        'headers': {
+            b'Accept': [b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'],
+            b'Accept-Language': [b'en'],
+            b'User-Agent': [b'Scrapy/2.11.0 (+https://scrapy.org)'],
+            b'Accept-Encoding': [b'gzip, deflate'],
+        },
+        'body': b'',
+        'cookies': {},
+        'meta': {'apify_request_id': 'fvwscO2UJLdr10B', 'apify_request_unique_key': 'https://apify.com'},
+        'encoding': 'utf-8',
+        'flags': [],
+        'cb_kwargs': {},
+        'dont_filter': False,
+        'method': 'GET',
+        'priority': 0,
+    }
 )
 
 
@@ -135,7 +147,8 @@ def test_invalid_request_for_reconstruction(spider: Spider) -> None:
         },
     )
 
-    with pytest.raises(binascii.Error):
+    # The stored value is parsed as JSON directly (no outer base64), so non-JSON text fails to decode.
+    with pytest.raises(json.JSONDecodeError):
         to_scrapy_request(apify_request, spider)
 
 
@@ -187,11 +200,10 @@ def test_roundtrip_serialization(spider: Spider) -> None:
     apify_request = to_apify_request(original_request, spider)
     assert apify_request is not None
 
-    # Verify the encoded data is valid JSON (not pickle)
+    # Verify the stored data is JSON (not pickle) and not wrapped in an outer base64 layer.
     encoded = apify_request.user_data['scrapy_request']
     assert isinstance(encoded, str)
-    decoded_bytes = codecs.decode(encoded.encode(), 'base64')
-    decoded_json = json.loads(decoded_bytes.decode('utf-8'))
+    decoded_json = json.loads(encoded)
     assert isinstance(decoded_json, dict)
     assert decoded_json['url'] == 'https://example.com/test'
 
@@ -211,17 +223,15 @@ def test_no_pickle_in_serialized_output(spider: Spider) -> None:
 
     encoded = apify_request.user_data['scrapy_request']
     assert isinstance(encoded, str)
-    raw_bytes = codecs.decode(encoded.encode(), 'base64')
 
-    # Pickle protocol 4 starts with b'\x80\x04'; JSON starts with b'{'
-    assert not raw_bytes.startswith(b'\x80'), 'Output must not be pickle-serialized'
-    # Verify it's valid JSON
-    json.loads(raw_bytes.decode('utf-8'))
+    # Pickle output starts with the b'\x80' opcode byte; JSON is text starting with '{'.
+    assert encoded.lstrip().startswith('{'), 'Output must be JSON, not pickle'
+    json.loads(encoded)  # must parse as JSON
 
 
 def _encode_request_dict(request_dict: dict) -> str:
-    """Encode a raw request dict the same way `to_apify_request` does (base64-encoded JSON)."""
-    return codecs.encode(json.dumps(request_dict).encode('utf-8'), 'base64').decode()
+    """Encode a raw request dict the same way `to_apify_request` does (JSON, no outer base64)."""
+    return encode_to_json(request_dict)
 
 
 def test_binary_body_round_trips(spider: Spider) -> None:
@@ -294,9 +304,9 @@ def test_already_imported_request_subclass_round_trips(spider: Spider) -> None:
 def test_non_request_class_is_rejected(spider: Spider) -> None:
     """A `_class` that resolves to something other than a `scrapy.Request` subclass is rejected.
 
-    `scrapy.utils.request.request_from_dict` resolves `_class` via `load_object`, which imports the
-    dotted path it is given. Reconstruction only accepts an already-imported `scrapy.Request`
-    subclass; anything else (here a plain `dict`) is rejected.
+    `scrapy.utils.request.request_from_dict` resolves `_class` via `load_object` and instantiates it.
+    Reconstruction resolves the dotted path first and only accepts a `scrapy.Request` subclass; anything
+    else (here a plain `dict`) is rejected before it can be constructed.
     """
     request_dict = {
         'url': 'https://example.com',
@@ -321,12 +331,12 @@ def test_non_request_class_is_rejected(spider: Spider) -> None:
         user_data={'scrapy_request': _encode_request_dict(request_dict)},
     )
 
-    with pytest.raises(TypeError, match='not an already-imported'):
+    with pytest.raises(TypeError, match=r'not a scrapy\.Request subclass'):
         to_scrapy_request(apify_request, spider)
 
 
-def test_class_referring_to_unimported_module_is_rejected(spider: Spider) -> None:
-    """A `_class` whose module is not already imported is rejected without importing it."""
+def test_unresolvable_class_is_rejected(spider: Spider) -> None:
+    """A `_class` whose dotted path cannot be resolved (no such module) is rejected with a clear error."""
     request_dict = {
         'url': 'https://example.com',
         'headers': {},
@@ -348,5 +358,47 @@ def test_class_referring_to_unimported_module_is_rejected(spider: Spider) -> Non
         user_data={'scrapy_request': _encode_request_dict(request_dict)},
     )
 
-    with pytest.raises(TypeError, match='not an already-imported'):
+    with pytest.raises(TypeError, match='cannot resolve'):
         to_scrapy_request(apify_request, spider)
+
+
+def test_custom_request_subclass_reconstructed_after_migration(spider: Spider) -> None:
+    """A custom `Request` subclass whose module is not yet imported is reconstructed (importing it).
+
+    This is the Actor-migration scenario: a request enqueued by one process is reconstructed in a fresh
+    process before the spider has imported the subclass's module. Reconstruction must import the module
+    on demand (as the old pickle format did) instead of rejecting the request and dropping coverage.
+    """
+    module_name = 'tests.unit.scrapy.requests._custom_request_module'
+    request_dict = {
+        'url': 'https://example.com',
+        'callback': None,
+        'errback': None,
+        'headers': {},
+        'body': b'',
+        'cookies': {},
+        'meta': {},
+        'encoding': 'utf-8',
+        'priority': 0,
+        'dont_filter': False,
+        'flags': [],
+        'cb_kwargs': {},
+        'method': 'GET',
+        '_class': f'{module_name}.CustomRequest',
+    }
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={'scrapy_request': _encode_request_dict(request_dict)},
+    )
+
+    # Simulate a fresh process where the subclass's module has not been imported yet.
+    sys.modules.pop(module_name, None)
+
+    restored = to_scrapy_request(apify_request, spider)
+
+    from tests.unit.scrapy.requests._custom_request_module import CustomRequest
+
+    assert isinstance(restored, CustomRequest)
+    assert module_name in sys.modules  # it was imported on demand during reconstruction

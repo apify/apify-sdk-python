@@ -134,22 +134,24 @@ class ApifyCacheStorage:
             current_time = int(time())
 
         # A malformed or legacy cache entry must not crash retrieval; treat it as a cache miss so
-        # Scrapy re-fetches and re-stores it in the current format.
+        # Scrapy re-fetches and re-stores it in the current format. The field reads stay inside the
+        # `try` as well: a value that decodes to a dict missing any expected key (a forward/older
+        # format, or a truncated-but-valid JSON payload) must also degrade to a miss rather than
+        # raising an uncaught `KeyError`.
         try:
             if 0 < self._expiration_secs < current_time - read_gzip_time(value):
                 logger.debug('Cache expired', extra={'request': request})
                 return None
             data = from_gzip(value)
+            url = data['url']
+            status = data['status']
+            headers = Headers(data['headers'])
+            body = data['body']
         except Exception as exc:
             logger.warning(f'Ignoring malformed cache entry {key!r}: {exc}', extra={'request': request})
             return None
 
-        url = data['url']
-        status = data['status']
-        headers = Headers(data['headers'])
-        body = data['body']
         respcls = responsetypes.from_args(headers=headers, url=url, body=body)
-
         logger.debug('Cache hit', extra={'request': request})
         return respcls(url=url, headers=headers, status=status, body=body)
 

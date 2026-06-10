@@ -67,7 +67,8 @@ def test_next_request_skips_request_that_fails_to_convert(
     assert result is None
     assert 'skipping it' in caplog.text
 
-    # It was still marked as handled before the failed conversion, so it is not retried forever.
+    # Even though conversion failed, the unrecoverable entry is still marked as handled (consumed), so
+    # the queue does not keep handing it back forever.
     rq.mark_request_as_handled.assert_called_once_with(malformed_request)
 
 

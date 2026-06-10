@@ -1,16 +1,22 @@
+from __future__ import annotations
+
 import asyncio
 import gzip
 import io
 import json
 import pickle
 from time import time
-from typing import Any
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from scrapy import Request
 from scrapy.settings import Settings
 
 from apify.scrapy.extensions._httpcache import ApifyCacheStorage, from_gzip, get_kvs_name, read_gzip_time, to_gzip
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 FIXTURE_DICT = {'name': 'Alice'}
 
@@ -82,6 +88,9 @@ class _FakeAsyncThread:
         finally:
             loop.close()
 
+    def close(self) -> None:
+        """No-op; `close_spider` calls this when shutting the cache storage down."""
+
 
 class _FakeKvs:
     def __init__(self, value: bytes | None) -> None:
@@ -123,6 +132,97 @@ def test_retrieve_response_ignores_legacy_pickle_item() -> None:
         legacy_pickle = byte_stream.getvalue()
     storage = _make_storage(legacy_pickle)
     assert storage.retrieve_response(None, Request('https://example.com')) is None  # ty: ignore[invalid-argument-type]
+
+
+def test_retrieve_response_missing_key_is_cache_miss() -> None:
+    """A cache value that decodes to a dict missing an expected key degrades to a miss, not a KeyError.
+
+    The field reads sit inside the crash-guard, so a forward/older or truncated-but-valid JSON payload
+    (here one without a `url`) is ignored rather than raising out of `retrieve_response`.
+    """
+    value = to_gzip({'status': 200, 'headers': {}, 'body': b'x'})  # no 'url'
+    storage = _make_storage(value)
+    assert storage.retrieve_response(None, Request('https://example.com')) is None  # ty: ignore[invalid-argument-type]
+
+
+class _KeyIterator:
+    """A plain async iterator over a snapshot of keys (not a generator, so an early `break` needs no close)."""
+
+    def __init__(self, keys: list[str]) -> None:
+        self._keys = keys
+        self._index = 0
+
+    def __aiter__(self) -> _KeyIterator:
+        return self
+
+    async def __anext__(self) -> Any:
+        if self._index >= len(self._keys):
+            raise StopAsyncIteration
+        key = self._keys[self._index]
+        self._index += 1
+        return SimpleNamespace(key=key)
+
+
+class _RecordingKvs:
+    """An in-memory key-value store double for the cleanup sweep that records deletions."""
+
+    def __init__(self, items: dict[str, bytes | None]) -> None:
+        self._items = dict(items)
+        self.deleted: list[str] = []
+
+    def iterate_keys(self) -> AsyncIterator[Any]:
+        # Snapshot the keys, mirroring the real clients (so deleting while iterating is safe).
+        return _KeyIterator(list(self._items))
+
+    async def get_value(self, key: str) -> bytes | None:
+        return self._items.get(key)
+
+    async def delete_value(self, key: str) -> None:
+        self.deleted.append(key)
+        self._items.pop(key, None)
+
+
+def _make_cleanup_storage(
+    items: dict[str, bytes | None],
+    *,
+    expiration_secs: int,
+    max_items: int = 100,
+) -> tuple[ApifyCacheStorage, _RecordingKvs]:
+    storage = ApifyCacheStorage(
+        Settings({'HTTPCACHE_EXPIRATION_SECS': expiration_secs, 'APIFY_HTTPCACHE_EXPIRATION_MAX_ITEMS': max_items})
+    )
+    storage._async_thread = _FakeAsyncThread()  # ty: ignore[invalid-assignment]
+    kvs = _RecordingKvs(items)
+    storage._kvs = kvs  # ty: ignore[invalid-assignment]
+    return storage, kvs
+
+
+def test_close_spider_deletes_expired_and_malformed_but_keeps_valid() -> None:
+    """The close-spider cleanup deletes expired and unreadable entries and leaves fresh ones in place."""
+    current_time = 1000
+    fresh = {'status': 200, 'url': 'https://example.com', 'headers': {}, 'body': b''}
+    items: dict[str, bytes | None] = {
+        'expired': to_gzip(fresh, mtime=0),  # age 1000s > expiration 100s
+        'valid': to_gzip(fresh, mtime=current_time),  # age 0s
+        'malformed': b'bad',  # too short for read_gzip_time to parse the mtime header
+    }
+    storage, kvs = _make_cleanup_storage(items, expiration_secs=100)
+
+    storage.close_spider(None, current_time=current_time)  # ty: ignore[invalid-argument-type]
+
+    assert set(kvs.deleted) == {'expired', 'malformed'}
+
+
+def test_close_spider_respects_max_items() -> None:
+    """At most `APIFY_HTTPCACHE_EXPIRATION_MAX_ITEMS` entries are swept per close (exactly max, not max+1)."""
+    current_time = 1000
+    expired = to_gzip({'status': 200, 'url': 'https://example.com', 'headers': {}, 'body': b''}, mtime=0)
+    items: dict[str, bytes | None] = {f'k{i}': expired for i in range(5)}
+    storage, kvs = _make_cleanup_storage(items, expiration_secs=100, max_items=2)
+
+    storage.close_spider(None, current_time=current_time)  # ty: ignore[invalid-argument-type]
+
+    assert len(kvs.deleted) == 2
 
 
 @pytest.mark.parametrize(

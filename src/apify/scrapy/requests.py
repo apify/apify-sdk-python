@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import codecs
-import sys
 from logging import getLogger
 from typing import Any, cast
 
 from scrapy import Request as ScrapyRequest
 from scrapy import Spider
 from scrapy.http.headers import Headers
+from scrapy.utils.misc import load_object
 from scrapy.utils.request import request_from_dict
 
 from crawlee._request import UserData
@@ -20,12 +19,15 @@ logger = getLogger(__name__)
 
 
 def _ensure_known_request_class(request_dict: dict[str, Any]) -> None:
-    """Validate the optional `_class` entry before `request_from_dict` resolves it.
+    """Validate the optional `_class` entry before `request_from_dict` instantiates it.
 
-    `request_from_dict` imports the `_class` dotted path via `load_object`. To avoid importing
-    anything the running spider has not already imported, only a `_class` already present in
-    `sys.modules` and subclassing `scrapy.Request` is accepted. A spider reading its own requests
-    always has those classes imported by then, so legitimate use is unaffected.
+    `request_from_dict` resolves `_class` with `load_object` and calls it with the request kwargs.
+    The dotted path is resolved here first and rejected unless it is a `scrapy.Request` subclass, so a
+    payload can never coerce reconstruction into instantiating an arbitrary callable. Resolving may
+    import the class's module (the same import `request_from_dict` would do, and far safer than the
+    arbitrary code execution the previous pickle format allowed). That import is what lets a custom
+    `Request` subclass be rebuilt in a fresh process after an Actor migration, before the spider has
+    lazily imported it.
     """
     class_path = request_dict.get('_class')
     if class_path is None:
@@ -34,14 +36,14 @@ def _ensure_known_request_class(request_dict: dict[str, Any]) -> None:
     if not isinstance(class_path, str):
         raise TypeError(f'Invalid scrapy_request `_class`, expected a string, got {type(class_path)}')
 
-    module_name, _, class_name = class_path.rpartition('.')
-    module = sys.modules.get(module_name) if module_name else None
-    request_cls = getattr(module, class_name, None) if module is not None else None
+    try:
+        request_cls = load_object(class_path)
+    except (ImportError, AttributeError, ValueError, NameError) as exc:
+        raise TypeError(f'Refusing to reconstruct a Scrapy request: cannot resolve `_class` {class_path!r}.') from exc
 
     if not (isinstance(request_cls, type) and issubclass(request_cls, ScrapyRequest)):
         raise TypeError(
-            f'Refusing to reconstruct a Scrapy request of type {class_path!r}: it is not an already-imported '
-            f'scrapy.Request subclass.'
+            f'Refusing to reconstruct a Scrapy request of type {class_path!r}: it is not a scrapy.Request subclass.'
         )
 
 
@@ -100,6 +102,11 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         # Store an Apify-platform view of the headers. The authoritative copy with exact bytes
         # travels in the serialized scrapy_request below, so non-UTF-8 headers (which make
         # `to_unicode_dict()` raise) are tolerated rather than dropping the whole request.
+        #
+        # Trade-off: with `use_extended_unique_key=True` the unique key includes the headers, so when
+        # non-UTF-8 headers are omitted here two requests differing only in those headers share a
+        # unique key and one is deduplicated away. This is rare (header values are normally ASCII/UTF-8)
+        # and still strictly better than the old behavior, which dropped such requests entirely.
         if isinstance(scrapy_request.headers, Headers):
             try:
                 headers = cast('dict[str, str]', dict(scrapy_request.headers.to_unicode_dict()))
@@ -121,9 +128,9 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         logger.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
         return None
 
-    # Serialize the Scrapy request as base64-encoded JSON under 'scrapy_request'. Kept outside the
-    # broad except above so a non-JSON-serializable `meta`/`cb_kwargs` is logged with a traceback and
-    # the request skipped (returning None per this function's contract), rather than crashing the crawl.
+    # Serialize the Scrapy request as JSON under 'scrapy_request'. Kept outside the broad except above
+    # so a non-JSON-serializable `meta`/`cb_kwargs` is logged with a traceback and the request skipped
+    # (returning None per this function's contract), rather than crashing the crawl.
     try:
         scrapy_request_json = encode_to_json(scrapy_request_dict)
     except TypeError:
@@ -133,7 +140,10 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         )
         return None
 
-    apify_request.user_data['scrapy_request'] = codecs.encode(scrapy_request_json.encode('utf-8'), 'base64').decode()
+    # `scrapy_request_json` is already JSON-safe text (binary fields are base64-encoded inside it), so it
+    # is stored as-is. The request queue serializes `user_data` to JSON, which escapes the string
+    # correctly; wrapping it in a second base64 layer would only add ~33% overhead on the enqueue path.
+    apify_request.user_data['scrapy_request'] = scrapy_request_json
 
     logger.debug(f'scrapy_request was converted to the apify_request={apify_request}')
     return apify_request
@@ -148,8 +158,7 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
 
     Raises:
         TypeError: If `apify_request` is not an `ApifyRequest`, if the stored Scrapy request payload
-            is malformed, or if its `_class` does not refer to an already-imported `scrapy.Request`
-            subclass.
+            is malformed, or if its `_class` cannot be resolved to a `scrapy.Request` subclass.
 
     Returns:
         The converted Scrapy request.
@@ -161,16 +170,14 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
 
     # If the apify_request comes from the Scrapy
     if 'scrapy_request' in apify_request.user_data:
-        # Deserialize the Scrapy ScrapyRequest from the apify_request.
-        #   - This process involves decoding the base64-encoded request data and reconstructing
-        #     the Scrapy ScrapyRequest object from its dictionary representation.
+        # Deserialize the Scrapy ScrapyRequest from the apify_request by parsing the stored JSON and
+        # reconstructing the Scrapy ScrapyRequest object from its dictionary representation.
         logger.debug('Restoring the Scrapy ScrapyRequest from the apify_request...')
 
-        scrapy_request_dict_encoded = apify_request.user_data['scrapy_request']
-        if not isinstance(scrapy_request_dict_encoded, str):
-            raise TypeError('scrapy_request_dict_encoded must be a string')
+        scrapy_request_json = apify_request.user_data['scrapy_request']
+        if not isinstance(scrapy_request_json, str):
+            raise TypeError('the stored scrapy_request must be a string')
 
-        scrapy_request_json = codecs.decode(scrapy_request_dict_encoded.encode(), 'base64').decode('utf-8')
         scrapy_request_dict = decode_from_json(scrapy_request_json)
         if not isinstance(scrapy_request_dict, dict):
             raise TypeError('scrapy_request_dict must be a dictionary')
