@@ -15,9 +15,6 @@ def _round_trip(data: dict) -> dict:
     return decoded
 
 
-# --- body encoding (bytes/str symmetry) ---
-
-
 def test_bytes_body_round_trips() -> None:
     assert _round_trip({'body': b'\x00\x01\xff binary'})['body'] == b'\x00\x01\xff binary'
 
@@ -35,9 +32,6 @@ def test_empty_str_body_round_trips() -> None:
     assert _round_trip({'body': ''})['body'] == b''
 
 
-# --- headers ---
-
-
 def test_bytes_headers_round_trip() -> None:
     data = {'headers': {b'Content-Type': [b'text/html'], b'X-Bin': [b'\x00\xff']}}
     assert _round_trip(data)['headers'] == {b'Content-Type': [b'text/html'], b'X-Bin': [b'\x00\xff']}
@@ -53,18 +47,12 @@ def test_bare_header_value_is_normalized_to_list() -> None:
     assert _round_trip({'headers': {b'X-Single': b'one'}})['headers'] == {b'X-Single': [b'one']}
 
 
-# --- non-ASCII text is kept as UTF-8 (ensure_ascii=False) ---
-
-
 def test_non_ascii_is_not_escaped() -> None:
     """Non-ASCII text stays in its UTF-8 form instead of ASCII escape sequences, which would bloat storage."""
     encoded = encode_to_json({'meta': {'name': 'Ñoño café 日本語'}})
     assert 'Ñoño café 日本語' in encoded
     assert '\\u' not in encoded
     assert decode_from_json(encoded)['meta']['name'] == 'Ñoño café 日本語'
-
-
-# --- pydantic models are dumped ---
 
 
 def test_pydantic_model_is_dumped_by_alias() -> None:
@@ -75,9 +63,6 @@ def test_pydantic_model_is_dumped_by_alias() -> None:
     assert decode_from_json(encoded)['meta']['m'] == {'First': 1}
 
 
-# --- documented JSON coercions (a breaking change vs. pickle) ---
-
-
 def test_tuple_is_coerced_to_list() -> None:
     """Documented limitation: JSON has no tuple type, so a tuple round-trips as a list."""
     assert _round_trip({'meta': {'coords': (1, 2, 3)}})['meta']['coords'] == [1, 2, 3]
@@ -86,9 +71,6 @@ def test_tuple_is_coerced_to_list() -> None:
 def test_non_string_dict_keys_are_coerced_to_strings() -> None:
     """Documented limitation: JSON object keys are strings, so `{1: 'a'}` round-trips as `{'1': 'a'}`."""
     assert _round_trip({'cb_kwargs': {'m': {1: 'a'}}})['cb_kwargs']['m'] == {'1': 'a'}
-
-
-# --- values JSON cannot represent fail loudly with a useful message ---
 
 
 def test_non_serializable_value_raises_with_type_and_repr() -> None:

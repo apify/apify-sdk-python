@@ -1,3 +1,22 @@
+"""JSON serialization of Scrapy requests and cached responses for storage on the Apify platform.
+
+Scrapy requests and cached responses are stored in the Apify request queue and key-value store,
+which hold JSON, so they are serialized as JSON here rather than pickled.
+
+Only `body` (`bytes`) and `headers` (`{bytes: [bytes]}`) are not natively JSON-serializable; both sit at
+fixed keys and are base64-encoded in place. A `str` `body` is encoded as its UTF-8 bytes and comes back as
+`bytes`, matching Scrapy, which always stores `body` as `bytes`. Pydantic models such as Crawlee's
+`UserData` are dumped via `model_dump()`. Everything else, notably `meta` and `cb_kwargs`, must already be
+JSON-serializable, otherwise serialization fails with a clear error naming the offending value. No in-band
+sentinel is used, so no user value can collide with the encoding.
+
+Known limitations of the pickle -> JSON switch (a documented breaking change): JSON has fewer types than
+pickle, so values in `meta`/`cb_kwargs` are subject to JSON's coercions. A `tuple` round-trips as a `list`
+and non-string `dict` keys round-trip as strings (e.g. `{1: 'a'}` becomes `{'1': 'a'}`). Values JSON cannot
+represent at all (`datetime`, `set`, `Decimal`, arbitrary objects, ...) are not coerced silently:
+serialization raises and the request is skipped loudly rather than stored in a corrupted form.
+"""
+
 from __future__ import annotations
 
 import base64
@@ -5,22 +24,6 @@ import json
 from typing import Any
 
 from pydantic import BaseModel
-
-# Scrapy requests and cached responses are stored in the Apify request queue and key-value store,
-# which hold JSON, so they are serialized as JSON here rather than pickled.
-#
-# Only `body` (`bytes`) and `headers` (`{bytes: [bytes]}`) are not natively JSON-serializable; both sit at
-# fixed keys and are base64-encoded in place. A `str` `body` is encoded as its UTF-8 bytes and comes back as
-# `bytes`, matching Scrapy, which always stores `body` as `bytes`. Pydantic models such as Crawlee's
-# `UserData` are dumped via `model_dump()`. Everything else, notably `meta` and `cb_kwargs`, must already be
-# JSON-serializable, otherwise serialization fails with a clear error naming the offending value. No in-band
-# sentinel is used, so no user value can collide with the encoding.
-#
-# Known limitations of the pickle -> JSON switch (a documented breaking change): JSON has fewer types than
-# pickle, so values in `meta`/`cb_kwargs` are subject to JSON's coercions. A `tuple` round-trips as a `list`
-# and non-string `dict` keys round-trip as strings (e.g. `{1: 'a'}` becomes `{'1': 'a'}`). Values JSON cannot
-# represent at all (`datetime`, `set`, `Decimal`, arbitrary objects, ...) are not coerced silently:
-# serialization raises and the request is skipped loudly rather than stored in a corrupted form.
 
 # Cap the offending value's repr in a serialization error message so a huge value cannot bloat the log.
 _MAX_ERROR_VALUE_REPR_LEN = 200
