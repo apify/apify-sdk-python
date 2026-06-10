@@ -7,10 +7,11 @@ import json
 import pickle
 from time import time
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from scrapy import Request
+from scrapy.http import HtmlResponse
 from scrapy.settings import Settings
 
 from apify.scrapy.extensions._httpcache import ApifyCacheStorage, from_gzip, get_kvs_name, read_gzip_time, to_gzip
@@ -101,14 +102,17 @@ class _FakeKvs:
     async def get_value(self, _: str) -> bytes | None:
         return self._value
 
+    async def set_value(self, _: str, value: bytes) -> None:
+        self._value = value
+
 
 class _FakeFingerprinter:
     def fingerprint(self, _: Request) -> bytes:
         return b'\xab\xcd'
 
 
-def _make_storage(value: bytes | None) -> ApifyCacheStorage:
-    storage = ApifyCacheStorage(Settings({'HTTPCACHE_EXPIRATION_SECS': 0}))
+def _make_storage(value: bytes | None, *, expiration_secs: int = 0) -> ApifyCacheStorage:
+    storage = ApifyCacheStorage(Settings({'HTTPCACHE_EXPIRATION_SECS': expiration_secs}))
     storage._async_thread = _FakeAsyncThread()  # ty: ignore[invalid-assignment]
     storage._kvs = _FakeKvs(value)  # ty: ignore[invalid-assignment]
     storage._fingerprinter = _FakeFingerprinter()  # ty: ignore[invalid-assignment]
@@ -143,6 +147,51 @@ def test_retrieve_response_missing_key_is_cache_miss() -> None:
     value = to_gzip({'status': 200, 'headers': {}, 'body': b'x'})  # no 'url'
     storage = _make_storage(value)
     assert storage.retrieve_response(None, Request('https://example.com')) is None  # ty: ignore[invalid-argument-type]
+
+
+def test_store_then_retrieve_round_trips_response() -> None:
+    """A stored response round-trips through the cache and is persisted as gzip-JSON, never pickle."""
+    storage = _make_storage(None)
+    request = Request('https://example.com')
+    response = HtmlResponse(
+        url='https://example.com',
+        status=200,
+        headers={'Content-Type': 'text/html'},
+        body=b'<html>cached</html>',
+    )
+
+    storage.store_response(None, request, response)  # ty: ignore[invalid-argument-type]
+
+    # The persisted bytes are gzip-compressed JSON (decodable by `from_gzip`), never a pickle payload.
+    stored = cast('_FakeKvs', storage._kvs)._value
+    assert isinstance(stored, bytes)
+    assert from_gzip(stored)['body'] == b'<html>cached</html>'
+
+    retrieved = storage.retrieve_response(None, request)  # ty: ignore[invalid-argument-type]
+    assert retrieved is not None
+    assert retrieved.status == 200
+    assert retrieved.url == 'https://example.com'
+    assert retrieved.body == b'<html>cached</html>'
+    assert retrieved.headers.get('Content-Type') == b'text/html'
+
+
+def test_retrieve_response_treats_expired_entry_as_miss() -> None:
+    """A cached entry older than `HTTPCACHE_EXPIRATION_SECS` is a cache miss at retrieval time."""
+    data = {'status': 200, 'url': 'https://example.com', 'headers': {}, 'body': b'x'}
+    storage = _make_storage(to_gzip(data, mtime=0), expiration_secs=100)
+    request = Request('https://example.com')
+    # Retrieved 1000s after the entry's mtime (0), well past the 100s expiration window.
+    assert storage.retrieve_response(None, request, current_time=1000) is None  # ty: ignore[invalid-argument-type]
+
+
+def test_retrieve_response_returns_fresh_entry_within_expiration() -> None:
+    """An entry newer than `HTTPCACHE_EXPIRATION_SECS` is still a cache hit at retrieval time."""
+    data = {'status': 200, 'url': 'https://example.com', 'headers': {}, 'body': b'hello'}
+    storage = _make_storage(to_gzip(data, mtime=950), expiration_secs=100)
+    request = Request('https://example.com')
+    response = storage.retrieve_response(None, request, current_time=1000)  # ty: ignore[invalid-argument-type]
+    assert response is not None
+    assert response.body == b'hello'
 
 
 class _KeyIterator:

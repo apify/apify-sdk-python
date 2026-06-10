@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import BaseModel, Field
 
-from apify.scrapy._serialization import decode_from_json, encode_to_json
+from apify.scrapy._serialization import _MAX_ERROR_VALUE_REPR_LEN, decode_from_json, encode_to_json
 
 
 def _round_trip(data: dict) -> dict:
@@ -13,6 +13,13 @@ def _round_trip(data: dict) -> dict:
     decoded = decode_from_json(encode_to_json(data))
     assert isinstance(decoded, dict)
     return decoded
+
+
+class _LongRepr:
+    """A helper whose repr is long enough to trigger truncation in a serialization error message."""
+
+    def __repr__(self) -> str:
+        return 'x' * 500
 
 
 def test_bytes_body_round_trips() -> None:
@@ -85,7 +92,35 @@ def test_non_serializable_value_raises_with_type_and_repr() -> None:
     assert 'datetime' in str(exc_info.value.__cause__)
 
 
+def test_long_value_repr_is_truncated_in_error() -> None:
+    """A non-serializable value with a very long repr is truncated (with an ellipsis) so it cannot bloat the log."""
+    with pytest.raises(TypeError) as exc_info:
+        encode_to_json({'meta': {'big': _LongRepr()}})
+
+    cause = str(exc_info.value.__cause__)
+    assert cause.endswith('...')
+    assert cause.count('x') == _MAX_ERROR_VALUE_REPR_LEN
+
+
 def test_encode_rejects_non_dict() -> None:
     """Encoding a non-dict top-level value raises `TypeError`."""
     with pytest.raises(TypeError, match='Expected a dict'):
         encode_to_json(['not', 'a', 'dict'])  # ty: ignore[invalid-argument-type]
+
+
+def test_decode_of_non_dict_json_returns_value_as_is() -> None:
+    """JSON that decodes to a non-dict (a list, a bare string) is returned unchanged, not coerced or rejected."""
+    assert decode_from_json('[1, 2, 3]') == [1, 2, 3]
+    assert decode_from_json('"hello"') == 'hello'
+
+
+def test_decode_rejects_non_base64_body() -> None:
+    """A non-base64 `body` is rejected loudly (the `validate=True` guard), not silently decoded to garbage."""
+    with pytest.raises(ValueError, match='base64'):
+        decode_from_json('{"body": "not valid base64 !!!"}')
+
+
+def test_decode_rejects_non_base64_header_value() -> None:
+    """A non-base64 header value is rejected loudly rather than silently decoded to garbage."""
+    with pytest.raises(ValueError, match='base64'):
+        decode_from_json('{"headers": {"X-Test": ["not valid base64 !!!"]}}')

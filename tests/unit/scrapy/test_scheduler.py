@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
 from typing import cast
 from unittest import mock
 
@@ -36,6 +37,46 @@ def scheduler(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> ApifySche
     scheduler._rq = rq
 
     return scheduler
+
+
+def test_enqueue_request_skips_non_serializable_request(
+    scheduler: ApifyScheduler,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A request that cannot be converted (non-serializable meta) is not enqueued: returns False and logs an error."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+
+    # A set in `meta` is not JSON-serializable, so `to_apify_request` returns None.
+    scrapy_request = Request(url='https://example.com', meta={'tags': {'a', 'b'}})
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'):
+        result = scheduler.enqueue_request(scrapy_request)
+
+    assert result is False
+    assert 'could not be converted' in caplog.text
+    rq.add_request.assert_not_called()
+
+
+def test_enqueue_request_enqueues_converted_request(scheduler: ApifyScheduler) -> None:
+    """A convertible request is enqueued and reported as newly added when the queue had not seen it."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+    async_thread.run_coro.return_value = SimpleNamespace(was_already_present=False)
+
+    result = scheduler.enqueue_request(Request(url='https://example.com'))
+
+    assert result is True
+    rq.add_request.assert_called_once()
+
+
+def test_enqueue_request_returns_false_for_duplicate(scheduler: ApifyScheduler) -> None:
+    """A request already present in the queue is reported as not newly enqueued (returns False)."""
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+    async_thread.run_coro.return_value = SimpleNamespace(was_already_present=True)
+
+    result = scheduler.enqueue_request(Request(url='https://example.com'))
+
+    assert result is False
 
 
 def test_next_request_skips_request_that_fails_to_convert(

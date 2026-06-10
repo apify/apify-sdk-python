@@ -381,3 +381,62 @@ def test_custom_request_subclass_reconstructed_after_migration(spider: Spider) -
 
     assert isinstance(restored, CustomRequest)
     assert module_name in sys.modules  # it was imported on demand during reconstruction
+
+
+def test_non_apify_request_input_is_rejected(spider: Spider) -> None:
+    """`to_scrapy_request` raises on non-Apify-request input (unlike `to_apify_request`, which returns None)."""
+    with pytest.raises(TypeError, match='must be an apify'):
+        to_scrapy_request('not an apify request', spider)  # ty: ignore[invalid-argument-type]
+
+
+def test_non_string_stored_scrapy_request_is_rejected(spider: Spider) -> None:
+    """A stored `scrapy_request` that is not a string is rejected before any JSON decoding."""
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={'scrapy_request': {'unexpected': 'dict'}},
+    )
+
+    with pytest.raises(TypeError, match='must be a string'):
+        to_scrapy_request(apify_request, spider)
+
+
+def test_stored_scrapy_request_decoding_to_non_dict_is_rejected(spider: Spider) -> None:
+    """A stored `scrapy_request` that is valid JSON but not a dict (here a JSON array) is rejected."""
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={'scrapy_request': '[1, 2, 3]'},
+    )
+
+    with pytest.raises(TypeError, match='must be a dictionary'):
+        to_scrapy_request(apify_request, spider)
+
+
+def test_non_string_class_is_rejected(spider: Spider) -> None:
+    """A `_class` entry that is not a string is rejected before any class resolution."""
+    request_dict = {
+        'url': 'https://example.com',
+        'headers': {},
+        'body': '',
+        'cookies': {},
+        'meta': {},
+        'encoding': 'utf-8',
+        'priority': 0,
+        'dont_filter': False,
+        'flags': [],
+        'cb_kwargs': {},
+        'method': 'GET',
+        '_class': 123,
+    }
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={'scrapy_request': _encode_request_dict(request_dict)},
+    )
+
+    with pytest.raises(TypeError, match='expected a string'):
+        to_scrapy_request(apify_request, spider)

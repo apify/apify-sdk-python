@@ -138,3 +138,29 @@ def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) ->
     follow_up_apify_request = to_apify_request(follow_up_2, spider)
     assert follow_up_apify_request is not None
     assert follow_up_apify_request.url == 'https://example.com/image.png'
+
+
+def test_dont_filter_request_is_always_enqueued(spider: Spider) -> None:
+    """A `dont_filter=True` request is always enqueued: each conversion gets a fresh unique key, bypassing dedup."""
+    first = to_apify_request(Request(url='https://example.com', dont_filter=True), spider)
+    second = to_apify_request(Request(url='https://example.com', dont_filter=True), spider)
+
+    assert first is not None
+    assert second is not None
+    # `always_enqueue` prefixes the unique key with a random token (`<random>|<key>`), so two otherwise-identical
+    # requests get distinct unique keys and neither is deduplicated against the other.
+    assert '|' in first.unique_key
+    assert first.unique_key != second.unique_key
+
+
+def test_apify_request_id_in_meta_is_ignored(spider: Spider) -> None:
+    """An `apify_request_id` in `meta` is ignored and does not break conversion; the unique key still applies."""
+    scrapy_request = Request(
+        url='https://example.com',
+        meta={'apify_request_id': 'myCustomId12345', 'apify_request_unique_key': 'https://example.com'},
+    )
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == 'https://example.com'
