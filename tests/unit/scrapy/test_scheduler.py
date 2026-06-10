@@ -24,11 +24,7 @@ def spider() -> DummySpider:
 
 @pytest.fixture
 def scheduler(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> ApifyScheduler:
-    """Create a scheduler with its reactor check and async thread stubbed out.
-
-    The request queue is a plain mock that satisfies the `isinstance` checks; the `run_coro` results
-    are set per test via the mocked async thread.
-    """
+    """Create a scheduler with its reactor check and async thread stubbed out."""
     monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
     monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', mock.MagicMock())
 
@@ -46,6 +42,7 @@ def test_next_request_skips_request_that_fails_to_convert(
     scheduler: ApifyScheduler,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """A queue entry that fails to reconstruct is skipped and still marked handled, not retried forever."""
     rq = cast('mock.MagicMock', scheduler._rq)
     async_thread = cast('mock.MagicMock', scheduler._async_thread)
 
@@ -73,6 +70,7 @@ def test_next_request_skips_request_that_fails_to_convert(
 
 
 def test_next_request_returns_converted_request(scheduler: ApifyScheduler) -> None:
+    """A valid queue entry is reconstructed into a Scrapy request and marked handled."""
     rq = cast('mock.MagicMock', scheduler._rq)
     async_thread = cast('mock.MagicMock', scheduler._async_thread)
 

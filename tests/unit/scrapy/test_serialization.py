@@ -16,23 +16,22 @@ def _round_trip(data: dict) -> dict:
 
 
 def test_bytes_body_round_trips() -> None:
+    """A binary `body` round-trips unchanged (base64-encoded inside the JSON)."""
     assert _round_trip({'body': b'\x00\x01\xff binary'})['body'] == b'\x00\x01\xff binary'
 
 
 def test_str_body_round_trips_to_bytes() -> None:
-    """A `str` body is encoded as its UTF-8 bytes and comes back as `bytes` (Scrapy stores bytes).
-
-    Without symmetric handling a `str` body is left unencoded yet unconditionally base64-decoded on the
-    way back, which corrupts it or raises.
-    """
+    """A `str` body is encoded as its UTF-8 bytes and comes back as `bytes` (Scrapy stores bytes)."""
     assert _round_trip({'body': 'hello'})['body'] == b'hello'
 
 
 def test_empty_str_body_round_trips() -> None:
+    """An empty `str` body round-trips to empty `bytes`."""
     assert _round_trip({'body': ''})['body'] == b''
 
 
 def test_bytes_headers_round_trip() -> None:
+    """Scrapy-style `{bytes: [bytes]}` headers, including binary values, round-trip unchanged."""
     data = {'headers': {b'Content-Type': [b'text/html'], b'X-Bin': [b'\x00\xff']}}
     assert _round_trip(data)['headers'] == {b'Content-Type': [b'text/html'], b'X-Bin': [b'\x00\xff']}
 
@@ -56,6 +55,8 @@ def test_non_ascii_is_not_escaped() -> None:
 
 
 def test_pydantic_model_is_dumped_by_alias() -> None:
+    """A pydantic model in `meta` is dumped to a plain dict using its serialization aliases."""
+
     class Model(BaseModel):
         first: int = Field(serialization_alias='First')
 
@@ -85,5 +86,6 @@ def test_non_serializable_value_raises_with_type_and_repr() -> None:
 
 
 def test_encode_rejects_non_dict() -> None:
+    """Encoding a non-dict top-level value raises `TypeError`."""
     with pytest.raises(TypeError, match='Expected a dict'):
         encode_to_json(['not', 'a', 'dict'])  # ty: ignore[invalid-argument-type]

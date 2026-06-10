@@ -23,6 +23,7 @@ def spider() -> DummySpider:
 
 
 def test_creates_simple_request(spider: Spider) -> None:
+    """A simple Scrapy request converts to an Apify request carrying the serialized `scrapy_request`."""
     scrapy_request = Request(url='https://example.com')
 
     apify_request = to_apify_request(scrapy_request, spider)
@@ -35,6 +36,7 @@ def test_creates_simple_request(spider: Spider) -> None:
 
 
 def test_handles_headers(spider: Spider) -> None:
+    """Scrapy request headers are carried onto the Apify request as `HttpHeaders`."""
     scrapy_request_headers = Headers({'Authorization': 'Bearer access_token'})
     scrapy_request = Request(url='https://example.com', headers=scrapy_request_headers)
 
@@ -46,6 +48,7 @@ def test_handles_headers(spider: Spider) -> None:
 
 
 def test_without_id_and_unique_key(spider: Spider) -> None:
+    """A request without an id or unique key converts, preserving its user data."""
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -66,6 +69,7 @@ def test_without_id_and_unique_key(spider: Spider) -> None:
 
 
 def test_with_id_and_unique_key(spider: Spider) -> None:
+    """An explicit `apify_request_unique_key` in `meta` becomes the Apify request's unique key."""
     scrapy_request = Request(
         url='https://example.com',
         method='GET',
@@ -90,6 +94,7 @@ def test_with_id_and_unique_key(spider: Spider) -> None:
 
 
 def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
+    """A non-Scrapy-request input returns None instead of raising."""
     scrapy_request = 'invalid_request'
 
     apify_request = to_apify_request(scrapy_request, spider)  # ty: ignore[invalid-argument-type]
@@ -97,12 +102,7 @@ def test_invalid_scrapy_request_returns_none(spider: Spider) -> None:
 
 
 def test_non_json_serializable_meta_is_skipped(spider: Spider, caplog: pytest.LogCaptureFixture) -> None:
-    """A non-JSON-serializable value in meta is skipped loudly instead of crashing the crawl.
-
-    The serializer requires `meta`/`cb_kwargs` to be JSON-serializable. When they are not, the request
-    is skipped (None is returned, honoring the function's contract) and the failure is logged with a
-    full traceback, rather than the request being silently lost or the whole run crashing.
-    """
+    """A non-JSON-serializable value in `meta` is skipped (returns None) and logged, not crashing the crawl."""
     scrapy_request = Request(url='https://example.com', meta={'tags': {'a', 'b'}})
 
     with caplog.at_level(logging.ERROR, logger='apify.scrapy.requests'):
@@ -113,13 +113,7 @@ def test_non_json_serializable_meta_is_skipped(spider: Spider, caplog: pytest.Lo
 
 
 def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
-    """Reproduce: CrawleeRequestData() argument after ** must be a mapping, not CrawleeRequestData.
-
-    After two roundtrips through to_apify_request/to_scrapy_request with userData propagation,
-    Request.from_url() writes a CrawleeRequestData object into UserData.__pydantic_extra__['__crawlee'].
-    On the next roundtrip, this CrawleeRequestData object is found by user_data_dict.get('__crawlee')
-    and passed to CrawleeRequestData(**obj), which fails because CrawleeRequestData is not a mapping.
-    """
+    """Regression: propagating userData across repeated roundtrips must not fail on `__crawlee` data."""
     # Step 1: Initial request -> first roundtrip
     initial_scrapy_request = Request(url='https://example.com/page')
     apify_request_1 = to_apify_request(initial_scrapy_request, spider)

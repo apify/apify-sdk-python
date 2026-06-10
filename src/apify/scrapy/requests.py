@@ -21,13 +21,12 @@ logger = getLogger(__name__)
 def _ensure_known_request_class(request_dict: dict[str, Any]) -> None:
     """Validate the optional `_class` entry before `request_from_dict` instantiates it.
 
-    `request_from_dict` resolves `_class` with `load_object` and calls it with the request kwargs.
-    The dotted path is resolved here first and rejected unless it is a `scrapy.Request` subclass, so a
-    payload can never coerce reconstruction into instantiating an arbitrary callable. Resolving may
-    import the class's module (the same import `request_from_dict` would do, and far safer than the
-    arbitrary code execution the previous pickle format allowed). That import is what lets a custom
-    `Request` subclass be rebuilt in a fresh process after an Actor migration, before the spider has
-    lazily imported it.
+    `request_from_dict` resolves `_class` with `load_object` and calls it with the request kwargs. The dotted path
+    is resolved here first and rejected unless it is a `scrapy.Request` subclass, so a payload can never coerce
+    reconstruction into instantiating an arbitrary callable. Resolving may import the class's module (the same
+    import `request_from_dict` would do, and far safer than the arbitrary code execution the previous pickle
+    format allowed). That import is what lets a custom `Request` subclass be rebuilt in a fresh process after
+    an Actor migration, before the spider has lazily imported it.
     """
     class_path = request_dict.get('_class')
     if class_path is None:
@@ -65,8 +64,8 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
 
     # Configuration to behave as similarly as possible to Scrapy's default RFPDupeFilter.
     #
-    # The body is stored twice on purpose: as `payload` (used for the extended unique key) and inside
-    # the serialized Scrapy request below (used to reconstruct it). Both come from `scrapy_request.body`.
+    # The body is stored twice on purpose: as `payload` (used for the extended unique key) and inside the serialized
+    # Scrapy request below (used to reconstruct it). Both come from `scrapy_request.body`.
     request_kwargs: dict[str, Any] = {
         'url': scrapy_request.url,
         'method': scrapy_request.method,
@@ -87,26 +86,26 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
 
         user_data = scrapy_request.meta.get('userData', {})
 
-        # Convert UserData Pydantic model to a plain dict to prevent CrawleeRequestData objects
-        # from leaking into Request.from_url() during Scrapy-Apify roundtrips.
+        # Convert UserData Pydantic model to a plain dict to prevent CrawleeRequestData objects from leaking
+        # into Request.from_url() during Scrapy-Apify roundtrips.
         if isinstance(user_data, UserData):
             user_data = user_data.model_dump(by_alias=True)
 
-        # Remove internal Crawlee data since it's managed by Request.from_url() and values
-        # from previous roundtrips cause incorrect state.
+        # Remove internal Crawlee data since it's managed by Request.from_url() and values from previous roundtrips
+        # cause incorrect state.
         if isinstance(user_data, dict):
             user_data.pop('__crawlee', None)
 
         request_kwargs['user_data'] = user_data if isinstance(user_data, dict) else {}
 
-        # Store an Apify-platform view of the headers. The authoritative copy with exact bytes
-        # travels in the serialized scrapy_request below, so non-UTF-8 headers (which make
-        # `to_unicode_dict()` raise) are tolerated rather than dropping the whole request.
+        # Store an Apify-platform view of the headers. The authoritative copy with exact bytes travels in
+        # the serialized scrapy_request below, so non-UTF-8 headers (which make `to_unicode_dict()` raise) are
+        # tolerated rather than dropping the whole request.
         #
-        # Trade-off: with `use_extended_unique_key=True` the unique key includes the headers, so when
-        # non-UTF-8 headers are omitted here two requests differing only in those headers share a
-        # unique key and one is deduplicated away. This is rare (header values are normally ASCII/UTF-8)
-        # and still strictly better than the old behavior, which dropped such requests entirely.
+        # Trade-off: with `use_extended_unique_key=True` the unique key includes the headers, so when non-UTF-8
+        # headers are omitted here two requests differing only in those headers share a unique key and one is
+        # deduplicated away. This is rare (header values are normally ASCII/UTF-8) and still strictly better than
+        # the old behavior, which dropped such requests entirely.
         if isinstance(scrapy_request.headers, Headers):
             try:
                 headers = cast('dict[str, str]', dict(scrapy_request.headers.to_unicode_dict()))
@@ -128,9 +127,9 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         logger.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
         return None
 
-    # Serialize the Scrapy request as JSON under 'scrapy_request'. Kept outside the broad except above
-    # so a non-JSON-serializable `meta`/`cb_kwargs` is logged with a traceback and the request skipped
-    # (returning None per this function's contract), rather than crashing the crawl.
+    # Serialize the Scrapy request as JSON under 'scrapy_request'. Kept outside the broad except above so
+    # a non-JSON-serializable `meta`/`cb_kwargs` is logged with a traceback and the request skipped (returning
+    # None per this function's contract), rather than crashing the crawl.
     try:
         scrapy_request_json = encode_to_json(scrapy_request_dict)
     except TypeError:
@@ -140,9 +139,9 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         )
         return None
 
-    # `scrapy_request_json` is already JSON-safe text (binary fields are base64-encoded inside it), so it
-    # is stored as-is. The request queue serializes `user_data` to JSON, which escapes the string
-    # correctly; wrapping it in a second base64 layer would only add ~33% overhead on the enqueue path.
+    # `scrapy_request_json` is already JSON-safe text (binary fields are base64-encoded inside it), so it is stored
+    # as-is. The request queue serializes `user_data` to JSON, which escapes the string correctly; wrapping it in
+    # a second base64 layer would only add ~33% overhead on the enqueue path.
     apify_request.user_data['scrapy_request'] = scrapy_request_json
 
     logger.debug(f'scrapy_request was converted to the apify_request={apify_request}')
@@ -157,8 +156,8 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
         spider: The Scrapy spider that the request is associated with.
 
     Raises:
-        TypeError: If `apify_request` is not an `ApifyRequest`, if the stored Scrapy request payload
-            is malformed, or if its `_class` cannot be resolved to a `scrapy.Request` subclass.
+        TypeError: If `apify_request` is not an `ApifyRequest`, if the stored Scrapy request payload is malformed,
+        or if its `_class` cannot be resolved to a `scrapy.Request` subclass.
 
     Returns:
         The converted Scrapy request.
@@ -170,8 +169,8 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
 
     # If the apify_request comes from the Scrapy
     if 'scrapy_request' in apify_request.user_data:
-        # Deserialize the Scrapy ScrapyRequest from the apify_request by parsing the stored JSON and
-        # reconstructing the Scrapy ScrapyRequest object from its dictionary representation.
+        # Deserialize the Scrapy ScrapyRequest from the apify_request by parsing the stored JSON and reconstructing
+        # the Scrapy ScrapyRequest object from its dictionary representation.
         logger.debug('Restoring the Scrapy ScrapyRequest from the apify_request...')
 
         scrapy_request_json = apify_request.user_data['scrapy_request']

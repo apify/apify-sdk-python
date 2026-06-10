@@ -28,26 +28,31 @@ FIXTURE_BYTES = (
 
 
 def test_gzip() -> None:
+    """`to_gzip` then `from_gzip` round-trips a dict unchanged."""
     assert from_gzip(to_gzip(FIXTURE_DICT)) == FIXTURE_DICT
 
 
 def test_to_gzip() -> None:
+    """`to_gzip` produces the expected gzip-compressed JSON bytes for a fixed mtime."""
     data_bytes = to_gzip(FIXTURE_DICT, mtime=0)
 
     assert data_bytes == FIXTURE_BYTES
 
 
 def test_from_gzip() -> None:
+    """`from_gzip` decodes gzip-compressed JSON bytes back into the original dict."""
     data_dict = from_gzip(FIXTURE_BYTES)
 
     assert data_dict == FIXTURE_DICT
 
 
 def test_read_gzip_time() -> None:
+    """`read_gzip_time` reads the mtime stored in the gzip header (here 0)."""
     assert read_gzip_time(FIXTURE_BYTES) == 0
 
 
 def test_read_gzip_time_non_zero() -> None:
+    """`read_gzip_time` reads back a non-zero mtime written into the gzip header."""
     current_time = int(time())
     data_bytes = to_gzip(FIXTURE_DICT, mtime=current_time)
 
@@ -67,10 +72,7 @@ def test_gzip_round_trips_binary_response() -> None:
 
 
 def test_from_gzip_rejects_pickle_payload() -> None:
-    """Cache entries are stored as gzip-compressed JSON; a pickle payload is not valid JSON.
-
-    The loader must reject such a payload rather than load it.
-    """
+    """Cache entries are gzip-compressed JSON, so a pickle payload is rejected rather than loaded."""
     with io.BytesIO() as byte_stream:
         with gzip.GzipFile(fileobj=byte_stream, mode='wb') as gzip_file:
             pickle.dump({'status': 200, 'body': b'x'}, gzip_file, protocol=4)
@@ -114,6 +116,7 @@ def _make_storage(value: bytes | None) -> ApifyCacheStorage:
 
 
 def test_retrieve_response_returns_cached_response() -> None:
+    """A stored gzip-JSON entry is returned as a reconstructed Scrapy response."""
     data = {'status': 200, 'url': 'https://example.com', 'headers': {}, 'body': b'hello'}
     storage = _make_storage(to_gzip(data))
     response = storage.retrieve_response(None, Request('https://example.com'))  # ty: ignore[invalid-argument-type]
@@ -123,6 +126,7 @@ def test_retrieve_response_returns_cached_response() -> None:
 
 
 def test_retrieve_response_ignores_legacy_pickle_item() -> None:
+    """A legacy gzip-pickle entry degrades to a cache miss instead of raising."""
     # A gzip-wrapped pickle payload is the legacy (pre-JSON) cache format that the JSON reader cannot
     # load. After the upgrade, such an item must degrade to a cache miss instead of raising and breaking
     # the download, so the cache self-heals (re-fetch and re-store as JSON) rather than crashing.
@@ -135,11 +139,7 @@ def test_retrieve_response_ignores_legacy_pickle_item() -> None:
 
 
 def test_retrieve_response_missing_key_is_cache_miss() -> None:
-    """A cache value that decodes to a dict missing an expected key degrades to a miss, not a KeyError.
-
-    The field reads sit inside the crash-guard, so a forward/older or truncated-but-valid JSON payload
-    (here one without a `url`) is ignored rather than raising out of `retrieve_response`.
-    """
+    """A valid payload missing an expected field (here `url`) degrades to a cache miss, not a `KeyError`."""
     value = to_gzip({'status': 200, 'headers': {}, 'body': b'x'})  # no 'url'
     storage = _make_storage(value)
     assert storage.retrieve_response(None, Request('https://example.com')) is None  # ty: ignore[invalid-argument-type]
@@ -241,6 +241,7 @@ def test_close_spider_respects_max_items() -> None:
     ],
 )
 def test_get_kvs_name(spider_name: str, expected: str) -> None:
+    """A spider name is normalized into a valid `httpcache-<slug>` key-value store name."""
     assert get_kvs_name(spider_name) == expected
 
 
@@ -253,5 +254,6 @@ def test_get_kvs_name(spider_name: str, expected: str) -> None:
     ],
 )
 def test_get_kvs_name_raises(spider_name: str) -> None:
+    """A spider name that normalizes to empty raises `ValueError`."""
     with pytest.raises(ValueError, match=r'Unsupported spider name'):
         assert get_kvs_name(spider_name)

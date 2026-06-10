@@ -52,7 +52,7 @@ _SCRAPY_REQUEST_JSON_ENCODED = encode_to_json(
 
 
 def test_without_reconstruction(spider: Spider) -> None:
-    # Without reconstruction of encoded Scrapy request
+    """An Apify request without a stored `scrapy_request` becomes a fresh Scrapy request (no reconstruction)."""
     apify_request = ApifyRequest(
         url='https://example.com',
         method='GET',
@@ -69,7 +69,7 @@ def test_without_reconstruction(spider: Spider) -> None:
 
 
 def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
-    # Without reconstruction of encoded Scrapy request
+    """The without-reconstruction path also carries optional headers and user data to the Scrapy request."""
     apify_request = ApifyRequest(
         url='https://crawlee.dev',
         method='GET',
@@ -92,7 +92,7 @@ def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
 
 
 def test_with_reconstruction(spider: Spider) -> None:
-    # With reconstruction of JSON-encoded Scrapy request
+    """An Apify request with a stored `scrapy_request` is reconstructed from its JSON payload."""
     apify_request = ApifyRequest(
         url='https://apify.com',
         method='GET',
@@ -112,7 +112,7 @@ def test_with_reconstruction(spider: Spider) -> None:
 
 
 def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
-    # With reconstruction of JSON-encoded Scrapy request
+    """Reconstruction from the stored JSON payload also restores optional headers and user data."""
     apify_request = ApifyRequest(
         url='https://apify.com',
         method='GET',
@@ -138,6 +138,7 @@ def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
 
 
 def test_invalid_request_for_reconstruction(spider: Spider) -> None:
+    """A stored `scrapy_request` that is not valid JSON fails to decode during reconstruction."""
     apify_request = ApifyRequest(
         url='https://example.com',
         method='GET',
@@ -153,10 +154,7 @@ def test_invalid_request_for_reconstruction(spider: Spider) -> None:
 
 
 def test_pickle_payload_rejected(spider: Spider) -> None:
-    """Data stored under 'scrapy_request' is JSON; a pickle-encoded payload is not valid JSON.
-
-    The reconstruction path must reject such a payload rather than deserialize it.
-    """
+    """Data under 'scrapy_request' is JSON, so a pickle payload is rejected rather than deserialized."""
     # Build a pickle payload like the old code produced.
     scrapy_request_dict = {
         'url': 'https://example.com',
@@ -188,7 +186,7 @@ def test_pickle_payload_rejected(spider: Spider) -> None:
 
 
 def test_roundtrip_serialization(spider: Spider) -> None:
-    """Verify that to_apify_request -> to_scrapy_request roundtrip works with JSON encoding."""
+    """A `to_apify_request` -> `to_scrapy_request` round-trip preserves the request under JSON encoding."""
     original_request = Request(
         url='https://example.com/test',
         method='POST',
@@ -216,7 +214,7 @@ def test_roundtrip_serialization(spider: Spider) -> None:
 
 
 def test_no_pickle_in_serialized_output(spider: Spider) -> None:
-    """Confirm that to_apify_request never produces pickle-serialized output."""
+    """`to_apify_request` produces JSON output, never a pickle payload."""
     scrapy_request = Request(url='https://example.com')
     apify_request = to_apify_request(scrapy_request, spider)
     assert apify_request is not None
@@ -252,12 +250,7 @@ def test_binary_body_round_trips(spider: Spider) -> None:
 
 
 def test_binary_headers_round_trip_and_request_not_dropped(spider: Spider) -> None:
-    """A request with non-UTF-8 header values is not dropped; its headers survive the roundtrip.
-
-    The Apify-request-level headers can only hold UTF-8-decodable values, so binary header values are
-    preserved inside the serialized Scrapy request instead. The conversion must still succeed (return
-    a request, not None) and the exact header bytes must come back.
-    """
+    """A request with non-UTF-8 header values is not dropped; the exact header bytes survive the roundtrip."""
     original = Request(
         url='https://example.com',
         headers={b'Accept': b'text/html', b'X-Bin': b'\xff\xfe\x00'},
@@ -272,11 +265,7 @@ def test_binary_headers_round_trip_and_request_not_dropped(spider: Spider) -> No
 
 
 def test_userdata_with_b64_sentinel_key_round_trips(spider: Spider) -> None:
-    """A user dict that happens to look like a bytes wrapper must round-trip unchanged.
-
-    The encoder uses no in-band sentinel for user data, so an arbitrary value such as
-    ``{"__b64__": "..."}`` in `meta` is preserved exactly instead of being reinterpreted.
-    """
+    """No in-band sentinel is used, so a user dict like `{'__b64__': ...}` in `meta` round-trips unchanged."""
     original = Request(
         url='https://example.com',
         meta={'userData': {}, 'looks_like_sentinel': {'__b64__': 'not really base64 !!!'}},
@@ -302,12 +291,7 @@ def test_already_imported_request_subclass_round_trips(spider: Spider) -> None:
 
 
 def test_non_request_class_is_rejected(spider: Spider) -> None:
-    """A `_class` that resolves to something other than a `scrapy.Request` subclass is rejected.
-
-    `scrapy.utils.request.request_from_dict` resolves `_class` via `load_object` and instantiates it.
-    Reconstruction resolves the dotted path first and only accepts a `scrapy.Request` subclass; anything
-    else (here a plain `dict`) is rejected before it can be constructed.
-    """
+    """A `_class` resolving to a non-`scrapy.Request` type (here a plain `dict`) is rejected before use."""
     request_dict = {
         'url': 'https://example.com',
         'callback': None,
@@ -363,12 +347,7 @@ def test_unresolvable_class_is_rejected(spider: Spider) -> None:
 
 
 def test_custom_request_subclass_reconstructed_after_migration(spider: Spider) -> None:
-    """A custom `Request` subclass whose module is not yet imported is reconstructed (importing it).
-
-    This is the Actor-migration scenario: a request enqueued by one process is reconstructed in a fresh
-    process before the spider has imported the subclass's module. Reconstruction must import the module
-    on demand (as the old pickle format did) instead of rejecting the request and dropping coverage.
-    """
+    """Actor-migration case: a not-yet-imported custom `Request` subclass is reconstructed by importing it."""
     module_name = 'tests.unit.scrapy.requests._custom_request_module'
     request_dict = {
         'url': 'https://example.com',
