@@ -39,6 +39,17 @@ def scheduler(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> ApifySche
     return scheduler
 
 
+def test_has_pending_requests_reflects_queue_state(scheduler: ApifyScheduler) -> None:
+    """`has_pending_requests` is True while the queue is not finished and False once it is."""
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    async_thread.run_coro.return_value = False  # the queue still has work
+    assert scheduler.has_pending_requests() is True
+
+    async_thread.run_coro.return_value = True  # the queue is drained
+    assert scheduler.has_pending_requests() is False
+
+
 def test_enqueue_request_skips_non_serializable_request(
     scheduler: ApifyScheduler,
     caplog: pytest.LogCaptureFixture,
@@ -128,3 +139,15 @@ def test_next_request_returns_converted_request(scheduler: ApifyScheduler) -> No
     assert isinstance(result, Request)
     assert result.url == apify_request.url
     rq.mark_request_as_handled.assert_called_once_with(apify_request)
+
+
+def test_next_request_returns_none_when_queue_empty(scheduler: ApifyScheduler) -> None:
+    """An empty queue makes `next_request` return None and skip marking anything as handled."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+    async_thread.run_coro.return_value = None
+
+    result = scheduler.next_request()
+
+    assert result is None
+    rq.mark_request_as_handled.assert_not_called()
