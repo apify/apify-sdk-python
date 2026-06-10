@@ -77,6 +77,7 @@ async def ppe_push_data_actor(
 @pytest_asyncio.fixture(scope='module', loop_scope='module')
 async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
     async def main() -> None:
+        import asyncio
         from dataclasses import asdict
 
         async with Actor:
@@ -85,6 +86,12 @@ async def ppe_actor_build(make_actor: MakeActorFunction) -> str:
                 count=4,
             )
             Actor.log.info('Charged', extra=asdict(charge_result))
+
+            # When the charge limit is reached, the platform auto-aborts this run. That abort races with the
+            # Actor's own clean exit, making the terminal status non-deterministic (SUCCEEDED or ABORTED). Block
+            # here so the abort always wins and the run ends deterministically as ABORTED.
+            if charge_result.event_charge_limit_reached:
+                await asyncio.Event().wait()
 
     actor_client = await make_actor('ppe', main_func=main)
 
@@ -148,15 +155,17 @@ async def test_actor_charge_limit(
 ) -> None:
     run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
 
+    # Reaching `max_total_charge_usd` makes the platform auto-abort the run. The Actor blocks after hitting the
+    # limit (see `ppe_actor_build`) so the abort always wins the race against its clean exit, hence ABORTED.
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == {'foobar': 2},
+        lambda r: r.status == 'ABORTED' and r.charged_event_counts == {'foobar': 2},
         timeout=30,
         poll_interval=1,
     )
 
-    assert run.status == 'SUCCEEDED'
+    assert run.status == 'ABORTED'
     assert run.charged_event_counts == {'foobar': 2}
 
 
