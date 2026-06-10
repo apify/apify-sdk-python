@@ -162,20 +162,24 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self.spider, Spider):
             raise TypeError('self.spider must be an instance of the Spider class')
 
-        # Let the request queue know that the request is being handled. Every request should
-        # be marked as handled, retrying is handled by the Scrapy's RetryMiddleware.
+        # Reconstruct the Scrapy request before consuming the queue entry. A malformed entry must not crash
+        # the whole run, so on failure it is logged and skipped (None) rather than propagating.
+        try:
+            scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
+        except Exception:
+            logger.exception(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it.')
+            scrapy_request = None
+
+        # Mark the request as handled. This runs even when reconstruction failed above: an unrecoverable entry
+        # (a corrupt or legacy payload) must still be consumed, otherwise the queue would keep handing it back
+        # forever. Retrying genuine failures is the RetryMiddleware's job.
         try:
             self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
         except Exception:
             traceback.print_exc()
             raise
 
-        # Reconstruct the Scrapy request. A malformed queue entry must not crash the whole run: it
-        # has already been marked handled above, so log it and skip it instead of propagating.
-        try:
-            scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
-        except Exception:
-            logger.exception(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it.')
+        if scrapy_request is None:
             return None
 
         logger.debug(f'Converted to scrapy_request: {scrapy_request}')
