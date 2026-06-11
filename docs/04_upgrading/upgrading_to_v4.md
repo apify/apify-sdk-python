@@ -69,6 +69,20 @@ The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields hav
 - In place of `standby_port`, use `web_server_port`.
 - `latest_sdk_version` and `log_format` don't have replacement. SDK version checking isn't supported for the Python SDK and the log format should be adjusted in code instead.
 
+## `Actor.start` — `wait_for_finish` is now `wait`
+
+The `wait_for_finish: int` argument of `Actor.start()` has been renamed to `wait: timedelta`, matching `Actor.call()` and `Actor.call_task()`. The behavior is unchanged: the server still waits at most the given time (capped at 300 seconds) before returning the run info.
+
+```python
+from datetime import timedelta
+
+# Before (v3)
+run = await Actor.start('my-actor-id', wait_for_finish=60)
+
+# After (v4)
+run = await Actor.start('my-actor-id', wait=timedelta(seconds=60))
+```
+
 ## Built on `apify-client` v3
 
 The SDK is now built on [`apify-client`](https://docs.apify.com/api/client/python) v3 and no longer depends on `apify-shared`. The sections below cover the user-visible consequences; see the client's [Upgrading to v3](https://docs.apify.com/api/client/python/docs/upgrading/upgrading-to-v3) guide for the full list of changes in the client itself.
