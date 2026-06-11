@@ -252,18 +252,16 @@ async def test_remote_method_with_webhooks(
 
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
-async def test_remote_method_warns_on_unsupported_webhook_fields(
+async def test_remote_method_forwards_all_webhook_fields(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
     client_resource: str,
     client_method: str,
     actor_method_name: str,
     entity_id: str,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test that start/call/call_task warn about `Webhook` fields not supported by ad-hoc webhooks."""
+    """Test that start/call/call_task forward all `Webhook` fields to the client representation."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    caplog.set_level('WARNING')
 
     async with Actor:
         actor_method = getattr(Actor, actor_method_name)
@@ -273,15 +271,28 @@ async def test_remote_method_warns_on_unsupported_webhook_fields(
                 Webhook(
                     event_types=['ACTOR.RUN.SUCCEEDED'],
                     request_url='https://example.com',
+                    payload_template='{"hello": "world"}',
+                    headers_template='{"Authorization": "Bearer ..."}',
                     idempotency_key='some-key',
+                    ignore_ssl_errors=True,
                     do_not_retry=True,
                 )
             ],
         )
 
-    matching = [record for record in caplog.records if 'Ad-hoc webhooks do not support' in record.message]
-    assert len(matching) == 1
-    assert '`idempotency_key`, `do_not_retry`' in matching[0].message
+    calls = apify_client_async_patcher.calls[client_resource][client_method]
+    assert len(calls) == 1
+    _, kwargs = calls[0][0], calls[0][1]
+    (representation,) = kwargs['webhooks']
+    assert representation.model_dump(by_alias=True, exclude_none=True) == {
+        'eventTypes': ['ACTOR.RUN.SUCCEEDED'],
+        'requestUrl': 'https://example.com',
+        'payloadTemplate': '{"hello": "world"}',
+        'headersTemplate': '{"Authorization": "Bearer ..."}',
+        'idempotencyKey': 'some-key',
+        'ignoreSslErrors': True,
+        'doNotRetry': True,
+    }
 
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
