@@ -101,7 +101,7 @@ Typical use case for log redirection is to call another Actor using the <ApiLink
     {RedirectLog}
 </RunnableCodeBlock>
 
-Each default redirect logger log entry will have a specific format. After the timestamp, it will contain cyan colored text that will contain the redirect information - the other Actor's name and the run ID. The rest of the log message will be printed in the same manner as the parent Actor's logger is configured.
+Each default redirect logger log entry will have a specific format. After the timestamp, it will contain cyan colored text that will contain the redirect information: the other Actor's name and the run ID. The rest of the log message will be printed in the same manner as the parent Actor's logger is configured.
 
 The log redirection can be deep, meaning that if the other Actor also starts another Actor and is redirecting logs from it, then in the top-level Actor, you can see it as well. See the following example screenshot of the Apify log console when one Actor recursively starts itself (there are 2 levels of recursion in the example).
 

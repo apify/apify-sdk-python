@@ -12,11 +12,11 @@ import ActorNewClientExample from '!!raw-loader!roa-loader!./code/08_actor_new_c
 
 The Apify SDK provides a built-in instance of the [Apify API Client](https://docs.apify.com/api/client/python) for accessing Apify platform features beyond what the SDK covers directly.
 
-The SDK wraps the most common operations (opening storages, reading input, charging, and starting other Actors) in high-level methods. When you need something it does not expose directly, such as managing schedules, listing your Actors and runs, working with builds or webhook dispatches, or reading another run's dataset, you can reach the full [Apify API](https://docs.apify.com/api/v2) through the client. It provides a dedicated sub-client for each API resource (among them `dataset`, `key_value_store`, `request_queue`, `run`, `actor`, `task`, `schedule`, `webhook`, and `user`), and each operation returns plain Python data structures.
+The SDK wraps the most common operations (opening storages, reading input, charging, and starting other Actors) in high-level methods. When you need something it does not expose directly, such as managing schedules, listing your Actors and runs, working with builds or webhook dispatches, or reading another run's dataset, you can reach the full [Apify API](https://docs.apify.com/api/v2) through the client. It provides a dedicated sub-client for each API resource (for example `dataset`, `run`, or `schedule`), and each operation returns plain Python data structures.
 
 ## Actor client
 
-To access the provided instance of [`ApifyClientAsync`](https://docs.apify.com/api/client/python/reference/class/ApifyClientAsync), you can use the <ApiLink to="class/Actor#apify_client">`Actor.apify_client`</ApiLink> property. This instance is already authenticated with the Actor's API token and points at the same API the Actor runs against. It is ready to use immediately.
+To access the provided instance of [`ApifyClientAsync`](https://docs.apify.com/api/client/python/reference/class/ApifyClientAsync), you can use the <ApiLink to="class/Actor#apify_client">`Actor.apify_client`</ApiLink> property. This instance is already authenticated with the Actor's API token and points at the same API the Actor runs against.
 
 For example, to get the details of your user, you can use this snippet:
 
