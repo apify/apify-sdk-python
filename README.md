@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://pypi.org/project/apify/"><img src="https://badge.fury.io/py/apify.svg" alt="PyPI version"></a>
   <a href="https://pypi.org/project/apify/"><img src="https://img.shields.io/pypi/dm/apify" alt="PyPI downloads"></a>
-  <a href="https://pypi.org/project/apify/"><img src="https://img.shields.io/pypi/pyversions/apify" alt="Python versions"></a>
+  <a href="https://pypi.org/project/apify/"><img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python versions"></a>
   <a href="https://github.com/apify/apify-sdk-python/actions/workflows/on_master.yaml"><img src="https://github.com/apify/apify-sdk-python/actions/workflows/on_master.yaml/badge.svg?branch=master" alt="Build status"></a>
   <a href="https://codecov.io/gh/apify/apify-sdk-python"><img src="https://codecov.io/gh/apify/apify-sdk-python/graph/badge.svg?token=Y6JBIZQFT6" alt="Coverage"></a>
   <a href="https://github.com/apify/apify-sdk-python/blob/master/LICENSE"><img src="https://img.shields.io/pypi/l/apify" alt="License"></a>
