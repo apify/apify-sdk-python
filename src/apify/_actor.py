@@ -1206,44 +1206,49 @@ class _ActorType:
             self.log.debug('Actor is already rebooting, skipping the additional reboot call.')
             return
 
-        self._is_rebooting = True
-
-        if not custom_after_sleep:
-            custom_after_sleep = self.configuration.metamorph_after_sleep
-
-        # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
-        # PERSIST_STATE listeners are called to allow the Actor to persist its state before the reboot.
-        # MIGRATING listeners are called to allow the Actor to gracefully stop in-progress tasks before the reboot.
-        # Typically, crawlers are listening for the MIIGRATING event to stop processing new requests.
-        # We can't just emit the events and wait for all listeners to finish,
-        # because this method might be called from an event listener itself, and we would deadlock.
-        persist_state_listeners = flatten(
-            (self.event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
-        )
-        migrating_listeners = flatten(
-            (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
-        )
-
-        async def safe_dispatch(listener: Any, data: Any) -> None:
-            try:
-                await listener(data)
-            except Exception:
-                self.log.exception('A pre-reboot event listener failed')
-
-        timeout = event_listeners_timeout.total_seconds() if event_listeners_timeout else None
-        try:
-            async with asyncio.timeout(timeout), asyncio.TaskGroup() as tg:
-                for listener in persist_state_listeners:
-                    tg.create_task(safe_dispatch(listener, EventPersistStateData(is_migrating=True)))
-                for listener in migrating_listeners:
-                    tg.create_task(safe_dispatch(listener, EventMigratingData()))
-        except TimeoutError:
-            self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
-
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self.apify_client.run(self.configuration.actor_run_id).reboot()
+        if custom_after_sleep is None:
+            custom_after_sleep = self.configuration.metamorph_after_sleep
+
+        self._is_rebooting = True
+
+        try:
+            # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
+            # PERSIST_STATE listeners are called to allow the Actor to persist its state before the reboot.
+            # MIGRATING listeners are called to allow the Actor to gracefully stop in-progress tasks before
+            # the reboot. Typically, crawlers are listening for the MIIGRATING event to stop processing new requests.
+            # We can't just emit the events and wait for all listeners to finish,
+            # because this method might be called from an event listener itself, and we would deadlock.
+            persist_state_listeners = flatten(
+                (self.event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
+            )
+            migrating_listeners = flatten(
+                (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
+            )
+
+            async def safe_dispatch(listener: Any, data: Any) -> None:
+                try:
+                    await listener(data)
+                except Exception:
+                    self.log.exception('A pre-reboot event listener failed')
+
+            timeout = event_listeners_timeout.total_seconds() if event_listeners_timeout else None
+            try:
+                async with asyncio.timeout(timeout), asyncio.TaskGroup() as tg:
+                    for listener in persist_state_listeners:
+                        tg.create_task(safe_dispatch(listener, EventPersistStateData(is_migrating=True)))
+                    for listener in migrating_listeners:
+                        tg.create_task(safe_dispatch(listener, EventMigratingData()))
+            except TimeoutError:
+                self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
+
+            await self.apify_client.run(self.configuration.actor_run_id).reboot()
+        except BaseException:
+            # Reset the flag so that a failed or cancelled reboot can be retried.
+            self._is_rebooting = False
+            raise
 
         if custom_after_sleep:
             await asyncio.sleep(custom_after_sleep.total_seconds())
