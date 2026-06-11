@@ -13,7 +13,7 @@
   <a href="https://discord.gg/jyEM2PRvMU"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>
 </p>
 
-`apify` is the official SDK for building [Apify Actors](https://docs.apify.com/platform/actors) in Python. Actors are serverless programs that run on the [Apify platform](https://apify.com), where you can scale them, schedule them, and monetize them. The SDK manages the Actor lifecycle, gives you access to [storages](https://docs.apify.com/platform/storage) (datasets, key-value stores, request queues), handles platform events, configures [Apify Proxy](https://docs.apify.com/platform/proxy), and supports pay-per-event monetization. It's built on the [Apify API client](https://docs.apify.com/api/client/python).
+`apify` is the official SDK for building [Apify Actors](https://docs.apify.com/platform/actors) in Python. Actors are serverless programs that run on the [Apify platform](https://apify.com), where you can scale them, schedule them, and monetize them. The SDK manages the Actor lifecycle, gives you access to [storages](https://docs.apify.com/platform/storage) (datasets, key-value stores, request queues), handles platform events, configures [Apify Proxy](https://docs.apify.com/platform/proxy), and supports pay-per-event monetization. It's built on top of the [Apify API client](https://docs.apify.com/api/client/python).
 
 > If you only need to **consume** the [Apify API](https://docs.apify.com/api/v2) from Python (running Actors, reading datasets, managing storages) rather than building Actors, use the [Apify API client for Python](https://docs.apify.com/api/client/python) instead. It comes bundled with this SDK.
 
@@ -22,6 +22,7 @@
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Features](#features)
+- [What you can build](#what-you-can-build)
 - [Usage examples](#usage-examples)
 - [What are Actors?](#what-are-actors)
 - [Documentation](#documentation)
@@ -98,16 +99,26 @@ To create, run, and deploy your first Actor step by step, see the [Quick start g
 - Start, call, abort, and metamorph other Actors and tasks, and attach webhooks to run events ([Interacting with other Actors](https://docs.apify.com/sdk/python/docs/concepts/interacting-with-other-actors), [Webhooks](https://docs.apify.com/sdk/python/docs/concepts/webhooks)).
 - Monetize your Actor with pay-per-event charging ([Pay-per-event](https://docs.apify.com/sdk/python/docs/concepts/pay-per-event)).
 - Reach the full [Apify API](https://docs.apify.com/api/v2) through a preconfigured `ApifyClient` ([Accessing the Apify API](https://docs.apify.com/sdk/python/docs/concepts/access-apify-api)).
-- Fully compatible with [Crawlee](https://crawlee.dev/python), so Apify is a natural place to deploy and scale your Crawlee projects ([Crawlee guide](https://docs.apify.com/sdk/python/docs/guides/crawlee)).
-- Works with popular Python web scraping libraries such as [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy), [Scrapling](https://github.com/D4Vinci/Scrapling), and [Crawl4AI](https://docs.apify.com/sdk/python/docs/guides/crawl4ai).
-- Automate browsers with tools such as [Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright), [Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium), and [Browser Use](https://docs.apify.com/sdk/python/docs/guides/browser-use).
-- Run a [web server](https://docs.apify.com/sdk/python/docs/guides/running-webserver) inside an Actor, and manage your project with [uv](https://docs.apify.com/sdk/python/docs/guides/uv).
-- Host AI agents with ready-made templates for [PydanticAI](https://apify.com/templates/python-pydanticai), [CrewAI](https://apify.com/templates/python-crewai), [LangGraph](https://apify.com/templates/python-langgraph), [LlamaIndex](https://apify.com/templates/python-llamaindex-agent), and [Smolagents](https://apify.com/templates/python-smolagents).
-- Deploy Python [MCP servers](https://apify.com/templates/python-mcp-server) as Actors.
+
+## What you can build
+
+An Actor is just a Python program, so almost any Python project can become one. The SDK doesn't lock you into a particular framework. Bring the libraries you already use, and let Apify handle running, scaling, scheduling, and monetization.
+
+**Web scraping and crawling.** The SDK is fully compatible with [Crawlee](https://crawlee.dev/python), which makes Apify a natural place to deploy and scale your Crawlee projects (see the [Crawlee guide](https://docs.apify.com/sdk/python/docs/guides/crawlee)). It also works with other popular scraping libraries, such as [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy), [Scrapling](https://github.com/D4Vinci/Scrapling), and [Crawl4AI](https://docs.apify.com/sdk/python/docs/guides/crawl4ai).
+
+**Browser automation.** Drive a real browser with [Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright) or [Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium), or with higher-level tools such as [Browser Use](https://docs.apify.com/sdk/python/docs/guides/browser-use).
+
+**AI agents.** Host AI agents built with your framework of choice. Ready-made Actor templates cover [PydanticAI](https://apify.com/templates/python-pydanticai), [CrewAI](https://apify.com/templates/python-crewai), [LangGraph](https://apify.com/templates/python-langgraph), [LlamaIndex](https://apify.com/templates/python-llamaindex-agent), and [Smolagents](https://apify.com/templates/python-smolagents).
+
+**MCP servers.** Deploy a Python [MCP server](https://apify.com/templates/python-mcp-server) as an Actor and make its tools available to any MCP client.
+
+**Web servers and APIs.** Run a [web server](https://docs.apify.com/sdk/python/docs/guides/running-webserver) inside an Actor to serve HTTP requests, for example to expose your scraper as a live API.
+
+Whatever you build, you can manage the project with [uv](https://docs.apify.com/sdk/python/docs/guides/uv). To start from a working example, browse the ready-made [Python Actor templates](https://apify.com/templates/categories/python).
 
 ## Usage examples
 
-The SDK works with whatever scraping stack you prefer. The examples below show two common setups. For more, see the [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx).
+The examples below show two common setups. For more, see the [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx).
 
 ### HTTPX with BeautifulSoup
 
