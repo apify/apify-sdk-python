@@ -252,6 +252,39 @@ async def test_remote_method_with_webhooks(
 
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
+async def test_remote_method_warns_on_unsupported_webhook_fields(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    client_resource: str,
+    client_method: str,
+    actor_method_name: str,
+    entity_id: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that start/call/call_task warn about `Webhook` fields not supported by ad-hoc webhooks."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
+    caplog.set_level('WARNING')
+
+    async with Actor:
+        actor_method = getattr(Actor, actor_method_name)
+        await actor_method(
+            entity_id,
+            webhooks=[
+                Webhook(
+                    event_types=['ACTOR.RUN.SUCCEEDED'],
+                    request_url='https://example.com',
+                    idempotency_key='some-key',
+                    do_not_retry=True,
+                )
+            ],
+        )
+
+    matching = [record for record in caplog.records if 'Ad-hoc webhooks do not support' in record.message]
+    assert len(matching) == 1
+    assert '`idempotency_key`, `do_not_retry`' in matching[0].message
+
+
+@pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
 async def test_remote_method_with_timedelta_timeout(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
