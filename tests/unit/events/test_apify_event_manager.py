@@ -25,6 +25,18 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
 
 
+DUMMY_SYSTEM_INFO = {
+    'memAvgBytes': 19328860.328293584,
+    'memCurrentBytes': 65171456,
+    'memMaxBytes': 65171456,
+    'cpuAvgUsage': 2.0761105633130397,
+    'cpuMaxUsage': 53.941134593993326,
+    'cpuCurrentUsage': 8.45549815498155,
+    'isCpuOverloaded': False,
+    'createdAt': '2024-08-09T16:04:16.161Z',
+}
+
+
 @contextlib.asynccontextmanager
 async def _platform_ws_server(
     monkeypatch: pytest.MonkeyPatch,
@@ -188,17 +200,7 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
 
             websockets.broadcast(connected_ws_clients, json.dumps(message))
 
-        dummy_system_info = {
-            'memAvgBytes': 19328860.328293584,
-            'memCurrentBytes': 65171456,
-            'memMaxBytes': 65171456,
-            'cpuAvgUsage': 2.0761105633130397,
-            'cpuMaxUsage': 53.941134593993326,
-            'cpuCurrentUsage': 8.45549815498155,
-            'isCpuOverloaded': False,
-            'createdAt': '2024-08-09T16:04:16.161Z',
-        }
-        SystemInfoEventData.model_validate(dummy_system_info)
+        SystemInfoEventData.model_validate(DUMMY_SYSTEM_INFO)
 
         async with ApifyEventManager(Configuration.get_global_configuration()) as event_manager:
             await client_connected.wait()
@@ -210,7 +212,7 @@ async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> No
             event_manager.on(event=Event.SYSTEM_INFO, listener=listener)
 
             # Test sending event with data
-            await send_platform_event(Event.SYSTEM_INFO, dummy_system_info)
+            await send_platform_event(Event.SYSTEM_INFO, DUMMY_SYSTEM_INFO)
             await poll_until_condition(lambda: len(event_calls) == 1, poll_interval=0.05)
             assert len(event_calls) == 1
             assert event_calls[0] is not None
@@ -319,32 +321,54 @@ async def test_migrating_event_triggers_persist_state(monkeypatch: pytest.Monkey
         assert len(migration_persist_events) >= 1
 
 
-async def test_websocket_reconnects_after_connection_drop(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that after a mid-stream websocket drop, the manager reconnects and keeps receiving platform events."""
+@pytest.mark.parametrize(
+    ('close_code', 'expected_log'),
+    [
+        pytest.param(1000, 'Connection to platform events websocket was closed (code=1000', id='graceful_close'),
+        pytest.param(1011, 'Connection to platform events websocket was lost (code=1011', id='abnormal_close'),
+    ],
+)
+async def test_websocket_reconnects_after_connection_drop(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, close_code: int, expected_log: str
+) -> None:
+    """Test that the event manager logs a websocket drop, reconnects, and keeps receiving platform events.
+
+    Also a regression test for the resolved `_connected_to_platform_websocket` future: a mid-stream disconnect
+    must not kill the message-processing task with `InvalidStateError`.
+    """
+    caplog.set_level(logging.INFO, logger='apify')
     async with (
         _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected),
         ApifyEventManager(Configuration.get_global_configuration()) as event_manager,
     ):
         await client_connected.wait()
-        aborting_calls: list[Any] = []
+        assert len(connected_ws_clients) == 1
 
-        def listener(data: Any) -> None:
-            aborting_calls.append(data)
+        event_calls: list[Any] = []
+        event_manager.on(event=Event.SYSTEM_INFO, listener=event_calls.append)
 
-        event_manager.on(event=Event.ABORTING, listener=listener)
-
-        # Drop the connection abnormally from the server side.
+        # Drop the connection from the server side and wait for the client to reconnect.
         client_connected.clear()
         for ws in list(connected_ws_clients):
-            await ws.close(code=1011, reason='Simulated server error')
+            await ws.close(code=close_code, reason='Simulated connection drop')
+        await asyncio.wait_for(client_connected.wait(), timeout=10)
+        # Poll because the old server-side handler may not have deregistered its connection yet.
+        await poll_until_condition(lambda: len(connected_ws_clients) == 1, poll_interval=0.05)
+        assert len(connected_ws_clients) == 1
 
-        # The event manager should reconnect on its own.
-        await asyncio.wait_for(client_connected.wait(), timeout=5.0)
+        # The message-processing task must have survived the drop.
+        task = event_manager._process_platform_messages_task
+        assert task is not None
+        assert not task.done()
 
-        # Events sent over the new connection must still be received.
-        websockets.broadcast(connected_ws_clients, json.dumps({'name': 'aborting'}))
-        await poll_until_condition(lambda: bool(aborting_calls), poll_interval=0.05)
-        assert len(aborting_calls) == 1
+        # Events sent over the new connection must still be emitted.
+        websockets.broadcast(connected_ws_clients, json.dumps({'name': 'systemInfo', 'data': DUMMY_SYSTEM_INFO}))
+        await poll_until_condition(lambda: len(event_calls) == 1, poll_interval=0.05)
+        assert len(event_calls) == 1
+
+        # Both the drop and the successful reconnect must be logged.
+        assert expected_log in caplog.text
+        assert 'Reconnected to the platform events websocket.' in caplog.text
 
 
 async def test_malformed_message_logs_exception(

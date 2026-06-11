@@ -92,8 +92,8 @@ class ApifyEventManager(EventManager):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        # Cancel the message-processing task first so that closing the websocket below is not treated
-        # as a dropped connection and followed by a reconnect attempt.
+        # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
+        # and followed by a reconnect attempt.
         if self._process_platform_messages_task and not self._process_platform_messages_task.done():
             self._process_platform_messages_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -104,21 +104,28 @@ class ApifyEventManager(EventManager):
 
         await super().__aexit__(exc_type, exc_value, exc_traceback)
 
-    async def _process_platform_messages(self, ws_url: str) -> None:
-        def process_exception(exc: Exception) -> Exception | None:
-            # Until the first connection succeeds, treat every error as fatal so that `__aenter__` fails fast.
-            # Afterwards, treat every error as transient — the reconnect iterator keeps retrying with backoff
-            # so that platform events (e.g. `MIGRATING`) are not missed for the rest of the run.
-            if self._connected_to_platform_websocket is None or not self._connected_to_platform_websocket.done():
-                return exc
-            return None
+    def _process_connection_exception(self, exc: Exception) -> Exception | None:
+        """Decide whether a failed connection attempt to the platform websocket should be retried.
 
+        Before the first successful connection, every error is fatal so that `__aenter__` fails fast. After that,
+        the default `websockets` behavior decides which errors are transient and retried with exponential backoff.
+        """
+        if self._connected_to_platform_websocket and self._connected_to_platform_websocket.done():
+            return websockets.asyncio.client.process_exception(exc)
+        return exc
+
+    async def _process_platform_messages(self, ws_url: str) -> None:
         try:
-            async for websocket in websockets.asyncio.client.connect(ws_url, process_exception=process_exception):
+            # Used as an async iterator, `connect` reconnects with exponential backoff whenever a connection
+            # attempt fails with a transient error.
+            async for websocket in websockets.asyncio.client.connect(
+                ws_url, process_exception=self._process_connection_exception
+            ):
                 self._platform_events_websocket = websocket
-                connected_future = self._connected_to_platform_websocket
-                if connected_future is not None and not connected_future.done():
-                    connected_future.set_result(True)
+                if self._connected_to_platform_websocket and not self._connected_to_platform_websocket.done():
+                    self._connected_to_platform_websocket.set_result(True)
+                else:
+                    logger.info('Reconnected to the platform events websocket.')
 
                 try:
                     async for message in websocket:
@@ -150,12 +157,15 @@ class ApifyEventManager(EventManager):
                         except Exception:
                             logger.exception('Cannot parse Actor event', extra={'raw_message': message})
                 except websockets.exceptions.ConnectionClosed:
-                    pass
-
-                logger.warning(
-                    f'Connection to platform events websocket was closed '
-                    f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
-                )
+                    logger.warning(
+                        f'Connection to platform events websocket was lost '
+                        f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
+                    )
+                else:
+                    logger.info(
+                        f'Connection to platform events websocket was closed '
+                        f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
+                    )
         except Exception:
             logger.exception('Error in websocket connection')
             if self._connected_to_platform_websocket is not None and not self._connected_to_platform_websocket.done():
