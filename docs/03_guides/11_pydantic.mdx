@@ -18,39 +18,41 @@ In this guide, you'll learn how to validate your Apify Actor's input with [Pydan
 
 ## Introduction
 
-An Actor reads its input with <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink>, which returns the input record as a plain `dict` (or `None` when there's no input). Working with that dictionary directly is fragile:
+An Actor reads its input with <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink>, which returns the input record as a plain `dict`. Working with that dictionary directly is fragile:
 
 <RunnableCodeBlock className="language-python" language="python">
     {RawInputExample}
 </RunnableCodeBlock>
 
-- There are no type guarantees. `max_results` could just as easily arrive as the string `"10"` or `None`, and you'd only find out when something blows up later.
+- There are no type guarantees. `max_results` can arrive as the string `"10"` or `None` and you won't know until something breaks.
 - There's no validation. Nothing stops `max_results` from being `0` or `-5`, or `search_terms` from being empty.
-- A typo in a key (`maxResult` instead of `maxResults`) silently falls back to the default instead of failing.
+- A typo in a key, like `maxResult` instead of `maxResults`, silently falls back to the default instead of failing.
 - Defaults are scattered across the codebase, and your editor can't autocomplete the fields or catch mistakes.
 
-[Pydantic](https://docs.pydantic.dev/) solves all of this. You declare the shape of your input once as a model, and Pydantic parses the raw dictionary into a typed object, applying defaults, enforcing constraints, and producing clear error messages when the input doesn't match. Pydantic is already a dependency of the Apify SDK. There's nothing extra to install.
+[Pydantic](https://docs.pydantic.dev/) solves all of these problems. You declare the shape of your input once as a model, and Pydantic parses the raw dictionary into a typed object, applies defaults, enforces constraints, and produces clear error messages when the input doesn't match.
+
+Pydantic is already a dependency of the Apify SDK, so you don't have to install anything.
 
 ## Example Actor
 
-The following Actor declares its input as a Pydantic `BaseModel`, validates the raw input against it, and then works with a fully typed object. On invalid input it fails fast with a readable error; on valid input it logs the normalized values and stores them as the Actor's output.
+The following Actor declares its input as a Pydantic `BaseModel`, validates the raw input against it, and then works with a fully typed object. On invalid input it fails fast with a readable error. On valid input it logs the normalized values and stores them as the Actor's output.
 
 <RunnableCodeBlock className="language-python" language="python">
     {PydanticExample}
 </RunnableCodeBlock>
 
-Note about the **model**:
+### About the model
 
-- Apify input fields are conventionally `camelCase` (`maxResults`), while Python attributes are `snake_case` (`max_results`). Since every field follows that convention, `alias_generator=to_camel` derives the camelCase alias for the whole model at once, instead of spelling out `Field(alias=...)` on each field. `populate_by_name=True` lets the model accept either spelling, which is handy in tests.
-- A field without a default (`search_terms`) is required; one with a default (`max_results`) is optional. There's a single, obvious place where every default lives.
+- Apify input fields conventionally use camel case (`maxResults`), while Python attributes use snake case (`max_results`). Since every field follows that convention, `alias_generator=to_camel` derives the camel case alias for the whole model at once, instead of spelling out `Field(alias=...)` on each field. `populate_by_name=True` lets the model accept either spelling, which is handy in tests.
+- A field without a default (`search_terms`) is required. A field with a default (`max_results`) is optional. There's a single, obvious place where every default lives.
 - `ge=1, le=100` enforces a numeric range, `min_length=1` rejects an empty list, and `Literal['json', 'csv']` restricts a field to a fixed set of choices, mirroring an `enum` in the input schema.
 - The `field_validator` normalizes the search terms (trimming whitespace, dropping empties) and rejects input that has nothing left. The rest of your code never has to repeat those checks.
-- `extra='ignore'` means adding a new field to your input schema won't break an older Actor build that doesn't know about it yet. Use `extra='forbid'` instead if you'd rather reject anything unexpected.
+- `extra='ignore'` means adding a new field to your input schema won't break an older Actor build that doesn't know about it yet. Use `extra='forbid'` instead if you prefer to reject anything unexpected.
 
-And about the **validation** itself:
+### About the validation
 
-- `model_validate` parses the raw dictionary into a typed `ActorInput` instance, filling in defaults and guaranteeing every field is valid, or raising a `ValidationError` describing every problem at once.
-- Catching that error, logging a readable summary, and re-raising makes the Actor **fail fast** with a clear explanation right at the start, rather than crashing with an obscure error somewhere deep in the run. Because the body runs inside `async with Actor:`, the re-raised exception automatically marks the run as `FAILED`.
+- `model_validate` parses the raw dictionary into a typed `ActorInput` instance. It fills in defaults and guarantees every field is valid, or raises a `ValidationError` that describes every problem at once.
+- Catching that error, logging a readable summary, and re-raising makes the Actor fail fast with a clear explanation right at the start, rather than crashing with an obscure error somewhere deep in the run. Because the body runs inside `async with Actor:`, the re-raised exception automatically marks the run as `FAILED`.
 - The error messages refer to the fields by their input-schema aliases. For invalid input like `{"searchTerms": [], "maxResults": 999, "outputFormat": "xml"}`, the log shows exactly what's wrong:
 
   ```text
@@ -68,40 +70,44 @@ Once validation passes, the rest of `main` works with `actor_input.search_terms`
 
 ## Relationship to the input schema
 
-Pydantic validation **complements** the Actor's [input schema](https://docs.apify.com/platform/actors/development/input-schema) (`.actor/input_schema.json`). It doesn't replace it. The two serve different layers:
+Pydantic validation complements the Actor's [input schema](https://docs.apify.com/platform/actors/development/input-schema) (`.actor/input_schema.json`). It doesn't replace it. The two serve different layers:
 
-- The **input schema** drives the Apify Console form, documents the fields for your users, and lets the platform validate input before the run even starts. Keep declaring your fields there.
-- The **Pydantic model** validates the input again *inside your Python code*, where it gives you a typed object, IDE support, and richer rules (normalization, cross-field checks, custom formats) that the input schema can't express. It's also your safety net for runs started programmatically by [another Actor](../concepts/interacting-with-other-actors) or executed [locally](https://docs.apify.com/cli/docs/reference#apify-run), and for keeping the two definitions honest with each other.
+- The input schema drives the Apify Console form, documents the fields for your users, and lets the platform validate input before the run even starts. Keep declaring your fields there.
+- The Pydantic model validates the input again inside your Python code, where it gives you a typed object, IDE support, and richer rules (normalization, cross-field checks, custom formats) that the input schema can't express. It's also your safety net for runs started programmatically by [another Actor](../concepts/interacting-with-other-actors) or executed [locally](https://docs.apify.com/cli/docs/reference#apify-run), and for keeping the two definitions honest with each other.
 
 Keep the model's aliases in sync with the field keys in `input_schema.json`, and the two definitions describe the same input from both sides.
 
 ## Useful validation features
 
-Pydantic offers much more than the example uses. A few features that come up often when validating Actor input:
+Pydantic offers extra features for validating Actor input. For the full set of types, constraints, and validators, see the [Pydantic documentation](https://docs.pydantic.dev/latest/concepts/models/).
 
-**Format-validated types** for common string formats, for example `HttpUrl` for URLs or `EmailStr` for e-mail addresses (the latter needs the `pydantic[email]` extra):
+### Format-validated types
+
+For common string formats, for example `HttpUrl` for URLs or `EmailStr` for e-mail addresses, use format-validated types:
 
 <CodeBlock className="language-python">
     {HttpUrlExample}
 </CodeBlock>
 
-**Cross-field validation** with `model_validator`, when one field's validity depends on another:
+### Cross-field validation
+
+When one field's validity depends on another, use `model_validator`:
 
 <CodeBlock className="language-python">
     {ModelValidatorExample}
 </CodeBlock>
 
-**Secret input fields.** The platform decrypts [secret input fields](https://docs.apify.com/platform/actors/development/secret-input) for you before <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink> returns, so you receive plaintext. Wrap such fields in Pydantic's `SecretStr` to keep them from leaking into logs or `model_dump()` output, and read the plaintext with `get_secret_value()` when you actually need it:
+### Secret input fields
+
+The platform decrypts [secret input fields](https://docs.apify.com/platform/actors/development/secret-input) for you before <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink> returns, so you receive plaintext. To keep them from leaking into logs or `model_dump()` output, wrap such fields in Pydantic's `SecretStr` and read the plaintext with `get_secret_value()` when you actually need it:
 
 <CodeBlock className="language-python">
     {SecretStrExample}
 </CodeBlock>
 
-For the full set of types, constraints, and validators, see the [Pydantic documentation](https://docs.pydantic.dev/latest/concepts/models/).
-
 ## Conclusion
 
-In this guide, you learned how to validate Actor input with Pydantic: declaring the input as a model with aliases, defaults, and constraints; parsing the raw input with `model_validate`; failing fast with a readable error when the input is invalid; and working with a typed object for the rest of the run. To get started with your own Actors, see the [Actor templates](https://apify.com/templates/categories/python). If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy validating!
+In this guide, you learned how to validate Actor input with Pydantic: declaring the input as a model with aliases, defaults, and constraints, parsing the raw input with `model_validate`, failing fast with a readable error when the input is invalid, and working with a typed object for the rest of the run. To get started with your own Actors, see the [Actor templates](https://apify.com/templates/categories/python). If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy validating!
 
 ## Additional resources
 
