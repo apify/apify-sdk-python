@@ -14,7 +14,7 @@ In this guide, you'll learn how to use the [Scrapling](https://scrapling.readthe
 
 ## Introduction
 
-[Scrapling](https://scrapling.readthedocs.io/) is an adaptive web scraping library for Python that combines fetching and parsing behind a single, high-level API. It can fetch a page with fast HTTP requests or with a real browser, parse the result with familiar CSS selectors and XPath, and even relocate your selectors automatically when a website's structure changes.
+[Scrapling](https://scrapling.readthedocs.io/) is an adaptive web scraping library for Python that combines fetching and parsing behind a single, high-level API. It can fetch a page with fast HTTP requests or with a real browser, parse the result with familiar CSS selectors and XPath, and relocate your selectors automatically when a website's structure changes.
 
 Scrapling is a great fit for Apify Actors:
 
@@ -89,7 +89,7 @@ Scrapling keeps these fingerprints in a local SQLite database. On the Apify plat
 
 Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `main` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `scrape_page` for every request, which forwards it to Scrapling's `proxy` argument.
 
-Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy.apify.com:8000`), which is exactly what `ProxyConfiguration.new_url` returns. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management). The browser-based fetchers accept the same `proxy` argument.
+Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy.apify.com:8000`), which is what `ProxyConfiguration.new_url` returns. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management). The browser-based fetchers accept the same `proxy` argument.
 
 ## Running browser-based fetchers
 
@@ -110,7 +110,7 @@ Note that:
 - `AsyncDynamicSession` launches one browser and keeps it open across `session.fetch` calls, so the crawl doesn't pay the browser-startup cost on every page.
 - The proxy URL is passed per fetch, so each page can go through a fresh Apify Proxy IP while sharing the same browser.
 
-To run this on the Apify platform, build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies, and run `scrapling install` during the Docker build to download the browser binaries that Scrapling expects:
+To run this on the Apify platform, build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies. Then run `scrapling install` during the Docker build to download the browser binaries that Scrapling expects:
 
 ```docker title="Dockerfile"
 FROM apify/actor-python-playwright:3.14
