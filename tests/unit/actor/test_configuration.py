@@ -373,6 +373,13 @@ def test_actor_pricing_info_env_var_empty_becomes_none(monkeypatch: pytest.Monke
     assert config.actor_pricing_info is None
 
 
+def test_charged_event_counts_env_var_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that an empty env var for charged_event_counts is converted to None instead of crashing."""
+    monkeypatch.setenv('APIFY_CHARGED_ACTOR_EVENT_COUNTS', '')
+    config = ApifyConfiguration()
+    assert config.charged_event_counts is None
+
+
 def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that actor_storages_json is parsed from JSON env var."""
     datasets = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
@@ -392,3 +399,10 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.actor_storages['datasets'] == datasets
     assert config.actor_storages['request_queues'] == request_queues
     assert config.actor_storages['key_value_stores'] == key_value_stores
+
+
+def test_actor_storages_env_var_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that an empty env var for actor_storages is converted to None instead of crashing."""
+    monkeypatch.setenv('ACTOR_STORAGES_JSON', '')
+    config = ApifyConfiguration()
+    assert config.actor_storages is None

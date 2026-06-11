@@ -59,9 +59,9 @@ def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None
         `ActorStorages` dict when set programmatically.
 
     Returns:
-        Normalized storage mapping, or `None` if the input is `None`.
+        Normalized storage mapping, or `None` if the input is `None` or an empty string.
     """
-    if data is None:
+    if data is None or data == '':
         return None
     storage_mapping = json.loads(data) if isinstance(data, str) else data
     return {
@@ -470,7 +470,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_charged_actor_event_counts',
             description='Counts of events that were charged for the actor',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
+        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) and data else data or None),
     ] = None
 
     actor_storages: Annotated[
