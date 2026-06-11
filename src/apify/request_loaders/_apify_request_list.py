@@ -5,7 +5,8 @@ import re
 from itertools import chain
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic.alias_generators import to_camel
 
 from crawlee._types import HttpMethod
 from crawlee.http_clients import HttpClient, ImpitHttpClient
@@ -20,14 +21,16 @@ URL_NO_COMMAS_REGEX = re.compile(
 
 
 class _RequestDetails(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
     method: HttpMethod = 'GET'
     payload: str = ''
     headers: Annotated[dict[str, str], Field(default_factory=dict)]
-    user_data: Annotated[dict[str, str], Field(default_factory=dict, alias='userData')]
+    user_data: Annotated[dict[str, str], Field(default_factory=dict)]
 
 
 class _RequestsFromUrlInput(_RequestDetails):
-    requests_from_url: str = Field(alias='requestsFromUrl')
+    requests_from_url: str
 
 
 class _SimpleUrlInput(_RequestDetails):
