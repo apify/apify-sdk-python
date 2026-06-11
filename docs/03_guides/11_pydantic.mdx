@@ -76,7 +76,7 @@ Once validation passes, the rest of `main` works with `actor_input.search_terms`
 
 Pydantic validation complements the Actor's [input schema](https://docs.apify.com/platform/actors/development/input-schema) (`.actor/input_schema.json`). It doesn't replace it. The two serve different layers:
 
-- The input schema drives the Apify Console form, documents the fields for your users, and lets the platform validate input before the run even starts. Keep declaring your fields there.
+- The input schema drives the [Apify Console](https://console.apify.com/) form, documents the fields for your users, and lets the platform validate input before the run even starts. Keep declaring your fields there.
 - The Pydantic model validates the input again inside your Python code, where it gives you a typed object, IDE support, and richer rules (normalization, cross-field checks, custom formats) that the input schema can't express. It's also your safety net for runs started programmatically by [another Actor](../concepts/interacting-with-other-actors) or executed [locally](https://docs.apify.com/cli/docs/reference#apify-run), and for keeping the two definitions honest with each other.
 
 Keep the model's aliases in sync with the field keys in `input_schema.json`, and the two definitions describe the same input from both sides.
