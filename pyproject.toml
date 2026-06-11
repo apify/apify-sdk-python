@@ -57,7 +57,7 @@ scrapy = ["scrapy>=2.14.0"]
 "Documentation" = "https://docs.apify.com/sdk/python/docs/overview"
 "Homepage" = "https://docs.apify.com/sdk/python/"
 "Issue Tracker" = "https://github.com/apify/apify-sdk-python/issues"
-"Release Notes" = "https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v4"
+"Release Notes" = "https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2"
 "Source Code" = "https://github.com/apify/apify-sdk-python"
 
 [dependency-groups]
