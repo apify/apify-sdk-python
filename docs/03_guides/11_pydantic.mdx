@@ -31,7 +31,11 @@ An Actor reads its input with <ApiLink to="class/Actor#get_input">`Actor.get_inp
 
 [Pydantic](https://docs.pydantic.dev/) solves all of these problems. You declare the shape of your input once as a model, and Pydantic parses the raw dictionary into a typed object, applies defaults, enforces constraints, and produces clear error messages when the input doesn't match.
 
-Pydantic is already a dependency of the Apify SDK, so you don't have to install anything.
+To use Pydantic, install it into your Actor's environment:
+
+```bash
+pip install pydantic
+```
 
 ## Example Actor
 
