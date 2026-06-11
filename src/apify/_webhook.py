@@ -7,7 +7,6 @@ from apify_client._models import WebhookRepresentation
 from crawlee._utils.urls import validate_http_url
 
 from apify._utils import docs_group
-from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client._literals import WebhookEventType
@@ -20,9 +19,6 @@ class Webhook:
 
     The same instance can be passed as an ad-hoc webhook to `Actor.start()` / `Actor.call()` or as a persistent
     webhook to `Actor.add_webhook()` (the `condition.actor_run_id` is set automatically to the current run).
-
-    Ad-hoc webhooks support only `event_types`, `request_url`, `payload_template` and `headers_template`; the
-    remaining fields apply only to `Actor.add_webhook()` and are ignored (with a warning) otherwise.
     """
 
     event_types: list[WebhookEventType]
@@ -38,13 +34,13 @@ class Webhook:
     """Template for the HTTP headers sent by the webhook."""
 
     idempotency_key: str | None = None
-    """Key that prevents creating duplicate webhooks. Only applies to `Actor.add_webhook()`."""
+    """Key that prevents creating duplicate webhooks."""
 
     ignore_ssl_errors: bool | None = None
-    """Whether to ignore SSL errors when sending the request. Only applies to `Actor.add_webhook()`."""
+    """Whether to ignore SSL errors when sending the request."""
 
     do_not_retry: bool | None = None
-    """Whether to skip retrying the request on failure. Only applies to `Actor.add_webhook()`."""
+    """Whether to skip retrying the request on failure."""
 
     def __post_init__(self) -> None:
         # Fail fast on a malformed URL at construction time instead of deferring the error to the API call.
@@ -52,33 +48,18 @@ class Webhook:
 
 
 def to_client_representations(webhooks: list[Webhook] | None) -> list[WebhookRepresentation] | None:
-    """Project SDK webhooks to the minimal ad-hoc representation accepted by the client's `start()` / `call()`.
-
-    Fields not supported by ad-hoc webhooks (`idempotency_key`, `ignore_ssl_errors`, `do_not_retry`) are dropped
-    with a warning.
-    """
+    """Convert SDK webhooks to the ad-hoc representation accepted by the client's `start()` / `call()`."""
     if not webhooks:
         return None
-
-    for webhook in webhooks:
-        dropped = [
-            field
-            for field in ('idempotency_key', 'ignore_ssl_errors', 'do_not_retry')
-            if getattr(webhook, field) is not None
-        ]
-        if dropped:
-            fields = ', '.join(f'`{field}`' for field in dropped)
-            logger.warning(
-                f'Ad-hoc webhooks do not support {fields}; the field(s) will be ignored. '
-                f'Use `Actor.add_webhook()` to create a webhook with them.'
-            )
-
     return [
         WebhookRepresentation(
             event_types=w.event_types,
             request_url=w.request_url,
             payload_template=w.payload_template,
             headers_template=w.headers_template,
+            idempotency_key=w.idempotency_key,
+            ignore_ssl_errors=w.ignore_ssl_errors,
+            do_not_retry=w.do_not_retry,
         )
         for w in webhooks
     ]
