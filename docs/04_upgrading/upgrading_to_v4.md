@@ -218,7 +218,7 @@ Pickle could store arbitrary Python objects. JSON cannot, so the values in a req
 
 - A `tuple` comes back as a `list`.
 - Non-string `dict` keys come back as strings, so `{1: 'a'}` becomes `{'1': 'a'}`.
-- A value JSON cannot represent (`datetime`, `set`, `Decimal`, a custom object) is no longer stored silently. The request is skipped and the failure is logged. Pydantic models are still supported and are dumped with `model_dump()`.
+- A value JSON cannot represent (`datetime`, `set`, `Decimal`, a custom object) is no longer stored silently. The request is skipped and the failure is logged. Pydantic models are still supported and are dumped with `model_dump(mode='json')`, so model fields JSON cannot natively represent (such as `datetime`) are stored in their JSON form.
 
 Convert such values to a JSON-friendly form before yielding the request:
 

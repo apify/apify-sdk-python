@@ -6,7 +6,8 @@ so they are serialized as JSON here rather than pickled.
 Only `body` (`bytes`) and `headers` (`{bytes: [bytes]}`) are not natively JSON-serializable; both sit at fixed keys
 and are base64-encoded in place. A `str` `body` is encoded as its UTF-8 bytes and comes back as `bytes`, matching
 Scrapy, which always stores `body` as `bytes`. Pydantic models such as Crawlee's `UserData` are dumped via
-`model_dump()`. Everything else, notably `meta` and `cb_kwargs`, must already be JSON-serializable, otherwise
+`model_dump(mode='json')`, so model fields JSON cannot natively represent (e.g. `datetime`) are stored in their
+JSON form. Everything else, notably `meta` and `cb_kwargs`, must already be JSON-serializable, otherwise
 serialization fails with a clear error naming the offending value. No in-band sentinel is used, so no user value
 can collide with the encoding.
 
@@ -60,7 +61,9 @@ def encode_to_json(data: dict[str, Any]) -> str:
         # `ensure_ascii=False` keeps non-ASCII URLs/meta as their UTF-8 form instead of `\uXXXX` escapes, which
         # would otherwise roughly double the size of non-Latin text in storage.
         return json.dumps(safe, default=_json_default, ensure_ascii=False)
-    except TypeError as exc:
+    # `ValueError` covers pydantic's `PydanticSerializationError`, raised when a model field cannot be dumped
+    # to JSON even in JSON mode.
+    except (TypeError, ValueError) as exc:
         raise TypeError(
             'Failed to JSON-serialize a Scrapy request/response for storage on the Apify platform. '
             'All values in `meta` and `cb_kwargs` must be JSON-serializable (str, int, float, bool, None, '
@@ -100,7 +103,7 @@ def _json_default(obj: Any) -> Any:
     at the bad `meta`/`cb_kwargs` entry instead of just reporting that something failed.
     """
     if isinstance(obj, BaseModel):
-        return obj.model_dump(by_alias=True)
+        return obj.model_dump(mode='json', by_alias=True)
     value_repr = repr(obj)
     if len(value_repr) > _MAX_ERROR_VALUE_REPR_LEN:
         value_repr = value_repr[:_MAX_ERROR_VALUE_REPR_LEN] + '...'
