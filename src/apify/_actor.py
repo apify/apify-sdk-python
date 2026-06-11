@@ -699,7 +699,15 @@ class _ActorType:
 
     @_ensure_context
     async def get_input(self) -> Any:
-        """Get the Actor input value from the default key-value store associated with the current Actor run."""
+        """Get the Actor input value from the default key-value store associated with the current Actor run.
+
+        The input is the deserialized contents of the input record (the `INPUT` key by default), so it is typically
+        a `dict` keyed by the fields declared in the Actor's input schema. Any secret input fields are decrypted to
+        plaintext before being returned.
+
+        Returns:
+            The Actor input, usually a `dict` of input fields, or `None` if the Actor has no input.
+        """
         input_value = await self.get_value(self.configuration.input_key)
         input_secrets_private_key = self.configuration.input_secrets_private_key_file
         input_secrets_key_passphrase = self.configuration.input_secrets_private_key_passphrase
