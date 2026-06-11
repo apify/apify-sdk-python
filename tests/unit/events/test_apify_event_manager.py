@@ -12,7 +12,6 @@ from unittest.mock import Mock
 import pytest
 import websockets
 import websockets.asyncio.server
-import websockets.exceptions
 
 from crawlee.events._types import Event
 
@@ -320,38 +319,32 @@ async def test_migrating_event_triggers_persist_state(monkeypatch: pytest.Monkey
         assert len(migration_persist_events) >= 1
 
 
-async def test_websocket_mid_stream_disconnect_does_not_raise_invalid_state_error(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Regression: a mid-stream websocket disconnect after a successful connect must not raise InvalidStateError.
-
-    The `_connected_to_platform_websocket` future is resolved to `True` on successful connect. If the websocket
-    later drops, the outer `except` in `_process_platform_messages` must not call `set_result(False)` on the
-    already-resolved future.
-    """
+async def test_websocket_reconnects_after_connection_drop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that after a mid-stream websocket drop, the manager reconnects and keeps receiving platform events."""
     async with (
         _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected),
         ApifyEventManager(Configuration.get_global_configuration()) as event_manager,
     ):
         await client_connected.wait()
+        aborting_calls: list[Any] = []
 
-        # Force an abnormal close from the server so the client's `async for` raises ConnectionClosedError.
+        def listener(data: Any) -> None:
+            aborting_calls.append(data)
+
+        event_manager.on(event=Event.ABORTING, listener=listener)
+
+        # Drop the connection abnormally from the server side.
+        client_connected.clear()
         for ws in list(connected_ws_clients):
             await ws.close(code=1011, reason='Simulated server error')
 
-        task = event_manager._process_platform_messages_task
-        assert task is not None
-        await asyncio.wait_for(asyncio.shield(task), timeout=2.0)
+        # The event manager should reconnect on its own.
+        await asyncio.wait_for(client_connected.wait(), timeout=5.0)
 
-        exc = task.exception()
-        assert not isinstance(exc, asyncio.InvalidStateError), f'Task raised InvalidStateError: {exc}'
-
-        # Confirm the test actually exercised the disconnect path — the outer `except` in
-        # `_process_platform_messages` should have logged a `ConnectionClosedError`.
-        logged_exc_types = [
-            record.exc_info[0] for record in caplog.records if record.exc_info and record.exc_info[0] is not None
-        ]
-        assert any(issubclass(exc_type, websockets.exceptions.ConnectionClosedError) for exc_type in logged_exc_types)
+        # Events sent over the new connection must still be received.
+        websockets.broadcast(connected_ws_clients, json.dumps({'name': 'aborting'}))
+        await poll_until_condition(lambda: bool(aborting_calls), poll_interval=0.05)
+        assert len(aborting_calls) == 1
 
 
 async def test_malformed_message_logs_exception(
