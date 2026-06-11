@@ -99,7 +99,11 @@ To create, run, and deploy your first Actor step by step, see the [Quick start g
 - Monetize your Actor with pay-per-event charging ([Pay-per-event](https://docs.apify.com/sdk/python/docs/concepts/pay-per-event)).
 - Reach the full [Apify API](https://docs.apify.com/api/v2) through a preconfigured `ApifyClient` ([Accessing the Apify API](https://docs.apify.com/sdk/python/docs/concepts/access-apify-api)).
 - Fully compatible with [Crawlee](https://crawlee.dev/python), so Apify is a natural place to deploy and scale your Crawlee projects ([Crawlee guide](https://docs.apify.com/sdk/python/docs/guides/crawlee)).
-- Run existing Scrapy spiders as Actors through the `apify[scrapy]` extra ([Scrapy guide](https://docs.apify.com/sdk/python/docs/guides/scrapy)).
+- Works with popular Python web scraping libraries such as [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy), [Scrapling](https://github.com/D4Vinci/Scrapling), and [Crawl4AI](https://docs.apify.com/sdk/python/docs/guides/crawl4ai).
+- Automate browsers with tools such as [Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright), [Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium), and [Browser Use](https://docs.apify.com/sdk/python/docs/guides/browser-use).
+- Run a [web server](https://docs.apify.com/sdk/python/docs/guides/running-webserver) inside an Actor, and manage your project with [uv](https://docs.apify.com/sdk/python/docs/guides/uv).
+- Host AI agents with ready-made templates for [PydanticAI](https://apify.com/templates/python-pydanticai), [CrewAI](https://apify.com/templates/python-crewai), [LangGraph](https://apify.com/templates/python-langgraph), [LlamaIndex](https://apify.com/templates/python-llamaindex-agent), and [Smolagents](https://apify.com/templates/python-smolagents).
+- Deploy Python [MCP servers](https://apify.com/templates/python-mcp-server) as Actors.
 
 ## Usage examples
 
