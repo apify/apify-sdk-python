@@ -83,7 +83,7 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Set up the proxy configuration; a fresh proxy URL is fetched per request below.
+        # Set up the proxy configuration. A fresh proxy URL is fetched per request below.
         proxy_configuration = await Actor.create_proxy_configuration()
 
         # Open the request queue and enqueue the start URLs (crawl depth 0).
@@ -93,7 +93,7 @@ async def main() -> None:
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
-        # Cap the crawl; raise or remove to follow more pages.
+        # Cap the crawl. Raise or remove the limit to follow more pages.
         max_requests = 50
         handled_requests = 0
 

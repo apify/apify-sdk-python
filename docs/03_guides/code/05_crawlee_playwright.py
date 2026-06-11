@@ -5,7 +5,7 @@ from crawlee.router import Router
 
 from apify import Actor
 
-# Define the router up front; the crawler is created later in `main`.
+# Define the router up front. The crawler is created later in `main`.
 router = Router[PlaywrightCrawlingContext]()
 
 
@@ -53,7 +53,7 @@ async def main() -> None:
         crawler = PlaywrightCrawler(
             proxy_configuration=proxy_configuration,
             request_handler=router,
-            # Cap the crawl; remove or increase to follow all links.
+            # Cap the crawl. Remove or increase the limit to follow all links.
             max_requests_per_crawl=50,
             headless=True,
             browser_launch_options={'args': browser_args},

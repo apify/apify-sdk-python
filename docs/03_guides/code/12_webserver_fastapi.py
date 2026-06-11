@@ -21,7 +21,8 @@ async def index() -> dict[str, int]:
 async def main() -> None:
     global processed_items
     async with Actor:
-        # Serve the app on the platform's web server port; 0.0.0.0 exposes it.
+        # Serve the app on the platform's web server port. Binding to 0.0.0.0
+        # makes it reachable through the container URL.
         config = uvicorn.Config(
             app,
             host='0.0.0.0',  # noqa: S104

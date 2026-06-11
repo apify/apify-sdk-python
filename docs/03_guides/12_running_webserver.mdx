@@ -52,7 +52,7 @@ Note that:
 
 - `uvicorn.Server(...).serve()` is a coroutine. It runs as an `asyncio` task alongside the Actor's own work instead of blocking it. Setting `server.should_exit = True` triggers a graceful shutdown once the work is done.
 - The server binds to `0.0.0.0` (all interfaces) rather than `localhost`. This makes it reachable through the container URL, not only from inside the container.
-- The same pattern powers an [Actor Standby](#actor-standby) service. Swap the one-off work loop for an Actor that just keeps serving requests.
+- The same pattern powers an [Actor Standby](#actor-standby) service. Swap the one-off work loop for an Actor that keeps serving requests.
 
 ## Actor Standby
 
@@ -60,7 +60,7 @@ The example above runs a web server for the duration of a single Actor run. With
 
 From the SDK's perspective, a Standby Actor is built the same way as the web server above. You start an HTTP server listening on the port from `Actor.configuration.web_server_port`. The difference is operational: instead of doing its work once and exiting, a Standby Actor stays up and serves requests. This makes it a good fit for low-latency, on-demand use cases, such as serving scraped data or acting as a microservice.
 
-To get started quickly, use the [Standby Python template](https://apify.com/templates/python-standby). For details on enabling Standby, request routing, and readiness probes, see the [Actor Standby documentation](https://docs.apify.com/platform/actors/development/programming-interface/standby).
+To get started, use the [Standby Python template](https://apify.com/templates/python-standby). For details on enabling Standby, request routing, and readiness probes, see the [Actor Standby documentation](https://docs.apify.com/platform/actors/development/programming-interface/standby).
 
 ## Conclusion
 

@@ -81,7 +81,7 @@ async def main() -> None:
             Actor.log.info(f'Enqueuing start URL: {url}')
             await request_queue.add_request(Request.from_url(url))
 
-        # Cap the crawl; raise or remove to follow more pages.
+        # Cap the crawl. Raise or remove the limit to follow more pages.
         max_requests = 50
         handled_requests = 0
 

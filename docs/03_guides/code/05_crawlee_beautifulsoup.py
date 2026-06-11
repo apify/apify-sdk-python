@@ -5,7 +5,7 @@ from crawlee.router import Router
 
 from apify import Actor
 
-# Define the router up front; the crawler is created later in `main`.
+# Define the router up front. The crawler is created later in `main`.
 router = Router[BeautifulSoupCrawlingContext]()
 
 
@@ -50,7 +50,7 @@ async def main() -> None:
         crawler = BeautifulSoupCrawler(
             proxy_configuration=proxy_configuration,
             request_handler=router,
-            # Cap the crawl; remove or increase to follow all links.
+            # Cap the crawl. Remove or increase the limit to follow all links.
             max_requests_per_crawl=50,
         )
 
