@@ -109,19 +109,15 @@ They run either locally or on the [Apify platform](https://docs.apify.com/platfo
 
 ## What you can build
 
-Almost any Python project can become an Actor. The SDK doesn't lock you into a particular framework, so bring the libraries you already use and let Apify run your project in the cloud.
+Almost any Python project can become an Actor, including projects for:
 
-**Web scraping and crawling.** The SDK is fully compatible with [Crawlee](https://crawlee.dev/python), which makes Apify a natural place to deploy and scale your Crawlee projects (see the [Crawlee guide](https://docs.apify.com/sdk/python/docs/guides/crawlee)). It also works with other popular scraping libraries, such as [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy), [Scrapling](https://github.com/D4Vinci/Scrapling), and [Crawl4AI](https://docs.apify.com/sdk/python/docs/guides/crawl4ai).
+- **Web scraping and crawling** — The SDK is fully compatible with [Crawlee](https://crawlee.dev/python), which makes Apify a natural place to deploy and scale your crawlers (see the [Crawlee guide](https://docs.apify.com/sdk/python/docs/guides/crawlee)). It also works with other popular scraping libraries, such as [Scrapy](https://docs.apify.com/sdk/python/docs/guides/scrapy), [Scrapling](https://docs.apify.com/sdk/python/docs/guides/scrapling), or [Crawl4AI](https://docs.apify.com/sdk/python/docs/guides/crawl4ai).
+- **Browser automation** — Drive a real browser with [Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright) or [Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium), or with higher-level tools such as [Browser Use](https://docs.apify.com/sdk/python/docs/guides/browser-use).
+- **Web servers and APIs** — Run a [web server](https://docs.apify.com/sdk/python/docs/guides/running-webserver) inside an Actor to serve HTTP requests, for example to expose your scraper as a live API.
+- **AI agents** — Host agents built with your framework of choice. Ready-made Actor templates cover [PydanticAI](https://apify.com/templates/python-pydanticai), [CrewAI](https://apify.com/templates/python-crewai), [LangGraph](https://apify.com/templates/python-langgraph), [LlamaIndex](https://apify.com/templates/python-llamaindex-agent), and [Smolagents](https://apify.com/templates/python-smolagents).
+- **MCP servers** — Deploy a Python MCP server as an Actor and make its tools available to any MCP client. See [MCP server](https://apify.com/templates/python-mcp-empty) and [MCP proxy](https://apify.com/templates/python-mcp-proxy) templates
 
-**Browser automation.** Drive a real browser with [Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright) or [Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium), or with higher-level tools such as [Browser Use](https://docs.apify.com/sdk/python/docs/guides/browser-use).
-
-**AI agents.** Host AI agents built with your framework of choice. Ready-made Actor templates cover [PydanticAI](https://apify.com/templates/python-pydanticai), [CrewAI](https://apify.com/templates/python-crewai), [LangGraph](https://apify.com/templates/python-langgraph), [LlamaIndex](https://apify.com/templates/python-llamaindex-agent), and [Smolagents](https://apify.com/templates/python-smolagents).
-
-**MCP servers.** Deploy a Python [MCP server](https://apify.com/templates/python-mcp-server) as an Actor and make its tools available to any MCP client.
-
-**Web servers and APIs.** Run a [web server](https://docs.apify.com/sdk/python/docs/guides/running-webserver) inside an Actor to serve HTTP requests, for example to expose your scraper as a live API.
-
-Whatever you build, you can manage the project with [uv](https://docs.apify.com/sdk/python/docs/guides/uv). To start from a working example, browse the ready-made [Python Actor templates](https://apify.com/templates/categories/python).
+Whatever you build, the Apify SDK doesn't lock you into a particular framework. Bring the libraries you already use, and let Apify run your project in the cloud.
 
 ## Usage examples
 
