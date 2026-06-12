@@ -894,12 +894,12 @@ class _ActorType:
         memory_mbytes: int | None = None,
         timeout: timedelta | None | Literal['inherit'] = None,
         force_permission_level: ActorPermissionLevel | None = None,
-        wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
-        Unlike `Actor.call`, this method just starts the run without waiting for finish.
+        Unlike `Actor.call`, this method just starts the run without waiting for finish. To wait for the run to
+        finish, use `Actor.call` instead.
 
         Args:
             actor_id: The ID of the Actor to be run.
@@ -918,8 +918,6 @@ class _ActorType:
                 to the time remaining from this Actor timeout.
             force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
                 with permissions configured in the Actor settings.
-            wait_for_finish: The maximum number of seconds the server waits for the run to finish. By default,
-                it is 0, the maximum value is 300.
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
@@ -948,7 +946,6 @@ class _ActorType:
             memory_mbytes=memory_mbytes,
             run_timeout=actor_start_timeout,
             force_permission_level=force_permission_level,
-            wait_for_finish=wait_for_finish,
             webhooks=to_client_representations(webhooks),
         )
 
@@ -1031,8 +1028,7 @@ class _ActorType:
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
-            wait: The maximum number of seconds the server waits for the run to finish. If not provided,
-                waits indefinitely.
+            wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
             logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
                 default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
                 will redirect logs to the provided logger.
@@ -1109,8 +1105,7 @@ class _ActorType:
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
-            wait: The maximum number of seconds the server waits for the run to finish. If not provided, waits
-                indefinitely.
+            wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
 
         Returns:
             Info about the started Actor run.
