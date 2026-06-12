@@ -217,7 +217,9 @@ async def test_request_list_open_from_url_with_user_data_and_multiple_urls(https
         assert request.user_data['nested'] == {'key': 'value'}
 
     # Each request owns an independent copy; mutating one must not leak into the others.
-    requests[0].user_data['nested']['key'] = 'mutated'
+    nested = requests[0].user_data['nested']
+    assert isinstance(nested, dict)
+    nested['key'] = 'mutated'
     assert requests[1].user_data['nested'] == {'key': 'value'}
 
 
