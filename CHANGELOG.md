@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
 - Preserve decorated symbol types in docs_group and docs_name ([#964](https://github.com/apify/apify-sdk-python/pull/964)) ([6c359a7](https://github.com/apify/apify-sdk-python/commit/6c359a714b089b24c1be7fa9a07c9b9899cc5e11)) by [@vdusek](https://github.com/vdusek)
 - Exit already-entered contexts when Actor or event manager init fails ([#969](https://github.com/apify/apify-sdk-python/pull/969)) ([c1a15a7](https://github.com/apify/apify-sdk-python/commit/c1a15a7425eab74f3fe8848160576741c036c4fa)) by [@vdusek](https://github.com/vdusek)
 - **scrapy:** Dump pydantic models in JSON mode when serializing requests ([#961](https://github.com/apify/apify-sdk-python/pull/961)) ([f2ccae1](https://github.com/apify/apify-sdk-python/commit/f2ccae16d046e9586281e1f2ffc531014e05fe51)) by [@vdusek](https://github.com/vdusek)
+- Accept arbitrary JSON userData in ApifyRequestList ([#966](https://github.com/apify/apify-sdk-python/pull/966)) ([2cfd8a5](https://github.com/apify/apify-sdk-python/commit/2cfd8a590ae52a38b7efe39bb8a3a1570437b2fc)) by [@vdusek](https://github.com/vdusek)
+- Coerce null stats in Apify request queue metadata ([#974](https://github.com/apify/apify-sdk-python/pull/974)) ([63eb771](https://github.com/apify/apify-sdk-python/commit/63eb771e0234575ae3842cba9441938c3e4116fc)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
