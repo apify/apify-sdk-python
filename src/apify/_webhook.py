@@ -48,7 +48,7 @@ class Webhook:
 
 
 def to_client_representations(webhooks: list[Webhook] | None) -> list[WebhookRepresentation] | None:
-    """Project SDK webhooks to the minimal ad-hoc representation accepted by the client's `start()` / `call()`."""
+    """Convert SDK webhooks to the ad-hoc representation accepted by the client's `start()` / `call()`."""
     if not webhooks:
         return None
     return [
@@ -57,6 +57,9 @@ def to_client_representations(webhooks: list[Webhook] | None) -> list[WebhookRep
             request_url=w.request_url,
             payload_template=w.payload_template,
             headers_template=w.headers_template,
+            idempotency_key=w.idempotency_key,
+            ignore_ssl_errors=w.ignore_ssl_errors,
+            do_not_retry=w.do_not_retry,
         )
         for w in webhooks
     ]
