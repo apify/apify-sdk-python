@@ -69,9 +69,9 @@ The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields hav
 - In place of `standby_port`, use `web_server_port`.
 - `latest_sdk_version` and `log_format` don't have replacement. SDK version checking isn't supported for the Python SDK and the log format should be adjusted in code instead.
 
-## `Actor.start` — `wait_for_finish` is now `wait`
+### `wait_for_finish` argument of `Actor.start`
 
-The `wait_for_finish: int` argument of `Actor.start()` has been renamed to `wait: timedelta`, matching `Actor.call()` and `Actor.call_task()`. The behavior is unchanged: the server still waits at most the given time (capped at 300 seconds) before returning the run info.
+The `wait_for_finish` argument of `Actor.start()` has been removed. It contradicted the purpose of `Actor.start()`, which only starts the run without waiting for it to finish. The JS SDK does not expose it on `Actor.start()` either. To wait for a run to finish, use `Actor.call()`.
 
 ```python
 from datetime import timedelta
@@ -80,7 +80,7 @@ from datetime import timedelta
 run = await Actor.start('my-actor-id', wait_for_finish=60)
 
 # After (v4)
-run = await Actor.start('my-actor-id', wait=timedelta(seconds=60))
+run = await Actor.call('my-actor-id', wait=timedelta(seconds=60))
 ```
 
 ## Built on `apify-client` v3

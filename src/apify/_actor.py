@@ -890,11 +890,11 @@ class _ActorType:
         timeout: timedelta | None | Literal['inherit'] = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
-        wait: timedelta | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
-        Unlike `Actor.call`, this method just starts the run without waiting for finish.
+        Unlike `Actor.call`, this method just starts the run without waiting for finish. To wait for the run to
+        finish, use `Actor.call` instead.
 
         Args:
             actor_id: The ID of the Actor to be run.
@@ -916,8 +916,6 @@ class _ActorType:
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
-            wait: The maximum time the server waits for the run to finish. By default, it does not wait at all.
-                The maximum value is 300 seconds.
 
         Returns:
             Info about the started Actor run
@@ -943,7 +941,6 @@ class _ActorType:
             memory_mbytes=memory_mbytes,
             run_timeout=actor_start_timeout,
             force_permission_level=force_permission_level,
-            wait_for_finish=int(wait.total_seconds()) if wait is not None else None,
             webhooks=to_client_representations(webhooks),
         )
 
