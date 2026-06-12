@@ -7,10 +7,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import AddedRequest, BatchAddResult, RequestQueueHead
+from apify_client._models import AddedRequest, BatchAddResult, RequestQueueHead, RequestQueueStats
 from crawlee.storage_clients.models import RequestQueueMetadata
 
 from apify import Request
+from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
 from apify.storage_clients._apify._request_queue_shared_client import ApifyRequestQueueSharedClient
 from apify.storage_clients._apify._request_queue_single_client import ApifyRequestQueueSingleClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
@@ -85,6 +86,32 @@ def test_unique_key_to_request_id_consistency() -> None:
     request_id_1 = unique_key_to_request_id(unique_key)
     request_id_2 = unique_key_to_request_id(unique_key)
     assert request_id_1 == request_id_2, 'The same unique key should generate consistent request IDs.'
+
+
+@pytest.mark.parametrize(
+    ('stats', 'expected_read_count'),
+    [(None, None), ({'readCount': 5}, 5)],
+    ids=['none_coerced_to_default', 'populated_passed_through'],
+)
+def test_metadata_stats_validation(stats: dict | None, expected_read_count: int | None) -> None:
+    """A `stats: None` payload (as `open()` produces via `model_dump`) defaults; a populated one passes through."""
+    now = datetime.now(tz=UTC)
+    metadata = ApifyRequestQueueMetadata.model_validate(
+        {
+            'id': 'test-rq-id',
+            'name': None,
+            'accessedAt': now,
+            'createdAt': now,
+            'modifiedAt': now,
+            'hadMultipleClients': False,
+            'handledRequestCount': 0,
+            'pendingRequestCount': 0,
+            'totalRequestCount': 0,
+            'stats': stats,
+        }
+    )
+    assert isinstance(metadata.stats, RequestQueueStats)
+    assert metadata.stats.read_count == expected_read_count
 
 
 @pytest.mark.parametrize(

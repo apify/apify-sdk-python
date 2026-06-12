@@ -16,7 +16,7 @@ Support for Python 3.8 has been dropped. The Apify Python SDK v2.x now requires 
 - There is a difference in the `RequestQueue.add_request` method: it accepts an `apify.Request` object instead of a free-form dictionary.
     - A quick way to migrate from dict-based arguments is to wrap it with a `Request.model_validate()` call.
     - The preferred way is using the `Request.from_url` helper which prefills the `unique_key` and `id` attributes, or instantiating it directly, e.g., `Request(url='https://example.tld', ...)`.
-    - For simple use cases, `add_request` also accepts plain strings that contain an URL, e.g. `queue.add_request('https://example.tld')`.
+    - For simple use cases, `add_request` also accepts plain strings that contain a URL, e.g. `queue.add_request('https://example.tld')`.
 - Removing the `StorageClientManager` class is a significant change. If you need to change the storage client, use `crawlee.service_container` instead.
 
 ## Configuration
@@ -28,8 +28,8 @@ Attributes suffixed with `_millis` were renamed to remove said suffix and have t
 ## Actor
 
 - The `Actor.main` method has been removed as it brings no benefits compared to using `async with Actor`.
-- The `Actor.add_webhook`, `Actor.start`, `Actor.call` and `Actor.start_task` methods now accept instances of the `apify.Webhook` model instead of an untyped `dict`.
-- `Actor.start`, `Actor.call`, `Actor.start_task`, `Actor.set_status_message` and `Actor.abort` return instances of the `ActorRun` model instead of an untyped `dict`.
+- The `Actor.add_webhook`, `Actor.start`, `Actor.call` and `Actor.call_task` methods now accept instances of the `apify.Webhook` model instead of an untyped `dict`.
+- `Actor.start`, `Actor.call`, `Actor.call_task`, `Actor.set_status_message` and `Actor.abort` return instances of the `ActorRun` model instead of an untyped `dict`.
 - Upon entering the context manager (`async with Actor`), the `Actor` puts the default logging configuration in place. This can be disabled using the `configure_logging` parameter.
 - The `config` parameter of `Actor` has been renamed to `configuration`.
 - Event handlers registered via `Actor.on` will now receive Pydantic objects instead of untyped dicts. For example, where you would do `event['isMigrating']`, you should now use `event.is_migrating`

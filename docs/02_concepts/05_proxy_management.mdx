@@ -22,7 +22,7 @@ The Apify SDK provides built-in proxy management through the <ApiLink to="class/
 
 If you want to use Apify Proxy locally, make sure that you run your Actors via the Apify CLI and that you are [logged in](https://docs.apify.com/cli/docs/installation#login-with-your-apify-account) with your Apify account in the CLI.
 
-### Using Apify proxy
+### Using Apify Proxy
 
 <RunnableCodeBlock className="language-python" language="python">
     {ApifyProxyExample}
@@ -38,7 +38,7 @@ If you want to use Apify Proxy locally, make sure that you run your Actors via t
 
 All your proxy needs are managed by the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class. You create an instance using the <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration()`</ApiLink> method. Then you generate proxy URLs using the <ApiLink to="class/ProxyConfiguration#new_url">`ProxyConfiguration.new_url()`</ApiLink> method.
 
-### Apify proxy vs. your own proxies
+### Apify Proxy vs. your own proxies
 
 The `ProxyConfiguration` class covers both Apify Proxy and custom proxy URLs, so that you can easily switch between proxy providers. However, some features of the class are available only to Apify Proxy users, mainly because Apify Proxy is what one would call a super-proxy. It's not a single proxy server, but an API endpoint that allows connection through millions of different IP addresses. So the class essentially has two modes: Apify Proxy or Your proxy.
 
@@ -54,7 +54,7 @@ When no `session_id` is provided, your custom proxy URLs are rotated round-robin
     {ProxyRotationExample}
 </RunnableCodeBlock>
 
-### Apify proxy configuration
+### Apify Proxy configuration
 
 With Apify Proxy, you can select specific proxy groups to use, or countries to connect from. For even finer control, you can also target a specific subdivision (e.g. a US state) using the `subdivision_code` parameter alongside `country_code`. This allows you to get better proxy performance after some initial research.
 
@@ -106,9 +106,11 @@ You can then use that input to create the proxy configuration:
 
 ## Using the generated proxy URLs
 
+`ProxyConfiguration` only generates proxy URLs. It doesn't make requests. To route requests through the proxy, pass a generated URL to the HTTP client your Actor uses.
+
 ### HTTPX
 
-To use the generated proxy URLs with the `httpx` library, use the [`proxies`](https://www.python-httpx.org/advanced/#http-proxying) argument:
+To use the generated proxy URLs with the `httpx` library, use the [`proxy`](https://www.python-httpx.org/advanced/proxies/) argument:
 
 <RunnableCodeBlock className="language-python" language="python">
     {ProxyHttpxExample}
@@ -119,5 +121,9 @@ Make sure you have the `httpx` library installed:
 ```bash
 pip install httpx
 ```
+
+## Conclusion
+
+This page has explained how to manage proxies with the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class: using Apify Proxy or your own servers, keeping sessions sticky across requests, configuring tiered proxy rotation, and feeding proxy settings from Actor input.
 
 For full details on proxy configuration options, see the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> API reference and the [Apify Proxy documentation](https://docs.apify.com/proxy).

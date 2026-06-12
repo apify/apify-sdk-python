@@ -14,6 +14,8 @@ During its runtime, the Actor receives Actor events sent by the Apify platform o
 
 ## Event types
 
+A listener can optionally receive a single argument, a Pydantic model with the event's data. The following table lists the events, the type of that data object, and when each event is emitted.
+
 <table>
     <thead>
         <tr>
@@ -25,25 +27,23 @@ During its runtime, the Actor receives Actor events sent by the Apify platform o
     <tbody>
         <tr>
             <td><code>SYSTEM_INFO</code></td>
-            <td><pre>{`{
-  "created_at": datetime,
-  "cpu_current_usage": float,
-  "mem_current_bytes": int,
-  "is_cpu_overloaded": bool
-}`}
-            </pre></td>
+            <td><ApiLink to="class/EventSystemInfoData"><code>EventSystemInfoData</code></ApiLink></td>
             <td>
-                <p>This event is emitted regularly and it indicates the current resource usage of the Actor.</p>
-                The <code>is_cpu_overloaded</code> argument indicates whether the current CPU usage is higher than <code>Config.max_used_cpu_ratio</code>
+                <p>Emitted regularly to report the Actor's current resource usage. The
+                <code>cpu_info.used_ratio</code> field reports the fraction of CPU currently in use
+                (a float between <code>0.0</code> and <code>1.0</code>), and <code>memory_info.current_size</code>
+                reports the current memory usage. Compare <code>cpu_info.used_ratio</code> against
+                <code>Configuration.max_used_cpu_ratio</code> to detect CPU overload.</p>
             </td>
         </tr>
         <tr>
             <td><code>MIGRATING</code></td>
-            <td><code>None</code></td>
+            <td><ApiLink to="class/EventMigratingData"><code>EventMigratingData</code></ApiLink></td>
             <td>
                 <p>Emitted when the Actor running on the Apify platform
                 is going to be <a href="https://docs.apify.com/platform/actors/development/state-persistence#what-is-a-migration">migrated</a>
-                {' '}to another worker server soon.</p>
+                {' '}to another worker server soon. The <code>time_remaining</code> field reports how much time
+                the Actor has left before it is force-migrated.</p>
                 You can use it to persist the state of the Actor so that once it is executed again on the new server,
                 it doesn't have to start over from the beginning.
                 Once you have persisted the state of your Actor, you can call <ApiLink to="class/Actor#reboot">`Actor.reboot`</ApiLink>
@@ -52,7 +52,7 @@ During its runtime, the Actor receives Actor events sent by the Apify platform o
         </tr>
         <tr>
             <td><code>ABORTING</code></td>
-            <td><code>None</code></td>
+            <td><ApiLink to="class/EventAbortingData"><code>EventAbortingData</code></ApiLink></td>
             <td>
                 When a user aborts an Actor run on the Apify platform,
                 they can choose to abort gracefully to allow the Actor some time before getting killed.
@@ -61,7 +61,7 @@ During its runtime, the Actor receives Actor events sent by the Apify platform o
         </tr>
         <tr>
             <td><code>PERSIST_STATE</code></td>
-            <td><pre>{`{ "is_migrating": bool }`}</pre></td>
+            <td><ApiLink to="class/EventPersistStateData"><code>EventPersistStateData</code></ApiLink></td>
             <td>
                 <p>Emitted in regular intervals (by default 60 seconds) to notify the Actor that it should persist its state,
                 in order to avoid repeating all work when the Actor restarts.</p>
@@ -73,7 +73,7 @@ During its runtime, the Actor receives Actor events sent by the Apify platform o
         </tr>
         <tr>
             <td><code>EXIT</code></td>
-            <td><code>None</code></td>
+            <td><ApiLink to="class/EventExitData"><code>EventExitData</code></ApiLink></td>
             <td>
                 Emitted by the SDK (not the platform) when the Actor is about to exit. You can use this event to perform final cleanup tasks,
                 such as closing external connections or sending notifications, before the Actor shuts down.
@@ -102,5 +102,9 @@ You can optionally specify a `key` (the key-value store key under which the stat
 <RunnableCodeBlock className="language-python" language="python">
     {UseStateExample}
 </RunnableCodeBlock>
+
+## Conclusion
+
+This page has described the events emitted during a run (`SYSTEM_INFO`, `MIGRATING`, `ABORTING`, `PERSIST_STATE`, and `EXIT`): how to handle them with <ApiLink to="class/Actor#on">`Actor.on`</ApiLink>, and how to persist state automatically with <ApiLink to="class/Actor#use_state">`Actor.use_state`</ApiLink>.
 
 For more details on platform events and state persistence, see the [system events](https://docs.apify.com/platform/actors/development/programming-interface/system-events) and [state persistence](https://docs.apify.com/platform/actors/development/state-persistence) documentation on the Apify platform.

@@ -5,7 +5,7 @@ from apify import Actor
 
 async def main() -> None:
     async with Actor:
-        # Start the apify/screenshot-url Actor.
+        # Start the apify/screenshot-url Actor and wait for it to finish.
         actor_run = await Actor.call(
             actor_id='apify/screenshot-url',
             run_input={
@@ -15,14 +15,8 @@ async def main() -> None:
             },
         )
 
-        if actor_run is None:
-            raise RuntimeError('Actor task failed to start.')
-
-        # Wait for the Actor run to finish.
-        run_client = Actor.apify_client.run(actor_run.id)
-        await run_client.wait_for_finish()
-
         # Get the Actor output from the dataset.
+        run_client = Actor.apify_client.run(actor_run.id)
         dataset_client = run_client.dataset()
         item_list = await dataset_client.list_items()
         Actor.log.info(f'Actor output: {item_list.items}')
