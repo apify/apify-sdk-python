@@ -155,18 +155,20 @@ def test_next_request_returns_none_when_queue_empty(scheduler: ApifyScheduler) -
     rq.mark_request_as_handled.assert_not_called()
 
 
-def test_next_request_does_not_print_traceback_to_stderr(
+def test_next_request_prints_traceback_to_stderr(
     scheduler: ApifyScheduler,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A failure propagates as-is, without `traceback.print_exc()` printing a second copy past the log formatter."""
+    """A failure in the coroutine run prints a traceback to stderr via `traceback.print_exc()` before propagating."""
     async_thread = cast('mock.MagicMock', scheduler._async_thread)
     async_thread.run_coro.side_effect = RuntimeError('boom')
 
     with pytest.raises(RuntimeError, match='boom'):
         scheduler.next_request()
 
-    assert capsys.readouterr().err == ''
+    captured = capsys.readouterr()
+    assert 'Traceback (most recent call last)' in captured.err
+    assert 'RuntimeError: boom' in captured.err
 
 
 def test_from_crawler_reads_async_thread_timeout_setting(monkeypatch: pytest.MonkeyPatch) -> None:

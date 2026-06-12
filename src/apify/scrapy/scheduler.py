@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -73,6 +74,7 @@ class ApifyScheduler(BaseScheduler):
             self._rq = self._async_thread.run_coro(open_rq())
         except Exception:
             self._async_thread.close()
+            traceback.print_exc()
             raise
 
         return None
@@ -107,7 +109,12 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        is_finished = self._async_thread.run_coro(self._rq.is_finished())
+        try:
+            is_finished = self._async_thread.run_coro(self._rq.is_finished())
+        except Exception:
+            traceback.print_exc()
+            raise
+
         return not is_finished
 
     def enqueue_request(self, request: Request) -> bool:
@@ -135,7 +142,12 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        result = self._async_thread.run_coro(self._rq.add_request(apify_request))
+        try:
+            result = self._async_thread.run_coro(self._rq.add_request(apify_request))
+        except Exception:
+            traceback.print_exc()
+            raise
+
         logger.debug(f'rq.add_request result: {result}')
         return not bool(result.was_already_present)
 
@@ -149,7 +161,12 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
+        try:
+            apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
+        except Exception:
+            traceback.print_exc()
+            raise
+
         logger.debug(f'Fetched apify_request: {apify_request}')
         if apify_request is None:
             return None
@@ -168,7 +185,11 @@ class ApifyScheduler(BaseScheduler):
         # Mark the request as handled. This runs even when reconstruction failed above: an unrecoverable entry
         # (a corrupt or legacy payload) must still be consumed, otherwise the queue would keep handing it back
         # forever. Retrying genuine failures is the RetryMiddleware's job.
-        self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
+        try:
+            self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
+        except Exception:
+            traceback.print_exc()
+            raise
 
         if scrapy_request is None:
             return None

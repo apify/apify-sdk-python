@@ -3,26 +3,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-import time
 from concurrent import futures
 from datetime import timedelta
 from typing import Any, Literal
 
 import pytest
 
+from ..._utils import poll_until_condition
 from apify.scrapy._async_thread import AsyncThread
 
 
 def _wait_until_running(thread: AsyncThread, timeout: float = 2.0) -> None:
     """Block until the background event loop is running, so `run_coro` does not race the thread startup."""
-    deadline = time.monotonic() + timeout
-    while not thread._eventloop.is_running():
-        if time.monotonic() > deadline:
-            raise AssertionError('The event loop did not start in time.')
-        time.sleep(0.01)
-
-
-# Coroutine execution
+    if not asyncio.run(poll_until_condition(thread._eventloop.is_running, timeout=timeout, poll_interval=0.01)):
+        raise AssertionError('The event loop did not start in time.')
 
 
 def test_run_coro_cancels_the_coroutine_on_timeout() -> None:
@@ -64,9 +58,6 @@ def test_run_coro_does_not_log_on_exception(caplog: pytest.LogCaptureFixture) ->
     thread.close()
 
     assert [record for record in caplog.records if record.levelno >= logging.ERROR] == []
-
-
-# Shutdown
 
 
 def test_close_is_idempotent() -> None:

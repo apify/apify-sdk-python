@@ -4,6 +4,7 @@ import gzip
 import io
 import re
 import struct
+import traceback
 from datetime import timedelta
 from logging import getLogger
 from time import time
@@ -39,8 +40,8 @@ class ApifyCacheStorage:
         # Upper bound on how many keys the per-spider-close cleanup sweeps (best-effort; `close_spider`).
         self._expiration_max_items: int = settings.getint('APIFY_HTTPCACHE_EXPIRATION_MAX_ITEMS', 100)
         self._expiration_secs: int = settings.getint('HTTPCACHE_EXPIRATION_SECS')
-        # Caps how long each coroutine run on the background event loop may take; defaults to 60 seconds.
         self._async_thread_timeout = timedelta(seconds=settings.getint('APIFY_ASYNC_THREAD_TIMEOUT_SECS', 60))
+        """Caps how long each coroutine run on the background event loop may take; defaults to 60 seconds."""
         self._spider: Spider | None = None
         self._kvs: KeyValueStore | None = None
         self._fingerprinter: RequestFingerprinterProtocol | None = None
@@ -67,7 +68,11 @@ class ApifyCacheStorage:
         logger.debug("Starting background thread for cache storage's event loop")
         self._async_thread = AsyncThread(default_timeout=self._async_thread_timeout)
         logger.debug(f"Opening cache storage's {kvs_name!r} key value store")
-        self._kvs = self._async_thread.run_coro(open_kvs())
+        try:
+            self._kvs = self._async_thread.run_coro(open_kvs())
+        except Exception:
+            traceback.print_exc()
+            raise
 
     def close_spider(self, _: Spider, current_time: int | None = None) -> None:
         """Close the cache storage for a spider."""
@@ -106,7 +111,11 @@ class ApifyCacheStorage:
                             else:
                                 logger.debug(f'Valid cache item {item.key}')
 
-                self._async_thread.run_coro(expire_kvs())
+                try:
+                    self._async_thread.run_coro(expire_kvs())
+                except Exception:
+                    traceback.print_exc()
+                    raise
         finally:
             logger.debug('Closing cache storage')
             try:
@@ -128,7 +137,11 @@ class ApifyCacheStorage:
             raise ValueError('Request fingerprinter not initialized')
 
         key = self._fingerprinter.fingerprint(request).hex()
-        value = self._async_thread.run_coro(self._kvs.get_value(key))
+        try:
+            value = self._async_thread.run_coro(self._kvs.get_value(key))
+        except Exception:
+            traceback.print_exc()
+            raise
 
         if value is None:
             logger.debug('Cache miss', extra={'request': request})
@@ -175,7 +188,11 @@ class ApifyCacheStorage:
             'body': response.body,
         }
         value = to_gzip(data)
-        self._async_thread.run_coro(self._kvs.set_value(key, value))
+        try:
+            self._async_thread.run_coro(self._kvs.set_value(key, value))
+        except Exception:
+            traceback.print_exc()
+            raise
 
 
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:
