@@ -107,17 +107,6 @@ class ApifyRequestQueueSharedClient:
                 )
 
             else:
-                # Add new request to the cache.
-                processed_request = ProcessedRequest(
-                    id=request_id,
-                    unique_key=request.unique_key,
-                    was_already_present=True,
-                    was_already_handled=request.was_already_handled,
-                )
-                self._cache_request(
-                    request_id,
-                    processed_request,
-                )
                 new_requests.append(request)
 
         if new_requests:
@@ -136,10 +125,25 @@ class ApifyRequestQueueSharedClient:
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
 
-            # Remove unprocessed requests from the cache
-            for unprocessed_request in api_response.unprocessed_requests:
-                unprocessed_request_id = unique_key_to_request_id(unprocessed_request.unique_key)
-                self._requests_cache.pop(unprocessed_request_id, None)
+            # Commit only requests the platform actually accepted to the local cache. Caching before the call
+            # would deduplicate a later retry of a request that never reached the platform, silently losing it.
+            unprocessed_ids = {
+                unique_key_to_request_id(unprocessed_request.unique_key)
+                for unprocessed_request in api_response.unprocessed_requests
+            }
+            for request in new_requests:
+                request_id = unique_key_to_request_id(request.unique_key)
+                if request_id in unprocessed_ids:
+                    continue
+                self._cache_request(
+                    request_id,
+                    ProcessedRequest(
+                        id=request_id,
+                        unique_key=request.unique_key,
+                        was_already_present=True,
+                        was_already_handled=request.was_already_handled,
+                    ),
+                )
 
         else:
             api_response = AddRequestsResponse.model_validate(

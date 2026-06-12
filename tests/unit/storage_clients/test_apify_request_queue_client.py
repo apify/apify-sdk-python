@@ -1,24 +1,27 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import RequestQueueHead
+from apify_client._models import AddedRequest, BatchAddResult, RequestQueueHead
 from crawlee.storage_clients.models import RequestQueueMetadata
 
+from apify import Request
+from apify.storage_clients._apify._request_queue_shared_client import ApifyRequestQueueSharedClient
 from apify.storage_clients._apify._request_queue_single_client import ApifyRequestQueueSingleClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-def _make_single_client(
-    api_client: AsyncMock | None = None,
-) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
-    if api_client is None:
-        api_client = AsyncMock()
+
+def _make_metadata() -> RequestQueueMetadata:
     now = datetime.now(tz=UTC)
-    metadata = RequestQueueMetadata(
+    return RequestQueueMetadata(
         id='test-rq-id',
         name='test-rq',
         accessed_at=now,
@@ -29,7 +32,45 @@ def _make_single_client(
         pending_request_count=0,
         total_request_count=0,
     )
-    client = ApifyRequestQueueSingleClient(api_client=api_client, metadata=metadata, cache_size=100)
+
+
+def _batch_result_all_processed(requests: Sequence[Request]) -> BatchAddResult:
+    """Build a `batch_add_requests` response marking every request as newly processed."""
+    return BatchAddResult.model_construct(
+        processed_requests=[
+            AddedRequest.model_construct(
+                request_id=unique_key_to_request_id(request.unique_key),
+                unique_key=request.unique_key,
+                was_already_present=False,
+                was_already_handled=False,
+            )
+            for request in requests
+        ],
+        unprocessed_requests=[],
+    )
+
+
+def _make_single_client(
+    api_client: AsyncMock | None = None,
+) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
+    if api_client is None:
+        api_client = AsyncMock()
+    client = ApifyRequestQueueSingleClient(api_client=api_client, metadata=_make_metadata(), cache_size=100)
+    return client, api_client
+
+
+def _make_shared_client(
+    api_client: AsyncMock | None = None,
+) -> tuple[ApifyRequestQueueSharedClient, AsyncMock]:
+    if api_client is None:
+        api_client = AsyncMock()
+    metadata = _make_metadata()
+    client = ApifyRequestQueueSharedClient(
+        api_client=api_client,
+        metadata=metadata,
+        cache_size=100,
+        metadata_getter=AsyncMock(return_value=metadata),
+    )
     return client, api_client
 
 
@@ -92,3 +133,31 @@ async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> N
     await client._list_head()
 
     api_client.list_head.assert_awaited_once_with(limit=expected_limit)
+
+
+# Failed `batch_add_requests` must not poison the local dedup cache (otherwise a user retry is
+# silently deduplicated and the request never reaches the platform).
+
+
+@pytest.mark.parametrize('access', ['single', 'shared'])
+async def test_failed_batch_add_does_not_poison_dedup_cache(access: str) -> None:
+    """A failed `batch_add_requests` leaves no cached entry, so a retry still reaches the platform."""
+    client, api_client = _make_single_client() if access == 'single' else _make_shared_client()
+    # The single client lazily initializes its caches via `list_requests`; harmless for the shared client.
+    api_client.list_requests = AsyncMock(return_value=SimpleNamespace(items=[]))
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    # First attempt: the platform call fails.
+    api_client.batch_add_requests = AsyncMock(side_effect=RuntimeError('network down'))
+    with pytest.raises(RuntimeError):
+        await client.add_batch_of_requests([request])
+    assert request_id not in client._requests_cache
+
+    # Retry: the platform call succeeds. The request must be sent again, not deduped away.
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([request]))
+    await client.add_batch_of_requests([request])
+
+    api_client.batch_add_requests.assert_awaited_once()
+    assert api_client.batch_add_requests.await_args is not None
+    assert len(api_client.batch_add_requests.await_args.kwargs['requests']) == 1

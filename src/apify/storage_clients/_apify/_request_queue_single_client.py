@@ -139,13 +139,6 @@ class ApifyRequestQueueSingleClient:
                 # Push the request to the platform. Probably not there, or we are not aware of it
                 new_requests.append(request)
 
-                # Update local caches
-                self._requests_cache[request_id] = request
-                if forefront:
-                    self._head_requests.append(request_id)
-                else:
-                    self._head_requests.appendleft(request_id)
-
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
             requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
@@ -158,10 +151,21 @@ class ApifyRequestQueueSingleClient:
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
 
-            # Remove unprocessed requests from the cache
-            for unprocessed_request in api_response.unprocessed_requests:
-                request_id = unique_key_to_request_id(unprocessed_request.unique_key)
-                self._requests_cache.pop(request_id, None)
+            # Commit only requests the platform actually accepted to the local caches. Caching before the call
+            # would deduplicate a later retry of a request that never reached the platform, silently losing it.
+            unprocessed_ids = {
+                unique_key_to_request_id(unprocessed_request.unique_key)
+                for unprocessed_request in api_response.unprocessed_requests
+            }
+            for request in new_requests:
+                request_id = unique_key_to_request_id(request.unique_key)
+                if request_id in unprocessed_ids:
+                    continue
+                self._requests_cache[request_id] = request
+                if forefront:
+                    self._head_requests.append(request_id)
+                else:
+                    self._head_requests.appendleft(request_id)
 
         else:
             api_response = AddRequestsResponse(
