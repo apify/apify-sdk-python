@@ -16,7 +16,7 @@ You can learn more in the [documentation for webhooks](https://docs.apify.com/pl
 
 ## Creating an ad-hoc webhook dynamically
 
-Besides creating webhooks manually in Apify Console, or through the Apify API, you can also create [ad-hoc webhooks](https://docs.apify.com/platform/integrations/webhooks/ad-hoc-webhooks) dynamically from the code of your Actor using the <ApiLink to="class/Actor#add_webhook">`Actor.add_webhook`</ApiLink> method:
+Besides creating webhooks manually in [Apify Console](https://docs.apify.com/platform/console), or through the Apify API, you can also create [ad-hoc webhooks](https://docs.apify.com/platform/integrations/webhooks/ad-hoc-webhooks) dynamically from the code of your Actor using the <ApiLink to="class/Actor#add_webhook">`Actor.add_webhook`</ApiLink> method:
 
 <RunnableCodeBlock className="language-python" language="python">
     {WebhookExample}
@@ -31,5 +31,9 @@ To ensure that duplicate ad-hoc webhooks won't get created in a case of Actor re
 <RunnableCodeBlock className="language-python" language="python">
     {WebhookPreventingExample}
 </RunnableCodeBlock>
+
+## Conclusion
+
+This page has shown how to create ad-hoc webhooks dynamically with <ApiLink to="class/Actor#add_webhook">`Actor.add_webhook`</ApiLink> and how to avoid creating duplicates across Actor restarts using the `idempotency_key` parameter.
 
 For more information about webhooks, including event types and payloads, see the [Apify webhooks documentation](https://docs.apify.com/platform/integrations/webhooks).

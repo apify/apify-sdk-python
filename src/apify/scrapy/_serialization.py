@@ -1,20 +1,23 @@
 """JSON serialization of Scrapy requests and cached responses for storage on the Apify platform.
 
-Scrapy requests and cached responses are stored in the Apify request queue and key-value store which hold JSON,
-so they are serialized as JSON here rather than pickled.
+Scrapy requests and cached responses are stored in the Apify request queue and key-value store, which hold JSON.
+They are therefore serialized as JSON here.
 
-Only `body` (`bytes`) and `headers` (`{bytes: [bytes]}`) are not natively JSON-serializable; both sit at fixed keys
-and are base64-encoded in place. A `str` `body` is encoded as its UTF-8 bytes and comes back as `bytes`, matching
-Scrapy, which always stores `body` as `bytes`. Pydantic models such as Crawlee's `UserData` are dumped via
-`model_dump()`. Everything else, notably `meta` and `cb_kwargs`, must already be JSON-serializable, otherwise
-serialization fails with a clear error naming the offending value. No in-band sentinel is used, so no user value
-can collide with the encoding.
+Only `body` (`bytes`) and `headers` (`{bytes: [bytes]}`) are not natively JSON-serializable. Both live at fixed keys
+and are base64-encoded in place. A `str` `body` is encoded as UTF-8 bytes and deserialized as `bytes`, matching
+Scrapy, which always stores `body` as `bytes`.
 
-Known limitations of the pickle -> JSON switch (a documented breaking change): JSON has fewer types than pickle,
-so values in `meta`/`cb_kwargs` are subject to JSON's coercions. A `tuple` round-trips as a `list` and non-string
-`dict` keys round-trip as strings (e.g. `{1: 'a'}` becomes `{'1': 'a'}`). Values JSON cannot represent at all
-(`datetime`, `set`, `Decimal`, arbitrary objects, ...) are not coerced silently: serialization raises and the request
-is skipped loudly rather than stored in a corrupted form.
+Pydantic models, such as Crawlee's `UserData`, are dumped with `model_dump(mode='json')`, which converts
+non-JSON-native fields into JSON-compatible values. For example, `datetime` fields are stored as ISO-8601 strings.
+
+All other values, notably `meta` and `cb_kwargs`, must already be JSON-serializable. Non-JSON-serializable values,
+such as `datetime`, `set`, `Decimal`, or arbitrary objects, fail serialization with a clear error naming the
+offending value. The request is skipped rather than stored in a corrupted form.
+
+No in-band sentinel is used, so user values cannot collide with the encoding.
+
+Known JSON limitations: values in `meta` and `cb_kwargs` are subject to JSON coercions. A `tuple` round-trips as
+a `list`, and non-string `dict` keys round-trip as strings; for example, `{1: 'a'}` becomes `{'1': 'a'}`.
 """
 
 from __future__ import annotations
@@ -60,7 +63,9 @@ def encode_to_json(data: dict[str, Any]) -> str:
         # `ensure_ascii=False` keeps non-ASCII URLs/meta as their UTF-8 form instead of `\uXXXX` escapes, which
         # would otherwise roughly double the size of non-Latin text in storage.
         return json.dumps(safe, default=_json_default, ensure_ascii=False)
-    except TypeError as exc:
+    # `ValueError` covers pydantic's `PydanticSerializationError`, raised when a model field cannot be dumped
+    # to JSON even in JSON mode.
+    except (TypeError, ValueError) as exc:
         raise TypeError(
             'Failed to JSON-serialize a Scrapy request/response for storage on the Apify platform. '
             'All values in `meta` and `cb_kwargs` must be JSON-serializable (str, int, float, bool, None, '
@@ -100,7 +105,7 @@ def _json_default(obj: Any) -> Any:
     at the bad `meta`/`cb_kwargs` entry instead of just reporting that something failed.
     """
     if isinstance(obj, BaseModel):
-        return obj.model_dump(by_alias=True)
+        return obj.model_dump(mode='json', by_alias=True)
     value_repr = repr(obj)
     if len(value_repr) > _MAX_ERROR_VALUE_REPR_LEN:
         value_repr = value_repr[:_MAX_ERROR_VALUE_REPR_LEN] + '...'
