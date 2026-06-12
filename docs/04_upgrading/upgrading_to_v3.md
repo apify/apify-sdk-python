@@ -110,9 +110,11 @@ async def main():
         )
 ```
 
-### Changes in storage clients
+## Changes in storage clients
 
-## Explicit control over storage clients used in Actor
+Apify SDK v3.0 also reworks how storage clients are configured, giving you explicit control over which client the `Actor` uses.
+
+### Explicit control over storage clients used in Actor
 - It is now possible to have full control over which storage clients are used by the `Actor`. To make development of Actors convenient, the `Actor` has two storage clients. One that is used when running on Apify platform or when opening storages with `force_cloud=True` and the other client that is used when running outside the Apify platform. The `Actor` has reasonable defaults and for the majority of use-cases there is no need to change it. However, if you need to use a different storage client, you can set it up before entering `Actor` context through `service_locator`.
 
 **Now (v3.0):**
@@ -135,7 +137,7 @@ async def main():
 ```
 
 
-## The default use of optimized ApifyRequestQueueClient
+### The default use of optimized ApifyRequestQueueClient
 
 - The default client for working with Apify platform based `RequestQueue` is now optimized and simplified client which does significantly lower amount of API calls, but does not support multiple consumers working on the same queue. It is cheaper and faster and is suitable for the majority of the use cases.
 - The full client is still available, but it has to be explicitly requested via `request_queue_access="shared"` argument when using the `ApifyStorageClient`.

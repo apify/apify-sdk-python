@@ -1,6 +1,6 @@
 ---
 id: storages
-title: Working with storages
+title: Storages
 description: Use datasets, key-value stores, and request queues to persist Actor data.
 ---
 
@@ -45,11 +45,11 @@ Each dataset item, key-value store record, or request in a request queue is then
 
 When developing locally, opening any storage will by default use local storage. To change this behavior and to use remote storage you have to use `force_cloud=True` argument in <ApiLink to="class/Actor#open_dataset">`Actor.open_dataset`</ApiLink>, <ApiLink to="class/Actor#open_request_queue">`Actor.open_request_queue`</ApiLink> or <ApiLink to="class/Actor#open_key_value_store">`Actor.open_key_value_store`</ApiLink>. Proper use of this argument allows you to work with both local and remote storages.
 
-Calling another remote Actor and accessing its default storage is typical use-case for using `force-cloud=True` argument to open remote Actor's storages.
+Calling another remote Actor and accessing its default storage is a typical use-case for using `force_cloud=True` argument to open remote Actor's storages.
 
 ### Local storage persistence
 
-By default, the storage contents are persisted across multiple Actor runs. To clean up the Actor storages before the running the Actor, use the `--purge` flag of the [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command of the Apify CLI.
+By default, the storage contents are persisted across multiple Actor runs. To clean up the Actor storages before running the Actor, use the `--purge` flag of the [`apify run`](https://docs.apify.com/cli/docs/reference#apify-run) command of the Apify CLI.
 
 ```bash
 apify run --purge
@@ -106,8 +106,8 @@ To get an iterator of the data, you can use the <ApiLink to="class/Dataset#itera
 ### Exporting items
 
 You can also export the dataset items into a key-value store, as either a CSV or a JSON record,
-using the <ApiLink to="class/Dataset#export_to_csv">`Dataset.export_to_csv`</ApiLink>
-or <ApiLink to="class/Dataset#export_to_json">`Dataset.export_to_json`</ApiLink> method.
+using the <ApiLink to="class/Dataset#export_to">`Dataset.export_to`</ApiLink> method with the
+`content_type` argument set to `'csv'` or `'json'`.
 
 <RunnableCodeBlock className="language-python" language="python">
     {DatasetExportsExample}
@@ -183,6 +183,10 @@ To check if all the requests in the queue are handled, you can use the <ApiLink 
 
 ## Storage clients
 
-Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The appropriate client is selected automatically based on the runtime environment — on the Apify platform, data is persisted via the Apify API, while local runs use the filesystem. For most use cases, you don't need to think about storage clients at all. If you want to learn more about how storage clients work, the available implementations, or how to configure them, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients). The Apify-specific clients are available in the `apify.storage_clients` module.
+Behind the scenes, the SDK uses storage clients to communicate with the storage backend. The appropriate client is selected automatically based on the runtime environment. On the Apify platform, data is persisted via the Apify API, while local runs use the filesystem. For most use cases, you don't need to think about storage clients at all. To learn about the available implementations, how to switch between a single and shared request queue, or how to configure a custom client, see [Storage clients](./storage-clients). For a deeper look at how storage clients work internally, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients).
+
+## Conclusion
+
+This page has covered the three storage types (datasets, key-value stores, and request queues): how they are emulated on the local filesystem, how to open named and unnamed storages, and how to read from and write to each through the `Actor` shortcuts and the storage classes.
 
 For comprehensive information about storage on the Apify platform, see the [storage documentation](https://docs.apify.com/platform/storage), including the pages on [datasets](https://docs.apify.com/platform/storage/dataset), [key-value stores](https://docs.apify.com/platform/storage/key-value-store), and [request queues](https://docs.apify.com/platform/storage/request-queue).
