@@ -17,11 +17,11 @@ import UnderscoreMainExample from '!!raw-loader!./code/actor_structure/__main__.
 
 ## Step 1: Create Actors
 
-To create and run Actors in Apify Console, refer to the [Console documentation](/platform/actors/development/quick-start/web-ide).
+To create and run Actors in [Apify Console](https://docs.apify.com/platform/console), refer to the [Console documentation](/platform/actors/development/quick-start/web-ide).
 
 To create a new Apify Actor on your computer, you can use the [Apify CLI](/cli), and select one of the [Python Actor templates](https://apify.com/templates?category=python).
 
-For example, to create an Actor from the "[beta] Python SDK" template, you can use the [`apify create` command](/cli/docs/reference#apify-create-actorname).
+For example, to create an Actor from the "Getting started with Python" template, you can use the [`apify create` command](/cli/docs/reference#apify-create-actorname).
 
 ```bash
 apify create my-first-actor --template python-start
@@ -59,7 +59,7 @@ The Actor's runtime dependencies are specified in the `requirements.txt` file, w
 The Actor's source code is in the `src` folder. This folder contains two important files:
 
 - `main.py` - which contains the main function of the Actor
-- `__main__.py` - which is the entrypoint of the Actor package setting up the Actor [logger](../concepts/logging) and executing the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+- `__main__.py` - which is the entrypoint of the Actor package, executing the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
 
 <Tabs>
     <TabItem value="main.py" label="main.py" default>
@@ -67,7 +67,7 @@ The Actor's source code is in the `src` folder. This folder contains two importa
             {MainExample}
         </CodeBlock>
     </TabItem>
-    <TabItem value="__main__.py" label="__main.py__">
+    <TabItem value="__main__.py" label="__main__.py">
         <CodeBlock className="language-python">
             {UnderscoreMainExample}
         </CodeBlock>
@@ -79,13 +79,15 @@ We recommend keeping the entrypoint for the Actor in the `src/__main__.py` file.
 
 ## Next steps
 
+Now that you can create and run an Actor locally, explore the rest of the SDK's features and its framework integrations.
+
 ### Concepts
 
 To learn more about the features of the Apify SDK and how to use them, check out the Concepts section in the sidebar:
 
 - [Actor lifecycle](../concepts/actor-lifecycle)
 - [Actor input](../concepts/actor-input)
-- [Working with storages](../concepts/storages)
+- [Storages](../concepts/storages)
 - [Actor events & state persistence](../concepts/actor-events)
 - [Proxy management](../concepts/proxy-management)
 - [Interacting with other Actors](../concepts/interacting-with-other-actors)
@@ -105,5 +107,8 @@ To see how you can integrate the Apify SDK with popular web scraping libraries, 
 - [Selenium](../guides/selenium)
 - [Crawlee](../guides/crawlee)
 - [Scrapy](../guides/scrapy)
+- [Crawl4AI](../guides/crawl4ai)
+- [Browser Use](../guides/browser-use)
 - [Running webserver](../guides/running-webserver)
 - [uv](../guides/uv)
+- [Validate Actor input with Pydantic](../guides/input-validation)

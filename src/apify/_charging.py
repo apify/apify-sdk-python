@@ -5,9 +5,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Annotated, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict
+from pydantic.alias_generators import to_camel
 
 import apify_client._models as _client_models
 from apify_client._models import ActorChargeEvent as ClientActorChargeEvent
@@ -28,14 +29,17 @@ if TYPE_CHECKING:
 
     from apify._configuration import Configuration
 
-PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
-"""Pricing model for an Actor."""
+charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
+"""Holds the current `ChargingManager` instance, if any.
+
+Allows PPE-aware dataset clients to access the charging manager without needing to pass it explicitly.
+"""
 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
+"""Name of the synthetic event charged for each item pushed to the default dataset."""
 
-# Context variable to hold the current `ChargingManager` instance, if any. This allows PPE-aware dataset clients to
-# access the charging manager without needing to pass it explicitly.
-charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
+PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
+"""Pricing model for an Actor."""
 
 _ensure_context = ensure_context('active')
 
@@ -49,48 +53,103 @@ _ensure_context = ensure_context('active')
 # `apify-client` instance) flows through the same code paths without conversion.
 
 
-class _RelaxedPricingMetadata(BaseModel):
-    """Mixin relaxing the `CommonActorPricingInfo` metadata fields the platform env var omits."""
-
-    model_config = ConfigDict(populate_by_name=True, extra='allow')
-
-    apify_margin_percentage: Annotated[float | None, Field(alias='apifyMarginPercentage')] = None
-    created_at: Annotated[datetime | None, Field(alias='createdAt')] = None
-    started_at: Annotated[datetime | None, Field(alias='startedAt')] = None
-
-
 @docs_group('Charging')
 class ActorChargeEvent(ClientActorChargeEvent):
-    # `event_description` is required in apify-client but omitted from the env var.
-    event_description: Annotated[str | None, Field(alias='eventDescription')] = None
+    """Definition of a single chargeable event in the pay-per-event pricing model."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    event_description: str | None = None
+    """Human-readable description of the event.
+
+    Required in apify-client but omitted from the env var, so it is relaxed to optional.
+    """
 
 
 @docs_group('Charging')
 class PricingPerEvent(ClientPricingPerEvent):
-    actor_charge_events: Annotated[dict[str, ActorChargeEvent] | None, Field(alias='actorChargeEvents')] = None
+    """Pay-per-event pricing details - the chargeable events and their prices."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    actor_charge_events: dict[str, ActorChargeEvent] | None = None
+    """Mapping of event name to its charge definition."""
 
 
 @docs_group('Charging')
-class FreeActorPricingInfo(_RelaxedPricingMetadata, ClientFree):
-    pass
+class FreeActorPricingInfo(ClientFree):
+    """Pricing info for an Actor offered free of charge."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
 
 
 @docs_group('Charging')
-class FlatPricePerMonthActorPricingInfo(_RelaxedPricingMetadata, ClientFlatPricePerMonth):
-    trial_minutes: Annotated[int | None, Field(alias='trialMinutes')] = None
-    price_per_unit_usd: Annotated[float | None, Field(alias='pricePerUnitUsd')] = None
+class FlatPricePerMonthActorPricingInfo(ClientFlatPricePerMonth):
+    """Pricing info for an Actor billed at a flat monthly price."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
+
+    trial_minutes: int | None = None
+    """Length of the free trial period, in minutes."""
+
+    price_per_unit_usd: float | None = None
+    """Price per unit, in USD."""
 
 
 @docs_group('Charging')
-class PricePerDatasetItemActorPricingInfo(_RelaxedPricingMetadata, ClientPricePerDatasetItem):
-    unit_name: Annotated[str | None, Field(alias='unitName')] = None
-    # `price_per_unit_usd` is already optional in apify-client - inherited.
+class PricePerDatasetItemActorPricingInfo(ClientPricePerDatasetItem):
+    """Pricing info for an Actor billed per dataset item produced."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
+
+    unit_name: str | None = None
+    """Name of the billed unit."""
 
 
 @docs_group('Charging')
-class PayPerEventActorPricingInfo(_RelaxedPricingMetadata, ClientPayPerEvent):
-    # Re-typed to the relaxed element so an omitted `eventDescription` validates; the field stays required.
-    pricing_per_event: Annotated[PricingPerEvent, Field(alias='pricingPerEvent')]
+class PayPerEventActorPricingInfo(ClientPayPerEvent):
+    """Pricing info for an Actor billed per charged event."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
+
+    pricing_per_event: PricingPerEvent
+    """The pay-per-event pricing details."""
 
 
 ActorPricingInfoModel = ClientFree | ClientFlatPricePerMonth | ClientPricePerDatasetItem | ClientPayPerEvent

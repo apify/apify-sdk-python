@@ -259,10 +259,6 @@ module.exports = {
                         url: 'https://crawlee.dev/python/api/class/FileSystemStorageClient',
                         group: 'Storage clients',
                     },
-                    {
-                        url: 'https://crawlee.dev/python/api/class/SqlStorageClient',
-                        group: 'Storage clients',
-                    },
                     // Request loaders
                     {
                         url: 'https://crawlee.dev/python/api/class/RequestLoader',

@@ -78,6 +78,8 @@ class ApifyEventManager(EventManager):
             )
             is_connected = await self._connected_to_platform_websocket
             if not is_connected:
+                # Exit the already-entered parent so the recurring persist state task does not leak.
+                await self.__aexit__(None, None, None)
                 raise RuntimeError('Error connecting to platform events websocket!')
         else:
             logger.debug('APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.')

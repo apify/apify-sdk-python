@@ -85,7 +85,7 @@ GroupName = Literal[
 ]
 
 
-def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
+def docs_group(group_name: GroupName) -> Callable[[T], T]:  # noqa: ARG001
     """Mark a symbol for rendering and grouping in documentation.
 
     This decorator is used solely for documentation purposes and does not modify the behavior
@@ -98,13 +98,13 @@ def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
         The original callable without modification.
     """
 
-    def wrapper(func: Callable) -> Callable:
+    def wrapper(func: T) -> T:
         return func
 
     return wrapper
 
 
-def docs_name(symbol_name: str) -> Callable:  # noqa: ARG001
+def docs_name(symbol_name: str) -> Callable[[T], T]:  # noqa: ARG001
     """Rename a symbol for documentation rendering.
 
     This decorator modifies only the displayed name of the symbol in the generated documentation
@@ -117,7 +117,7 @@ def docs_name(symbol_name: str) -> Callable:  # noqa: ARG001
         The original callable without modification.
     """
 
-    def wrapper(func: Callable) -> Callable:
+    def wrapper(func: T) -> T:
         return func
 
     return wrapper

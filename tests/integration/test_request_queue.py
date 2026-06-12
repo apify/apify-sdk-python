@@ -1137,7 +1137,6 @@ async def test_rq_long_url(
 async def test_pre_existing_request_with_user_data(
     request_queue_apify: RequestQueue,
     apify_client_async: ApifyClientAsync,
-    rq_poll_timeout: int,
 ) -> None:
     """Test that pre-existing requests with user data are fully fetched.
 
@@ -1154,8 +1153,10 @@ async def test_pre_existing_request_with_user_data(
     rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
     await rq_client.add_request(req.model_dump(by_alias=True))
 
-    # Fetch the request by the client under test.
-    request_obtained = await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2)
+    # Fetch the request by the client under test. It was added by a different producer, so single-mode immediate
+    # consistency (which only covers the client's own writes) does not apply: poll until the write propagates,
+    # the same way shared mode does, rather than relying on `rq_poll_timeout` (0 in single mode).
+    request_obtained = await poll_until_condition(rq.fetch_next_request, timeout=30, backoff_factor=2)
     assert request_obtained is not None
     # Test that custom_data is preserved in user_data (custom_data should be subset of obtained user_data)
     assert custom_data.items() <= request_obtained.user_data.items()
