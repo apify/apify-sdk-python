@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import cast
 
@@ -138,6 +139,28 @@ def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) ->
     follow_up_apify_request = to_apify_request(follow_up_2, spider)
     assert follow_up_apify_request is not None
     assert follow_up_apify_request.url == 'https://example.com/image.png'
+
+
+def test_does_not_mutate_spider_request_user_data(spider: Spider) -> None:
+    """Conversion must not mutate the spider's own `meta['userData']` by injecting Crawlee internals."""
+    user_data = {'some_user_data': 'test'}
+    scrapy_request = Request(url='https://example.com', meta={'userData': user_data})
+
+    to_apify_request(scrapy_request, spider)
+
+    assert user_data == {'some_user_data': 'test'}
+    assert '__crawlee' not in user_data
+
+
+def test_serialized_request_omits_injected_crawlee_data(spider: Spider) -> None:
+    """The stored `scrapy_request` blob must not embed the `__crawlee` data `Request.from_url()` injects."""
+    scrapy_request = Request(url='https://example.com', meta={'userData': {'some_user_data': 'test'}})
+
+    apify_request = to_apify_request(scrapy_request, spider)
+    assert apify_request is not None
+
+    stored = json.loads(cast('str', apify_request.user_data['scrapy_request']))
+    assert '__crawlee' not in stored['meta'].get('userData', {})
 
 
 def test_dont_filter_request_is_always_enqueued(spider: Spider) -> None:

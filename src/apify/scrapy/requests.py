@@ -80,12 +80,21 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         elif scrapy_request.meta.get('apify_request_unique_key'):
             request_kwargs['unique_key'] = scrapy_request.meta['apify_request_unique_key']
 
+        # Serialize the Scrapy request now, before `Request.from_url()` runs below. `from_url()` mutates the
+        # `user_data` dict it receives in place (it injects a live `CrawleeRequestData` under `__crawlee`), and that
+        # dict can be the spider's own `meta['userData']`. Capturing `to_dict()` first keeps the stored blob free of
+        # those injected internals, and copying `user_data` below leaves the spider's request untouched.
+        scrapy_request_dict = scrapy_request.to_dict(spider=spider)
+
         user_data = scrapy_request.meta.get('userData', {})
 
         # Convert UserData Pydantic model to a plain dict to prevent CrawleeRequestData objects from leaking
-        # into Request.from_url() during Scrapy-Apify roundtrips.
+        # into Request.from_url() during Scrapy-Apify roundtrips. `model_dump()` already returns a fresh dict; the
+        # plain-dict case is copied so the `pop` and `from_url()` mutations below never touch the spider's meta.
         if isinstance(user_data, UserData):
             user_data = user_data.model_dump(by_alias=True)
+        elif isinstance(user_data, dict):
+            user_data = dict(user_data)
 
         # Remove internal Crawlee data since it's managed by Request.from_url() and values from previous roundtrips
         # cause incorrect state.
@@ -117,7 +126,6 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
             )
 
         apify_request = ApifyRequest.from_url(**request_kwargs)
-        scrapy_request_dict = scrapy_request.to_dict(spider=spider)
 
     except Exception as exc:
         logger.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
