@@ -118,7 +118,7 @@ class _ActorType:
             configuration: The Actor configuration to use. If not provided, a default configuration is created.
             configure_logging: Whether to set up the default logging configuration.
             exit_process: Whether the Actor should call `sys.exit` when the context manager exits.
-                Defaults to True, except in IPython, Pytest, and Scrapy environments.
+                Defaults to True, except in IPython and Scrapy environments.
             exit_code: The exit code the Actor should use when exiting.
             status_message: Final status message to display upon Actor termination.
             event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
@@ -186,7 +186,6 @@ class _ActorType:
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
-        self._was_final_persist_state_emitted = False
 
         # Initialize the storage client and register it in the service locator.
         _ = self._storage_client
@@ -913,7 +912,7 @@ class _ActorType:
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
-            timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
+            timeout: Optional timeout for the run. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor
                 to the time remaining from this Actor timeout.
             force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
@@ -1020,7 +1019,7 @@ class _ActorType:
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
-            timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
+            timeout: Optional timeout for the run. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor
                 to the time remaining from this Actor timeout.
             force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
@@ -1089,17 +1088,16 @@ class _ActorType:
         directly rather than an Actor task, please use the `Actor.call`
 
         Args:
-            task_id: The ID of the Actor to be run.
+            task_id: The ID of the Actor task to be run.
             task_input: Overrides the input to pass to the Actor run.
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
-            content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
-            timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
+            timeout: Optional timeout for the run. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor to the
                 time remaining from this Actor timeout.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
@@ -1214,7 +1212,7 @@ class _ActorType:
         # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
         # PERSIST_STATE listeners are called to allow the Actor to persist its state before the reboot.
         # MIGRATING listeners are called to allow the Actor to gracefully stop in-progress tasks before the reboot.
-        # Typically, crawlers are listening for the MIIGRATING event to stop processing new requests.
+        # Typically, crawlers are listening for the MIGRATING event to stop processing new requests.
         # We can't just emit the events and wait for all listeners to finish,
         # because this method might be called from an event listener itself, and we would deadlock.
         persist_state_listeners = flatten(

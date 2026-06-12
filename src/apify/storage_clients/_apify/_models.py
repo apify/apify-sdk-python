@@ -102,7 +102,13 @@ class CachedRequest(BaseModel):
     """The expiration time of the lock on the request."""
 
 
+@docs_group('Storage data')
 class ApifyRequestQueueMetadata(RequestQueueMetadata):
+    """Extended request queue metadata model for Apify platform.
+
+    Includes additional Apify-specific fields.
+    """
+
     model_config = ConfigDict(alias_generator=to_camel)
 
     stats: Annotated[

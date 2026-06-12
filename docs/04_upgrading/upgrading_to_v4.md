@@ -83,6 +83,20 @@ run = await Actor.start('my-actor-id', wait_for_finish=60)
 run = await Actor.call('my-actor-id', wait=timedelta(seconds=60))
 ```
 
+## Purging storages on the Apify platform
+
+The Apify platform storage clients do not support `purge()`. Calling `purge()` on a dataset, key-value store, or request queue opened on the platform raises `NotImplementedError`, because the platform API has no operation that clears a storage's contents in place. To delete a storage, call `drop()` instead.
+
+```python
+# Raises NotImplementedError on the Apify platform.
+await dataset.purge()
+
+# Delete the storage instead.
+await dataset.drop()
+```
+
+Local file-system storages are unaffected and still support `purge()`.
+
 ## Built on apify-client v3
 
 The SDK is now built on [`apify-client`](https://docs.apify.com/api/client/python) v3 and no longer depends on `apify-shared`. The sections below cover the user-visible consequences; see the client's [Upgrading to v3](https://docs.apify.com/api/client/python/docs/upgrading/upgrading-to-v3) guide for the full list of changes in the client itself.

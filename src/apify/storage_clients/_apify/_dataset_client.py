@@ -144,6 +144,8 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
         async with self._charge_lock(), self._lock:
             items = data if self._is_sequence_of_items(data) else [data]
+            if not items:
+                return
             limit = self._compute_limit_for_push(len(items))
             items = items[:limit]
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
 from apify_client import ApifyClientAsync
 
-from ._utils import hash_api_base_url_and_token
+from ._utils import hash_api_public_base_url_and_token
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -135,6 +135,10 @@ class AliasResolver:
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
+    _api_clients: ClassVar[dict[tuple[str | None, str | None], ApifyClientAsync]] = {}
+    """Cache of Apify API clients keyed by `(token, api_url)`. Reused across instances so that repeated alias
+    resolution does not create (and leak) a fresh unclosed `ApifyClientAsync` on every call."""
+
     default_storage_key: ClassVar[str] = '__default__'
 
     def __init__(
@@ -177,7 +181,7 @@ class AliasResolver:
     async def _get_alias_map(cls, configuration: Configuration) -> dict[str, str]:
         """Get the aliases and storage ids mapping from the default kvs.
 
-        Mapping is loaded from kvs only once and is shared for all instances of the _AliasResolver class.
+        Mapping is loaded from kvs only once and is shared for all instances of the AliasResolver class.
 
         Args:
             configuration: Configuration object to use for accessing the default KVS.
@@ -222,12 +226,11 @@ class AliasResolver:
 
         if not self._configuration.is_at_home:
             logging.getLogger(__name__).debug(
-                '_AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
+                'AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
             )
             return
 
         default_kvs_client = await self._get_default_kvs_client(self._configuration)
-        await default_kvs_client.get()
 
         try:
             record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
@@ -246,20 +249,28 @@ class AliasResolver:
             [
                 self._storage_type,
                 self._alias,
-                hash_api_base_url_and_token(self._configuration),
+                hash_api_public_base_url_and_token(self._configuration),
             ]
         )
 
-    @staticmethod
-    async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
-        """Get a client for the default key-value store."""
-        apify_client_async = ApifyClientAsync(
-            token=configuration.token,
-            api_url=configuration.api_base_url,
-            max_retries=8,
-        )
+    @classmethod
+    async def _get_default_kvs_client(cls, configuration: Configuration) -> KeyValueStoreClientAsync:
+        """Get a client for the default key-value store.
 
+        The underlying `ApifyClientAsync` is cached per `(token, api_url)` and reused across calls, so repeated
+        alias resolution does not create (and leak) a fresh unclosed client every time.
+        """
         if not configuration.default_key_value_store_id:
             raise ValueError("'Configuration.default_key_value_store_id' must be set.")
+
+        cache_key = (configuration.token, configuration.api_base_url)
+        apify_client_async = cls._api_clients.get(cache_key)
+        if apify_client_async is None:
+            apify_client_async = ApifyClientAsync(
+                token=configuration.token,
+                api_url=configuration.api_base_url,
+                max_retries=8,
+            )
+            cls._api_clients[cache_key] = apify_client_async
 
         return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
