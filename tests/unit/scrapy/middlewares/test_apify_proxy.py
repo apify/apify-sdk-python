@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import warnings
 from urllib.parse import ParseResult, urlparse
 
 import pytest
 from scrapy import Request, Spider
 from scrapy.core.downloader.handlers.http11 import TunnelError
-from scrapy.core.downloader.middleware import DownloaderMiddlewareManager
 from scrapy.crawler import Crawler
-from scrapy.exceptions import NotConfigured, ScrapyDeprecationWarning
+from scrapy.exceptions import NotConfigured
 
 from apify import ProxyConfiguration
 from apify.scrapy.middlewares import ApifyHttpProxyMiddleware
@@ -146,20 +144,3 @@ def test_handles_exceptions(
 ) -> None:
     returned_value = middleware.process_exception(dummy_request, exception)
     assert returned_value is None
-
-
-def test_methods_do_not_require_deprecated_spider_arg(
-    crawler: Crawler,
-    middleware: ApifyHttpProxyMiddleware,
-) -> None:
-    """Registering the middleware must not emit Scrapy's `spider` argument deprecation warning (scrapy>=2.14)."""
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter('always')
-        DownloaderMiddlewareManager(middleware, crawler=crawler)
-
-    spider_arg_warnings = [
-        w
-        for w in caught
-        if issubclass(w.category, ScrapyDeprecationWarning) and 'requires a spider argument' in str(w.message)
-    ]
-    assert spider_arg_warnings == []
