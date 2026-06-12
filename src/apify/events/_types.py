@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from crawlee.events._types import (
     Event,
@@ -29,28 +30,30 @@ This is the Apify-specific subset of [`Event`][crawlee.events.Event] — for the
 class SystemInfoEventData(BaseModel):
     """Resource usage metrics carried by a `systemInfo` event."""
 
-    mem_avg_bytes: Annotated[float, Field(alias='memAvgBytes')]
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    mem_avg_bytes: float
     """Average memory usage over the measured interval, in bytes."""
 
-    mem_current_bytes: Annotated[float, Field(alias='memCurrentBytes')]
+    mem_current_bytes: float
     """Current memory usage, in bytes."""
 
-    mem_max_bytes: Annotated[float, Field(alias='memMaxBytes')]
+    mem_max_bytes: float
     """Peak memory usage observed so far, in bytes."""
 
-    cpu_avg_usage: Annotated[float, Field(alias='cpuAvgUsage')]
+    cpu_avg_usage: float
     """Average CPU usage over the measured interval, in percent."""
 
-    cpu_max_usage: Annotated[float, Field(alias='cpuMaxUsage')]
+    cpu_max_usage: float
     """Peak CPU usage observed so far, in percent."""
 
-    cpu_current_usage: Annotated[float, Field(alias='cpuCurrentUsage')]
+    cpu_current_usage: float
     """Current CPU usage, in percent."""
 
-    is_cpu_overloaded: Annotated[bool, Field(alias='isCpuOverloaded')]
+    is_cpu_overloaded: bool
     """Whether the CPU is currently overloaded."""
 
-    created_at: Annotated[datetime, Field(alias='createdAt')]
+    created_at: datetime
     """Timestamp when the metrics were collected."""
 
     def to_crawlee_format(self, dedicated_cpus: float) -> EventSystemInfoData:
@@ -73,6 +76,8 @@ class SystemInfoEventData(BaseModel):
 class PersistStateEvent(BaseModel):
     """A `persistState` event instructing the Actor to persist its state."""
 
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
     name: Literal[Event.PERSIST_STATE]
     """The event name."""
 
@@ -83,6 +88,8 @@ class PersistStateEvent(BaseModel):
 @docs_group('Events')
 class SystemInfoEvent(BaseModel):
     """A `systemInfo` event carrying the Actor's resource usage metrics."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     name: Literal[Event.SYSTEM_INFO]
     """The event name."""
@@ -95,6 +102,8 @@ class SystemInfoEvent(BaseModel):
 class MigratingEvent(BaseModel):
     """A `migrating` event signalling the Actor is about to be migrated to another host."""
 
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
     name: Literal[Event.MIGRATING]
     """The event name."""
 
@@ -105,6 +114,8 @@ class MigratingEvent(BaseModel):
 @docs_group('Events')
 class AbortingEvent(BaseModel):
     """An `aborting` event signalling the Actor run is being aborted."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     name: Literal[Event.ABORTING]
     """The event name."""
@@ -117,6 +128,8 @@ class AbortingEvent(BaseModel):
 class ExitEvent(BaseModel):
     """An `exit` event signalling the Actor process is about to exit."""
 
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
     name: Literal[Event.EXIT]
     """The event name."""
 
@@ -127,6 +140,8 @@ class ExitEvent(BaseModel):
 @docs_group('Events')
 class EventWithoutData(BaseModel):
     """A framework-level event that carries no payload (e.g. browser and page lifecycle events)."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     name: Literal[
         Event.SESSION_RETIRED,
@@ -146,6 +161,8 @@ class EventWithoutData(BaseModel):
 class DeprecatedEvent(BaseModel):
     """A deprecated event kept for backward compatibility (e.g. `cpuInfo`)."""
 
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
     name: Literal['cpuInfo']
     """The event name."""
 
@@ -156,6 +173,8 @@ class DeprecatedEvent(BaseModel):
 @docs_group('Events')
 class UnknownEvent(BaseModel):
     """A fallback for any event whose name is not recognized by the SDK."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     name: str
     """The event name."""

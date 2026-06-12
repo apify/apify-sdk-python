@@ -1,4 +1,4 @@
-from crawlee.storage_clients import MemoryStorageClient
+from crawlee.storage_clients import MemoryStorageClient, StorageClient
 
 from ._apify import ApifyStorageClient
 from ._file_system import ApifyFileSystemStorageClient as FileSystemStorageClient
@@ -9,4 +9,5 @@ __all__ = [
     'FileSystemStorageClient',
     'MemoryStorageClient',
     'SmartApifyStorageClient',
+    'StorageClient',
 ]

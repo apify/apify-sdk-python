@@ -128,7 +128,7 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
     # None per this function's contract), rather than crashing the crawl.
     try:
         scrapy_request_json = encode_to_json(scrapy_request_dict)
-    except TypeError:
+    except (TypeError, ValueError):
         logger.exception(
             f'Failed to serialize Scrapy request {scrapy_request} for storage on the Apify platform; skipping it. '
             'Ensure all values in `meta` and `cb_kwargs` are JSON-serializable.'

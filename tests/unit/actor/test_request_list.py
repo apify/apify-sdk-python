@@ -41,13 +41,19 @@ if TYPE_CHECKING:
             },
             id='all_options',
         ),
+        pytest.param(
+            {
+                'userData': {'depth': 1, 'isStartUrl': True, 'nested': {'key': 'value'}},
+            },
+            id='non_string_user_data',
+        ),
     ],
 )
 async def test_request_list_open_request_types(
     request_method: HttpMethod,
     optional_input: dict[str, Any],
 ) -> None:
-    """Test proper request list generation from both minimal and full inputs for all method types for simple input."""
+    """Test proper request list generation from various optional inputs for all method types for simple input."""
     minimal_request_dict_input = {
         'url': 'https://www.abc.com',
         'method': request_method,
@@ -188,6 +194,33 @@ async def test_request_list_open_from_url_additional_inputs(httpserver: HTTPServ
     for key, value in example_start_url_input['userData'].items():
         expected_user_data[key] = value
     assert request.user_data == expected_user_data
+
+
+async def test_request_list_open_from_url_with_user_data_and_multiple_urls(httpserver: HTTPServer) -> None:
+    """Test that a remote source with `userData` yielding multiple URLs creates all requests with that user data."""
+    expected_urls = {'https://www.one.com', 'https://www.two.com'}
+    httpserver.expect_oneshot_request('/file.txt').respond_with_data(status=200, response_data=' '.join(expected_urls))
+
+    request_list = await ApifyRequestList.open(
+        request_list_sources_input=[
+            {'requestsFromUrl': httpserver.url_for('/file.txt'), 'userData': {'depth': 1, 'nested': {'key': 'value'}}},
+        ],
+    )
+
+    requests = []
+    while request := await request_list.fetch_next_request():
+        requests.append(request)
+
+    assert {request.url for request in requests} == expected_urls
+    for request in requests:
+        assert request.user_data['depth'] == 1
+        assert request.user_data['nested'] == {'key': 'value'}
+
+    # Each request owns an independent copy; mutating one must not leak into the others.
+    nested = requests[0].user_data['nested']
+    assert isinstance(nested, dict)
+    nested['key'] = 'mutated'
+    assert requests[1].user_data['nested'] == {'key': 'value'}
 
 
 async def test_request_list_open_from_url_non_utf8_body(httpserver: HTTPServer) -> None:

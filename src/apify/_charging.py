@@ -5,9 +5,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Annotated, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
-from pydantic import Field
+from pydantic import ConfigDict
+from pydantic.alias_generators import to_camel
 
 import apify_client._models as _client_models
 from apify_client._models import ActorChargeEvent as ClientActorChargeEvent
@@ -56,7 +57,9 @@ _ensure_context = ensure_context('active')
 class ActorChargeEvent(ClientActorChargeEvent):
     """Definition of a single chargeable event in the pay-per-event pricing model."""
 
-    event_description: Annotated[str | None, Field(alias='eventDescription')] = None
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    event_description: str | None = None
     """Human-readable description of the event.
 
     Required in apify-client but omitted from the env var, so it is relaxed to optional.
@@ -67,7 +70,9 @@ class ActorChargeEvent(ClientActorChargeEvent):
 class PricingPerEvent(ClientPricingPerEvent):
     """Pay-per-event pricing details - the chargeable events and their prices."""
 
-    actor_charge_events: Annotated[dict[str, ActorChargeEvent] | None, Field(alias='actorChargeEvents')] = None
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    actor_charge_events: dict[str, ActorChargeEvent] | None = None
     """Mapping of event name to its charge definition."""
 
 
@@ -75,13 +80,15 @@ class PricingPerEvent(ClientPricingPerEvent):
 class FreeActorPricingInfo(ClientFree):
     """Pricing info for an Actor offered free of charge."""
 
-    apify_margin_percentage: Annotated[float | None, Field(alias='apifyMarginPercentage')] = None
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
     """Apify's margin on the price, as a percentage."""
 
-    created_at: Annotated[datetime | None, Field(alias='createdAt')] = None
+    created_at: datetime | None = None
     """Timestamp when this pricing info was created."""
 
-    started_at: Annotated[datetime | None, Field(alias='startedAt')] = None
+    started_at: datetime | None = None
     """Timestamp when this pricing became effective."""
 
 
@@ -89,19 +96,21 @@ class FreeActorPricingInfo(ClientFree):
 class FlatPricePerMonthActorPricingInfo(ClientFlatPricePerMonth):
     """Pricing info for an Actor billed at a flat monthly price."""
 
-    apify_margin_percentage: Annotated[float | None, Field(alias='apifyMarginPercentage')] = None
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
     """Apify's margin on the price, as a percentage."""
 
-    created_at: Annotated[datetime | None, Field(alias='createdAt')] = None
+    created_at: datetime | None = None
     """Timestamp when this pricing info was created."""
 
-    started_at: Annotated[datetime | None, Field(alias='startedAt')] = None
+    started_at: datetime | None = None
     """Timestamp when this pricing became effective."""
 
-    trial_minutes: Annotated[int | None, Field(alias='trialMinutes')] = None
+    trial_minutes: int | None = None
     """Length of the free trial period, in minutes."""
 
-    price_per_unit_usd: Annotated[float | None, Field(alias='pricePerUnitUsd')] = None
+    price_per_unit_usd: float | None = None
     """Price per unit, in USD."""
 
 
@@ -109,16 +118,18 @@ class FlatPricePerMonthActorPricingInfo(ClientFlatPricePerMonth):
 class PricePerDatasetItemActorPricingInfo(ClientPricePerDatasetItem):
     """Pricing info for an Actor billed per dataset item produced."""
 
-    apify_margin_percentage: Annotated[float | None, Field(alias='apifyMarginPercentage')] = None
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
     """Apify's margin on the price, as a percentage."""
 
-    created_at: Annotated[datetime | None, Field(alias='createdAt')] = None
+    created_at: datetime | None = None
     """Timestamp when this pricing info was created."""
 
-    started_at: Annotated[datetime | None, Field(alias='startedAt')] = None
+    started_at: datetime | None = None
     """Timestamp when this pricing became effective."""
 
-    unit_name: Annotated[str | None, Field(alias='unitName')] = None
+    unit_name: str | None = None
     """Name of the billed unit."""
 
 
@@ -126,16 +137,18 @@ class PricePerDatasetItemActorPricingInfo(ClientPricePerDatasetItem):
 class PayPerEventActorPricingInfo(ClientPayPerEvent):
     """Pricing info for an Actor billed per charged event."""
 
-    apify_margin_percentage: Annotated[float | None, Field(alias='apifyMarginPercentage')] = None
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
     """Apify's margin on the price, as a percentage."""
 
-    created_at: Annotated[datetime | None, Field(alias='createdAt')] = None
+    created_at: datetime | None = None
     """Timestamp when this pricing info was created."""
 
-    started_at: Annotated[datetime | None, Field(alias='startedAt')] = None
+    started_at: datetime | None = None
     """Timestamp when this pricing became effective."""
 
-    pricing_per_event: Annotated[PricingPerEvent, Field(alias='pricingPerEvent')]
+    pricing_per_event: PricingPerEvent
     """The pay-per-event pricing details."""
 
 
