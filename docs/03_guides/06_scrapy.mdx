@@ -1,6 +1,6 @@
 ---
 id: scrapy
-title: Use Scrapy
+title: Building crawlers with Scrapy
 description: Convert Scrapy spiders into Apify Actors with platform storage and proxy integration.
 ---
 
@@ -15,7 +15,7 @@ import ItemsExample from '!!raw-loader!./code/scrapy_project/src/items.py';
 import SpidersExample from '!!raw-loader!./code/scrapy_project/src/spiders/title.py';
 import SettingsExample from '!!raw-loader!./code/scrapy_project/src/settings.py';
 
-In this guide, you'll learn how to use the [Scrapy](https://scrapy.org/) framework in your Apify Actors.
+In this guide, you'll learn how to build web crawlers with the [Scrapy](https://scrapy.org/) framework in your Apify Actors.
 
 ## Introduction
 
@@ -23,9 +23,9 @@ In this guide, you'll learn how to use the [Scrapy](https://scrapy.org/) framewo
 
 ## Integrating Scrapy with the Apify platform
 
-The Apify SDK provides an Apify-Scrapy integration. The main challenge of this is to combine two asynchronous frameworks that use different event loop implementations. Scrapy uses [Twisted](https://twisted.org/) for asynchronous execution, while the Apify SDK is based on [asyncio](https://docs.python.org/3/library/asyncio.html). The key thing is to install the Twisted's `asyncioreactor` to run Twisted's asyncio compatible event loop. The `apify.scrapy.run_scrapy_actor` function handles this reactor installation automatically. This allows both Twisted and asyncio to run on a single event loop, enabling a Scrapy spider to run as an Apify Actor with minimal modifications.
+The Apify SDK provides an Apify-Scrapy integration. The main challenge of this is to combine two asynchronous frameworks that use different event loop implementations. Scrapy uses [Twisted](https://twisted.org/) for asynchronous execution, while the Apify SDK is based on [asyncio](https://docs.python.org/3/library/asyncio.html). The key thing is to install Twisted's `asyncioreactor` to run Twisted's asyncio compatible event loop. The `apify.scrapy.run_scrapy_actor` function handles this reactor installation automatically. This allows both Twisted and asyncio to run on a single event loop, enabling a Scrapy spider to run as an Apify Actor with minimal modifications.
 
-<CodeBlock className="language-python" title="__main.py__: The Actor entry point ">
+<CodeBlock className="language-python" title="__main__.py: The Actor entry point">
     {UnderscoreMainExample}
 </CodeBlock>
 
@@ -74,7 +74,7 @@ For further details, see the [Scrapy migration guide](https://docs.apify.com/cli
 The following example shows a Scrapy Actor that scrapes page titles and enqueues links found on each page. This example aligns with the structure provided in the Apify Actor templates.
 
 <Tabs>
-    <TabItem value="__main__.py" label="__main.py__">
+    <TabItem value="__main__.py" label="__main__.py">
         <CodeBlock className="language-python">
             {UnderscoreMainExample}
         </CodeBlock>
