@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from apify_client._models import RequestQueueStats
@@ -105,5 +105,13 @@ class CachedRequest(BaseModel):
 class ApifyRequestQueueMetadata(RequestQueueMetadata):
     model_config = ConfigDict(alias_generator=to_camel)
 
-    stats: Annotated[RequestQueueStats, Field(default_factory=RequestQueueStats)]
-    """Additional statistics about the request queue."""
+    stats: Annotated[
+        RequestQueueStats,
+        BeforeValidator(lambda value: RequestQueueStats() if value is None else value),
+        Field(default_factory=RequestQueueStats),
+    ]
+    """Additional statistics about the request queue.
+
+    The API may omit the stats (sending an explicit `null`), so a `None` value is coerced to a default
+    `RequestQueueStats` rather than failing validation.
+    """
