@@ -5,6 +5,7 @@ import gzip
 import io
 import json
 import pickle
+from datetime import timedelta
 from time import time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
@@ -272,6 +273,55 @@ def test_close_spider_respects_max_items() -> None:
     storage.close_spider(None, current_time=current_time)  # ty: ignore[invalid-argument-type]
 
     assert len(kvs.deleted) == 2
+
+
+def test_close_spider_closes_thread_even_when_cleanup_fails() -> None:
+    """If the expiration sweep raises, the async thread is still closed rather than leaked."""
+    closed: list[bool] = []
+
+    class _FailingAsyncThread:
+        def run_coro(self, coro: Any, *_: Any, **__: Any) -> Any:
+            coro.close()  # we never run it; just avoid an un-awaited coroutine warning
+            raise RuntimeError('cleanup boom')
+
+        def close(self, *_: Any, **__: Any) -> None:
+            closed.append(True)
+
+    storage = ApifyCacheStorage(Settings({'HTTPCACHE_EXPIRATION_SECS': 100}))
+    storage._async_thread = _FailingAsyncThread()  # ty: ignore[invalid-assignment]
+    storage._kvs = _FakeKvs(None)  # ty: ignore[invalid-assignment]
+
+    with pytest.raises(RuntimeError, match='cleanup boom'):
+        storage.close_spider(None, current_time=1000)  # ty: ignore[invalid-argument-type]
+
+    assert closed == [True]
+
+
+def test_cache_storage_reads_async_thread_timeout_setting() -> None:
+    """`APIFY_ASYNC_THREAD_TIMEOUT_SECS` is read into the storage's async-thread timeout."""
+    storage = ApifyCacheStorage(Settings({'APIFY_ASYNC_THREAD_TIMEOUT_SECS': 77}))
+    assert storage._async_thread_timeout == timedelta(seconds=77)
+
+
+def test_open_spider_passes_timeout_to_async_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`open_spider` constructs the async thread with the configured timeout."""
+    captured: dict[str, Any] = {}
+
+    class _RecordingAsyncThread:
+        def __init__(self, default_timeout: timedelta | None = None) -> None:
+            captured['default_timeout'] = default_timeout
+
+        def run_coro(self, coro: Any, *_: Any, **__: Any) -> Any:
+            coro.close()  # we never run it; just avoid an un-awaited coroutine warning
+            return _FakeKvs(None)
+
+    monkeypatch.setattr('apify.scrapy.extensions._httpcache.AsyncThread', _RecordingAsyncThread)
+
+    storage = ApifyCacheStorage(Settings({'APIFY_ASYNC_THREAD_TIMEOUT_SECS': 77}))
+    spider = SimpleNamespace(name='myspider', crawler=SimpleNamespace(request_fingerprinter=_FakeFingerprinter()))
+    storage.open_spider(cast('Any', spider))
+
+    assert captured['default_timeout'] == timedelta(seconds=77)
 
 
 @pytest.mark.parametrize(

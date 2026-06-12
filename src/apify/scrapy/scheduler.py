@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import traceback
+from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -15,6 +15,7 @@ from apify.storage_clients import ApifyStorageClient
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
+    from scrapy.crawler import Crawler
     from scrapy.http.request import Request
     from twisted.internet.defer import Deferred
 
@@ -27,7 +28,7 @@ class ApifyScheduler(BaseScheduler):
     This scheduler requires the asyncio Twisted reactor to be installed.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, async_thread_timeout: timedelta = timedelta(seconds=60)) -> None:
         if not is_asyncio_reactor_installed():
             raise ValueError(
                 f'{ApifyScheduler.__qualname__} requires the asyncio Twisted reactor. '
@@ -38,7 +39,17 @@ class ApifyScheduler(BaseScheduler):
         self.spider: Spider | None = None
 
         # A thread with the asyncio event loop to run coroutines on.
-        self._async_thread = AsyncThread()
+        self._async_thread = AsyncThread(default_timeout=async_thread_timeout)
+
+    @classmethod
+    def from_crawler(cls, crawler: Crawler) -> ApifyScheduler:
+        """Create the scheduler, reading the async-thread timeout from the Scrapy settings.
+
+        The `APIFY_ASYNC_THREAD_TIMEOUT_SECS` setting (in seconds) caps how long each coroutine run on the
+        background event loop may take before timing out; it defaults to 60 seconds.
+        """
+        timeout_secs = crawler.settings.getint('APIFY_ASYNC_THREAD_TIMEOUT_SECS', 60)
+        return cls(async_thread_timeout=timedelta(seconds=timeout_secs))
 
     def open(self, spider: Spider) -> Deferred[None] | None:
         """Open the scheduler.
@@ -62,7 +73,6 @@ class ApifyScheduler(BaseScheduler):
             self._rq = self._async_thread.run_coro(open_rq())
         except Exception:
             self._async_thread.close()
-            traceback.print_exc()
             raise
 
         return None
@@ -97,12 +107,7 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        try:
-            is_finished = self._async_thread.run_coro(self._rq.is_finished())
-        except Exception:
-            traceback.print_exc()
-            raise
-
+        is_finished = self._async_thread.run_coro(self._rq.is_finished())
         return not is_finished
 
     def enqueue_request(self, request: Request) -> bool:
@@ -130,12 +135,7 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        try:
-            result = self._async_thread.run_coro(self._rq.add_request(apify_request))
-        except Exception:
-            traceback.print_exc()
-            raise
-
+        result = self._async_thread.run_coro(self._rq.add_request(apify_request))
         logger.debug(f'rq.add_request result: {result}')
         return not bool(result.was_already_present)
 
@@ -149,12 +149,7 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        try:
-            apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
-        except Exception:
-            traceback.print_exc()
-            raise
-
+        apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
         logger.debug(f'Fetched apify_request: {apify_request}')
         if apify_request is None:
             return None
@@ -173,11 +168,7 @@ class ApifyScheduler(BaseScheduler):
         # Mark the request as handled. This runs even when reconstruction failed above: an unrecoverable entry
         # (a corrupt or legacy payload) must still be consumed, otherwise the queue would keep handing it back
         # forever. Retrying genuine failures is the RetryMiddleware's job.
-        try:
-            self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
-        except Exception:
-            traceback.print_exc()
-            raise
+        self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
 
         if scrapy_request is None:
             return None

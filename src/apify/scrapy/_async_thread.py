@@ -67,11 +67,11 @@ class AsyncThread:
         try:
             # Wait for the coroutine's result until the specified timeout.
             return future.result(timeout=timeout.total_seconds())
-        except futures.TimeoutError as exc:
-            logger.exception('Coroutine execution timed out.', exc_info=exc)
-            raise
-        except Exception as exc:
-            logger.exception('Coroutine execution raised an exception.', exc_info=exc)
+        except futures.TimeoutError:
+            # `future.result` gave up, but the coroutine keeps running on the loop; cancel it so it does
+            # not outlive the timeout. The propagated error is logged once by the caller (or Scrapy), so
+            # this method does not log it itself.
+            future.cancel()
             raise
 
     def close(self, timeout: timedelta = timedelta(seconds=60)) -> None:
@@ -83,9 +83,15 @@ class AsyncThread:
         Args:
             timeout: The maximum number of seconds to wait for the event loop thread to exit.
         """
+        # A repeated close (e.g. a retried shutdown) would call into the already-closed loop and raise
+        # `RuntimeError: Event loop is closed`. The loop closes itself once it stops, so a second close
+        # is a no-op.
+        if self._eventloop.is_closed():
+            return
+
         if self._eventloop.is_running():
-            # Cancel all pending tasks in the event loop.
-            self.run_coro(self._shutdown_tasks())
+            # Cancel all pending tasks in the event loop, honouring the caller's timeout.
+            self.run_coro(self._shutdown_tasks(), timeout=timeout)
 
         # Schedule the event loop to stop.
         self._eventloop.call_soon_threadsafe(self._eventloop.stop)
