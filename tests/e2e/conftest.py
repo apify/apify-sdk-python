@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 _SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
+_MAX_BUILD_ATTEMPTS = 2
 
 
 @pytest.fixture(scope='session')
@@ -321,10 +322,21 @@ def make_actor(
 
         actor_client = client.actor(created_actor.id)
 
-        print(f'Building Actor {actor_name}...')
-        build_result = await actor_client.build(version_number='0.0')
-        build_client = client.build(build_result.id)
-        build_client_result = await build_client.wait_for_finish(wait_duration=timedelta(seconds=600))
+        # Building the Actor on the platform involves network-dependent steps (installing system packages and
+        # Python dependencies in the Docker image), so a build can occasionally fail transiently. Retry a failed
+        # build once before giving up.
+        build_client_result = None
+        for attempt in range(1, _MAX_BUILD_ATTEMPTS + 1):
+            print(f'Building Actor {actor_name} (attempt {attempt}/{_MAX_BUILD_ATTEMPTS})...')
+            build_result = await actor_client.build(version_number='0.0')
+            build_client = client.build(build_result.id)
+            build_client_result = await build_client.wait_for_finish(wait_duration=timedelta(seconds=600))
+
+            if build_client_result is not None and build_client_result.status == 'SUCCEEDED':
+                break
+
+            build_status = build_client_result.status if build_client_result else None
+            print(f'Build {build_result.id} of Actor {actor_name} finished with status {build_status}')
 
         assert build_client_result is not None
         assert build_client_result.status == 'SUCCEEDED'
