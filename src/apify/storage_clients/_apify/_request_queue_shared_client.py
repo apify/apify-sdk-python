@@ -198,7 +198,17 @@ class ApifyRequestQueueSharedClient:
             )
             return None
 
-        # `_get_or_hydrate_request` already returns the fully hydrated request, so no extra fetch is needed.
+        # `_get_or_hydrate_request` may return a request from the queue-head cache, which is populated by
+        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by id to
+        # guarantee the caller gets the full request object.
+        request = await self._get_request_by_id(next_request_id)
+        if request is None:
+            logger.debug(
+                'Request fetched from the beginning of queue was not found in the RQ',
+                extra={'next_request_id': next_request_id},
+            )
+            return None
+
         return request
 
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
