@@ -12,9 +12,6 @@ async def _return(value: int) -> int:
     return value
 
 
-# Normal operation
-
-
 def test_run_coro_returns_coroutine_result() -> None:
     """`run_coro` runs a coroutine on the background loop and returns its result."""
     async_thread = AsyncThread()
@@ -22,9 +19,6 @@ def test_run_coro_returns_coroutine_result() -> None:
         assert async_thread.run_coro(_return(42)) == 42
     finally:
         async_thread.close()
-
-
-# Startup race regression
 
 
 def test_run_coro_succeeds_when_called_before_loop_starts(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,9 +50,6 @@ def test_run_coro_succeeds_when_called_before_loop_starts(monkeypatch: pytest.Mo
     finally:
         gate.set()
         async_thread.close()
-
-
-# Closed loop guard
 
 
 def test_run_coro_raises_after_close() -> None:
