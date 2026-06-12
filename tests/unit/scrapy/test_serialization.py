@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from apify.scrapy._serialization import _MAX_ERROR_VALUE_REPR_LEN, decode_from_json, encode_to_json
 
@@ -69,6 +69,28 @@ def test_pydantic_model_is_dumped_by_alias() -> None:
 
     encoded = encode_to_json({'meta': {'m': Model(first=1)}})
     assert decode_from_json(encoded)['meta']['m'] == {'First': 1}
+
+
+def test_pydantic_model_with_datetime_field_round_trips() -> None:
+    """A pydantic model with a `datetime` field is dumped in JSON mode, so the request is stored, not dropped."""
+
+    class Model(BaseModel):
+        when: datetime
+
+    encoded = encode_to_json({'meta': {'m': Model(when=datetime(2020, 1, 2, 3, 4, 5, tzinfo=UTC))}})
+    assert decode_from_json(encoded)['meta']['m'] == {'when': '2020-01-02T03:04:05Z'}
+
+
+def test_pydantic_model_with_non_serializable_field_raises() -> None:
+    """A model field that even JSON mode cannot dump raises the clear `TypeError`, not a bare pydantic error."""
+
+    class Model(BaseModel):
+        model_config = ConfigDict(arbitrary_types_allowed=True)
+
+        obj: object
+
+    with pytest.raises(TypeError, match='JSON-serializable'):
+        encode_to_json({'meta': {'m': Model(obj=object())}})
 
 
 def test_tuple_is_coerced_to_list() -> None:
