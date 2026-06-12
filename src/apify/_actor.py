@@ -197,7 +197,12 @@ class _ActorType:
         self.log.debug('Event manager initialized')
 
         # Initialize the charging manager.
-        await self._charging_manager_implementation.__aenter__()
+        try:
+            await self._charging_manager_implementation.__aenter__()
+        except BaseException:
+            # Exit the already-entered event manager so its recurring tasks do not leak.
+            await self.event_manager.__aexit__(None, None, None)
+            raise
         self.log.debug('Charging manager initialized')
 
         # Mark initialization as complete and update global state.

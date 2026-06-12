@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Correct proxy middleware exception log and import ([#953](https://github.com/apify/apify-sdk-python/pull/953)) ([5bd6eb9](https://github.com/apify/apify-sdk-python/commit/5bd6eb9843d90844cec083372e932413bceedec9)) by [@vdusek](https://github.com/vdusek)
 - **scrapy:** Skip a request that fails to convert instead of crashing the run ([#952](https://github.com/apify/apify-sdk-python/pull/952)) ([db9444f](https://github.com/apify/apify-sdk-python/commit/db9444faeb0158c29aa394121cf733ff2e843f28)) by [@vdusek](https://github.com/vdusek)
 - **scrapy:** [**breaking**] Serialize requests and HTTP cache as JSON instead of pickle ([#951](https://github.com/apify/apify-sdk-python/pull/951)) ([a87e8d1](https://github.com/apify/apify-sdk-python/commit/a87e8d1597478b4f12fd5bb9b379f65f637d8e96)) by [@vdusek](https://github.com/vdusek)
+- **scrapy:** Make logging configuration idempotent ([#954](https://github.com/apify/apify-sdk-python/pull/954)) ([2cc5602](https://github.com/apify/apify-sdk-python/commit/2cc5602b741b93c81f264d4e09e0d9bcfc7200f2)) by [@vdusek](https://github.com/vdusek)
+- Bump typing-extensions floor to 4.4.0 ([#960](https://github.com/apify/apify-sdk-python/pull/960)) ([b7e7d9c](https://github.com/apify/apify-sdk-python/commit/b7e7d9c9a053992d4281a8a19897957d2bff67e1)) by [@vdusek](https://github.com/vdusek)
+- Preserve decorated symbol types in docs_group and docs_name ([#964](https://github.com/apify/apify-sdk-python/pull/964)) ([6c359a7](https://github.com/apify/apify-sdk-python/commit/6c359a714b089b24c1be7fa9a07c9b9899cc5e11)) by [@vdusek](https://github.com/vdusek)
+- Exit already-entered contexts when Actor or event manager init fails ([#969](https://github.com/apify/apify-sdk-python/pull/969)) ([c1a15a7](https://github.com/apify/apify-sdk-python/commit/c1a15a7425eab74f3fe8848160576741c036c4fa)) by [@vdusek](https://github.com/vdusek)
+- **scrapy:** Dump pydantic models in JSON mode when serializing requests ([#961](https://github.com/apify/apify-sdk-python/pull/961)) ([f2ccae1](https://github.com/apify/apify-sdk-python/commit/f2ccae16d046e9586281e1f2ffc531014e05fe51)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
