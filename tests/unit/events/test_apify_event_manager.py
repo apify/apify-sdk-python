@@ -173,12 +173,17 @@ async def test_event_async_handling_local() -> None:
 
 
 async def test_lifecycle_on_platform_without_websocket(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a failed websocket connection raises and also exits the parent's recurring persist state task."""
     monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
     event_manager = ApifyEventManager(Configuration.get_global_configuration())
 
     with pytest.raises(RuntimeError, match=r'Error connecting to platform events websocket!'):
         async with event_manager:
             pass
+
+    assert event_manager.active is False
+    persist_state_task = event_manager._emit_persist_state_event_rec_task.task
+    assert persist_state_task is None or persist_state_task.done()
 
 
 async def test_lifecycle_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:

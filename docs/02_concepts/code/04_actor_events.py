@@ -1,7 +1,6 @@
 import asyncio
-from typing import Any
 
-from apify import Actor, Event
+from apify import Actor, Event, EventPersistStateData
 
 
 async def main() -> None:
@@ -15,9 +14,11 @@ async def main() -> None:
             processed_items = actor_state
 
         # Save the state when the `PERSIST_STATE` event happens
-        async def save_state(event_data: Any) -> None:
+        async def save_state(event_data: EventPersistStateData) -> None:
             nonlocal processed_items
-            Actor.log.info('Saving Actor state', extra=event_data)
+            Actor.log.info(
+                'Persisting Actor state (migrating=%s)', event_data.is_migrating
+            )
             await Actor.set_value('STATE', processed_items)
 
         Actor.on(Event.PERSIST_STATE, save_state)
