@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Make logging configuration idempotent ([#954](https://github.com/apify/apify-sdk-python/pull/954)) ([2cc5602](https://github.com/apify/apify-sdk-python/commit/2cc5602b741b93c81f264d4e09e0d9bcfc7200f2)) by [@vdusek](https://github.com/vdusek)
 - Bump typing-extensions floor to 4.4.0 ([#960](https://github.com/apify/apify-sdk-python/pull/960)) ([b7e7d9c](https://github.com/apify/apify-sdk-python/commit/b7e7d9c9a053992d4281a8a19897957d2bff67e1)) by [@vdusek](https://github.com/vdusek)
 - Preserve decorated symbol types in docs_group and docs_name ([#964](https://github.com/apify/apify-sdk-python/pull/964)) ([6c359a7](https://github.com/apify/apify-sdk-python/commit/6c359a714b089b24c1be7fa9a07c9b9899cc5e11)) by [@vdusek](https://github.com/vdusek)
+- Exit already-entered contexts when Actor or event manager init fails ([#969](https://github.com/apify/apify-sdk-python/pull/969)) ([c1a15a7](https://github.com/apify/apify-sdk-python/commit/c1a15a7425eab74f3fe8848160576741c036c4fa)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
