@@ -10,7 +10,7 @@ from apify.log import ActorLogFormatter
 
 # Define logger names.
 _PRIMARY_LOGGERS = ['apify', 'apify_client', 'scrapy']
-_SUPPLEMENTAL_LOGGERS = ['filelock', 'hpack', 'httpcore', 'protego', 'twisted']
+_SUPPLEMENTAL_LOGGERS = ['filelock', 'protego', 'twisted']
 _ALL_LOGGERS = _PRIMARY_LOGGERS + _SUPPLEMENTAL_LOGGERS
 
 # Mutable state shared with the Scrapy monkey-patch below. `initialize_logging` refreshes

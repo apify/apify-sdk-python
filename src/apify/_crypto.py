@@ -109,8 +109,6 @@ def private_decrypt(
         decipher_bytes = decryptor.update(encrypted_data_bytes) + decryptor.finalize()
     except InvalidTagException as exc:
         raise ValueError('Decryption failed, malformed encrypted value or password.') from exc
-    except Exception:
-        raise
 
     return decipher_bytes.decode('utf-8')
 

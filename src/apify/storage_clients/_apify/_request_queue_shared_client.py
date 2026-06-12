@@ -198,15 +198,7 @@ class ApifyRequestQueueSharedClient:
             )
             return None
 
-        # Use get request to ensure we have the full request object.
-        request = await self._get_request_by_id(next_request_id)
-        if request is None:
-            logger.debug(
-                'Request fetched from the beginning of queue was not found in the RQ',
-                extra={'next_request_id': next_request_id},
-            )
-            return None
-
+        # `_get_or_hydrate_request` already returns the fully hydrated request, so no extra fetch is needed.
         return request
 
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
