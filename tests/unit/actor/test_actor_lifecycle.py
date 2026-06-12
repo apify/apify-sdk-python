@@ -18,6 +18,7 @@ from crawlee.events._types import Event, EventPersistStateData
 
 from ..._utils import poll_until_condition
 from apify import Actor
+from apify._charging import ChargingManagerImplementation
 from apify._consts import EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 
 if TYPE_CHECKING:
@@ -110,6 +111,19 @@ async def test_fail_properly_deinitializes_actor(actor: _ActorType) -> None:
     assert actor._active
     await actor.fail()
     assert actor._active is False
+
+
+async def test_failed_charging_manager_init_does_not_leak_event_manager() -> None:
+    """Test that a failure in the charging manager's `__aenter__` also exits the already-entered event manager."""
+    actor = Actor()
+    with (
+        mock.patch.object(ChargingManagerImplementation, '__aenter__', side_effect=RuntimeError('Charging failed')),
+        pytest.raises(RuntimeError, match='Charging failed'),
+    ):
+        await actor.init()
+
+    assert actor._active is False
+    assert actor.event_manager.active is False
 
 
 async def test_actor_handles_exceptions_and_cleans_up_properly() -> None:

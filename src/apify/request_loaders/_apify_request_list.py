@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import re
+from copy import deepcopy
 from itertools import chain
 from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from pydantic.alias_generators import to_camel
 
-from crawlee._types import HttpMethod
+from crawlee._types import HttpMethod, JsonSerializable
 from crawlee.http_clients import HttpClient, ImpitHttpClient
 from crawlee.request_loaders import RequestList
 
@@ -26,7 +27,7 @@ class _RequestDetails(BaseModel):
     method: HttpMethod = 'GET'
     payload: str = ''
     headers: Annotated[dict[str, str], Field(default_factory=dict)]
-    user_data: Annotated[dict[str, str], Field(default_factory=dict)]
+    user_data: Annotated[dict[str, JsonSerializable], Field(default_factory=dict)]
 
 
 class _RequestsFromUrlInput(_RequestDetails):
@@ -154,7 +155,9 @@ class ApifyRequestList(RequestList):
                 method=request_input.method,
                 payload=request_input.payload.encode('utf-8'),
                 headers=request_input.headers,
-                user_data=request_input.user_data,
+                # Deep-copy so `Request.from_url` (which writes `__crawlee` into the dict) cannot corrupt
+                # the shared input, and nested JSON values are not aliased across the requests.
+                user_data=deepcopy(request_input.user_data),
             )
             for match in matches
         ]
