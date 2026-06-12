@@ -1,5 +1,5 @@
 {
-    "name": "apify-sdk-python-website",
+    "name": "apify",
     "private": true,
     "scripts": {
         "clean": "rimraf .docusaurus build",
