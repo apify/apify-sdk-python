@@ -52,15 +52,15 @@ class AsyncThread:
             The result returned by the coroutine.
 
         Raises:
-            RuntimeError: If the event loop is not running.
+            RuntimeError: If the event loop has been closed.
             TimeoutError: If the coroutine does not complete within the timeout.
             Exception: Any exception raised during coroutine execution.
         """
         if timeout == 'default':
             timeout = self._default_timeout
 
-        if not self._eventloop.is_running():
-            raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is not running.')
+        if self._eventloop.is_closed():
+            raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
 
         # Submit the coroutine to the event loop running in the other thread.
         future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
