@@ -107,6 +107,20 @@ class ApifyRequestQueueSharedClient:
                 )
 
             else:
+                # Optimistically add the new request to the cache so that concurrent producers deduplicate
+                # against this in-flight request instead of re-sending it to the platform. Rolled back below if
+                # the `batch_add_requests` call fails, otherwise the never-sent request would poison the cache
+                # and a later retry of the same request would be silently deduplicated and lost.
+                processed_request = ProcessedRequest(
+                    id=request_id,
+                    unique_key=request.unique_key,
+                    was_already_present=True,
+                    was_already_handled=request.was_already_handled,
+                )
+                self._cache_request(
+                    request_id,
+                    processed_request,
+                )
                 new_requests.append(request)
 
         if new_requests:
@@ -114,10 +128,17 @@ class ApifyRequestQueueSharedClient:
             requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
 
             # Send requests to API.
-            batch_response = await self._api_client.batch_add_requests(
-                requests=requests_dict,
-                forefront=forefront,
-            )
+            try:
+                batch_response = await self._api_client.batch_add_requests(
+                    requests=requests_dict,
+                    forefront=forefront,
+                )
+            except Exception:
+                # The platform never received these requests, so roll back the optimistic cache writes to keep
+                # a later retry from being deduplicated away.
+                for request in new_requests:
+                    self._requests_cache.pop(unique_key_to_request_id(request.unique_key), None)
+                raise
 
             batch_response_dict = batch_response.model_dump(by_alias=True)
             api_response = AddRequestsResponse.model_validate(batch_response_dict)
@@ -125,25 +146,10 @@ class ApifyRequestQueueSharedClient:
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
 
-            # Commit only requests the platform actually accepted to the local cache. Caching before the call
-            # would deduplicate a later retry of a request that never reached the platform, silently losing it.
-            unprocessed_ids = {
-                unique_key_to_request_id(unprocessed_request.unique_key)
-                for unprocessed_request in api_response.unprocessed_requests
-            }
-            for request in new_requests:
-                request_id = unique_key_to_request_id(request.unique_key)
-                if request_id in unprocessed_ids:
-                    continue
-                self._cache_request(
-                    request_id,
-                    ProcessedRequest(
-                        id=request_id,
-                        unique_key=request.unique_key,
-                        was_already_present=True,
-                        was_already_handled=request.was_already_handled,
-                    ),
-                )
+            # Remove unprocessed requests from the cache
+            for unprocessed_request in api_response.unprocessed_requests:
+                unprocessed_request_id = unique_key_to_request_id(unprocessed_request.unique_key)
+                self._requests_cache.pop(unprocessed_request_id, None)
 
         else:
             api_response = AddRequestsResponse.model_validate(
