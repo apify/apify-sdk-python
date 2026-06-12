@@ -1166,7 +1166,7 @@ class _ActorType:
             self.log.error('Actor.metamorph() is only supported when running on the Apify platform.')
             return
 
-        if not custom_after_sleep:
+        if custom_after_sleep is None:
             custom_after_sleep = self.configuration.metamorph_after_sleep
 
         # If is_at_home() is True, configuration.actor_run_id is always set
@@ -1208,7 +1208,7 @@ class _ActorType:
 
         self._is_rebooting = True
 
-        if not custom_after_sleep:
+        if custom_after_sleep is None:
             custom_after_sleep = self.configuration.metamorph_after_sleep
 
         # Call all the listeners for the PERSIST_STATE and MIGRATING events, and wait for them to finish.
