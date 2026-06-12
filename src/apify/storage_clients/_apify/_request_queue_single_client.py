@@ -198,6 +198,12 @@ class ApifyRequestQueueSingleClient:
                     # head reconciliations, with no recovery path for the caller.
                     self._requests_in_progress.discard(request_id)
                     continue
+                if request.handled_at is not None:
+                    # The request was already handled on the platform (e.g. by another producer). Skip it and
+                    # remember its id for local deduplication, mirroring the shared client's guard.
+                    self._requests_in_progress.discard(request_id)
+                    self._requests_already_handled.add(request_id)
+                    continue
                 return request
         # No request locally and the ones returned from the platform are already in progress.
         return None
