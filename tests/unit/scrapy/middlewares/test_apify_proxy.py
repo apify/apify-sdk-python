@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import warnings
 from urllib.parse import ParseResult, urlparse
 
 import pytest
 from scrapy import Request, Spider
 from scrapy.core.downloader.handlers.http11 import TunnelError
+from scrapy.core.downloader.middleware import DownloaderMiddlewareManager
 from scrapy.crawler import Crawler
-from scrapy.exceptions import NotConfigured
+from scrapy.exceptions import NotConfigured, ScrapyDeprecationWarning
 
 from apify import ProxyConfiguration
 from apify.scrapy.middlewares import ApifyHttpProxyMiddleware
@@ -29,12 +31,6 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
     crawler = Crawler(DummySpider)
     monkeypatch.setattr(crawler, 'settings', {})
     return crawler
-
-
-@pytest.fixture
-def spider() -> DummySpider:
-    """Fixture to create a "dummy" Scrapy spider."""
-    return DummySpider()
 
 
 @pytest.fixture
@@ -119,7 +115,6 @@ async def test_retrieves_new_proxy_url(
 async def test_process_request_with_proxy(
     monkeypatch: pytest.MonkeyPatch,
     middleware: ApifyHttpProxyMiddleware,
-    spider: DummySpider,
     dummy_request: Request,
     proxy_url: str,
     expected_exception: type[Exception] | None,
@@ -131,12 +126,12 @@ async def test_process_request_with_proxy(
     monkeypatch.setattr(middleware, '_get_new_proxy_url', mock_get_new_proxy_url)
 
     if expected_exception is None:
-        await middleware.process_request(dummy_request, spider)
+        await middleware.process_request(dummy_request)
         assert dummy_request.meta['proxy'] == proxy_url
         assert dummy_request.headers[b'Proxy-Authorization'] == expected_request_header
     else:
         with pytest.raises(expected_exception):
-            await middleware.process_request(dummy_request, spider)
+            await middleware.process_request(dummy_request)
 
 
 @pytest.mark.parametrize(
@@ -146,9 +141,25 @@ async def test_process_request_with_proxy(
 )
 def test_handles_exceptions(
     middleware: ApifyHttpProxyMiddleware,
-    spider: DummySpider,
     dummy_request: Request,
     exception: Exception,
 ) -> None:
-    returned_value = middleware.process_exception(dummy_request, exception, spider)
+    returned_value = middleware.process_exception(dummy_request, exception)
     assert returned_value is None
+
+
+def test_methods_do_not_require_deprecated_spider_arg(
+    crawler: Crawler,
+    middleware: ApifyHttpProxyMiddleware,
+) -> None:
+    """Registering the middleware must not emit Scrapy's `spider` argument deprecation warning (scrapy>=2.14)."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        DownloaderMiddlewareManager(middleware, crawler=crawler)
+
+    spider_arg_warnings = [
+        w
+        for w in caught
+        if issubclass(w.category, ScrapyDeprecationWarning) and 'requires a spider argument' in str(w.message)
+    ]
+    assert spider_arg_warnings == []
