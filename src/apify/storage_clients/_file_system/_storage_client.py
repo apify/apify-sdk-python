@@ -9,6 +9,7 @@ from crawlee.storage_clients import FileSystemStorageClient
 
 from ._dataset_client import ApifyFileSystemDatasetClient
 from ._key_value_store_client import ApifyFileSystemKeyValueStoreClient
+from apify._utils import docs_group
 
 if TYPE_CHECKING:
     from collections.abc import Hashable
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from crawlee.storage_clients._file_system import FileSystemKeyValueStoreClient
 
 
+@docs_group('Storage clients')
 class ApifyFileSystemStorageClient(FileSystemStorageClient):
     """Apify-specific implementation of the file system storage client.
 
