@@ -203,7 +203,7 @@ async def test_request_list_open_from_url_with_user_data_and_multiple_urls(https
 
     request_list = await ApifyRequestList.open(
         request_list_sources_input=[
-            {'requestsFromUrl': httpserver.url_for('/file.txt'), 'userData': {'depth': 1}},
+            {'requestsFromUrl': httpserver.url_for('/file.txt'), 'userData': {'depth': 1, 'nested': {'key': 'value'}}},
         ],
     )
 
@@ -214,6 +214,11 @@ async def test_request_list_open_from_url_with_user_data_and_multiple_urls(https
     assert {request.url for request in requests} == expected_urls
     for request in requests:
         assert request.user_data['depth'] == 1
+        assert request.user_data['nested'] == {'key': 'value'}
+
+    # Each request owns an independent copy; mutating one must not leak into the others.
+    requests[0].user_data['nested']['key'] = 'mutated'
+    assert requests[1].user_data['nested'] == {'key': 'value'}
 
 
 async def test_request_list_open_from_url_non_utf8_body(httpserver: HTTPServer) -> None:
