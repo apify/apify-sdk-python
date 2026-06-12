@@ -90,3 +90,45 @@ async def test_pre_existing_input_used_by_actor(input_file_name: str) -> None:
         path_to_input / input_file_name,
         path_to_input / f'{input_file_name}.__metadata__.json',
     }
+
+
+async def test_set_value_with_input_key_targets_existing_input_file() -> None:
+    """`set_value` with the input key overwrites the existing `INPUT.json` instead of creating a duplicate."""
+    configuration = Configuration.get_global_configuration()
+
+    # Pre-create a custom-named input file (with extension) before opening the client.
+    kvs_path = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    kvs_path.mkdir(parents=True)
+    (kvs_path / 'INPUT.json').write_text(json.dumps({'foo': 'bar'}))
+
+    client = await ApifyFileSystemKeyValueStoreClient.open(id=None, name=None, alias=None, configuration=configuration)
+    await client.set_value(key=configuration.input_key, value={'foo': 'baz'})
+
+    # The existing input file is overwritten in place. No second input file (e.g. `INPUT`) is created.
+    assert set(kvs_path.glob('*')) == {
+        kvs_path / '__metadata__.json',
+        kvs_path / 'INPUT.json',
+        kvs_path / f'INPUT.json.{METADATA_FILENAME}',
+    }
+
+    # Reopening must not raise "Only one input file is allowed", i.e. no duplicate input file was created.
+    client = await ApifyFileSystemKeyValueStoreClient.open(id=None, name=None, alias=None, configuration=configuration)
+    record = await client.get_value(key=configuration.input_key)
+    assert record is not None
+    assert record.value == {'foo': 'baz'}
+
+
+async def test_record_exists_and_delete_value_target_existing_input_file() -> None:
+    """`record_exists` and `delete_value` with the input key operate on the existing `INPUT.json`."""
+    configuration = Configuration.get_global_configuration()
+
+    kvs_path = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    kvs_path.mkdir(parents=True)
+    (kvs_path / 'INPUT.json').write_text(json.dumps({'foo': 'bar'}))
+
+    client = await ApifyFileSystemKeyValueStoreClient.open(id=None, name=None, alias=None, configuration=configuration)
+    assert await client.record_exists(key=configuration.input_key) is True
+
+    await client.delete_value(key=configuration.input_key)
+    assert await client.record_exists(key=configuration.input_key) is False
+    assert not (kvs_path / 'INPUT.json').exists()
