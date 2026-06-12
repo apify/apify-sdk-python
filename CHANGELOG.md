@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Remove deprecated APIs ([#918](https://github.com/apify/apify-sdk-python/pull/918)) ([3e5728d](https://github.com/apify/apify-sdk-python/commit/3e5728d94cb8fd879d5a76e33a03d55792d835d5)) by [@vdusek](https://github.com/vdusek), closes [#635](https://github.com/apify/apify-sdk-python/issues/635)
 - [**breaking**] Mark secondary arguments as keyword-only ([#917](https://github.com/apify/apify-sdk-python/pull/917)) ([eb94c99](https://github.com/apify/apify-sdk-python/commit/eb94c992ec4aba1cd7cf4dfd7a98731cb304651b)) by [@vdusek](https://github.com/vdusek), closes [#881](https://github.com/apify/apify-sdk-python/issues/881)
 - [**breaking**] Adapt to apify-client v3 ([#719](https://github.com/apify/apify-sdk-python/pull/719)) ([10203bc](https://github.com/apify/apify-sdk-python/commit/10203bc51e67590c97938b37d81614376bc3d29a)) by [@vdusek](https://github.com/vdusek), closes [#697](https://github.com/apify/apify-sdk-python/issues/697), [#736](https://github.com/apify/apify-sdk-python/issues/736), [#770](https://github.com/apify/apify-sdk-python/issues/770), [#853](https://github.com/apify/apify-sdk-python/issues/853)
+- [**breaking**] Remove wait_for_finish from Actor.start ([#962](https://github.com/apify/apify-sdk-python/pull/962)) ([0daca28](https://github.com/apify/apify-sdk-python/commit/0daca2818860cbcbd0778efa4d73622783ce63cf)) by [@vdusek](https://github.com/vdusek)
 
 ### ⚙️ Miscellaneous Tasks
 
