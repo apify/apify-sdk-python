@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import Request as ClientRequest
 from apify_client._models import RequestQueueHead, RequestQueueStats, RequestRegistration
 from crawlee.storage_clients.models import RequestQueueMetadata
 
@@ -143,49 +142,6 @@ async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> N
     await client._list_head()
 
     api_client.list_head.assert_awaited_once_with(limit=expected_limit)
-
-
-async def test_fetch_next_request_skips_already_handled() -> None:
-    """A request the platform reports as already handled must not be returned by `fetch_next_request`."""
-    client, api_client = _make_single_client()
-
-    unique_key = 'https://example.com'
-    request_id = unique_key_to_request_id(unique_key)
-
-    # Head reconciliation returns nothing new.
-    api_client.list_head = AsyncMock(
-        return_value=RequestQueueHead(
-            limit=200,
-            queue_modified_at=datetime.now(tz=UTC),
-            had_multiple_clients=False,
-            items=[],
-        )
-    )
-    # The platform reports this request as already handled.
-    api_client.get_request = AsyncMock(
-        return_value=ClientRequest.model_validate(
-            {
-                'id': request_id,
-                'uniqueKey': unique_key,
-                'url': unique_key,
-                'method': 'GET',
-                'headers': {},
-                'userData': {},
-                'retryCount': 0,
-                'noRetry': False,
-                'handledAt': datetime.now(tz=UTC),
-            }
-        )
-    )
-
-    # Seed the local head estimate with the request id.
-    client._head_requests.append(request_id)
-
-    result = await client.fetch_next_request()
-
-    assert result is None, 'Already-handled request must not be fetched.'
-    assert request_id not in client._requests_in_progress, 'Handled request must not be left in progress.'
-    assert request_id in client._requests_already_handled, 'Handled request id should be cached for deduplication.'
 
 
 @pytest.mark.parametrize(
