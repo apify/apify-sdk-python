@@ -1,0 +1,141 @@
+---
+id: scrapling
+title: Adaptive scraping with Scrapling
+description: Build an Apify Actor that scrapes web pages using the Scrapling adaptive web scraping library.
+---
+
+import CodeBlock from '@theme/CodeBlock';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import ScraplingExample from '!!raw-loader!roa-loader!./code/07_scrapling.py';
+import ScraplingBrowserScraper from '!!raw-loader!./code/07_scrapling_browser.py';
+
+In this guide, you'll learn how to use the [Scrapling](https://scrapling.readthedocs.io/) library for adaptive web scraping in your Apify Actors.
+
+## Introduction
+
+[Scrapling](https://scrapling.readthedocs.io/) is an adaptive web scraping library for Python that combines fetching and parsing behind a single, high-level API. It can fetch a page with fast HTTP requests or with a real browser, parse the result with familiar CSS selectors and XPath, and relocate your selectors automatically when a website's structure changes.
+
+Scrapling is a great fit for Apify Actors:
+
+- A single API exposes a fast HTTP client with browser TLS-fingerprint impersonation, as well as full browser automation for JavaScript-heavy or protected pages.
+- Scrapling can remember the elements you scraped and find them again after a website redesign. Your scrapers keep working with fewer manual fixes.
+- Built-in stealth features (browser impersonation, realistic headers, and automatic Cloudflare Turnstile solving with the browser fetchers) help you avoid being blocked.
+- Elements are selected with CSS selectors (including the `::text` and `::attr()` pseudo-elements) or XPath, with a Scrapy/Parsel-like `.get()` and `.getall()` interface.
+- Every fetcher has an asynchronous variant, which integrates naturally with the asyncio-based Apify SDK.
+
+Scrapling's parser works on its own. The fetchers are an optional extra. Install Scrapling with the `fetchers` extra to get the HTTP and browser fetchers:
+
+```bash
+pip install "scrapling[fetchers]"
+```
+
+## Choosing a fetcher
+
+All of Scrapling's fetchers are importable from `scrapling.fetchers`. Pick the one that matches the website you're scraping:
+
+- **`Fetcher` / `AsyncFetcher`** - Plain HTTP requests via `.get()`, `.post()`, `.put()`, and `.delete()`. Fast and lightweight, with optional browser TLS-fingerprint impersonation (`impersonate`) and realistic headers (`stealthy_headers`). This is the best choice for static pages and APIs, and it needs no browser binaries.
+- **`DynamicFetcher` / `DynamicSession`** - Full browser automation based on [Playwright](https://playwright.dev/), for pages that require JavaScript rendering or interaction. Fetch a page with `.fetch()` or its async variant `.async_fetch()`.
+- **`StealthyFetcher` / `StealthySession`** - A stealth-hardened browser fetcher that can automatically solve Cloudflare Turnstile challenges (`solve_cloudflare=True`). Use it for the most heavily protected websites.
+
+The returned `Response` object is also a Scrapling selector, so you can call `.css()`, `.xpath()`, `.find_all()`, and the other parsing methods on it directly.
+
+The HTTP fetchers work with just the `scrapling[fetchers]` extra. The browser-based fetchers (`DynamicFetcher` and `StealthyFetcher`) additionally need browser binaries, which you download with the `scrapling install` command. See [Running browser-based fetchers](#running-browser-based-fetchers) below.
+
+The example Actor in this guide uses the HTTP `AsyncFetcher`, which is the simplest to deploy and pairs well with Apify Proxy.
+
+## Example Actor
+
+The following Actor recursively scrapes data from linked pages on the same site, up to a user-defined maximum depth, starting from the URLs in the Actor input. It uses Scrapling's `AsyncFetcher` to fetch each page through [Apify Proxy](https://docs.apify.com/platform/proxy), and CSS selectors to extract the title, headings, and links.
+
+The whole Actor fits in a single file. A `scrape_page` helper holds the Scrapling-specific fetching and parsing, while the `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy) and the [request queue](https://docs.apify.com/platform/storage/request-queue), and drives the crawl:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ScraplingExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- Keeping the fetching and parsing in `scrape_page` separates the Scrapling-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `main` decides what to store and what to enqueue.
+- The response of `AsyncFetcher.get` is a Scrapling selector, so `response.css('title::text').get()` reads the page title and `response.css('a::attr(href)').getall()` returns every link's `href` in one call.
+- `response.urljoin(link_href)` resolves relative links against the page URL, so you can enqueue them directly.
+- The `impersonate='chrome'` and `stealthy_headers=True` options make the request look like it comes from a real Chrome browser, which, combined with Apify Proxy, reduces the chance of being blocked.
+
+## Adaptive selectors
+
+The example above uses plain CSS selectors. Scrapling can also track the elements you scrape and relocate them when a website changes its markup, so a redesign doesn't immediately break your scraper. This is most useful for scrapers that revisit the same pages over time, rather than one-off crawls.
+
+1. Enable adaptive matching once on the fetcher:
+
+    ```python
+    AsyncFetcher.configure(adaptive=True)
+    ```
+
+2. On the first run, pass `auto_save=True` when you select an element. Scrapling records a fingerprint of that element, keyed by the selector:
+
+    ```python
+    title = response.css('h1.product-title::text', auto_save=True).get()
+    ```
+
+3. On a later run, if the selector no longer matches because the page changed, pass `adaptive=True` with the same selector. Scrapling uses the saved fingerprint to find the element in its new location:
+
+    ```python
+    title = response.css('h1.product-title::text', adaptive=True).get()
+    ```
+
+Scrapling keeps these fingerprints in a local SQLite database. On the Apify platform the Actor's filesystem doesn't persist between runs, so to keep them across runs, store that database in a [key-value store](https://docs.apify.com/platform/storage/key-value-store) and restore it on startup. For details, see [Scrapling's adaptive parsing documentation](https://scrapling.readthedocs.io/en/latest/parsing/adaptive.html).
+
+## Using Apify Proxy
+
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. In the example above, `main` creates a proxy configuration with `Actor.create_proxy_configuration` and passes a fresh proxy URL to `scrape_page` for every request, which forwards it to Scrapling's `proxy` argument.
+
+Scrapling accepts the proxy as a URL string (for example `http://user:pass@proxy.apify.com:8000`), which is what `ProxyConfiguration.new_url` returns. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management). The browser-based fetchers accept the same `proxy` argument.
+
+## Running browser-based fetchers
+
+`DynamicFetcher` and `StealthyFetcher` drive a real browser, so they need the browser binaries installed with the `scrapling install` command. Locally, run it once after installing the `scrapling[fetchers]` extra:
+
+```bash
+scrapling install
+```
+
+To switch the example from HTTP to a real browser, fetch each page through a browser session instead of `AsyncFetcher`. Opening a fresh browser for every page would be wasteful, so `main` enters an `AsyncDynamicSession` once and reuses it for the whole crawl, while `scrape_page` fetches with `session.fetch`. The parsing API is identical, so the extraction code stays the same:
+
+<CodeBlock className="language-python">
+    {ScraplingBrowserScraper}
+</CodeBlock>
+
+Note that:
+
+- `AsyncDynamicSession` launches one browser and keeps it open across `session.fetch` calls, so the crawl doesn't pay the browser-startup cost on every page.
+- The proxy URL is passed per fetch, so each page can go through a fresh Apify Proxy IP while sharing the same browser.
+
+To run this on the Apify platform, build on top of the [Apify Playwright base image](https://hub.docker.com/r/apify/actor-python-playwright), which already ships a browser together with all of its system-level dependencies. Then run `scrapling install` during the Docker build to download the browser binaries that Scrapling expects:
+
+```docker title="Dockerfile"
+FROM apify/actor-python-playwright:3.14
+
+# Install the Actor's Python dependencies.
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+
+# Download the browser binaries that Scrapling's browser fetchers need.
+RUN scrapling install
+
+# Copy in the source code and launch the Actor as a module.
+COPY . ./
+CMD ["python", "-m", "src"]
+```
+
+## Conclusion
+
+In this guide, you learned how to use Scrapling in your Apify Actors. You can now fetch pages with Scrapling's HTTP or browser-based fetchers, extract data with its CSS and XPath selectors, route requests through Apify Proxy, and run the whole thing on the Apify platform. To get started with your own scraping tasks, see the [Actor templates](https://apify.com/templates/categories/python). If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+
+## Additional resources
+
+- [Scrapling: Official documentation](https://scrapling.readthedocs.io/)
+- [Scrapling: Fetchers](https://scrapling.readthedocs.io/en/latest/fetching/choosing/)
+- [Scrapling: Parsing and selecting elements](https://scrapling.readthedocs.io/en/latest/parsing/selection/)
+- [Scrapling: Adaptive parsing](https://scrapling.readthedocs.io/en/latest/parsing/adaptive.html)
+- [Scrapling: GitHub repository](https://github.com/D4Vinci/Scrapling)
+- [Apify: Proxy management](https://docs.apify.com/platform/proxy)
