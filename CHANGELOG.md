@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Skip a request that fails to convert instead of crashing the run ([#952](https://github.com/apify/apify-sdk-python/pull/952)) ([db9444f](https://github.com/apify/apify-sdk-python/commit/db9444faeb0158c29aa394121cf733ff2e843f28)) by [@vdusek](https://github.com/vdusek)
 - **scrapy:** [**breaking**] Serialize requests and HTTP cache as JSON instead of pickle ([#951](https://github.com/apify/apify-sdk-python/pull/951)) ([a87e8d1](https://github.com/apify/apify-sdk-python/commit/a87e8d1597478b4f12fd5bb9b379f65f637d8e96)) by [@vdusek](https://github.com/vdusek)
 - **scrapy:** Make logging configuration idempotent ([#954](https://github.com/apify/apify-sdk-python/pull/954)) ([2cc5602](https://github.com/apify/apify-sdk-python/commit/2cc5602b741b93c81f264d4e09e0d9bcfc7200f2)) by [@vdusek](https://github.com/vdusek)
+- Bump typing-extensions floor to 4.4.0 ([#960](https://github.com/apify/apify-sdk-python/pull/960)) ([b7e7d9c](https://github.com/apify/apify-sdk-python/commit/b7e7d9c9a053992d4281a8a19897957d2bff67e1)) by [@vdusek](https://github.com/vdusek)
+- Preserve decorated symbol types in docs_group and docs_name ([#964](https://github.com/apify/apify-sdk-python/pull/964)) ([6c359a7](https://github.com/apify/apify-sdk-python/commit/6c359a714b089b24c1be7fa9a07c9b9899cc5e11)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
