@@ -218,7 +218,7 @@ Pickle could store arbitrary Python objects. JSON cannot, so the values in a req
 
 - A `tuple` comes back as a `list`.
 - Non-string `dict` keys come back as strings, so `{1: 'a'}` becomes `{'1': 'a'}`.
-- A value JSON cannot represent (`datetime`, `set`, `Decimal`, a custom object) is no longer stored silently. The request is skipped and the failure is logged. Pydantic models are still supported and are dumped with `model_dump(mode='json')`, so model fields JSON cannot natively represent (such as `datetime`) are stored in their JSON form.
+- Non-JSON-serializable values, such as `datetime`, `set`, `Decimal`, or custom objects, are skipped and logged. Pydantic models are supported via `model_dump(mode='json')`, which converts non-JSON-native fields into JSON-compatible values, such as ISO-8601 strings for `datetime` fields.
 
 Convert such values to a JSON-friendly form before yielding the request:
 
@@ -230,4 +230,4 @@ yield scrapy.Request(url, meta={'since': datetime(2024, 1, 1)})
 
 # After (v4): store a JSON-serializable value.
 yield scrapy.Request(url, meta={'since': datetime(2024, 1, 1).isoformat()})
-```
+```Pickle
