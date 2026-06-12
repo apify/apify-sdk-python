@@ -19,26 +19,31 @@ By default, the Actor uses a <ApiLink to="class/SmartApifyStorageClient">`SmartA
 - When running on the Apify platform (detected automatically), or when you pass `force_cloud=True`, it uses the cloud client, <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink>, which persists data through the Apify API.
 - When running locally, it uses the local client, <ApiLink to="class/FileSystemStorageClient">`FileSystemStorageClient`</ApiLink>, which emulates platform storages on your filesystem under the `storage` folder.
 
-This is what lets the same Actor code run unchanged both locally and on the platform.
+As a result, the same Actor code can run unchanged both locally and on the platform.
 
 ## Available storage clients
 
 The `apify.storage_clients` module provides the following clients:
 
-- <ApiLink to="class/SmartApifyStorageClient">`SmartApifyStorageClient`</ApiLink> - the default hybrid client described above. It wraps a `cloud_storage_client` and a `local_storage_client` and routes each call to the right one.
+- <ApiLink to="class/SmartApifyStorageClient">`SmartApifyStorageClient`</ApiLink> - the default hybrid client. It wraps a `cloud_storage_client` and a `local_storage_client` and routes each call to the right one.
 - <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink> - talks to the Apify API. Used as the cloud client.
 - <ApiLink to="class/FileSystemStorageClient">`FileSystemStorageClient`</ApiLink> - persists data to the local filesystem. Used as the default local client.
 - <ApiLink to="class/MemoryStorageClient">`MemoryStorageClient`</ApiLink> - keeps everything in memory and persists nothing. Useful for tests and short-lived runs.
 
-All of these implement Crawlee's <ApiLink to="class/StorageClient">`StorageClient`</ApiLink> interface, so any of them can be used as a sub-client of `SmartApifyStorageClient`. See [customizing the storage client](#customizing-the-storage-client) below.
+All of these clients implement Crawlee's <ApiLink to="class/StorageClient">`StorageClient`</ApiLink> interface, so any of them can be used as a sub-client of `SmartApifyStorageClient`. For details, see [customizing the storage client](#customizing-the-storage-client).
 
-Crawlee additionally ships storage clients backed by a self-hosted database: a [`RedisStorageClient`](https://crawlee.dev/python/api/class/RedisStorageClient) and a [`SqlStorageClient`](https://crawlee.dev/python/api/class/SqlStorageClient). The Apify SDK does not re-export these, because they each require an extra dependency that the SDK does not install. To use one, install the matching Crawlee extra (`crawlee[redis]`, `crawlee[sql-postgres]`, or `crawlee[sql-sqlite]`). Then import the client from `crawlee.storage_clients` and pass it as a sub-client of `SmartApifyStorageClient`. For details, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients).
+Crawlee additionally ships storage clients backed by a self-hosted database: a [`RedisStorageClient`](https://crawlee.dev/python/api/class/RedisStorageClient) and a [`SqlStorageClient`](https://crawlee.dev/python/api/class/SqlStorageClient). The Apify SDK doesn't re-export these, because they each require an extra dependency that the SDK doesn't install. To use one of the storage clients:
+
+1. Install the matching Crawlee extra (`crawlee[redis]`, `crawlee[sql-postgres]`, or `crawlee[sql-sqlite]`).
+1. Import the client from `crawlee.storage_clients` and pass it as a sub-client of `SmartApifyStorageClient`.
+
+For details, see the [Crawlee storage clients guide](https://crawlee.dev/python/docs/guides/storage-clients).
 
 ## Single vs. shared request queue
 
 `ApifyStorageClient` supports two ways of accessing the Apify request queue, selected via its `request_queue_access` argument:
 
-- **`'single'`** (default) - optimized for a single consumer. It makes fewer API calls, so it is cheaper and faster, but it does not support multiple clients consuming the same queue concurrently. This is the right choice for the majority of Actors.
+- **`'single'`** (default) - optimized for a single consumer. It makes fewer API calls, so it is cheaper and faster, but it doesn't support multiple clients consuming the same queue concurrently. This is the right choice for the majority of Actors.
 - **`'shared'`** - supports multiple consumers working on the same queue at the same time, at the cost of more API calls.
 
 To opt into the shared client, set it as the cloud client of the `SmartApifyStorageClient` in the [service locator](https://crawlee.dev/python/docs/guides/service-locator) before entering the Actor context:
