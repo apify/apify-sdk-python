@@ -32,12 +32,6 @@ def crawler(monkeypatch: pytest.MonkeyPatch) -> Crawler:
 
 
 @pytest.fixture
-def spider() -> DummySpider:
-    """Fixture to create a "dummy" Scrapy spider."""
-    return DummySpider()
-
-
-@pytest.fixture
 def dummy_request() -> Request:
     """Fixture to create a "dummy" Scrapy spider."""
     return Request('https://example.com')
@@ -119,7 +113,6 @@ async def test_retrieves_new_proxy_url(
 async def test_process_request_with_proxy(
     monkeypatch: pytest.MonkeyPatch,
     middleware: ApifyHttpProxyMiddleware,
-    spider: DummySpider,
     dummy_request: Request,
     proxy_url: str,
     expected_exception: type[Exception] | None,
@@ -131,12 +124,12 @@ async def test_process_request_with_proxy(
     monkeypatch.setattr(middleware, '_get_new_proxy_url', mock_get_new_proxy_url)
 
     if expected_exception is None:
-        await middleware.process_request(dummy_request, spider)
+        await middleware.process_request(dummy_request)
         assert dummy_request.meta['proxy'] == proxy_url
         assert dummy_request.headers[b'Proxy-Authorization'] == expected_request_header
     else:
         with pytest.raises(expected_exception):
-            await middleware.process_request(dummy_request, spider)
+            await middleware.process_request(dummy_request)
 
 
 @pytest.mark.parametrize(
@@ -146,9 +139,8 @@ async def test_process_request_with_proxy(
 )
 def test_handles_exceptions(
     middleware: ApifyHttpProxyMiddleware,
-    spider: DummySpider,
     dummy_request: Request,
     exception: Exception,
 ) -> None:
-    returned_value = middleware.process_exception(dummy_request, exception, spider)
+    returned_value = middleware.process_exception(dummy_request, exception)
     assert returned_value is None
