@@ -103,4 +103,8 @@ You can optionally specify a `key` (the key-value store key under which the stat
     {UseStateExample}
 </RunnableCodeBlock>
 
+## Conclusion
+
+This page has described the events emitted during a run (`SYSTEM_INFO`, `MIGRATING`, `ABORTING`, `PERSIST_STATE`, and `EXIT`): how to handle them with <ApiLink to="class/Actor#on">`Actor.on`</ApiLink>, and how to persist state automatically with <ApiLink to="class/Actor#use_state">`Actor.use_state`</ApiLink>.
+
 For more details on platform events and state persistence, see the [system events](https://docs.apify.com/platform/actors/development/programming-interface/system-events) and [state persistence](https://docs.apify.com/platform/actors/development/state-persistence) documentation on the Apify platform.
