@@ -14,7 +14,7 @@
   <a href="https://discord.gg/jyEM2PRvMU"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>
 </p>
 
-`apify` is the official SDK for building [Apify Actors](https://docs.apify.com/platform/actors) in Python. Actors are serverless programs that run on the [Apify platform](https://apify.com), where you can scale them, schedule them, and monetize them. The SDK handles the Actor lifecycle, [storage](https://docs.apify.com/platform/storage) access, platform events, [Apify Proxy](https://docs.apify.com/platform/proxy), and pay-per-event charging.
+`apify` is the official SDK for building [Apify Actors](https://docs.apify.com/platform/actors) in Python. It handles the Actor lifecycle, [storage](https://docs.apify.com/platform/storage) access, platform events, [Apify Proxy](https://docs.apify.com/platform/proxy), pay-per-event charging, and more.
 
 > If you only need to **consume** the [Apify API](https://docs.apify.com/api/v2) from Python (running Actors, reading datasets, managing storages) rather than building Actors, use the [Apify API client for Python](https://docs.apify.com/api/client/python) instead. It comes bundled with this SDK.
 
