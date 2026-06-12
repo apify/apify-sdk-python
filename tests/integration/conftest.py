@@ -73,6 +73,7 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
         # Reset the AliasResolver class state.
         AliasResolver._alias_map = {}
         AliasResolver._alias_init_lock = None
+        AliasResolver._api_clients = {}
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)

@@ -4,7 +4,7 @@ import logging
 from asyncio import Lock
 from functools import cached_property
 from logging import getLogger
-from typing import TYPE_CHECKING, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, ClassVar, Literal, NamedTuple, overload
 
 from apify_client import ApifyClientAsync
 
@@ -111,6 +111,13 @@ async def open_by_alias(
         return get_resource_client_by_id(raw_metadata.id)
 
 
+class _ApiClientCacheKey(NamedTuple):
+    """Cache key for `AliasResolver._api_clients` — identifies an `ApifyClientAsync` by its credentials."""
+
+    token: str | None
+    api_url: str | None
+
+
 class AliasResolver:
     """Class for handling aliases.
 
@@ -135,7 +142,7 @@ class AliasResolver:
     _alias_init_lock: Lock | None = None
     """Lock for creating alias storages. Only one alias storage can be created at the time. Global for all instances."""
 
-    _api_clients: ClassVar[dict[tuple[str | None, str | None], ApifyClientAsync]] = {}
+    _api_clients: ClassVar[dict[_ApiClientCacheKey, ApifyClientAsync]] = {}
     """Cache of Apify API clients keyed by `(token, api_url)`. Reused across instances so that repeated alias
     resolution does not create (and leak) a fresh unclosed `ApifyClientAsync` on every call."""
 
@@ -263,7 +270,7 @@ class AliasResolver:
         if not configuration.default_key_value_store_id:
             raise ValueError("'Configuration.default_key_value_store_id' must be set.")
 
-        cache_key = (configuration.token, configuration.api_base_url)
+        cache_key = _ApiClientCacheKey(configuration.token, configuration.api_base_url)
         apify_client_async = cls._api_clients.get(cache_key)
         if apify_client_async is None:
             apify_client_async = ApifyClientAsync(
