@@ -4,6 +4,8 @@ import gzip
 import io
 import re
 import struct
+import traceback
+from datetime import timedelta
 from logging import getLogger
 from time import time
 from typing import TYPE_CHECKING
@@ -38,6 +40,8 @@ class ApifyCacheStorage:
         # Upper bound on how many keys the per-spider-close cleanup sweeps (best-effort; `close_spider`).
         self._expiration_max_items: int = settings.getint('APIFY_HTTPCACHE_EXPIRATION_MAX_ITEMS', 100)
         self._expiration_secs: int = settings.getint('HTTPCACHE_EXPIRATION_SECS')
+        self._async_thread_timeout = timedelta(seconds=settings.getint('APIFY_ASYNC_THREAD_TIMEOUT_SECS', 60))
+        """Caps how long each coroutine run on the background event loop may take; defaults to 60 seconds."""
         self._spider: Spider | None = None
         self._kvs: KeyValueStore | None = None
         self._fingerprinter: RequestFingerprinterProtocol | None = None
@@ -62,9 +66,16 @@ class ApifyCacheStorage:
             return await KeyValueStore.open(name=kvs_name)
 
         logger.debug("Starting background thread for cache storage's event loop")
-        self._async_thread = AsyncThread()
+        self._async_thread = AsyncThread(default_timeout=self._async_thread_timeout)
         logger.debug(f"Opening cache storage's {kvs_name!r} key value store")
-        self._kvs = self._async_thread.run_coro(open_kvs())
+        try:
+            self._kvs = self._async_thread.run_coro(open_kvs())
+        except Exception:
+            # Opening the key-value store failed, so close the freshly started async thread instead of
+            # leaking its event-loop thread (`close_spider` may never run if `open_spider` fails).
+            self._async_thread.close()
+            traceback.print_exc()
+            raise
 
     def close_spider(self, _: Spider, current_time: int | None = None) -> None:
         """Close the cache storage for a spider."""
@@ -72,45 +83,52 @@ class ApifyCacheStorage:
             raise ValueError('Async thread not initialized')
 
         logger.info(f'Cleaning up cache items (max {self._expiration_max_items})')
-        if self._expiration_secs > 0:
-            if current_time is None:
-                current_time = int(time())
+        # The cleanup sweep runs inside `try` so a failure there cannot skip closing the async thread
+        # (which would leak its event-loop thread); `close` always runs in the `finally`.
+        try:
+            if self._expiration_secs > 0:
+                if current_time is None:
+                    current_time = int(time())
 
-            async def expire_kvs() -> None:
-                if self._kvs is None:
-                    raise ValueError('Key value store not initialized')
-                # Best-effort cleanup: at most `_expiration_max_items` keys per close, in no guaranteed order,
-                # so stale entries may linger. This only reclaims storage; `retrieve_response` already treats
-                # an expired entry as a cache miss.
-                processed = 0
-                async for item in self._kvs.iterate_keys():
-                    if processed >= self._expiration_max_items:
-                        break
-                    processed += 1
-                    value = await self._kvs.get_value(item.key)
-                    try:
-                        gzip_time = read_gzip_time(value)
-                    except Exception as e:
-                        logger.warning(f'Malformed cache item {item.key}: {e}')
-                        await self._kvs.delete_value(item.key)
-                    else:
-                        if self._expiration_secs < current_time - gzip_time:
-                            logger.debug(f'Expired cache item {item.key}')
+                async def expire_kvs() -> None:
+                    if self._kvs is None:
+                        raise ValueError('Key value store not initialized')
+                    # Best-effort cleanup: at most `_expiration_max_items` keys per close, in no guaranteed order,
+                    # so stale entries may linger. This only reclaims storage; `retrieve_response` already treats
+                    # an expired entry as a cache miss.
+                    processed = 0
+                    async for item in self._kvs.iterate_keys():
+                        if processed >= self._expiration_max_items:
+                            break
+                        processed += 1
+                        value = await self._kvs.get_value(item.key)
+                        try:
+                            gzip_time = read_gzip_time(value)
+                        except Exception as e:
+                            logger.warning(f'Malformed cache item {item.key}: {e}')
                             await self._kvs.delete_value(item.key)
                         else:
-                            logger.debug(f'Valid cache item {item.key}')
+                            if self._expiration_secs < current_time - gzip_time:
+                                logger.debug(f'Expired cache item {item.key}')
+                                await self._kvs.delete_value(item.key)
+                            else:
+                                logger.debug(f'Valid cache item {item.key}')
 
-            self._async_thread.run_coro(expire_kvs())
-
-        logger.debug('Closing cache storage')
-        try:
-            self._async_thread.close()
-        except KeyboardInterrupt:
-            logger.warning('Shutdown interrupted by KeyboardInterrupt!')
-        except Exception:
-            logger.exception('Exception occurred while shutting down cache storage')
+                try:
+                    self._async_thread.run_coro(expire_kvs())
+                except Exception:
+                    traceback.print_exc()
+                    raise
         finally:
-            logger.debug('Cache storage closed')
+            logger.debug('Closing cache storage')
+            try:
+                self._async_thread.close()
+            except KeyboardInterrupt:
+                logger.warning('Shutdown interrupted by KeyboardInterrupt!')
+            except Exception:
+                logger.exception('Exception occurred while shutting down cache storage')
+            finally:
+                logger.debug('Cache storage closed')
 
     def retrieve_response(self, _: Spider, request: Request, current_time: int | None = None) -> Response | None:
         """Retrieve a response from the cache storage."""
@@ -122,7 +140,11 @@ class ApifyCacheStorage:
             raise ValueError('Request fingerprinter not initialized')
 
         key = self._fingerprinter.fingerprint(request).hex()
-        value = self._async_thread.run_coro(self._kvs.get_value(key))
+        try:
+            value = self._async_thread.run_coro(self._kvs.get_value(key))
+        except Exception:
+            traceback.print_exc()
+            raise
 
         if value is None:
             logger.debug('Cache miss', extra={'request': request})
@@ -169,7 +191,11 @@ class ApifyCacheStorage:
             'body': response.body,
         }
         value = to_gzip(data)
-        self._async_thread.run_coro(self._kvs.set_value(key, value))
+        try:
+            self._async_thread.run_coro(self._kvs.set_value(key, value))
+        except Exception:
+            traceback.print_exc()
+            raise
 
 
 def to_gzip(data: dict, mtime: int | None = None) -> bytes:

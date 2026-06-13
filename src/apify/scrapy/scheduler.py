@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import traceback
+from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,7 @@ from apify.storage_clients import ApifyStorageClient
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
+    from scrapy.crawler import Crawler
     from scrapy.http.request import Request
     from twisted.internet.defer import Deferred
 
@@ -27,7 +29,7 @@ class ApifyScheduler(BaseScheduler):
     This scheduler requires the asyncio Twisted reactor to be installed.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, async_thread_timeout: timedelta = timedelta(seconds=60)) -> None:
         if not is_asyncio_reactor_installed():
             raise ValueError(
                 f'{ApifyScheduler.__qualname__} requires the asyncio Twisted reactor. '
@@ -38,7 +40,17 @@ class ApifyScheduler(BaseScheduler):
         self.spider: Spider | None = None
 
         # A thread with the asyncio event loop to run coroutines on.
-        self._async_thread = AsyncThread()
+        self._async_thread = AsyncThread(default_timeout=async_thread_timeout)
+
+    @classmethod
+    def from_crawler(cls, crawler: Crawler) -> ApifyScheduler:
+        """Create the scheduler, reading the async-thread timeout from the Scrapy settings.
+
+        The `APIFY_ASYNC_THREAD_TIMEOUT_SECS` setting (in seconds) caps how long each coroutine run on the
+        background event loop may take before timing out; it defaults to 60 seconds.
+        """
+        timeout_secs = crawler.settings.getint('APIFY_ASYNC_THREAD_TIMEOUT_SECS', 60)
+        return cls(async_thread_timeout=timedelta(seconds=timeout_secs))
 
     def open(self, spider: Spider) -> Deferred[None] | None:
         """Open the scheduler.
