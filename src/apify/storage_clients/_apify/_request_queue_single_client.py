@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 from collections import deque
 from datetime import UTC, datetime
 from logging import getLogger
@@ -137,46 +136,37 @@ class ApifyRequestQueueSingleClient:
                     )
                 )
             else:
-                # Push the request to the platform. Probably not there, or we are not aware of it
+                # Push the request to the platform. Probably not there, or we are not aware of it.
+                # Defer caching until the platform confirms the request was accepted (see below).
                 new_requests.append(request)
-
-                # Optimistically update local caches so that concurrent producers deduplicate against these
-                # in-flight requests instead of re-sending them to the platform. Rolled back below if the
-                # `batch_add_requests` call fails, otherwise the never-sent requests would poison the cache and
-                # a later retry of the same request would be silently deduplicated and lost.
-                self._requests_cache[request_id] = request
-                if forefront:
-                    self._head_requests.append(request_id)
-                else:
-                    self._head_requests.appendleft(request_id)
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
             requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
 
             # Send requests to API.
-            try:
-                batch_response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
-            except Exception:
-                # The platform never received these requests, so roll back the optimistic cache writes to keep
-                # a later retry from being deduplicated away.
-                for request in new_requests:
-                    request_id = unique_key_to_request_id(request.unique_key)
-                    self._requests_cache.pop(request_id, None)
-                    with contextlib.suppress(ValueError):
-                        self._head_requests.remove(request_id)
-                raise
-
+            batch_response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
             batch_response_dict = batch_response.model_dump(by_alias=True)
             api_response = AddRequestsResponse.model_validate(batch_response_dict)
 
+            # Commit only the requests the platform actually accepted to the local caches. Caching is done after
+            # `batch_add_requests` succeeds (not before) so that a failed call leaves no entry behind: caching
+            # first would poison the cache and a later retry of the same request would be silently deduplicated
+            # and lost. It also keeps a concurrent producer from observing an uncommitted in-flight entry and
+            # returning false success while this call is still in flight.
+            unprocessed_unique_keys = {request.unique_key for request in api_response.unprocessed_requests}
+            for request in new_requests:
+                if request.unique_key in unprocessed_unique_keys:
+                    continue
+                request_id = unique_key_to_request_id(request.unique_key)
+                self._requests_cache[request_id] = request
+                if forefront:
+                    self._head_requests.append(request_id)
+                else:
+                    self._head_requests.appendleft(request_id)
+
             # Add the locally known already present processed requests based on the local cache.
             api_response.processed_requests.extend(already_present_requests)
-
-            # Remove unprocessed requests from the cache
-            for unprocessed_request in api_response.unprocessed_requests:
-                request_id = unique_key_to_request_id(unprocessed_request.unique_key)
-                self._requests_cache.pop(request_id, None)
 
         else:
             api_response = AddRequestsResponse(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -162,8 +163,8 @@ async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> N
     api_client.list_head.assert_awaited_once_with(limit=expected_limit)
 
 
-# Failed `batch_add_requests` must not poison the local dedup cache (otherwise a user retry is
-# silently deduplicated and the request never reaches the platform).
+# A failed `batch_add_requests` must not poison the local dedup cache (otherwise a later add of the
+# same request, sequential or concurrent, is silently deduplicated and never reaches the platform).
 
 
 @pytest.mark.parametrize('access', ['single', 'shared'])
@@ -188,3 +189,54 @@ async def test_failed_batch_add_does_not_poison_dedup_cache(access: str) -> None
     api_client.batch_add_requests.assert_awaited_once()
     assert api_client.batch_add_requests.await_args is not None
     assert len(api_client.batch_add_requests.await_args.kwargs['requests']) == 1
+
+
+@pytest.mark.parametrize('access', ['single', 'shared'])
+async def test_concurrent_add_failure_does_not_falsely_dedupe(access: str) -> None:
+    """While one producer's `batch_add_requests` is in flight and fails, a concurrent producer of the same
+    request must still reach the platform instead of deduping against the uncommitted in-flight entry."""
+    client, api_client = _make_single_client() if access == 'single' else _make_shared_client()
+    # The single client lazily initializes its caches via `list_requests`; harmless for the shared client.
+    api_client.list_requests = AsyncMock(return_value=SimpleNamespace(items=[]))
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    first_call_in_flight = asyncio.Event()
+    release_first_call = asyncio.Event()
+    call_count = 0
+
+    async def batch_add(*, requests: list, forefront: bool = False) -> BatchAddResult:  # noqa: ARG001
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # First producer: block while its call is "in flight", then fail.
+            first_call_in_flight.set()
+            await release_first_call.wait()
+            raise RuntimeError('network down')
+        # Concurrent producer: the request reaches the platform and is accepted.
+        return _batch_result_all_processed([request])
+
+    api_client.batch_add_requests = AsyncMock(side_effect=batch_add)
+
+    # Start the first (failing) producer and wait until its API call is in flight.
+    first = asyncio.create_task(client.add_batch_of_requests([request]))
+    await first_call_in_flight.wait()
+
+    # Nothing is committed while the first call is still in flight, so a concurrent producer cannot
+    # observe a false "already present" entry.
+    assert request_id not in client._requests_cache
+
+    # The concurrent producer of the same request runs while the first call is still in flight.
+    second = asyncio.create_task(client.add_batch_of_requests([request]))
+
+    # Let the first producer fail.
+    release_first_call.set()
+    with pytest.raises(RuntimeError):
+        await first
+
+    # The concurrent producer must have actually sent the request to the platform and succeeded,
+    # rather than returning false success against an uncommitted (then discarded) in-flight entry.
+    response = await second
+    assert call_count == 2
+    assert [processed.unique_key for processed in response.processed_requests] == [request.unique_key]
+    assert request_id in client._requests_cache
