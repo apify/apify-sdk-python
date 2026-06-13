@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-
-from apify_client import ApifyClientAsync
+from unittest.mock import AsyncMock, patch
 
 from apify._configuration import Configuration
 from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 
-def _api_client() -> ApifyClientAsync:
-    """Build a throwaway API client for resolver construction in tests that never issue real requests."""
-    return ApifyClientAsync(token='test-token')
-
-
 def test_storage_key_format() -> None:
     """Test that _storage_key has the expected format: type,alias,hash."""
     config = Configuration(token='test-token', api_base_url='https://api.apify.com')
-    resolver = AliasResolver(storage_type='Dataset', alias='my-alias', configuration=config, api_client=_api_client())
+    resolver = AliasResolver(storage_type='Dataset', alias='my-alias', configuration=config)
     key = resolver._storage_key
     parts = key.split(',')
     assert len(parts) == 3
@@ -30,9 +22,7 @@ async def test_resolve_id_returns_none_for_unknown() -> None:
     """Test that resolve_id returns None for an alias not in the map."""
     AliasResolver._alias_map = {}
     config = Configuration(token='test-token')
-    resolver = AliasResolver(
-        storage_type='Dataset', alias='unknown-alias', configuration=config, api_client=_api_client()
-    )
+    resolver = AliasResolver(storage_type='Dataset', alias='unknown-alias', configuration=config)
     result = await resolver.resolve_id()
     assert result is None
 
@@ -40,9 +30,7 @@ async def test_resolve_id_returns_none_for_unknown() -> None:
 async def test_resolve_id_returns_stored_id() -> None:
     """Test that resolve_id returns the ID if it was previously stored."""
     config = Configuration(token='test-token', api_base_url='https://api.apify.com')
-    resolver = AliasResolver(
-        storage_type='KeyValueStore', alias='test-alias', configuration=config, api_client=_api_client()
-    )
+    resolver = AliasResolver(storage_type='KeyValueStore', alias='test-alias', configuration=config)
     storage_key = resolver._storage_key
     AliasResolver._alias_map = {storage_key: 'stored-id-123'}
 
@@ -54,9 +42,7 @@ async def test_store_mapping_local_only() -> None:
     """Test that store_mapping only updates in-memory map when not at home."""
     AliasResolver._alias_map = {}
     config = Configuration(is_at_home=False, token='test-token')
-    resolver = AliasResolver(
-        storage_type='RequestQueue', alias='test-alias', configuration=config, api_client=_api_client()
-    )
+    resolver = AliasResolver(storage_type='RequestQueue', alias='test-alias', configuration=config)
 
     await resolver.store_mapping(storage_id='new-id-456')
 
@@ -69,7 +55,7 @@ async def test_concurrent_alias_creation_uses_lock() -> None:
     AliasResolver._alias_init_lock = None
     AliasResolver._alias_map = {}
     config = Configuration(token='test-token')
-    resolver = AliasResolver(storage_type='Dataset', alias='test', configuration=config, api_client=_api_client())
+    resolver = AliasResolver(storage_type='Dataset', alias='test', configuration=config)
 
     async with resolver:
         # Lock should be acquired
@@ -85,28 +71,26 @@ async def test_get_alias_map_returns_in_memory_map() -> None:
     """Test that _get_alias_map returns the in-memory map when not at home."""
     AliasResolver._alias_map = {'existing_key': 'existing_id'}
     config = Configuration(is_at_home=False, token='test-token')
-    resolver = AliasResolver(storage_type='Dataset', alias='test', configuration=config, api_client=_api_client())
 
-    result = await resolver._get_alias_map()
+    result = await AliasResolver._get_alias_map(config)
     assert result == {'existing_key': 'existing_id'}
     # Also verify that an empty map is returned without fetching from KVS when not at home
     AliasResolver._alias_map = {}
-    result = await resolver._get_alias_map()
+    result = await AliasResolver._get_alias_map(config)
     assert result == {}
 
 
 async def test_get_alias_map_loads_from_kvs_only_once_when_empty() -> None:
     """An empty KVS response must not trigger repeat fetches on subsequent calls."""
     config = Configuration(is_at_home=True, token='test-token', default_key_value_store_id='default-kvs-id')
-    resolver = AliasResolver(storage_type='Dataset', alias='test', configuration=config, api_client=_api_client())
 
     fake_kvs_client = AsyncMock()
     fake_kvs_client.get_record = AsyncMock(return_value=None)
 
     with patch.object(AliasResolver, '_get_default_kvs_client', return_value=fake_kvs_client):
-        await resolver._get_alias_map()
-        await resolver._get_alias_map()
-        await resolver._get_alias_map()
+        await AliasResolver._get_alias_map(config)
+        await AliasResolver._get_alias_map(config)
+        await AliasResolver._get_alias_map(config)
 
     assert fake_kvs_client.get_record.await_count == 1
     assert AliasResolver._alias_map == {}
@@ -116,7 +100,7 @@ async def test_store_mapping_uses_injected_configuration_is_at_home() -> None:
     """`store_mapping` gates on the injected configuration's `is_at_home`, not the global one."""
     # Global `is_at_home` defaults to False; injected config says True — the KVS write must still happen.
     config = Configuration(is_at_home=True, token='test-token', default_key_value_store_id='default-kvs-id')
-    resolver = AliasResolver(storage_type='Dataset', alias='test-alias', configuration=config, api_client=_api_client())
+    resolver = AliasResolver(storage_type='Dataset', alias='test-alias', configuration=config)
 
     fake_kvs_client = AsyncMock()
     fake_kvs_client.get_record = AsyncMock(return_value=None)
@@ -145,66 +129,6 @@ async def test_configuration_storages_alias_resolving() -> None:
     # Check that id of each non-default storage saved in the mapping is resolved
     for storage_type in ('Dataset', 'KeyValueStore', 'RequestQueue'):
         assert (
-            await AliasResolver(
-                storage_type=storage_type, alias='custom', configuration=configuration, api_client=_api_client()
-            ).resolve_id()
+            await AliasResolver(storage_type=storage_type, alias='custom', configuration=configuration).resolve_id()
             == f'custom_{storage_type}_id'
         )
-
-
-def test_default_kvs_client_derives_from_injected_client() -> None:
-    """The default-KVS client used for alias mapping is derived from the injected client, not a freshly created one."""
-    api_client = _api_client()
-    config = Configuration(token='test-token', default_key_value_store_id='default-kvs-id')
-    resolver = AliasResolver(storage_type='Dataset', alias='a', configuration=config, api_client=api_client)
-
-    kvs_client = resolver._get_default_kvs_client()
-
-    assert kvs_client.resource_id == 'default-kvs-id'
-    # Shares the injected client's HTTP client (and its connection pool), proving no separate client is spun up.
-    assert kvs_client._http_client is api_client.http_client
-
-
-def test_resolvers_use_their_own_injected_client() -> None:
-    """Each resolver derives its KVS client from its own injected client; there is no shared process-global cache."""
-    config = Configuration(token='test-token', default_key_value_store_id='default-kvs-id')
-    client_a = _api_client()
-    client_b = _api_client()
-    resolver_a = AliasResolver(storage_type='Dataset', alias='a', configuration=config, api_client=client_a)
-    resolver_b = AliasResolver(storage_type='Dataset', alias='b', configuration=config, api_client=client_b)
-
-    assert resolver_a._get_default_kvs_client()._http_client is client_a.http_client
-    assert resolver_b._get_default_kvs_client()._http_client is client_b.http_client
-    assert client_a.http_client is not client_b.http_client
-
-
-def test_alias_resolution_runs_across_event_loops_with_shared_client() -> None:
-    """A single injected client can drive alias resolution from more than one event loop without loop-bound state."""
-    config = Configuration(is_at_home=True, token='test-token', default_key_value_store_id='default-kvs-id')
-
-    kvs_client = AsyncMock()
-    kvs_client.get_record = AsyncMock(return_value={'value': {}})
-    kvs_client.set_record = AsyncMock(return_value=None)
-    api_client = MagicMock()
-    api_client.key_value_store = MagicMock(return_value=kvs_client)
-
-    async def store_on_current_loop(alias: str, storage_id: str) -> None:
-        # Each loop starts from clean class state and builds its own lock on the running loop.
-        AliasResolver._alias_map = {}
-        AliasResolver._alias_map_loaded = False
-        AliasResolver._alias_init_lock = None
-        resolver = AliasResolver(storage_type='Dataset', alias=alias, configuration=config, api_client=api_client)
-        async with resolver:
-            await resolver.store_mapping(storage_id=storage_id)
-
-    loop_a = asyncio.new_event_loop()
-    loop_b = asyncio.new_event_loop()
-    try:
-        loop_a.run_until_complete(store_on_current_loop('alias-a', 'id-a'))
-        loop_b.run_until_complete(store_on_current_loop('alias-b', 'id-b'))
-    finally:
-        loop_a.close()
-        loop_b.close()
-
-    # The same injected client served both event loops.
-    assert kvs_client.set_record.await_count == 2
