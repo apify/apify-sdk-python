@@ -117,6 +117,7 @@ async def create_storage_api_client(
                 storage_type=storage_type,
                 collection_client=collection_client,
                 get_resource_client_by_id=get_resource_client,
+                api_client=apify_client,
                 configuration=configuration,
             )  # ty:ignore[no-matching-overload]
 
@@ -127,6 +128,7 @@ async def create_storage_api_client(
                 storage_type=storage_type,
                 collection_client=collection_client,
                 get_resource_client_by_id=get_resource_client,
+                api_client=apify_client,
                 configuration=configuration,
             )  # ty:ignore[no-matching-overload]
 
