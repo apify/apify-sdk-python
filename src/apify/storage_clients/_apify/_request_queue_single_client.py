@@ -244,10 +244,7 @@ class ApifyRequestQueueSingleClient:
 
         request_id = unique_key_to_request_id(request.unique_key)
 
-        # Capture this before clearing `handled_at`, otherwise the computed `was_already_handled` property
-        # would always be False below and the metadata counters would never be adjusted.
-        was_already_handled = request.was_already_handled
-        if was_already_handled:
+        if request.was_already_handled:
             request.handled_at = None
 
         try:
@@ -266,9 +263,9 @@ class ApifyRequestQueueSingleClient:
             processed_request = await self._update_request(request, forefront=forefront)
             processed_request.id = request_id
             processed_request.unique_key = request.unique_key
-            # If the request was previously handled, decrement our handled count since
-            # we're putting it back for processing.
-            if was_already_handled and not processed_request.was_already_handled:
+            # The platform reports the request's state before this update via `was_already_handled`. If it was
+            # handled, this update moved it from handled back to pending, so mirror that in the local metadata.
+            if processed_request.was_already_handled:
                 self.metadata.handled_request_count -= 1
                 self.metadata.pending_request_count += 1
 

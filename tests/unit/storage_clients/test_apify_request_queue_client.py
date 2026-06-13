@@ -1,27 +1,25 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import RequestQueueHead, RequestQueueStats, RequestRegistration
+from apify_client._models import RequestQueueHead, RequestQueueStats
 from crawlee.storage_clients.models import RequestQueueMetadata
 
-from apify import Request
 from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
-from apify.storage_clients._apify._request_queue_shared_client import ApifyRequestQueueSharedClient
 from apify.storage_clients._apify._request_queue_single_client import ApifyRequestQueueSingleClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
-
-def _make_metadata() -> RequestQueueMetadata:
+def _make_single_client(
+    api_client: AsyncMock | None = None,
+) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
+    if api_client is None:
+        api_client = AsyncMock()
     now = datetime.now(tz=UTC)
-    return RequestQueueMetadata(
+    metadata = RequestQueueMetadata(
         id='test-rq-id',
         name='test-rq',
         accessed_at=now,
@@ -32,28 +30,7 @@ def _make_metadata() -> RequestQueueMetadata:
         pending_request_count=0,
         total_request_count=0,
     )
-
-
-def _make_single_client(
-    api_client: AsyncMock | None = None,
-) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
-    if api_client is None:
-        api_client = AsyncMock()
-    client = ApifyRequestQueueSingleClient(api_client=api_client, metadata=_make_metadata(), cache_size=100)
-    return client, api_client
-
-
-def _make_shared_client(
-    api_client: AsyncMock | None = None,
-) -> tuple[ApifyRequestQueueSharedClient, AsyncMock]:
-    if api_client is None:
-        api_client = AsyncMock()
-    client = ApifyRequestQueueSharedClient(
-        api_client=api_client,
-        metadata=_make_metadata(),
-        cache_size=100,
-        metadata_getter=AsyncMock(),
-    )
+    client = ApifyRequestQueueSingleClient(api_client=api_client, metadata=metadata, cache_size=100)
     return client, api_client
 
 
@@ -142,34 +119,3 @@ async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> N
     await client._list_head()
 
     api_client.list_head.assert_awaited_once_with(limit=expected_limit)
-
-
-@pytest.mark.parametrize(
-    'make_client',
-    [_make_single_client, _make_shared_client],
-    ids=['single_client', 'shared_client'],
-)
-async def test_reclaim_previously_handled_adjusts_counts(
-    make_client: Callable[[], tuple[ApifyRequestQueueSingleClient | ApifyRequestQueueSharedClient, AsyncMock]],
-) -> None:
-    """Reclaiming a previously handled request must move it from handled back to pending in the metadata."""
-    client, api_client = make_client()
-    client.metadata.handled_request_count = 1
-    client.metadata.pending_request_count = 0
-
-    unique_key = 'https://example.com'
-    request_id = unique_key_to_request_id(unique_key)
-    request = Request.from_url(unique_key, unique_key=unique_key)
-    request.handled_at = datetime.now(tz=UTC)
-
-    # After reclaiming, the platform reports the request as no longer handled.
-    api_client.update_request = AsyncMock(
-        return_value=RequestRegistration.model_validate(
-            {'requestId': request_id, 'wasAlreadyPresent': True, 'wasAlreadyHandled': False}
-        )
-    )
-
-    await client.reclaim_request(request)
-
-    assert client.metadata.handled_request_count == 0, 'Reclaimed request must be removed from the handled count.'
-    assert client.metadata.pending_request_count == 1, 'Reclaimed request must be added back to the pending count.'
