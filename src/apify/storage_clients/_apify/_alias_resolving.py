@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
 from apify_client import ApifyClientAsync
 
-from ._utils import hash_api_base_url_and_token
+from ._utils import hash_api_public_base_url_and_token
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -177,7 +177,7 @@ class AliasResolver:
     async def _get_alias_map(cls, configuration: Configuration) -> dict[str, str]:
         """Get the aliases and storage ids mapping from the default kvs.
 
-        Mapping is loaded from kvs only once and is shared for all instances of the _AliasResolver class.
+        Mapping is loaded from kvs only once and is shared for all instances of the AliasResolver class.
 
         Args:
             configuration: Configuration object to use for accessing the default KVS.
@@ -222,12 +222,11 @@ class AliasResolver:
 
         if not self._configuration.is_at_home:
             logging.getLogger(__name__).debug(
-                '_AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
+                'AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
             )
             return
 
         default_kvs_client = await self._get_default_kvs_client(self._configuration)
-        await default_kvs_client.get()
 
         try:
             record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
@@ -246,7 +245,7 @@ class AliasResolver:
             [
                 self._storage_type,
                 self._alias,
-                hash_api_base_url_and_token(self._configuration),
+                hash_api_public_base_url_and_token(self._configuration),
             ]
         )
 

@@ -186,7 +186,6 @@ class _ActorType:
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
-        self._was_final_persist_state_emitted = False
 
         # Initialize the storage client and register it in the service locator.
         _ = self._storage_client
