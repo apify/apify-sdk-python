@@ -89,20 +89,22 @@ class AsyncThread:
         if self._eventloop.is_closed():
             return
 
-        if self._eventloop.is_running():
-            # Cancel all pending tasks in the event loop, honouring the caller's timeout.
-            self.run_coro(self._shutdown_tasks(), timeout=timeout)
+        try:
+            if self._eventloop.is_running():
+                # Cancel all pending tasks in the event loop, honouring the caller's timeout.
+                self.run_coro(self._shutdown_tasks(), timeout=timeout)
+        finally:
+            # Stop the loop and join its thread even if cancelling the pending tasks above raised or timed
+            # out. Skipping this would leave the loop running and leak its thread.
+            self._eventloop.call_soon_threadsafe(self._eventloop.stop)
 
-        # Schedule the event loop to stop.
-        self._eventloop.call_soon_threadsafe(self._eventloop.stop)
+            # Wait for the event loop thread to finish execution.
+            self._thread.join(timeout=timeout.total_seconds())
 
-        # Wait for the event loop thread to finish execution.
-        self._thread.join(timeout=timeout.total_seconds())
-
-        # If the thread is still running after the timeout, force a shutdown.
-        if self._thread.is_alive():
-            logger.warning('Event loop thread did not exit cleanly! Forcing shutdown...')
-            self._force_exit_event_loop()
+            # If the thread is still running after the timeout, force a shutdown.
+            if self._thread.is_alive():
+                logger.warning('Event loop thread did not exit cleanly! Forcing shutdown...')
+                self._force_exit_event_loop()
 
     def _start_event_loop(self) -> None:
         """Set up and run the asyncio event loop in the dedicated thread."""

@@ -87,3 +87,21 @@ def test_close_passes_its_timeout_to_the_shutdown_step(monkeypatch: pytest.Monke
     thread.close(timeout=timedelta(seconds=42))
 
     assert recorded == [timedelta(seconds=42)]
+
+
+def test_close_stops_and_joins_thread_even_when_task_cancellation_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If cancelling the pending tasks fails, `close` still stops the loop and joins the thread, not leaks it."""
+    thread = AsyncThread()
+    _wait_until_running(thread)
+
+    async def boom() -> None:
+        raise RuntimeError('shutdown boom')
+
+    monkeypatch.setattr(thread, '_shutdown_tasks', boom)
+
+    with pytest.raises(RuntimeError, match='shutdown boom'):
+        thread.close(timeout=timedelta(seconds=5))
+
+    # The loop was stopped and its thread joined despite the failing cancellation, so nothing is left running.
+    assert not thread._thread.is_alive()
+    assert thread._eventloop.is_closed()

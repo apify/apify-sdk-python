@@ -71,6 +71,9 @@ class ApifyCacheStorage:
         try:
             self._kvs = self._async_thread.run_coro(open_kvs())
         except Exception:
+            # Opening the key-value store failed, so close the freshly started async thread instead of
+            # leaking its event-loop thread (`close_spider` may never run if `open_spider` fails).
+            self._async_thread.close()
             traceback.print_exc()
             raise
 

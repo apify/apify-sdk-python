@@ -324,6 +324,32 @@ def test_open_spider_passes_timeout_to_async_thread(monkeypatch: pytest.MonkeyPa
     assert captured['default_timeout'] == timedelta(seconds=77)
 
 
+def test_open_spider_closes_async_thread_when_open_kvs_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If opening the key-value store fails, `open_spider` closes the async thread rather than leaking it."""
+    closed: list[bool] = []
+
+    class _FailingAsyncThread:
+        def __init__(self, default_timeout: timedelta | None = None) -> None:
+            pass
+
+        def run_coro(self, coro: Any, *_: Any, **__: Any) -> Any:
+            coro.close()  # we never run it; just avoid an un-awaited coroutine warning
+            raise RuntimeError('open boom')
+
+        def close(self, *_: Any, **__: Any) -> None:
+            closed.append(True)
+
+    monkeypatch.setattr('apify.scrapy.extensions._httpcache.AsyncThread', _FailingAsyncThread)
+
+    storage = ApifyCacheStorage(Settings())
+    spider = SimpleNamespace(name='myspider', crawler=SimpleNamespace(request_fingerprinter=_FakeFingerprinter()))
+
+    with pytest.raises(RuntimeError, match='open boom'):
+        storage.open_spider(cast('Any', spider))
+
+    assert closed == [True]
+
+
 @pytest.mark.parametrize(
     ('spider_name', 'expected'),
     [
