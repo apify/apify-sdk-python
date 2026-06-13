@@ -50,11 +50,11 @@ class ApifyEventManager(EventManager):
     """
 
     _NON_RETRYABLE_CLOSE_CODES = frozenset({1002, 1003, 1007, 1008, 1010})
-    """WebSocket close codes that signal a permanent condition, so the connection should not be re-established.
+    """WebSocket close codes for a permanent condition, on which the connection is not re-established.
 
-    Covers the protocol and data errors (`1002`, `1003`, `1007`), a mandatory extension failure (`1010`), and a
-    policy violation (`1008`). The platform sends `1008` for an unknown or missing run ID, or when the per-run
-    websocket connection limit is exceeded; reconnecting on any of these would fail in exactly the same way.
+    The platform sends `1008` (policy violation) for an unknown/missing run ID or an exceeded per-run
+    connection limit. `1002`, `1003`, and `1007` are protocol or data errors, and `1010` a mandatory
+    extension failure.
     """
 
     _HEALTHY_CONNECTION_MIN_DURATION = 1.0
@@ -131,16 +131,13 @@ class ApifyEventManager(EventManager):
         return exc
 
     async def _process_platform_messages(self, ws_url: str) -> None:
-        # Backoff between reconnects after an established connection is closed by the server. The `websockets`
-        # reconnect iterator only backs off on failed connection *attempts*, not on a connection that opens and is
-        # then closed, so a server that keeps accepting and immediately closing would otherwise be hammered. The
-        # generator is reset after any connection that stayed open long enough to count as healthy, so a healthy
-        # connection that drops reconnects immediately without missing platform events.
+        # The `websockets` reconnect iterator only backs off on failed connection *attempts*, not on a connection
+        # that opens and is then closed. Track our own backoff here so a server that keeps accepting and immediately
+        # closing is not hammered; it is reset after a healthy connection so a healthy drop reconnects immediately.
         backoff_delays: Generator[float] | None = None
 
         try:
-            # Used as an async iterator, `connect` reconnects with exponential backoff whenever a connection
-            # attempt fails with a transient error.
+            # Used as an async iterator, `connect` reconnects with exponential backoff on failed connection attempts.
             async for websocket in websockets.asyncio.client.connect(
                 ws_url, process_exception=self._process_connection_exception
             ):
@@ -151,69 +148,81 @@ class ApifyEventManager(EventManager):
                     logger.info('Reconnected to the platform events websocket.')
 
                 connection_opened_at = time.monotonic()
-                connection_lost = False
-                try:
-                    async for message in websocket:
-                        try:
-                            parsed_message = event_data_adapter.validate_json(message)
+                connection_lost = await self._consume_messages(websocket)
 
-                            if isinstance(parsed_message, DeprecatedEvent):
-                                continue
-
-                            if isinstance(parsed_message, UnknownEvent):
-                                logger.info(
-                                    f'Unknown message received: event_name={parsed_message.name}, '
-                                    f'event_data={parsed_message.data}'
-                                )
-                                continue
-
-                            self.emit(
-                                event=parsed_message.name,
-                                event_data=parsed_message.data
-                                if not isinstance(parsed_message.data, SystemInfoEventData)
-                                else parsed_message.data.to_crawlee_format(self._configuration.dedicated_cpus or 1),
-                            )
-
-                            if parsed_message.name == Event.MIGRATING:
-                                await self._emit_persist_state_event_rec_task.stop()
-                                self.emit(
-                                    event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True)
-                                )
-                        except Exception:
-                            logger.exception('Cannot parse Actor event', extra={'raw_message': message})
-                except websockets.exceptions.ConnectionClosed:
-                    connection_lost = True
-
-                # Stop reconnecting on a permanent close code; otherwise the loop would reconnect forever.
-                if websocket.close_code in self._NON_RETRYABLE_CLOSE_CODES:
-                    logger.error(
-                        f'Connection to platform events websocket was closed with a non-retryable code '
-                        f'(code={websocket.close_code}, reason={websocket.close_reason!r}); not reconnecting.'
-                    )
+                if not self._should_reconnect_after_close(websocket, connection_lost=connection_lost):
                     break
 
-                if connection_lost:
-                    logger.warning(
-                        f'Connection to platform events websocket was lost '
-                        f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
-                    )
-                else:
-                    logger.info(
-                        f'Connection to platform events websocket was closed '
-                        f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
-                    )
-
-                # Reconnect a connection that stayed up long enough (including a one-off drop) immediately so platform
-                # events are not missed. Back off only when connections keep dropping too quickly, so a server that
-                # accepts and then immediately closes is not hammered.
+                # Reconnect a healthy connection immediately; back off only on repeated rapid drops.
                 if time.monotonic() - connection_opened_at >= self._HEALTHY_CONNECTION_MIN_DURATION:
                     backoff_delays = None
-                    continue
-                if backoff_delays is None:
+                elif backoff_delays is None:
                     backoff_delays = websockets.client.backoff()
-                    continue
-                await asyncio.sleep(next(backoff_delays))
+                else:
+                    await asyncio.sleep(next(backoff_delays))
         except Exception:
             logger.exception('Error in websocket connection')
             if self._connected_to_platform_websocket is not None and not self._connected_to_platform_websocket.done():
                 self._connected_to_platform_websocket.set_result(False)
+
+    async def _consume_messages(self, websocket: websockets.asyncio.client.ClientConnection) -> bool:
+        """Handle platform messages until the connection closes; return whether it was lost vs. closed cleanly."""
+        try:
+            async for message in websocket:
+                await self._handle_platform_message(message)
+        except websockets.exceptions.ConnectionClosed:
+            return True
+        return False
+
+    async def _handle_platform_message(self, message: str | bytes) -> None:
+        """Parse a single platform message and emit the matching local event."""
+        try:
+            parsed_message = event_data_adapter.validate_json(message)
+
+            if isinstance(parsed_message, DeprecatedEvent):
+                return
+
+            if isinstance(parsed_message, UnknownEvent):
+                logger.info(
+                    f'Unknown message received: event_name={parsed_message.name}, event_data={parsed_message.data}'
+                )
+                return
+
+            self.emit(
+                event=parsed_message.name,
+                event_data=parsed_message.data
+                if not isinstance(parsed_message.data, SystemInfoEventData)
+                else parsed_message.data.to_crawlee_format(self._configuration.dedicated_cpus or 1),
+            )
+
+            if parsed_message.name == Event.MIGRATING:
+                await self._emit_persist_state_event_rec_task.stop()
+                self.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
+        except Exception:
+            logger.exception('Cannot parse Actor event', extra={'raw_message': message})
+
+    def _should_reconnect_after_close(
+        self,
+        websocket: websockets.asyncio.client.ClientConnection,
+        *,
+        connection_lost: bool,
+    ) -> bool:
+        """Log the websocket close and report whether to reconnect (`False` on a non-retryable close code)."""
+        if websocket.close_code in self._NON_RETRYABLE_CLOSE_CODES:
+            logger.error(
+                f'Connection to platform events websocket was closed with a non-retryable code '
+                f'(code={websocket.close_code}, reason={websocket.close_reason!r}); not reconnecting.'
+            )
+            return False
+
+        if connection_lost:
+            logger.warning(
+                f'Connection to platform events websocket was lost '
+                f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
+            )
+        else:
+            logger.info(
+                f'Connection to platform events websocket was closed '
+                f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
+            )
+        return True
