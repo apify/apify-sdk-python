@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 from unittest import mock
 
 import pytest
 from scrapy import Request, Spider
+from scrapy.settings import Settings
 
 from apify import Request as ApifyRequest
 from apify.scrapy.scheduler import ApifyScheduler
@@ -151,3 +153,37 @@ def test_next_request_returns_none_when_queue_empty(scheduler: ApifyScheduler) -
 
     assert result is None
     rq.mark_request_as_handled.assert_not_called()
+
+
+def test_next_request_prints_traceback_to_stderr(
+    scheduler: ApifyScheduler,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A failure in the coroutine run prints a traceback to stderr via `traceback.print_exc()` before propagating."""
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+    async_thread.run_coro.side_effect = RuntimeError('boom')
+
+    with pytest.raises(RuntimeError, match='boom'):
+        scheduler.next_request()
+
+    captured = capsys.readouterr()
+    assert 'Traceback (most recent call last)' in captured.err
+    assert 'RuntimeError: boom' in captured.err
+
+
+def test_from_crawler_reads_async_thread_timeout_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`from_crawler` wires the `APIFY_ASYNC_THREAD_TIMEOUT_SECS` setting into the async thread's timeout."""
+    monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
+
+    captured: dict[str, Any] = {}
+
+    class _RecordingAsyncThread:
+        def __init__(self, default_timeout: timedelta | None = None) -> None:
+            captured['default_timeout'] = default_timeout
+
+    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', _RecordingAsyncThread)
+
+    crawler = SimpleNamespace(settings=Settings({'APIFY_ASYNC_THREAD_TIMEOUT_SECS': 123}))
+    ApifyScheduler.from_crawler(cast('Any', crawler))
+
+    assert captured['default_timeout'] == timedelta(seconds=123)
