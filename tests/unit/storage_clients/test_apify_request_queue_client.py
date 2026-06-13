@@ -1,25 +1,29 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import RequestQueueHead, RequestQueueStats
-from crawlee.storage_clients.models import RequestQueueMetadata
+from apify_client._models import AddedRequest, BatchAddResult, RequestQueueHead, RequestQueueStats
+from crawlee.storage_clients.models import AddRequestsResponse, RequestQueueMetadata
 
+from apify import Request
 from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
+from apify.storage_clients._apify._request_queue_shared_client import ApifyRequestQueueSharedClient
 from apify.storage_clients._apify._request_queue_single_client import ApifyRequestQueueSingleClient
 from apify.storage_clients._apify._utils import unique_key_to_request_id
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-def _make_single_client(
-    api_client: AsyncMock | None = None,
-) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
-    if api_client is None:
-        api_client = AsyncMock()
+
+def _make_metadata() -> RequestQueueMetadata:
     now = datetime.now(tz=UTC)
-    metadata = RequestQueueMetadata(
+    return RequestQueueMetadata(
         id='test-rq-id',
         name='test-rq',
         accessed_at=now,
@@ -30,7 +34,45 @@ def _make_single_client(
         pending_request_count=0,
         total_request_count=0,
     )
-    client = ApifyRequestQueueSingleClient(api_client=api_client, metadata=metadata, cache_size=100)
+
+
+def _batch_result_all_processed(requests: Sequence[Request]) -> BatchAddResult:
+    """Build a `batch_add_requests` response marking every request as newly processed."""
+    return BatchAddResult.model_construct(
+        processed_requests=[
+            AddedRequest.model_construct(
+                request_id=unique_key_to_request_id(request.unique_key),
+                unique_key=request.unique_key,
+                was_already_present=False,
+                was_already_handled=False,
+            )
+            for request in requests
+        ],
+        unprocessed_requests=[],
+    )
+
+
+def _make_single_client(
+    api_client: AsyncMock | None = None,
+) -> tuple[ApifyRequestQueueSingleClient, AsyncMock]:
+    if api_client is None:
+        api_client = AsyncMock()
+    client = ApifyRequestQueueSingleClient(api_client=api_client, metadata=_make_metadata(), cache_size=100)
+    return client, api_client
+
+
+def _make_shared_client(
+    api_client: AsyncMock | None = None,
+) -> tuple[ApifyRequestQueueSharedClient, AsyncMock]:
+    if api_client is None:
+        api_client = AsyncMock()
+    metadata = _make_metadata()
+    client = ApifyRequestQueueSharedClient(
+        api_client=api_client,
+        metadata=metadata,
+        cache_size=100,
+        metadata_getter=AsyncMock(return_value=metadata),
+    )
     return client, api_client
 
 
@@ -119,3 +161,131 @@ async def test_list_head_limit(in_progress_count: int, expected_limit: int) -> N
     await client._list_head()
 
     api_client.list_head.assert_awaited_once_with(limit=expected_limit)
+
+
+# Adding a request through `batch_add_requests` must never poison the local dedup cache or report false
+# success. A failed add leaves nothing cached, so a later add (sequential or concurrent) still reaches the
+# platform; a concurrent producer of the same request deduplicates against the in-flight add instead of
+# re-sending it, yet is only told the request is present once the platform actually accepts it.
+
+
+@pytest.mark.parametrize('access', ['single', 'shared'])
+async def test_failed_batch_add_does_not_poison_dedup_cache(access: str) -> None:
+    """A failed `batch_add_requests` leaves no cached entry, so a retry still reaches the platform."""
+    client, api_client = _make_single_client() if access == 'single' else _make_shared_client()
+    # The single client lazily initializes its caches via `list_requests`; harmless for the shared client.
+    api_client.list_requests = AsyncMock(return_value=SimpleNamespace(items=[]))
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    # First attempt: the platform call fails.
+    api_client.batch_add_requests = AsyncMock(side_effect=RuntimeError('network down'))
+    with pytest.raises(RuntimeError):
+        await client.add_batch_of_requests([request])
+    assert request_id not in client._requests_cache
+
+    # Retry: the platform call succeeds. The request must be sent again, not deduped away.
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([request]))
+    await client.add_batch_of_requests([request])
+
+    api_client.batch_add_requests.assert_awaited_once()
+    assert api_client.batch_add_requests.await_args is not None
+    assert len(api_client.batch_add_requests.await_args.kwargs['requests']) == 1
+
+
+async def _start_first_then_concurrent_producer(
+    client: ApifyRequestQueueSingleClient | ApifyRequestQueueSharedClient,
+    request: Request,
+    *,
+    in_flight: asyncio.Event,
+) -> tuple[asyncio.Task[AddRequestsResponse], asyncio.Task[AddRequestsResponse]]:
+    """Start one producer, wait until its `batch_add_requests` is in flight, then start a concurrent producer
+    of the same request and let it park on the in-flight add. Returns the (first, second) tasks."""
+    if isinstance(client, ApifyRequestQueueSingleClient):
+        # Skip the lazy `list_requests` init so the concurrent producer's only suspension point is the
+        # in-flight future, which makes the scheduling below deterministic.
+        client._initialized_caches = True
+
+    first = asyncio.create_task(client.add_batch_of_requests([request]))
+    await in_flight.wait()
+    second = asyncio.create_task(client.add_batch_of_requests([request]))
+    await asyncio.sleep(0)  # let the concurrent producer classify and park on the in-flight future
+    return first, second
+
+
+@pytest.mark.parametrize('access', ['single', 'shared'])
+async def test_concurrent_add_failure_does_not_falsely_dedupe(access: str) -> None:
+    """While one producer's `batch_add_requests` is in flight and then fails, a concurrent producer of the same
+    request must not report false success: the request is returned unprocessed (so the caller retries it)."""
+    client, api_client = _make_single_client() if access == 'single' else _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    in_flight = asyncio.Event()
+    release = asyncio.Event()
+    call_count = 0
+
+    async def batch_add(*, requests: list, forefront: bool = False) -> BatchAddResult:  # noqa: ARG001
+        nonlocal call_count
+        call_count += 1
+        in_flight.set()
+        await release.wait()
+        raise RuntimeError('network down')
+
+    api_client.batch_add_requests = AsyncMock(side_effect=batch_add)
+
+    first, second = await _start_first_then_concurrent_producer(client, request, in_flight=in_flight)
+
+    # Nothing is committed while the first call is still in flight, so the concurrent producer cannot observe a
+    # false "already present" entry.
+    assert request_id not in client._requests_cache
+
+    # Let the first producer fail.
+    release.set()
+    with pytest.raises(RuntimeError):
+        await first
+
+    # The concurrent producer deduplicated against the in-flight add (no second API call), but because that add
+    # failed it must be told the request is unprocessed rather than receiving false success.
+    response = await second
+    assert call_count == 1
+    assert [unprocessed.unique_key for unprocessed in response.unprocessed_requests] == [request.unique_key]
+    assert all(processed.unique_key != request.unique_key for processed in response.processed_requests)
+    assert request_id not in client._requests_cache
+
+
+@pytest.mark.parametrize('access', ['single', 'shared'])
+async def test_concurrent_add_deduplicates_against_in_flight(access: str) -> None:
+    """A concurrent producer of an in-flight request deduplicates against it: only one `batch_add_requests` call
+    is made, and once it succeeds the concurrent producer is told the request is already present."""
+    client, api_client = _make_single_client() if access == 'single' else _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    in_flight = asyncio.Event()
+    release = asyncio.Event()
+    call_count = 0
+
+    async def batch_add(*, requests: list, forefront: bool = False) -> BatchAddResult:  # noqa: ARG001
+        nonlocal call_count
+        call_count += 1
+        in_flight.set()
+        await release.wait()
+        return _batch_result_all_processed([request])
+
+    api_client.batch_add_requests = AsyncMock(side_effect=batch_add)
+
+    first, second = await _start_first_then_concurrent_producer(client, request, in_flight=in_flight)
+
+    # Let the first producer succeed.
+    release.set()
+    first_response = await first
+    second_response = await second
+
+    assert call_count == 1
+    assert request_id in client._requests_cache
+    # The first producer added the request, the concurrent one deduplicated against the in-flight add.
+    assert [processed.unique_key for processed in first_response.processed_requests] == [request.unique_key]
+    assert [processed.unique_key for processed in second_response.processed_requests] == [request.unique_key]
+    assert second_response.processed_requests[0].was_already_present is True
+    assert second_response.unprocessed_requests == []
