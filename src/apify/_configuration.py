@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from pathlib import Path
-from typing import Annotated, Any, Self
+from typing import TYPE_CHECKING, Annotated, Any, Self
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import TypedDict
@@ -23,6 +23,9 @@ from apify._charging import (
 )
 from apify._utils import docs_group
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 logger = getLogger(__name__)
 
 
@@ -32,6 +35,20 @@ def _transform_to_list(value: Any) -> list[str] | None:
     if not value:
         return []
     return value if isinstance(value, list) else str(value).split(',')
+
+
+def _default_if_empty(*, default: Any) -> Callable[[Any], Any]:
+    """Build a validator that substitutes `default` for an empty-string env var.
+
+    The Apify platform sometimes sets an env var to an empty string instead of leaving it unset. For fields whose
+    target type cannot parse `''` (datetimes, numbers, booleans, ...), passing the value straight through would crash
+    validation and, in turn, `Actor.init()`. Treat `''` as "not provided" and fall back to the field default instead.
+    """
+
+    def transform(value: Any) -> Any:
+        return default if value == '' else value
+
+    return transform
 
 
 class ActorStorages(TypedDict):
@@ -206,6 +223,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_dedicated_cpus',
             description='Number of CPU cores reserved for the actor, based on allocated memory',
         ),
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     default_dataset_id: Annotated[
@@ -286,6 +304,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_is_at_home',
             description='True if the Actor is running on Apify servers',
         ),
+        BeforeValidator(_default_if_empty(default=False)),
     ] = False
 
     max_paid_dataset_items: Annotated[
@@ -294,7 +313,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_max_paid_dataset_items',
             description='For paid-per-result Actors, the user-set limit on returned results. Do not exceed this limit',
         ),
-        BeforeValidator(lambda val: val if val != '' else None),
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     max_total_charge_usd: Annotated[
@@ -303,7 +322,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_max_total_charge_usd',
             description='For pay-per-event Actors, the user-set limit on total charges. Do not exceed this limit',
         ),
-        BeforeValidator(lambda val: val if val != '' else None),
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     test_pay_per_event: Annotated[
@@ -312,6 +331,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_test_pay_per_event',
             description='Enable pay-per-event functionality for local development',
         ),
+        BeforeValidator(_default_if_empty(default=False)),
     ] = False
 
     meta_origin: Annotated[
@@ -328,6 +348,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_metamorph_after_sleep_millis',
             description='How long the Actor needs to wait before exiting after triggering a metamorph',
         ),
+        BeforeValidator(_default_if_empty(default=timedelta(minutes=5))),
     ] = timedelta(minutes=5)
 
     proxy_hostname: Annotated[
@@ -352,6 +373,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_proxy_port',
             description='Port to communicate with the Apify proxy',
         ),
+        BeforeValidator(_default_if_empty(default=8000)),
     ] = 8000
 
     proxy_status_url: Annotated[
@@ -371,6 +393,7 @@ class Configuration(CrawleeConfiguration):
             ),
             description='Date when the Actor was started',
         ),
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     timeout_at: Annotated[
@@ -382,7 +405,7 @@ class Configuration(CrawleeConfiguration):
             ),
             description='Date when the Actor will time out',
         ),
-        BeforeValidator(lambda val: val if val != '' else None),  # We should accept empty environment variables as well
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     standby_url: Annotated[
@@ -416,7 +439,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_user_is_paying',
             description='True if the user calling the Actor is paying user',
         ),
-        BeforeValidator(lambda val: False if val == '' else val),
+        BeforeValidator(_default_if_empty(default=False)),
     ] = False
 
     web_server_port: Annotated[
@@ -429,6 +452,7 @@ class Configuration(CrawleeConfiguration):
             description='TCP port for the Actor to start an HTTP server on'
             'This server can be used to receive external messages or expose monitoring and control interfaces',
         ),
+        BeforeValidator(_default_if_empty(default=4321)),
     ] = 4321
 
     web_server_url: Annotated[

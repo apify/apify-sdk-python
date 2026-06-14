@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -406,3 +407,28 @@ def test_actor_storages_env_var_empty_string_becomes_none(monkeypatch: pytest.Mo
     monkeypatch.setenv('ACTOR_STORAGES_JSON', '')
     config = ApifyConfiguration()
     assert config.actor_storages is None
+
+
+@pytest.mark.parametrize(
+    ('env_var', 'attr', 'expected'),
+    [
+        ('APIFY_STARTED_AT', 'started_at', None),
+        ('APIFY_TIMEOUT_AT', 'timeout_at', None),
+        ('APIFY_DEDICATED_CPUS', 'dedicated_cpus', None),
+        ('ACTOR_MAX_PAID_DATASET_ITEMS', 'max_paid_dataset_items', None),
+        ('ACTOR_MAX_TOTAL_CHARGE_USD', 'max_total_charge_usd', None),
+        ('APIFY_PROXY_PORT', 'proxy_port', 8000),
+        ('ACTOR_WEB_SERVER_PORT', 'web_server_port', 4321),
+        ('APIFY_METAMORPH_AFTER_SLEEP_MILLIS', 'metamorph_after_sleep', timedelta(minutes=5)),
+        ('APIFY_IS_AT_HOME', 'is_at_home', False),
+        ('ACTOR_TEST_PAY_PER_EVENT', 'test_pay_per_event', False),
+        ('APIFY_USER_IS_PAYING', 'user_is_paying', False),
+    ],
+)
+def test_typed_env_var_empty_string_falls_back_to_default(
+    monkeypatch: pytest.MonkeyPatch, env_var: str, attr: str, expected: object
+) -> None:
+    """Platform may set a typed env var to '' instead of leaving it unset; that must not crash `Actor.init()`."""
+    monkeypatch.setenv(env_var, '')
+    config = ApifyConfiguration()
+    assert getattr(config, attr) == expected
