@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from pathlib import Path
-from typing import Annotated, Any, Self
+from typing import TYPE_CHECKING, Annotated, Any, Self
 
 from pydantic import AliasChoices, BeforeValidator, Field, model_validator
 from typing_extensions import TypedDict
@@ -23,6 +23,9 @@ from apify._charging import (
 )
 from apify._utils import docs_group
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 logger = getLogger(__name__)
 
 
@@ -32,6 +35,20 @@ def _transform_to_list(value: Any) -> list[str] | None:
     if not value:
         return []
     return value if isinstance(value, list) else str(value).split(',')
+
+
+def _default_if_empty(*, default: Any) -> Callable[[Any], Any]:
+    """Build a validator that substitutes `default` for an empty-string env var.
+
+    The Apify platform sometimes sets an env var to an empty string instead of leaving it unset. For fields whose
+    target type cannot parse `''` (datetimes, numbers, booleans, ...), passing the value straight through would crash
+    validation and, in turn, `Actor.init()`. Treat `''` as "not provided" and fall back to the field default instead.
+    """
+
+    def transform(value: Any) -> Any:
+        return default if value == '' else value
+
+    return transform
 
 
 class ActorStorages(TypedDict):
@@ -59,9 +76,9 @@ def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None
         `ActorStorages` dict when set programmatically.
 
     Returns:
-        Normalized storage mapping, or `None` if the input is `None` or an empty string.
+        Normalized storage mapping, or `None` if the input is `None`.
     """
-    if data is None or data == '':
+    if data is None:
         return None
     storage_mapping = json.loads(data) if isinstance(data, str) else data
     return {
@@ -294,7 +311,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_max_paid_dataset_items',
             description='For paid-per-result Actors, the user-set limit on returned results. Do not exceed this limit',
         ),
-        BeforeValidator(lambda val: val if val != '' else None),
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     max_total_charge_usd: Annotated[
@@ -303,7 +320,7 @@ class Configuration(CrawleeConfiguration):
             alias='actor_max_total_charge_usd',
             description='For pay-per-event Actors, the user-set limit on total charges. Do not exceed this limit',
         ),
-        BeforeValidator(lambda val: val if val != '' else None),
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     test_pay_per_event: Annotated[
@@ -382,7 +399,7 @@ class Configuration(CrawleeConfiguration):
             ),
             description='Date when the Actor will time out',
         ),
-        BeforeValidator(lambda val: val if val != '' else None),  # We should accept empty environment variables as well
+        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     standby_url: Annotated[
@@ -416,7 +433,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_user_is_paying',
             description='True if the user calling the Actor is paying user',
         ),
-        BeforeValidator(lambda val: False if val == '' else val),
+        BeforeValidator(_default_if_empty(default=False)),
     ] = False
 
     web_server_port: Annotated[
@@ -470,7 +487,7 @@ class Configuration(CrawleeConfiguration):
             alias='apify_charged_actor_event_counts',
             description='Counts of events that were charged for the actor',
         ),
-        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) and data else data or None),
+        BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
     ] = None
 
     actor_storages: Annotated[

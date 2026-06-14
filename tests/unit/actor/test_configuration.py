@@ -373,13 +373,6 @@ def test_actor_pricing_info_env_var_empty_becomes_none(monkeypatch: pytest.Monke
     assert config.actor_pricing_info is None
 
 
-def test_charged_event_counts_env_var_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that an empty env var for charged_event_counts is converted to None instead of crashing."""
-    monkeypatch.setenv('APIFY_CHARGED_ACTOR_EVENT_COUNTS', '')
-    config = ApifyConfiguration()
-    assert config.charged_event_counts is None
-
-
 def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that actor_storages_json is parsed from JSON env var."""
     datasets = {'default': 'default_dataset_id', 'custom': 'custom_dataset_id'}
@@ -401,8 +394,19 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.actor_storages['key_value_stores'] == key_value_stores
 
 
-def test_actor_storages_env_var_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that an empty env var for actor_storages is converted to None instead of crashing."""
-    monkeypatch.setenv('ACTOR_STORAGES_JSON', '')
+@pytest.mark.parametrize(
+    ('env_var', 'attr', 'expected'),
+    [
+        ('APIFY_TIMEOUT_AT', 'timeout_at', None),
+        ('ACTOR_MAX_PAID_DATASET_ITEMS', 'max_paid_dataset_items', None),
+        ('ACTOR_MAX_TOTAL_CHARGE_USD', 'max_total_charge_usd', None),
+        ('APIFY_USER_IS_PAYING', 'user_is_paying', False),
+    ],
+)
+def test_typed_env_var_empty_string_falls_back_to_default(
+    monkeypatch: pytest.MonkeyPatch, env_var: str, attr: str, expected: object
+) -> None:
+    """Platform may set a typed env var to '' instead of leaving it unset; that must not crash `Actor.init()`."""
+    monkeypatch.setenv(env_var, '')
     config = ApifyConfiguration()
-    assert config.actor_storages is None
+    assert getattr(config, attr) == expected
