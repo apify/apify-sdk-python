@@ -1,6 +1,6 @@
 ---
 id: scrapy
-title: Use Scrapy
+title: Building crawlers with Scrapy
 description: Convert Scrapy spiders into Apify Actors with platform storage and proxy integration.
 ---
 
@@ -15,7 +15,7 @@ import ItemsExample from '!!raw-loader!./code/scrapy_project/src/items.py';
 import SpidersExample from '!!raw-loader!./code/scrapy_project/src/spiders/title.py';
 import SettingsExample from '!!raw-loader!./code/scrapy_project/src/settings.py';
 
-In this guide, you'll learn how to use the [Scrapy](https://scrapy.org/) framework in your Apify Actors.
+In this guide, you'll learn how to build web crawlers with the [Scrapy](https://scrapy.org/) framework in your Apify Actors.
 
 ## Introduction
 
@@ -23,9 +23,9 @@ In this guide, you'll learn how to use the [Scrapy](https://scrapy.org/) framewo
 
 ## Integrating Scrapy with the Apify platform
 
-The Apify SDK provides an Apify-Scrapy integration. The main challenge of this is to combine two asynchronous frameworks that use different event loop implementations. Scrapy uses [Twisted](https://twisted.org/) for asynchronous execution, while the Apify SDK is based on [asyncio](https://docs.python.org/3/library/asyncio.html). The key thing is to install the Twisted's `asyncioreactor` to run Twisted's asyncio compatible event loop. The `apify.scrapy.run_scrapy_actor` function handles this reactor installation automatically. This allows both Twisted and asyncio to run on a single event loop, enabling a Scrapy spider to run as an Apify Actor with minimal modifications.
+The Apify SDK provides an Apify-Scrapy integration. The main challenge is to combine two asynchronous frameworks that use different event loop implementations. Scrapy uses [Twisted](https://twisted.org/) for asynchronous execution, while the Apify SDK is based on [asyncio](https://docs.python.org/3/library/asyncio.html). The key thing is to install Twisted's `asyncioreactor` to run Twisted's asyncio compatible event loop. The `apify.scrapy.run_scrapy_actor` function handles this reactor installation automatically. This allows both Twisted and asyncio to run on a single event loop, enabling a Scrapy spider to run as an Apify Actor with minimal modifications.
 
-<CodeBlock className="language-python" title="__main.py__: The Actor entry point ">
+<CodeBlock className="language-python" title="__main__.py: The Actor entry point">
     {UnderscoreMainExample}
 </CodeBlock>
 
@@ -46,7 +46,7 @@ The Apify SDK provides several custom components to support integration with the
 - <ApiLink to="class/ApifyScheduler">`apify.scrapy.ApifyScheduler`</ApiLink> - Replaces Scrapy's default [scheduler](https://docs.scrapy.org/en/latest/topics/scheduler.html) with one that uses Apify's [request queue](https://docs.apify.com/platform/storage/request-queue) for storing requests. It manages enqueuing, dequeuing, and maintaining the state and priority of requests.
 - <ApiLink to="class/ActorDatasetPushPipeline">`apify.scrapy.ActorDatasetPushPipeline`</ApiLink> - A Scrapy [item pipeline](https://docs.scrapy.org/en/latest/topics/item-pipeline.html) that pushes scraped items to Apify's [dataset](https://docs.apify.com/platform/storage/dataset). When enabled, every item produced by the spider is sent to the dataset.
 - <ApiLink to="class/ApifyHttpProxyMiddleware">`apify.scrapy.ApifyHttpProxyMiddleware`</ApiLink> - A Scrapy [middleware](https://docs.scrapy.org/en/latest/topics/downloader-middleware.html) that manages proxy configurations. This middleware replaces Scrapy's default `HttpProxyMiddleware` to facilitate the use of Apify's proxy service.
-- <ApiLink to="class/ApifyCacheStorage">`apify.scrapy.extensions.ApifyCacheStorage`</ApiLink> - A storage backend for Scrapy's built-in [HTTP cache middleware](https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#module-scrapy.downloadermiddlewares.httpcache). This backend uses Apify's [key-value store](https://docs.apify.com/platform/storage/key-value-store). Make sure to set `HTTPCACHE_ENABLED` and `HTTPCACHE_EXPIRATION_SECS` in your settings, or caching won't work.
+- <ApiLink to="class/ApifyCacheStorage">`apify.scrapy.extensions.ApifyCacheStorage`</ApiLink> - A storage backend for Scrapy's built-in [HTTP cache middleware](https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#module-scrapy.downloadermiddlewares.httpcache). This backend uses Apify's [key-value store](https://docs.apify.com/platform/storage/key-value-store). To enable caching, set `HTTPCACHE_ENABLED` and `HTTPCACHE_EXPIRATION_SECS` in your settings. By default, when the spider closes, up to 100 expired and unreadable entries per run are cleaned up. To change this number, update `APIFY_HTTPCACHE_EXPIRATION_MAX_ITEMS`.
 
 Additional helper functions in the [`apify.scrapy`](https://github.com/apify/apify-sdk-python/tree/master/src/apify/scrapy) subpackage include:
 
@@ -74,7 +74,7 @@ For further details, see the [Scrapy migration guide](https://docs.apify.com/cli
 The following example shows a Scrapy Actor that scrapes page titles and enqueues links found on each page. This example aligns with the structure provided in the Apify Actor templates.
 
 <Tabs>
-    <TabItem value="__main__.py" label="__main.py__">
+    <TabItem value="__main__.py" label="__main__.py">
         <CodeBlock className="language-python">
             {UnderscoreMainExample}
         </CodeBlock>

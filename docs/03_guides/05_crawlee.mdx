@@ -1,6 +1,6 @@
 ---
 id: crawlee
-title: Use Crawlee
+title: Building crawlers with Crawlee
 description: Build Apify Actors using Crawlee's BeautifulSoupCrawler, ParselCrawler, or PlaywrightCrawler.
 ---
 
@@ -10,7 +10,7 @@ import CrawleeBeautifulSoupExample from '!!raw-loader!roa-loader!./code/05_crawl
 import CrawleeParselExample from '!!raw-loader!roa-loader!./code/05_crawlee_parsel.py';
 import CrawleePlaywrightExample from '!!raw-loader!roa-loader!./code/05_crawlee_playwright.py';
 
-In this guide, you'll learn how to use the [Crawlee](https://crawlee.dev/python) library in your Apify Actors.
+In this guide, you'll learn how to build web crawlers with the [Crawlee](https://crawlee.dev/python) library in your Apify Actors.
 
 ## Introduction
 
@@ -41,6 +41,10 @@ The [`PlaywrightCrawler`](https://crawlee.dev/python/api/class/PlaywrightCrawler
 <RunnableCodeBlock className="language-python" language="python">
     {CrawleePlaywrightExample}
 </RunnableCodeBlock>
+
+## Using Apify Proxy
+
+All three crawlers above route their requests through [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. `Actor.create_proxy_configuration` returns a Crawlee-compatible proxy configuration, which is passed to the crawler as `proxy_configuration`. Crawlee then rotates the proxy IP for every request on its own. Because the configuration is only available inside the running Actor, the crawler is created in `main` and the request handler is registered on a standalone [`Router`](https://crawlee.dev/python/api/class/Router) up front. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management).
 
 ## Conclusion
 

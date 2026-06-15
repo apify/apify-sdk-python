@@ -10,7 +10,7 @@ http_server = None
 class RequestHandler(BaseHTTPRequestHandler):
     """A handler that prints the number of processed items on every GET request."""
 
-    def do_get(self) -> None:
+    def do_GET(self) -> None:
         self.log_request()
         self.send_response(200)
         self.end_headers()
@@ -18,7 +18,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
 def run_server() -> None:
-    """Start the HTTP server on the provided port, and save a reference to the server."""
+    """Start the HTTP server and keep a reference to it."""
     global http_server
     with ThreadingHTTPServer(
         ('', Actor.configuration.web_server_port), RequestHandler
@@ -43,7 +43,7 @@ async def main() -> None:
         if http_server is None:
             raise RuntimeError('HTTP server not started')
 
-        # Signal the HTTP server to shut down, and wait for it to finish.
+        # Signal the server to shut down and wait.
         http_server.shutdown()
         await run_server_task
 
