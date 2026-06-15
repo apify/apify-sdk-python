@@ -92,9 +92,11 @@ To create, run, and deploy your first Actor step by step, see the [Quick start g
 
 ## What are Actors?
 
-Actors are serverless cloud programs that can do almost anything a human can do in a web browser. They range from small tasks, such as filling in forms or unsubscribing from online services, all the way up to scraping and processing vast numbers of web pages.
+Actors are serverless programs that can do almost anything. From simple scripts and web scrapers to complex automation workflows, AI agents, or even always-on services that expose HTTP endpoints.
 
-They run either locally or on the [Apify platform](https://docs.apify.com/platform/), where you can run them at scale, monitor them, schedule them, or publish and monetize them. If you're new to Apify, learn [what Apify is](https://docs.apify.com/platform/about) in the platform documentation.
+They can run either locally or on the Apify platform, where you can scale their execution, monitor runs, schedule tasks, integrate them with other services, or even publish and monetize them. If you're new to Apify, learn more about the platform in the [Apify documentation](https://docs.apify.com/platform/about).
+
+For more context, read the [Actor whitepaper](https://whitepaper.actor/).
 
 ## Features
 
