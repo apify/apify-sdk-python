@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 <!-- git-cliff-unreleased-start -->
 ## 3.4.2 - **not yet released**
 
+### 🚀 Features
+
+- Expose missing platform env vars via Actor.get_env() ([#984](https://github.com/apify/apify-sdk-python/pull/984)) ([f6e9b3b](https://github.com/apify/apify-sdk-python/commit/f6e9b3b328768aefb51257a258c4b6f03980fc72)) by [@vdusek](https://github.com/vdusek)
+
 ### 🐛 Bug Fixes
 
 - **scrapy:** Correct proxy middleware exception log and import ([#953](https://github.com/apify/apify-sdk-python/pull/953)) ([5bd6eb9](https://github.com/apify/apify-sdk-python/commit/5bd6eb9843d90844cec083372e932413bceedec9)) by [@vdusek](https://github.com/vdusek)
