@@ -197,7 +197,7 @@ The full SDK documentation lives at **[docs.apify.com/sdk/python](https://docs.a
 | [Overview](https://docs.apify.com/sdk/python/docs/overview) | What the SDK is, what Actors are, and how the pieces fit together. |
 | [Quick start](https://docs.apify.com/sdk/python/docs/quick-start) | Create, run, and deploy your first Python Actor. |
 | [Concepts](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle) | Actor lifecycle, input, storages, events, proxy management, interacting with other Actors, webhooks, accessing the Apify API, logging, configuration, and pay-per-event. |
-| [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx) | Integrations with BeautifulSoup, Parsel, Playwright, Selenium, Crawlee, Scrapy, Crawl4AI, and Browser Use, plus running a web server and using uv. |
+| [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx) | Integrations with BeautifulSoup, Parsel, Playwright, Selenium, Crawlee, Scrapy, Scrapling, Crawl4AI, and Browser Use, plus running a web server and using uv. |
 | [Upgrading](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v4) | Migrating between major versions. |
 | [API reference](https://docs.apify.com/sdk/python/reference) | Generated reference for every class and method. |
 | [Changelog](https://docs.apify.com/sdk/python/docs/changelog) | Release history and breaking changes. |
