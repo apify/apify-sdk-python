@@ -9,7 +9,7 @@ from crawlee.storage_clients._base import StorageClient
 from ._dataset_client import ApifyDatasetClient
 from ._key_value_store_client import ApifyKeyValueStoreClient
 from ._request_queue_client import ApifyRequestQueueClient
-from ._utils import hash_api_base_url_and_token
+from ._utils import hash_api_public_base_url_and_token
 from apify._configuration import Configuration as ApifyConfiguration
 from apify._utils import docs_group
 
@@ -126,7 +126,9 @@ class ApifyStorageClient(StorageClient):
         if isinstance(configuration, ApifyConfiguration):
             # It is not supported to open exactly same queue with 'single' and 'shared' client at the same time.
             # Whichever client variation gets used first, wins.
-            return super().get_storage_client_cache_key(configuration), hash_api_base_url_and_token(configuration)
+            return super().get_storage_client_cache_key(configuration), hash_api_public_base_url_and_token(
+                configuration
+            )
 
         config_class = type(configuration)
         raise TypeError(self._LSP_ERROR_MSG.format(f'{config_class.__module__}.{config_class.__name__}'))

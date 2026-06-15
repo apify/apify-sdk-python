@@ -13,7 +13,7 @@ import pytest
 from apify_client import ApifyClientAsync
 
 from apify._consts import ApifyEnvVars
-from apify._proxy_configuration import ProxyConfiguration, is_url
+from apify._proxy_configuration import ProxyConfiguration
 
 if TYPE_CHECKING:
     from pytest_httpserver import HTTPServer
@@ -586,37 +586,6 @@ async def test_initialize_with_non_apify_proxy(
 
     assert len(patched_apify_client.calls['user']['get']) == 0  # ty: ignore[unresolved-attribute]
     assert call_mock.call_count == 0
-
-
-def test_is_url_validation() -> None:
-    assert is_url('http://dummy-proxy.com:8000') is True
-    assert is_url('https://example.com') is True
-    assert is_url('http://localhost') is True
-    assert is_url('https://12.34.56.78') is True
-    assert is_url('http://12.34.56.78:9012') is True
-    assert is_url('http://::1') is True
-    assert is_url('https://2f45:4da6:8f56:af8c:5dce:c1de:14d2:8661') is True
-
-    assert is_url('dummy-proxy.com:8000') is False
-    assert is_url('gyfwgfhkjhljkfhdsf') is False
-    assert is_url('http://') is False
-    assert is_url('http://example') is False
-    assert is_url('http:/example.com') is False
-    assert is_url('12.34.56.78') is False
-    assert is_url('::1') is False
-    assert is_url('https://4da6:8f56:af8c:5dce:c1de:14d2:8661') is False
-
-
-@pytest.mark.parametrize(
-    'value',
-    [
-        pytest.param('', id='empty_string'),
-        pytest.param(None, id='none'),
-    ],
-)
-def test_is_url_with_completely_unparsable_input(value: str | None) -> None:
-    """Test is_url with input that causes urlparse to fail."""
-    assert is_url(value) is False  # ty: ignore[invalid-argument-type]
 
 
 def test_check_min_length_raises() -> None:

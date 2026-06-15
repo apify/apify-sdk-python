@@ -198,7 +198,9 @@ class ApifyRequestQueueSharedClient:
             )
             return None
 
-        # Use get request to ensure we have the full request object.
+        # `_get_or_hydrate_request` may return a request from the queue-head cache, which is populated by
+        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by id to
+        # guarantee the caller gets the full request object.
         request = await self._get_request_by_id(next_request_id)
         if request is None:
             logger.debug(

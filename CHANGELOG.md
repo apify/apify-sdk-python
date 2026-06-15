@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Dump pydantic models in JSON mode when serializing requests ([#961](https://github.com/apify/apify-sdk-python/pull/961)) ([f2ccae1](https://github.com/apify/apify-sdk-python/commit/f2ccae16d046e9586281e1f2ffc531014e05fe51)) by [@vdusek](https://github.com/vdusek)
 - Accept arbitrary JSON userData in ApifyRequestList ([#966](https://github.com/apify/apify-sdk-python/pull/966)) ([2cfd8a5](https://github.com/apify/apify-sdk-python/commit/2cfd8a590ae52a38b7efe39bb8a3a1570437b2fc)) by [@vdusek](https://github.com/vdusek)
 - Coerce null stats in Apify request queue metadata ([#974](https://github.com/apify/apify-sdk-python/pull/974)) ([63eb771](https://github.com/apify/apify-sdk-python/commit/63eb771e0234575ae3842cba9441938c3e4116fc)) by [@vdusek](https://github.com/vdusek)
+- Allow Actor.reboot() to be retried after a failed or cancelled attempt ([#968](https://github.com/apify/apify-sdk-python/pull/968)) ([7d46ec5](https://github.com/apify/apify-sdk-python/commit/7d46ec551252e7137f605e86894511315335f488)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 

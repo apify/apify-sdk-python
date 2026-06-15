@@ -194,6 +194,12 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch,
     # Its value is set by the _isolate_test_environment fixture to tmp_path.
     expected_get_env[ApifyEnvVars.LOCAL_STORAGE_DIR.name.lower()] = str(tmp_path)
 
+    # These env vars are not randomized above, so they fall back to their Configuration defaults.
+    expected_get_env[ActorEnvVars.STORAGES_JSON.name.lower()] = None
+    expected_get_env[ActorEnvVars.TEST_PAY_PER_EVENT.name.lower()] = False
+    expected_get_env[ApifyEnvVars.ACTOR_PRICING_INFO.name.lower()] = None
+    expected_get_env[ApifyEnvVars.CHARGED_ACTOR_EVENT_COUNTS.name.lower()] = None
+
     await Actor.init()
     assert Actor.get_env() == expected_get_env
 
