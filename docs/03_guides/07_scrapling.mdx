@@ -24,7 +24,7 @@ Scrapling is a great fit for Apify Actors:
 - Elements are selected with CSS selectors (including the `::text` and `::attr()` pseudo-elements) or XPath, with a Scrapy/Parsel-like `.get()` and `.getall()` interface.
 - Every fetcher has an asynchronous variant, which integrates naturally with the asyncio-based Apify SDK.
 
-Scrapling's parser works on its own. The fetchers are an optional extra. Install Scrapling with the `fetchers` extra to get the HTTP and browser fetchers:
+Scrapling's parser works on its own. The fetchers are an optional extra. To get the HTTP and browser fetchers, install Scrapling with the `fetchers` extra:
 
 ```bash
 pip install "scrapling[fetchers]"
@@ -34,13 +34,13 @@ pip install "scrapling[fetchers]"
 
 All of Scrapling's fetchers are importable from `scrapling.fetchers`. Pick the one that matches the website you're scraping:
 
-- **`Fetcher` / `AsyncFetcher`** - Plain HTTP requests via `.get()`, `.post()`, `.put()`, and `.delete()`. Fast and lightweight, with optional browser TLS-fingerprint impersonation (`impersonate`) and realistic headers (`stealthy_headers`). This is the best choice for static pages and APIs, and it needs no browser binaries.
+- **`Fetcher` / `AsyncFetcher`** - Plain HTTP requests via `.get()`, `.post()`, `.put()`, and `.delete()`. Fast and lightweight, with optional browser TLS-fingerprint impersonation (`impersonate`) and realistic headers (`stealthy_headers`). This is the best choice for static pages and APIs, and it doesn't need browser binaries.
 - **`DynamicFetcher` / `DynamicSession`** - Full browser automation based on [Playwright](https://playwright.dev/), for pages that require JavaScript rendering or interaction. Fetch a page with `.fetch()` or its async variant `.async_fetch()`.
 - **`StealthyFetcher` / `StealthySession`** - A stealth-hardened browser fetcher that can automatically solve Cloudflare Turnstile challenges (`solve_cloudflare=True`). Use it for the most heavily protected websites.
 
 The returned `Response` object is also a Scrapling selector, so you can call `.css()`, `.xpath()`, `.find_all()`, and the other parsing methods on it directly.
 
-The HTTP fetchers work with just the `scrapling[fetchers]` extra. The browser-based fetchers (`DynamicFetcher` and `StealthyFetcher`) additionally need browser binaries, which you download with the `scrapling install` command. See [Running browser-based fetchers](#running-browser-based-fetchers) below.
+The HTTP fetchers work with just the `scrapling[fetchers]` extra. The browser-based fetchers (`DynamicFetcher` and `StealthyFetcher`) additionally need browser binaries, which you download with the `scrapling install` command. See [Running browser-based fetchers](#running-browser-based-fetchers).
 
 The example Actor in this guide uses the HTTP `AsyncFetcher`, which is the simplest to deploy and pairs well with Apify Proxy.
 
@@ -59,7 +59,7 @@ Note that:
 - Keeping the fetching and parsing in `scrape_page` separates the Scrapling-specific code from the Actor's orchestration logic. The function returns the extracted data together with the discovered links, so `main` decides what to store and what to enqueue.
 - The response of `AsyncFetcher.get` is a Scrapling selector, so `response.css('title::text').get()` reads the page title and `response.css('a::attr(href)').getall()` returns every link's `href` in one call.
 - `response.urljoin(link_href)` resolves relative links against the page URL, so you can enqueue them directly.
-- The `impersonate='chrome'` and `stealthy_headers=True` options make the request look like it comes from a real Chrome browser, which, combined with Apify Proxy, reduces the chance of being blocked.
+- The `impersonate='chrome'` and `stealthy_headers=True` options make the request look like it comes from a real Chrome browser. Combined with Apify Proxy, it reduces the chance of being blocked.
 
 ## Adaptive selectors
 
