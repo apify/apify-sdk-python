@@ -39,7 +39,7 @@ def unique_key_to_request_id(unique_key: str, *, request_id_length: int = 15) ->
     return url_safe_key[:request_id_length]
 
 
-def hash_api_base_url_and_token(configuration: Configuration) -> str:
+def hash_api_public_base_url_and_token(configuration: Configuration) -> str:
     """Hash configuration.api_public_base_url and configuration.token in deterministic way."""
     if configuration.api_public_base_url is None or configuration.token is None:
         raise ValueError("'Configuration.api_public_base_url' and 'Configuration.token' must be set.")

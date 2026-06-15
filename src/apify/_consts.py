@@ -21,9 +21,6 @@ ENCRYPTED_INPUT_VALUE_REGEXP = re.compile(
 )
 """Regex matching encrypted input values with base64-encoded components."""
 
-EXIT_CODE_SUCCESS = 0
-"""Exit code indicating that the Actor finished successfully."""
-
 EXIT_CODE_ERROR_USER_FUNCTION_THREW = 91
 """Exit code indicating that the Actor's main function raised an exception."""
 

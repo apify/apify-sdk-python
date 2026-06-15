@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
 ]
 keywords = [
     "apify",
@@ -239,7 +240,6 @@ exclude-newer = "24 hours"
 [tool.uv.exclude-newer-package]
 # Allow internal Apify packages to install immediately.
 apify-client = false
-apify-shared = false
 apify_fingerprint_datapoints = false
 crawlee = false
 
