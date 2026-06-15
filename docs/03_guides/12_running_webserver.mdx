@@ -18,7 +18,7 @@ Each Actor run on the Apify platform is assigned a unique hard-to-guess URL (for
 The URL is available in the following places:
 
 - In [Apify Console](https://docs.apify.com/platform/console), on the Actor run details page as the **Container URL** field.
-- In the API as the `container_url` property of the [Run object](https://docs.apify.com/api/v2#/reference/actors/run-object/get-run).
+- In the API as the `containerUrl` property of the [Run object](https://docs.apify.com/api/v2/actor-run-get).
 - In the Actor as the `Actor.configuration.web_server_url` property.
 
 The web server running inside the container must listen at the port defined by the `Actor.configuration.web_server_port` property. When running Actors locally, the port defaults to `4321`, so the web server will be accessible at `http://localhost:4321`.
@@ -33,7 +33,7 @@ The following example shows how to start a simple web server in your Actor, whic
 
 ## Using FastAPI
 
-The example above relies only on Python's standard library, which keeps it dependency-free but leaves you handling requests by hand. For anything beyond a single endpoint, a web framework such as [FastAPI](https://fastapi.tiangolo.com/) is a better fit. It gives you routing, request parsing, and automatic JSON responses, and is served by an ASGI server like [uvicorn](https://www.uvicorn.org/).
+The example relies only on Python's standard library, which keeps it dependency-free but leaves you handling requests by hand. For anything beyond a single endpoint, a web framework such as [FastAPI](https://fastapi.tiangolo.com/) is a better fit. It gives you routing, request parsing, and automatic JSON responses, and is served by an ASGI server like [uvicorn](https://www.uvicorn.org/).
 
 Install both, for example by adding them to your `requirements.txt`:
 
@@ -56,7 +56,7 @@ Note that:
 
 ## Actor Standby
 
-The example above runs a web server for the duration of a single Actor run. With [Actor Standby](https://docs.apify.com/platform/actors/development/programming-interface/standby), you can instead expose your Actor as an always-ready HTTP API: the platform keeps the Actor running in the background and routes incoming HTTP requests to the web server inside it, spinning up additional instances as the load grows.
+The example runs a web server for the duration of a single Actor run. With [Actor Standby](https://docs.apify.com/platform/actors/development/programming-interface/standby), you can instead expose your Actor as an always-ready HTTP API: the platform keeps the Actor running in the background and routes incoming HTTP requests to the web server inside it, spinning up additional instances as the load grows.
 
 From the SDK's perspective, a Standby Actor is built the same way as the web server above. You start an HTTP server listening on the port from `Actor.configuration.web_server_port`. The difference is operational: instead of doing its work once and exiting, a Standby Actor stays up and serves requests. This makes it a good fit for low-latency, on-demand use cases, such as serving scraped data or acting as a microservice.
 

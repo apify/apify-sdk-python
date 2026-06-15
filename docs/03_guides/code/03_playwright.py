@@ -8,7 +8,7 @@ from apify import Actor, Request
 from apify.storages import RequestQueue
 
 # To run locally, install the browsers first: `playwright install --with-deps`.
-# On the Apify platform they are already in the Actor's Docker image.
+# On the Apify platform, browsers are already in the Actor's Docker image.
 
 
 def to_playwright_proxy(proxy_url: str) -> dict[str, str]:

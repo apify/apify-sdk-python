@@ -15,7 +15,7 @@ from apify.storages import RequestQueue
 
 # To run locally, install the Selenium Chromedriver:
 # https://www.selenium.dev/documentation/webdriver/getting_started/install_drivers/
-# On the Apify platform it is already in the Actor's Docker image.
+# On the Apify platform, it's already in the Actor's Docker image.
 
 
 def proxy_auth_extension(proxy_url: str) -> str:
