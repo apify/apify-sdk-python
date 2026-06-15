@@ -20,9 +20,8 @@ from apify._utils import docs_group
 ActorEventTypes = Literal['systemInfo', 'persistState', 'migrating', 'aborting']
 """Event types emitted by the Apify platform during an Actor run.
 
-This is the Apify-specific subset of [`Event`][crawlee.events.Event] — for the full set
-(including framework-level events like `SESSION_RETIRED` or `BROWSER_LAUNCHED`) use
-[`Event`][crawlee.events.Event] from `apify`.
+This is the Apify-specific subset of `Event`. For the full set (including framework-level events
+like `SESSION_RETIRED` or `BROWSER_LAUNCHED`), use `Event` from `apify`.
 """
 
 

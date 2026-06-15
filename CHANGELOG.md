@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 <!-- git-cliff-unreleased-start -->
 ## 3.4.2 - **not yet released**
 
+### 🚀 Features
+
+- Expose missing platform env vars via Actor.get_env() ([#984](https://github.com/apify/apify-sdk-python/pull/984)) ([f6e9b3b](https://github.com/apify/apify-sdk-python/commit/f6e9b3b328768aefb51257a258c4b6f03980fc72)) by [@vdusek](https://github.com/vdusek)
+
 ### 🐛 Bug Fixes
 
 - **scrapy:** Correct proxy middleware exception log and import ([#953](https://github.com/apify/apify-sdk-python/pull/953)) ([5bd6eb9](https://github.com/apify/apify-sdk-python/commit/5bd6eb9843d90844cec083372e932413bceedec9)) by [@vdusek](https://github.com/vdusek)
@@ -17,6 +21,9 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Dump pydantic models in JSON mode when serializing requests ([#961](https://github.com/apify/apify-sdk-python/pull/961)) ([f2ccae1](https://github.com/apify/apify-sdk-python/commit/f2ccae16d046e9586281e1f2ffc531014e05fe51)) by [@vdusek](https://github.com/vdusek)
 - Accept arbitrary JSON userData in ApifyRequestList ([#966](https://github.com/apify/apify-sdk-python/pull/966)) ([2cfd8a5](https://github.com/apify/apify-sdk-python/commit/2cfd8a590ae52a38b7efe39bb8a3a1570437b2fc)) by [@vdusek](https://github.com/vdusek)
 - Coerce null stats in Apify request queue metadata ([#974](https://github.com/apify/apify-sdk-python/pull/974)) ([63eb771](https://github.com/apify/apify-sdk-python/commit/63eb771e0234575ae3842cba9441938c3e4116fc)) by [@vdusek](https://github.com/vdusek)
+- Allow Actor.reboot() to be retried after a failed or cancelled attempt ([#968](https://github.com/apify/apify-sdk-python/pull/968)) ([7d46ec5](https://github.com/apify/apify-sdk-python/commit/7d46ec551252e7137f605e86894511315335f488)) by [@vdusek](https://github.com/vdusek)
+- Correct reclaim_request count adjustment for already-handled requests ([#973](https://github.com/apify/apify-sdk-python/pull/973)) ([86f4cd5](https://github.com/apify/apify-sdk-python/commit/86f4cd53d774e940954faa0b80b7ca5733d74fcf)) by [@vdusek](https://github.com/vdusek)
+- **scrapy:** Drop deprecated spider arg from Scrapy proxy middleware methods ([#977](https://github.com/apify/apify-sdk-python/pull/977)) ([49dd836](https://github.com/apify/apify-sdk-python/commit/49dd836c986b0e3bda4bb6485be8ad95d286cd82)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 

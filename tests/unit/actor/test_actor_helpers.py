@@ -457,3 +457,62 @@ async def test_reboot_with_zero_custom_after_sleep_does_not_sleep(
         sleep_mock.assert_not_awaited()
 
     assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
+
+
+async def test_reboot_can_be_retried_after_failed_attempt(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Test that a failed reboot API call does not permanently disable subsequent reboot attempts."""
+    attempts = 0
+
+    async def reboot_failing_once(*_args: object, **_kwargs: object) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError('Reboot API error')
+
+    apify_client_async_patcher.patch('run', 'reboot', replacement_method=reboot_failing_once)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+
+        with pytest.raises(RuntimeError, match='Reboot API error'):
+            await Actor.reboot(custom_after_sleep=timedelta(milliseconds=1))
+
+        # The retry must reach the API again instead of being silently skipped.
+        await Actor.reboot(custom_after_sleep=timedelta(milliseconds=1))
+
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 2
+
+
+async def test_reboot_can_be_retried_after_cancelled_attempt(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Test that a cancelled reboot attempt does not permanently disable subsequent reboot attempts."""
+    attempts = 0
+    first_attempt_started = asyncio.Event()
+
+    async def reboot_hanging_once(*_args: object, **_kwargs: object) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            first_attempt_started.set()
+            await asyncio.sleep(60)
+
+    apify_client_async_patcher.patch('run', 'reboot', replacement_method=reboot_hanging_once)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+
+        reboot_task = asyncio.create_task(Actor.reboot(custom_after_sleep=timedelta(milliseconds=1)))
+        await first_attempt_started.wait()
+        reboot_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await reboot_task
+
+        # The retry must reach the API again instead of being silently skipped.
+        await Actor.reboot(custom_after_sleep=timedelta(milliseconds=1))
+
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 2

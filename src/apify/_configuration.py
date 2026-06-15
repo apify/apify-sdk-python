@@ -426,7 +426,7 @@ class Configuration(CrawleeConfiguration):
                 'actor_web_server_port',
                 'apify_container_port',
             ),
-            description='TCP port for the Actor to start an HTTP server on'
+            description='TCP port for the Actor to start an HTTP server on. '
             'This server can be used to receive external messages or expose monitoring and control interfaces',
         ),
     ] = 4321
@@ -458,7 +458,7 @@ class Configuration(CrawleeConfiguration):
         | None,
         Field(
             alias='apify_actor_pricing_info',
-            description='JSON string with prising info of the actor',
+            description='JSON string with pricing info of the actor',
             discriminator='pricing_model',
         ),
         BeforeValidator(_parse_actor_pricing_info),
