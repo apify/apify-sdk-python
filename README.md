@@ -92,9 +92,11 @@ To create, run, and deploy your first Actor step by step, see the [Quick start g
 
 ## What are Actors?
 
-Actors are serverless cloud programs that can do almost anything a human can do in a web browser. They range from small tasks, such as filling in forms or unsubscribing from online services, all the way up to scraping and processing vast numbers of web pages.
+Actors are serverless programs that can do almost anything. From simple scripts and web scrapers to complex automation workflows, AI agents, or even always-on services that expose HTTP endpoints.
 
-They run either locally or on the [Apify platform](https://docs.apify.com/platform/), where you can run them at scale, monitor them, schedule them, or publish and monetize them. If you're new to Apify, learn [what Apify is](https://docs.apify.com/platform/about) in the platform documentation.
+They can run either locally or on the Apify platform, where you can scale their execution, monitor runs, schedule tasks, integrate them with other services, or even publish and monetize them. If you're new to Apify, learn more about the platform in the [Apify documentation](https://docs.apify.com/platform/about).
+
+For more context, read the [Actor whitepaper](https://whitepaper.actor/).
 
 ## Features
 
@@ -197,7 +199,7 @@ The full SDK documentation lives at **[docs.apify.com/sdk/python](https://docs.a
 | [Overview](https://docs.apify.com/sdk/python/docs/overview) | What the SDK is, what Actors are, and how the pieces fit together. |
 | [Quick start](https://docs.apify.com/sdk/python/docs/quick-start) | Create, run, and deploy your first Python Actor. |
 | [Concepts](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle) | Actor lifecycle, input, storages, events, proxy management, interacting with other Actors, webhooks, accessing the Apify API, logging, configuration, and pay-per-event. |
-| [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx) | Integrations with BeautifulSoup, Parsel, Playwright, Selenium, Crawlee, Scrapy, Crawl4AI, and Browser Use, plus running a web server and using uv. |
+| [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx) | Integrations with BeautifulSoup, Parsel, Playwright, Selenium, Crawlee, Scrapy, Scrapling, Crawl4AI, and Browser Use, plus running a web server and using uv. |
 | [Upgrading](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v4) | Migrating between major versions. |
 | [API reference](https://docs.apify.com/sdk/python/reference) | Generated reference for every class and method. |
 | [Changelog](https://docs.apify.com/sdk/python/docs/changelog) | Release history and breaking changes. |
