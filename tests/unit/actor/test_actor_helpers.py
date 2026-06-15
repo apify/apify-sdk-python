@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -419,6 +420,42 @@ async def test_reboot_proceeds_when_event_listener_exceeds_timeout(
     assert any('Pre-reboot event listeners did not finish within timeout' in r.message for r in caplog.records)
 
     # The reboot API call proceeded despite the hanging listener.
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
+
+
+async def test_metamorph_with_zero_custom_after_sleep_does_not_sleep(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Test that an explicit `custom_after_sleep=timedelta(0)` is not replaced by the default sleep duration."""
+    apify_client_async_patcher.patch('run', 'metamorph', return_value=None)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+
+        with patch('asyncio.sleep', new=AsyncMock()) as sleep_mock:
+            await Actor.metamorph('target-actor-id', custom_after_sleep=timedelta(0))
+
+        sleep_mock.assert_not_awaited()
+
+    assert len(apify_client_async_patcher.calls['run']['metamorph']) == 1
+
+
+async def test_reboot_with_zero_custom_after_sleep_does_not_sleep(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Test that an explicit `custom_after_sleep=timedelta(0)` is not replaced by the default sleep duration."""
+    apify_client_async_patcher.patch('run', 'reboot', return_value=None)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+
+        with patch('asyncio.sleep', new=AsyncMock()) as sleep_mock:
+            await Actor.reboot(custom_after_sleep=timedelta(0))
+
+        sleep_mock.assert_not_awaited()
+
     assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
 
 
