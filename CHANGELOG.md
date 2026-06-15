@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 - Accept arbitrary JSON userData in ApifyRequestList ([#966](https://github.com/apify/apify-sdk-python/pull/966)) ([2cfd8a5](https://github.com/apify/apify-sdk-python/commit/2cfd8a590ae52a38b7efe39bb8a3a1570437b2fc)) by [@vdusek](https://github.com/vdusek)
 - Coerce null stats in Apify request queue metadata ([#974](https://github.com/apify/apify-sdk-python/pull/974)) ([63eb771](https://github.com/apify/apify-sdk-python/commit/63eb771e0234575ae3842cba9441938c3e4116fc)) by [@vdusek](https://github.com/vdusek)
 - Allow Actor.reboot() to be retried after a failed or cancelled attempt ([#968](https://github.com/apify/apify-sdk-python/pull/968)) ([7d46ec5](https://github.com/apify/apify-sdk-python/commit/7d46ec551252e7137f605e86894511315335f488)) by [@vdusek](https://github.com/vdusek)
+- Correct reclaim_request count adjustment for already-handled requests ([#973](https://github.com/apify/apify-sdk-python/pull/973)) ([86f4cd5](https://github.com/apify/apify-sdk-python/commit/86f4cd53d774e940954faa0b80b7ca5733d74fcf)) by [@vdusek](https://github.com/vdusek)
+- **scrapy:** Drop deprecated spider arg from Scrapy proxy middleware methods ([#977](https://github.com/apify/apify-sdk-python/pull/977)) ([49dd836](https://github.com/apify/apify-sdk-python/commit/49dd836c986b0e3bda4bb6485be8ad95d286cd82)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
