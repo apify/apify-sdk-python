@@ -10,7 +10,7 @@ from apify import Actor, ProxyConfiguration
 from apify.scrapy.utils import get_basic_auth_header
 
 if TYPE_CHECKING:
-    from scrapy import Request, Spider
+    from scrapy import Request
     from scrapy.crawler import Crawler
 
 
@@ -63,17 +63,16 @@ class ApifyHttpProxyMiddleware:
 
         return cls(proxy_settings)
 
-    async def process_request(self, request: Request, spider: Spider) -> None:
+    async def process_request(self, request: Request) -> None:
         """Process a Scrapy request by assigning a new proxy.
 
         Args:
             request: Scrapy Request object.
-            spider: Scrapy Spider object.
 
         Raises:
             ValueError: If username and password are not provided in the proxy URL.
         """
-        Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: request={request}, spider={spider}')
+        Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: request={request}')
         url = await self._get_new_proxy_url()
 
         if not (url.username and url.password):
@@ -89,14 +88,12 @@ class ApifyHttpProxyMiddleware:
         self,
         request: Request,
         exception: Exception,
-        spider: Spider,
     ) -> None:
         """Process an exception that occurs during request processing.
 
         Args:
             request: Scrapy Request object.
             exception: Exception object.
-            spider: Scrapy Spider object.
 
         Returns:
             Returning None, meaning Scrapy will continue processing this exception, executing any other
@@ -104,7 +101,7 @@ class ApifyHttpProxyMiddleware:
             exception handling kicks in.
         """
         Actor.log.debug(
-            f'ApifyHttpProxyMiddleware.process_exception: request={request}, exception={exception}, spider={spider}',
+            f'ApifyHttpProxyMiddleware.process_exception: request={request}, exception={exception}',
         )
 
         if isinstance(exception, TunnelError):
