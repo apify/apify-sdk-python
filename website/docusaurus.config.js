@@ -9,6 +9,7 @@ const GROUP_ORDER = [
     'Actor',
     'Charging',
     'Configuration',
+    'Errors',
     'Event data',
     'Event managers',
     'Events',
