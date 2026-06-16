@@ -10,6 +10,7 @@ import websockets.client
 import websockets.exceptions
 from pydantic import Discriminator, TypeAdapter
 from typing_extensions import Unpack, override
+from websockets.frames import CloseCode
 
 from crawlee.events import EventManager
 from crawlee.events._types import Event, EventPersistStateData
@@ -49,12 +50,20 @@ class ApifyEventManager(EventManager):
     with the event system.
     """
 
-    _NON_RETRYABLE_CLOSE_CODES = frozenset({1002, 1003, 1007, 1008, 1010})
+    _NON_RETRYABLE_CLOSE_CODES = frozenset(
+        {
+            CloseCode.PROTOCOL_ERROR,
+            CloseCode.UNSUPPORTED_DATA,
+            CloseCode.INVALID_DATA,
+            CloseCode.POLICY_VIOLATION,
+            CloseCode.MANDATORY_EXTENSION,
+        }
+    )
     """WebSocket close codes for a permanent condition, on which the connection is not re-established.
 
-    The platform sends `1008` (policy violation) for an unknown/missing run ID or an exceeded per-run
-    connection limit. `1002`, `1003`, and `1007` are protocol or data errors, and `1010` a mandatory
-    extension failure.
+    The platform sends `POLICY_VIOLATION` (1008) for an unknown/missing run ID or an exceeded per-run
+    connection limit. The rest are protocol, data, or mandatory-extension failures that reconnecting
+    cannot resolve.
     """
 
     _HEALTHY_CONNECTION_MIN_DURATION = 1.0
@@ -153,7 +162,10 @@ class ApifyEventManager(EventManager):
                 if not self._should_reconnect_after_close(websocket, connection_lost=connection_lost):
                     break
 
-                # Reconnect a healthy connection immediately; back off only on repeated rapid drops.
+                # Reconnect a healthy connection immediately; back off only on repeated rapid drops. The first
+                # rapid drop reconnects once without delay (it only primes the backoff generator), and each
+                # subsequent consecutive rapid drop then sleeps for the next backoff interval. A healthy
+                # connection resets the generator, so the next rapid drop again gets that one free retry.
                 if time.monotonic() - connection_opened_at >= self._HEALTHY_CONNECTION_MIN_DURATION:
                     backoff_delays = None
                 elif backoff_delays is None:
@@ -211,7 +223,9 @@ class ApifyEventManager(EventManager):
         if websocket.close_code in self._NON_RETRYABLE_CLOSE_CODES:
             logger.error(
                 f'Connection to platform events websocket was closed with a non-retryable code '
-                f'(code={websocket.close_code}, reason={websocket.close_reason!r}); not reconnecting.'
+                f'(code={websocket.close_code}, reason={websocket.close_reason!r}); not reconnecting. '
+                f'No further platform events will be received for the rest of this run, so migration and '
+                f'abort handling (e.g. persisting state before a migration) is now disabled.'
             )
             return False
 
