@@ -83,11 +83,20 @@ async def _restartable_ws_server(
     `client_connected` event, a cumulative `attempts()` counter, and `stop()` / `start()` coroutines. Pass `on_connect`
     to take over a freshly accepted connection (e.g. immediately close it with a chosen code).
     """
-    # Reserve a fixed free port so a restart can re-serve on the same address.
-    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    probe.bind(('127.0.0.1', 0))
-    port = probe.getsockname()[1]
-    probe.close()
+
+    def _bind_server_socket(port: int) -> socket.socket:
+        """Bind a listening `127.0.0.1` socket on `port` (0 picks a free one), with address reuse enabled."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', port))
+        return sock
+
+    # Reserve a fixed free port by binding the listening socket up front and holding it open until the first
+    # serve, leaving no close-then-rebind gap where another process (e.g. a parallel xdist worker) could grab
+    # the port. `serve()` takes over the socket and closes it on `stop()`; a restart rebinds the same port,
+    # which SO_REUSEADDR allows immediately, without waiting out the TIME_WAIT state.
+    listen_sock: socket.socket | None = _bind_server_socket(0)
+    port = listen_sock.getsockname()[1]
 
     live_clients: set[websockets.asyncio.server.ServerConnection] = set()
     client_connected = asyncio.Event()
@@ -108,7 +117,11 @@ async def _restartable_ws_server(
             live_clients.discard(websocket)
 
     async def _serve() -> None:
-        server_holder['srv'] = await websockets.asyncio.server.serve(handler, host='127.0.0.1', port=port)
+        nonlocal listen_sock
+        if listen_sock is None:
+            listen_sock = _bind_server_socket(port)
+        server_holder['srv'] = await websockets.asyncio.server.serve(handler, sock=listen_sock)
+        listen_sock = None  # `serve()` owns the socket now and closes it on `stop()`.
 
     async def stop() -> None:
         srv = server_holder['srv']
@@ -121,7 +134,6 @@ async def _restartable_ws_server(
             await websocket.close()
 
     async def start() -> None:
-        await asyncio.sleep(0.3)  # Give the OS a moment to release the port before re-serving.
         await _serve()
 
     monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://127.0.0.1:{port}')
