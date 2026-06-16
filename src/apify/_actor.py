@@ -32,6 +32,7 @@ from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
 from apify._webhook import to_client_representations
+from apify.errors import map_client_errors
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
@@ -936,17 +937,18 @@ class _ActorType:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
         actor_client = client.actor(actor_id)
-        return await actor_client.start(
-            run_input=run_input,
-            content_type=content_type,
-            build=build,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=actor_start_timeout,
-            force_permission_level=force_permission_level,
-            webhooks=to_client_representations(webhooks),
-        )
+        with map_client_errors():
+            return await actor_client.start(
+                run_input=run_input,
+                content_type=content_type,
+                build=build,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=actor_start_timeout,
+                force_permission_level=force_permission_level,
+                webhooks=to_client_representations(webhooks),
+            )
 
     @_ensure_context
     async def abort(
@@ -975,10 +977,11 @@ class _ActorType:
         client = self.new_client(token=token) if token else self.apify_client
         run_client = client.run(run_id)
 
-        if status_message:
-            await run_client.update(status_message=status_message)
+        with map_client_errors():
+            if status_message:
+                await run_client.update(status_message=status_message)
 
-        run = await run_client.abort(gracefully=gracefully)
+            run = await run_client.abort(gracefully=gracefully)
 
         if run is None:
             raise RuntimeError(f'Failed to abort Actor run with ID "{run_id}".')
@@ -1047,19 +1050,20 @@ class _ActorType:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
         actor_client = client.actor(actor_id)
-        run = await actor_client.call(
-            run_input=run_input,
-            content_type=content_type,
-            build=build,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=actor_call_timeout,
-            force_permission_level=force_permission_level,
-            webhooks=to_client_representations(webhooks),
-            wait_duration=wait,
-            logger=logger,
-        )
+        with map_client_errors():
+            run = await actor_client.call(
+                run_input=run_input,
+                content_type=content_type,
+                build=build,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=actor_call_timeout,
+                force_permission_level=force_permission_level,
+                webhooks=to_client_representations(webhooks),
+                wait_duration=wait,
+                logger=logger,
+            )
 
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
@@ -1120,15 +1124,16 @@ class _ActorType:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
         task_client = client.task(task_id)
-        run = await task_client.call(
-            task_input=task_input,
-            build=build,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=task_call_timeout,
-            webhooks=to_client_representations(webhooks),
-            wait_duration=wait,
-        )
+        with map_client_errors():
+            run = await task_client.call(
+                task_input=task_input,
+                build=build,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=task_call_timeout,
+                webhooks=to_client_representations(webhooks),
+                wait_duration=wait,
+            )
 
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
@@ -1171,12 +1176,13 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self.apify_client.run(self.configuration.actor_run_id).metamorph(
-            target_actor_id=target_actor_id,
-            run_input=run_input,
-            target_actor_build=target_actor_build,
-            content_type=content_type,
-        )
+        with map_client_errors():
+            await self.apify_client.run(self.configuration.actor_run_id).metamorph(
+                target_actor_id=target_actor_id,
+                run_input=run_input,
+                target_actor_build=target_actor_build,
+                content_type=content_type,
+            )
 
         if custom_after_sleep:
             await asyncio.sleep(custom_after_sleep.total_seconds())
@@ -1242,7 +1248,8 @@ class _ActorType:
             except TimeoutError:
                 self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
 
-            await self.apify_client.run(self.configuration.actor_run_id).reboot()
+            with map_client_errors():
+                await self.apify_client.run(self.configuration.actor_run_id).reboot()
         except BaseException:
             # Reset the flag so that a failed or cancelled reboot can be retried.
             self._is_rebooting = False
@@ -1283,17 +1290,18 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        await self.apify_client.webhooks().create(
-            actor_run_id=self.configuration.actor_run_id,
-            event_types=webhook.event_types,
-            request_url=webhook.request_url,
-            payload_template=webhook.payload_template,
-            headers_template=webhook.headers_template,
-            ignore_ssl_errors=webhook.ignore_ssl_errors,
-            do_not_retry=webhook.do_not_retry,
-            idempotency_key=idempotency_key if idempotency_key is not None else webhook.idempotency_key,
-            is_ad_hoc=True,
-        )
+        with map_client_errors():
+            await self.apify_client.webhooks().create(
+                actor_run_id=self.configuration.actor_run_id,
+                event_types=webhook.event_types,
+                request_url=webhook.request_url,
+                payload_template=webhook.payload_template,
+                headers_template=webhook.headers_template,
+                ignore_ssl_errors=webhook.ignore_ssl_errors,
+                do_not_retry=webhook.do_not_retry,
+                idempotency_key=idempotency_key if idempotency_key is not None else webhook.idempotency_key,
+                is_ad_hoc=True,
+            )
 
     @_ensure_context
     async def set_status_message(
@@ -1321,10 +1329,11 @@ class _ActorType:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
         run_client = self.apify_client.run(self.configuration.actor_run_id)
-        run = await run_client.update(
-            status_message=status_message,
-            is_status_message_terminal=is_terminal,
-        )
+        with map_client_errors():
+            run = await run_client.update(
+                status_message=status_message,
+                is_status_message_terminal=is_terminal,
+            )
 
         if run is None:
             raise RuntimeError(

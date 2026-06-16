@@ -11,6 +11,7 @@ from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRec
 
 from ._api_client_creation import create_storage_api_client
 from ._models import ApifyKeyValueStoreMetadata
+from apify.errors import ActorError, catch_client_errors, map_client_errors
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -42,11 +43,12 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         """A lock to ensure that only one operation is performed at a time."""
 
     @override
+    @catch_client_errors
     async def get_metadata(self) -> ApifyKeyValueStoreMetadata:
         metadata = await self._api_client.get()
 
         if metadata is None:
-            raise ValueError('Failed to retrieve key-value store metadata.')
+            raise ActorError('Failed to retrieve key-value store metadata.')
 
         return ApifyKeyValueStoreMetadata(
             id=metadata.id,
@@ -58,6 +60,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
 
     @classmethod
+    @catch_client_errors
     async def open(
         cls,
         *,
@@ -110,16 +113,19 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
 
     @override
+    @catch_client_errors
     async def drop(self) -> None:
         async with self._lock:
             await self._api_client.delete()
 
     @override
+    @catch_client_errors
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
         response = await self._api_client.get_record(key)
         return KeyValueStoreRecord.model_validate(response) if response else None
 
     @override
+    @catch_client_errors
     async def set_value(self, *, key: str, value: Any, content_type: str | None = None) -> None:
         async with self._lock:
             await self._api_client.set_record(
@@ -129,6 +135,7 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
             )
 
     @override
+    @catch_client_errors
     async def delete_value(self, *, key: str) -> None:
         async with self._lock:
             await self._api_client.delete_record(key=key)
@@ -142,33 +149,36 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
     ) -> AsyncIterator[KeyValueStoreRecordMetadata]:
         count = 0
 
-        while True:
-            list_key_page = await self._api_client.list_keys(exclusive_start_key=exclusive_start_key)
+        with map_client_errors():
+            while True:
+                list_key_page = await self._api_client.list_keys(exclusive_start_key=exclusive_start_key)
 
-            for item in list_key_page.items:
-                record_metadata = KeyValueStoreRecordMetadata(
-                    key=item.key,
-                    size=item.size,
-                    content_type='application/octet-stream',  # Content type not available from list_keys
-                )
-                yield record_metadata
-                count += 1
+                for item in list_key_page.items:
+                    record_metadata = KeyValueStoreRecordMetadata(
+                        key=item.key,
+                        size=item.size,
+                        content_type='application/octet-stream',  # Content type not available from list_keys
+                    )
+                    yield record_metadata
+                    count += 1
 
-                # If we've reached the limit, stop yielding
-                if limit and count >= limit:
+                    # If we've reached the limit, stop yielding
+                    if limit and count >= limit:
+                        break
+
+                # If we've reached the limit or there are no more pages, exit the loop
+                if (limit and count >= limit) or not list_key_page.is_truncated:
                     break
 
-            # If we've reached the limit or there are no more pages, exit the loop
-            if (limit and count >= limit) or not list_key_page.is_truncated:
-                break
-
-            exclusive_start_key = list_key_page.next_exclusive_start_key
+                exclusive_start_key = list_key_page.next_exclusive_start_key
 
     @override
+    @catch_client_errors
     async def record_exists(self, *, key: str) -> bool:
         return await self._api_client.record_exists(key=key)
 
     @override
+    @catch_client_errors
     async def get_public_url(self, *, key: str) -> str:
         """Get a URL for the given key that may be used to publicly access the value in the remote key-value store.
 

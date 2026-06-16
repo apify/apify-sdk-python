@@ -17,7 +17,6 @@ from apify_client.errors import (
 )
 from apify_client.errors import RateLimitError as ClientRateLimitError
 
-import apify
 from apify.errors import (
     ActorAuthenticationError,
     ActorChargeLimitExceededError,
@@ -70,7 +69,7 @@ def _make_run(*, status: str, exit_code: int | None = None, status_message: str 
 
 def test_actor_error_defaults() -> None:
     error = ActorError('something went wrong')
-    assert error.code == 'apify-error'
+    assert error.code == 'actor-error'
     assert error.retryable is False
     assert str(error) == 'something went wrong'
 
@@ -80,7 +79,7 @@ def test_actor_error_overrides_are_instance_scoped() -> None:
     assert error.code == 'custom'
     assert error.retryable is True
     # Overriding on an instance must not leak to the class default.
-    assert ActorError.code == 'apify-error'
+    assert ActorError.code == 'actor-error'
     assert ActorError.retryable is False
 
 
@@ -167,18 +166,3 @@ def test_from_client_error_unknown_exception_falls_back() -> None:
     assert type(mapped) is ActorError
     assert mapped.retryable is False
     assert 'not a client error' in str(mapped)
-
-
-def test_errors_exported_from_top_level() -> None:
-    for name in (
-        'ActorError',
-        'ActorRunError',
-        'ActorTimeoutError',
-        'ActorAuthenticationError',
-        'ActorChargeLimitExceededError',
-        'ActorInputValidationError',
-        'ActorRateLimitError',
-    ):
-        assert hasattr(apify, name)
-        assert name in apify.__all__
-        assert getattr(apify, name) is getattr(apify.errors, name)

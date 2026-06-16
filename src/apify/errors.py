@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import contextlib
+import functools
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
 
+from apify_client.errors import ApifyApiError
 from apify_client.errors import ForbiddenError as _ForbiddenError
 from apify_client.errors import InvalidRequestError as _InvalidRequestError
 from apify_client.errors import RateLimitError as _RateLimitError
@@ -11,7 +14,13 @@ from apify_client.errors import UnauthorizedError as _UnauthorizedError
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Coroutine, Iterator
+    from typing import Any
+
     from apify_client._models import Run
+
+_P = ParamSpec('_P')
+_R = TypeVar('_R')
 
 
 @docs_group('Errors')
@@ -145,6 +154,35 @@ class ActorRateLimitError(ActorError):
 
     code = 'rate-limit-exceeded'
     retryable = True
+
+
+@contextlib.contextmanager
+def map_client_errors() -> Iterator[None]:
+    """Translate `apify_client` API errors into domain-level `ActorError`s.
+
+    Wrap any `apify_client` call with this context manager so that an `ApifyApiError` (e.g. an HTTP 401/403/429/5xx
+    response) surfaces as the matching `ActorError` subclass instead of a raw client exception. The original error
+    is preserved as the `__cause__` of the raised `ActorError`.
+    """
+    try:
+        yield
+    except ApifyApiError as error:
+        raise ActorError.from_client_error(error) from error
+
+
+def catch_client_errors(func: Callable[_P, Awaitable[_R]]) -> Callable[_P, Coroutine[Any, Any, _R]]:
+    """Decorate an async function so the `apify_client` errors it raises become domain-level `ActorError`s.
+
+    This is the method-level counterpart of `map_client_errors`, intended for thin wrappers around `apify_client`
+    calls such as the storage client operations.
+    """
+
+    @functools.wraps(func)
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        with map_client_errors():
+            return await func(*args, **kwargs)
+
+    return wrapper
 
 
 __all__ = [

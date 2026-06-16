@@ -12,6 +12,7 @@ from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
 from ._api_client_creation import create_storage_api_client
+from apify.errors import ActorError, catch_client_errors, map_client_errors
 from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 
 if TYPE_CHECKING:
@@ -57,11 +58,12 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         """A lock to ensure that only one operation is performed at a time."""
 
     @override
+    @catch_client_errors
     async def get_metadata(self) -> DatasetMetadata:
         metadata = await self._api_client.get()
 
         if metadata is None:
-            raise ValueError('Failed to retrieve dataset metadata.')
+            raise ActorError('Failed to retrieve dataset metadata.')
 
         return DatasetMetadata(
             id=metadata.id,
@@ -73,6 +75,7 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         )
 
     @classmethod
+    @catch_client_errors
     async def open(
         cls,
         *,
@@ -132,11 +135,13 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         )
 
     @override
+    @catch_client_errors
     async def drop(self) -> None:
         async with self._lock:
             await self._api_client.delete()
 
     @override
+    @catch_client_errors
     async def push_data(self, data: Sequence[Mapping[str, JsonSerializable]] | Mapping[str, JsonSerializable]) -> None:
         async def payloads_generator(items: Sequence[Mapping[str, JsonSerializable]]) -> AsyncIterator[str]:
             for index, item in enumerate(items):
@@ -155,6 +160,7 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             await self._charge_for_items(count_items=limit)
 
     @override
+    @catch_client_errors
     async def get_data(
         self,
         *,
@@ -199,18 +205,19 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         skip_empty: bool = False,
         skip_hidden: bool = False,
     ) -> AsyncIterator[dict]:
-        async for item in self._api_client.iterate_items(
-            offset=offset,
-            limit=limit,
-            clean=clean,
-            desc=desc,
-            fields=fields,
-            omit=omit,
-            unwind=unwind,
-            skip_empty=skip_empty,
-            skip_hidden=skip_hidden,
-        ):
-            yield item
+        with map_client_errors():
+            async for item in self._api_client.iterate_items(
+                offset=offset,
+                limit=limit,
+                clean=clean,
+                desc=desc,
+                fields=fields,
+                omit=omit,
+                unwind=unwind,
+                skip_empty=skip_empty,
+                skip_hidden=skip_hidden,
+            ):
+                yield item
 
     @classmethod
     async def _check_and_serialize(cls, item: Mapping[str, JsonSerializable], index: int | None = None) -> str:
