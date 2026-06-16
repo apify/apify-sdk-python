@@ -1,9 +1,8 @@
 import asyncio
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
-import impit
-import parsel
+from scrapling.fetchers import AsyncFetcher
 
 from apify import Actor, Request
 from apify.storages import RequestQueue
@@ -14,26 +13,29 @@ async def scrape_page(
     *,
     proxy_url: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Fetch a page with Impit and return its data and same-site links."""
-    # A fresh client per call lets each request use a new proxy URL.
-    async with impit.AsyncClient(proxy=proxy_url) as client:
-        response = await client.get(url)
-
-    selector = parsel.Selector(text=response.text)
+    """Fetch a page with Scrapling's HTTP fetcher and return data and links."""
+    # `impersonate` and `stealthy_headers` make the request look like Chrome.
+    response = await AsyncFetcher.get(
+        url,
+        proxy=proxy_url,
+        impersonate='chrome',
+        stealthy_headers=True,
+        timeout=60,
+    )
 
     data = {
         'url': url,
-        'title': selector.css('title::text').get(),
-        'h1s': selector.css('h1::text').getall(),
-        'h2s': selector.css('h2::text').getall(),
-        'h3s': selector.css('h3::text').getall(),
+        'title': response.css('title::text').get(),
+        'h1s': response.css('h1::text').getall(),
+        'h2s': response.css('h2::text').getall(),
+        'h3s': response.css('h3::text').getall(),
     }
 
     # Keep only absolute links on the same host.
     links: list[str] = []
     host = urlsplit(url).netloc
-    for link_href in selector.css('a::attr(href)').getall():
-        link_url = urljoin(url, link_href)
+    for href in response.css('a::attr(href)').getall():
+        link_url = response.urljoin(href)
         if not link_url.startswith(('http://', 'https://')):
             continue
         if urlsplit(link_url).netloc == host:

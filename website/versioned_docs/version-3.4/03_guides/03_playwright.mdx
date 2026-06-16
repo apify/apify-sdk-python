@@ -1,6 +1,6 @@
 ---
 id: playwright
-title: Use Playwright
+title: Browser automation with Playwright
 description: Build an Apify Actor that scrapes dynamic web pages using Playwright browser automation.
 ---
 
@@ -11,7 +11,7 @@ import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import PlaywrightExample from '!!raw-loader!roa-loader!./code/03_playwright.py';
 
-In this guide, you'll learn how to use [Playwright](https://playwright.dev) for web scraping in your Apify Actors.
+In this guide, you'll learn how to use [Playwright](https://playwright.dev) for browser automation and web scraping in your Apify Actors.
 
 ## Introduction
 
@@ -48,13 +48,17 @@ playwright install --with-deps`
 
 ## Example Actor
 
-This is a simple Actor that recursively scrapes titles from all linked websites, up to a maximum depth, starting from URLs in the Actor input.
+This is a simple Actor that recursively scrapes data from linked pages on the same site, up to a maximum depth, starting from URLs in the Actor input.
 
-It uses Playwright to open the pages in an automated Chrome browser, and to extract the title and anchor elements after the pages load.
+It uses Playwright to open the pages in an automated Chrome browser, and to extract the title, headings, and links after the pages load.
 
 <RunnableCodeBlock className="language-python" language="python">
     {PlaywrightExample}
 </RunnableCodeBlock>
+
+## Using Apify Proxy
+
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. The example creates a proxy configuration with `Actor.create_proxy_configuration` and fetches a fresh proxy URL for every request. Playwright applies a proxy per browser context. Each request runs in its own new context to rotate the IP. The `to_playwright_proxy` helper splits that URL into the `server`, `username`, and `password` fields Playwright expects. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management).
 
 ## Conclusion
 

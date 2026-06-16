@@ -121,7 +121,6 @@ async def test_store_mapping_uses_injected_configuration_is_at_home() -> None:
     fake_kvs_client = AsyncMock()
     fake_kvs_client.get_record = AsyncMock(return_value=None)
     fake_kvs_client.set_record = AsyncMock(return_value=None)
-    fake_kvs_client.get = AsyncMock(return_value={'id': 'default-kvs-id'})
 
     with patch.object(AliasResolver, '_get_default_kvs_client', return_value=fake_kvs_client):
         await resolver.store_mapping(storage_id='new-id-789')

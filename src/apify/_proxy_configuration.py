@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import ipaddress
 import json
 import re
 from dataclasses import dataclass, field
 from re import Pattern
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urljoin, urlparse
 
 import impit
 from yarl import URL
@@ -36,24 +34,6 @@ COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
 # ISO 3166-2 subdivision codes are 1-3 uppercase alphanumeric characters, e.g. 'CA', 'NSW', '9' (Wien, AT-9)
 SUBDIVISION_CODE_REGEX = re.compile(r'^[A-Z0-9]{1,3}$')
 SESSION_ID_MAX_LENGTH = 50
-
-
-def is_url(url: str) -> bool:
-    """Check if the given string is a valid URL."""
-    try:
-        parsed_url = urlparse(urljoin(url, '/'))
-        has_all_parts = all([parsed_url.scheme, parsed_url.netloc, parsed_url.path])
-        is_domain = '.' in parsed_url.netloc
-        is_localhost = parsed_url.netloc == 'localhost'
-        try:
-            ipaddress.ip_address(parsed_url.netloc)
-            is_ip_address = True
-        except Exception:
-            is_ip_address = False
-
-        return has_all_parts and any([is_domain, is_localhost, is_ip_address])
-    except Exception:
-        return False
 
 
 def _check(

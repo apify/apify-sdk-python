@@ -7,7 +7,7 @@ from apify.scrapy import initialize_logging, run_scrapy_actor
 # Import your main Actor coroutine here.
 from .main import main
 
-# Ensure the location to the Scrapy settings module is defined.
+# Point Scrapy at the settings module.
 os.environ['SCRAPY_SETTINGS_MODULE'] = 'src.settings'
 
 

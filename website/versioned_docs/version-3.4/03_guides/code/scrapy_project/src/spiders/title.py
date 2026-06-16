@@ -14,11 +14,7 @@ if TYPE_CHECKING:
 
 
 class TitleSpider(Spider):
-    """A spider that scrapes web pages to extract titles and discover new links.
-
-    This spider retrieves the content of the <title> element from each page and queues
-    any valid hyperlinks for further crawling.
-    """
+    """A spider that extracts page titles and queues links for further crawling."""
 
     name = 'title_spider'
 
@@ -32,36 +28,21 @@ class TitleSpider(Spider):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        """A default constructor.
-
-        Args:
-            start_urls: URLs to start the scraping from.
-            allowed_domains: Domains that the scraper is allowed to crawl.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
-        """
+        """Store the start URLs and allowed domains."""
         super().__init__(*args, **kwargs)
         self.start_urls = start_urls
         self.allowed_domains = allowed_domains
 
     def parse(self, response: Response) -> Generator[TitleItem | Request, None, None]:
-        """Parse the web page response.
-
-        Args:
-            response: The web page response.
-
-        Yields:
-            Yields scraped `TitleItem` and new `Request` objects for links.
-        """
+        """Yield a `TitleItem` and a `Request` for each link on the page."""
         self.logger.info('TitleSpider is parsing %s...', response)
 
-        # Extract and yield the TitleItem
+        # Yield the title item.
         url = response.url
         title = response.css('title::text').extract_first()
         yield TitleItem(url=url, title=title)
 
-        # Extract all links from the page, create `Request` objects out of them,
-        # and yield them.
+        # Yield a request for each link.
         for link_href in response.css('a::attr("href")'):
             link_url = urljoin(response.url, link_href.get())
             if link_url.startswith(('http://', 'https://')):

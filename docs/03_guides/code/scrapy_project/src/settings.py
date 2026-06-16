@@ -5,7 +5,7 @@ NEWSPIDER_MODULE = 'src.spiders'
 ROBOTSTXT_OBEY = True
 SPIDER_MODULES = ['src.spiders']
 TELNETCONSOLE_ENABLED = False
-# Do not change the Twisted reactor unless you really know what you are doing.
+# Don't change the Twisted reactor unless you know what you're doing.
 TWISTED_REACTOR = 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'
 HTTPCACHE_ENABLED = True
 HTTPCACHE_EXPIRATION_SECS = 7200

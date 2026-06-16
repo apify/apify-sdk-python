@@ -198,7 +198,9 @@ class ApifyRequestQueueSharedClient:
             )
             return None
 
-        # Use get request to ensure we have the full request object.
+        # `_get_or_hydrate_request` may return a request from the queue-head cache, which is populated by
+        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by id to
+        # guarantee the caller gets the full request object.
         request = await self._get_request_by_id(next_request_id)
         if request is None:
             logger.debug(
@@ -260,9 +262,9 @@ class ApifyRequestQueueSharedClient:
                 processed_request = await self._update_request(request, forefront=forefront)
                 processed_request.unique_key = request.unique_key
 
-                # If the request was previously handled, decrement our handled count since
-                # we're putting it back for processing.
-                if request.was_already_handled and not processed_request.was_already_handled:
+                # The platform reports the request's state before this update via `was_already_handled`. If it was
+                # handled, this update moved it from handled back to pending, so mirror that in the local metadata.
+                if processed_request.was_already_handled:
                     self.metadata.handled_request_count -= 1
                     self.metadata.pending_request_count += 1
 

@@ -3,7 +3,7 @@ import json
 import logging
 from itertools import chain
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from typing_extensions import override
 
@@ -89,10 +89,32 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
 
     @override
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
-        if key == self._input_key:
-            # Potentially point to custom input file name instead
-            key = self._input_key_filename
-        return await super().get_value(key=key)
+        return await super().get_value(key=self._resolve_input_key(key))
+
+    @override
+    async def set_value(self, *, key: str, value: Any, content_type: str | None = None) -> None:
+        await super().set_value(key=self._resolve_input_key(key), value=value, content_type=content_type)
+
+    @override
+    async def record_exists(self, *, key: str) -> bool:
+        return await super().record_exists(key=self._resolve_input_key(key))
+
+    @override
+    async def delete_value(self, *, key: str) -> None:
+        await super().delete_value(key=self._resolve_input_key(key))
+
+    @override
+    async def get_public_url(self, *, key: str) -> str:
+        return await super().get_public_url(key=self._resolve_input_key(key))
+
+    def _resolve_input_key(self, key: str) -> str:
+        """Redirect the logical input key to the actual input file name on disk.
+
+        The platform may store the Actor input under a name with an extension (e.g. `INPUT.json`) while the
+        logical key stays `INPUT`. Redirecting keeps every record operation pointed at that single file, so
+        e.g. `set_value` overwrites it instead of creating a duplicate that would later be rejected on open.
+        """
+        return self._input_key_filename if key == self._input_key else key
 
     @staticmethod
     async def _create_missing_metadata_for_input_file(key: str, record_path: Path) -> None:

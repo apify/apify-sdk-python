@@ -6,7 +6,7 @@ from functools import cached_property
 from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
-from ._utils import hash_api_base_url_and_token
+from ._utils import hash_api_public_base_url_and_token
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -226,12 +226,11 @@ class AliasResolver:
 
         if not self._configuration.is_at_home:
             logging.getLogger(__name__).debug(
-                '_AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
+                'AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
             )
             return
 
         default_kvs_client = self._get_default_kvs_client()
-        await default_kvs_client.get()
 
         try:
             record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
@@ -250,7 +249,7 @@ class AliasResolver:
             [
                 self._storage_type,
                 self._alias,
-                hash_api_base_url_and_token(self._configuration),
+                hash_api_public_base_url_and_token(self._configuration),
             ]
         )
 
