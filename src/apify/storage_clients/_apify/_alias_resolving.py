@@ -6,14 +6,13 @@ from functools import cached_property
 from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
-from apify_client import ApifyClientAsync
-
 from ._utils import hash_api_public_base_url_and_token
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from types import TracebackType
 
+    from apify_client import ApifyClientAsync
     from apify_client._resource_clients import (
         DatasetClientAsync,
         DatasetCollectionClientAsync,
@@ -35,6 +34,7 @@ async def open_by_alias(
     storage_type: Literal['Dataset'],
     collection_client: DatasetCollectionClientAsync,
     get_resource_client_by_id: Callable[[str], DatasetClientAsync],
+    api_client: ApifyClientAsync,
     configuration: Configuration,
 ) -> DatasetClientAsync: ...
 
@@ -46,6 +46,7 @@ async def open_by_alias(
     storage_type: Literal['KeyValueStore'],
     collection_client: KeyValueStoreCollectionClientAsync,
     get_resource_client_by_id: Callable[[str], KeyValueStoreClientAsync],
+    api_client: ApifyClientAsync,
     configuration: Configuration,
 ) -> KeyValueStoreClientAsync: ...
 
@@ -57,6 +58,7 @@ async def open_by_alias(
     storage_type: Literal['RequestQueue'],
     collection_client: RequestQueueCollectionClientAsync,
     get_resource_client_by_id: Callable[[str], RequestQueueClientAsync],
+    api_client: ApifyClientAsync,
     configuration: Configuration,
 ) -> RequestQueueClientAsync: ...
 
@@ -69,6 +71,7 @@ async def open_by_alias(
         KeyValueStoreCollectionClientAsync | RequestQueueCollectionClientAsync | DatasetCollectionClientAsync
     ),
     get_resource_client_by_id: Callable[[str], KeyValueStoreClientAsync | RequestQueueClientAsync | DatasetClientAsync],
+    api_client: ApifyClientAsync,
     configuration: Configuration,
 ) -> KeyValueStoreClientAsync | RequestQueueClientAsync | DatasetClientAsync:
     """Open storage by alias, creating it if necessary.
@@ -81,6 +84,8 @@ async def open_by_alias(
         storage_type: The type of storage to open.
         collection_client: The Apify API collection client for the storage type.
         get_resource_client_by_id: A callable that takes a storage ID and returns the resource client.
+        api_client: The Apify API client used for the storage operation. Reused to access the default KVS that
+            holds the alias mapping, so alias resolution does not spin up its own client.
         configuration: Configuration object containing API credentials and settings.
 
     Returns:
@@ -94,6 +99,7 @@ async def open_by_alias(
         storage_type=storage_type,
         alias=alias,
         configuration=configuration,
+        api_client=api_client,
     ) as alias_resolver:
         storage_id = await alias_resolver.resolve_id()
 
@@ -142,10 +148,12 @@ class AliasResolver:
         storage_type: Literal['Dataset', 'KeyValueStore', 'RequestQueue'],
         alias: str,
         configuration: Configuration,
+        api_client: ApifyClientAsync,
     ) -> None:
         self._storage_type = storage_type
         self._alias = alias
         self._configuration = configuration
+        self._api_client = api_client
 
     async def __aenter__(self) -> AliasResolver:
         """Context manager to prevent race condition in alias creation."""
@@ -173,26 +181,22 @@ class AliasResolver:
             cls._alias_init_lock = Lock()
         return cls._alias_init_lock
 
-    @classmethod
-    async def _get_alias_map(cls, configuration: Configuration) -> dict[str, str]:
+    async def _get_alias_map(self) -> dict[str, str]:
         """Get the aliases and storage ids mapping from the default kvs.
 
-        Mapping is loaded from kvs only once and is shared for all instances of the AliasResolver class.
-
-        Args:
-            configuration: Configuration object to use for accessing the default KVS.
+        Mapping is loaded from kvs only once and is shared for all instances of the `AliasResolver` class.
 
         Returns:
             Map of aliases and storage ids.
         """
-        if not cls._alias_map_loaded and configuration.is_at_home:
-            default_kvs_client = await cls._get_default_kvs_client(configuration)
+        if not AliasResolver._alias_map_loaded and self._configuration.is_at_home:
+            default_kvs_client = self._get_default_kvs_client()
 
-            record = await default_kvs_client.get_record(cls._ALIAS_MAPPING_KEY)
-            cls._alias_map = record.get('value', {}) if record else {}
-            cls._alias_map_loaded = True
+            record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
+            AliasResolver._alias_map = record.get('value', {}) if record else {}
+            AliasResolver._alias_map_loaded = True
 
-        return cls._alias_map
+        return AliasResolver._alias_map
 
     async def resolve_id(self) -> str | None:
         """Get id of the aliased storage.
@@ -212,12 +216,12 @@ class AliasResolver:
                 return storage_id
 
         # Fallback to the mapping saved in the default KVS
-        return (await self._get_alias_map(self._configuration)).get(self._storage_key, None)
+        return (await self._get_alias_map()).get(self._storage_key, None)
 
     async def store_mapping(self, storage_id: str) -> None:
         """Add alias and related storage id to the mapping in default kvs and local in-memory mapping."""
         # Update in-memory mapping
-        alias_map = await self._get_alias_map(self._configuration)
+        alias_map = await self._get_alias_map()
         alias_map[self._storage_key] = storage_id
 
         if not self._configuration.is_at_home:
@@ -226,7 +230,7 @@ class AliasResolver:
             )
             return
 
-        default_kvs_client = await self._get_default_kvs_client(self._configuration)
+        default_kvs_client = self._get_default_kvs_client()
 
         try:
             record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
@@ -249,16 +253,14 @@ class AliasResolver:
             ]
         )
 
-    @staticmethod
-    async def _get_default_kvs_client(configuration: Configuration) -> KeyValueStoreClientAsync:
-        """Get a client for the default key-value store."""
-        apify_client_async = ApifyClientAsync(
-            token=configuration.token,
-            api_url=configuration.api_base_url,
-            max_retries=8,
-        )
+    def _get_default_kvs_client(self) -> KeyValueStoreClientAsync:
+        """Get a client for the default key-value store.
 
-        if not configuration.default_key_value_store_id:
+        Derived from the injected `ApifyClientAsync`, so alias resolution shares the same HTTP client (and its
+        connection pool and event loop affinity) as the storage operation that triggered it, instead of creating
+        and leaking its own.
+        """
+        if not self._configuration.default_key_value_store_id:
             raise ValueError("'Configuration.default_key_value_store_id' must be set.")
 
-        return apify_client_async.key_value_store(key_value_store_id=configuration.default_key_value_store_id)
+        return self._api_client.key_value_store(key_value_store_id=self._configuration.default_key_value_store_id)
