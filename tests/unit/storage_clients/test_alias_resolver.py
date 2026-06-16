@@ -28,7 +28,6 @@ def test_storage_key_format() -> None:
 
 async def test_resolve_id_returns_none_for_unknown() -> None:
     """Test that resolve_id returns None for an alias not in the map."""
-    AliasResolver._alias_map = {}
     config = Configuration(token='test-token')
     resolver = AliasResolver(
         storage_type='Dataset', alias='unknown-alias', configuration=config, api_client=_api_client()
@@ -52,7 +51,6 @@ async def test_resolve_id_returns_stored_id() -> None:
 
 async def test_store_mapping_local_only() -> None:
     """Test that store_mapping only updates in-memory map when not at home."""
-    AliasResolver._alias_map = {}
     config = Configuration(is_at_home=False, token='test-token')
     resolver = AliasResolver(
         storage_type='RequestQueue', alias='test-alias', configuration=config, api_client=_api_client()
@@ -66,8 +64,6 @@ async def test_store_mapping_local_only() -> None:
 
 async def test_concurrent_alias_creation_uses_lock() -> None:
     """Test that the context manager acquires and releases a lock."""
-    AliasResolver._alias_init_lock = None
-    AliasResolver._alias_map = {}
     config = Configuration(token='test-token')
     resolver = AliasResolver(storage_type='Dataset', alias='test', configuration=config, api_client=_api_client())
 
@@ -153,29 +149,33 @@ async def test_configuration_storages_alias_resolving() -> None:
 
 
 def test_default_kvs_client_derives_from_injected_client() -> None:
-    """The default-KVS client used for alias mapping is derived from the injected client, not a freshly created one."""
-    api_client = _api_client()
+    """The default-KVS client for alias mapping is built from the injected client, not a freshly created one."""
     config = Configuration(token='test-token', default_key_value_store_id='default-kvs-id')
+    api_client = MagicMock()
     resolver = AliasResolver(storage_type='Dataset', alias='a', configuration=config, api_client=api_client)
 
     kvs_client = resolver._get_default_kvs_client()
 
-    assert kvs_client.resource_id == 'default-kvs-id'
-    # Shares the injected client's HTTP client (and its connection pool), proving no separate client is spun up.
-    assert kvs_client._http_client is api_client.http_client
+    # The KVS client comes straight from the injected client for the configured store, so no separate client is created.
+    api_client.key_value_store.assert_called_once_with(key_value_store_id='default-kvs-id')
+    assert kvs_client is api_client.key_value_store.return_value
 
 
 def test_resolvers_use_their_own_injected_client() -> None:
-    """Each resolver derives its KVS client from its own injected client; there is no shared process-global cache."""
+    """Each resolver builds its KVS client from its own injected client; there is no shared process-global cache."""
     config = Configuration(token='test-token', default_key_value_store_id='default-kvs-id')
-    client_a = _api_client()
-    client_b = _api_client()
+    client_a = MagicMock()
+    client_b = MagicMock()
     resolver_a = AliasResolver(storage_type='Dataset', alias='a', configuration=config, api_client=client_a)
     resolver_b = AliasResolver(storage_type='Dataset', alias='b', configuration=config, api_client=client_b)
 
-    assert resolver_a._get_default_kvs_client()._http_client is client_a.http_client
-    assert resolver_b._get_default_kvs_client()._http_client is client_b.http_client
-    assert client_a.http_client is not client_b.http_client
+    kvs_a = resolver_a._get_default_kvs_client()
+    kvs_b = resolver_b._get_default_kvs_client()
+
+    # Each resolver routes through its own injected client, and the two yield independent KVS clients.
+    assert kvs_a is client_a.key_value_store.return_value
+    assert kvs_b is client_b.key_value_store.return_value
+    assert kvs_a is not kvs_b
 
 
 def test_alias_resolution_runs_across_event_loops_with_shared_client() -> None:
