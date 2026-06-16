@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 from apify_client._models import WebhookRepresentation
@@ -48,18 +48,11 @@ class Webhook:
 
 
 def to_client_representations(webhooks: list[Webhook] | None) -> list[WebhookRepresentation] | None:
-    """Convert SDK webhooks to the ad-hoc representation accepted by the client's `start()` / `call()`."""
+    """Convert SDK webhooks to the ad-hoc representation accepted by the client's `start()` / `call()`.
+
+    `Webhook`'s field names are a subset of `WebhookRepresentation`'s, so we forward them by name rather than
+    listing each one. This way any field added to `Webhook` is propagated automatically.
+    """
     if not webhooks:
         return None
-    return [
-        WebhookRepresentation(
-            event_types=w.event_types,
-            request_url=w.request_url,
-            payload_template=w.payload_template,
-            headers_template=w.headers_template,
-            idempotency_key=w.idempotency_key,
-            ignore_ssl_errors=w.ignore_ssl_errors,
-            do_not_retry=w.do_not_retry,
-        )
-        for w in webhooks
-    ]
+    return [WebhookRepresentation(**asdict(w)) for w in webhooks]
