@@ -1285,8 +1285,9 @@ class _ActorType:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
         # `Webhook`'s field names match `webhooks().create()`'s parameters, so we forward them by name rather
-        # than listing each one. The deprecated `idempotency_key` argument, when given, overrides the instance value.
+        # than listing each one.
         webhook_fields = asdict(webhook)
+
         if idempotency_key is not None:
             webhook_fields['idempotency_key'] = idempotency_key
 

@@ -55,4 +55,5 @@ def to_client_representations(webhooks: list[Webhook] | None) -> list[WebhookRep
     """
     if not webhooks:
         return None
-    return [WebhookRepresentation(**asdict(w)) for w in webhooks]
+
+    return [WebhookRepresentation(**asdict(webhook)) for webhook in webhooks]
