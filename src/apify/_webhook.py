@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from apify_client._models import WebhookRepresentation
@@ -50,10 +50,11 @@ class Webhook:
 def to_client_representations(webhooks: list[Webhook] | None) -> list[WebhookRepresentation] | None:
     """Convert SDK webhooks to the ad-hoc representation accepted by the client's `start()` / `call()`.
 
-    `Webhook`'s field names are a subset of `WebhookRepresentation`'s, so we forward them by name rather than
-    listing each one. This way any field added to `Webhook` is propagated automatically.
+    `Webhook`'s field names match `WebhookRepresentation`'s, so we let pydantic read them straight off the
+    instance rather than listing each one. This forwards any field the representation declares without changes
+    here, and never emits an undeclared field as a malformed snake_case extra.
     """
     if not webhooks:
         return None
 
-    return [WebhookRepresentation(**asdict(webhook)) for webhook in webhooks]
+    return [WebhookRepresentation.model_validate(webhook, from_attributes=True) for webhook in webhooks]
