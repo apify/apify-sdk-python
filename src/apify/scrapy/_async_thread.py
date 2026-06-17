@@ -137,5 +137,5 @@ class AsyncThread:
             logger.info('Forced shutdown of the event loop and its thread...')
             self._eventloop.call_soon_threadsafe(self._eventloop.stop)
             self._thread.join(timeout=5)
-        except Exception as exc:
-            logger.exception('Exception occurred during forced event loop shutdown.', exc_info=exc)
+        except Exception:
+            logger.exception('Exception occurred during forced event loop shutdown.')
