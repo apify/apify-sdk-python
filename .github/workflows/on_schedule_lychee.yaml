@@ -1,0 +1,148 @@
+name: Scheduled link check
+
+on:
+  # Runs when manually triggered from the GitHub UI.
+  workflow_dispatch:
+
+  # Runs on weekdays at 01:00 UTC.
+  schedule:
+    - cron: '0 1 * * 1-5'
+
+concurrency:
+  group: scheduled-link-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+  PYTHON_VERSION: 3.14
+
+jobs:
+  link_check:
+    name: Link check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up uv package manager
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        run: uv run poe install-dev
+
+      - name: Install pnpm and website dependencies
+        uses: apify/actions/pnpm-install@v1.2.0
+        with:
+          working-directory: website
+
+      - name: Build docs
+        run: uv run poe build-docs
+        env:
+          APIFY_SIGNING_TOKEN: ${{ secrets.APIFY_SIGNING_TOKEN }}
+          SEGMENT_TOKEN: ${{ secrets.SEGMENT_TOKEN }}
+
+      - name: Run Lychee link checker
+        id: lychee
+        uses: lycheeverse/lychee-action@v2.8.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
+        with:
+          fail: true
+          args: >
+            --base https://docs.apify.com
+            --max-retries 6
+            --verbose
+            --no-progress
+            --timeout '60'
+            --accept '100..=103,200..=299,429'
+            --max-redirects 5
+            --format markdown
+            './website/build/**/*.html'
+
+  # Send a Slack notification to the team alerting channel when the scheduled link check fails.
+  # Skipped on workflow_dispatch (manual runs) so that ad-hoc triggers don't spam the channel.
+  notify_on_failure:
+    name: Notify Slack on failure
+    needs: link_check
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Build Slack payload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEADING: ':red_circle: Scheduled link check failed'
+        run: |
+          # Retry the API call to tolerate transient 5xx from GitHub.
+          max_attempts=5
+          fetched=0
+          for attempt in $(seq 1 "${max_attempts}"); do
+            if failed_jobs=$(gh api \
+              "repos/${REPO}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" \
+              --jq '[.jobs[] | select(.conclusion == "failure") | "• \(.name)"] | join("\n")'); then
+              fetched=1
+              break
+            fi
+            if [[ "${attempt}" -lt "${max_attempts}" ]]; then
+              sleep "$((attempt * 5))"
+            fi
+          done
+          if [[ "${fetched}" -eq 0 ]]; then
+            echo "Failed to fetch job list after ${max_attempts} attempts; sending notification without it." >&2
+            failed_jobs="(unable to fetch job list — see workflow run)"
+          fi
+          jq -n \
+            --arg repo "${REPO}" \
+            --arg url "${WORKFLOW_URL}" \
+            --arg heading "${HEADING}" \
+            --arg failed "${failed_jobs}" \
+            '{
+              text: "\($heading) in \($repo)",
+              blocks: [
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: $heading, emoji: true }
+                },
+                {
+                  type: "section",
+                  fields: [
+                    { type: "mrkdwn", text: "*Repository:*\n\($repo)" },
+                    { type: "mrkdwn", text: "*Workflow run:*\n<\($url)|View on GitHub>" }
+                  ]
+                },
+                {
+                  type: "section",
+                  text: { type: "mrkdwn", text: "*Failed jobs:*\n\($failed)" }
+                }
+              ]
+            }' > slack-payload.json
+
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payload.json
