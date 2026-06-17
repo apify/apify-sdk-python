@@ -107,8 +107,8 @@ class ApifyCacheStorage:
                         value = await self._kvs.get_value(item.key)
                         try:
                             gzip_time = read_gzip_time(value)
-                        except Exception as e:
-                            logger.warning(f'Malformed cache item {item.key}: {e}')
+                        except Exception as exc:
+                            logger.warning(f'Malformed cache item {item.key}: {exc}')
                             await self._kvs.delete_value(item.key)
                         else:
                             if self._expiration_secs < current_time - gzip_time:
