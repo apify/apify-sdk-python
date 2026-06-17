@@ -109,8 +109,11 @@ async def test_rq_aliases(
             assert rq_2.name is None
 
             if not was_rebooted:
-                await rq_1.add_request(Request(url='https://example.com/rq_1', unique_key='rq_1'))
-                await rq_2.add_request(Request(url='https://example.com/rq_2', unique_key='rq_2'))
+                # The platform's batch-add endpoint is best-effort: a single `add_request` can come back
+                # unprocessed (returns `None`) without retrying. Use `add_requests`, which retries unprocessed
+                # requests, so the reboot below never loses a request and the post-reboot fetch is reliable.
+                await rq_1.add_requests([Request(url='https://example.com/rq_1', unique_key='rq_1')])
+                await rq_2.add_requests([Request(url='https://example.com/rq_2', unique_key='rq_2')])
                 await Actor.set_value('was_rebooted', value=True)
                 await Actor.reboot()
 
