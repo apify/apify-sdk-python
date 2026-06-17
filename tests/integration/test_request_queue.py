@@ -57,10 +57,12 @@ async def test_add_and_fetch_requests(
         Actor.log.info('Fetching next request...')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
         assert queue_operation_info is not None, f'queue_operation_info={queue_operation_info}'
-        assert queue_operation_info.was_already_handled is False, (
-            f'queue_operation_info.was_already_handled={queue_operation_info.was_already_handled}'
-        )
-        handled_request_count += 1
+        # The request queue has at-least-once delivery: a request can occasionally be fetched again before the
+        # platform propagates its handled state, so the same request may be marked as handled more than once
+        # (`was_already_handled` reports the state before this update). Count only the first time each request is
+        # handled. See https://github.com/apify/apify-sdk-python/issues/808.
+        if not queue_operation_info.was_already_handled:
+            handled_request_count += 1
 
     assert handled_request_count == desired_request_count, (
         f'handled_request_count={handled_request_count}',
@@ -92,10 +94,12 @@ async def test_add_requests_in_batches(
             Actor.log.info(f'Processing request {handled_request_count + 1}...')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
         assert queue_operation_info is not None, f'queue_operation_info={queue_operation_info}'
-        assert queue_operation_info.was_already_handled is False, (
-            f'queue_operation_info.was_already_handled={queue_operation_info.was_already_handled}'
-        )
-        handled_request_count += 1
+        # The request queue has at-least-once delivery: a request can occasionally be fetched again before the
+        # platform propagates its handled state, so the same request may be marked as handled more than once
+        # (`was_already_handled` reports the state before this update). Count only the first time each request is
+        # handled. See https://github.com/apify/apify-sdk-python/issues/808.
+        if not queue_operation_info.was_already_handled:
+            handled_request_count += 1
 
     assert handled_request_count == desired_request_count, (
         f'handled_request_count={handled_request_count}',
@@ -130,10 +134,12 @@ async def test_add_non_unique_requests_in_batch(
             Actor.log.info(f'Processing request {handled_request_count + 1}: {next_request.url}')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
         assert queue_operation_info is not None, f'queue_operation_info={queue_operation_info}'
-        assert queue_operation_info.was_already_handled is False, (
-            f'queue_operation_info.was_already_handled={queue_operation_info.was_already_handled}'
-        )
-        handled_request_count += 1
+        # The request queue has at-least-once delivery: a request can occasionally be fetched again before the
+        # platform propagates its handled state, so the same request may be marked as handled more than once
+        # (`was_already_handled` reports the state before this update). Count only the first time each request is
+        # handled. See https://github.com/apify/apify-sdk-python/issues/808.
+        if not queue_operation_info.was_already_handled:
+            handled_request_count += 1
 
     expected_count = int(desired_request_count * 3 / 4)
     assert handled_request_count == expected_count, (
