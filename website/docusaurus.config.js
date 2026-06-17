@@ -60,9 +60,9 @@ module.exports = {
         },
     },
     onBrokenLinks:
-    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
+    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('throw'),
     onBrokenMarkdownLinks:
-    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
+    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('throw'),
     themes: [
         [
             '@apify/docs-theme',

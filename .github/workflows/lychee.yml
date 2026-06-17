@@ -1,0 +1,71 @@
+name: Periodic link checker
+
+on:
+  # Run daily at midnight UTC.
+  schedule:
+    - cron: '0 0 * * *'
+  # Allow manual triggering from the GitHub UI.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+  PYTHON_VERSION: 3.14
+
+jobs:
+  link_check:
+    name: Link check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up uv package manager
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        run: uv run poe install-dev
+
+      - name: Install pnpm and website dependencies
+        uses: apify/actions/pnpm-install@v1.2.0
+        with:
+          working-directory: website
+
+      - name: Build docs
+        run: uv run poe build-docs
+        env:
+          APIFY_SIGNING_TOKEN: ${{ secrets.APIFY_SIGNING_TOKEN }}
+          SEGMENT_TOKEN: ${{ secrets.SEGMENT_TOKEN }}
+
+      - name: Run Lychee link checker
+        id: lychee
+        uses: lycheeverse/lychee-action@v2.8.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
+        with:
+          fail: true
+          args: >
+            --base https://docs.apify.com
+            --max-retries 6
+            --verbose
+            --no-progress
+            --timeout '60'
+            --accept '100..=103,200..=299,429'
+            --max-redirects 5
+            --format markdown
+            './website/build/**/*.html'

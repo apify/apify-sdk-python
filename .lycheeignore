@@ -1,0 +1,12 @@
+http:\/\/localhost:3000.*
+https:\/\/www\.youtube.*
+\.(jpg|jpeg|png|gif|bmp|webp|svg)$
+https:\/\/github\.com\/apify\/apify-sdk-python\/edit\/[^ ]*
+https:\/\/docs\.apify\.com\/assets\/[^ ]*
+https:\/\/api\.apify\.com/.*
+file:\/\/\/.*
+https://chrome\.google\.com/webstore/.*
+https?:\/\/(www\.)?npmjs\.com\/.*
+^https://apify\.com/og-image.*
+https://console-backend.apify.com/
+https://mcp.apify.com/
