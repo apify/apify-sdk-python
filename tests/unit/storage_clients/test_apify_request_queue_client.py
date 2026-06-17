@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import AddedRequest, BatchAddResult, RequestQueueHead, RequestQueueStats
+from apify_client._models import AddedRequest, BatchAddResult, RequestDraft, RequestQueueHead, RequestQueueStats
 from crawlee.storage_clients.models import AddRequestsResponse, RequestQueueMetadata
 
 from apify import Request
@@ -36,8 +36,12 @@ def _make_metadata() -> RequestQueueMetadata:
     )
 
 
-def _batch_result_all_processed(requests: Sequence[Request]) -> BatchAddResult:
-    """Build a `batch_add_requests` response marking every request as newly processed."""
+def _batch_result(
+    *,
+    processed: Sequence[Request] = (),
+    unprocessed: Sequence[Request] = (),
+) -> BatchAddResult:
+    """Build a `batch_add_requests` response with explicit processed / unprocessed splits."""
     return BatchAddResult.model_construct(
         processed_requests=[
             AddedRequest.model_construct(
@@ -46,10 +50,22 @@ def _batch_result_all_processed(requests: Sequence[Request]) -> BatchAddResult:
                 was_already_present=False,
                 was_already_handled=False,
             )
-            for request in requests
+            for request in processed
         ],
-        unprocessed_requests=[],
+        unprocessed_requests=[
+            RequestDraft.model_construct(
+                unique_key=request.unique_key,
+                url=request.url,
+                method=request.method,
+            )
+            for request in unprocessed
+        ],
     )
+
+
+def _batch_result_all_processed(requests: Sequence[Request]) -> BatchAddResult:
+    """Build a `batch_add_requests` response marking every request as newly processed."""
+    return _batch_result(processed=requests)
 
 
 def _make_single_client(
@@ -289,3 +305,36 @@ async def test_concurrent_add_deduplicates_against_in_flight(access: str) -> Non
     assert [processed.unique_key for processed in second_response.processed_requests] == [request.unique_key]
     assert second_response.processed_requests[0].was_already_present is True
     assert second_response.unprocessed_requests == []
+
+
+@pytest.mark.parametrize('access', ['single', 'shared'])
+async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -> None:
+    """When the platform accepts only part of a batch, only the accepted requests are cached. The rejected one
+    leaves no entry behind, so a later retry re-sends it while the accepted one is deduped locally."""
+    client, api_client = _make_single_client() if access == 'single' else _make_shared_client()
+    api_client.list_requests = AsyncMock(return_value=SimpleNamespace(items=[]))
+    accepted = Request.from_url('https://example.com/accepted')
+    rejected = Request.from_url('https://example.com/rejected')
+    accepted_id = unique_key_to_request_id(accepted.unique_key)
+    rejected_id = unique_key_to_request_id(rejected.unique_key)
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result(processed=[accepted], unprocessed=[rejected]))
+    response = await client.add_batch_of_requests([accepted, rejected])
+
+    # Only the accepted request is committed to the local cache; the rejected one is not.
+    assert accepted_id in client._requests_cache
+    assert rejected_id not in client._requests_cache
+    # The response mirrors the platform split, and no in-flight marker is left behind.
+    assert [processed.unique_key for processed in response.processed_requests] == [accepted.unique_key]
+    assert [unprocessed.unique_key for unprocessed in response.unprocessed_requests] == [rejected.unique_key]
+    assert client._requests_being_added == {}
+
+    # Retry both: the rejected request must reach the platform again (it was not poisoned), while the accepted one
+    # is deduped locally and never re-sent.
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result(processed=[rejected]))
+    await client.add_batch_of_requests([accepted, rejected])
+
+    api_client.batch_add_requests.assert_awaited_once()
+    assert api_client.batch_add_requests.await_args is not None
+    resent = api_client.batch_add_requests.await_args.kwargs['requests']
+    assert [request['uniqueKey'] for request in resent] == [rejected.unique_key]
