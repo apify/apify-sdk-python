@@ -73,7 +73,7 @@ def settle_pending_addition(
     *,
     committed: bool,
 ) -> None:
-    """Resolve the in-flight add marker for a request, unblocking any concurrent producers awaiting it.
+    """Resolve the in-flight add marker for a request, unblocking any concurrent call awaiting it.
 
     Args:
         requests_being_added: The client's map of in-flight `add_batch_of_requests` markers.

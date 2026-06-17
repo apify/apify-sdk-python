@@ -79,9 +79,14 @@ class ApifyRequestQueueSharedClient:
         self._requests_being_added: dict[str, asyncio.Future[bool]] = {}
         """In-flight `add_batch_of_requests` markers, keyed by request ID.
 
+        Coordinates only concurrent `add_batch_of_requests` calls sharing this one client instance (e.g. several
+        producer coroutines adding requests in the same process). It does not coordinate separate client instances
+        or processes, which each keep their own markers; deduplication across clients still relies on the platform.
+
         Each future resolves once the platform call that is adding the request settles: `True` if the request was
-        committed, `False` otherwise. Concurrent producers of the same request await it instead of re-sending,
-        which preserves deduplication while still avoiding false success when the original add fails.
+        committed, `False` otherwise. A concurrent call adding the same request awaits the future instead of
+        re-sending it, which avoids a duplicate platform write while still avoiding false success when the original
+        add fails.
         """
 
         self._queue_has_locked_requests: bool | None = None
@@ -128,7 +133,7 @@ class ApifyRequestQueueSharedClient:
                 awaited_in_flight.append((request, self._requests_being_added[request_id]))
 
             else:
-                # Register an in-flight marker so concurrent producers dedupe against it; caching is deferred
+                # Register an in-flight marker so a concurrent call dedupes against it; caching is deferred
                 # until the platform confirms the request was accepted (see below).
                 new_requests.append(request)
                 self._requests_being_added[request_id] = loop.create_future()
@@ -170,7 +175,7 @@ class ApifyRequestQueueSharedClient:
                 # Add the locally known already present processed requests based on the local cache.
                 api_response.processed_requests.extend(already_present_requests)
             finally:
-                # Release the in-flight markers we registered. Committed requests tell concurrent producers the
+                # Release the in-flight markers we registered. Committed requests tell concurrent callers the
                 # request reached the platform; everything else (unprocessed, API error, cancellation) tells them
                 # it did not, so they retry instead of reporting false success.
                 for request in new_requests:
