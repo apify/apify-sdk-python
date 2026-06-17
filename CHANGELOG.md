@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - Redirect input key in all file-system key-value store operations ([#976](https://github.com/apify/apify-sdk-python/pull/976)) ([1fbdce2](https://github.com/apify/apify-sdk-python/commit/1fbdce27452f1cdc9580a53edd6de3ce9fe36a1d)) by [@vdusek](https://github.com/vdusek)
 - Respect explicit zero custom_after_sleep in metamorph and reboot ([#971](https://github.com/apify/apify-sdk-python/pull/971)) ([e8cda0a](https://github.com/apify/apify-sdk-python/commit/e8cda0a80339a21ce94cc382bd042509052ce1bf)) by [@vdusek](https://github.com/vdusek)
 - Reconnect to platform events websocket after connection drop ([#967](https://github.com/apify/apify-sdk-python/pull/967)) ([5653a22](https://github.com/apify/apify-sdk-python/commit/5653a222d976919cc7388a88242a488ba503647e)) by [@vdusek](https://github.com/vdusek)
+- Forward all `Webhook` fields to ad-hoc webhooks ([#963](https://github.com/apify/apify-sdk-python/pull/963)) ([726620b](https://github.com/apify/apify-sdk-python/commit/726620be25da85b74b3f0d1e4f8c1f8f1b29d9b1)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
