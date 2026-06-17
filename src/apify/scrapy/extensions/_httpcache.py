@@ -4,7 +4,6 @@ import gzip
 import io
 import re
 import struct
-import traceback
 from datetime import timedelta
 from logging import getLogger
 from time import time
@@ -71,10 +70,14 @@ class ApifyCacheStorage:
         try:
             self._kvs = self._async_thread.run_coro(open_kvs())
         except Exception:
+            logger.exception('Failed to open the cache key-value store.')
             # Opening the key-value store failed, so close the freshly started async thread instead of
-            # leaking its event-loop thread (`close_spider` may never run if `open_spider` fails).
-            self._async_thread.close()
-            traceback.print_exc()
+            # leaking its event-loop thread (`close_spider` may never run if `open_spider` fails). Guard
+            # the close so a secondary failure here cannot mask the original error.
+            try:
+                self._async_thread.close()
+            except Exception:
+                logger.exception('Failed to close the async thread after a failed cache storage open.')
             raise
 
     def close_spider(self, _: Spider, current_time: int | None = None) -> None:
@@ -117,7 +120,7 @@ class ApifyCacheStorage:
                 try:
                     self._async_thread.run_coro(expire_kvs())
                 except Exception:
-                    traceback.print_exc()
+                    logger.exception('Failed to clean up expired cache items.')
                     raise
         finally:
             logger.debug('Closing cache storage')
@@ -143,7 +146,7 @@ class ApifyCacheStorage:
         try:
             value = self._async_thread.run_coro(self._kvs.get_value(key))
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to retrieve a response from the cache.')
             raise
 
         if value is None:
@@ -194,7 +197,7 @@ class ApifyCacheStorage:
         try:
             self._async_thread.run_coro(self._kvs.set_value(key, value))
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to store a response in the cache.')
             raise
 
 

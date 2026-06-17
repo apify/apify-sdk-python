@@ -74,15 +74,19 @@ class AsyncThread:
             future.cancel()
             raise
 
-    def close(self, timeout: timedelta = timedelta(seconds=60)) -> None:
+    def close(self, timeout: timedelta | None = None) -> None:
         """Close the event loop and its thread gracefully.
 
         This method cancels all pending tasks, stops the event loop, and waits for the thread to exit.
         If the thread does not exit within the given timeout, a forced shutdown is attempted.
 
         Args:
-            timeout: The maximum number of seconds to wait for the event loop thread to exit.
+            timeout: The maximum time to wait for the event loop thread to exit. Pass `None` to use the
+                `default_timeout` passed to the constructor.
         """
+        if timeout is None:
+            timeout = self._default_timeout
+
         # A repeated close (e.g. a retried shutdown) would call into the already-closed loop and raise
         # `RuntimeError: Event loop is closed`. The loop closes itself once it stops, so a second close
         # is a no-op.

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import traceback
 from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -73,8 +72,13 @@ class ApifyScheduler(BaseScheduler):
         try:
             self._rq = self._async_thread.run_coro(open_rq())
         except Exception:
-            self._async_thread.close()
-            traceback.print_exc()
+            logger.exception('Failed to open the request queue.')
+            # Close the freshly started async thread so a failed open does not leak its event-loop thread.
+            # Guard the close so a secondary failure here cannot mask the original error.
+            try:
+                self._async_thread.close()
+            except Exception:
+                logger.exception('Failed to close the async thread after a failed scheduler open.')
             raise
 
         return None
@@ -112,7 +116,7 @@ class ApifyScheduler(BaseScheduler):
         try:
             is_finished = self._async_thread.run_coro(self._rq.is_finished())
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to check whether the request queue is finished.')
             raise
 
         return not is_finished
@@ -145,7 +149,7 @@ class ApifyScheduler(BaseScheduler):
         try:
             result = self._async_thread.run_coro(self._rq.add_request(apify_request))
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to enqueue the request to the request queue.')
             raise
 
         logger.debug(f'rq.add_request result: {result}')
@@ -164,7 +168,7 @@ class ApifyScheduler(BaseScheduler):
         try:
             apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to fetch the next request from the request queue.')
             raise
 
         logger.debug(f'Fetched apify_request: {apify_request}')
@@ -188,7 +192,7 @@ class ApifyScheduler(BaseScheduler):
         try:
             self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to mark the request as handled in the request queue.')
             raise
 
         if scrapy_request is None:

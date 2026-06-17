@@ -155,20 +155,23 @@ def test_next_request_returns_none_when_queue_empty(scheduler: ApifyScheduler) -
     rq.mark_request_as_handled.assert_not_called()
 
 
-def test_next_request_prints_traceback_to_stderr(
+def test_next_request_logs_exception_before_propagating(
     scheduler: ApifyScheduler,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A failure in the coroutine run prints a traceback to stderr via `traceback.print_exc()` before propagating."""
+    """A failure in the coroutine run is logged with its traceback via `logger.exception` before propagating."""
     async_thread = cast('mock.MagicMock', scheduler._async_thread)
     async_thread.run_coro.side_effect = RuntimeError('boom')
 
-    with pytest.raises(RuntimeError, match='boom'):
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'), pytest.raises(RuntimeError, match='boom'):
         scheduler.next_request()
 
-    captured = capsys.readouterr()
-    assert 'Traceback (most recent call last)' in captured.err
-    assert 'RuntimeError: boom' in captured.err
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert len(errors) == 1
+    (error,) = errors
+    assert error.exc_info is not None
+    assert isinstance(error.exc_info[1], RuntimeError)
+    assert str(error.exc_info[1]) == 'boom'
 
 
 def test_from_crawler_reads_async_thread_timeout_setting(monkeypatch: pytest.MonkeyPatch) -> None:
