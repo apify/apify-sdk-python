@@ -119,8 +119,8 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         apify_request = ApifyRequest.from_url(**request_kwargs)
         scrapy_request_dict = scrapy_request.to_dict(spider=spider)
 
-    except Exception as exc:
-        logger.warning(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; {exc}')
+    except Exception:
+        logger.exception(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; skipping it.')
         return None
 
     # Serialize the Scrapy request as JSON under 'scrapy_request'. Kept outside the broad except above so

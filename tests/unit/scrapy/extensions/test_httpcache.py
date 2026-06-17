@@ -4,6 +4,7 @@ import asyncio
 import gzip
 import io
 import json
+import logging
 import pickle
 from datetime import timedelta
 from time import time
@@ -275,8 +276,8 @@ def test_close_spider_respects_max_items() -> None:
     assert len(kvs.deleted) == 2
 
 
-def test_close_spider_closes_thread_even_when_cleanup_fails() -> None:
-    """If the expiration sweep raises, the async thread is still closed rather than leaked."""
+def test_close_spider_closes_thread_even_when_cleanup_fails(caplog: pytest.LogCaptureFixture) -> None:
+    """A best-effort cleanup failure is logged and swallowed; the async thread is still closed, not leaked."""
     closed: list[bool] = []
 
     class _FailingAsyncThread:
@@ -291,10 +292,11 @@ def test_close_spider_closes_thread_even_when_cleanup_fails() -> None:
     storage._async_thread = _FailingAsyncThread()  # ty: ignore[invalid-assignment]
     storage._kvs = _FakeKvs(None)  # ty: ignore[invalid-assignment]
 
-    with pytest.raises(RuntimeError, match='cleanup boom'):
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.extensions._httpcache'):
         storage.close_spider(None, current_time=1000)  # ty: ignore[invalid-argument-type]
 
     assert closed == [True]
+    assert 'Failed to clean up expired cache items' in caplog.text
 
 
 def test_cache_storage_reads_async_thread_timeout_setting() -> None:

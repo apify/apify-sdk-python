@@ -86,8 +86,8 @@ class ApifyCacheStorage:
             raise ValueError('Async thread not initialized')
 
         logger.info(f'Cleaning up cache items (max {self._expiration_max_items})')
-        # The cleanup sweep runs inside `try` so a failure there cannot skip closing the async thread
-        # (which would leak its event-loop thread); `close` always runs in the `finally`.
+        # `close` always runs in the `finally`, so neither a cleanup failure below nor an early return can leak
+        # the event-loop thread.
         try:
             if self._expiration_secs > 0:
                 if current_time is None:
@@ -117,11 +117,12 @@ class ApifyCacheStorage:
                             else:
                                 logger.debug(f'Valid cache item {item.key}')
 
+                # Best-effort: log and swallow a cleanup failure rather than raise. The sweep only reclaims
+                # storage, so failing it must not turn a normal spider close into an error.
                 try:
                     self._async_thread.run_coro(expire_kvs())
                 except Exception:
                     logger.exception('Failed to clean up expired cache items.')
-                    raise
         finally:
             logger.debug('Closing cache storage')
             try:

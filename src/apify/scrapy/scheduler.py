@@ -182,8 +182,8 @@ class ApifyScheduler(BaseScheduler):
         # the whole run, so on failure it is logged and skipped (None) rather than propagating.
         try:
             scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
-        except Exception:
-            logger.exception(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it.')
+        except Exception as exc:
+            logger.warning(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it: {exc}')
             scrapy_request = None
 
         # Mark the request as handled. This runs even when reconstruction failed above: an unrecoverable entry

@@ -111,7 +111,7 @@ def test_next_request_skips_request_that_fails_to_convert(
     # `run_coro` is called for `fetch_next_request`, then for `mark_request_as_handled`.
     async_thread.run_coro.side_effect = [malformed_request, None]
 
-    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'):
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy.scheduler'):
         result = scheduler.next_request()
 
     # The malformed request is skipped instead of crashing the whole run.
