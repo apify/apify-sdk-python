@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import traceback
+from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -15,6 +15,7 @@ from apify.storage_clients import ApifyStorageClient
 from apify.storages import RequestQueue
 
 if TYPE_CHECKING:
+    from scrapy.crawler import Crawler
     from scrapy.http.request import Request
     from twisted.internet.defer import Deferred
 
@@ -27,7 +28,7 @@ class ApifyScheduler(BaseScheduler):
     This scheduler requires the asyncio Twisted reactor to be installed.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, async_thread_timeout: timedelta = timedelta(seconds=60)) -> None:
         if not is_asyncio_reactor_installed():
             raise ValueError(
                 f'{ApifyScheduler.__qualname__} requires the asyncio Twisted reactor. '
@@ -38,7 +39,17 @@ class ApifyScheduler(BaseScheduler):
         self.spider: Spider | None = None
 
         # A thread with the asyncio event loop to run coroutines on.
-        self._async_thread = AsyncThread()
+        self._async_thread = AsyncThread(default_timeout=async_thread_timeout)
+
+    @classmethod
+    def from_crawler(cls, crawler: Crawler) -> ApifyScheduler:
+        """Create the scheduler, reading the async-thread timeout from the Scrapy settings.
+
+        The `APIFY_ASYNC_THREAD_TIMEOUT_SECS` setting (in seconds) caps how long each coroutine run on the
+        background event loop may take before timing out; it defaults to 60 seconds.
+        """
+        timeout_secs = crawler.settings.getint('APIFY_ASYNC_THREAD_TIMEOUT_SECS', 60)
+        return cls(async_thread_timeout=timedelta(seconds=timeout_secs))
 
     def open(self, spider: Spider) -> Deferred[None] | None:
         """Open the scheduler.
@@ -61,8 +72,13 @@ class ApifyScheduler(BaseScheduler):
         try:
             self._rq = self._async_thread.run_coro(open_rq())
         except Exception:
-            self._async_thread.close()
-            traceback.print_exc()
+            logger.exception('Failed to open the request queue.')
+            # Close the freshly started async thread so a failed open does not leak its event-loop thread.
+            # Guard the close so a secondary failure here cannot mask the original error.
+            try:
+                self._async_thread.close()
+            except Exception:
+                logger.exception('Failed to close the async thread after a failed scheduler open.')
             raise
 
         return None
@@ -97,10 +113,12 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             is_finished = self._async_thread.run_coro(self._rq.is_finished())
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to check whether the request queue is finished.')
             raise
 
         return not is_finished
@@ -130,10 +148,12 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             result = self._async_thread.run_coro(self._rq.add_request(apify_request))
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to enqueue the request to the request queue.')
             raise
 
         logger.debug(f'rq.add_request result: {result}')
@@ -149,10 +169,12 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to fetch the next request from the request queue.')
             raise
 
         logger.debug(f'Fetched apify_request: {apify_request}')
@@ -166,17 +188,19 @@ class ApifyScheduler(BaseScheduler):
         # the whole run, so on failure it is logged and skipped (None) rather than propagating.
         try:
             scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
-        except Exception:
-            logger.exception(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it.')
+        except Exception as exc:
+            logger.warning(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it: {exc}')
             scrapy_request = None
 
         # Mark the request as handled. This runs even when reconstruction failed above: an unrecoverable entry
         # (a corrupt or legacy payload) must still be consumed, otherwise the queue would keep handing it back
         # forever. Retrying genuine failures is the RetryMiddleware's job.
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
         except Exception:
-            traceback.print_exc()
+            logger.exception('Failed to mark the request as handled in the request queue.')
             raise
 
         if scrapy_request is None:

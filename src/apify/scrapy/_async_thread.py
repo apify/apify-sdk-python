@@ -52,51 +52,63 @@ class AsyncThread:
             The result returned by the coroutine.
 
         Raises:
-            RuntimeError: If the event loop is not running.
+            RuntimeError: If the event loop has been closed.
             TimeoutError: If the coroutine does not complete within the timeout.
             Exception: Any exception raised during coroutine execution.
         """
         if timeout == 'default':
             timeout = self._default_timeout
 
-        if not self._eventloop.is_running():
-            raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is not running.')
+        if self._eventloop.is_closed():
+            raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
 
         # Submit the coroutine to the event loop running in the other thread.
         future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
         try:
             # Wait for the coroutine's result until the specified timeout.
             return future.result(timeout=timeout.total_seconds())
-        except futures.TimeoutError as exc:
-            logger.exception('Coroutine execution timed out.', exc_info=exc)
-            raise
-        except Exception as exc:
-            logger.exception('Coroutine execution raised an exception.', exc_info=exc)
+        except futures.TimeoutError:
+            # `future.result` gave up, but the coroutine keeps running on the loop; cancel it so it does
+            # not outlive the timeout. The propagated error is logged once by the caller (or Scrapy), so
+            # this method does not log it itself.
+            future.cancel()
             raise
 
-    def close(self, timeout: timedelta = timedelta(seconds=60)) -> None:
+    def close(self, timeout: timedelta | None = None) -> None:
         """Close the event loop and its thread gracefully.
 
         This method cancels all pending tasks, stops the event loop, and waits for the thread to exit.
         If the thread does not exit within the given timeout, a forced shutdown is attempted.
 
         Args:
-            timeout: The maximum number of seconds to wait for the event loop thread to exit.
+            timeout: The maximum time to wait for the event loop thread to exit. Pass `None` to use the
+                `default_timeout` passed to the constructor.
         """
-        if self._eventloop.is_running():
-            # Cancel all pending tasks in the event loop.
-            self.run_coro(self._shutdown_tasks())
+        if timeout is None:
+            timeout = self._default_timeout
 
-        # Schedule the event loop to stop.
-        self._eventloop.call_soon_threadsafe(self._eventloop.stop)
+        # A repeated close (e.g. a retried shutdown) would call into the already-closed loop and raise
+        # `RuntimeError: Event loop is closed`. The loop closes itself once it stops, so a second close
+        # is a no-op.
+        if self._eventloop.is_closed():
+            return
 
-        # Wait for the event loop thread to finish execution.
-        self._thread.join(timeout=timeout.total_seconds())
+        try:
+            if self._eventloop.is_running():
+                # Cancel all pending tasks in the event loop, honouring the caller's timeout.
+                self.run_coro(self._shutdown_tasks(), timeout=timeout)
+        finally:
+            # Stop the loop and join its thread even if cancelling the pending tasks above raised or timed
+            # out. Skipping this would leave the loop running and leak its thread.
+            self._eventloop.call_soon_threadsafe(self._eventloop.stop)
 
-        # If the thread is still running after the timeout, force a shutdown.
-        if self._thread.is_alive():
-            logger.warning('Event loop thread did not exit cleanly! Forcing shutdown...')
-            self._force_exit_event_loop()
+            # Wait for the event loop thread to finish execution.
+            self._thread.join(timeout=timeout.total_seconds())
+
+            # If the thread is still running after the timeout, force a shutdown.
+            if self._thread.is_alive():
+                logger.warning('Event loop thread did not exit cleanly! Forcing shutdown...')
+                self._force_exit_event_loop()
 
     def _start_event_loop(self) -> None:
         """Set up and run the asyncio event loop in the dedicated thread."""
@@ -125,5 +137,5 @@ class AsyncThread:
             logger.info('Forced shutdown of the event loop and its thread...')
             self._eventloop.call_soon_threadsafe(self._eventloop.stop)
             self._thread.join(timeout=5)
-        except Exception as exc:
-            logger.exception('Exception occurred during forced event loop shutdown.', exc_info=exc)
+        except Exception:
+            logger.exception('Exception occurred during forced event loop shutdown.')
