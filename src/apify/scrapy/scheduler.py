@@ -113,6 +113,8 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             is_finished = self._async_thread.run_coro(self._rq.is_finished())
         except Exception:
@@ -146,6 +148,8 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             result = self._async_thread.run_coro(self._rq.add_request(apify_request))
         except Exception:
@@ -165,6 +169,8 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             apify_request = self._async_thread.run_coro(self._rq.fetch_next_request())
         except Exception:
@@ -189,6 +195,8 @@ class ApifyScheduler(BaseScheduler):
         # Mark the request as handled. This runs even when reconstruction failed above: an unrecoverable entry
         # (a corrupt or legacy payload) must still be consumed, otherwise the queue would keep handing it back
         # forever. Retrying genuine failures is the RetryMiddleware's job.
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
         except Exception:

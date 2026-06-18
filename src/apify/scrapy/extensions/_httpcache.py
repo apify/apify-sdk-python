@@ -160,6 +160,8 @@ class ApifyCacheStorage:
             raise ValueError('Request fingerprinter not initialized')
 
         key = self._fingerprinter.fingerprint(request).hex()
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             value = self._async_thread.run_coro(self._kvs.get_value(key))
         except Exception:
@@ -218,6 +220,8 @@ class ApifyCacheStorage:
             'body': response.body,
         }
         value = to_gzip(data)
+        # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
+        # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
         try:
             self._async_thread.run_coro(self._kvs.set_value(key, value))
         except Exception:
