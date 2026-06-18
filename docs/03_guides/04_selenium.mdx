@@ -4,9 +4,9 @@ title: Browser automation with Selenium
 description: Build an Apify Actor that scrapes dynamic web pages using Selenium WebDriver.
 ---
 
-import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+import CodeBlock from '@theme/CodeBlock';
 
-import SeleniumExample from '!!raw-loader!roa-loader!./code/04_selenium.py';
+import SeleniumExample from '!!raw-loader!./code/04_selenium.py';
 
 In this guide, you'll learn how to use [Selenium](https://www.selenium.dev/) for browser automation and web scraping in your Apify Actors.
 
@@ -36,9 +36,10 @@ This is a simple Actor that recursively scrapes data from linked pages on the sa
 
 It uses Selenium ChromeDriver to open the pages in an automated Chrome browser, and to extract the title, headings, and links after the pages load.
 
-<RunnableCodeBlock className="language-python" language="python">
+{/* Not runnable from the docs: the "Run on Apify" link encodes the whole snippet into the URL, and this Actor (with its inline proxy-auth extension) is large enough to exceed the URL length limit and fail with an HTTP 414. */}
+<CodeBlock className="language-python">
     {SeleniumExample}
-</RunnableCodeBlock>
+</CodeBlock>
 
 ## Using Apify Proxy
 
