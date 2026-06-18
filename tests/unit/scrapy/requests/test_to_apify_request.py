@@ -142,13 +142,13 @@ def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) ->
 
 
 def test_does_not_mutate_spider_request_user_data(spider: Spider) -> None:
-    """Conversion must not mutate the spider's own `meta['userData']` by injecting Crawlee internals."""
-    user_data = {'some_user_data': 'test'}
+    """Conversion must not mutate the spider's own `meta['userData']`, including nested values, in place."""
+    user_data = {'some_user_data': 'test', 'nested': {'key': 'value'}}
     scrapy_request = Request(url='https://example.com', meta={'userData': user_data})
 
     to_apify_request(scrapy_request, spider)
 
-    assert user_data == {'some_user_data': 'test'}
+    assert user_data == {'some_user_data': 'test', 'nested': {'key': 'value'}}
     assert '__crawlee' not in user_data
 
 

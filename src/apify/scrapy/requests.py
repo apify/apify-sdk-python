@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from logging import getLogger
 from typing import Any, cast
 
@@ -89,12 +90,13 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         user_data = scrapy_request.meta.get('userData', {})
 
         # Convert UserData Pydantic model to a plain dict to prevent CrawleeRequestData objects from leaking
-        # into Request.from_url() during Scrapy-Apify roundtrips. `model_dump()` already returns a fresh dict; the
-        # plain-dict case is copied so the `pop` and `from_url()` mutations below never touch the spider's meta.
+        # into Request.from_url() during Scrapy-Apify roundtrips. `model_dump()` already returns a fresh, fully
+        # detached dict; the plain-dict case is deep-copied so that neither the `pop` and `from_url()` mutations
+        # below nor any mutation of a nested value can ever reach back into the spider's meta.
         if isinstance(user_data, UserData):
             user_data = user_data.model_dump(by_alias=True)
         elif isinstance(user_data, dict):
-            user_data = dict(user_data)
+            user_data = deepcopy(user_data)
 
         # Remove internal Crawlee data since it's managed by Request.from_url() and values from previous roundtrips
         # cause incorrect state.
