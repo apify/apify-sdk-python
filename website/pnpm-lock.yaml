@@ -55,8 +55,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.1(@typescript-eslint/eslint-plugin@8.60.1(@typescript-eslint/parser@8.60.1(eslint@10.4.1(jiti@1.21.7))(typescript@6.0.3))(eslint@10.4.1(jiti@1.21.7))(typescript@6.0.3))(@typescript-eslint/parser@8.60.1(eslint@10.4.1(jiti@1.21.7))(typescript@6.0.3))(eslint@10.4.1(jiti@1.21.7))(typescript@6.0.3)
       '@apify/tsconfig':
-        specifier: ^0.1.0
-        version: 0.1.2
+        specifier: ^0.2.0
+        version: 0.2.0
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.17
@@ -279,8 +279,8 @@ packages:
     peerDependencies:
       eslint: '*'
 
-  '@apify/tsconfig@0.1.2':
-    resolution: {integrity: sha512-9dzEI1ZQ5+iM0k0fmPJrpdSSPUolVdeI1nDGFZMjD9UabTmIvjQrzui+1a25uy913AUEBrKTojEPj87pU9/Ekg==}
+  '@apify/tsconfig@0.2.0':
+    resolution: {integrity: sha512-0i6rF+hgXw6mQXhENYNTnP+Yo4WY38d698k/pk4rIpdCx/sSuEprR2N5WdtMaN628vCB+aZjff0jPN2EnQYtjQ==}
 
   '@apify/ui-icons@1.44.0':
     resolution: {integrity: sha512-AWnlAlbImVKeA4tAINO9HMYgcYnkMB6zLACVBQe0fOdHboFB9ZEZt/3CHWyHSx6xvytM7LLDFcvJRWPzlTAJkw==}
@@ -8306,7 +8306,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  '@apify/tsconfig@0.1.2': {}
+  '@apify/tsconfig@0.2.0': {}
 
   '@apify/ui-icons@1.44.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
