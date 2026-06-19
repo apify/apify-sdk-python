@@ -1,6 +1,7 @@
 ---
 id: quick-start
 title: Quick start
+slug: /quick-start
 description: Get started with the Apify SDK for Python by creating your first Actor and learning the basics.
 ---
 
@@ -17,7 +18,7 @@ import UnderscoreMainExample from '!!raw-loader!./code/actor_structure/__main__.
 
 ## Step 1: Create Actors
 
-To create and run Actors in [Apify Console](https://docs.apify.com/platform/console), refer to the [Console documentation](/platform/actors/development/quick-start/web-ide).
+To create and run Actors in [Apify Console](https://docs.apify.com/platform/console), refer to the [Console documentation](https://docs.apify.com/platform/actors/development/quick-start/web-ide).
 
 To create a new Apify Actor on your computer, you can use the [Apify CLI](/cli), and select one of the [Python Actor templates](https://apify.com/templates?category=python).
 
@@ -52,7 +53,7 @@ The Actor input, for example, will be in `storage/key_value_stores/default/INPUT
 
 All Python Actor templates follow the same structure.
 
-The `.actor` directory contains the [Actor configuration](/platform/actors/development/actor-config), such as the Actor's definition and input schema, and the Dockerfile necessary to run the Actor on the Apify platform.
+The `.actor` directory contains the [Actor configuration](https://docs.apify.com/platform/actors/development/actor-config), such as the Actor's definition and input schema, and the Dockerfile necessary to run the Actor on the Apify platform.
 
 The Actor's runtime dependencies are specified in the `requirements.txt` file, which follows the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
 
@@ -85,35 +86,35 @@ Now that you can create and run an Actor locally, explore the rest of the SDK's 
 
 To learn more about the features of the Apify SDK and how to use them, check out the Concepts section in the sidebar:
 
-- [Actor lifecycle](../concepts/actor-lifecycle)
-- [Actor input](../concepts/actor-input)
-- [Storages](../concepts/storages)
-- [Actor events & state persistence](../concepts/actor-events)
-- [Proxy management](../concepts/proxy-management)
-- [Interacting with other Actors](../concepts/interacting-with-other-actors)
-- [Creating webhooks](../concepts/webhooks)
-- [Accessing Apify API](../concepts/access-apify-api)
-- [Logging](../concepts/logging)
-- [Actor configuration](../concepts/actor-configuration)
-- [Pay-per-event monetization](../concepts/pay-per-event)
-- [Storage clients](../concepts/storage-clients)
+- [Actor lifecycle](./concepts/actor-lifecycle)
+- [Actor input](./concepts/actor-input)
+- [Storages](./concepts/storages)
+- [Actor events & state persistence](./concepts/actor-events)
+- [Proxy management](./concepts/proxy-management)
+- [Interacting with other Actors](./concepts/interacting-with-other-actors)
+- [Creating webhooks](./concepts/webhooks)
+- [Accessing Apify API](./concepts/access-apify-api)
+- [Logging](./concepts/logging)
+- [Actor configuration](./concepts/actor-configuration)
+- [Pay-per-event monetization](./concepts/pay-per-event)
+- [Storage clients](./concepts/storage-clients)
 
 ### Guides
 
 To see how you can integrate the Apify SDK with popular scraping libraries and frameworks, check out these guides:
 
-- [Scraping with BeautifulSoup and HTTPX](../guides/beautifulsoup-httpx)
-- [Scraping with Parsel and Impit](../guides/parsel-impit)
-- [Browser automation with Playwright](../guides/playwright)
-- [Browser automation with Selenium](../guides/selenium)
-- [Building crawlers with Crawlee](../guides/crawlee)
-- [Building crawlers with Scrapy](../guides/scrapy)
-- [Adaptive scraping with Scrapling](../guides/scrapling)
-- [LLM-ready scraping with Crawl4AI](../guides/crawl4ai)
-- [Browser AI agents with Browser Use](../guides/browser-use)
+- [Scraping with BeautifulSoup and HTTPX](./guides/beautifulsoup-httpx)
+- [Scraping with Parsel and Impit](./guides/parsel-impit)
+- [Browser automation with Playwright](./guides/playwright)
+- [Browser automation with Selenium](./guides/selenium)
+- [Building crawlers with Crawlee](./guides/crawlee)
+- [Building crawlers with Scrapy](./guides/scrapy)
+- [Adaptive scraping with Scrapling](./guides/scrapling)
+- [LLM-ready scraping with Crawl4AI](./guides/crawl4ai)
+- [Browser AI agents with Browser Use](./guides/browser-use)
 
 For other aspects of Actor development, explore these guides:
 
-- [Project management with uv](../guides/uv)
-- [Input validation with Pydantic](../guides/input-validation)
-- [Running a web server](../guides/running-webserver)
+- [Project management with uv](./guides/uv)
+- [Input validation with Pydantic](./guides/input-validation)
+- [Running a web server](./guides/running-webserver)

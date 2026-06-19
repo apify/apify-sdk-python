@@ -51,7 +51,7 @@ async def main() -> None:
             proxy_configuration=proxy_configuration,
             request_handler=router,
             # Cap the crawl. Remove or increase the limit to follow all links.
-            max_requests_per_crawl=50,
+            max_requests_per_crawl=10,
         )
 
         await crawler.run(start_urls)

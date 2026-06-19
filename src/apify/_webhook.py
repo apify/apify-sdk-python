@@ -48,15 +48,13 @@ class Webhook:
 
 
 def to_client_representations(webhooks: list[Webhook] | None) -> list[WebhookRepresentation] | None:
-    """Project SDK webhooks to the minimal ad-hoc representation accepted by the client's `start()` / `call()`."""
+    """Convert SDK webhooks to the ad-hoc representation accepted by the client's `start()` / `call()`.
+
+    `Webhook`'s field names match `WebhookRepresentation`'s, so we let pydantic read them straight off the
+    instance rather than listing each one. This forwards any field the representation declares without changes
+    here, and never emits an undeclared field as a malformed snake_case extra.
+    """
     if not webhooks:
         return None
-    return [
-        WebhookRepresentation(
-            event_types=w.event_types,
-            request_url=w.request_url,
-            payload_template=w.payload_template,
-            headers_template=w.headers_template,
-        )
-        for w in webhooks
-    ]
+
+    return [WebhookRepresentation.model_validate(webhook, from_attributes=True) for webhook in webhooks]

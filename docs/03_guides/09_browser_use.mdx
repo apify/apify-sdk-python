@@ -4,9 +4,9 @@ title: Browser AI agents with Browser Use
 description: Build an Apify Actor that automates a browser with an LLM agent using the Browser Use library.
 ---
 
-import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+import CodeBlock from '@theme/CodeBlock';
 
-import BrowserUseExample from '!!raw-loader!roa-loader!./code/09_browser_use.py';
+import BrowserUseExample from '!!raw-loader!./code/09_browser_use.py';
 
 In this guide, you'll learn how to use the [Browser Use](https://browser-use.com/) library to drive a browser with an LLM agent in your Apify Actors.
 
@@ -46,9 +46,10 @@ The following Actor runs a Browser Use agent for a single task and stores its st
 
 The whole Actor fits in a single file. A `run_agent_task` helper holds the Browser Use-specific logic: it defines the output schema and builds the LLM, browser, and agent. The `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result:
 
-<RunnableCodeBlock className="language-python" language="python">
+{/* Not runnable from the docs: the agent needs an LLM API key (OPENAI_API_KEY) that the shared example runner does not provide. */}
+<CodeBlock className="language-python">
     {BrowserUseExample}
-</RunnableCodeBlock>
+</CodeBlock>
 
 Note that:
 

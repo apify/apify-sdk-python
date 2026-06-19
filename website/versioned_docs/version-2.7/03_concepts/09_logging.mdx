@@ -12,7 +12,7 @@ The Apify SDK is logging useful information through the [`logging`](https://docs
 
 ## Automatic configuration
 
-When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger,which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../reference/class/ActorLogFormatter).
+When you create an Actor from an Apify-provided template, either in Apify Console or through the Apify CLI, you do not have to configure the logger yourself. The template already contains initialization code for the logger,which sets the logger level to `DEBUG` and the log formatter to [`ActorLogFormatter`](../../../reference/class/ActorLogFormatter).
 
 ## Manual configuration
 
@@ -22,7 +22,7 @@ In Python's default behavior, if you don't configure the logger otherwise, only 
 
 ### Configuring the log formatting
 
-By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out,you can use the [`ActorLogFormatter`](../../reference/class/ActorLogFormatter) class from the `apify.log` module.
+By default, only the log message is printed out to the output, without any formatting. To have a nicer output, with the log level printed in color, the messages nicely aligned, and extra log fields printed out,you can use the [`ActorLogFormatter`](../../../reference/class/ActorLogFormatter) class from the `apify.log` module.
 
 ### Example log configuration
 

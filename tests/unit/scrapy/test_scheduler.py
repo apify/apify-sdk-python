@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 from unittest import mock
 
 import pytest
 from scrapy import Request, Spider
+from scrapy.settings import Settings
 
 from apify import Request as ApifyRequest
 from apify.scrapy.scheduler import ApifyScheduler
@@ -109,7 +111,7 @@ def test_next_request_skips_request_that_fails_to_convert(
     # `run_coro` is called for `fetch_next_request`, then for `mark_request_as_handled`.
     async_thread.run_coro.side_effect = [malformed_request, None]
 
-    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'):
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy.scheduler'):
         result = scheduler.next_request()
 
     # The malformed request is skipped instead of crashing the whole run.
@@ -151,3 +153,40 @@ def test_next_request_returns_none_when_queue_empty(scheduler: ApifyScheduler) -
 
     assert result is None
     rq.mark_request_as_handled.assert_not_called()
+
+
+def test_next_request_logs_exception_before_propagating(
+    scheduler: ApifyScheduler,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failure in the coroutine run is logged with its traceback via `logger.exception` before propagating."""
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+    async_thread.run_coro.side_effect = RuntimeError('boom')
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'), pytest.raises(RuntimeError, match='boom'):
+        scheduler.next_request()
+
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert len(errors) == 1
+    (error,) = errors
+    assert error.exc_info is not None
+    assert isinstance(error.exc_info[1], RuntimeError)
+    assert str(error.exc_info[1]) == 'boom'
+
+
+def test_from_crawler_reads_async_thread_timeout_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`from_crawler` wires the `APIFY_ASYNC_THREAD_TIMEOUT_SECS` setting into the async thread's timeout."""
+    monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
+
+    captured: dict[str, Any] = {}
+
+    class _RecordingAsyncThread:
+        def __init__(self, default_timeout: timedelta | None = None) -> None:
+            captured['default_timeout'] = default_timeout
+
+    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', _RecordingAsyncThread)
+
+    crawler = SimpleNamespace(settings=Settings({'APIFY_ASYNC_THREAD_TIMEOUT_SECS': 123}))
+    ApifyScheduler.from_crawler(cast('Any', crawler))
+
+    assert captured['default_timeout'] == timedelta(seconds=123)

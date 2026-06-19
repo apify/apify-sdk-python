@@ -1,5 +1,5 @@
 {
-    "name": "apify-sdk-python-website",
+    "name": "apify",
     "private": true,
     "scripts": {
         "clean": "rimraf .docusaurus build",
@@ -20,7 +20,7 @@
         "preinstall": "npx only-allow pnpm"
     },
     "dependencies": {
-        "@apify/docs-theme": "^1.0.251",
+        "@apify/docs-theme": "^1.0.252",
         "@apify/docusaurus-plugin-typedoc-api": "^5.1.7",
         "@docusaurus/core": "^3.8.1",
         "@docusaurus/faster": "^3.8.1",
@@ -37,7 +37,7 @@
     },
     "devDependencies": {
         "@apify/eslint-config-ts": "^0.4.0",
-        "@apify/tsconfig": "^0.1.0",
+        "@apify/tsconfig": "^0.2.0",
         "@types/react": "^19.0.0",
         "@typescript-eslint/eslint-plugin": "^8.0.0",
         "@typescript-eslint/parser": "^8.0.0",
@@ -49,5 +49,5 @@
         "rimraf": "^6.0.0",
         "typescript": "^6.0.0"
     },
-    "packageManager": "pnpm@11.6.0"
+    "packageManager": "pnpm@11.7.0"
 }

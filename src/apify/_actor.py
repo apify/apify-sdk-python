@@ -4,6 +4,7 @@ import asyncio
 import sys
 import warnings
 from contextlib import suppress
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
@@ -1290,16 +1291,17 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
+        # `Webhook`'s field names match `webhooks().create()`'s parameters, so we forward them by name rather
+        # than listing each one.
+        webhook_fields = asdict(webhook)
+
+        if idempotency_key is not None:
+            webhook_fields['idempotency_key'] = idempotency_key
+
         with map_client_errors():
             await self.apify_client.webhooks().create(
+                **webhook_fields,
                 actor_run_id=self.configuration.actor_run_id,
-                event_types=webhook.event_types,
-                request_url=webhook.request_url,
-                payload_template=webhook.payload_template,
-                headers_template=webhook.headers_template,
-                ignore_ssl_errors=webhook.ignore_ssl_errors,
-                do_not_retry=webhook.do_not_retry,
-                idempotency_key=idempotency_key if idempotency_key is not None else webhook.idempotency_key,
                 is_ad_hoc=True,
             )
 
