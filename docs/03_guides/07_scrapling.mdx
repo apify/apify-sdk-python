@@ -4,11 +4,10 @@ title: Adaptive scraping with Scrapling
 description: Build an Apify Actor that scrapes web pages using the Scrapling adaptive web scraping library.
 ---
 
-import CodeBlock from '@theme/CodeBlock';
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import ScraplingExample from '!!raw-loader!roa-loader!./code/07_scrapling.py';
-import ScraplingBrowserScraper from '!!raw-loader!./code/07_scrapling_browser.py';
+import ScraplingBrowserScraper from '!!raw-loader!roa-loader!./code/07_scrapling_browser.py';
 
 In this guide, you'll learn how to use the [Scrapling](https://scrapling.readthedocs.io/) library for adaptive web scraping in your Apify Actors.
 
@@ -101,9 +100,9 @@ scrapling install
 
 To switch the example from HTTP to a real browser, fetch each page through a browser session instead of `AsyncFetcher`. Opening a fresh browser for every page would be wasteful, so `main` enters an `AsyncDynamicSession` once and reuses it for the whole crawl, while `scrape_page` fetches with `session.fetch`. The parsing API is identical, so the extraction code stays the same:
 
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {ScraplingBrowserScraper}
-</CodeBlock>
+</RunnableCodeBlock>
 
 Note that:
 
