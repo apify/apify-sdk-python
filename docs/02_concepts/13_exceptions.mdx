@@ -53,13 +53,13 @@ The SDK raises standard Python exceptions when it is used incorrectly or given i
     {RetryTimedOutSource}
 </RunnableCodeBlock>
 
-## Errors while crawling
-
-If your Actor runs a [Crawlee](https://crawlee.dev/python) crawler, failures inside request handlers surface as Crawlee exceptions, and Crawlee manages retries and session rotation around them. For details, see the [Crawlee documentation](https://crawlee.dev/python).
-
 ## The pay-per-event charge limit
 
-Reaching the pay-per-event charge limit does not raise an error. The SDK caps charging and data pushing instead, and your Actor keeps running. To detect the limit, check the `event_charge_limit_reached` field on the `ChargeResult` returned by <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> or <ApiLink to="class/Actor#push_data">`Actor.push_data`</ApiLink>. For details, see [Pay-per-event monetization](./pay-per-event).
+Reaching the pay-per-event charge limit does not raise an error. The SDK caps charging and data pushing instead, and your Actor keeps running. When a single <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> call would cross the limit, only the part that fits within the budget is billed, and `charged_count` on the returned <ApiLink to="class/ChargeResult">`ChargeResult`</ApiLink> reports how many events went through. <ApiLink to="class/Actor#push_data">`Actor.push_data`</ApiLink> behaves the same way when given a `charged_event_name`, writing only the items that fit within the budget. To detect the limit, check the `event_charge_limit_reached` field on the `ChargeResult`. It is a return value rather than an exception, so you can read it in a tight charging loop and stop your work once the budget runs out. For details, see [Pay-per-event monetization](./pay-per-event).
+
+## Errors while crawling
+
+If your Actor runs a [Crawlee](https://crawlee.dev/python) crawler, failures inside request handlers surface as Crawlee exceptions, and Crawlee handles the retries and session rotation around them, so a single failing request does not stop the crawl. API calls you make from inside a handler still raise <ApiLink to="class/ApifyApiError">`ApifyApiError`</ApiLink>, so handle those as in the first section. For details, see the [Crawlee documentation](https://crawlee.dev/python).
 
 ## Conclusion
 
