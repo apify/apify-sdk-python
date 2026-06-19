@@ -32,9 +32,6 @@ def _make_run(*, status: str, exit_code: int | None = None, status_message: str 
     )
 
 
-# Base error.
-
-
 def test_actor_error_defaults() -> None:
     error = ActorError('something went wrong')
     assert error.code == 'actor-error'
@@ -49,9 +46,6 @@ def test_actor_error_overrides_are_instance_scoped() -> None:
     # Overriding on an instance must not leak to the class default.
     assert ActorError.code == 'actor-error'
     assert ActorError.retryable is False
-
-
-# Run errors.
 
 
 def test_actor_run_error_is_actor_error() -> None:
@@ -90,9 +84,6 @@ def test_actor_run_error_from_run_timed_out() -> None:
     assert error.retryable is True
     assert error.run_id == 'run123'
     assert error.code == 'actor-timed-out'
-
-
-# Re-exported API client errors.
 
 
 def test_client_errors_are_re_exported() -> None:
