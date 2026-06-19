@@ -13,24 +13,24 @@ When you run an Actor, exceptions come from a few layers: the Apify API client f
 
 ## Errors from the Apify API
 
-Every SDK operation that talks to the Apify API can raise `ApifyApiError`. This includes <ApiLink to="class/Actor#start">`Actor.start`</ApiLink>, <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>, `Actor.abort`, `Actor.metamorph`, `Actor.add_webhook`, charging, and all storage operations on datasets, key-value stores, and request queues. The SDK raises these client exceptions as-is, so you keep the HTTP status code, the error type, and the response data on the exception.
+Every SDK operation that talks to the Apify API can raise <ApiLink to="class/ApifyApiError">`ApifyApiError`</ApiLink>. This includes <ApiLink to="class/Actor#start">`Actor.start`</ApiLink>, <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>, <ApiLink to="class/Actor#abort">`Actor.abort`</ApiLink>, <ApiLink to="class/Actor#metamorph">`Actor.metamorph`</ApiLink>, <ApiLink to="class/Actor#add_webhook">`Actor.add_webhook`</ApiLink>, charging, and all storage operations on datasets, key-value stores, and request queues. The SDK raises these client exceptions as-is, so you keep the HTTP status code, the error type, and the response data on the exception.
 
-`ApifyApiError` dispatches to a subclass based on the HTTP status code:
+<ApiLink to="class/ApifyApiError">`ApifyApiError`</ApiLink> dispatches to a subclass based on the HTTP status code:
 
-- `UnauthorizedError` (401) and `ForbiddenError` (403) for an unauthorized or forbidden request.
-- `NotFoundError` (404) when the Actor, run, or storage does not exist.
-- `ConflictError` (409) for a conflicting request.
-- `RateLimitError` (429) when the API rate limit is hit.
-- `ServerError` for any 5xx response.
-- `InvalidRequestError` (400) when the API rejects the request as malformed.
+- <ApiLink to="class/UnauthorizedError">`UnauthorizedError`</ApiLink> (401) and <ApiLink to="class/ForbiddenError">`ForbiddenError`</ApiLink> (403) for an unauthorized or forbidden request.
+- <ApiLink to="class/NotFoundError">`NotFoundError`</ApiLink> (404) when the Actor, run, or storage does not exist.
+- <ApiLink to="class/ConflictError">`ConflictError`</ApiLink> (409) for a conflicting request.
+- <ApiLink to="class/RateLimitError">`RateLimitError`</ApiLink> (429) when the API rate limit is hit.
+- <ApiLink to="class/ServerError">`ServerError`</ApiLink> for any 5xx response.
+- <ApiLink to="class/InvalidRequestError">`InvalidRequestError`</ApiLink> (400) when the API rejects the request as malformed.
 
-The client retries rate-limited and server errors on its own, so you only see `RateLimitError` or `ServerError` once those retries are exhausted. The `apify.errors` module re-exports the whole client error hierarchy, so you can import everything from one place:
+The client retries rate-limited and server errors on its own, so you only see <ApiLink to="class/RateLimitError">`RateLimitError`</ApiLink> or <ApiLink to="class/ServerError">`ServerError`</ApiLink> once those retries are exhausted. The `apify.errors` module re-exports the whole client error hierarchy, so you can import everything from one place:
 
 ```python
 from apify.errors import ApifyApiError, NotFoundError, RateLimitError
 ```
 
-Catch `ApifyApiError` to handle any API failure in one place, then branch on the subclass or the HTTP `status_code`. To react to a specific failure, catch its subclass first:
+Catch <ApiLink to="class/ApifyApiError">`ApifyApiError`</ApiLink> to handle any API failure in one place, then branch on the subclass or the HTTP `status_code`. To react to a specific failure, catch its subclass first:
 
 <RunnableCodeBlock className="language-python" language="python">
     {HandleCallErrorsSource}
@@ -40,10 +40,10 @@ Catch `ApifyApiError` to handle any API failure in one place, then branch on the
 
 The SDK raises standard Python exceptions when it is used incorrectly or given invalid input. These point to a bug or a bad argument in your code, so the fix is to correct the call rather than to catch the exception.
 
-- `RuntimeError` when an `Actor` method is used outside the `async with Actor:` block, either before initialization or after exit, or when the Actor is initialized twice.
-- `ValueError` for an invalid argument, such as a malformed `timeout`, an invalid proxy configuration, charging an automatically charged event by hand, or pushing data that is not JSON-serializable or is over the size limit.
-- `TypeError` for an argument of the wrong type.
-- `ConnectionError` when <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration`</ApiLink> verifies Apify Proxy access and the proxy reports that you have none.
+- [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError) when an `Actor` method is used outside the `async with Actor:` block, either before initialization or after exit, or when the Actor is initialized twice.
+- [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError) for an invalid argument, such as a malformed `timeout`, an invalid proxy configuration, charging an automatically charged event by hand, or pushing data that is not JSON-serializable or is over the size limit.
+- [`TypeError`](https://docs.python.org/3/library/exceptions.html#TypeError) for an argument of the wrong type.
+- [`ConnectionError`](https://docs.python.org/3/library/exceptions.html#ConnectionError) when <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration`</ApiLink> verifies Apify Proxy access and the proxy reports that you have none.
 
 ## Run failures
 
@@ -59,4 +59,8 @@ If your Actor runs a [Crawlee](https://crawlee.dev/python) crawler, failures ins
 
 ## The pay-per-event charge limit
 
-Reaching the pay-per-event charge limit does not raise an error. The SDK caps charging and data pushing instead, and your Actor keeps running. To detect the limit, check the `event_charge_limit_reached` field on the `ChargeResult` returned by <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> or `Actor.push_data`. For details, see [Pay-per-event monetization](./pay-per-event).
+Reaching the pay-per-event charge limit does not raise an error. The SDK caps charging and data pushing instead, and your Actor keeps running. To detect the limit, check the `event_charge_limit_reached` field on the `ChargeResult` returned by <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> or <ApiLink to="class/Actor#push_data">`Actor.push_data`</ApiLink>. For details, see [Pay-per-event monetization](./pay-per-event).
+
+## Conclusion
+
+Most failures you handle at runtime are <ApiLink to="class/ApifyApiError">`ApifyApiError`</ApiLink> from the API client. Catch it to cover any API failure, and reach for a subclass or the HTTP `status_code` when you need finer control. The standard [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError), [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError), and [`TypeError`](https://docs.python.org/3/library/exceptions.html#TypeError) signal a bug or bad input, so correct the call rather than catch them. After <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>, check `run.status` to react to a failed run, and let Crawlee handle the errors raised inside a crawler.
