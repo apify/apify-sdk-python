@@ -56,7 +56,7 @@ The following Actor declares its input as a Pydantic `BaseModel`, validates the 
 ### About the validation
 
 - `model_validate` parses the raw dictionary into a typed `ActorInput` instance. It fills in defaults and guarantees every field is valid, or raises a `ValidationError` that describes every problem at once.
-- Catching that error, logging a readable summary, and re-raising makes the Actor fail fast with a clear explanation right at the start, rather than crashing with an obscure error somewhere deep in the run. Because the body runs inside `async with Actor:`, the re-raised exception automatically marks the run as `FAILED`.
+- Catching that error, logging a readable summary, and failing the run with <ApiLink to="class/Actor#fail">`Actor.fail`</ApiLink> marks the run as `FAILED` with a clear status message. It fails fast right at the start with a readable explanation, instead of crashing with a raw traceback deeper in the run.
 - The error messages refer to the fields by their input-schema aliases. For invalid input like `{"searchTerms": [], "maxResults": 999, "outputFormat": "xml"}`, the log shows exactly what's wrong:
 
   ```text

@@ -11,12 +11,10 @@ from apify.storages import RequestQueue
 async def scrape_page(
     session: AsyncDynamicSession,
     url: str,
-    *,
-    proxy_url: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Fetch a page through the shared browser session and return data and links."""
     # `network_idle` waits until the page stops making network requests.
-    response = await session.fetch(url, proxy=proxy_url, network_idle=True)
+    response = await session.fetch(url, network_idle=True)
 
     data = {
         'url': url,
@@ -70,6 +68,11 @@ async def main() -> None:
 
         # Set up Apify Proxy and the request queue.
         proxy_configuration = await Actor.create_proxy_configuration()
+        # Scrapling's browser session takes a single proxy at construction time.
+        # Per-fetch proxy rotation would need a different session mode. Apify Proxy
+        # rotates the exit IP itself, so one session-level proxy URL still varies the
+        # IP across requests.
+        proxy_url = await proxy_configuration.new_url() if proxy_configuration else None
         request_queue = await Actor.open_request_queue()
 
         # Enqueue the start URLs (crawl depth defaults to 0).
@@ -79,11 +82,11 @@ async def main() -> None:
             await request_queue.add_request(Request.from_url(url))
 
         # Cap the crawl. Raise or remove the limit to follow more pages.
-        max_requests = 50
+        max_requests = 10
         handled_requests = 0
 
-        # Open the browser once and reuse it for every page in the crawl.
-        async with AsyncDynamicSession(headless=True) as session:
+        # Open the browser once (via Apify Proxy) and reuse it for every page.
+        async with AsyncDynamicSession(headless=True, proxy=proxy_url) as session:
             while handled_requests < max_requests and (
                 request := await request_queue.fetch_next_request()
             ):
@@ -93,12 +96,7 @@ async def main() -> None:
                 Actor.log.info(f'Scraping {url} (depth={depth}) ...')
 
                 try:
-                    # Fresh proxy URL per request (None if no proxy).
-                    proxy_url = None
-                    if proxy_configuration:
-                        proxy_url = await proxy_configuration.new_url()
-
-                    data, links = await scrape_page(session, url, proxy_url=proxy_url)
+                    data, links = await scrape_page(session, url)
                     await Actor.push_data(data)
                     Actor.log.info(
                         f'Stored data from {url} '
