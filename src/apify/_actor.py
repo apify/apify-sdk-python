@@ -33,7 +33,7 @@ from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
 from apify._webhook import to_client_representations
-from apify.errors import map_client_errors
+from apify.errors import ActorRunError, map_client_errors
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
 from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient
@@ -57,6 +57,9 @@ if TYPE_CHECKING:
 MainReturnType = TypeVar('MainReturnType')
 
 _ensure_context = ensure_context('_active')
+
+_TERMINAL_RUN_FAILURE_STATUSES = frozenset({'FAILED', 'ABORTED', 'TIMED-OUT'})
+"""Run statuses that mean a waited-for run ended in failure, so `call`/`call_task` raise instead of returning it."""
 
 
 @docs_name('Actor')
@@ -1038,6 +1041,10 @@ class _ActorType:
 
         Returns:
             Info about the started Actor run.
+
+        Raises:
+            ActorRunError: If the run finishes in a terminal failure state (`FAILED` or `ABORTED`).
+            ActorTimeoutError: If the run finishes in the `TIMED-OUT` state.
         """
         client = self.new_client(token=token) if token else self.apify_client
 
@@ -1068,6 +1075,9 @@ class _ActorType:
 
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
+
+        if run.status in _TERMINAL_RUN_FAILURE_STATUSES:
+            raise ActorRunError.from_run(run)
 
         return run
 
@@ -1112,6 +1122,10 @@ class _ActorType:
 
         Returns:
             Info about the started Actor run.
+
+        Raises:
+            ActorRunError: If the run finishes in a terminal failure state (`FAILED` or `ABORTED`).
+            ActorTimeoutError: If the run finishes in the `TIMED-OUT` state.
         """
         client = self.new_client(token=token) if token else self.apify_client
 
@@ -1138,6 +1152,9 @@ class _ActorType:
 
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
+
+        if run.status in _TERMINAL_RUN_FAILURE_STATUSES:
+            raise ActorRunError.from_run(run)
 
         return run
 

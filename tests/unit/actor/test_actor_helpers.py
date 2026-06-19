@@ -15,6 +15,7 @@ from crawlee.events._types import Event
 from apify import Actor, Webhook
 from apify._actor import _ActorType
 from apify._consts import ApifyEnvVars
+from apify.errors import ActorRunError, ActorTimeoutError
 
 if TYPE_CHECKING:
     from ..conftest import ApifyClientAsyncPatcher
@@ -104,6 +105,59 @@ async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatch
 
     assert len(apify_client_async_patcher.calls['task']['call']) == 1
     assert apify_client_async_patcher.calls['task']['call'][0][0][0].resource_id == task_id
+
+
+async def test_call_raises_on_failed_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run
+) -> None:
+    """`Actor.call` raises `ActorRunError` carrying the run metadata when the awaited run ends as `FAILED`."""
+    failed_run = fake_actor_run.model_copy(update={'status': 'FAILED'})
+    apify_client_async_patcher.patch('actor', 'call', return_value=failed_run)
+
+    async with Actor:
+        with pytest.raises(ActorRunError) as exc_info:
+            await Actor.call('some-actor-id')
+
+    assert type(exc_info.value) is ActorRunError
+    assert exc_info.value.status == 'FAILED'
+    assert exc_info.value.run_id == failed_run.id
+
+
+async def test_call_raises_timeout_on_timed_out_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run
+) -> None:
+    """`Actor.call` raises the more specific `ActorTimeoutError` for a `TIMED-OUT` run."""
+    timed_out_run = fake_actor_run.model_copy(update={'status': 'TIMED-OUT'})
+    apify_client_async_patcher.patch('actor', 'call', return_value=timed_out_run)
+
+    async with Actor:
+        with pytest.raises(ActorTimeoutError):
+            await Actor.call('some-actor-id')
+
+
+async def test_call_returns_succeeded_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run
+) -> None:
+    """`Actor.call` returns the run unchanged when it finishes with a non-failure status."""
+    succeeded_run = fake_actor_run.model_copy(update={'status': 'SUCCEEDED'})
+    apify_client_async_patcher.patch('actor', 'call', return_value=succeeded_run)
+
+    async with Actor:
+        run = await Actor.call('some-actor-id')
+
+    assert run.status == 'SUCCEEDED'
+
+
+async def test_call_task_raises_on_failed_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run
+) -> None:
+    """`Actor.call_task` raises `ActorRunError` when the awaited run ends in a terminal failure state."""
+    failed_run = fake_actor_run.model_copy(update={'status': 'FAILED'})
+    apify_client_async_patcher.patch('task', 'call', return_value=failed_run)
+
+    async with Actor:
+        with pytest.raises(ActorRunError):
+            await Actor.call_task('some-task-id')
 
 
 async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
