@@ -44,15 +44,15 @@ It uses Selenium ChromeDriver to open the pages in an automated Chrome browser, 
 
 ## Using Apify Proxy
 
-Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. The runnable example above skips the proxy to stay simple. This section extends it to route the browser through Apify Proxy. The snippet below isn't a complete, runnable Actor on its own. It shows only the proxy-specific parts you add to the example above.
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. The runnable example Actor skips the proxy to stay simple. This section extends it to route the browser through Apify Proxy. The snippet below isn't a complete, runnable Actor on its own. It shows only the proxy-specific parts you add to the example Actor.
 
-Chrome ignores the credentials passed in the `--proxy-server` flag. To use an authenticated proxy such as Apify Proxy, configure it from inside a small extension. The `proxy_auth_extension` helper builds one at runtime. Its service worker sets the proxy server and answers the browser's authentication challenge with the username and password. The proxy-aware `build_chrome_driver` below replaces the simple one from the example above and loads that extension. The new headless mode (`--headless=new`) is required for Chrome to load it.
+Chrome ignores the credentials passed in the `--proxy-server` flag. To use an authenticated proxy such as Apify Proxy, configure it from inside a small extension. The `proxy_auth_extension` helper builds one at runtime. Its service worker sets the proxy server and answers the browser's authentication challenge with the username and password. The proxy-aware `build_chrome_driver` below replaces the simple one from the example Actor and loads that extension. The new headless mode (`--headless=new`) is required for Chrome to load it.
 
 <CodeBlock className="language-python">
     {SeleniumProxyExample}
 </CodeBlock>
 
-To wire it in, create the proxy configuration in `main` with `Actor.create_proxy_configuration`, get a URL with `await proxy_configuration.new_url()`, and pass it to `build_chrome_driver`. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management).
+To wire the proxy into the example Actor, create the proxy configuration in `main` with `Actor.create_proxy_configuration`, get a URL with `await proxy_configuration.new_url()`, and pass it to `build_chrome_driver`. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management).
 
 ## Conclusion
 
