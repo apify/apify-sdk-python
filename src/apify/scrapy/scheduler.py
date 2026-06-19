@@ -134,17 +134,14 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             True if the request was successfully enqueued, False otherwise.
         """
-        logger.debug(f'ApifyScheduler.enqueue_request was called (scrapy_request={request})...')
-
         if not isinstance(self.spider, Spider):
             raise TypeError('self.spider must be an instance of the Spider class')
 
         apify_request = to_apify_request(request, spider=self.spider)
         if apify_request is None:
-            logger.error(f'Request {request} could not be converted to Apify request.')
+            logger.warning(f'Request {request} could not be converted to Apify request; skipping it.')
             return False
 
-        logger.debug(f'Converted to apify_request: {apify_request}')
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
@@ -156,7 +153,6 @@ class ApifyScheduler(BaseScheduler):
             logger.exception('Failed to enqueue the request to the request queue.')
             raise
 
-        logger.debug(f'rq.add_request result: {result}')
         return not bool(result.was_already_present)
 
     def next_request(self) -> Request | None:
@@ -165,7 +161,6 @@ class ApifyScheduler(BaseScheduler):
         Returns:
             The next request, or None if there are no more requests.
         """
-        logger.debug('next_request called...')
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
@@ -177,7 +172,6 @@ class ApifyScheduler(BaseScheduler):
             logger.exception('Failed to fetch the next request from the request queue.')
             raise
 
-        logger.debug(f'Fetched apify_request: {apify_request}')
         if apify_request is None:
             return None
 
@@ -206,5 +200,4 @@ class ApifyScheduler(BaseScheduler):
         if scrapy_request is None:
             return None
 
-        logger.debug(f'Converted to scrapy_request: {scrapy_request}')
         return scrapy_request

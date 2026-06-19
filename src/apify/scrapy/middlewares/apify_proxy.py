@@ -72,7 +72,6 @@ class ApifyHttpProxyMiddleware:
         Raises:
             ValueError: If username and password are not provided in the proxy URL.
         """
-        Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: request={request}')
         url = await self._get_new_proxy_url()
 
         if not (url.username and url.password):
@@ -81,8 +80,6 @@ class ApifyHttpProxyMiddleware:
         request.meta['proxy'] = url.geturl()
         basic_auth_header = get_basic_auth_header(url.username, url.password)
         request.headers[b'Proxy-Authorization'] = basic_auth_header
-
-        Actor.log.debug(f'ApifyHttpProxyMiddleware.process_request: updated request.meta={request.meta}')
 
     def process_exception(
         self,
@@ -100,10 +97,6 @@ class ApifyHttpProxyMiddleware:
             process_exception() methods of installed middleware, until no middleware is left and the default
             exception handling kicks in.
         """
-        Actor.log.debug(
-            f'ApifyHttpProxyMiddleware.process_exception: request={request}, exception={exception}',
-        )
-
         if isinstance(exception, TunnelError):
             Actor.log.warning(
                 f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", '

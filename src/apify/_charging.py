@@ -5,6 +5,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from logging import getLogger
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import ConfigDict
@@ -19,7 +20,6 @@ from apify_client._models import PricePerDatasetItemActorPricingInfo as ClientPr
 from apify_client._models import PricingPerEvent as ClientPricingPerEvent
 
 from apify._utils import ReentrantLock, docs_group, ensure_context
-from apify.log import logger
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
     from apify._configuration import Configuration
+
+logger = getLogger(__name__)
 
 charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
 """Holds the current `ChargingManager` instance, if any.
@@ -450,6 +452,7 @@ class ChargingManagerImplementation(ChargingManager):
                     pass
                 elif event_name in self._pricing_info:
                     await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
+                    logger.debug(f"Charged {charged_count} occurrence(s) of event '{event_name}'.")
                 elif event_name in self._tier_priced_events:
                     logger.warning(
                         f"Event '{event_name}' is tier-priced and is not chargeable via the pay-per-event API."

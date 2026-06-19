@@ -164,14 +164,14 @@ async def test_fail_without_init_raises_runtime_error() -> None:
         await Actor().fail()
 
 
-async def test_reboot_in_local_environment_logs_error_message(
+async def test_reboot_in_local_environment_logs_warning_message(
     actor: _ActorType,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test that reboot() logs an error when not running on the Apify platform."""
+    """Test that reboot() logs a warning when not running on the Apify platform."""
     await actor.reboot()
 
-    # Check that the error message was logged
+    # Check that the warning message was logged
     assert 'Actor.reboot() is only supported when running on the Apify platform.' in caplog.text
 
 

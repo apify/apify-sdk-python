@@ -122,7 +122,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         try:
             content = await asyncio.to_thread(record_path.read_bytes)
         except FileNotFoundError:
-            logger.warning(f'Input file disparaged on path: "{record_path}"')
+            logger.warning(f'Input file disappeared from path: "{record_path}"')
             return
 
         # Figure out the metadata from the file content

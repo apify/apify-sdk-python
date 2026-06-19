@@ -61,8 +61,6 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         logger.warning('Failed to convert to Apify request: Scrapy request must be a ScrapyRequest instance.')
         return None
 
-    logger.debug(f'to_apify_request was called (scrapy_request={scrapy_request})...')
-
     # Configuration to behave as similarly as possible to Scrapy's default RFPDupeFilter.
     #
     # The body is stored twice on purpose: as `payload` (used for the extended unique key) and inside the serialized
@@ -150,7 +148,6 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
     # a second base64 layer would only add ~33% overhead on the enqueue path.
     apify_request.user_data['scrapy_request'] = scrapy_request_json
 
-    logger.debug(f'scrapy_request was converted to the apify_request={apify_request}')
     return apify_request
 
 
@@ -171,14 +168,10 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     if not isinstance(cast('Any', apify_request), ApifyRequest):
         raise TypeError('apify_request must be an apify.Request instance')
 
-    logger.debug(f'to_scrapy_request was called (apify_request={apify_request})...')
-
     # If the apify_request comes from the Scrapy
     if 'scrapy_request' in apify_request.user_data:
         # Deserialize the Scrapy ScrapyRequest from the apify_request by parsing the stored JSON and reconstructing
         # the Scrapy ScrapyRequest object from its dictionary representation.
-        logger.debug('Restoring the Scrapy ScrapyRequest from the apify_request...')
-
         scrapy_request_json = apify_request.user_data['scrapy_request']
         if not isinstance(scrapy_request_json, str):
             raise TypeError('the stored scrapy_request must be a string')
@@ -194,8 +187,6 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
         if not isinstance(scrapy_request, ScrapyRequest):
             raise TypeError('scrapy_request must be an instance of the ScrapyRequest class')
 
-        logger.debug(f'Scrapy ScrapyRequest successfully reconstructed (scrapy_request={scrapy_request})...')
-
         # Update the meta field with the meta field from the apify_request
         meta = scrapy_request.meta or {}
         meta.update({'apify_request_unique_key': apify_request.unique_key})
@@ -204,8 +195,6 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
 
     # If the apify_request comes directly from the Scrapy, typically start URLs.
     else:
-        logger.debug('Gonna create a new Scrapy ScrapyRequest (cannot be restored)')
-
         scrapy_request = ScrapyRequest(
             url=apify_request.url,
             method=apify_request.method,
@@ -222,5 +211,4 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     if apify_request.user_data:
         scrapy_request.meta['userData'] = apify_request.user_data
 
-    logger.debug(f'an apify_request was converted to the scrapy_request={scrapy_request}')
     return scrapy_request
