@@ -1,41 +1,46 @@
 from __future__ import annotations
 
-import contextlib
-import functools
-from typing import TYPE_CHECKING, ParamSpec, TypeVar
+from typing import TYPE_CHECKING
 
-from apify_client.errors import ApifyApiError
-from apify_client.errors import ForbiddenError as _ForbiddenError
-from apify_client.errors import InvalidRequestError as _InvalidRequestError
-from apify_client.errors import RateLimitError as _RateLimitError
-from apify_client.errors import ServerError as _ServerError
-from apify_client.errors import UnauthorizedError as _UnauthorizedError
+# Re-export the Apify API client's error hierarchy so callers have a single import location for every error the SDK
+# can surface. Any operation that talks to the Apify API raises these as-is; the SDK does not wrap them in its own
+# types. See https://docs.apify.com/api/client/python for the full client error reference.
+from apify_client.errors import (
+    ApifyApiError,
+    ApifyClientError,
+    ConflictError,
+    ForbiddenError,
+    InvalidRequestError,
+    InvalidResponseBodyError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+    UnauthorizedError,
+)
 
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Coroutine, Iterator
-    from typing import Any
-
     from apify_client._models import Run
-
-_P = ParamSpec('_P')
-_R = TypeVar('_R')
 
 
 @docs_group('Errors')
 class ActorError(Exception):
-    """Base class for all domain-level Apify SDK errors.
+    """Base class for the Apify SDK's own domain-level errors.
 
-    Carries a machine-readable `code` and a `retryable` flag so callers can branch on a failure without reading
-    the human-readable error message.
+    These describe outcomes that the Apify API client cannot express on its own, such as a finished Actor run that
+    ended in a failure state. Errors that originate from the Apify API surface as `apify_client` exceptions (e.g.
+    `ApifyApiError` and its subclasses), which the SDK re-exports from this module but does not wrap.
+
+    Carries a machine-readable `code` and a `retryable` flag so callers can branch on a failure without parsing the
+    human-readable error message.
     """
 
     code: str = 'actor-error'
     """Stable, machine-readable identifier of the error category."""
 
     retryable: bool = False
-    """Whether retrying the same operation might succeed (e.g. a transient rate limit or server error)."""
+    """Whether retrying the same operation might succeed (e.g. an Actor run that timed out)."""
 
     def __init__(
         self,
@@ -50,41 +55,14 @@ class ActorError(Exception):
         if retryable is not None:
             self.retryable = retryable
 
-    @classmethod
-    def from_client_error(cls, error: Exception) -> ActorError:
-        """Map an `apify_client` exception to the matching domain-level error.
-
-        The mapping is driven by the client's typed, HTTP-status-based exceptions. Unmapped client errors (and any
-        other exception) fall back to a plain `ActorError`. The original exception is not chained automatically;
-        callers should use `raise ActorError.from_client_error(err) from err`.
-
-        Args:
-            error: The exception raised by `apify_client`.
-
-        Returns:
-            The corresponding domain-level error.
-        """
-        if isinstance(error, (_UnauthorizedError, _ForbiddenError)):
-            return ActorAuthenticationError(str(error))
-
-        if isinstance(error, _RateLimitError):
-            return ActorRateLimitError(str(error))
-
-        if isinstance(error, _ServerError):
-            return ActorError(str(error), retryable=True)
-
-        if isinstance(error, _InvalidRequestError):
-            return ActorInputValidationError(str(error))
-
-        return ActorError(str(error))
-
 
 @docs_group('Errors')
 class ActorRunError(ActorError):
-    """Raised when an Actor run reaches a terminal failure state (e.g. `FAILED` or `ABORTED`).
+    """Represents an Actor run that reached a terminal failure state (e.g. `FAILED` or `ABORTED`).
 
-    Unlike the HTTP-derived errors, this one is derived from the run itself, so it exposes the run metadata needed
-    to decide what to do next.
+    Exposes the run metadata needed to decide what to do next. The SDK does not raise this automatically. `Actor.call`
+    and `Actor.call_task` return the finished run regardless of its status, mirroring the Apify API client. Build this
+    error from a finished run with `from_run` when you want a failed run to surface as an exception in your own code.
     """
 
     code = 'actor-run-failed'
@@ -118,79 +96,24 @@ class ActorRunError(ActorError):
 
 @docs_group('Errors')
 class ActorTimeoutError(ActorRunError):
-    """Raised when an Actor run exceeds its timeout (`TIMED-OUT`). Retrying with a longer timeout may help."""
+    """Represents an Actor run that exceeded its timeout (`TIMED-OUT`). Retrying with a longer timeout may help."""
 
     code = 'actor-timed-out'
     retryable = True
 
 
-@docs_group('Errors')
-class ActorInputValidationError(ActorError, ValueError):
-    """Raised when input fails validation.
-
-    Subclasses `ValueError` so existing `except ValueError` handlers keep catching it.
-    """
-
-    code = 'input-validation-error'
-
-
-@docs_group('Errors')
-class ActorChargeLimitExceededError(ActorError):
-    """Raised when an Actor run hits its configured maximum total charge (`max_total_charge_usd`)."""
-
-    code = 'charge-limit-exceeded'
-
-
-@docs_group('Errors')
-class ActorAuthenticationError(ActorError):
-    """Raised when an API request is unauthorized or forbidden (HTTP 401 / 403)."""
-
-    code = 'authentication-error'
-
-
-@docs_group('Errors')
-class ActorRateLimitError(ActorError):
-    """Raised when the Apify API rate limit is exceeded (HTTP 429). Retryable after a backoff."""
-
-    code = 'rate-limit-exceeded'
-    retryable = True
-
-
-@contextlib.contextmanager
-def map_client_errors() -> Iterator[None]:
-    """Translate `apify_client` API errors into domain-level `ActorError`s.
-
-    Wrap any `apify_client` call with this context manager so that an `ApifyApiError` (e.g. an HTTP 401/403/429/5xx
-    response) surfaces as the matching `ActorError` subclass instead of a raw client exception. The original error
-    is preserved as the `__cause__` of the raised `ActorError`.
-    """
-    try:
-        yield
-    except ApifyApiError as error:
-        raise ActorError.from_client_error(error) from error
-
-
-def catch_client_errors(func: Callable[_P, Awaitable[_R]]) -> Callable[_P, Coroutine[Any, Any, _R]]:
-    """Decorate an async function so the `apify_client` errors it raises become domain-level `ActorError`s.
-
-    This is the method-level counterpart of `map_client_errors`, intended for thin wrappers around `apify_client`
-    calls such as the storage client operations.
-    """
-
-    @functools.wraps(func)
-    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        with map_client_errors():
-            return await func(*args, **kwargs)
-
-    return wrapper
-
-
 __all__ = [
-    'ActorAuthenticationError',
-    'ActorChargeLimitExceededError',
     'ActorError',
-    'ActorInputValidationError',
-    'ActorRateLimitError',
     'ActorRunError',
     'ActorTimeoutError',
+    'ApifyApiError',
+    'ApifyClientError',
+    'ConflictError',
+    'ForbiddenError',
+    'InvalidRequestError',
+    'InvalidResponseBodyError',
+    'NotFoundError',
+    'RateLimitError',
+    'ServerError',
+    'UnauthorizedError',
 ]

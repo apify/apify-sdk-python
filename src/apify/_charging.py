@@ -19,7 +19,6 @@ from apify_client._models import PricePerDatasetItemActorPricingInfo as ClientPr
 from apify_client._models import PricingPerEvent as ClientPricingPerEvent
 
 from apify._utils import ReentrantLock, docs_group, ensure_context
-from apify.errors import map_client_errors
 from apify.log import logger
 from apify.storages import Dataset
 
@@ -450,8 +449,7 @@ class ChargingManagerImplementation(ChargingManager):
                     # the platform handles them automatically based on dataset writes.
                     pass
                 elif event_name in self._pricing_info:
-                    with map_client_errors():
-                        await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
+                    await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
                 elif event_name in self._tier_priced_events:
                     logger.warning(
                         f"Event '{event_name}' is tier-priced and is not chargeable via the pay-per-event API."
@@ -574,8 +572,7 @@ class ChargingManagerImplementation(ChargingManager):
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
 
-            with map_client_errors():
-                run = await self._client.run(self._actor_run_id).get()
+            run = await self._client.run(self._actor_run_id).get()
 
             if run is None:
                 raise RuntimeError('Actor run not found')

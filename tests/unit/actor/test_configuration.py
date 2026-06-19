@@ -392,3 +392,21 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.actor_storages['datasets'] == datasets
     assert config.actor_storages['request_queues'] == request_queues
     assert config.actor_storages['key_value_stores'] == key_value_stores
+
+
+@pytest.mark.parametrize(
+    ('env_var', 'attr', 'expected'),
+    [
+        ('APIFY_TIMEOUT_AT', 'timeout_at', None),
+        ('ACTOR_MAX_PAID_DATASET_ITEMS', 'max_paid_dataset_items', None),
+        ('ACTOR_MAX_TOTAL_CHARGE_USD', 'max_total_charge_usd', None),
+        ('APIFY_USER_IS_PAYING', 'user_is_paying', False),
+    ],
+)
+def test_typed_env_var_empty_string_falls_back_to_default(
+    monkeypatch: pytest.MonkeyPatch, env_var: str, attr: str, expected: object
+) -> None:
+    """Platform may set a typed env var to '' instead of leaving it unset; that must not crash `Actor.init()`."""
+    monkeypatch.setenv(env_var, '')
+    config = ApifyConfiguration()
+    assert getattr(config, attr) == expected

@@ -1,46 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, cast
 
-import pytest
-
+import apify_client.errors as client_errors
 from apify_client._models import Run
-from apify_client.errors import (
-    ApifyApiError,
-    ConflictError,
-    ForbiddenError,
-    InvalidRequestError,
-    NotFoundError,
-    ServerError,
-    UnauthorizedError,
-)
-from apify_client.errors import RateLimitError as ClientRateLimitError
 
-from apify.errors import (
-    ActorAuthenticationError,
-    ActorChargeLimitExceededError,
-    ActorError,
-    ActorInputValidationError,
-    ActorRateLimitError,
-    ActorRunError,
-    ActorTimeoutError,
-)
-
-
-class _FakeResponse:
-    """Minimal stand-in for `apify_client`'s HTTP response, enough to build its API errors."""
-
-    def __init__(self, status_code: int) -> None:
-        self.status_code = status_code
-        self.text = 'error text'
-
-    def json(self) -> dict[str, Any]:
-        return {'error': {'message': 'boom', 'type': 'some-error-type'}}
-
-
-def _client_error(error_cls: type[ApifyApiError], status_code: int) -> ApifyApiError:
-    return error_cls(cast('Any', _FakeResponse(status_code)), 1)
+from apify.errors import ActorError, ActorRunError, ActorTimeoutError
 
 
 def _make_run(*, status: str, exit_code: int | None = None, status_message: str | None = None) -> Run:
@@ -67,6 +32,9 @@ def _make_run(*, status: str, exit_code: int | None = None, status_message: str 
     )
 
 
+# Base error.
+
+
 def test_actor_error_defaults() -> None:
     error = ActorError('something went wrong')
     assert error.code == 'actor-error'
@@ -83,33 +51,19 @@ def test_actor_error_overrides_are_instance_scoped() -> None:
     assert ActorError.retryable is False
 
 
-@pytest.mark.parametrize(
-    ('error_cls', 'expected_code', 'expected_retryable'),
-    [
-        (ActorRateLimitError, 'rate-limit-exceeded', True),
-        (ActorTimeoutError, 'actor-timed-out', True),
-        (ActorAuthenticationError, 'authentication-error', False),
-        (ActorChargeLimitExceededError, 'charge-limit-exceeded', False),
-        (ActorInputValidationError, 'input-validation-error', False),
-        (ActorRunError, 'actor-run-failed', False),
-    ],
-)
-def test_subclass_codes_and_retryable(
-    error_cls: type[ActorError], expected_code: str, *, expected_retryable: bool
-) -> None:
-    assert error_cls.code == expected_code
-    assert error_cls.retryable is expected_retryable
-    assert issubclass(error_cls, ActorError)
+# Run errors.
 
 
-def test_input_validation_error_is_value_error() -> None:
-    """`except ValueError` must still catch `ActorInputValidationError`."""
-    with pytest.raises(ValueError, match='bad input'):
-        raise ActorInputValidationError('bad input')
+def test_actor_run_error_is_actor_error() -> None:
+    assert issubclass(ActorRunError, ActorError)
+    assert ActorRunError.code == 'actor-run-failed'
+    assert ActorRunError.retryable is False
 
 
 def test_actor_timeout_error_is_actor_run_error() -> None:
     assert issubclass(ActorTimeoutError, ActorRunError)
+    assert ActorTimeoutError.code == 'actor-timed-out'
+    assert ActorTimeoutError.retryable is True
 
 
 def test_actor_run_error_carries_run_metadata() -> None:
@@ -138,31 +92,16 @@ def test_actor_run_error_from_run_timed_out() -> None:
     assert error.code == 'actor-timed-out'
 
 
-@pytest.mark.parametrize(
-    ('client_error', 'expected_cls', 'expected_retryable'),
-    [
-        (_client_error(UnauthorizedError, 401), ActorAuthenticationError, False),
-        (_client_error(ForbiddenError, 403), ActorAuthenticationError, False),
-        (_client_error(ClientRateLimitError, 429), ActorRateLimitError, True),
-        (_client_error(ServerError, 500), ActorError, True),
-        (_client_error(InvalidRequestError, 400), ActorInputValidationError, False),
-        (_client_error(NotFoundError, 404), ActorError, False),
-        (_client_error(ConflictError, 409), ActorError, False),
-    ],
-)
-def test_from_client_error_mapping(
-    client_error: ApifyApiError,
-    expected_cls: type[ActorError],
-    *,
-    expected_retryable: bool,
-) -> None:
-    mapped = ActorError.from_client_error(client_error)
-    assert type(mapped) is expected_cls
-    assert mapped.retryable is expected_retryable
+# Re-exported API client errors.
 
 
-def test_from_client_error_unknown_exception_falls_back() -> None:
-    mapped = ActorError.from_client_error(RuntimeError('not a client error'))
-    assert type(mapped) is ActorError
-    assert mapped.retryable is False
-    assert 'not a client error' in str(mapped)
+def test_client_errors_are_re_exported() -> None:
+    """`apify.errors` re-exports the API client error hierarchy so callers have a single import location."""
+    from apify.errors import ApifyApiError, ApifyClientError, NotFoundError, RateLimitError
+
+    assert ApifyApiError is client_errors.ApifyApiError
+    assert ApifyClientError is client_errors.ApifyClientError
+    assert NotFoundError is client_errors.NotFoundError
+    assert RateLimitError is client_errors.RateLimitError
+    # The re-exported API errors are independent of the SDK's own `ActorError` tree.
+    assert not issubclass(client_errors.ApifyApiError, ActorError)

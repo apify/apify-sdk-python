@@ -11,7 +11,6 @@ from ._api_client_creation import create_storage_api_client
 from ._models import ApifyRequestQueueMetadata, RequestQueueStats
 from ._request_queue_shared_client import ApifyRequestQueueSharedClient
 from ._request_queue_single_client import ApifyRequestQueueSingleClient
-from apify.errors import ActorError, catch_client_errors
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -67,7 +66,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
             raise RuntimeError(f"Unsupported access type: {access}. Allowed values are 'single' or 'shared'.")
 
     @override
-    @catch_client_errors
     async def get_metadata(self) -> ApifyRequestQueueMetadata:
         """Retrieve current metadata about the request queue.
 
@@ -81,7 +79,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         metadata = await self._api_client.get()
 
         if metadata is None:
-            raise ActorError('Failed to fetch request queue metadata from the API.')
+            raise ValueError('Failed to fetch request queue metadata from the API.')
 
         total_request_count = metadata.total_request_count
         handled_request_count = metadata.handled_request_count
@@ -103,7 +101,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
 
     @classmethod
-    @catch_client_errors
     async def open(
         cls,
         *,
@@ -148,7 +145,7 @@ class ApifyRequestQueueClient(RequestQueueClient):
         # Fetch initial metadata from the API.
         raw_metadata = await api_client.get()
         if raw_metadata is None:
-            raise ActorError('Failed to retrieve request queue metadata from the API.')
+            raise ValueError('Failed to retrieve request queue metadata from the API.')
         metadata = ApifyRequestQueueMetadata.model_validate(raw_metadata.model_dump(by_alias=True))
 
         return cls(
@@ -165,12 +162,10 @@ class ApifyRequestQueueClient(RequestQueueClient):
         )
 
     @override
-    @catch_client_errors
     async def drop(self) -> None:
         await self._api_client.delete()
 
     @override
-    @catch_client_errors
     async def add_batch_of_requests(
         self,
         requests: Sequence[Request],
@@ -180,22 +175,18 @@ class ApifyRequestQueueClient(RequestQueueClient):
         return await self._implementation.add_batch_of_requests(requests, forefront=forefront)
 
     @override
-    @catch_client_errors
     async def fetch_next_request(self) -> Request | None:
         return await self._implementation.fetch_next_request()
 
     @override
-    @catch_client_errors
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
         return await self._implementation.mark_request_as_handled(request)
 
     @override
-    @catch_client_errors
     async def get_request(self, unique_key: str) -> Request | None:
         return await self._implementation.get_request(unique_key)
 
     @override
-    @catch_client_errors
     async def reclaim_request(
         self,
         request: Request,
@@ -205,6 +196,5 @@ class ApifyRequestQueueClient(RequestQueueClient):
         return await self._implementation.reclaim_request(request, forefront=forefront)
 
     @override
-    @catch_client_errors
     async def is_empty(self) -> bool:
         return await self._implementation.is_empty()
