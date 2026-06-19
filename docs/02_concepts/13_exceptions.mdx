@@ -1,0 +1,69 @@
+---
+id: error-handling
+title: Error handling
+description: The exceptions an Actor can raise and how to handle them
+---
+
+import HandleCallErrorsSource from '!!raw-loader!roa-loader!./code/13_handle_call_errors.py';
+import RetryRetryableSource from '!!raw-loader!roa-loader!./code/13_retry_retryable.py';
+import ApiLink from '@theme/ApiLink';
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+When an Actor runs, failures surface as exceptions from two layers: the Apify SDK and the underlying [Apify API client](https://docs.apify.com/api/client/python). The SDK wraps the client's low-level HTTP errors in a small, domain-level taxonomy. You can then react based on what went wrong, without parsing error messages.
+
+## The error taxonomy
+
+All SDK errors live in the `apify.errors` module and derive from <ApiLink to="class/ActorError">`ActorError`</ApiLink>. Every error carries two attributes you can branch on:
+
+- `code`: a stable, machine-readable identifier of the error category.
+- `retryable`: whether retrying the same operation might succeed.
+
+The taxonomy is intentionally small:
+
+| Exception | `code` | `retryable` | Raised when |
+| --- | --- | --- | --- |
+| `ActorError` | `actor-error` | `False` | Base class and fallback for an unmapped API failure. An HTTP 5xx server error maps here as retryable. |
+| `ActorAuthenticationError` | `authentication-error` | `False` | An API request is unauthorized or forbidden (HTTP 401 or 403). |
+| `ActorRateLimitError` | `rate-limit-exceeded` | `True` | The Apify API rate limit is exceeded (HTTP 429). |
+| `ActorInputValidationError` | `input-validation-error` | `False` | The API rejects a request as invalid (HTTP 400). Also subclasses `ValueError`. |
+| `ActorRunError` | `actor-run-failed` | `False` | A run started with `Actor.call` or `Actor.call_task` finishes as `FAILED` or `ABORTED`. |
+| `ActorTimeoutError` | `actor-timed-out` | `True` | A run finishes as `TIMED-OUT`. Subclass of `ActorRunError`. |
+| `ActorChargeLimitExceededError` | `charge-limit-exceeded` | `False` | Reserved for the pay-per-event charge limit. See [the note below](#the-pay-per-event-charge-limit). |
+
+<ApiLink to="class/ActorRunError">`ActorRunError`</ApiLink> also exposes the run metadata you need to decide what to do next: `run_id`, `status`, `exit_code`, and `status_message`.
+
+## Where the errors come from
+
+The SDK methods that call the Apify API translate the client's HTTP errors into the matching `ActorError` subclass. This covers <ApiLink to="class/Actor#start">`Actor.start`</ApiLink>, <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>, `Actor.abort`, `Actor.metamorph`, `Actor.add_webhook`, charging, and all storage operations on datasets, key-value stores, and request queues. The original `apify_client` exception is preserved as the `__cause__` of the raised `ActorError`, so the low-level details stay available.
+
+<ApiLink to="class/Actor#call">`Actor.call`</ApiLink> and <ApiLink to="class/Actor#call_task">`Actor.call_task`</ApiLink> go one step further. They wait for the run to finish, so instead of returning a failed run object they raise `ActorRunError`, or the more specific `ActorTimeoutError`, when the run ends in a failure state.
+
+## Handling errors
+
+Catch <ApiLink to="class/ActorError">`ActorError`</ApiLink> to handle every domain error in one place, then branch on `code` or `retryable`. To react to a specific failure, catch its subclass first. The run errors form an inheritance chain (`ActorTimeoutError` is an `ActorRunError`, which is an `ActorError`), so order the `except` blocks from the most specific to the most general.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {HandleCallErrorsSource}
+</RunnableCodeBlock>
+
+`ActorInputValidationError` also subclasses `ValueError`, so an existing `except ValueError` keeps catching it.
+
+## Retrying transient failures
+
+The `retryable` flag marks failures where the same call might succeed on a second attempt, such as a rate limit, a server error, or a timed-out run. Use it to drive a retry loop with backoff, and stop retrying as soon as you hit a permanent error.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {RetryRetryableSource}
+</RunnableCodeBlock>
+
+## The pay-per-event charge limit
+
+Reaching the pay-per-event charge limit does not raise `ActorChargeLimitExceededError`. The SDK caps charging and data pushing instead, and your Actor keeps running. To detect the limit, check the `event_charge_limit_reached` field on the `ChargeResult` returned by <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> or `Actor.push_data`. For details, see [Pay-per-event monetization](./pay-per-event).
+
+## Errors from the API client
+
+Under the hood, the SDK errors map from the exceptions in `apify_client.errors`, such as `ApifyApiError` and its subclasses `UnauthorizedError`, `RateLimitError`, `ServerError`, and `InvalidRequestError`. You normally work with the SDK's `ActorError` taxonomy and never see these directly. The original client exception stays available as `__cause__` when you need the HTTP status code or the response body. If you call the API client directly through <ApiLink to="class/Actor#new_client">`Actor.new_client()`</ApiLink>, you receive the raw `apify_client` exceptions instead.
+
+## Conclusion
+
+This page has covered the SDK error taxonomy rooted in <ApiLink to="class/ActorError">`ActorError`</ApiLink>, the operations that raise each error, how to branch on the `code` and `retryable` attributes, and why the pay-per-event charge limit is handled through a return value rather than an exception. Catching `ActorError` and inspecting its attributes is enough for most Actors, with the specific subclasses available when you need finer control.
