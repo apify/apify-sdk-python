@@ -1,10 +1,6 @@
 import asyncio
-import json
-from pathlib import Path
-from tempfile import mkdtemp
 from typing import Any
 from urllib.parse import urljoin, urlsplit
-from zipfile import ZipFile
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
@@ -18,70 +14,16 @@ from apify.storages import RequestQueue
 # On the Apify platform, it's already in the Actor's Docker image.
 
 
-def proxy_auth_extension(proxy_url: str) -> str:
-    """Build a Chrome extension that routes Chrome through an authenticated proxy."""
-    parts = urlsplit(proxy_url)
-
-    manifest = {
-        'name': 'Apify Proxy',
-        'version': '1.0.0',
-        'manifest_version': 3,
-        'permissions': ['proxy', 'webRequest', 'webRequestAuthProvider'],
-        'host_permissions': ['<all_urls>'],
-        'background': {'service_worker': 'background.js'},
-        'minimum_chrome_version': '108',
-    }
-
-    # The service worker sets the proxy and answers the auth challenge.
-    proxy_config = json.dumps(
-        {
-            'mode': 'fixed_servers',
-            'rules': {
-                'singleProxy': {
-                    'scheme': parts.scheme,
-                    'host': parts.hostname,
-                    'port': parts.port,
-                },
-            },
-        }
-    )
-    credentials = json.dumps(
-        {'username': parts.username or '', 'password': parts.password or ''}
-    )
-    background = (
-        'chrome.proxy.settings.set('
-        '{value: ' + proxy_config + ', scope: "regular"});\n'
-        'chrome.webRequest.onAuthRequired.addListener(\n'
-        '    () => ({authCredentials: ' + credentials + '}),\n'
-        '    {urls: ["<all_urls>"]},\n'
-        '    ["blocking"],\n'
-        ');\n'
-    )
-
-    extension_path = Path(mkdtemp()) / 'apify_proxy.zip'
-    with ZipFile(extension_path, 'w') as archive:
-        archive.writestr('manifest.json', json.dumps(manifest))
-        archive.writestr('background.js', background)
-    return str(extension_path)
-
-
-def build_chrome_driver(proxy_url: str | None = None) -> webdriver.Chrome:
-    """Create a headless Chrome WebDriver, optionally routed through a proxy."""
+def build_chrome_driver() -> webdriver.Chrome:
+    """Create a headless Chrome WebDriver suitable for a container."""
     chrome_options = ChromeOptions()
 
     if Actor.configuration.headless:
-        # The new headless mode is required to load the proxy extension.
         chrome_options.add_argument('--headless=new')
 
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
-
-    if proxy_url:
-        chrome_options.add_extension(proxy_auth_extension(proxy_url))
-        chrome_options.add_argument(
-            '--disable-features=DisableLoadExtensionCommandLineSwitch'
-        )
 
     return webdriver.Chrome(options=chrome_options)
 
@@ -140,9 +82,6 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Selenium proxies at the browser level, so one URL is shared per run.
-        proxy_configuration = await Actor.create_proxy_configuration()
-
         # Open the request queue and enqueue the start URLs (crawl depth 0).
         request_queue = await Actor.open_request_queue()
         for start_url in start_urls:
@@ -151,16 +90,11 @@ async def main() -> None:
             await request_queue.add_request(Request.from_url(url))
 
         # Cap the crawl. Raise or remove the limit to follow more pages.
-        max_requests = 50
+        max_requests = 10
         handled_requests = 0
 
-        # Fresh proxy URL for the run (None if no proxy).
-        proxy_url = None
-        if proxy_configuration:
-            proxy_url = await proxy_configuration.new_url()
-
         Actor.log.info('Launching Chrome WebDriver...')
-        driver = build_chrome_driver(proxy_url)
+        driver = build_chrome_driver()
 
         while handled_requests < max_requests and (
             request := await request_queue.fetch_next_request()

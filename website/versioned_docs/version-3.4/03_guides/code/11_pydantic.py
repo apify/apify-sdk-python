@@ -44,9 +44,10 @@ async def main() -> None:
         try:
             actor_input = ActorInput.model_validate(raw_input)
         except ValidationError as exc:
-            # Log a per-field summary, then re-raise to fail the run.
+            # Log a per-field summary and fail the run cleanly, without a raw traceback.
             Actor.log.error('The Actor input is invalid:\n%s', exc)
-            raise
+            await Actor.fail(status_message='The Actor input is invalid.')
+            return
 
         # Work with typed attributes from here on.
         Actor.log.info('Input passed validation: %s', actor_input.model_dump())

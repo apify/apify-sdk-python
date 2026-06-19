@@ -84,7 +84,7 @@ async def main() -> None:
             await request_queue.add_request(Request.from_url(url))
 
         # Cap the crawl. Raise or remove the limit to follow more pages.
-        max_requests = 50
+        max_requests = 10
         handled_requests = 0
 
         while handled_requests < max_requests and (
