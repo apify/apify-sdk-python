@@ -189,6 +189,6 @@ Behind the scenes, the SDK uses storage clients to communicate with the storage 
 
 ## Conclusion
 
-This page has covered the three storage types (datasets, key-value stores, and request queues): how they are emulated on the local filesystem, how to open named and unnamed storages, and how to read from and write to each through the `Actor` shortcuts and the storage classes.
+This page has covered the three storage types (datasets, key-value stores, and request queues): how they are emulated on the local filesystem, how to open named and unnamed storages, and how to read from and write to each through the `Actor` shortcuts and the storage classes. When multiple Actor runs need to process the same request queue, choose between a [single and shared request queue](./storage-clients#single-vs-shared-request-queue).
 
 For comprehensive information about storage on the Apify platform, see the [storage documentation](https://docs.apify.com/platform/storage), including the pages on [datasets](https://docs.apify.com/platform/storage/dataset), [key-value stores](https://docs.apify.com/platform/storage/key-value-store), and [request queues](https://docs.apify.com/platform/storage/request-queue).
