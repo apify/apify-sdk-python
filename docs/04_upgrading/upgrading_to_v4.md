@@ -244,4 +244,17 @@ yield scrapy.Request(url, meta={'since': datetime(2024, 1, 1)})
 
 # After (v4): store a JSON-serializable value.
 yield scrapy.Request(url, meta={'since': datetime(2024, 1, 1).isoformat()})
-```Pickle
+```
+
+## Logging changes
+
+The typed public API is unchanged, so your code keeps working without edits. Only log output changes. Adjust your setup if you parse logs, route them by logger name, or assert on log records, for example in tests.
+
+### Rebalanced log levels
+
+- The local no-op messages from `Actor.metamorph()`, `Actor.reboot()`, and `Actor.add_webhook()`, logged when the Actor runs outside the Apify platform, are now `warning` instead of `error`. The Scrapy scheduler message for a request that can't be converted to an Apify request changed the same way.
+- The "unknown platform event" message is now `debug` instead of `info`.
+
+### Module-qualified logger names
+
+The charging, proxy, and events modules now log under their own child loggers (`apify._charging`, `apify._proxy_configuration`, and `apify.events._apify_event_manager`) instead of the generic `apify` logger. These child loggers still propagate to `apify`, so a handler attached to `apify` keeps receiving their records. Update only configuration that targets the exact `apify` logger name for these messages.

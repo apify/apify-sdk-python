@@ -56,13 +56,13 @@ def test_enqueue_request_skips_non_serializable_request(
     scheduler: ApifyScheduler,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A request that cannot be converted (non-serializable meta) is not enqueued: returns False and logs an error."""
+    """A request that cannot be converted (non-serializable meta) is not enqueued: returns False and logs a warning."""
     rq = cast('mock.MagicMock', scheduler._rq)
 
     # A set in `meta` is not JSON-serializable, so `to_apify_request` returns None.
     scrapy_request = Request(url='https://example.com', meta={'tags': {'a', 'b'}})
 
-    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'):
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy.scheduler'):
         result = scheduler.enqueue_request(scrapy_request)
 
     assert result is False

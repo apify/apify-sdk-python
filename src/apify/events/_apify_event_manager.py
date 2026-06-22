@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from logging import getLogger
 from typing import TYPE_CHECKING, Annotated, Self
 
 import websockets.asyncio.client
@@ -17,7 +18,6 @@ from crawlee.events._types import Event, EventPersistStateData
 
 from apify._utils import docs_group
 from apify.events._types import DeprecatedEvent, EventMessage, SystemInfoEventData, UnknownEvent
-from apify.log import logger
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
     from apify._configuration import Configuration
 
+
+logger = getLogger(__name__)
 
 event_data_adapter = TypeAdapter[EventMessage | DeprecatedEvent | UnknownEvent](
     Annotated[EventMessage, Discriminator('name')] | DeprecatedEvent | UnknownEvent
@@ -195,7 +197,7 @@ class ApifyEventManager(EventManager):
                 return
 
             if isinstance(parsed_message, UnknownEvent):
-                logger.info(
+                logger.debug(
                     f'Unknown message received: event_name={parsed_message.name}, event_data={parsed_message.data}'
                 )
                 return

@@ -1162,7 +1162,7 @@ class _ActorType:
             custom_after_sleep: How long to sleep for after the metamorph, to wait for the container to be stopped.
         """
         if not self.is_at_home():
-            self.log.error('Actor.metamorph() is only supported when running on the Apify platform.')
+            self.log.warning('Actor.metamorph() is only supported when running on the Apify platform.')
             return
 
         if custom_after_sleep is None:
@@ -1172,6 +1172,7 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
+        self.log.debug(f'Metamorphing the Actor run into target Actor {target_actor_id!r}.')
         await self.apify_client.run(self.configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
@@ -1198,7 +1199,7 @@ class _ActorType:
             custom_after_sleep: How long to sleep for after the reboot, to wait for the container to be stopped.
         """
         if not self.is_at_home():
-            self.log.error('Actor.reboot() is only supported when running on the Apify platform.')
+            self.log.warning('Actor.reboot() is only supported when running on the Apify platform.')
             return
 
         if self._is_rebooting:
@@ -1243,6 +1244,7 @@ class _ActorType:
             except TimeoutError:
                 self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
 
+            self.log.debug('Rebooting the Actor run.')
             await self.apify_client.run(self.configuration.actor_run_id).reboot()
         except BaseException:
             # Reset the flag so that a failed or cancelled reboot can be retried.
@@ -1277,7 +1279,7 @@ class _ActorType:
             )
 
         if not self.is_at_home():
-            self.log.error('Actor.add_webhook() is only supported when running on the Apify platform.')
+            self.log.warning('Actor.add_webhook() is only supported when running on the Apify platform.')
             return
 
         # If is_at_home() is True, config.actor_run_id is always set
@@ -1454,9 +1456,9 @@ class _ActorType:
             return max(self.configuration.timeout_at - datetime.now(tz=UTC), timedelta(0))
 
         self.log.warning(
-            'Using `inherit` argument is only possible when the Actor'
-            ' is running on the Apify platform and when the timeout for the Actor run is set. '
-            f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
+            'Using the `inherit` argument is only possible when the Actor is running on the Apify platform and '
+            'the timeout for the Actor run is set.',
+            extra={'is_at_home': self.is_at_home(), 'timeout_at': self.configuration.timeout_at},
         )
         return None
 

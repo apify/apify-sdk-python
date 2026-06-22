@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from asyncio import Lock
 from functools import cached_property
 from logging import getLogger
@@ -225,7 +224,7 @@ class AliasResolver:
         alias_map[self._storage_key] = storage_id
 
         if not self._configuration.is_at_home:
-            logging.getLogger(__name__).debug(
+            logger.debug(
                 'AliasResolver storage limited retention is only supported on Apify platform. Storage is not exported.'
             )
             return

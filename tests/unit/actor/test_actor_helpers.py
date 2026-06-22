@@ -138,7 +138,7 @@ async def test_metamorph_fails_locally(caplog: pytest.LogCaptureFixture) -> None
 
     matching = [r for r in caplog.records if 'Actor.metamorph()' in r.message]
     assert len(matching) == 1
-    assert matching[0].levelname == 'ERROR'
+    assert matching[0].levelname == 'WARNING'
     assert 'only supported when running on the Apify platform' in matching[0].message
 
 
@@ -149,7 +149,7 @@ async def test_reboot_fails_locally(caplog: pytest.LogCaptureFixture) -> None:
 
     matching = [r for r in caplog.records if 'Actor.reboot()' in r.message]
     assert len(matching) == 1
-    assert matching[0].levelname == 'ERROR'
+    assert matching[0].levelname == 'WARNING'
     assert 'only supported when running on the Apify platform' in matching[0].message
 
 
@@ -165,7 +165,7 @@ async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> No
 
     matching = [r for r in caplog.records if 'Actor.add_webhook()' in r.message]
     assert len(matching) == 1
-    assert matching[0].levelname == 'ERROR'
+    assert matching[0].levelname == 'WARNING'
     assert 'only supported when running on the Apify platform' in matching[0].message
 
 

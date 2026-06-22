@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from logging import getLogger
 from re import Pattern
 from typing import TYPE_CHECKING, Any
 
@@ -22,12 +23,13 @@ from crawlee.proxy_configuration import (
 from apify._configuration import Configuration
 from apify._consts import ApifyEnvVars
 from apify._utils import docs_group
-from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
     from apify import Request
+
+logger = getLogger(__name__)
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
