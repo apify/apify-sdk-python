@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Expose missing platform env vars via Actor.get_env() ([#984](https://github.com/apify/apify-sdk-python/pull/984)) ([f6e9b3b](https://github.com/apify/apify-sdk-python/commit/f6e9b3b328768aefb51257a258c4b6f03980fc72)) by [@vdusek](https://github.com/vdusek)
+- Re-export apify-client errors from apify.errors ([#990](https://github.com/apify/apify-sdk-python/pull/990)) ([165a3f6](https://github.com/apify/apify-sdk-python/commit/165a3f698dac6ace7394fc6b9f15ab7bb3a48050)) by [@vdusek](https://github.com/vdusek), closes [#988](https://github.com/apify/apify-sdk-python/issues/988)
 
 ### 🐛 Bug Fixes
 
