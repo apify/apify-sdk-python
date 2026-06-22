@@ -9,6 +9,7 @@ const GROUP_ORDER = [
     'Actor',
     'Charging',
     'Configuration',
+    'Errors',
     'Event data',
     'Event managers',
     'Events',
@@ -149,6 +150,47 @@ module.exports = {
                     moduleShortcutsPath: join(__dirname, '/module_shortcuts.json'),
                 },
                 reexports: [
+                    // Errors
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/ApifyApiError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/ApifyClientError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/ConflictError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/ForbiddenError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/InvalidRequestError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/InvalidResponseBodyError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/NotFoundError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/RateLimitError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/ServerError',
+                        group: 'Errors',
+                    },
+                    {
+                        url: 'https://docs.apify.com/api/client/python/reference/class/UnauthorizedError',
+                        group: 'Errors',
+                    },
                     // Storages
                     {
                         url: 'https://crawlee.dev/python/api/class/Storage',
