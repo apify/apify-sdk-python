@@ -43,8 +43,8 @@ For details, see the [Crawlee storage clients guide](https://crawlee.dev/python/
 
 `ApifyStorageClient` supports two ways of accessing the Apify request queue, selected via its `request_queue_access` argument:
 
-- **`'single'`** (default) - optimized for a single consumer. It makes fewer API calls, so it is cheaper and faster, but it doesn't support multiple clients consuming the same queue concurrently. This is the right choice for the majority of Actors.
-- **`'shared'`** - supports multiple consumers working on the same queue at the same time, at the cost of more API calls.
+- **`'single'`** (default) - optimized for a single consumer. It makes fewer API calls, so it's cheaper and faster, but it doesn't support multiple clients consuming the same queue concurrently. This is the right choice for the majority of Actors.
+- **`'shared'`** - supports multiple consumers working on the same queue at the same time, at the cost of more API calls. Use it when several Actor runs share one named request queue. For example, you can split a large crawl across parallel runs, or feed the queue from a producer run while worker runs consume it.
 
 To opt into the shared client, set it as the cloud client of the `SmartApifyStorageClient` in the [service locator](https://crawlee.dev/python/docs/guides/service-locator) before entering the Actor context:
 

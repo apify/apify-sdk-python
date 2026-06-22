@@ -151,6 +151,8 @@ you can use the <ApiLink to="class/KeyValueStore#get_public_url">`KeyValueStore.
 
 In this section we will show you how to work with [request queues](https://docs.apify.com/platform/storage/request-queue).
 
+By default, a request queue is optimized for a single consumer. To let multiple Actor runs process the same queue at once, see [single vs. shared request queue](./storage-clients#single-vs-shared-request-queue).
+
 ### Adding requests to a queue
 
 To add a request into the queue, you can use the <ApiLink to="class/RequestQueue#add_request">`RequestQueue.add_request`</ApiLink> method.
