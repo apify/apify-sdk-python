@@ -279,7 +279,11 @@ class ApifyRequestQueueSingleClient:
         """Specific implementation of this method for the RQ single access mode."""
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         await self._ensure_head_is_non_empty()
-        return not self._head_requests and not self._requests_in_progress
+        return not self._head_requests
+
+    async def is_finished(self) -> bool:
+        """Specific implementation of this method for the RQ single access mode."""
+        return await self.is_empty() and not self._requests_in_progress
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""

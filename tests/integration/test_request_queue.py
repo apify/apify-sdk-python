@@ -651,6 +651,44 @@ async def test_empty_rq_behavior(request_queue_apify: RequestQueue, rq_poll_time
     assert metadata.pending_request_count == 0, f'metadata.pending_request_count={metadata.pending_request_count}'
 
 
+async def test_is_empty_and_is_finished(request_queue_apify: RequestQueue, rq_poll_timeout: int) -> None:
+    """Test `is_empty` and `is_finished` across the queue lifecycle."""
+
+    rq = request_queue_apify
+    Actor.log.info('Request queue opened')
+
+    # Initially the queue is empty and finished.
+    is_empty = await poll_until_condition(rq.is_empty, timeout=rq_poll_timeout, backoff_factor=2)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=rq_poll_timeout, backoff_factor=2)
+    assert is_empty is True, f'is_empty={is_empty}'
+    assert is_finished is True, f'is_finished={is_finished}'
+
+    # After adding a request it is neither empty nor finished.
+    await rq.add_request('https://example.com')
+    is_empty = await poll_until_condition(rq.is_empty, condition=lambda e: e is False, timeout=rq_poll_timeout)
+    is_finished = await poll_until_condition(rq.is_finished, condition=lambda f: f is False, timeout=rq_poll_timeout)
+    assert is_empty is False, f'is_empty={is_empty}'
+    assert is_finished is False, f'is_finished={is_finished}'
+
+    # Fetch the request without handling it.
+    request = await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2)
+    assert request is not None, f'request={request}'
+
+    # The queue is empty, because there is no request available for fetching.
+    is_empty = await poll_until_condition(rq.is_empty, timeout=rq_poll_timeout, backoff_factor=2)
+    assert is_empty is True, f'is_empty={is_empty}'
+    # The queue is not finished, because there is a request being processed.
+    is_finished = await poll_until_condition(rq.is_finished, condition=lambda f: f is False, timeout=rq_poll_timeout)
+    assert is_finished is False, f'is_finished={is_finished}'
+
+    # After marking the request as handled the queue is empty and finished again.
+    await rq.mark_request_as_handled(request)
+    is_empty = await poll_until_condition(rq.is_empty, timeout=rq_poll_timeout, backoff_factor=2)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=rq_poll_timeout, backoff_factor=2)
+    assert is_empty is True, f'is_empty={is_empty}'
+    assert is_finished is True, f'is_finished={is_finished}'
+
+
 async def test_large_batch_operations(
     request_queue_apify: RequestQueue,
     rq_poll_timeout: int,

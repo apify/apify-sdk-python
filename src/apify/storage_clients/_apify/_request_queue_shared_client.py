@@ -293,7 +293,14 @@ class ApifyRequestQueueSharedClient:
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         async with self._fetch_lock:
             head = await self._list_head(limit=1)
-            return len(head.items) == 0 and not self._queue_has_locked_requests
+            return len(head.items) == 0
+
+    async def is_finished(self) -> bool:
+        """Specific implementation of this method for the RQ shared access mode."""
+        if not await self.is_empty():
+            return False
+
+        return not self._queue_has_locked_requests
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.

@@ -84,7 +84,7 @@ dev = [
 requires-dist = [
     { name = "apify-client", specifier = ">=3.0.0,<4.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
-    { name = "crawlee", specifier = ">=1.0.4,<2.0.0" },
+    { name = "crawlee", git = "https://github.com/Mantisus/crawlee-python?branch=queue-client-is-finished" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "impit", specifier = ">=0.8.0" },
     { name = "lazy-object-proxy", specifier = ">=1.11.0" },
@@ -101,7 +101,7 @@ provides-extras = ["scrapy"]
 dev = [
     { name = "black", specifier = ">=24.3.0" },
     { name = "build", specifier = "<2.0.0" },
-    { name = "crawlee", extras = ["parsel"] },
+    { name = "crawlee", extras = ["parsel"], git = "https://github.com/Mantisus/crawlee-python?branch=queue-client-is-finished" },
     { name = "dycw-pytest-only", specifier = "<3.0.0" },
     { name = "griffe" },
     { name = "poethepoet", specifier = "<1.0.0" },
@@ -536,8 +536,8 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "1.7.2"
-source = { registry = "https://pypi.org/simple" }
+version = "1.7.3"
+source = { git = "https://github.com/Mantisus/crawlee-python?branch=queue-client-is-finished#6433c378b58ffa8d233d3c232b05425bb6ade1a5" }
 dependencies = [
     { name = "async-timeout" },
     { name = "cachetools" },
@@ -552,10 +552,6 @@ dependencies = [
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/80/19/b2ca54efbdad4770a3889aa788bd9a738a754b8b8889a3f7413cc40f25c3/crawlee-1.7.2.tar.gz", hash = "sha256:362f3f9e43d7c28c8c0133f8787ad2ff77d159ff205b9a72f2013ece882298ac", size = 287966, upload-time = "2026-06-04T08:14:59.459Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f5/cd/00961c23ce321ba16343ae53cc08e23f088ff7c1ea5365f64cae3c71d349/crawlee-1.7.2-py3-none-any.whl", hash = "sha256:dd22b2c1fa6b39312222ec0e732344b22eb26aa53d33758ec9a1a8ad16725d4d", size = 370707, upload-time = "2026-06-04T08:14:57.574Z" },
 ]
 
 [package.optional-dependencies]
