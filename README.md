@@ -195,7 +195,7 @@ async def main() -> None:
 The full SDK documentation lives at **[docs.apify.com/sdk/python](https://docs.apify.com/sdk/python)**. For the Apify platform itself, see the [Apify documentation](https://docs.apify.com/).
 
 | Section | What you'll find |
-|---|---|
+| --- | --- |
 | [Overview](https://docs.apify.com/sdk/python/docs/overview) | What the SDK is, what Actors are, and how the pieces fit together. |
 | [Quick start](https://docs.apify.com/sdk/python/docs/quick-start) | Create, run, and deploy your first Python Actor. |
 | [Concepts](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle) | Actor lifecycle, input, storages, events, proxy management, interacting with other Actors, webhooks, accessing the Apify API, logging, configuration, and pay-per-event. |

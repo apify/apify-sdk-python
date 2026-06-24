@@ -13,6 +13,7 @@ Support for Python 3.10 has been dropped. The Apify Python SDK v4.x now requires
 ## Keyword-only arguments
 
 Secondary parameters in these signatures can no longer be passed positionally:
+
 - `Actor` — `get_value`, `push_data`, `charge`, `use_state`.
 - `ChargingManager` — `charge`.
 
@@ -66,6 +67,7 @@ run = await Actor.call('user/actor', timeout='inherit')
 ### Deprecated Configuration fields
 
 The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields have been removed from `Configuration`:
+
 - In place of `standby_port`, use `web_server_port`.
 - `latest_sdk_version` and `log_format` don't have replacement. SDK version checking isn't supported for the Python SDK and the log format should be adjusted in code instead.
 
