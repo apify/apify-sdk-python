@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from base64 import b64encode
 from hashlib import sha256
@@ -11,7 +12,6 @@ from crawlee.storage_clients.models import ProcessedRequest, UnprocessedRequest
 from apify import Request
 
 if TYPE_CHECKING:
-    import asyncio
     from collections.abc import Iterable
 
     from apify_client._models import HeadRequest, LockedHeadRequest
@@ -95,7 +95,9 @@ async def resolve_awaited_in_flight(
     so the caller retries them rather than receiving false success.
     """
     for request, future in awaited_in_flight:
-        if await future:
+        # Shield the shared in-flight marker: cancelling this awaiting caller must not cancel the future, which
+        # is owned by the original producer and may have other callers waiting on it.
+        if await asyncio.shield(future):
             api_response.processed_requests.append(
                 ProcessedRequest(
                     id=unique_key_to_request_id(request.unique_key),
