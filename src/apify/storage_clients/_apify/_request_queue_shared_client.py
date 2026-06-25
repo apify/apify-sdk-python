@@ -11,7 +11,12 @@ from cachetools import LRUCache
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import ApifyRequestQueueMetadata, CachedRequest, RequestQueueHead
-from ._utils import to_crawlee_request, unique_key_to_request_id
+from ._utils import (
+    resolve_awaited_in_flight,
+    settle_pending_addition,
+    to_crawlee_request,
+    unique_key_to_request_id,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine, Sequence
@@ -71,6 +76,19 @@ class ApifyRequestQueueSharedClient:
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """LRU cache storing request objects, keyed by request ID."""
 
+        self._requests_being_added: dict[str, asyncio.Future[bool]] = {}
+        """In-flight `add_batch_of_requests` markers, keyed by request ID.
+
+        Coordinates only concurrent `add_batch_of_requests` calls sharing this one client instance (e.g. several
+        producer coroutines adding requests in the same process). It does not coordinate separate client instances
+        or processes, which each keep their own markers; deduplication across clients still relies on the platform.
+
+        Each future resolves once the platform call that is adding the request settles: `True` if the request was
+        committed, `False` otherwise. A concurrent call adding the same request awaits the future instead of
+        re-sending it, which avoids a duplicate platform write while still avoiding false success when the original
+        add fails.
+        """
+
         self._queue_has_locked_requests: bool | None = None
         """Whether the queue contains requests currently locked by other clients."""
 
@@ -87,9 +105,13 @@ class ApifyRequestQueueSharedClient:
         forefront: bool = False,
     ) -> AddRequestsResponse:
         """Specific implementation of this method for the RQ shared access mode."""
+        loop = asyncio.get_running_loop()
         # Do not try to add previously added requests to avoid pointless expensive calls to API
         new_requests: list[Request] = []
         already_present_requests: list[ProcessedRequest] = []
+        # Requests a concurrent `add_batch_of_requests` call is already sending. We await its outcome instead of
+        # re-sending them, as (request, that call's in-flight future) pairs.
+        awaited_in_flight: list[tuple[Request, asyncio.Future[bool]]] = []
 
         for request in requests:
             request_id = unique_key_to_request_id(request.unique_key)
@@ -106,45 +128,69 @@ class ApifyRequestQueueSharedClient:
                     )
                 )
 
+            elif request_id in self._requests_being_added:
+                # A concurrent call is already adding this request; await its outcome rather than re-sending it.
+                awaited_in_flight.append((request, self._requests_being_added[request_id]))
+
             else:
-                # Add new request to the cache.
-                processed_request = ProcessedRequest(
-                    id=request_id,
-                    unique_key=request.unique_key,
-                    was_already_present=True,
-                    was_already_handled=request.was_already_handled,
-                )
-                self._cache_request(
-                    request_id,
-                    processed_request,
-                )
+                # Register an in-flight marker so a concurrent call dedupes against it; caching is deferred
+                # until the platform confirms the request was accepted (see below).
                 new_requests.append(request)
+                self._requests_being_added[request_id] = loop.create_future()
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
             requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
 
-            # Send requests to API.
-            batch_response = await self._api_client.batch_add_requests(
-                requests=requests_dict,
-                forefront=forefront,
-            )
+            committed_request_ids: set[str] = set()
+            try:
+                # Send requests to API.
+                batch_response = await self._api_client.batch_add_requests(
+                    requests=requests_dict,
+                    forefront=forefront,
+                )
 
-            batch_response_dict = batch_response.model_dump(by_alias=True)
-            api_response = AddRequestsResponse.model_validate(batch_response_dict)
+                batch_response_dict = batch_response.model_dump(by_alias=True)
+                api_response = AddRequestsResponse.model_validate(batch_response_dict)
 
-            # Add the locally known already present processed requests based on the local cache.
-            api_response.processed_requests.extend(already_present_requests)
+                # Commit only the requests the platform actually accepted to the local dedup cache. Caching after
+                # the call succeeds (not before) keeps a failed call from poisoning the cache and silently
+                # deduplicating a later retry of the same request.
+                unprocessed_unique_keys = {request.unique_key for request in api_response.unprocessed_requests}
+                for request in new_requests:
+                    if request.unique_key in unprocessed_unique_keys:
+                        continue
+                    request_id = unique_key_to_request_id(request.unique_key)
+                    self._cache_request(
+                        request_id,
+                        ProcessedRequest(
+                            id=request_id,
+                            unique_key=request.unique_key,
+                            was_already_present=True,
+                            was_already_handled=request.was_already_handled,
+                        ),
+                    )
+                    committed_request_ids.add(request_id)
 
-            # Remove unprocessed requests from the cache
-            for unprocessed_request in api_response.unprocessed_requests:
-                unprocessed_request_id = unique_key_to_request_id(unprocessed_request.unique_key)
-                self._requests_cache.pop(unprocessed_request_id, None)
+                # Add the locally known already present processed requests based on the local cache.
+                api_response.processed_requests.extend(already_present_requests)
+            finally:
+                # Release the in-flight markers we registered. Committed requests tell concurrent callers the
+                # request reached the platform; everything else (unprocessed, API error, cancellation) tells them
+                # it did not, so they retry instead of reporting false success.
+                for request in new_requests:
+                    request_id = unique_key_to_request_id(request.unique_key)
+                    settle_pending_addition(
+                        self._requests_being_added, request_id, committed=request_id in committed_request_ids
+                    )
 
         else:
             api_response = AddRequestsResponse.model_validate(
                 {'unprocessedRequests': [], 'processedRequests': already_present_requests}
             )
+
+        # Fold in requests a concurrent call was already adding.
+        await resolve_awaited_in_flight(awaited_in_flight, api_response)
 
         logger.debug(
             f'Tried to add new requests: {len(new_requests)}, '
