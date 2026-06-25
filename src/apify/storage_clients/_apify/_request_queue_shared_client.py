@@ -297,6 +297,7 @@ class ApifyRequestQueueSharedClient:
     async def is_finished(self) -> bool:
         """Specific implementation of this method for the RQ shared access mode."""
         async with self._fetch_lock:
+            # Order of operations is important here, because affects on `_queue_has_locked_requests`.
             return await self._is_empty() and not self._queue_has_locked_requests
 
     async def _is_empty(self) -> bool:
