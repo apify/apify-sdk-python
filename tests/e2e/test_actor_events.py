@@ -94,8 +94,12 @@ async def test_event_listener_can_be_removed_successfully(
             Actor.on(Event.PERSIST_STATE, count_event)
             await asyncio.sleep(0.5)
             assert counter > 1
-            last_count = counter
             Actor.off(Event.PERSIST_STATE, count_event)
+            # `off` stops future dispatch, but an event emitted just before it may still be in flight
+            # (listeners run via an asyncio task plus a worker thread). Let those settle, then snapshot.
+            await asyncio.sleep(0.5)
+            last_count = counter
+            # The listener is now removed, so no further events should be counted.
             await asyncio.sleep(0.5)
             assert counter == last_count
 
