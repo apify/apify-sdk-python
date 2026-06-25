@@ -60,10 +60,8 @@ module.exports = {
             useCssCascadeLayers: false, // this breaks styles on homepage and link colors everywhere
         },
     },
-    onBrokenLinks:
-    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
-    onBrokenMarkdownLinks:
-    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
+    onBrokenLinks: /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
+    onBrokenMarkdownLinks: /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
     themes: [
         [
             '@apify/docs-theme',

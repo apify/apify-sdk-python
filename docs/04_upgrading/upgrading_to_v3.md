@@ -68,9 +68,11 @@ Some changes in the related model classes:
 - `RequestQueueHead` - replaced by `RequestQueueHeadWithLocks`.
 
 ## Removed Actor.config property
+
 - `Actor.config` property has been removed. Use `Actor.configuration` instead.
 
 ## Default storage ids in configuration changed to None
+
 - `Configuration.default_key_value_store_id` changed from `'default'` to `None`.
 - `Configuration.default_dataset_id` changed from `'default'` to `None`.
 - `Configuration.default_request_queue_id` changed from `'default'` to `None`.
@@ -80,6 +82,7 @@ Previously using the default storage without specifying its `id` in `Configurati
 ## Actor initialization and ServiceLocator changes
 
 `Actor` initialization and global `service_locator` services setup is more strict and predictable.
+
 - Services in `Actor` can't be changed after calling `Actor.init`, entering the `async with Actor` context manager or after requesting them from the `Actor`.
 - Services in `Actor` can be different from services in Crawler.
 
@@ -115,6 +118,7 @@ async def main():
 Apify SDK v3.0 also reworks how storage clients are configured, giving you explicit control over which client the `Actor` uses.
 
 ### Explicit control over storage clients used in Actor
+
 - It is now possible to have full control over which storage clients are used by the `Actor`. To make development of Actors convenient, the `Actor` has two storage clients. One that is used when running on Apify platform or when opening storages with `force_cloud=True` and the other client that is used when running outside the Apify platform. The `Actor` has reasonable defaults and for the majority of use-cases there is no need to change it. However, if you need to use a different storage client, you can set it up before entering `Actor` context through `service_locator`.
 
 **Now (v3.0):**

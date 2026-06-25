@@ -46,7 +46,7 @@ The following Actor runs a Browser Use agent for a single task and stores its st
 
 The whole Actor fits in a single file. A `run_agent_task` helper holds the Browser Use-specific logic: it defines the output schema and builds the LLM, browser, and agent. The `main` coroutine handles the [Actor](https://docs.apify.com/platform/actors) lifecycle, reads the input, sets up [Apify Proxy](https://docs.apify.com/platform/proxy), runs the agent, and stores the result:
 
-{/* Not runnable from the docs: the agent needs an LLM API key (OPENAI_API_KEY) that the shared example runner does not provide. */}
+{/*Not runnable from the docs: the agent needs an LLM API key (OPENAI_API_KEY) that the shared example runner does not provide.*/}
 <CodeBlock className="language-python">
     {BrowserUseExample}
 </CodeBlock>
