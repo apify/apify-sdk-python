@@ -117,7 +117,7 @@ Almost any Python project can become an Actor, including projects for:
 - **Browser automation** — Drive a real browser with [Playwright](https://docs.apify.com/sdk/python/docs/guides/playwright) or [Selenium](https://docs.apify.com/sdk/python/docs/guides/selenium), or with higher-level tools such as [Browser Use](https://docs.apify.com/sdk/python/docs/guides/browser-use).
 - **Web servers and APIs** — Run a [web server](https://docs.apify.com/sdk/python/docs/guides/running-webserver) inside an Actor to serve HTTP requests, for example to expose your scraper as a live API.
 - **AI agents** — Host agents built with your framework of choice. Ready-made Actor templates cover [PydanticAI](https://apify.com/templates/python-pydanticai), [CrewAI](https://apify.com/templates/python-crewai), [LangGraph](https://apify.com/templates/python-langgraph), [LlamaIndex](https://apify.com/templates/python-llamaindex-agent), and [Smolagents](https://apify.com/templates/python-smolagents).
-- **MCP servers** — Deploy a Python MCP server as an Actor and make its tools available to any MCP client. See [MCP server](https://apify.com/templates/python-mcp-empty) and [MCP proxy](https://apify.com/templates/python-mcp-proxy) templates
+- **MCP servers** — Deploy a Python MCP server as an Actor and make its tools available to any MCP client (see the [MCP servers guide](https://docs.apify.com/sdk/python/docs/guides/mcp-servers)). Ready-made Actor templates cover the [MCP server](https://apify.com/templates/python-mcp-empty) and [MCP proxy](https://apify.com/templates/python-mcp-proxy).
 
 Whatever you build, the Apify SDK doesn't lock you into a particular framework. Bring the libraries you already use, and let Apify run your project in the cloud.
 
@@ -199,7 +199,7 @@ The full SDK documentation lives at **[docs.apify.com/sdk/python](https://docs.a
 | [Overview](https://docs.apify.com/sdk/python/docs/overview) | What the SDK is, what Actors are, and how the pieces fit together. |
 | [Quick start](https://docs.apify.com/sdk/python/docs/quick-start) | Create, run, and deploy your first Python Actor. |
 | [Concepts](https://docs.apify.com/sdk/python/docs/concepts/actor-lifecycle) | Actor lifecycle, input, storages, events, proxy management, interacting with other Actors, webhooks, accessing the Apify API, logging, configuration, and pay-per-event. |
-| [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx) | Integrations with BeautifulSoup, Parsel, Playwright, Selenium, Crawlee, Scrapy, Scrapling, Crawl4AI, and Browser Use, plus running a web server and using uv. |
+| [Guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx) | Integrations with BeautifulSoup, Parsel, Playwright, Selenium, Crawlee, Scrapy, Scrapling, Crawl4AI, and Browser Use, plus building MCP servers, running a web server, and using uv. |
 | [Upgrading](https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v4) | Migrating between major versions. |
 | [API reference](https://docs.apify.com/sdk/python/reference) | Generated reference for every class and method. |
 | [Changelog](https://docs.apify.com/sdk/python/docs/changelog) | Release history and breaking changes. |
