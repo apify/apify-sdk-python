@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from cachetools import LRUCache
 
+from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import ApifyRequestQueueMetadata, CachedRequest, RequestQueueHead
@@ -21,6 +22,9 @@ if TYPE_CHECKING:
     from apify import Request
 
 logger = getLogger(__name__)
+
+
+_CRAWLEE_SUPPORTS_IS_FINISHED = hasattr(RequestQueueClient, 'is_finished')
 
 
 class ApifyRequestQueueSharedClient:
@@ -289,6 +293,9 @@ class ApifyRequestQueueSharedClient:
 
     async def is_empty(self) -> bool:
         """Specific implementation of this method for the RQ shared access mode."""
+        if not _CRAWLEE_SUPPORTS_IS_FINISHED:
+            return await self._old_is_empty()
+
         # Check _list_head.
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         async with self._fetch_lock:
@@ -296,6 +303,9 @@ class ApifyRequestQueueSharedClient:
 
     async def is_finished(self) -> bool:
         """Specific implementation of this method for the RQ shared access mode."""
+        if not _CRAWLEE_SUPPORTS_IS_FINISHED:
+            return await self._old_is_empty()
+
         async with self._fetch_lock:
             # Order of operations is important here, because affects on `_queue_has_locked_requests`.
             return await self._is_empty() and not self._queue_has_locked_requests
@@ -304,6 +314,12 @@ class ApifyRequestQueueSharedClient:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
         head = await self._list_head(limit=1)
         return len(head.items) == 0
+
+    async def _old_is_empty(self) -> bool:
+        """Temporary workaround for compatibility with Crawlee versions earlier than 1.8.0."""
+        async with self._fetch_lock:
+            head = await self._list_head(limit=1)
+            return len(head.items) == 0 and not self._queue_has_locked_requests
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.
