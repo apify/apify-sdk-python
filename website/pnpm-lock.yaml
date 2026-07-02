@@ -52,8 +52,8 @@ importers:
         version: 5.1.0
     devDependencies:
       '@apify/oxlint-config':
-        specifier: ^0.2.10
-        version: 0.2.10(oxlint@1.72.0)
+        specifier: ^0.3.0
+        version: 0.3.0(oxlint@1.72.0)
       '@apify/tsconfig':
         specifier: ^0.2.0
         version: 0.2.0
@@ -260,8 +260,8 @@ packages:
       react-dom: ^18.2.0 || >=19.0.0
       typescript: ^5.0.0
 
-  '@apify/oxlint-config@0.2.10':
-    resolution: {integrity: sha512-7wyaumtytCiKqqd/ILgDAmlqNpBCZ+xXi2j8JfY3Uanxciz18C18kG3+sLdPbm4efkuskH5dhEdmjDC/UHaG+w==}
+  '@apify/oxlint-config@0.3.0':
+    resolution: {integrity: sha512-njNpYIfowurrM3+TDhhb/LLADAPzozs9+hTTMB/OiRAKrUHOqF6KIsUCYI8IGZAB1hl9vXQnFmKQzTysbAJ7mA==}
     peerDependencies:
       oxlint: ^1.61.0
 
@@ -7748,7 +7748,7 @@ snapshots:
       typescript: 6.0.3
       zx: 8.8.5
 
-  '@apify/oxlint-config@0.2.10(oxlint@1.72.0)':
+  '@apify/oxlint-config@0.3.0(oxlint@1.72.0)':
     dependencies:
       oxlint: 1.72.0
 

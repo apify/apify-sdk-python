@@ -40,7 +40,7 @@
         "unist-util-visit": "^5.0.0"
     },
     "devDependencies": {
-        "@apify/oxlint-config": "^0.2.10",
+        "@apify/oxlint-config": "^0.3.0",
         "@apify/tsconfig": "^0.2.0",
         "@types/react": "^19.0.0",
         "markdownlint": "^0.41.0",
