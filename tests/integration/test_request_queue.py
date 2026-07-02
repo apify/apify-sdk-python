@@ -11,6 +11,7 @@ import pytest
 from apify_client._models import BatchAddResult, RequestDraft
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
+from crawlee.storage_clients._base import RequestQueueClient
 
 from .._utils import generate_unique_resource_name, poll_until_condition
 from apify import Actor, Request
@@ -1227,10 +1228,18 @@ async def test_force_cloud(
     assert str(request_queue_request.url) == 'http://example.com'
 
 
-async def test_request_queue_is_finished(
+async def test_request_queue_is_finished_and_is_empty(
     request_queue_apify: RequestQueue,
     rq_poll_timeout: int,
 ) -> None:
+    """Test that `is_empty` and `is_finished` behave correctly with Apify request queue."""
+
+    assert await poll_until_condition(request_queue_apify.is_empty, timeout=rq_poll_timeout, backoff_factor=2), (
+        'RequestQueue should be empty initially.'
+    )
+    assert await poll_until_condition(request_queue_apify.is_finished, timeout=rq_poll_timeout, backoff_factor=2), (
+        'RequestQueue should be finished initially.'
+    )
 
     await request_queue_apify.add_request(Request.from_url('http://example.com'))
     assert not await request_queue_apify.is_finished()
@@ -1239,11 +1248,24 @@ async def test_request_queue_is_finished(
         request_queue_apify.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2
     )
     assert fetched is not None
-    assert not await request_queue_apify.is_finished(), (
-        'RequestQueue should not be finished unless the request is marked as handled.'
-    )
+
+    if hasattr(RequestQueueClient, 'is_finished'):
+        assert await poll_until_condition(request_queue_apify.is_empty, timeout=rq_poll_timeout, backoff_factor=2), (
+            'RequestQueue should be empty because queue does not contain any requests for fetching.'
+        )
+        assert not await request_queue_apify.is_finished(), (
+            'RequestQueue should not be finished unless the request is marked as handled.'
+        )
+    else:
+        assert not await poll_until_condition(
+            request_queue_apify.is_empty, timeout=rq_poll_timeout, backoff_factor=2
+        ), 'RequestQueue should not be empty because queue contains a request in progress.'
+        assert not await request_queue_apify.is_finished(), (
+            'RequestQueue should not be finished unless the request is marked as handled.'
+        )
 
     await request_queue_apify.mark_request_as_handled(fetched)
+    assert await poll_until_condition(request_queue_apify.is_empty, timeout=rq_poll_timeout, backoff_factor=2)
     assert await poll_until_condition(request_queue_apify.is_finished, timeout=rq_poll_timeout, backoff_factor=2)
 
 

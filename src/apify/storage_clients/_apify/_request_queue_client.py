@@ -198,3 +198,6 @@ class ApifyRequestQueueClient(RequestQueueClient):
     @override
     async def is_empty(self) -> bool:
         return await self._implementation.is_empty()
+
+    async def is_finished(self) -> bool:
+        return await self._implementation.is_finished()
