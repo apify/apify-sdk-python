@@ -1,6 +1,6 @@
 ---
 id: mcp-servers
-title: Building MCP servers
+title: Deploying MCP servers
 description: Deploy a Python MCP server as an Apify Actor and make its tools available to any MCP client.
 ---
 
@@ -31,11 +31,11 @@ Both templates live in the [actor-templates repository](https://github.com/apify
 
 ## Before you start
 
-To follow along, install the [Apify CLI](https://docs.apify.com/cli/docs/installation) and log in with `apify login`. Both examples build on [FastMCP](https://gofastmcp.com/) and are served by [uvicorn](https://www.uvicorn.org/), so declare them in your Actor's `requirements.txt` next to the SDK:
+To follow along, install the [Apify CLI](https://docs.apify.com/cli/docs/installation) and log in with `apify login`. Both examples build on [FastMCP](https://gofastmcp.com/) v3 and are served by [uvicorn](https://www.uvicorn.org/), so declare them in your Actor's `requirements.txt` next to the SDK:
 
 ```text
 apify
-fastmcp
+fastmcp>=3
 uvicorn
 ```
 
@@ -67,7 +67,7 @@ To make the server an always-ready HTTP API, enable [Actor Standby](https://docs
 }
 ```
 
-Once deployed, an MCP client connects to the Actor's URL using the Streamable HTTP transport, passing an [Apify API token](https://console.apify.com/account/integrations) as a bearer token:
+Deploy the Actor with `apify push`. Once it's running, an MCP client connects to the Actor's URL using the Streamable HTTP transport, passing an [Apify API token](https://console.apify.com/account/integrations) as a bearer token:
 
 ```json
 {
@@ -121,7 +121,7 @@ Both approaches support [pay-per-event charging](../concepts/pay-per-event), so 
 }
 ```
 
-Then charge the event from your code when a client calls a tool:
+Then charge the event from your code when a client calls a tool. The `add` tool from the [server example](#mcp-server) becomes `async` so it can `await` the charge:
 
 ```python
 @server.tool()

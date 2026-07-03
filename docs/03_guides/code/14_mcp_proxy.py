@@ -6,8 +6,8 @@ from fastmcp.server import create_proxy
 from apify import Actor
 
 # The upstream MCP server to expose. Point this at any remote Streamable HTTP or
-# SSE endpoint. To wrap a local stdio server instead, pass an `mcpServers` config
-# (see the MCP proxy guide section).
+# SSE endpoint. To wrap a local stdio server instead, pass `create_proxy` an
+# `mcpServers` config mapping (`{'command': ..., 'args': [...]}`) instead of a URL.
 UPSTREAM_URL = 'https://mcp.example.com/mcp'
 
 
