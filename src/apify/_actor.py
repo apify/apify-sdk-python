@@ -865,9 +865,7 @@ class _ActorType:
             if field.deprecated:
                 continue
 
-            if field.alias:
-                aliases = [field.alias]
-            elif isinstance(field.validation_alias, str):
+            if isinstance(field.validation_alias, str):
                 aliases = [field.validation_alias]
             elif isinstance(field.validation_alias, AliasChoices):
                 aliases = cast('list[str]', field.validation_alias.choices)
