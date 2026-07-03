@@ -4,11 +4,10 @@ title: Hosting AI agents
 description: Host AI agents built with LangGraph, CrewAI, PydanticAI, LlamaIndex, or Smolagents as Apify Actors.
 ---
 
-import CodeBlock from '@theme/CodeBlock';
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import LanggraphExample from '!!raw-loader!roa-loader!./code/14_langgraph.py';
-import CrewaiExample from '!!raw-loader!./code/14_crewai.py';
+import CrewaiExample from '!!raw-loader!roa-loader!./code/14_crewai.py';
 import PydanticaiExample from '!!raw-loader!roa-loader!./code/14_pydanticai.py';
 import LlamaindexExample from '!!raw-loader!roa-loader!./code/14_llamaindex.py';
 import SmolagentsExample from '!!raw-loader!roa-loader!./code/14_smolagents.py';
@@ -37,7 +36,7 @@ Apify maintains a ready-made Actor template for each of the popular agent framew
 | [CrewAI](#crewai) | Multi-agent "crews" that collaborate on a task | [`python-crewai`](https://apify.com/templates/python-crewai) |
 | [PydanticAI](#pydanticai) | Typed, Pydantic-native agents with tool calling | [`python-pydanticai`](https://apify.com/templates/python-pydanticai) |
 | [LlamaIndex](#llamaindex) | Retrieval-augmented agents over your own data | [`python-llamaindex-agent`](https://apify.com/templates/python-llamaindex-agent) |
-| [Smolagents](#smolagents) | Lightweight code-writing agents from Hugging Face | [`python-smolagents`](https://apify.com/templates/python-smolagents) |
+| [Smolagents](#smolagents) | Lightweight code-writing agents | [`python-smolagents`](https://apify.com/templates/python-smolagents) |
 
 All of these templates live in the [actor-templates repository](https://github.com/apify/actor-templates), and you can scaffold any of them with the [Apify CLI](https://docs.apify.com/cli), for example `apify create my-agent --template python-pydanticai`.
 
@@ -45,9 +44,9 @@ All of these templates live in the [actor-templates repository](https://github.c
 
 Every agent needs an LLM, and there are two ways to provide one.
 
-The first is the [Apify OpenRouter proxy](https://apify.com/apify/openrouter), an OpenAI-compatible endpoint at `https://openrouter.apify.actor/api/v1` that fronts the full [OpenRouter](https://openrouter.ai) model catalog. The token usage is billed against the Apify account running the Actor, so no provider API key is required. The Actor authenticates with the proxy using the `APIFY_TOKEN` that the platform injects into every run. Any framework with an OpenAI-compatible client can point its base URL at the proxy, which is what most examples below do. To switch models, change the `model` input to any [OpenRouter model slug](https://openrouter.ai/models), for example `openai/gpt-4o-mini`.
+The first is the [Apify OpenRouter proxy](https://apify.com/apify/openrouter), an OpenAI-compatible endpoint at `https://openrouter.apify.actor/api/v1` that fronts the full [OpenRouter](https://openrouter.ai) model catalog. The token usage is billed against the Apify account running the Actor, so no provider API key is required. The Actor authenticates with the proxy using the `APIFY_TOKEN` that the platform injects into every run. Any framework with an OpenAI-compatible client can point its base URL at the proxy, which is what every example below does. To switch models, change the `model` input to any [OpenRouter model slug](https://openrouter.ai/models), for example `openai/gpt-4o-mini`.
 
-The second is to call a provider such as OpenAI directly with your own API key, which the CrewAI example below does through LiteLLM. Keep the key out of the Actor input and source code. Read it from an environment variable, which on the platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) and locally you export in your shell.
+The second is to call a provider such as OpenAI directly with your own API key. Keep the key out of the Actor input and source code. Read it from an environment variable, which on the platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) and locally you export in your shell.
 
 Each section below shows a complete, single-file Actor for one framework. They all read the input, run the agent, and store the result in the default dataset.
 
@@ -76,21 +75,20 @@ Note that:
 [CrewAI](https://www.crewai.com/) models a problem as a "crew" of role-playing agents that work through tasks. To install it, use:
 
 ```bash
-pip install "crewai[tools]"
+pip install crewai
 ```
 
-The following Actor defines a single analyst agent that uses an Apify Actor as a tool to answer a query:
+The following Actor defines a single analyst agent with one tool:
 
-{/*Not runnable from the docs: CrewAI reads the LLM key from OPENAI_API_KEY, which the shared example runner doesn't provide.*/}
-<CodeBlock className="language-python">
+<RunnableCodeBlock className="language-python" language="python">
     {CrewaiExample}
-</CodeBlock>
+</RunnableCodeBlock>
 
 Note that:
 
+- CrewAI's `LLM` points its `base_url` at the Apify OpenRouter proxy. The `openai/` model prefix selects its OpenAI-compatible client, so no provider key is needed.
 - `kickoff_async` runs the crew without blocking the Actor's event loop.
-- `ApifyActorsTool('apify/instagram-scraper')` gives the agent the [Instagram Scraper](https://apify.com/apify/instagram-scraper) as a tool. It comes from the `crewai[tools]` package and reads its token from `APIFY_API_TOKEN`, which the example sets from the platform's `APIFY_TOKEN`.
-- CrewAI calls the LLM through [LiteLLM](https://docs.litellm.ai/), so this example reads `OPENAI_API_KEY`. To route it through the Apify OpenRouter proxy instead, configure a custom `LLM` (see the [CrewAI LLM docs](https://docs.crewai.com/concepts/llms)).
+- The agent decides on its own when to call the `average` tool. Add more tools to extend it, including Apify Actors (see [Using Apify Actors as tools](#using-apify-actors-as-tools)).
 - On a fresh container, CrewAI shows a one-time trace-consent prompt. The template sets `CREWAI_TESTING=true` to suppress it. Do the same in your Dockerfile.
 
 ## PydanticAI
@@ -165,7 +163,7 @@ from langchain_apify import ApifyActorsTool
 tools = [ApifyActorsTool('apify/instagram-scraper')]
 ```
 
-CrewAI ships the same tool as `crewai_tools.ApifyActorsTool`, as the [CrewAI example](#crewai) above shows.
+CrewAI ships the same tool as `crewai_tools.ApifyActorsTool` in its `crewai[tools]` package.
 
 For any other framework, call the Actor directly through the Actor's preconfigured API client and read its dataset:
 
