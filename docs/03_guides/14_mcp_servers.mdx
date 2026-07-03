@@ -31,11 +31,11 @@ Both templates live in the [actor-templates repository](https://github.com/apify
 
 ## Before you start
 
-To follow along, install the [Apify CLI](https://docs.apify.com/cli/docs/installation) and log in with `apify login`. Both examples build on [FastMCP](https://gofastmcp.com/) v3 and are served by [uvicorn](https://www.uvicorn.org/), so declare them in your Actor's `requirements.txt` next to the SDK:
+To follow along, install the [Apify CLI](https://docs.apify.com/cli/docs/installation) and log in with `apify login`. Both examples build on [FastMCP](https://gofastmcp.com/) and are served by [uvicorn](https://www.uvicorn.org/), so declare them in your Actor's `requirements.txt` next to the SDK:
 
 ```text
 apify
-fastmcp>=3
+fastmcp
 uvicorn
 ```
 
@@ -52,11 +52,36 @@ Note that:
 - A `build_server` helper registers the tools and resources. Add your own with the `@server.tool()` and `@server.resource()` decorators.
 - `server.http_app(transport='streamable-http')` returns an ASGI app that speaks MCP over Streamable HTTP, which [uvicorn](https://www.uvicorn.org/) then serves.
 - The server binds to `Actor.configuration.web_server_port` and `0.0.0.0`, so the platform can route the Actor's container URL to it. This is the same mechanism described in the [Running a web server](./running-webserver) guide.
-- The server keeps running until the platform shuts the Actor down. With Standby, that happens automatically once an instance has been idle for a while.
+- The example serves in the background for a short window so the run finishes on its own. A production Actor keeps serving until the platform shuts it down. With [Standby](#exposing-it-over-standby), shutdown happens automatically once an instance has been idle for a while.
 
-### Exposing it over Standby
+## MCP proxy
 
-To make the server an always-ready HTTP API, enable [Actor Standby](https://docs.apify.com/platform/actors/development/programming-interface/standby) and tell the platform where the MCP endpoint lives. Set both in the Actor's `.actor/actor.json`:
+If you already have an MCP server, or want to expose a third-party one, you don't need to rewrite it. FastMCP can wrap an existing server and re-expose it over Streamable HTTP, so you put the same always-ready Apify endpoint in front of a server you didn't write. The following Actor proxies a remote MCP server, serving it on its web server port exactly like the server above:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {McpProxyExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- `create_proxy` connects to the upstream server and returns a FastMCP instance, so the rest of the Actor is identical to a server you build yourself.
+- The example wraps a remote URL. To spawn and wrap a local stdio server, pass an `mcpServers` config instead:
+
+    ```python
+    proxy = create_proxy(
+        {'mcpServers': {'arxiv': {'command': 'uv', 'args': ['run', 'arxiv-mcp-server']}}},
+        name='my-mcp-proxy',
+    )
+    ```
+
+- Serving works the same as the server above. You expose it over [Standby](#exposing-it-over-standby) the same way, so clients connect to `<actor-url>/mcp` with a bearer token.
+- To control which tools clients may call, or to charge per call, add a FastMCP [middleware](https://gofastmcp.com/servers/middleware) that hooks `on_list_tools` and `on_call_tool`.
+
+For a batteries-included gateway with a tool whitelist and per-operation charging already wired up, start from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template.
+
+## Exposing it over Standby
+
+Both the server and the proxy listen on the web server port, so you expose either one the same way. To make it an always-ready HTTP API, enable [Actor Standby](https://docs.apify.com/platform/actors/development/programming-interface/standby) and tell the platform where the MCP endpoint lives. Set both in the Actor's `.actor/actor.json`:
 
 ```json
 {
@@ -81,31 +106,6 @@ Deploy the Actor with `apify push`. Once it's running, an MCP client connects to
     }
 }
 ```
-
-## MCP proxy
-
-If you already have an MCP server, or want to expose a third-party one, you don't need to rewrite it. FastMCP can wrap an existing server and re-expose it over Streamable HTTP, so you put the same always-ready Apify endpoint in front of a server you didn't write. The following Actor proxies a remote MCP server, serving it on its web server port exactly like the server above:
-
-<RunnableCodeBlock className="language-python" language="python">
-    {McpProxyExample}
-</RunnableCodeBlock>
-
-Note that:
-
-- `create_proxy` connects to the upstream server and returns a FastMCP instance, so the rest of the Actor is identical to a server you build yourself.
-- The example wraps a remote URL. To spawn and wrap a local stdio server, pass an `mcpServers` config instead:
-
-    ```python
-    proxy = create_proxy(
-        {'mcpServers': {'arxiv': {'command': 'uv', 'args': ['run', 'arxiv-mcp-server']}}},
-        name='my-mcp-proxy',
-    )
-    ```
-
-- Serving and [Standby](#exposing-it-over-standby) work the same as before, so clients connect to `<actor-url>/mcp` with a bearer token.
-- To control which tools clients may call, or to charge per call, add a FastMCP [middleware](https://gofastmcp.com/servers/middleware) that hooks `on_list_tools` and `on_call_tool`.
-
-For a batteries-included gateway with a tool whitelist and per-operation charging already wired up, start from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template.
 
 ## Monetizing with pay-per-event
 
