@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Final
 
 from cachetools import LRUCache
 
-from crawlee.storage_clients._base import RequestQueueClient
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._utils import to_crawlee_request, unique_key_to_request_id
@@ -20,9 +19,6 @@ if TYPE_CHECKING:
     from apify import Request
 
 logger = getLogger(__name__)
-
-
-_CRAWLEE_SUPPORTS_IS_FINISHED = hasattr(RequestQueueClient, 'is_finished')
 
 
 class ApifyRequestQueueSingleClient:
@@ -281,23 +277,12 @@ class ApifyRequestQueueSingleClient:
 
     async def is_empty(self) -> bool:
         """Specific implementation of this method for the RQ single access mode."""
-        if not _CRAWLEE_SUPPORTS_IS_FINISHED:
-            return await self._old_is_empty()
-
         await self._ensure_head_is_non_empty()
         return not self._head_requests
 
     async def is_finished(self) -> bool:
         """Specific implementation of this method for the RQ single access mode."""
-        if not _CRAWLEE_SUPPORTS_IS_FINISHED:
-            return await self._old_is_empty()
-
         return await self.is_empty() and not self._requests_in_progress
-
-    async def _old_is_empty(self) -> bool:
-        """Temporary workaround for compatibility with Crawlee versions earlier than 1.8.0."""
-        await self._ensure_head_is_non_empty()
-        return not self._head_requests and not self._requests_in_progress
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
