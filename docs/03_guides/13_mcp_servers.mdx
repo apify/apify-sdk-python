@@ -51,7 +51,7 @@ Note that:
 
 - A `build_server` helper registers the tools and resources. Add your own with the `@server.tool()` and `@server.resource()` decorators.
 - `server.http_app(transport='streamable-http')` returns an ASGI app that speaks MCP over Streamable HTTP, which [uvicorn](https://www.uvicorn.org/) then serves.
-- The server binds to `Actor.configuration.web_server_port` and `0.0.0.0`, so the platform can route the Actor's container URL to it. This is the same mechanism described in the [Running a web server](./running-webserver) guide.
+- The server binds to `Actor.configuration.web_server_port` and `0.0.0.0`, so the platform can route the Actor's container URL to it. Such routing is the same mechanism described in the [Running a web server](./running-webserver) guide.
 - The example serves in the background for a short window so the run finishes on its own. A production Actor keeps serving until the platform shuts it down. With [Standby](#exposing-it-over-standby), shutdown happens automatically once an instance has been idle for a while.
 
 ## MCP proxy

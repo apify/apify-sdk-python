@@ -7,7 +7,8 @@ from apify import Actor
 
 # The upstream MCP server to expose. Point this at any remote Streamable HTTP or
 # SSE endpoint. To wrap a local stdio server instead, pass `create_proxy` an
-# `mcpServers` config mapping (`{'command': ..., 'args': [...]}`) instead of a URL.
+# `mcpServers` config mapping instead of a URL, for example
+# `{'mcpServers': {'my-server': {'command': ..., 'args': [...]}}}`.
 UPSTREAM_URL = 'https://mcp.example.com/mcp'
 
 
