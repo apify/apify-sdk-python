@@ -4,10 +4,11 @@ title: Building AI agents
 description: Host AI agents built with PydanticAI, CrewAI, LangGraph, LlamaIndex, or Smolagents as Apify Actors.
 ---
 
+import CodeBlock from '@theme/CodeBlock';
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import PydanticaiExample from '!!raw-loader!roa-loader!./code/13_pydanticai.py';
-import CrewaiExample from '!!raw-loader!roa-loader!./code/13_crewai.py';
+import CrewaiExample from '!!raw-loader!./code/13_crewai.py';
 import LanggraphExample from '!!raw-loader!roa-loader!./code/13_langgraph.py';
 import LlamaindexExample from '!!raw-loader!roa-loader!./code/13_llamaindex.py';
 import SmolagentsExample from '!!raw-loader!roa-loader!./code/13_smolagents.py';
@@ -52,37 +53,39 @@ Each section below shows a complete, single-file Actor for one framework. They a
 
 ## PydanticAI
 
-[PydanticAI](https://ai.pydantic.dev/) is an agent framework from the team behind Pydantic. It is strongly typed and integrates naturally with the [Pydantic models](./input-validation) the Apify SDK already uses. The following Actor runs an agent for a single prompt:
+[PydanticAI](https://ai.pydantic.dev/) is an agent framework from the team behind Pydantic. It's strongly typed and integrates naturally with the [Pydantic models](./input-validation) the Apify SDK already uses. The following Actor generates a joke and returns it as a typed object:
 
 <RunnableCodeBlock className="language-python" language="python">
     {PydanticaiExample}
 </RunnableCodeBlock>
 
-Set `output_type` to a Pydantic model instead of `str` to get a validated object back, which maps directly onto a dataset row.
+The `output_type=Joke` argument makes the agent return a validated `Joke` instance, which maps directly onto a dataset row. Set `output_type=str` instead to get plain text back.
 
 ## CrewAI
 
-[CrewAI](https://www.crewai.com/) models a problem as a "crew" of role-playing agents that work through tasks. The following Actor defines a single analyst agent and one task:
+[CrewAI](https://www.crewai.com/) models a problem as a "crew" of role-playing agents that work through tasks. The following Actor defines a single analyst agent that uses an Apify Actor as a tool to answer a query:
 
-<RunnableCodeBlock className="language-python" language="python">
+{/* Not runnable from the docs: CrewAI reads the LLM key from OPENAI_API_KEY, which the shared example runner doesn't provide. */}
+<CodeBlock className="language-python">
     {CrewaiExample}
-</RunnableCodeBlock>
+</CodeBlock>
 
 Note that:
 
 - `kickoff_async` runs the crew without blocking the Actor's event loop.
+- `ApifyActorsTool('apify/instagram-scraper')` gives the agent the [Instagram Scraper](https://apify.com/apify/instagram-scraper) as a tool. It comes from the `crewai[tools]` package and reads its token from `APIFY_API_TOKEN`, which the example sets from the platform's `APIFY_TOKEN`.
 - CrewAI calls the LLM through [LiteLLM](https://docs.litellm.ai/), so this example reads `OPENAI_API_KEY`. To route it through the Apify OpenRouter proxy instead, configure a custom `LLM` (see the [CrewAI LLM docs](https://docs.crewai.com/concepts/llms)).
-- On a fresh container, crewAI shows a one-time trace-consent prompt. The template sets `CREWAI_TESTING=true` to suppress it; do the same in your Dockerfile.
+- On a fresh container, CrewAI shows a one-time trace-consent prompt. The template sets `CREWAI_TESTING=true` to suppress it. Do the same in your Dockerfile.
 
 ## LangGraph
 
-[LangGraph](https://www.langchain.com/langgraph) builds an agent as a graph with explicit state, which makes complex, multi-step control flow easy to follow. It builds on [LangChain](https://www.langchain.com/), so any LangChain chat model and tool works. The following Actor runs a single-turn agent:
+[LangGraph](https://www.langchain.com/langgraph) builds an agent as a graph with explicit state, which makes complex, multi-step control flow easy to follow. It builds on [LangChain](https://www.langchain.com/), so any LangChain chat model and tool works. The following Actor runs an agent with a single tool:
 
 <RunnableCodeBlock className="language-python" language="python">
     {LanggraphExample}
 </RunnableCodeBlock>
 
-The example passes an empty `tools` list for brevity. Add LangChain tools to give the agent abilities, and read the final answer from the last message in the returned state.
+The agent decides on its own when to call the `sum_numbers` tool, and the answer is read from the last message in the returned state. Add more LangChain tools to extend it, including Apify Actors (see [Using Apify Actors as tools](#using-apify-actors-as-tools)).
 
 ## LlamaIndex
 
@@ -96,6 +99,7 @@ Note that:
 
 - `OpenAILike` is the LlamaIndex LLM class for OpenAI-compatible endpoints such as the Apify OpenRouter proxy. It needs the `llama-index-llms-openai-like` package.
 - The agent decides on its own when to call the `word_count` tool. Add `FunctionTool`s of your own to extend it.
+- To reason over your own data, wrap an Apify Actor in a `FunctionTool` (see [Using Apify Actors as tools](#using-apify-actors-as-tools)), as the [LlamaIndex template](https://apify.com/templates/python-llamaindex-agent) does with a contact-details scraper.
 
 ## Smolagents
 
@@ -105,20 +109,22 @@ Note that:
     {SmolagentsExample}
 </RunnableCodeBlock>
 
-A `CodeAgent` executes the Python code it generates, so run it in the isolated Actor container rather than on your own machine. Pass tools such as `WebSearchTool` in the `tools` list to let it gather information.
+This agent uses `WebSearchTool` to fetch the latest news, then writes and runs Python code to summarize it. Because a `CodeAgent` executes the code it generates, run it in the isolated Actor container rather than on your own machine.
 
 ## Using Apify Actors as tools
 
 An agent becomes useful once it can act on the world. On Apify, any of the thousands of Actors in the [Apify Store](https://apify.com/store) can become a tool: a scraper that fetches data, a browser automation that fills a form, or an API wrapper that posts a message.
 
-For LangChain-based frameworks, such as LangGraph and CrewAI, the [`langchain-apify`](https://github.com/apify/langchain-apify) package exposes any Actor as a tool with a single line:
+Some frameworks ship a ready-made wrapper for this. For LangGraph and other [LangChain](https://www.langchain.com/)-based agents, the [`langchain-apify`](https://github.com/apify/langchain-apify) package exposes any Actor as a tool with a single line:
 
 ```python
-from crewai_tools import ApifyActorsTool
+from langchain_apify import ApifyActorsTool
 
 # Let the agent scrape Instagram profiles by calling the apify/instagram-scraper Actor.
 tools = [ApifyActorsTool('apify/instagram-scraper')]
 ```
+
+CrewAI ships the same tool as `crewai_tools.ApifyActorsTool`, as the [CrewAI example](#crewai) above shows.
 
 For any other framework, call the Actor directly through the Actor's preconfigured API client and read its dataset:
 
@@ -137,7 +143,7 @@ For details on calling other Actors, see [Interacting with other Actors](../conc
 Agents run on the standard [Apify Python base image](https://hub.docker.com/r/apify/actor-python), so no browser or extra system dependencies are needed. Add `apify` and your framework's packages to `requirements.txt`:
 
 - PydanticAI: `pydantic-ai`
-- CrewAI: `crewai` (or `crewai[tools]` for `ApifyActorsTool`)
+- CrewAI: `crewai[tools]` (the `tools` extra provides `ApifyActorsTool`)
 - LangGraph: `langchain`, `langchain-openai`, `langgraph`
 - LlamaIndex: `llama-index`, `llama-index-llms-openai-like`
 - Smolagents: `smolagents[openai]`
