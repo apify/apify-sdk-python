@@ -22,12 +22,18 @@ Apify Actors are a good fit for MCP servers:
 - Every request carries an Apify API token, so the platform authenticates clients for you.
 - Pay-per-event charging lets you monetize the server, for example per tool call.
 
-There are two ways to build one, and Apify maintains a template for each:
+## Apify templates
 
-- Write a server from scratch with [FastMCP](https://gofastmcp.com/), starting from the [`python-mcp-empty`](https://apify.com/templates/python-mcp-empty) template. See [MCP server](#mcp-server) below.
-- Wrap an existing MCP server (stdio, HTTP, or SSE) with a proxy, starting from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template. See [MCP proxy](#mcp-proxy) below.
+Apify provides two templates for building MCP servers:
 
-Both templates live in the [actor-templates repository](https://github.com/apify/actor-templates) and can be scaffolded with the [Apify CLI](https://docs.apify.com/cli), for example `apify create my-mcp-server --template python-mcp-empty`.
+- Write a server from scratch with [FastMCP](https://gofastmcp.com/), starting from the [`python-mcp-empty`](https://apify.com/templates/python-mcp-empty) template. For details, see [MCP server](#mcp-server).
+- Wrap an existing MCP server (stdio, HTTP, or SSE) with a proxy, starting from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template. For details, see [MCP proxy](#mcp-proxy).
+
+Both templates live in the [actor-templates repository](https://github.com/apify/actor-templates). To create a new project, use the [Apify CLI](https://docs.apify.com/cli), for example:
+
+```bash
+apify create my-mcp-server --template python-mcp-empty
+```
 
 ## Before you start
 
@@ -51,12 +57,12 @@ Note that:
 
 - A `build_server` helper registers the tools and resources. Add your own with the `@server.tool()` and `@server.resource()` decorators.
 - `server.http_app(transport='streamable-http')` returns an ASGI app that speaks MCP over Streamable HTTP, which [uvicorn](https://www.uvicorn.org/) then serves.
-- The server binds to `Actor.configuration.web_server_port` and `0.0.0.0`, so the platform can route the Actor's container URL to it. Such routing is the same mechanism described in the [Running a web server](./running-webserver) guide.
+- The server binds to `Actor.configuration.web_server_port` and `0.0.0.0`, so the platform can route the Actor's container URL to it.
 - The example serves in the background for a short window so the run finishes on its own. A production Actor keeps serving until the platform shuts it down. With [Standby](#exposing-it-over-standby), shutdown happens automatically once an instance has been idle for a while.
 
 ## MCP proxy
 
-If you already have an MCP server, or want to expose a third-party one, you don't need to rewrite it. FastMCP can wrap an existing server and re-expose it over Streamable HTTP, so you put the same always-ready Apify endpoint in front of a server you didn't write. The following Actor proxies a remote MCP server, serving it on its web server port exactly like the server above:
+If you already have an MCP server, or want to expose a third-party one, you don't need to rewrite it. FastMCP can wrap an existing server and re-expose it over Streamable HTTP, so you put the same always-ready Apify endpoint in front of a server you didn't write. The following Actor proxies a remote MCP server, serving it on its web server port:
 
 <RunnableCodeBlock className="language-python" language="python">
     {McpProxyExample}
@@ -74,10 +80,10 @@ Note that:
     )
     ```
 
-- Serving works the same as the server above. You expose it over [Standby](#exposing-it-over-standby) the same way, so clients connect to `<actor-url>/mcp` with a bearer token.
+- Serving works the same way as the server. You expose it over [Standby](#exposing-it-over-standby) the same way, so clients connect to `<actor-url>/mcp` with a bearer token.
 - To control which tools clients may call, or to charge per call, add a FastMCP [middleware](https://gofastmcp.com/servers/middleware) that hooks `on_list_tools` and `on_call_tool`.
 
-For a batteries-included gateway with a tool whitelist and per-operation charging already wired up, start from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template.
+For a gateway with a tool whitelist and per-operation charging, start from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template.
 
 ## Exposing it over Standby
 
@@ -109,27 +115,29 @@ Deploy the Actor with `apify push`. Once it's running, an MCP client connects to
 
 ## Monetizing with pay-per-event
 
-Both approaches support [pay-per-event charging](../concepts/pay-per-event), so you can cover the cost of running the server or turn it into a paid product. First, define the events in the Actor's `.actor/pay_per_event.json`:
+Both approaches support [pay-per-event charging](../concepts/pay-per-event), so you can cover the cost of running the server or turn it into a paid product.
 
-```json
-{
-    "tool-call": {
-        "eventTitle": "Price for completing a tool call",
-        "eventDescription": "Flat fee for completing a tool call.",
-        "eventPriceUsd": 0.05
+1. Define the events in the Actor's `.actor/pay_per_event.json`:
+
+    ```json
+    {
+        "tool-call": {
+            "eventTitle": "Price for completing a tool call",
+            "eventDescription": "Flat fee for completing a tool call.",
+            "eventPriceUsd": 0.05
+        }
     }
-}
-```
+    ```
 
-Then charge the event from your code when a client calls a tool. The `add` tool from the [server example](#mcp-server) becomes `async` so it can `await` the charge:
+2. Charge the event from your code when a client calls a tool. The `add` tool from the [server example](#mcp-server) becomes `async` so it can `await` the charge:
 
-```python
-@server.tool()
-async def add(a: float, b: float) -> float:
-    """Add two numbers and return the sum."""
-    await Actor.charge(event_name='tool-call')
-    return a + b
-```
+    ```python
+    @server.tool()
+    async def add(a: float, b: float) -> float:
+        """Add two numbers and return the sum."""
+        await Actor.charge(event_name='tool-call')
+        return a + b
+    ```
 
 You can charge per tool call, per resource read, or per any other operation. For the full setup, see the [pay-per-event](../concepts/pay-per-event) guide.
 
