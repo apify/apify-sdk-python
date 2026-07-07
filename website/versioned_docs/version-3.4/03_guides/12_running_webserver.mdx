@@ -23,7 +23,7 @@ The URL is available in the following places:
 
 The web server running inside the container must listen at the port defined by the `Actor.configuration.web_server_port` property. When running Actors locally, the port defaults to `4321`, so the web server will be accessible at `http://localhost:4321`.
 
-## Example Actor
+## Using the standard library
 
 The following example shows how to start a simple web server in your Actor, which will respond to every GET request with the number of items that the Actor has processed so far:
 
@@ -52,13 +52,30 @@ Note that:
 
 - `uvicorn.Server(...).serve()` is a coroutine. It runs as an `asyncio` task alongside the Actor's own work instead of blocking it. Setting `server.should_exit = True` triggers a graceful shutdown once the work is done.
 - The server binds to `0.0.0.0` (all interfaces) rather than `localhost`. This makes it reachable through the container URL, not only from inside the container.
-- The same pattern powers an [Actor Standby](#actor-standby) service. Swap the one-off work loop for an Actor that keeps serving requests.
+- The same pattern powers an [Actor Standby](#exposing-it-over-standby) service. Swap the one-off work loop for an Actor that keeps serving requests.
 
-## Actor Standby
+## Exposing it over Standby
 
 The example runs a web server for the duration of a single Actor run. With [Actor Standby](https://docs.apify.com/platform/actors/development/programming-interface/standby), you can instead expose your Actor as an always-ready HTTP API: the platform keeps the Actor running in the background and routes incoming HTTP requests to the web server inside it, spinning up additional instances as the load grows.
 
 From the SDK's perspective, a Standby Actor is built the same way as the web server above. You start an HTTP server listening on the port from `Actor.configuration.web_server_port`. The difference is operational: instead of doing its work once and exiting, a Standby Actor stays up and serves requests. This makes it a good fit for low-latency, on-demand use cases, such as serving scraped data or acting as a microservice.
+
+To enable Standby, set `usesStandbyMode` in the Actor's `.actor/actor.json`:
+
+```json
+{
+    "actorSpecification": 1,
+    "name": "my-standby-server",
+    "usesStandbyMode": true
+}
+```
+
+Deploy the Actor with `apify push`. Once it's running, a client reaches the web server at the Actor's Standby URL, passing an [Apify API token](https://console.apify.com/account/integrations) as a bearer token:
+
+```bash
+curl "https://me--my-standby-server.apify.actor" \
+    -H "Authorization: Bearer <YOUR_APIFY_API_TOKEN>"
+```
 
 To get started, use the [Standby Python template](https://apify.com/templates/python-standby). For details on enabling Standby, request routing, and readiness probes, see the [Actor Standby documentation](https://docs.apify.com/platform/actors/development/programming-interface/standby).
 

@@ -7,7 +7,8 @@ from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Self
 
-from pydantic import AliasChoices, BeforeValidator, Field, model_validator
+from pydantic import AliasChoices, AliasGenerator, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic.alias_generators import to_camel
 from typing_extensions import TypedDict
 
 from crawlee import service_locator
@@ -111,6 +112,11 @@ class Configuration(CrawleeConfiguration):
     or it can be specific to each `Actor` instance on the `actor.config` property.
     """
 
+    # Fields are validated from environment variables via their `validation_alias`, but serialized under a
+    # camelCase name derived from the Python field name. This keeps `model_dump(by_alias=True)` consistent
+    # (e.g. `is_at_home` -> `isAtHome`) instead of leaking the raw env-var names.
+    model_config = ConfigDict(alias_generator=AliasGenerator(serialization_alias=to_camel))
+
     actor_id: Annotated[
         str | None,
         Field(
@@ -204,7 +210,7 @@ class Configuration(CrawleeConfiguration):
     api_base_url: Annotated[
         str,
         Field(
-            alias='apify_api_base_url',
+            validation_alias='apify_api_base_url',
             description='Internal URL of the Apify API. May be used to interact with the platform programmatically',
         ),
     ] = 'https://api.apify.com'
@@ -212,7 +218,7 @@ class Configuration(CrawleeConfiguration):
     api_public_base_url: Annotated[
         str,
         Field(
-            alias='apify_api_public_base_url',
+            validation_alias='apify_api_public_base_url',
             description='Public URL of the Apify API. May be used to link to REST API resources',
         ),
     ] = 'https://api.apify.com'
@@ -220,7 +226,7 @@ class Configuration(CrawleeConfiguration):
     dedicated_cpus: Annotated[
         float | None,
         Field(
-            alias='apify_dedicated_cpus',
+            validation_alias='apify_dedicated_cpus',
             description='Number of CPU cores reserved for the actor, based on allocated memory',
         ),
     ] = None
@@ -261,13 +267,13 @@ class Configuration(CrawleeConfiguration):
     disable_outdated_warning: Annotated[
         bool,
         Field(
-            alias='apify_disable_outdated_warning',
+            validation_alias='apify_disable_outdated_warning',
             description='Controls the display of outdated SDK version warnings',
         ),
         BeforeValidator(lambda val: val or False),
     ] = False
 
-    fact: Annotated[str | None, Field(alias='apify_fact')] = None
+    fact: Annotated[str | None, Field(validation_alias='apify_fact')] = None
 
     input_key: Annotated[
         str,
@@ -284,7 +290,7 @@ class Configuration(CrawleeConfiguration):
     input_secrets_private_key_file: Annotated[
         str | None,
         Field(
-            alias='apify_input_secrets_private_key_file',
+            validation_alias='apify_input_secrets_private_key_file',
             description='Path to the secret key used to decrypt Secret inputs.',
         ),
     ] = None
@@ -292,7 +298,7 @@ class Configuration(CrawleeConfiguration):
     input_secrets_private_key_passphrase: Annotated[
         str | None,
         Field(
-            alias='apify_input_secrets_private_key_passphrase',
+            validation_alias='apify_input_secrets_private_key_passphrase',
             description='Passphrase for the input secret key',
         ),
     ] = None
@@ -300,7 +306,7 @@ class Configuration(CrawleeConfiguration):
     is_at_home: Annotated[
         bool,
         Field(
-            alias='apify_is_at_home',
+            validation_alias='apify_is_at_home',
             description='True if the Actor is running on Apify servers',
         ),
     ] = False
@@ -308,7 +314,7 @@ class Configuration(CrawleeConfiguration):
     max_paid_dataset_items: Annotated[
         int | None,
         Field(
-            alias='actor_max_paid_dataset_items',
+            validation_alias='actor_max_paid_dataset_items',
             description='For paid-per-result Actors, the user-set limit on returned results. Do not exceed this limit',
         ),
         BeforeValidator(_default_if_empty(default=None)),
@@ -317,7 +323,7 @@ class Configuration(CrawleeConfiguration):
     max_total_charge_usd: Annotated[
         Decimal | None,
         Field(
-            alias='actor_max_total_charge_usd',
+            validation_alias='actor_max_total_charge_usd',
             description='For pay-per-event Actors, the user-set limit on total charges. Do not exceed this limit',
         ),
         BeforeValidator(_default_if_empty(default=None)),
@@ -326,7 +332,7 @@ class Configuration(CrawleeConfiguration):
     test_pay_per_event: Annotated[
         bool,
         Field(
-            alias='actor_test_pay_per_event',
+            validation_alias='actor_test_pay_per_event',
             description='Enable pay-per-event functionality for local development',
         ),
     ] = False
@@ -334,7 +340,7 @@ class Configuration(CrawleeConfiguration):
     meta_origin: Annotated[
         str | None,
         Field(
-            alias='apify_meta_origin',
+            validation_alias='apify_meta_origin',
             description='Specifies how an Actor run was started',
         ),
     ] = None
@@ -342,7 +348,7 @@ class Configuration(CrawleeConfiguration):
     metamorph_after_sleep: Annotated[
         timedelta_ms,
         Field(
-            alias='apify_metamorph_after_sleep_millis',
+            validation_alias='apify_metamorph_after_sleep_millis',
             description='How long the Actor needs to wait before exiting after triggering a metamorph',
         ),
     ] = timedelta(minutes=5)
@@ -350,7 +356,7 @@ class Configuration(CrawleeConfiguration):
     proxy_hostname: Annotated[
         str,
         Field(
-            alias='apify_proxy_hostname',
+            validation_alias='apify_proxy_hostname',
             description='Hostname of the Apify proxy',
         ),
     ] = 'proxy.apify.com'
@@ -358,7 +364,7 @@ class Configuration(CrawleeConfiguration):
     proxy_password: Annotated[
         str | None,
         Field(
-            alias='apify_proxy_password',
+            validation_alias='apify_proxy_password',
             description='Password to the Apify proxy',
         ),
     ] = None
@@ -366,7 +372,7 @@ class Configuration(CrawleeConfiguration):
     proxy_port: Annotated[
         int,
         Field(
-            alias='apify_proxy_port',
+            validation_alias='apify_proxy_port',
             description='Port to communicate with the Apify proxy',
         ),
     ] = 8000
@@ -374,7 +380,7 @@ class Configuration(CrawleeConfiguration):
     proxy_status_url: Annotated[
         str,
         Field(
-            alias='apify_proxy_status_url',
+            validation_alias='apify_proxy_status_url',
             description='URL for retrieving proxy status information',
         ),
     ] = 'http://proxy.apify.com'
@@ -406,7 +412,7 @@ class Configuration(CrawleeConfiguration):
         str,
         BeforeValidator(validate_http_url),
         Field(
-            alias='actor_standby_url',
+            validation_alias='actor_standby_url',
             description='URL for accessing web servers of Actor runs in Standby mode',
         ),
     ] = 'http://localhost'
@@ -414,7 +420,7 @@ class Configuration(CrawleeConfiguration):
     token: Annotated[
         str | None,
         Field(
-            alias='apify_token',
+            validation_alias='apify_token',
             description='API token of the user who started the Actor',
         ),
     ] = None
@@ -422,7 +428,7 @@ class Configuration(CrawleeConfiguration):
     user_id: Annotated[
         str | None,
         Field(
-            alias='apify_user_id',
+            validation_alias='apify_user_id',
             description='ID of the user who started the Actor. May differ from the Actor owner',
         ),
     ] = None
@@ -430,7 +436,7 @@ class Configuration(CrawleeConfiguration):
     user_is_paying: Annotated[
         bool,
         Field(
-            alias='apify_user_is_paying',
+            validation_alias='apify_user_is_paying',
             description='True if the user calling the Actor is paying user',
         ),
         BeforeValidator(_default_if_empty(default=False)),
@@ -462,7 +468,7 @@ class Configuration(CrawleeConfiguration):
     workflow_key: Annotated[
         str | None,
         Field(
-            alias='apify_workflow_key',
+            validation_alias='apify_workflow_key',
             description='Identifier used for grouping related runs and API calls together',
         ),
     ] = None
@@ -474,7 +480,7 @@ class Configuration(CrawleeConfiguration):
         | PayPerEventActorPricingInfo
         | None,
         Field(
-            alias='apify_actor_pricing_info',
+            validation_alias='apify_actor_pricing_info',
             description='JSON string with pricing info of the actor',
             discriminator='pricing_model',
         ),
@@ -484,7 +490,7 @@ class Configuration(CrawleeConfiguration):
     charged_event_counts: Annotated[
         dict[str, int] | None,
         Field(
-            alias='apify_charged_actor_event_counts',
+            validation_alias='apify_charged_actor_event_counts',
             description='Counts of events that were charged for the actor',
         ),
         BeforeValidator(lambda data: json.loads(data) if isinstance(data, str) else data or None),
@@ -493,7 +499,7 @@ class Configuration(CrawleeConfiguration):
     actor_storages: Annotated[
         ActorStorages | None,
         Field(
-            alias='actor_storages_json',
+            validation_alias='actor_storages_json',
             description='Mapping of storage aliases to their platform-assigned IDs.',
         ),
         BeforeValidator(_load_storage_keys),

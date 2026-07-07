@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Avoid mutating request userData during Scrapy-Apify conversion ([#978](https://github.com/apify/apify-sdk-python/pull/978)) ([b0b7df7](https://github.com/apify/apify-sdk-python/commit/b0b7df72eb169778ab88be04d8b30bb0bdc307d3)) by [@vdusek](https://github.com/vdusek)
 - **scrapy:** Async-thread startup race, shutdown lifecycle, and timeout setting ([#979](https://github.com/apify/apify-sdk-python/pull/979)) ([ae12935](https://github.com/apify/apify-sdk-python/commit/ae1293512f5ee781533dab5b1dd1f0af0fcc2497)) by [@vdusek](https://github.com/vdusek)
 - Commit request queue dedup cache only after batch_add_requests succeeds ([#975](https://github.com/apify/apify-sdk-python/pull/975)) ([078ab87](https://github.com/apify/apify-sdk-python/commit/078ab8744c96e61a5226a9d19869b5e0df71ab23)) by [@vdusek](https://github.com/vdusek)
+- Prevent request queue softlock by adding `is_finished` and correcting `is_empty` ([#1008](https://github.com/apify/apify-sdk-python/pull/1008)) ([4ead0c6](https://github.com/apify/apify-sdk-python/commit/4ead0c64d2a95263b2fa970f5a8fff9141db62b2)) by [@Mantisus](https://github.com/Mantisus), closes [#987](https://github.com/apify/apify-sdk-python/issues/987)
 
 ### 🚜 Refactor
 

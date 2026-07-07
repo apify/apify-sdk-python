@@ -1,0 +1,157 @@
+---
+id: mcp-servers
+title: Deploying MCP servers
+description: Deploy a Python MCP server as an Apify Actor and make its tools available to any MCP client.
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import McpServerExample from '!!raw-loader!roa-loader!./code/13_mcp_server.py';
+import McpProxyExample from '!!raw-loader!roa-loader!./code/13_mcp_proxy.py';
+
+In this guide, you'll learn how to deploy a [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server as an Apify Actor.
+
+## Introduction
+
+The [Model Context Protocol](https://modelcontextprotocol.io) is an open standard that lets AI applications connect to external tools and data. An MCP server exposes tools, resources, and prompts, and any MCP client (such as Claude or an IDE assistant) can call them. Hosting that server as an Apify Actor turns it into a remote, always-ready service.
+
+Apify Actors are a good fit for MCP servers:
+
+- With [Actor Standby](https://docs.apify.com/platform/actors/development/programming-interface/standby), the platform keeps the Actor running in the background and routes incoming HTTP requests to it, so your server is always ready to answer an MCP client.
+- The platform scales instances with demand, keeps logs, and handles the network, so you don't operate any infrastructure.
+- Every request carries an Apify API token, so the platform authenticates clients for you.
+- Pay-per-event charging lets you monetize the server, for example per tool call.
+
+## Before you start
+
+To follow along, install the [Apify CLI](https://docs.apify.com/cli/docs/installation) and log in with `apify login`. Both examples build on [FastMCP](https://gofastmcp.com/) and are served by [uvicorn](https://www.uvicorn.org/), so declare them in your Actor's `requirements.txt` next to the SDK:
+
+```text
+apify
+fastmcp
+uvicorn
+```
+
+## MCP server
+
+Build your own server when you want to expose your own tools and resources. The following Actor runs a small [FastMCP](https://gofastmcp.com/) server that exposes a single `add` tool and an informational resource. It serves the MCP protocol over the [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http) transport on the Actor's web server port:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {McpServerExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- A `build_server` helper registers the tools and resources. Add your own with the `@server.tool()` and `@server.resource()` decorators.
+- `server.http_app(transport='streamable-http')` returns an ASGI app that speaks MCP over Streamable HTTP, which [uvicorn](https://www.uvicorn.org/) then serves.
+- The server binds to `Actor.configuration.web_server_port` and `0.0.0.0`, so the platform can route the Actor's container URL to it.
+- The example serves in the background for a short window so the run finishes on its own. A production Actor keeps serving until the platform shuts it down. With [Standby](#exposing-it-over-standby), shutdown happens automatically once an instance has been idle for a while.
+
+## MCP proxy
+
+If you already have an MCP server, or want to expose a third-party one, you don't need to rewrite it. FastMCP can wrap an existing server and re-expose it over Streamable HTTP, so you put the same always-ready Apify endpoint in front of a server you didn't write. The following Actor proxies a remote MCP server, serving it on its web server port:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {McpProxyExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- `create_proxy` connects to the upstream server and returns a FastMCP instance, so the rest of the Actor is identical to a server you build yourself.
+- The example wraps a remote URL. To spawn and wrap a local stdio server, pass an `mcpServers` config instead:
+
+    ```python
+    proxy = create_proxy(
+        {'mcpServers': {'arxiv': {'command': 'uv', 'args': ['run', 'arxiv-mcp-server']}}},
+        name='my-mcp-proxy',
+    )
+    ```
+
+- Serving works the same way as the server. You expose it over [Standby](#exposing-it-over-standby) the same way, so clients connect to `<actor-url>/mcp` with a bearer token.
+- To control which tools clients may call, or to charge per call, add a FastMCP [middleware](https://gofastmcp.com/servers/middleware) that hooks `on_list_tools` and `on_call_tool`.
+
+For a gateway with a tool whitelist and per-operation charging, start from the [Python MCP proxy](https://apify.com/templates/python-mcp-proxy) template.
+
+## Exposing it over Standby
+
+Both the server and the proxy listen on the web server port, so you expose either one the same way. To make it an always-ready HTTP API, enable [Actor Standby](https://docs.apify.com/platform/actors/development/programming-interface/standby) and tell the platform where the MCP endpoint lives. Set both in the Actor's `.actor/actor.json`:
+
+```json
+{
+    "actorSpecification": 1,
+    "name": "my-mcp-server",
+    "usesStandbyMode": true,
+    "webServerMcpPath": "/mcp"
+}
+```
+
+Deploy the Actor with `apify push`. Once it's running, an MCP client connects to the Actor's URL using the Streamable HTTP transport, passing an [Apify API token](https://console.apify.com/account/integrations) as a bearer token:
+
+```json
+{
+    "mcpServers": {
+        "my-mcp-server": {
+            "url": "https://me--my-mcp-server.apify.actor/mcp",
+            "headers": {
+                "Authorization": "Bearer <YOUR_APIFY_API_TOKEN>"
+            }
+        }
+    }
+}
+```
+
+## Monetizing with pay-per-event
+
+Both approaches support [pay-per-event charging](../concepts/pay-per-event), so you can cover the cost of running the server or turn it into a paid product.
+
+1. Define the events in the Actor's `.actor/pay_per_event.json`:
+
+    ```json
+    {
+        "tool-call": {
+            "eventTitle": "Price for completing a tool call",
+            "eventDescription": "Flat fee for completing a tool call.",
+            "eventPriceUsd": 0.05
+        }
+    }
+    ```
+
+2. Charge the event from your code when a client calls a tool. The `add` tool from the MCP server example becomes `async` so it can `await` the charge:
+
+    ```python
+    @server.tool()
+    async def add(a: float, b: float) -> float:
+        """Add two numbers and return the sum."""
+        await Actor.charge(event_name='tool-call')
+        return a + b
+    ```
+
+You can charge per tool call, per resource read, or per any other operation. For the full setup, see the [pay-per-event](../concepts/pay-per-event) guide.
+
+## Starting from a template
+
+Instead of wiring up an Actor by hand, you can scaffold one from a ready-made template. Apify provides two, one for each approach in this guide:
+
+- Build a server from scratch with the [Python MCP server](https://apify.com/templates/python-mcp-empty) template, which uses [FastMCP](https://gofastmcp.com/) like the MCP server example.
+- Wrap an existing MCP server (stdio, HTTP, or SSE) with the [Python MCP proxy](https://apify.com/templates/python-mcp-proxy) template, like the MCP proxy example.
+
+Both templates live in the [actor-templates repository](https://github.com/apify/actor-templates). To create a new project, use the [Apify CLI](https://docs.apify.com/cli), for example:
+
+```bash
+apify create my-mcp-server --template python-mcp-empty
+```
+
+## Conclusion
+
+In this guide, you learned how to deploy an MCP server as an Apify Actor. You can now write a server with FastMCP or wrap an existing one with a proxy, expose it over Actor Standby, connect MCP clients to it, and monetize it with pay-per-event. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy building!
+
+## Additional resources
+
+- [Apify templates: MCP server](https://apify.com/templates/python-mcp-empty)
+- [Apify templates: MCP proxy](https://apify.com/templates/python-mcp-proxy)
+- [Apify: actor-templates repository](https://github.com/apify/actor-templates)
+- [Apify: MCP server documentation](https://docs.apify.com/platform/integrations/mcp)
+- [Model Context Protocol: Official documentation](https://modelcontextprotocol.io)
+- [FastMCP: Official documentation](https://gofastmcp.com/)
+- [Apify blog: What is the Model Context Protocol](https://blog.apify.com/what-is-model-context-protocol/)
+- [Apify blog: How to use MCP with Apify Actors](https://blog.apify.com/how-to-use-mcp/)

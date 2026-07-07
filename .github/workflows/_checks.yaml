@@ -62,7 +62,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm and website dependencies
-        uses: apify/actions/pnpm-install@v1.3.2
+        uses: apify/actions/pnpm-install@v1.4.0
         with:
           working-directory: website
 
@@ -83,7 +83,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm and website dependencies
-        uses: apify/actions/pnpm-install@v1.3.2
+        uses: apify/actions/pnpm-install@v1.4.0
         with:
           working-directory: website
 
@@ -173,7 +173,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv package manager
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v8.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -233,7 +233,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv package manager
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v8.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -269,7 +269,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up uv package manager
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v8.3.0
         with:
           python-version: "3.14"
 
@@ -277,7 +277,7 @@ jobs:
         run: uv run poe build
 
       - name: Verify built package
-        uses: apify/actions/python-package-check@v1.3.2
+        uses: apify/actions/python-package-check@v1.4.0
         with:
           package_name: apify
           dist_dir: dist
