@@ -20,13 +20,13 @@ An AI agent is a program that uses a large language model (LLM) to decide what t
 
 Apify Actors are a natural home for agents:
 
-- An agent is just a Python program, so wrap it in `async with Actor:` to run it on the platform.
+- An agent is just a Python program, so wrap it in `async with Actor:` to run it on the [Apify platform](https://docs.apify.com/platform).
 - The platform scales runs, schedules them, and keeps logs, so you don't operate any infrastructure yourself.
 - [Apify Store](https://apify.com/store) gives your agent thousands of ready-made tools. Any Actor can become a tool the agent calls: a scraper, a browser automation, an API wrapper.
 - The [Apify OpenRouter proxy](https://apify.com/apify/openrouter) lets the agent talk to an LLM without managing a provider API key.
-- Pay-per-event charging lets you monetize the agent and pass LLM costs on to its users.
+- The [pay-per-event charging](../concepts/pay-per-event) lets you monetize the agent and pass LLM costs on to its users.
 
-Each example in this guide shows a complete, single-file Actor for one framework. They all read the input, run the agent, and store the result in the default dataset.
+Each example in this guide shows a complete, single-file Actor for one framework. They all read the input, run the agent, and store the result in the default dataset. Each one defines its input as a [Pydantic model](./input-validation) with default values, so the fields stay typed and validated.
 
 ## Choosing a framework
 
@@ -48,20 +48,31 @@ apify create my-agent --template python-pydanticai
 
 ## Connecting to an LLM
 
-There are two ways to provide an agent with an LLM:
+There are two ways to give an agent an LLM.
 
-- Use [Apify OpenRouter proxy](https://apify.com/apify/openrouter), an OpenAI-compatible endpoint at `https://openrouter.apify.actor/api/v1` that fronts the full [OpenRouter](https://openrouter.ai) model catalog. The token usage is billed against the Apify account running the Actor, so no provider API key is required. The Actor authenticates with the proxy using the `APIFY_TOKEN` that the platform injects into every run. Any framework with an OpenAI-compatible client can point its base URL at the proxy, which is what every example in this guide does. To switch models, change the `model` input to any [OpenRouter model slug](https://openrouter.ai/models), for example `openai/gpt-4o-mini`.
-- Call a provider such as OpenAI directly with your own API key. Keep the key out of the Actor input and source code. Read it from an environment variable, which on the platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) and locally you export in your shell.
+### Apify OpenRouter proxy
+
+The [Apify OpenRouter proxy](https://apify.com/apify/openrouter) is an OpenAI-compatible endpoint at `https://openrouter.apify.actor/api/v1` that fronts the full [OpenRouter](https://openrouter.ai) model catalog. Any framework with an OpenAI-compatible client can point its base URL at the proxy, which is what every example in this guide does. Note that:
+
+- The token usage is billed against the Apify account running the Actor, so no provider API key is required.
+- The Actor authenticates with the proxy using the `APIFY_TOKEN` that the platform injects into every run.
+- To switch models, change the `model` input to any [OpenRouter model slug](https://openrouter.ai/models), for example `openai/gpt-5.4-mini`.
+
+### Your own provider key
+
+Call a provider such as OpenAI directly with your own API key. Keep the key out of the Actor input and source code. Read it from an environment variable, which on the platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) and locally you export in your shell.
 
 ## LangGraph
 
-[LangGraph](https://www.langchain.com/langgraph) builds an agent as a graph with explicit state, which makes complex, multi-step control flow easy to follow. It builds on [LangChain](https://www.langchain.com/), so any LangChain chat model and tool works. To install it, use:
+[LangGraph](https://www.langchain.com/langgraph) models an agent as a graph, where nodes do the work and edges decide what runs next. The explicit state and control flow make complex, multi-step logic easy to follow, including loops that revisit earlier nodes. It builds on [LangChain](https://www.langchain.com/), so any LangChain chat model works. To install it, use:
 
 ```bash
-pip install langchain langchain-openai langgraph
+pip install langchain-openai langgraph pydantic
 ```
 
-The following Actor runs an agent with a single tool:
+The install also includes [Pydantic](https://docs.pydantic.dev/) for the Actor's typed input and output models.
+
+The following Actor builds a small graph with two nodes. A `fetch` node scrapes the page with the [RAG Web Browser](https://apify.com/apify/rag-web-browser) Actor, then a `summarize` node distills the clean Markdown into a structured summary. A conditional edge loops back into `summarize` until the summary is detailed enough:
 
 <RunnableCodeBlock className="language-python" language="python">
     {LanggraphExample}
@@ -69,19 +80,22 @@ The following Actor runs an agent with a single tool:
 
 Note that:
 
-- `ChatOpenAI` points its `base_url` at the Apify OpenRouter proxy, so any LangChain chat model works without a provider key.
-- The agent decides on its own when to call the `sum_numbers` tool, and the answer is read from the last message in the returned state.
-- To extend this agent, add more LangChain tools, including Apify Actors. For details, see [Using Apify Actors as tools](#using-apify-actors-as-tools).
+- `ChatOpenAI` points its `base_url` at the Apify OpenRouter proxy, so any LangChain chat model works without a provider key. `with_structured_output(PageSummary)` makes the `summarize` node return a validated `PageSummary`.
+- The `State` is a typed dict that flows between nodes. Each node returns a partial update, and LangGraph merges it into the shared state.
+- `StateGraph` wires the nodes together: `fetch` runs first, then `summarize`. The `route` function is a conditional edge that either loops back into `summarize` for another pass or ends the run. The cycle and the `revisions` guard in the state are what a plain chain can't express, and they're the reason to reach for LangGraph.
+- `fetch` scrapes the page by calling the [RAG Web Browser](https://apify.com/apify/rag-web-browser) Actor with `Actor.call`, then reads the result from its dataset. The Actor returns clean Markdown, so the agent reads text instead of raw HTML and uses fewer tokens. Any Apify scraping Actor works here. For details, see [Using Apify Actors as tools](#using-apify-actors-as-tools).
 
 ## CrewAI
 
-[CrewAI](https://www.crewai.com/) models a problem as a "crew" of role-playing agents that work through tasks. To install it, use:
+[CrewAI](https://www.crewai.com/) models a problem as a "crew" of role-playing agents, each with its own role, goal, and backstory. The agents work through tasks in sequence, handing results from one agent to the next. It's a natural fit when a job splits into specialized roles that collaborate. To install it, use:
 
 ```bash
-pip install crewai
+pip install "crewai[tools]" pydantic
 ```
 
-The following Actor defines a single analyst agent with one tool:
+The install also includes [Pydantic](https://docs.pydantic.dev/) for the Actor's typed input and output models.
+
+The following Actor runs a two-agent crew. A researcher scrapes a [Crawlee](https://crawlee.dev/python) docs page with the [RAG Web Browser](https://apify.com/apify/rag-web-browser) Actor, exposed as a tool by `ApifyActorsTool` from the [`crewai-tools`](https://github.com/crewAIInc/crewAI/tree/main/lib/crewai-tools) extra. A writer then distills the notes into a structured guide of Crawlee's crawlers, each with its name, what it's built on, and what it's best for:
 
 <RunnableCodeBlock className="language-python" language="python">
     {CrewaiExample}
@@ -90,19 +104,22 @@ The following Actor defines a single analyst agent with one tool:
 Note that:
 
 - CrewAI's `LLM` points its `base_url` at the Apify OpenRouter proxy. The `openai/` model prefix selects its OpenAI-compatible client, so no provider key is needed.
+- The `researcher` reads the page with `ApifyActorsTool`, which wraps the [RAG Web Browser](https://apify.com/apify/rag-web-browser) Actor and returns the page as clean Markdown. The `writer` then turns its notes into the result. Listing both agents in one `Crew` runs them in order, and `context=[research]` hands the researcher's notes to the writer.
+- `output_pydantic=CrawlerGuide` makes the writer's task return a validated `CrawlerGuide`, read from `result.pydantic` and stored as one dataset row per crawler.
 - `kickoff_async` runs the crew without blocking the Actor's event loop.
-- The agent decides on its own when to call the `average` tool. Add more tools to extend it, including Apify Actors. For details, see [Using Apify Actors as tools](#using-apify-actors-as-tools).
 - On a fresh container, CrewAI shows a one-time trace-consent prompt. The template sets `CREWAI_TESTING=true` to suppress it. Do the same in your Dockerfile.
 
 ## PydanticAI
 
-[PydanticAI](https://ai.pydantic.dev/) is an agent framework from the team behind Pydantic. It's strongly typed and integrates naturally with the [Pydantic models](./input-validation) the Apify SDK already uses. To install it, use:
+[PydanticAI](https://ai.pydantic.dev/) is an agent framework from the team behind Pydantic. It's strongly typed and integrates naturally with the [Pydantic models](./input-validation) the Apify SDK already uses. Tool arguments and agent outputs are validated against your models, so the data stays structured end to end. To install it, use:
 
 ```bash
-pip install pydantic-ai
+pip install pydantic-ai pydantic impit
 ```
 
-The following Actor generates a joke and returns it as a typed object:
+The install also includes [Pydantic](https://docs.pydantic.dev/) for the Actor's typed input and output models, plus [Impit](https://github.com/apify/impit), the HTTP client the Actor uses to call external APIs.
+
+The following Actor evaluates a Python package and recommends whether to use it. Because the LLM would otherwise guess from its training data, the agent calls the `fetch_pypi_metadata` tool, which uses [Impit](https://github.com/apify/impit) to fetch live metadata from the PyPI JSON API. It then returns a typed report with the package's name, its latest version, a short summary, and a recommendation grounded in those facts:
 
 <RunnableCodeBlock className="language-python" language="python">
     {PydanticaiExample}
@@ -111,17 +128,24 @@ The following Actor generates a joke and returns it as a typed object:
 Note that:
 
 - The agent reaches the LLM through the Apify OpenRouter proxy via `OpenAIChatModel` and a custom `OpenAIProvider`, so no provider API key is needed.
-- `output_type=Joke` makes the agent return a validated `Joke` instance, which maps directly onto a dataset row. To get plain text back, set `output_type=str`.
+- Passing `fetch_pypi_metadata` in the `tools` list registers it as a tool. PydanticAI builds its schema from the function's signature and docstring, and the agent calls it to fetch real facts instead of guessing. Returning a typed `PackageFacts` keeps the data validated on its way back to the agent.
+- `output_type=PackageReport` makes the agent return a validated `PackageReport`, which maps directly onto a dataset row. To get plain text back, set `output_type=str`.
 
 ## LlamaIndex
 
-[LlamaIndex](https://www.llamaindex.ai/) is built for retrieval-augmented agents that reason over your own data. To install it, use:
+[LlamaIndex](https://www.llamaindex.ai/) is built for retrieval-augmented agents that reason over your own data. It indexes your documents into a vector store, retrieves the passages relevant to a question, and grounds the answer in them. It's a strong fit for question answering over private or domain-specific content. To install it, use:
 
 ```bash
-pip install llama-index llama-index-llms-openai-like
+pip install llama-index \
+            llama-index-llms-openai-like \
+            llama-index-embeddings-huggingface \
+            llama-index-readers-apify \
+            pydantic
 ```
 
-The following Actor runs a `ReActAgent` with a single tool:
+The install also includes [Pydantic](https://docs.pydantic.dev/) for the Actor's typed input and output models.
+
+The following Actor builds a retrieval-augmented generation (RAG) pipeline. It scrapes a few pages with the [Website Content Crawler](https://apify.com/apify/website-content-crawler) Actor through the [`llama-index-readers-apify`](https://pypi.org/project/llama-index-readers-apify/) reader, which turns each crawled page into a `Document`. It then indexes the documents in a vector store, answers a question using only the retrieved passages, and cites its sources:
 
 <RunnableCodeBlock className="language-python" language="python">
     {LlamaindexExample}
@@ -129,19 +153,23 @@ The following Actor runs a `ReActAgent` with a single tool:
 
 Note that:
 
-- `OpenAILike` is the LlamaIndex LLM class for OpenAI-compatible endpoints such as the Apify OpenRouter proxy. It needs the `llama-index-llms-openai-like` package.
-- The agent decides on its own when to call the `word_count` tool. Add `FunctionTool`s of your own to extend it.
-- To reason over your own data, wrap an Apify Actor in a `FunctionTool`, as the [LlamaIndex template](https://apify.com/templates/python-llamaindex-agent) does with a contact-details scraper. See also [Using Apify Actors as tools](#using-apify-actors-as-tools).
+- `OpenAILike` points `api_base` at the Apify OpenRouter proxy, so no provider API key is needed. It's the LlamaIndex LLM class for any OpenAI-compatible endpoint.
+- `Document` wraps each scraped page, and `VectorStoreIndex.from_documents` chunks and embeds them. The index is the retrieval layer that sets LlamaIndex apart from a plain agent loop.
+- Embeddings run locally through `HuggingFaceEmbedding` from the `llama-index-embeddings-huggingface` package, so the proxy needs no embeddings endpoint.
+- `index.as_query_engine(output_cls=Answer)` retrieves the passages most relevant to the question, then the LLM composes a validated `Answer` grounded in them.
+- Every response carries the passages it used in `response.source_nodes`, so the Actor pushes their `url` metadata as citations. The `ApifyActor` reader runs the Website Content Crawler and maps each crawled page to a `Document`, so indexing more content is a matter of crawling more pages. For details, see [Using Apify Actors as tools](#using-apify-actors-as-tools).
 
 ## Smolagents
 
-[Smolagents](https://github.com/huggingface/smolagents) is a lightweight framework from Hugging Face whose agents write and run Python code to solve a task. To install it, use:
+[Smolagents](https://huggingface.co/docs/smolagents) is a lightweight framework whose agents write and run Python code to solve a task, instead of emitting structured tool calls. Writing code lets the agent chain several operations, loop, and transform data in a single step. It's a good fit for tasks that are naturally expressed as code. To install it, use:
 
 ```bash
-pip install "smolagents[openai]"
+pip install "smolagents[openai]" pydantic impit
 ```
 
-The following Actor runs a `CodeAgent`:
+The install also includes [Pydantic](https://docs.pydantic.dev/) for the Actor's typed input and output models, plus [Impit](https://github.com/apify/impit), the HTTP client the Actor uses to call external APIs.
+
+The following Actor runs a `CodeAgent` that writes Python to analyze the Hacker News front page. Its `fetch_front_page` tool uses [Impit](https://github.com/apify/impit) to call the Hacker News API, then the agent groups the stories by domain and returns a structured breakdown of the busiest ones:
 
 <RunnableCodeBlock className="language-python" language="python">
     {SmolagentsExample}
@@ -150,7 +178,9 @@ The following Actor runs a `CodeAgent`:
 Note that:
 
 - `OpenAIServerModel` points `api_base` at the Apify OpenRouter proxy, so no provider API key is needed.
-- The agent uses `WebSearchTool` to fetch the latest news, then writes and runs Python code to summarize it.
+- Writing code is what a `CodeAgent` does best. It calls `fetch_front_page`, then writes Python to take each URL's domain, group the stories, and average their points. `additional_authorized_imports` grants the standard-library modules that code needs.
+- `final_answer_checks` validates every candidate answer against `FrontPageReport`. A mismatch sends the agent back to fix its code, so the output stays structured rather than free-form. The returned dict is then parsed with `FrontPageReport.model_validate`.
+- `CodeAgent.run` is synchronous, so `asyncio.to_thread` runs it without blocking the Actor's event loop.
 - Because a `CodeAgent` executes the code it generates, run it in the isolated Actor container rather than on your own machine.
 
 ## Using Apify Actors as tools
@@ -168,14 +198,14 @@ tools = [ApifyActorsTool('apify/instagram-scraper')]
 
 CrewAI ships the same tool as `crewai_tools.ApifyActorsTool` in its `crewai[tools]` package.
 
-For any other framework, call the Actor directly through the Actor's preconfigured API client and read its dataset:
+For any other framework, call the Actor with `Actor.call` and read its dataset through the preconfigured API client:
 
 ```python
 async def scrape_instagram(handle: str) -> list[dict]:
     """Scrape recent posts from an Instagram profile."""
     run_input = {'directUrls': [f'https://www.instagram.com/{handle}/']}
-    run = await Actor.apify_client.actor('apify/instagram-scraper').call(run_input=run_input)
-    return (await Actor.apify_client.dataset(run['defaultDatasetId']).list_items()).items
+    run = await Actor.call('apify/instagram-scraper', run_input=run_input)
+    return (await Actor.apify_client.dataset(run.default_dataset_id).list_items()).items
 ```
 
 For details on calling other Actors, see [Interacting with other Actors](../concepts/interacting-with-other-actors).

@@ -1,6 +1,7 @@
 import asyncio
 import os
 
+import impit
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -9,38 +10,74 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from apify import Actor
 
 OPENROUTER_BASE_URL = 'https://openrouter.apify.actor/api/v1'
+PYPI_JSON_URL = 'https://pypi.org/pypi/{name}/json'
 
 
-class Joke(BaseModel):
-    """The agent's typed output: a joke split into its setup and punchline."""
+class ActorInput(BaseModel):
+    """The Actor input, validated with default values."""
 
-    setup: str
-    punchline: str
+    package: str = 'crawlee'
+    model: str = 'openai/gpt-5.4-mini'
+
+
+class PackageFacts(BaseModel):
+    """The metadata the tool pulls from the PyPI JSON API."""
+
+    name: str
+    version: str
+    summary: str | None
+    requires_python: str | None
+
+
+class PackageReport(BaseModel):
+    """The agent's typed verdict on a PyPI package."""
+
+    name: str
+    latest_version: str
+    summary: str
+    recommendation: str
+
+
+async def fetch_pypi_metadata(name: str) -> PackageFacts:
+    """Fetch a package's metadata from the PyPI JSON API."""
+    client = impit.AsyncClient(browser='firefox', follow_redirects=True, timeout=30)
+    info = (await client.get(PYPI_JSON_URL.format(name=name))).json()['info']
+    return PackageFacts(
+        name=info['name'],
+        version=info['version'],
+        summary=info['summary'],
+        requires_python=info['requires_python'],
+    )
 
 
 async def main() -> None:
     async with Actor:
-        actor_input = await Actor.get_input() or {}
-        topic = actor_input.get('topic', 'bad weather')
-        model = actor_input.get('model', 'openai/gpt-4o-mini')
+        # Parse the Actor input into the typed model, filling in defaults.
+        actor_input = ActorInput.model_validate(await Actor.get_input() or {})
+        package = actor_input.package
+        model = actor_input.model
 
         # Route the LLM through the Apify OpenRouter proxy (no provider key needed).
         provider = OpenAIProvider(
             base_url=OPENROUTER_BASE_URL,
             api_key=os.environ['APIFY_TOKEN'],
         )
-        # `output_type=Joke` makes the agent return a validated `Joke` instance.
+        # `output_type` makes the agent return a validated `PackageReport`. Passing
+        # `fetch_pypi_metadata` in `tools` registers it as a tool from its signature.
         agent = Agent(
             OpenAIChatModel(model, provider=provider),
-            output_type=Joke,
-            system_prompt='You are a witty comedian. Write a single short joke.',
+            output_type=PackageReport,
+            tools=[fetch_pypi_metadata],
+            system_prompt=(
+                'You advise Python developers on packages. Always call '
+                '`fetch_pypi_metadata` for facts instead of guessing.'
+            ),
         )
 
-        joke = (await agent.run(user_prompt=f'Tell me a joke about {topic}.')).output
-        Actor.log.info(f'Joke:\n{joke.setup}\n{joke.punchline}')
-        await Actor.push_data(
-            {'topic': topic, 'setup': joke.setup, 'punchline': joke.punchline}
-        )
+        prompt = f'Evaluate the "{package}" package and recommend whether to use it.'
+        report = (await agent.run(user_prompt=prompt)).output
+        Actor.log.info(f'Package report:\n{report.model_dump_json(indent=2)}')
+        await Actor.push_data(report.model_dump())
 
 
 if __name__ == '__main__':
