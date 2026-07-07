@@ -22,19 +22,6 @@ Apify Actors are a good fit for MCP servers:
 - Every request carries an Apify API token, so the platform authenticates clients for you.
 - Pay-per-event charging lets you monetize the server, for example per tool call.
 
-## Apify templates
-
-Apify provides two templates for building MCP servers:
-
-- Write a server from scratch with [FastMCP](https://gofastmcp.com/), starting from the [`python-mcp-empty`](https://apify.com/templates/python-mcp-empty) template. For details, see [MCP server](#mcp-server).
-- Wrap an existing MCP server (stdio, HTTP, or SSE) with a proxy, starting from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template. For details, see [MCP proxy](#mcp-proxy).
-
-Both templates live in the [actor-templates repository](https://github.com/apify/actor-templates). To create a new project, use the [Apify CLI](https://docs.apify.com/cli), for example:
-
-```bash
-apify create my-mcp-server --template python-mcp-empty
-```
-
 ## Before you start
 
 To follow along, install the [Apify CLI](https://docs.apify.com/cli/docs/installation) and log in with `apify login`. Both examples build on [FastMCP](https://gofastmcp.com/) and are served by [uvicorn](https://www.uvicorn.org/), so declare them in your Actor's `requirements.txt` next to the SDK:
@@ -83,7 +70,7 @@ Note that:
 - Serving works the same way as the server. You expose it over [Standby](#exposing-it-over-standby) the same way, so clients connect to `<actor-url>/mcp` with a bearer token.
 - To control which tools clients may call, or to charge per call, add a FastMCP [middleware](https://gofastmcp.com/servers/middleware) that hooks `on_list_tools` and `on_call_tool`.
 
-For a gateway with a tool whitelist and per-operation charging, start from the [`python-mcp-proxy`](https://apify.com/templates/python-mcp-proxy) template.
+For a gateway with a tool whitelist and per-operation charging, start from the [Python MCP proxy](https://apify.com/templates/python-mcp-proxy) template.
 
 ## Exposing it over Standby
 
@@ -129,7 +116,7 @@ Both approaches support [pay-per-event charging](../concepts/pay-per-event), so 
     }
     ```
 
-2. Charge the event from your code when a client calls a tool. The `add` tool from the [server example](#mcp-server) becomes `async` so it can `await` the charge:
+2. Charge the event from your code when a client calls a tool. The `add` tool from the MCP server example becomes `async` so it can `await` the charge:
 
     ```python
     @server.tool()
@@ -141,9 +128,22 @@ Both approaches support [pay-per-event charging](../concepts/pay-per-event), so 
 
 You can charge per tool call, per resource read, or per any other operation. For the full setup, see the [pay-per-event](../concepts/pay-per-event) guide.
 
+## Starting from a template
+
+Instead of wiring up an Actor by hand, you can scaffold one from a ready-made template. Apify provides two, one for each approach in this guide:
+
+- Build a server from scratch with the [Python MCP server](https://apify.com/templates/python-mcp-empty) template, which uses [FastMCP](https://gofastmcp.com/) like the MCP server example.
+- Wrap an existing MCP server (stdio, HTTP, or SSE) with the [Python MCP proxy](https://apify.com/templates/python-mcp-proxy) template, like the MCP proxy example.
+
+Both templates live in the [actor-templates repository](https://github.com/apify/actor-templates). To create a new project, use the [Apify CLI](https://docs.apify.com/cli), for example:
+
+```bash
+apify create my-mcp-server --template python-mcp-empty
+```
+
 ## Conclusion
 
-In this guide, you learned how to deploy an MCP server as an Apify Actor. You can now write a server with FastMCP or wrap an existing one with a proxy, expose it over Actor Standby, connect MCP clients to it, and monetize it with pay-per-event. To get started, see the [Actor templates](https://apify.com/templates/categories/python). If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy building!
+In this guide, you learned how to deploy an MCP server as an Apify Actor. You can now write a server with FastMCP or wrap an existing one with a proxy, expose it over Actor Standby, connect MCP clients to it, and monetize it with pay-per-event. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy building!
 
 ## Additional resources
 
