@@ -20,15 +20,17 @@ An AI agent is a program that uses a large language model (LLM) to decide what t
 
 Apify Actors are a natural home for agents:
 
-- An agent is just a Python program, so wrapping it in `async with Actor:` is all it takes to run it on the platform.
+- An agent is just a Python program, so wrap it in `async with Actor:` to run it on the platform.
 - The platform scales runs, schedules them, and keeps logs, so you don't operate any infrastructure yourself.
-- The [Apify Store](https://apify.com/store) gives your agent thousands of ready-made tools. Any Actor (a scraper, a browser automation, an API wrapper) can become a tool the agent calls.
+- [Apify Store](https://apify.com/store) gives your agent thousands of ready-made tools. Any Actor can become a tool the agent calls: a scraper, a browser automation, an API wrapper.
 - The [Apify OpenRouter proxy](https://apify.com/apify/openrouter) lets the agent talk to an LLM without managing a provider API key.
 - Pay-per-event charging lets you monetize the agent and pass LLM costs on to its users.
 
+Each example in this guide shows a complete, single-file Actor for one framework. They all read the input, run the agent, and store the result in the default dataset.
+
 ## Choosing a framework
 
-Apify maintains a ready-made Actor template for each of the popular agent frameworks. Each template is a complete, deployable Actor that you can use as a starting point. Pick the one that matches the framework you already use, or the style of agent you want to build:
+Apify maintains a ready-made Actor template for each of the popular agent frameworks. Each template is a complete, deployable Actor that you can use as a starting point.
 
 | Framework | Good for | Template |
 | --- | --- | --- |
@@ -38,17 +40,18 @@ Apify maintains a ready-made Actor template for each of the popular agent framew
 | [LlamaIndex](#llamaindex) | Retrieval-augmented agents over your own data | [`python-llamaindex-agent`](https://apify.com/templates/python-llamaindex-agent) |
 | [Smolagents](#smolagents) | Lightweight code-writing agents | [`python-smolagents`](https://apify.com/templates/python-smolagents) |
 
-All of these templates live in the [actor-templates repository](https://github.com/apify/actor-templates), and you can scaffold any of them with the [Apify CLI](https://docs.apify.com/cli), for example `apify create my-agent --template python-pydanticai`.
+All of these templates live in the [actor-templates repository](https://github.com/apify/actor-templates). To create a project, use the [Apify CLI](https://docs.apify.com/cli), for example:
+
+```bash
+apify create my-agent --template python-pydanticai
+```
 
 ## Connecting to an LLM
 
-Every agent needs an LLM, and there are two ways to provide one.
+There are two ways to provide an agent with an LLM:
 
-The first is the [Apify OpenRouter proxy](https://apify.com/apify/openrouter), an OpenAI-compatible endpoint at `https://openrouter.apify.actor/api/v1` that fronts the full [OpenRouter](https://openrouter.ai) model catalog. The token usage is billed against the Apify account running the Actor, so no provider API key is required. The Actor authenticates with the proxy using the `APIFY_TOKEN` that the platform injects into every run. Any framework with an OpenAI-compatible client can point its base URL at the proxy, which is what every example below does. To switch models, change the `model` input to any [OpenRouter model slug](https://openrouter.ai/models), for example `openai/gpt-4o-mini`.
-
-The second is to call a provider such as OpenAI directly with your own API key. Keep the key out of the Actor input and source code. Read it from an environment variable, which on the platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) and locally you export in your shell.
-
-Each section below shows a complete, single-file Actor for one framework. They all read the input, run the agent, and store the result in the default dataset.
+- Use [Apify OpenRouter proxy](https://apify.com/apify/openrouter), an OpenAI-compatible endpoint at `https://openrouter.apify.actor/api/v1` that fronts the full [OpenRouter](https://openrouter.ai) model catalog. The token usage is billed against the Apify account running the Actor, so no provider API key is required. The Actor authenticates with the proxy using the `APIFY_TOKEN` that the platform injects into every run. Any framework with an OpenAI-compatible client can point its base URL at the proxy, which is what every example in this guide does. To switch models, change the `model` input to any [OpenRouter model slug](https://openrouter.ai/models), for example `openai/gpt-4o-mini`.
+- Call a provider such as OpenAI directly with your own API key. Keep the key out of the Actor input and source code. Read it from an environment variable, which on the platform you set as a [secret environment variable](https://docs.apify.com/platform/actors/development/programming-interface/environment-variables) and locally you export in your shell.
 
 ## LangGraph
 
@@ -68,7 +71,7 @@ Note that:
 
 - `ChatOpenAI` points its `base_url` at the Apify OpenRouter proxy, so any LangChain chat model works without a provider key.
 - The agent decides on its own when to call the `sum_numbers` tool, and the answer is read from the last message in the returned state.
-- Add more LangChain tools to extend it, including Apify Actors (see [Using Apify Actors as tools](#using-apify-actors-as-tools)).
+- To extend this agent, add more LangChain tools, including Apify Actors. For details, see [Using Apify Actors as tools](#using-apify-actors-as-tools).
 
 ## CrewAI
 
@@ -88,7 +91,7 @@ Note that:
 
 - CrewAI's `LLM` points its `base_url` at the Apify OpenRouter proxy. The `openai/` model prefix selects its OpenAI-compatible client, so no provider key is needed.
 - `kickoff_async` runs the crew without blocking the Actor's event loop.
-- The agent decides on its own when to call the `average` tool. Add more tools to extend it, including Apify Actors (see [Using Apify Actors as tools](#using-apify-actors-as-tools)).
+- The agent decides on its own when to call the `average` tool. Add more tools to extend it, including Apify Actors. For details, see [Using Apify Actors as tools](#using-apify-actors-as-tools).
 - On a fresh container, CrewAI shows a one-time trace-consent prompt. The template sets `CREWAI_TESTING=true` to suppress it. Do the same in your Dockerfile.
 
 ## PydanticAI
@@ -108,7 +111,7 @@ The following Actor generates a joke and returns it as a typed object:
 Note that:
 
 - The agent reaches the LLM through the Apify OpenRouter proxy via `OpenAIChatModel` and a custom `OpenAIProvider`, so no provider API key is needed.
-- `output_type=Joke` makes the agent return a validated `Joke` instance, which maps directly onto a dataset row. Set `output_type=str` instead to get plain text back.
+- `output_type=Joke` makes the agent return a validated `Joke` instance, which maps directly onto a dataset row. To get plain text back, set `output_type=str`.
 
 ## LlamaIndex
 
@@ -128,7 +131,7 @@ Note that:
 
 - `OpenAILike` is the LlamaIndex LLM class for OpenAI-compatible endpoints such as the Apify OpenRouter proxy. It needs the `llama-index-llms-openai-like` package.
 - The agent decides on its own when to call the `word_count` tool. Add `FunctionTool`s of your own to extend it.
-- To reason over your own data, wrap an Apify Actor in a `FunctionTool` (see [Using Apify Actors as tools](#using-apify-actors-as-tools)), as the [LlamaIndex template](https://apify.com/templates/python-llamaindex-agent) does with a contact-details scraper.
+- To reason over your own data, wrap an Apify Actor in a `FunctionTool`, as the [LlamaIndex template](https://apify.com/templates/python-llamaindex-agent) does with a contact-details scraper. See also [Using Apify Actors as tools](#using-apify-actors-as-tools).
 
 ## Smolagents
 
@@ -152,9 +155,9 @@ Note that:
 
 ## Using Apify Actors as tools
 
-An agent becomes useful once it can act on the world. On Apify, any of the thousands of Actors in the [Apify Store](https://apify.com/store) can become a tool: a scraper that fetches data, a browser automation that fills a form, or an API wrapper that posts a message.
+An agent becomes useful once it can act on the world. On Apify, any of the thousands of Actors in [Apify Store](https://apify.com/store) can become a tool: a scraper that fetches data, a browser automation that fills a form, or an API wrapper that posts a message.
 
-Some frameworks ship a ready-made wrapper for this. For LangGraph and other [LangChain](https://www.langchain.com/)-based agents, the [`langchain-apify`](https://github.com/apify/langchain-apify) package exposes any Actor as a tool with a single line:
+Some frameworks ship a ready-made wrapper for turning an Actor into a tool. For LangGraph and other [LangChain](https://www.langchain.com/)-based agents, the [`langchain-apify`](https://github.com/apify/langchain-apify) package exposes any Actor as a tool with a single line:
 
 ```python
 from langchain_apify import ApifyActorsTool
@@ -179,7 +182,7 @@ For details on calling other Actors, see [Interacting with other Actors](../conc
 
 ## Running on the Apify platform
 
-Agents run on the standard [Apify Python base image](https://hub.docker.com/r/apify/actor-python), so no browser or extra system dependencies are needed. Add `apify` and the packages shown in your framework's section above to `requirements.txt`, then deploy the Actor as usual.
+Agents run on the standard [Apify Python base image](https://hub.docker.com/r/apify/actor-python), so no browser or extra system dependencies are needed. Add `apify` and the packages required by your framework to `requirements.txt`, then deploy the Actor as usual.
 
 To monetize the agent, use [pay-per-event charging](../concepts/pay-per-event). You define events such as `task-completed` in the Actor's monetization settings and trigger them from the code:
 
@@ -187,7 +190,7 @@ To monetize the agent, use [pay-per-event charging](../concepts/pay-per-event). 
 await Actor.charge('task-completed')
 ```
 
-This lets you charge users directly from the Actor and cover the cost of execution and LLM tokens. It pairs naturally with the Apify OpenRouter proxy, which already bills the LLM usage to the account running the Actor.
+This approach lets you charge users directly from the Actor and cover the cost of execution and LLM tokens. It pairs naturally with the Apify OpenRouter proxy, which already bills the LLM usage to the account running the Actor.
 
 ## Conclusion
 
