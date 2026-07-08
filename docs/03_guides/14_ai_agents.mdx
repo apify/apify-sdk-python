@@ -18,7 +18,7 @@ In this guide, you'll learn how to host an AI agent as an Apify Actor, using the
 
 An AI agent is a program that uses a large language model (LLM) to decide what to do next. Instead of following a fixed script, it reasons about a task, calls tools to gather information or take actions, and loops until the task is done. The Python ecosystem offers several frameworks for building such agents, and the Apify SDK doesn't lock you into any of them.
 
-Apify Actors are a natural home for agents:
+Apify Actors are well suited to hosting agents:
 
 - An agent is just a Python program, so wrap it in `async with Actor:` to run it on the [Apify platform](https://docs.apify.com/platform).
 - The platform scales runs, schedules them, and keeps logs, so you don't operate any infrastructure yourself.
@@ -67,7 +67,7 @@ Call a provider such as OpenAI directly with your own API key. Keep the key out 
 [LangGraph](https://www.langchain.com/langgraph) models an agent as a graph, where nodes do the work and edges decide what runs next. The explicit state and control flow make complex, multi-step logic easy to follow, including loops that revisit earlier nodes. It builds on [LangChain](https://www.langchain.com/), so any LangChain chat model works. To install it, use:
 
 ```bash
-pip install langchain-openai langgraph pydantic
+pip install langchain-openai langchain-core langgraph pydantic
 ```
 
 The install also includes [Pydantic](https://docs.pydantic.dev/) for the Actor's typed input and output models.
@@ -87,7 +87,7 @@ Note that:
 
 ## CrewAI
 
-[CrewAI](https://www.crewai.com/) models a problem as a "crew" of role-playing agents, each with its own role, goal, and backstory. The agents work through tasks in sequence, handing results from one agent to the next. It's a natural fit when a job splits into specialized roles that collaborate. To install it, use:
+[CrewAI](https://www.crewai.com/) models a problem as a "crew" of role-playing agents, each with its own role, goal, and backstory. The agents work through tasks in sequence, handing results from one agent to the next. It fits well when a job splits into specialized roles that collaborate. To install it, use:
 
 ```bash
 pip install "crewai[tools]" pydantic
@@ -105,13 +105,13 @@ Note that:
 
 - CrewAI's `LLM` points its `base_url` at the Apify OpenRouter proxy. The `openai/` model prefix selects its OpenAI-compatible client, so no provider key is needed.
 - The `researcher` reads the page with `ApifyActorsTool`, which wraps the [RAG Web Browser](https://apify.com/apify/rag-web-browser) Actor and returns the page as clean Markdown. The `writer` then turns its notes into the result. Listing both agents in one `Crew` runs them in order, and `context=[research]` hands the researcher's notes to the writer.
-- `output_pydantic=CrawlerGuide` makes the writer's task return a validated `CrawlerGuide`, read from `result.pydantic` and stored as one dataset row per crawler.
+- `output_pydantic=CrawlerGuide` makes the writer's task return a validated `CrawlerGuide`, read from the crew result's `.pydantic` and stored as one dataset row per crawler.
 - `kickoff_async` runs the crew without blocking the Actor's event loop.
 - On a fresh container, CrewAI shows a one-time trace-consent prompt. The template sets `CREWAI_TESTING=true` to suppress it. Do the same in your Dockerfile.
 
 ## PydanticAI
 
-[PydanticAI](https://ai.pydantic.dev/) is an agent framework from the team behind Pydantic. It's strongly typed and integrates naturally with the [Pydantic models](./input-validation) the Apify SDK already uses. Tool arguments and agent outputs are validated against your models, so the data stays structured end to end. To install it, use:
+[PydanticAI](https://ai.pydantic.dev/) is an agent framework from the team behind Pydantic. It's strongly typed and integrates with the [Pydantic models](./input-validation) the Apify SDK already uses. Tool arguments and agent outputs are validated against your models, so the data stays structured end to end. To install it, use:
 
 ```bash
 pip install pydantic-ai pydantic impit
@@ -136,11 +136,12 @@ Note that:
 [LlamaIndex](https://www.llamaindex.ai/) is built for retrieval-augmented agents that reason over your own data. It indexes your documents into a vector store, retrieves the passages relevant to a question, and grounds the answer in them. It's a strong fit for question answering over private or domain-specific content. To install it, use:
 
 ```bash
-pip install llama-index \
-            llama-index-llms-openai-like \
-            llama-index-embeddings-huggingface \
-            llama-index-readers-apify \
-            pydantic
+pip install \
+    llama-index \
+    llama-index-llms-openai-like \
+    llama-index-embeddings-huggingface \
+    llama-index-readers-apify \
+    pydantic
 ```
 
 The install also includes [Pydantic](https://docs.pydantic.dev/) for the Actor's typed input and output models.
@@ -161,7 +162,7 @@ Note that:
 
 ## Smolagents
 
-[Smolagents](https://huggingface.co/docs/smolagents) is a lightweight framework whose agents write and run Python code to solve a task, instead of emitting structured tool calls. Writing code lets the agent chain several operations, loop, and transform data in a single step. It's a good fit for tasks that are naturally expressed as code. To install it, use:
+[Smolagents](https://huggingface.co/docs/smolagents) is a lightweight framework whose agents write and run Python code to solve a task, instead of emitting structured tool calls. Writing code lets the agent chain several operations, loop, and transform data in a single step. It's a good fit for tasks that map cleanly to code. To install it, use:
 
 ```bash
 pip install "smolagents[openai]" pydantic impit
@@ -220,7 +221,7 @@ To monetize the agent, use [pay-per-event charging](../concepts/pay-per-event). 
 await Actor.charge('task-completed')
 ```
 
-This approach lets you charge users directly from the Actor and cover the cost of execution and LLM tokens. It pairs naturally with the Apify OpenRouter proxy, which already bills the LLM usage to the account running the Actor.
+This approach lets you charge users directly from the Actor and cover the cost of execution and LLM tokens. It pairs well with the Apify OpenRouter proxy, which already bills the LLM usage to the account running the Actor.
 
 ## Conclusion
 

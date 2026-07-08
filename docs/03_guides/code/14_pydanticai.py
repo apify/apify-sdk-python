@@ -1,5 +1,6 @@
 import asyncio
 import os
+from http import HTTPStatus
 
 import impit
 from pydantic import BaseModel
@@ -40,8 +41,16 @@ class PackageReport(BaseModel):
 
 async def fetch_pypi_metadata(name: str) -> PackageFacts:
     """Fetch a package's metadata from the PyPI JSON API."""
-    client = impit.AsyncClient(browser='firefox', follow_redirects=True, timeout=30)
-    info = (await client.get(PYPI_JSON_URL.format(name=name))).json()['info']
+    # `impit.AsyncClient` has no `close()`, so use a context manager to release the pool.
+    async with impit.AsyncClient(
+        browser='firefox', follow_redirects=True, timeout=30
+    ) as client:
+        response = await client.get(PYPI_JSON_URL.format(name=name))
+    # PyPI returns 404 with no `info` key for an unknown package, so fail with a clear
+    # message the agent can act on instead of a bare `KeyError`.
+    if response.status_code != HTTPStatus.OK:
+        raise RuntimeError(f'PyPI has no package named "{name}".')
+    info = response.json()['info']
     return PackageFacts(
         name=info['name'],
         version=info['version'],

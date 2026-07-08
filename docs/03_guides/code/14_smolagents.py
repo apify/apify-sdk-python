@@ -39,8 +39,9 @@ def fetch_front_page() -> list[dict]:
 
     Returns a list of stories, each a dict with `title`, `url`, and `points` keys.
     """
-    client = impit.Client(browser='firefox', follow_redirects=True, timeout=30)
-    hits = client.get(HN_FRONT_PAGE_URL).json()['hits']
+    # `impit.Client` has no `close()`, so use a context manager to release the pool.
+    with impit.Client(browser='firefox', follow_redirects=True, timeout=30) as client:
+        hits = client.get(HN_FRONT_PAGE_URL).json()['hits']
     return [
         {'title': hit['title'], 'url': hit['url'], 'points': hit['points']}
         for hit in hits

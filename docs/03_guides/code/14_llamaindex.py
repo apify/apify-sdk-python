@@ -52,8 +52,12 @@ async def main() -> None:
             api_key=os.environ['APIFY_TOKEN'],
             is_chat_model=True,
         )
-        # Embeddings run locally, so the proxy needs no embeddings endpoint.
-        embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
+        # Embeddings run locally, so the proxy needs no embeddings endpoint. Building the
+        # model downloads and loads it on first run, which blocks, so offload it with
+        # `asyncio.to_thread` to keep the Actor's event loop responsive.
+        embed_model = await asyncio.to_thread(
+            HuggingFaceEmbedding, model_name=EMBED_MODEL
+        )
 
         # Scrape the pages with the Website Content Crawler Actor and wrap each one
         # in a `Document`. LlamaIndex then chunks and embeds them, so the query engine
@@ -66,7 +70,10 @@ async def main() -> None:
             run_input=run_input,
             dataset_mapping_function=to_document,
         )
-        index = VectorStoreIndex.from_documents(documents, embed_model=embed_model)
+        # Chunking and embedding every document blocks too, so offload it the same way.
+        index = await asyncio.to_thread(
+            VectorStoreIndex.from_documents, documents, embed_model=embed_model
+        )
 
         # `output_cls` returns a validated `Answer`. The response still carries the
         # retrieved `source_nodes`, so the answer can cite the pages it came from.
