@@ -49,6 +49,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+brotli = ["apify-client[brotli]"]
 scrapy = ["scrapy>=2.14.0"]
 
 [project.urls]
