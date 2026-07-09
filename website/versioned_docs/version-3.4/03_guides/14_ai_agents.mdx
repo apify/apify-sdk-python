@@ -156,6 +156,7 @@ Note that:
 - `OpenAILike` points `api_base` at the Apify OpenRouter proxy, so no provider API key is needed. It's the LlamaIndex LLM class for any OpenAI-compatible endpoint.
 - `Document` wraps each scraped page, and `VectorStoreIndex.from_documents` chunks and embeds them. The index is the retrieval layer that sets LlamaIndex apart from a plain agent loop.
 - Embeddings run locally through `HuggingFaceEmbedding` from the `llama-index-embeddings-huggingface` package, so the proxy needs no embeddings endpoint.
+- The embedding model downloads on the first run and the Website Content Crawler renders pages in a browser, so this pipeline is heavier than the other examples. Raise the run's timeout (for example to 300 seconds) so a cold start isn't aborted while the model downloads or the index builds.
 - `index.as_query_engine(output_cls=Answer)` retrieves the passages most relevant to the question, then the LLM composes a validated `Answer` grounded in them.
 - Every response carries the passages it used in `response.source_nodes`, so the Actor pushes their `url` metadata as citations. `Actor.call` runs the Website Content Crawler, and `to_document` maps each dataset item to a `Document`, so indexing more content is a matter of crawling more pages. For details, see [Using Apify Actors as tools](#using-apify-actors-as-tools).
 
