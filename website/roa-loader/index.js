@@ -21,6 +21,9 @@ async function getHash(source) {
     }
 
     const memory = source.match(/playwright|puppeteer/i) ? 4096 : 1024;
+    // The LlamaIndex example downloads a local embedding model and crawls pages in a
+    // browser, so a cold start needs more than the default timeout to finish.
+    const timeout = source.match(/HuggingFaceEmbedding/i) ? 300 : 180;
     const res = await fetch(signingUrl, {
         method: 'POST',
         body: JSON.stringify({
@@ -29,7 +32,7 @@ async function getHash(source) {
                 build: 'latest',
                 contentType: 'application/json; charset=utf-8',
                 memory,
-                timeout: 180,
+                timeout,
             },
         }),
         headers: {
