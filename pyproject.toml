@@ -70,7 +70,6 @@ dev = [
     "black>=24.3.0",
     "build<2.0.0",
     "crawlee[parsel]",
-    "dycw-pytest-only<3.0.0",
     "griffe",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
