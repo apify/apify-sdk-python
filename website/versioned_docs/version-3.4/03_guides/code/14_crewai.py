@@ -77,8 +77,15 @@ async def main() -> None:
         # to fetch the page as clean Markdown.
         researcher = Agent(
             role='Documentation researcher',
-            goal='Read the Crawlee docs and note every crawler it describes.',
-            backstory='A researcher who reads technical docs closely.',
+            goal=(
+                'Fetch the page with the web_browser tool and note every crawler '
+                'it describes.'
+            ),
+            backstory=(
+                'A researcher who never answers from memory. Before writing '
+                'anything, always read the actual page with the web_browser tool '
+                'and report only what it says.'
+            ),
             tools=[WebBrowserTool()],
             llm=llm,
         )
@@ -91,7 +98,10 @@ async def main() -> None:
         )
 
         research = Task(
-            description=f'Scrape {url} and list the crawlers the page covers.',
+            description=(
+                f'Use the web_browser tool to fetch {url}. Based only on the returned '
+                'Markdown, list the crawlers the page covers. Do not use prior knowledge.'
+            ),
             expected_output='Notes on each crawler: name, what it builds on, its use.',
             agent=researcher,
         )

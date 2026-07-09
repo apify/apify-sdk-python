@@ -29,7 +29,7 @@ async function getHash(source) {
                 build: 'latest',
                 contentType: 'application/json; charset=utf-8',
                 memory,
-                timeout: 180,
+                timeout: 360,
             },
         }),
         headers: {
