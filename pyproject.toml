@@ -35,7 +35,8 @@ keywords = [
     "scraping",
 ]
 dependencies = [
-    "apify-client>=3.0.0,<4.0.0",
+    # TEMP: test apify-client from PR #941 (relax enum validation) — https://github.com/apify/apify-client-python/pull/941
+    "apify-client @ git+https://github.com/apify/apify-client-python.git@fix/relax-enum-validation",
     "crawlee>=1.8.0,<2.0.0",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
