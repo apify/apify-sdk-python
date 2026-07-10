@@ -32,6 +32,6 @@
     ],
     "minimumReleaseAge": "1 day",
     "internalChecksFilter": "strict",
-    "schedule": ["* 0-5 * * 2-5"],
+    "schedule": ["* 0-5 * * 2"],
     "ignoreDeps": ["apify", "docusaurus-plugin-typedoc-api"]
 }
