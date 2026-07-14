@@ -264,17 +264,6 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = None
 
-    disable_outdated_warning: Annotated[
-        bool,
-        Field(
-            validation_alias='apify_disable_outdated_warning',
-            description='Controls the display of outdated SDK version warnings',
-        ),
-        BeforeValidator(lambda val: val or False),
-    ] = False
-
-    fact: Annotated[str | None, Field(validation_alias='apify_fact')] = None
-
     input_key: Annotated[
         str,
         Field(
@@ -310,15 +299,6 @@ class Configuration(CrawleeConfiguration):
             description='True if the Actor is running on Apify servers',
         ),
     ] = False
-
-    max_paid_dataset_items: Annotated[
-        int | None,
-        Field(
-            validation_alias='actor_max_paid_dataset_items',
-            description='For paid-per-result Actors, the user-set limit on returned results. Do not exceed this limit',
-        ),
-        BeforeValidator(_default_if_empty(default=None)),
-    ] = None
 
     max_total_charge_usd: Annotated[
         Decimal | None,

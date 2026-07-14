@@ -12,7 +12,6 @@ from apify import Actor
 from apify._consts import ActorEnvVars, ApifyEnvVars
 
 INTEGER_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
-    ActorEnvVars.MAX_PAID_DATASET_ITEMS,
     ActorEnvVars.MEMORY_MBYTES,
     ActorEnvVars.STANDBY_PORT,
     ActorEnvVars.WEB_SERVER_PORT,
@@ -31,7 +30,6 @@ FLOAT_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
 
 BOOL_ENV_VARS: list[ApifyEnvVars] = [
     ApifyEnvVars.DISABLE_BROWSER_SANDBOX,
-    ApifyEnvVars.DISABLE_OUTDATED_WARNING,
     ApifyEnvVars.HEADLESS,
     ApifyEnvVars.IS_AT_HOME,
     ApifyEnvVars.PERSIST_STORAGE,
@@ -62,7 +60,6 @@ STRING_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
     ApifyEnvVars.API_BASE_URL,
     ApifyEnvVars.API_PUBLIC_BASE_URL,
     ApifyEnvVars.DEFAULT_BROWSER_PATH,
-    ApifyEnvVars.FACT,
     ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_FILE,
     ApifyEnvVars.INPUT_SECRETS_PRIVATE_KEY_PASSPHRASE,
     ApifyEnvVars.LOCAL_STORAGE_DIR,
