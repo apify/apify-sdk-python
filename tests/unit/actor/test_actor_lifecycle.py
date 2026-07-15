@@ -206,15 +206,19 @@ _detect_default_exit_process = _ActorType._get_default_exit_process
 
 def test_default_exit_process_true_when_scrapy_importable_but_not_running(monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression for B7: `scrapy` merely being importable must not disable `exit_process`."""
-    pytest.importorskip('scrapy')
+    from apify.scrapy import _detection
+
+    monkeypatch.setattr(_detection, '_running_in_scrapy', False)
     monkeypatch.delenv('SCRAPY_SETTINGS_MODULE', raising=False)
     actor = Actor(exit_process=False)
     assert _detect_default_exit_process(actor) is True
 
 
 def test_default_exit_process_false_when_running_under_scrapy(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Scrapy runner sets `SCRAPY_SETTINGS_MODULE`, which must disable `exit_process` by default."""
-    monkeypatch.setenv('SCRAPY_SETTINGS_MODULE', 'src.settings')
+    """A real Scrapy run (the runner flag is set) disables `exit_process` by default."""
+    from apify.scrapy import _detection
+
+    monkeypatch.setattr(_detection, '_running_in_scrapy', True)
     actor = Actor(exit_process=False)
     assert _detect_default_exit_process(actor) is False
 

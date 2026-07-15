@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 import warnings
 from dataclasses import asdict
@@ -1441,11 +1440,12 @@ class _ActorType:
             self.log.debug('Running in IPython, setting default `exit_process` to False.')
             return False
 
-        # Detect an actual Scrapy project via the `SCRAPY_SETTINGS_MODULE` environment variable (set by the
-        # Scrapy CLI and by `apify.scrapy.run_scrapy_actor`), not by whether `scrapy` merely happens to be
-        # importable. Otherwise any image where Scrapy is a transitive dependency would silently disable the
-        # `sys.exit()` on Actor exit, so a failed run could end with exit code 0 and be marked as succeeded.
-        if os.environ.get('SCRAPY_SETTINGS_MODULE'):
+        # Delegate the Scrapy check to `apify.scrapy._detection`, but only if it is already imported. A
+        # non-Scrapy Actor never imports `apify.scrapy` (doing so pulls in Scrapy itself), so this keeps the
+        # common path from paying that cost, and from disabling `exit_process` just because Scrapy happens to
+        # be an importable transitive dependency.
+        scrapy_detection = sys.modules.get('apify.scrapy._detection')
+        if scrapy_detection is not None and scrapy_detection.is_running_in_scrapy():
             self.log.debug('Running in Scrapy, setting default `exit_process` to False.')
             return False
 
