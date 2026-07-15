@@ -85,6 +85,24 @@ run = await Actor.start('my-actor-id', wait_for_finish=60)
 run = await Actor.call('my-actor-id', wait=timedelta(seconds=60))
 ```
 
+## Actor exit codes and control-flow exceptions
+
+Exiting the Actor context (`async with Actor:`, `Actor.exit()`, or `Actor.fail()`) no longer maps every exception to a generic failure. In v3, any exception leaving the Actor context was logged as `Actor failed with an exception` and forced the exit code to `91`, even when you'd requested a different one. In v4 the exit code follows the exception:
+
+- A regular `Exception` still exits with `91` (`EXIT_CODE_ERROR_USER_FUNCTION_THREW`), but only when you haven't chosen an exit code yourself. `Actor.fail(exit_code=..., exception=...)` now honors the code you pass.
+- `SystemExit` keeps its own code, so `sys.exit(n)` inside the Actor block exits with `n` instead of `91`.
+- `KeyboardInterrupt` (Ctrl+C) and `asyncio.CancelledError` are re-raised after cleanup instead of being swallowed. Interrupt and cancellation semantics are preserved, and neither is logged as `Actor failed with an exception`.
+
+If you relied on `Actor.fail(exception=...)` always producing exit code `91`, pass it explicitly with `Actor.fail(exit_code=91, exception=...)`. Mapping specific errors to specific exit codes now works as documented:
+
+```python
+try:
+    await do_work()
+except ValueError as exc:
+    # v3 exited with 91; v4 exits with the requested 10.
+    await Actor.fail(exit_code=10, exception=exc)
+```
+
 ## Built on apify-client v3
 
 The SDK is now built on [`apify-client`](https://docs.apify.com/api/client/python) v3 and no longer depends on `apify-shared`. The sections below cover the user-visible consequences; see the client's [Upgrading to v3](https://docs.apify.com/api/client/python/docs/upgrading/upgrading-to-v3) guide for the full list of changes in the client itself.
