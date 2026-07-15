@@ -8,7 +8,7 @@ from crawlee.storage_clients._base import DatasetClient, KeyValueStoreClient, Re
 
 from apify._configuration import Configuration as ApifyConfiguration
 from apify._utils import docs_group
-from apify.storage_clients import ApifyStorageClient, FileSystemStorageClient
+from apify.storage_clients import ApifyFileSystemStorageClient, ApifyStorageClient
 
 if TYPE_CHECKING:
     from collections.abc import Hashable
@@ -44,10 +44,10 @@ class SmartApifyStorageClient(StorageClient):
             cloud_storage_client: Storage client used when an Actor is running on the Apify platform, or when
                 explicitly enabled via the `force_cloud` argument. Defaults to `ApifyStorageClient`.
             local_storage_client: Storage client used when an Actor is not running on the Apify platform and when
-                `force_cloud` flag is not set. Defaults to `FileSystemStorageClient`.
+                `force_cloud` flag is not set. Defaults to `ApifyFileSystemStorageClient`.
         """
         self._cloud_storage_client = cloud_storage_client or ApifyStorageClient()
-        self._local_storage_client = local_storage_client or FileSystemStorageClient()
+        self._local_storage_client = local_storage_client or ApifyFileSystemStorageClient()
 
     def __str__(self) -> str:
         return (

@@ -17,7 +17,7 @@ Storage clients are the components that read and write your [storages](./storage
 By default, the Actor uses a <ApiLink to="class/SmartApifyStorageClient">`SmartApifyStorageClient`</ApiLink>, a hybrid client that delegates to one of two underlying clients depending on the environment:
 
 - When running on the Apify platform (detected automatically), or when you pass `force_cloud=True`, it uses the cloud client, <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink>, which persists data through the Apify API.
-- When running locally, it uses the local client, <ApiLink to="class/FileSystemStorageClient">`FileSystemStorageClient`</ApiLink>, which emulates platform storages on your filesystem under the `storage` folder.
+- When running locally, it uses the local client, <ApiLink to="class/ApifyFileSystemStorageClient">`ApifyFileSystemStorageClient`</ApiLink>, which emulates platform storages on your filesystem under the `storage` folder.
 
 As a result, the same Actor code can run unchanged both locally and on the platform.
 
@@ -27,7 +27,7 @@ The `apify.storage_clients` module provides the following clients:
 
 - <ApiLink to="class/SmartApifyStorageClient">`SmartApifyStorageClient`</ApiLink> - the default hybrid client. It wraps a `cloud_storage_client` and a `local_storage_client` and routes each call to the right one.
 - <ApiLink to="class/ApifyStorageClient">`ApifyStorageClient`</ApiLink> - talks to the Apify API. Used as the cloud client.
-- <ApiLink to="class/FileSystemStorageClient">`FileSystemStorageClient`</ApiLink> - persists data to the local filesystem. Used as the default local client.
+- <ApiLink to="class/ApifyFileSystemStorageClient">`ApifyFileSystemStorageClient`</ApiLink> - persists data to the local filesystem. Used as the default local client.
 - <ApiLink to="class/MemoryStorageClient">`MemoryStorageClient`</ApiLink> - keeps everything in memory and persists nothing. Useful for tests and short-lived runs.
 
 All of these clients implement Crawlee's <ApiLink to="class/StorageClient">`StorageClient`</ApiLink> interface, so any of them can be used as a sub-client of `SmartApifyStorageClient`. For details, see [customizing the storage client](#customizing-the-storage-client).

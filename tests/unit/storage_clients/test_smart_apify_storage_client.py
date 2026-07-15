@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from apify._configuration import Configuration
-from apify.storage_clients import ApifyStorageClient, FileSystemStorageClient
+from apify.storage_clients import ApifyFileSystemStorageClient, ApifyStorageClient
 from apify.storage_clients._smart_apify._storage_client import SmartApifyStorageClient
 
 
@@ -44,7 +44,7 @@ def test_local_returns_local_client(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that local environment returns local client."""
     monkeypatch.delenv('APIFY_IS_AT_HOME', raising=False)
 
-    local_client = MagicMock(spec=FileSystemStorageClient)
+    local_client = MagicMock(spec=ApifyFileSystemStorageClient)
     client = SmartApifyStorageClient(local_storage_client=local_client)
     result = client.get_suitable_storage_client()
     assert result is local_client
@@ -54,7 +54,7 @@ def test_default_clients_initialized() -> None:
     """Test that default cloud and local clients are created when not provided."""
     client = SmartApifyStorageClient()
     assert isinstance(client._cloud_storage_client, ApifyStorageClient)
-    assert isinstance(client._local_storage_client, FileSystemStorageClient)
+    assert isinstance(client._local_storage_client, ApifyFileSystemStorageClient)
 
 
 def test_str_representation() -> None:
@@ -63,7 +63,7 @@ def test_str_representation() -> None:
     result = str(client)
     assert 'SmartApifyStorageClient' in result
     assert 'ApifyStorageClient' in result
-    assert 'FileSystemStorageClient' in result
+    assert 'ApifyFileSystemStorageClient' in result
 
 
 def test_cache_key_at_home(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,7 +85,7 @@ def test_cache_key_local(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv('APIFY_IS_AT_HOME', raising=False)
 
     config = Configuration()
-    local_client = MagicMock(spec=FileSystemStorageClient)
+    local_client = MagicMock(spec=ApifyFileSystemStorageClient)
     local_client.get_storage_client_cache_key.return_value = 'local-key'
     client = SmartApifyStorageClient(local_storage_client=local_client)
     key = client.get_storage_client_cache_key(config)

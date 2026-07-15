@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from apify import storage_clients
-from apify.storage_clients import ApifyFileSystemStorageClient, FileSystemStorageClient
+from apify.storage_clients import ApifyFileSystemStorageClient
 from apify.storage_clients import _file_system as fs
 
 
@@ -11,10 +11,10 @@ def test_apify_fs_storage_client_exported_under_real_name() -> None:
     assert 'ApifyFileSystemStorageClient' in storage_clients.__all__
 
 
-def test_filesystem_storage_client_alias_kept_for_compat() -> None:
-    """The `FileSystemStorageClient` alias stays importable and points at the same class."""
-    assert FileSystemStorageClient is ApifyFileSystemStorageClient
-    assert 'FileSystemStorageClient' in storage_clients.__all__
+def test_filesystem_storage_client_alias_not_exported() -> None:
+    """The old `FileSystemStorageClient` alias is gone; only the real name is exported (breaking change)."""
+    assert 'FileSystemStorageClient' not in storage_clients.__all__
+    assert not hasattr(storage_clients, 'FileSystemStorageClient')
 
 
 def test_file_system_subpackage_exports_all_three_clients() -> None:
