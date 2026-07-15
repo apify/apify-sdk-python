@@ -177,9 +177,6 @@ def test_dont_filter_request_is_always_enqueued(spider: Spider) -> None:
     assert first.unique_key != second.unique_key
 
 
-# Unique-key deduplication (Scrapy fingerprint parity)
-
-
 def test_unique_key_matches_scrapy_fingerprint(spider: Spider) -> None:
     """The computed unique key equals Scrapy's own request fingerprint, matching RFPDupeFilter dedup semantics."""
     scrapy_request = Request(url='https://example.com/Products/Item-A?b=2&a=1')
