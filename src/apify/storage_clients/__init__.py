@@ -1,8 +1,6 @@
-# `FileSystemStorageClient`, `MemoryStorageClient`, and `StorageClient` are re-exported unchanged from Crawlee.
-# The file-system client also has an Apify variant, `ApifyFileSystemStorageClient` (the default local client),
-# which preserves the Actor `INPUT` record on purge and charges for the `PAY_PER_EVENT` pricing model. There is
-# no Apify variant of `MemoryStorageClient`, so it is re-exported as-is and provides neither behavior. Prefer
-# the Apify clients when either behavior matters.
+# `FileSystemStorageClient`, `MemoryStorageClient`, and `StorageClient` are re-exported from Crawlee. Only the
+# file-system client has an Apify variant: `ApifyFileSystemStorageClient`, the default local client, which adds
+# `INPUT` preservation on purge and local `PAY_PER_EVENT` charging.
 from crawlee.storage_clients import FileSystemStorageClient, MemoryStorageClient, StorageClient
 
 from ._apify import ApifyStorageClient
