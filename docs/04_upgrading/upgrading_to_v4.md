@@ -85,6 +85,24 @@ run = await Actor.start('my-actor-id', wait_for_finish=60)
 run = await Actor.call('my-actor-id', wait=timedelta(seconds=60))
 ```
 
+## Storage client exports
+
+In v3, `apify.storage_clients.FileSystemStorageClient` was an alias for the Apify-specific file-system client, which shadowed Crawlee's distinct class of the same name. In v4 the name refers to Crawlee's `FileSystemStorageClient` (the base client), and the Apify variant is exported under its own name, `ApifyFileSystemStorageClient`.
+
+`ApifyFileSystemStorageClient` stays the default local client, so most Actors need no change. Update your imports only if you construct the local client explicitly and rely on its Apify behavior, such as preserving the Actor `INPUT` record on purge or local `PAY_PER_EVENT` charging.
+
+```python
+# Before (v3)
+from apify.storage_clients import FileSystemStorageClient
+
+storage_client = FileSystemStorageClient()
+
+# After (v4)
+from apify.storage_clients import ApifyFileSystemStorageClient
+
+storage_client = ApifyFileSystemStorageClient()
+```
+
 ## Built on apify-client v3
 
 The SDK is now built on [`apify-client`](https://docs.apify.com/api/client/python) v3 and no longer depends on `apify-shared`. The sections below cover the user-visible consequences; see the client's [Upgrading to v3](https://docs.apify.com/api/client/python/docs/upgrading/upgrading-to-v3) guide for the full list of changes in the client itself.
