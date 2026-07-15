@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -17,12 +17,36 @@ from crawlee.events._types import (
 
 from apify._utils import docs_group
 
-ActorEventTypes = Literal['systemInfo', 'persistState', 'migrating', 'aborting']
-"""Event types emitted by the Apify platform during an Actor run.
+if TYPE_CHECKING:
+    ActorEventTypes = Literal['systemInfo', 'persistState', 'migrating', 'aborting']
+    """Event types emitted by the Apify platform during an Actor run.
 
-This is the Apify-specific subset of `Event`. For the full set (including framework-level events
-like `SESSION_RETIRED` or `BROWSER_LAUNCHED`), use `Event` from `apify`.
-"""
+    This is the Apify-specific subset of `Event`. For the full set (including framework-level events
+    like `SESSION_RETIRED` or `BROWSER_LAUNCHED`), use `Event` from `apify`.
+    """
+else:
+
+    class _ActorEventTypes:
+        """Event types emitted by the Apify platform during an Actor run.
+
+        This is the Apify-specific subset of `Event`. For the full set (including framework-level events
+        like `SESSION_RETIRED` or `BROWSER_LAUNCHED`), use `Event` from `apify`.
+        """
+
+        # For type checkers `ActorEventTypes` is a `Literal[...]` alias (see the `TYPE_CHECKING` branch), so it
+        # keeps working in annotations. At runtime it is this object, which turns pre-v4 enum-member access
+        # (`ActorEventTypes.SYSTEM_INFO`) into an error pointing at `apify.Event` and the upgrade guide instead
+        # of a bare `AttributeError`.
+        def __getattr__(self, name: str) -> Any:
+            if name.startswith('__') and name.endswith('__'):
+                raise AttributeError(name)
+            raise AttributeError(
+                f'`ActorEventTypes` is no longer an enum; its members were removed in Apify SDK v4. Use '
+                f'`apify.Event.{name}` for runtime event values, or the plain string. See '
+                f'https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v4'
+            )
+
+    ActorEventTypes = _ActorEventTypes()
 
 
 @docs_group('Event data')
