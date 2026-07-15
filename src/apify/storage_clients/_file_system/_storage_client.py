@@ -19,11 +19,16 @@ if TYPE_CHECKING:
 
 @docs_group('Storage clients')
 class ApifyFileSystemStorageClient(FileSystemStorageClient):
-    """Apify-specific implementation of the file system storage client.
+    """Apify SDK variant of Crawlee's `FileSystemStorageClient`, used as the default local storage client.
 
-    The only difference is that it uses `ApifyFileSystemKeyValueStoreClient` for key-value stores,
-    which overrides the `purge` method to delete all files in the key-value store directory
-    except for the metadata file and the `INPUT.json` file.
+    It extends the Crawlee file-system client with Apify-specific behavior that keeps local runs consistent
+    with the Apify platform:
+
+    - Key-value stores use `ApifyFileSystemKeyValueStoreClient`, which preserves the Actor input file (e.g.
+      `INPUT.json`) and the metadata file when purging, and maps the logical `INPUT` key to the input file on
+      disk.
+    - Datasets use `ApifyFileSystemDatasetClient`, which charges for the `PAY_PER_EVENT` pricing model so it
+      can be exercised locally.
     """
 
     @override
