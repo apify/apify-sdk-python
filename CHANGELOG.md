@@ -33,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Async-thread startup race, shutdown lifecycle, and timeout setting ([#979](https://github.com/apify/apify-sdk-python/pull/979)) ([ae12935](https://github.com/apify/apify-sdk-python/commit/ae1293512f5ee781533dab5b1dd1f0af0fcc2497)) by [@vdusek](https://github.com/vdusek)
 - Commit request queue dedup cache only after batch_add_requests succeeds ([#975](https://github.com/apify/apify-sdk-python/pull/975)) ([078ab87](https://github.com/apify/apify-sdk-python/commit/078ab8744c96e61a5226a9d19869b5e0df71ab23)) by [@vdusek](https://github.com/vdusek)
 - Prevent request queue softlock by adding `is_finished` and correcting `is_empty` ([#1008](https://github.com/apify/apify-sdk-python/pull/1008)) ([4ead0c6](https://github.com/apify/apify-sdk-python/commit/4ead0c64d2a95263b2fa970f5a8fff9141db62b2)) by [@Mantisus](https://github.com/Mantisus), closes [#987](https://github.com/apify/apify-sdk-python/issues/987)
+- [**breaking**] Honor explicit exit codes and control-flow signals in Actor exit ([#1048](https://github.com/apify/apify-sdk-python/pull/1048)) ([573e3a3](https://github.com/apify/apify-sdk-python/commit/573e3a36659cb4d46b86b9d3fb52d5e93c4eee32)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
