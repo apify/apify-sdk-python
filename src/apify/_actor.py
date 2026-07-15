@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import warnings
-from contextlib import suppress
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -1441,10 +1441,11 @@ class _ActorType:
             self.log.debug('Running in IPython, setting default `exit_process` to False.')
             return False
 
-        # Check if running in Scrapy by attempting to import it.
-        with suppress(ImportError):
-            import scrapy  # noqa: F401 PLC0415
-
+        # Detect an actual Scrapy project via the `SCRAPY_SETTINGS_MODULE` environment variable (set by the
+        # Scrapy CLI and by `apify.scrapy.run_scrapy_actor`), not by whether `scrapy` merely happens to be
+        # importable. Otherwise any image where Scrapy is a transitive dependency would silently disable the
+        # `sys.exit()` on Actor exit, so a failed run could end with exit code 0 and be marked as succeeded.
+        if os.environ.get('SCRAPY_SETTINGS_MODULE'):
             self.log.debug('Running in Scrapy, setting default `exit_process` to False.')
             return False
 

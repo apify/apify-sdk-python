@@ -18,13 +18,12 @@ from crawlee.events._types import Event, EventPersistStateData
 
 from ..._utils import poll_until_condition
 from apify import Actor
+from apify._actor import _ActorType
 from apify._charging import ChargingManagerImplementation
 from apify._consts import EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
-
-    from apify._actor import _ActorType
 
 
 @pytest.fixture(
@@ -197,6 +196,27 @@ async def test_unhandled_exception_sets_error_exit_code() -> None:
             raise RuntimeError('Test error')
 
     assert actor.exit_code == EXIT_CODE_ERROR_USER_FUNCTION_THREW
+
+
+# The autouse `_isolate_test_environment` fixture forces the `exit_process` default to False so a clean
+# context exit does not call `sys.exit()`. Capture the genuine detector at import time and call it
+# directly so these tests exercise the real logic rather than the test-environment override.
+_detect_default_exit_process = _ActorType._get_default_exit_process
+
+
+def test_default_exit_process_true_when_scrapy_importable_but_not_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression for B7: `scrapy` merely being importable must not disable `exit_process`."""
+    pytest.importorskip('scrapy')
+    monkeypatch.delenv('SCRAPY_SETTINGS_MODULE', raising=False)
+    actor = Actor(exit_process=False)
+    assert _detect_default_exit_process(actor) is True
+
+
+def test_default_exit_process_false_when_running_under_scrapy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Scrapy runner sets `SCRAPY_SETTINGS_MODULE`, which must disable `exit_process` by default."""
+    monkeypatch.setenv('SCRAPY_SETTINGS_MODULE', 'src.settings')
+    actor = Actor(exit_process=False)
+    assert _detect_default_exit_process(actor) is False
 
 
 async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.MonkeyPatch) -> None:
