@@ -221,8 +221,11 @@ class _ActorType:
     ) -> None:
         """Exit the Actor context.
 
-        If the block exits with an exception, the Actor fails with a non-zero exit code.
-        Otherwise, it exits cleanly. In both cases the Actor:
+        If the block raises a regular exception, the Actor fails with `EXIT_CODE_ERROR_USER_FUNCTION_THREW`,
+        unless an exit code was already set explicitly (e.g. via `fail(exit_code=...)`). A `SystemExit` keeps
+        its own exit code, while `KeyboardInterrupt` and `asyncio.CancelledError` are re-raised after cleanup
+        so interrupt and cancellation semantics are preserved. Otherwise, the Actor exits cleanly. In every
+        case the Actor:
 
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
@@ -236,11 +239,23 @@ class _ActorType:
         if not self._active:
             raise RuntimeError('The _ActorType is not active. Use it within the async context.')
 
-        if exc_value and not is_running_in_ipython():
+        # A regular `Exception` (or a `SystemExit`, handled below) is the only kind that maps to an Actor
+        # failure. Every other `BaseException` is a control-flow signal (Ctrl+C, task cancellation, ...):
+        # run cleanup, then let it propagate untouched so interrupt/cancellation semantics are preserved.
+        reraise_control_flow = exc_value is not None and not isinstance(exc_value, (Exception, SystemExit))
+
+        if isinstance(exc_value, SystemExit):
+            # Respect the exit code requested via `sys.exit()` (no argument means a clean exit).
+            code = exc_value.code
+            self.exit_code = code if isinstance(code, int) else 0 if code is None else 1
+        elif isinstance(exc_value, Exception) and not is_running_in_ipython():
             # In IPython, we don't run `sys.exit()` during Actor exits,
             # so the exception traceback will be printed on its own
             self.log.exception('Actor failed with an exception', exc_info=exc_value)
-            self.exit_code = EXIT_CODE_ERROR_USER_FUNCTION_THREW
+            # Only fall back to the error exit code when the caller hasn't explicitly chosen one
+            # (e.g. via `fail(exit_code=...)`); a non-zero code is always a deliberate choice.
+            if self.exit_code == 0:
+                self.exit_code = EXIT_CODE_ERROR_USER_FUNCTION_THREW
 
         self._is_exiting = True
         self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
@@ -277,6 +292,10 @@ class _ActorType:
             self.log.exception('Actor cleanup timed out')
         finally:
             self._active = False
+
+        if reraise_control_flow:
+            # Returning without `sys.exit()` lets the original KeyboardInterrupt / CancelledError re-raise.
+            return
 
         if self._exit_process:
             sys.exit(self.exit_code)
