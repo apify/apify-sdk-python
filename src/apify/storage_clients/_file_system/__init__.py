@@ -1,2 +1,3 @@
+from ._dataset_client import ApifyFileSystemDatasetClient
 from ._key_value_store_client import ApifyFileSystemKeyValueStoreClient
 from ._storage_client import ApifyFileSystemStorageClient

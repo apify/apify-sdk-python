@@ -109,7 +109,7 @@ class Configuration(CrawleeConfiguration):
     """A class for specifying the configuration of an Actor.
 
     Can be used either globally via `Configuration.get_global_configuration()`,
-    or it can be specific to each `Actor` instance on the `actor.config` property.
+    or it can be specific to each `Actor` instance on the `Actor.configuration` property.
     """
 
     # Fields are validated from environment variables via their `validation_alias`, but serialized under a
