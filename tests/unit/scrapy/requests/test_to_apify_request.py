@@ -7,6 +7,7 @@ from typing import cast
 import pytest
 from scrapy import Request, Spider
 from scrapy.http.headers import Headers
+from scrapy.utils.request import fingerprint
 
 from crawlee._types import HttpHeaders
 
@@ -174,6 +175,49 @@ def test_dont_filter_request_is_always_enqueued(spider: Spider) -> None:
     # requests get distinct unique keys and neither is deduplicated against the other.
     assert '|' in first.unique_key
     assert first.unique_key != second.unique_key
+
+
+# Unique-key deduplication (Scrapy fingerprint parity)
+
+
+def test_unique_key_matches_scrapy_fingerprint(spider: Spider) -> None:
+    """The computed unique key equals Scrapy's own request fingerprint, matching RFPDupeFilter dedup semantics."""
+    scrapy_request = Request(url='https://example.com/Products/Item-A?b=2&a=1')
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == fingerprint(scrapy_request).hex()
+
+
+def test_case_variant_urls_get_distinct_unique_keys(spider: Spider) -> None:
+    """Case-variant paths must not collapse; Scrapy distinguishes them, so the unique keys must differ."""
+    upper = to_apify_request(Request(url='https://example.com/Products/Item-A'), spider)
+    lower = to_apify_request(Request(url='https://example.com/products/item-a'), spider)
+
+    assert upper is not None
+    assert lower is not None
+    assert upper.unique_key != lower.unique_key
+
+
+def test_utm_params_kept_in_unique_key(spider: Spider) -> None:
+    """`utm_*` tracking params must not be stripped; Scrapy keeps them, so the two URLs get distinct keys."""
+    with_utm = to_apify_request(Request(url='https://example.com/x?utm_source=x&id=1'), spider)
+    without_utm = to_apify_request(Request(url='https://example.com/x?id=1'), spider)
+
+    assert with_utm is not None
+    assert without_utm is not None
+    assert with_utm.unique_key != without_utm.unique_key
+
+
+def test_header_only_difference_shares_unique_key(spider: Spider) -> None:
+    """Scrapy ignores headers when deduplicating, so requests differing only in headers share a unique key."""
+    en = to_apify_request(Request(url='https://example.com', headers={'Accept-Language': 'en'}), spider)
+    de = to_apify_request(Request(url='https://example.com', headers={'Accept-Language': 'de'}), spider)
+
+    assert en is not None
+    assert de is not None
+    assert en.unique_key == de.unique_key
 
 
 def test_apify_request_id_in_meta_is_ignored(spider: Spider) -> None:

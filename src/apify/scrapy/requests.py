@@ -8,7 +8,7 @@ from scrapy import Request as ScrapyRequest
 from scrapy import Spider
 from scrapy.http.headers import Headers
 from scrapy.utils.misc import load_object
-from scrapy.utils.request import request_from_dict
+from scrapy.utils.request import RequestFingerprinter, request_from_dict
 
 from crawlee._request import UserData
 from crawlee._types import HttpHeaders
@@ -61,16 +61,12 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         logger.warning('Failed to convert to Apify request: Scrapy request must be a ScrapyRequest instance.')
         return None
 
-    # Configuration to behave as similarly as possible to Scrapy's default RFPDupeFilter.
-    #
-    # The body is stored twice on purpose: as `payload` (used for the extended unique key) and inside the serialized
-    # Scrapy request below (used to reconstruct it). Both come from `scrapy_request.body`.
+    # The body is stored as `payload` for the Apify-platform view of the request; the authoritative copy used to
+    # reconstruct the Scrapy request travels inside the serialized blob below. Both come from `scrapy_request.body`.
     request_kwargs: dict[str, Any] = {
         'url': scrapy_request.url,
         'method': scrapy_request.method,
         'payload': scrapy_request.body,
-        'use_extended_unique_key': True,
-        'keep_url_fragment': False,
     }
 
     try:
@@ -78,6 +74,15 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
             request_kwargs['always_enqueue'] = True
         elif scrapy_request.meta.get('apify_request_unique_key'):
             request_kwargs['unique_key'] = scrapy_request.meta['apify_request_unique_key']
+        else:
+            # Deduplicate exactly like Scrapy's own RFPDupeFilter, whose fingerprint canonicalizes the URL
+            # case-sensitively (`w3lib.url.canonicalize_url`), keeps `utm_*` params, and ignores headers. Left to
+            # Crawlee, the unique key would instead come from `normalize_url`, which lowercases the whole URL and
+            # strips `utm_*` — silently collapsing distinct pages Scrapy would crawl — while its extended key hashes
+            # headers Scrapy ignores. A custom `REQUEST_FINGERPRINTER_CLASS` is honored when the spider has a crawler.
+            crawler = getattr(spider, 'crawler', None)
+            fingerprinter = getattr(crawler, 'request_fingerprinter', None) or RequestFingerprinter()
+            request_kwargs['unique_key'] = fingerprinter.fingerprint(scrapy_request).hex()
 
         # Serialize the Scrapy request now, before `Request.from_url()` runs below. `from_url()` mutates the
         # `user_data` dict it receives in place (it injects a live `CrawleeRequestData` under `__crawlee`), and that
@@ -105,12 +110,8 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
 
         # Store an Apify-platform view of the headers. The authoritative copy with exact bytes travels in
         # the serialized scrapy_request below, so non-UTF-8 headers (which make `to_unicode_dict()` raise) are
-        # tolerated rather than dropping the whole request.
-        #
-        # Trade-off: with `use_extended_unique_key=True` the unique key includes the headers, so when non-UTF-8
-        # headers are omitted here two requests differing only in those headers share a unique key and one is
-        # deduplicated away. This is rare (header values are normally ASCII/UTF-8) and still strictly better than
-        # the old behavior, which dropped such requests entirely.
+        # omitted here rather than dropping the whole request. Dedup is unaffected: the unique key comes from
+        # Scrapy's fingerprint, which ignores headers.
         if isinstance(scrapy_request.headers, Headers):
             try:
                 headers = cast('dict[str, str]', dict(scrapy_request.headers.to_unicode_dict()))
