@@ -239,21 +239,18 @@ class _ActorType:
         if not self._active:
             raise RuntimeError('The _ActorType is not active. Use it within the async context.')
 
-        # A regular `Exception` (or a `SystemExit`, handled below) is the only kind that maps to an Actor
-        # failure. Every other `BaseException` is a control-flow signal (Ctrl+C, task cancellation, ...):
-        # run cleanup, then let it propagate untouched so interrupt/cancellation semantics are preserved.
+        # Only a regular `Exception` (or `SystemExit`, below) is a failure. Any other `BaseException`
+        # (Ctrl+C, cancellation, ...) is a control-flow signal: clean up, then let it propagate.
         reraise_control_flow = exc_value is not None and not isinstance(exc_value, (Exception, SystemExit))
 
         if isinstance(exc_value, SystemExit):
-            # Respect the exit code requested via `sys.exit()` (no argument means a clean exit).
+            # Keep the code from `sys.exit()` (no argument means a clean exit).
             code = exc_value.code
             self.exit_code = code if isinstance(code, int) else 0 if code is None else 1
         elif isinstance(exc_value, Exception) and not is_running_in_ipython():
-            # In IPython, we don't run `sys.exit()` during Actor exits,
-            # so the exception traceback will be printed on its own
+            # In IPython we don't call `sys.exit()`, so the traceback prints on its own.
             self.log.exception('Actor failed with an exception', exc_info=exc_value)
-            # Only fall back to the error exit code when the caller hasn't explicitly chosen one
-            # (e.g. via `fail(exit_code=...)`); a non-zero code is always a deliberate choice.
+            # Fall back to the error code only if the caller hasn't chosen one (e.g. via `fail(exit_code=...)`).
             if self.exit_code == 0:
                 self.exit_code = EXIT_CODE_ERROR_USER_FUNCTION_THREW
 
@@ -294,7 +291,7 @@ class _ActorType:
             self._active = False
 
         if reraise_control_flow:
-            # Returning without `sys.exit()` lets the original KeyboardInterrupt / CancelledError re-raise.
+            # Return without `sys.exit()` so the original exception re-raises.
             return
 
         if self._exit_process:
