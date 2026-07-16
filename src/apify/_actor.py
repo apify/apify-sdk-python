@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import sys
 import warnings
 from contextlib import suppress
@@ -896,6 +897,39 @@ class _ActorType:
         env_vars = {env_var.value.lower(): env_var.name.lower() for env_var in [*ActorEnvVars, *ApifyEnvVars]}
         return {option_name: config[env_var] for env_var, option_name in env_vars.items() if env_var in config}
 
+    @overload
+    async def start(
+        self,
+        actor_id: str,
+        run_input: Any = None,
+        *,
+        token: str | None = None,
+        content_type: str | None = None,
+        build: str | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: timedelta | None = None,
+        force_permission_level: ActorPermissionLevel | None = None,
+        webhooks: list[Webhook] | None = None,
+    ) -> Run: ...
+    @overload
+    async def start(
+        self,
+        actor_id: str,
+        run_input: Any = None,
+        *,
+        token: str | None = None,
+        content_type: str | None = None,
+        build: str | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: Literal['inherit'],
+        force_permission_level: ActorPermissionLevel | None = None,
+        webhooks: list[Webhook] | None = None,
+    ) -> Run | None: ...
+
     @_ensure_context
     async def start(
         self,
@@ -911,7 +945,7 @@ class _ActorType:
         timeout: timedelta | None | Literal['inherit'] = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
-    ) -> Run:
+    ) -> Run | None:
         """Run an Actor on the Apify platform.
 
         Unlike `Actor.call`, this method just starts the run without waiting for finish. To wait for the run to
@@ -931,7 +965,8 @@ class _ActorType:
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor
-                to the time remaining from this Actor timeout.
+                to the time remaining from this Actor timeout. If there is no time remaining, the other Actor
+                is not started at all and `None` is returned.
             force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
                 with permissions configured in the Actor settings.
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
@@ -939,12 +974,19 @@ class _ActorType:
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
 
         Returns:
-            Info about the started Actor run
+            Info about the started Actor run, or `None` if the start was skipped because `timeout='inherit'`
+            was used and this Actor run has no time remaining before its own timeout.
         """
         client = self.new_client(token=token) if token else self.apify_client
 
         if timeout == 'inherit':
             actor_start_timeout = self._get_remaining_time()
+            if actor_start_timeout == timedelta(0):
+                self.log.warning(
+                    "Actor.start() was skipped: `timeout='inherit'` was used, but the current run "
+                    'has no time remaining before its own timeout.'
+                )
+                return None
         elif timeout is None:
             actor_start_timeout = None
         elif isinstance(timeout, timedelta):
@@ -1002,6 +1044,43 @@ class _ActorType:
 
         return run
 
+    @overload
+    async def call(
+        self,
+        actor_id: str,
+        run_input: Any = None,
+        *,
+        token: str | None = None,
+        content_type: str | None = None,
+        build: str | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: timedelta | None = None,
+        force_permission_level: ActorPermissionLevel | None = None,
+        webhooks: list[Webhook] | None = None,
+        wait: timedelta | None = None,
+        logger: logging.Logger | None | Literal['default'] = 'default',
+    ) -> Run: ...
+    @overload
+    async def call(
+        self,
+        actor_id: str,
+        run_input: Any = None,
+        *,
+        token: str | None = None,
+        content_type: str | None = None,
+        build: str | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: Literal['inherit'],
+        force_permission_level: ActorPermissionLevel | None = None,
+        webhooks: list[Webhook] | None = None,
+        wait: timedelta | None = None,
+        logger: logging.Logger | None | Literal['default'] = 'default',
+    ) -> Run | None: ...
+
     @_ensure_context
     async def call(
         self,
@@ -1019,7 +1098,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | None | Literal['default'] = 'default',
-    ) -> Run:
+    ) -> Run | None:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1038,7 +1117,8 @@ class _ActorType:
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor
-                to the time remaining from this Actor timeout.
+                to the time remaining from this Actor timeout. If there is no time remaining, the other Actor
+                is not started at all and `None` is returned.
             force_permission_level: Override the Actor's permissions for this run. If not set, the Actor will run
                 with permissions configured in the Actor settings.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
@@ -1050,12 +1130,19 @@ class _ActorType:
                 will redirect logs to the provided logger.
 
         Returns:
-            Info about the started Actor run.
+            Info about the started Actor run, or `None` if the call was skipped because `timeout='inherit'`
+            was used and this Actor run has no time remaining before its own timeout.
         """
         client = self.new_client(token=token) if token else self.apify_client
 
         if timeout == 'inherit':
             actor_call_timeout = self._get_remaining_time()
+            if actor_call_timeout == timedelta(0):
+                self.log.warning(
+                    "Actor.call() was skipped: `timeout='inherit'` was used, but the current run "
+                    'has no time remaining before its own timeout.'
+                )
+                return None
         elif timeout is None:
             actor_call_timeout = None
         elif isinstance(timeout, timedelta):
@@ -1083,6 +1170,35 @@ class _ActorType:
 
         return run
 
+    @overload
+    async def call_task(
+        self,
+        task_id: str,
+        task_input: dict | None = None,
+        *,
+        build: str | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: timedelta | None = None,
+        webhooks: list[Webhook] | None = None,
+        wait: timedelta | None = None,
+        token: str | None = None,
+    ) -> Run: ...
+    @overload
+    async def call_task(
+        self,
+        task_id: str,
+        task_input: dict | None = None,
+        *,
+        build: str | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: Literal['inherit'],
+        webhooks: list[Webhook] | None = None,
+        wait: timedelta | None = None,
+        token: str | None = None,
+    ) -> Run | None: ...
+
     @_ensure_context
     async def call_task(
         self,
@@ -1096,7 +1212,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
-    ) -> Run:
+    ) -> Run | None:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
         It waits indefinitely, unless the wait argument is provided.
@@ -1116,19 +1232,27 @@ class _ActorType:
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run. By default, the run uses timeout specified in
                 the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor to the
-                time remaining from this Actor timeout.
+                time remaining from this Actor timeout. If there is no time remaining, the task is not started
+                at all and `None` is returned.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
             wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
 
         Returns:
-            Info about the started Actor run.
+            Info about the started Actor run, or `None` if the call was skipped because `timeout='inherit'`
+            was used and this Actor run has no time remaining before its own timeout.
         """
         client = self.new_client(token=token) if token else self.apify_client
 
         if timeout == 'inherit':
             task_call_timeout = self._get_remaining_time()
+            if task_call_timeout == timedelta(0):
+                self.log.warning(
+                    "Actor.call_task() was skipped: `timeout='inherit'` was used, but the current run "
+                    'has no time remaining before its own timeout.'
+                )
+                return None
         elif timeout is None:
             task_call_timeout = None
         elif isinstance(timeout, timedelta):
@@ -1467,9 +1591,15 @@ class _ActorType:
         return True
 
     def _get_remaining_time(self) -> timedelta | None:
-        """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
+        """Get time remaining from the Actor timeout, rounded up to whole seconds.
+
+        Returns `None` if not on an Apify platform. `timedelta(0)` means the run is already past its timeout.
+        """
         if self.is_at_home() and self.configuration.timeout_at:
-            return max(self.configuration.timeout_at - datetime.now(tz=UTC), timedelta(0))
+            remaining = self.configuration.timeout_at - datetime.now(tz=UTC)
+            # Rounded up so that a positive remainder is never truncated to zero seconds by the API client -
+            # callers treat zero remaining time as "no time remaining" and skip starting the other Actor run.
+            return timedelta(seconds=max(math.ceil(remaining.total_seconds()), 0))
 
         self.log.warning(
             'Using the `inherit` argument is only possible when the Actor is running on the Apify platform and '

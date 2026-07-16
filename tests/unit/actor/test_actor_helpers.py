@@ -339,6 +339,56 @@ async def test_get_remaining_time_returns_positive_when_timeout_in_future() -> N
         assert result <= timedelta(minutes=5)
 
 
+async def test_get_remaining_time_rounds_up_to_whole_seconds() -> None:
+    """Test that _get_remaining_time rounds a fractional remaining time up, so it is never truncated to zero."""
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) + timedelta(seconds=30.5)
+
+        result = Actor._get_remaining_time()
+        assert result == timedelta(seconds=31)
+
+
+@pytest.mark.parametrize('method_name', ['start', 'call'])
+async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+    method_name: str,
+) -> None:
+    """Test that Actor.start/Actor.call with `timeout='inherit'` is skipped when the run is past its timeout."""
+    apify_client_async_patcher.patch('actor', method_name, return_value=None)
+    caplog.set_level('WARNING')
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
+
+        run = await getattr(Actor, method_name)('some-actor-id', timeout='inherit')
+        assert run is None
+
+    assert len(apify_client_async_patcher.calls['actor'][method_name]) == 0
+    assert any('skipped' in msg for msg in caplog.messages)
+
+
+async def test_actor_call_task_skipped_when_no_inherited_time_remains(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that Actor.call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
+    apify_client_async_patcher.patch('task', 'call', return_value=None)
+    caplog.set_level('WARNING')
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
+
+        run = await Actor.call_task('some-task-id', timeout='inherit')
+        assert run is None
+
+    assert len(apify_client_async_patcher.calls['task']['call']) == 0
+    assert any('skipped' in msg for msg in caplog.messages)
+
+
 async def test_reboot_runs_all_listeners_even_when_one_fails(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     caplog: pytest.LogCaptureFixture,
