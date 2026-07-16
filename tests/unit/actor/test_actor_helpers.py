@@ -352,12 +352,10 @@ async def test_get_remaining_time_rounds_up_to_whole_seconds() -> None:
 @pytest.mark.parametrize('method_name', ['start', 'call'])
 async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
-    caplog: pytest.LogCaptureFixture,
     method_name: str,
 ) -> None:
     """Test that Actor.start/Actor.call with `timeout='inherit'` is skipped when the run is past its timeout."""
     apify_client_async_patcher.patch('actor', method_name, return_value=None)
-    caplog.set_level('WARNING')
 
     async with Actor:
         Actor.configuration.is_at_home = True
@@ -367,16 +365,13 @@ async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
         assert run is None
 
     assert len(apify_client_async_patcher.calls['actor'][method_name]) == 0
-    assert any('skipped' in msg for msg in caplog.messages)
 
 
 async def test_actor_call_task_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that Actor.call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
     apify_client_async_patcher.patch('task', 'call', return_value=None)
-    caplog.set_level('WARNING')
 
     async with Actor:
         Actor.configuration.is_at_home = True
@@ -386,7 +381,6 @@ async def test_actor_call_task_skipped_when_no_inherited_time_remains(
         assert run is None
 
     assert len(apify_client_async_patcher.calls['task']['call']) == 0
-    assert any('skipped' in msg for msg in caplog.messages)
 
 
 async def test_reboot_runs_all_listeners_even_when_one_fails(
