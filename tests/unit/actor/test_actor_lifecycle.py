@@ -198,6 +198,51 @@ async def test_unhandled_exception_sets_error_exit_code() -> None:
     assert actor.exit_code == EXIT_CODE_ERROR_USER_FUNCTION_THREW
 
 
+async def test_fail_respects_explicit_exit_code_with_exception(actor: _ActorType) -> None:
+    """fail(exit_code=X, exception=e) must honor the requested exit code, not override it with the error code."""
+    await actor.fail(exit_code=42, exception=ValueError('boom'))
+    assert actor.exit_code == 42
+
+
+@pytest.mark.parametrize(
+    ('system_exit', 'expected_code'),
+    [
+        pytest.param(SystemExit(5), 5, id='nonzero'),
+        pytest.param(SystemExit(), 0, id='no-code'),
+    ],
+)
+async def test_system_exit_in_block_preserves_exit_code(system_exit: SystemExit, expected_code: int) -> None:
+    """sys.exit(n) inside the Actor block must propagate its own code, not the user-function-threw code."""
+    actor = Actor(exit_process=False)
+    with pytest.raises(SystemExit):
+        async with actor:
+            raise system_exit
+
+    assert actor.exit_code == expected_code
+
+
+async def test_keyboard_interrupt_propagates_unchanged(caplog: pytest.LogCaptureFixture) -> None:
+    """Ctrl+C must propagate as KeyboardInterrupt, not become a logged failure with the error exit code."""
+    actor = Actor(exit_process=True)
+    with pytest.raises(KeyboardInterrupt):
+        async with actor:
+            raise KeyboardInterrupt
+
+    assert actor.exit_code != EXIT_CODE_ERROR_USER_FUNCTION_THREW
+    assert not [r for r in caplog.records if r.msg == 'Actor failed with an exception']
+
+
+async def test_cancelled_error_propagates_unchanged(caplog: pytest.LogCaptureFixture) -> None:
+    """asyncio.CancelledError must propagate (cancellation contract), not be swallowed as an Actor failure."""
+    actor = Actor(exit_process=True)
+    with pytest.raises(asyncio.CancelledError):
+        async with actor:
+            raise asyncio.CancelledError
+
+    assert actor.exit_code != EXIT_CODE_ERROR_USER_FUNCTION_THREW
+    assert not [r for r in caplog.records if r.msg == 'Actor failed with an exception']
+
+
 # The autouse `_isolate_test_environment` fixture forces the `exit_process` default to False so a clean
 # context exit does not call `sys.exit()`. Capture the genuine detector at import time and call it
 # directly so these tests exercise the real logic rather than the test-environment override.
