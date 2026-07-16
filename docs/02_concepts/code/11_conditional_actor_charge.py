@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 from apify import Actor
 
@@ -16,7 +15,7 @@ async def main() -> None:
         if Actor.get_charging_manager().get_pricing_info().is_pay_per_event:
             # highlight-end
             await Actor.push_data({'hello': 'world'}, charged_event_name='dataset-item')
-        elif charged_items < int(os.environ.get('ACTOR_MAX_PAID_DATASET_ITEMS') or 0):
+        elif charged_items < (Actor.configuration.max_paid_dataset_items or 0):
             await Actor.push_data({'hello': 'world'})
             charged_items += 1
 

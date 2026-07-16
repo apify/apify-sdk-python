@@ -276,11 +276,25 @@ def test_default_values() -> None:
     assert config.test_pay_per_event is False
 
 
+def test_max_paid_dataset_items_zero_is_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that max_paid_dataset_items=0 is not treated as falsy and converted to None."""
+    monkeypatch.setenv('ACTOR_MAX_PAID_DATASET_ITEMS', '0')
+    config = ApifyConfiguration()
+    assert config.max_paid_dataset_items == 0
+
+
 def test_max_total_charge_usd_zero_is_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that max_total_charge_usd=0 is not treated as falsy and converted to None."""
     monkeypatch.setenv('ACTOR_MAX_TOTAL_CHARGE_USD', '0')
     config = ApifyConfiguration()
     assert config.max_total_charge_usd == Decimal(0)
+
+
+def test_max_paid_dataset_items_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that an empty env var for max_paid_dataset_items is converted to None."""
+    monkeypatch.setenv('ACTOR_MAX_PAID_DATASET_ITEMS', '')
+    config = ApifyConfiguration()
+    assert config.max_paid_dataset_items is None
 
 
 def test_max_total_charge_usd_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -384,6 +398,7 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     ('env_var', 'attr', 'expected'),
     [
         ('APIFY_TIMEOUT_AT', 'timeout_at', None),
+        ('ACTOR_MAX_PAID_DATASET_ITEMS', 'max_paid_dataset_items', None),
         ('ACTOR_MAX_TOTAL_CHARGE_USD', 'max_total_charge_usd', None),
         ('APIFY_USER_IS_PAYING', 'user_is_paying', False),
     ],

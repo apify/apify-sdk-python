@@ -12,6 +12,7 @@ from apify import Actor
 from apify._consts import ActorEnvVars, ApifyEnvVars
 
 INTEGER_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
+    ActorEnvVars.MAX_PAID_DATASET_ITEMS,
     ActorEnvVars.MEMORY_MBYTES,
     ActorEnvVars.STANDBY_PORT,
     ActorEnvVars.WEB_SERVER_PORT,

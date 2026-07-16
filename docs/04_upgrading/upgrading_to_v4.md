@@ -73,21 +73,9 @@ The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields hav
 
 ### Unused Configuration fields
 
-The `disable_outdated_warning`, `fact`, and `max_paid_dataset_items` fields have been removed from `Configuration`. The SDK never read any of them, and `Actor.get_env()` no longer includes their keys. The corresponding `ActorEnvVars.MAX_PAID_DATASET_ITEMS`, `ApifyEnvVars.DISABLE_OUTDATED_WARNING`, and `ApifyEnvVars.FACT` enum entries remain available.
+The `disable_outdated_warning` and `fact` fields have been removed from `Configuration`. The SDK never read either of them, and `Actor.get_env()` no longer includes their keys. The corresponding `ApifyEnvVars.DISABLE_OUTDATED_WARNING` and `ApifyEnvVars.FACT` enum entries remain available.
 
-- `disable_outdated_warning` and `fact` have no replacement. SDK version checking isn't supported for the Python SDK, so there is no outdated-version warning to disable.
-- `max_paid_dataset_items` only mirrored the `ACTOR_MAX_PAID_DATASET_ITEMS` environment variable — read the environment variable directly instead:
-
-```python
-import os
-
-# Before (v3)
-max_paid_dataset_items = Actor.configuration.max_paid_dataset_items
-
-# After (v4)
-env_value = os.environ.get('ACTOR_MAX_PAID_DATASET_ITEMS')
-max_paid_dataset_items = int(env_value) if env_value else None
-```
+Neither has a replacement. SDK version checking isn't supported for the Python SDK, so there's no outdated-version warning to disable.
 
 ### wait_for_finish argument of Actor.start
 
