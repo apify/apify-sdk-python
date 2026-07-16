@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Adapt to apify-client v3 ([#719](https://github.com/apify/apify-sdk-python/pull/719)) ([10203bc](https://github.com/apify/apify-sdk-python/commit/10203bc51e67590c97938b37d81614376bc3d29a)) by [@vdusek](https://github.com/vdusek), closes [#697](https://github.com/apify/apify-sdk-python/issues/697), [#736](https://github.com/apify/apify-sdk-python/issues/736), [#770](https://github.com/apify/apify-sdk-python/issues/770), [#853](https://github.com/apify/apify-sdk-python/issues/853)
 - [**breaking**] Remove wait_for_finish from Actor.start ([#962](https://github.com/apify/apify-sdk-python/pull/962)) ([0daca28](https://github.com/apify/apify-sdk-python/commit/0daca2818860cbcbd0778efa4d73622783ce63cf)) by [@vdusek](https://github.com/vdusek)
 - [**breaking**] Polish logging across the codebase ([#1005](https://github.com/apify/apify-sdk-python/pull/1005)) ([f949c24](https://github.com/apify/apify-sdk-python/commit/f949c24529e424b9151c8600f8057d7518c9b6ff)) by [@vdusek](https://github.com/vdusek)
+- [**breaking**] Remove unused disable_outdated_warning and fact Configuration fields ([#1044](https://github.com/apify/apify-sdk-python/pull/1044)) ([275e770](https://github.com/apify/apify-sdk-python/commit/275e7704f3a2dbced08466291f868e9ed432f9b3)) by [@Pijukatel](https://github.com/Pijukatel)
 
 ### ⚙️ Miscellaneous Tasks
 
