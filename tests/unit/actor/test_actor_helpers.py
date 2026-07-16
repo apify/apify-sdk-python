@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -316,15 +316,15 @@ async def test_get_remaining_time_warns_when_not_at_home(caplog: pytest.LogCaptu
     assert any('inherit' in msg for msg in caplog.messages)
 
 
-async def test_get_remaining_time_clamps_negative_to_zero() -> None:
-    """Test that _get_remaining_time returns timedelta(0) instead of a negative value when timeout is in the past."""
+async def test_get_remaining_time_clamps_negative_to_one() -> None:
+    """Test that _get_remaining_time returns 1 second instead of a negative value when timeout is in the past."""
     async with Actor:
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
 
         result = Actor._get_remaining_time()
         assert result is not None
-        assert result == timedelta(0)
+        assert result == timedelta(seconds=1)
 
 
 async def test_get_remaining_time_returns_positive_when_timeout_in_future() -> None:
@@ -339,48 +339,36 @@ async def test_get_remaining_time_returns_positive_when_timeout_in_future() -> N
         assert result <= timedelta(minutes=5)
 
 
-async def test_get_remaining_time_rounds_up_to_whole_seconds() -> None:
-    """Test that _get_remaining_time rounds a fractional remaining time up, so it is never truncated to zero."""
-    async with Actor:
-        Actor.configuration.is_at_home = True
-        Actor.configuration.timeout_at = datetime.now(tz=UTC) + timedelta(seconds=30.5)
-
-        result = Actor._get_remaining_time()
-        assert result == timedelta(seconds=31)
-
-
 @pytest.mark.parametrize('method_name', ['start', 'call'])
 async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     method_name: str,
 ) -> None:
     """Test that Actor.start/Actor.call with `timeout='inherit'` is skipped when the run is past its timeout."""
-    apify_client_async_patcher.patch('actor', method_name, return_value=None)
+    apify_client_async_patcher.patch('actor', method_name, return_value=Mock())
 
     async with Actor:
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
+        await getattr(Actor, method_name)('some-actor-id', timeout='inherit')
 
-        run = await getattr(Actor, method_name)('some-actor-id', timeout='inherit')
-        assert run is None
-
-    assert len(apify_client_async_patcher.calls['actor'][method_name]) == 0
+    assert len(apify_client_async_patcher.calls['actor'][method_name]) == 1
+    assert apify_client_async_patcher.calls['actor'][method_name][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
 async def test_actor_call_task_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
     """Test that Actor.call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
-    apify_client_async_patcher.patch('task', 'call', return_value=None)
+    apify_client_async_patcher.patch('task', 'call', return_value=Mock())
 
     async with Actor:
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
+        await Actor.call_task('some-task-id', timeout='inherit')
 
-        run = await Actor.call_task('some-task-id', timeout='inherit')
-        assert run is None
-
-    assert len(apify_client_async_patcher.calls['task']['call']) == 0
+    assert len(apify_client_async_patcher.calls['task']['call']) == 1
+    assert apify_client_async_patcher.calls['task']['call'][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
 async def test_reboot_runs_all_listeners_even_when_one_fails(
