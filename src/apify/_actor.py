@@ -536,7 +536,6 @@ class _ActorType:
         client_kwargs: dict[str, Any] = {
             'token': token or self.configuration.token,
             'api_url': api_url or self.configuration.api_base_url,
-            # The SDK depends on `apify-client[brotli]`, so brotli is always installed.
             'compression': 'brotli',
         }
         if max_retries is not None:

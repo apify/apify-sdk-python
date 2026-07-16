@@ -179,6 +179,5 @@ def _create_api_client(configuration: Configuration) -> ApifyClientAsync:
         api_url=configuration.api_base_url,
         api_public_url=configuration.api_public_base_url,
         max_retries=8,
-        # The SDK depends on `apify-client[brotli]`, so brotli is always installed.
         compression='brotli',
     )
