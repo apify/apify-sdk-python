@@ -8,10 +8,13 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from functools import wraps
 from importlib import metadata
+from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from apify_client.types import HttpCompressionAlgorithm
 
 T = TypeVar('T', bound=Callable[..., Any])
 
@@ -67,6 +70,16 @@ def get_system_info() -> dict:
 
 def is_running_in_ipython() -> bool:
     return getattr(builtins, '__IPYTHON__', False)
+
+
+def get_default_http_compression() -> HttpCompressionAlgorithm:
+    """Return the default request-body compression algorithm for Apify API clients.
+
+    The SDK installs the `apify-client[brotli]` extra, so brotli is the preferred default. If the optional `brotli`
+    package isn't available (e.g. it was removed from the environment), fall back to gzip so client construction never
+    fails on a missing optional dependency.
+    """
+    return 'brotli' if find_spec('brotli') is not None else 'gzip'
 
 
 # The order of the rendered API groups is defined in the website/docusaurus.config.js file.

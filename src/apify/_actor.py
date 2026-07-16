@@ -31,7 +31,14 @@ from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
-from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
+from apify._utils import (
+    docs_group,
+    docs_name,
+    ensure_context,
+    get_default_http_compression,
+    get_system_info,
+    is_running_in_ipython,
+)
 from apify._webhook import to_client_representations
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
@@ -536,6 +543,7 @@ class _ActorType:
         client_kwargs: dict[str, Any] = {
             'token': token or self.configuration.token,
             'api_url': api_url or self.configuration.api_base_url,
+            'compression': get_default_http_compression(),
         }
         if max_retries is not None:
             client_kwargs['max_retries'] = max_retries

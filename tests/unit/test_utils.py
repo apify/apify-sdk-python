@@ -5,7 +5,13 @@ from unittest.mock import patch
 
 import pytest
 
-from apify._utils import docs_group, docs_name, get_system_info, is_running_in_ipython
+from apify._utils import (
+    docs_group,
+    docs_name,
+    get_default_http_compression,
+    get_system_info,
+    is_running_in_ipython,
+)
 
 
 def test_ipython_detection_when_active() -> None:
@@ -53,6 +59,17 @@ if TYPE_CHECKING:
 
     _ = _DocsGroupDecorated.nonexistent  # ty: ignore[unresolved-attribute]
     _ = _DocsNameDecorated.nonexistent  # ty: ignore[unresolved-attribute]
+
+
+def test_get_default_http_compression_prefers_brotli() -> None:
+    """Brotli is the default since the SDK installs the `apify-client[brotli]` extra (present in the dev env)."""
+    assert get_default_http_compression() == 'brotli'
+
+
+def test_get_default_http_compression_falls_back_to_gzip(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the optional `brotli` package isn't importable, the default falls back to gzip."""
+    monkeypatch.setattr('apify._utils.find_spec', lambda _name: None)
+    assert get_default_http_compression() == 'gzip'
 
 
 def test_docs_decorators_return_original_object() -> None:
