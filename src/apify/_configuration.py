@@ -264,17 +264,6 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = None
 
-    disable_outdated_warning: Annotated[
-        bool,
-        Field(
-            validation_alias='apify_disable_outdated_warning',
-            description='Controls the display of outdated SDK version warnings',
-        ),
-        BeforeValidator(lambda val: val or False),
-    ] = False
-
-    fact: Annotated[str | None, Field(validation_alias='apify_fact')] = None
-
     input_key: Annotated[
         str,
         Field(

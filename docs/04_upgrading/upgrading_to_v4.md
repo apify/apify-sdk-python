@@ -31,7 +31,7 @@ await Actor.charge('my-event', count=5)
 
 ## Removal of deprecated APIs
 
-Methods and arguments that had been deprecated in v3 are removed in v4.
+Methods and arguments that had been deprecated in v3 are removed in v4, along with a few `Configuration` fields that the SDK never read.
 
 ### api_public_base_url argument of storage clients
 
@@ -70,6 +70,12 @@ The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields hav
 
 - In place of `standby_port`, use `web_server_port`.
 - `latest_sdk_version` and `log_format` don't have replacement. SDK version checking isn't supported for the Python SDK and the log format should be adjusted in code instead.
+
+### Unused `Configuration` fields
+
+The `disable_outdated_warning` and `fact` fields have been removed from `Configuration`. The SDK never read either of them, and `Actor.get_env()` no longer includes their keys. The corresponding `ApifyEnvVars.DISABLE_OUTDATED_WARNING` and `ApifyEnvVars.FACT` enum entries remain available.
+
+Neither has a replacement. SDK version checking isn't supported for the Python SDK, so there's no outdated-version warning to disable.
 
 ### wait_for_finish argument of Actor.start
 
