@@ -71,7 +71,7 @@ The deprecated `latest_sdk_version`, `log_format`, and `standby_port` fields hav
 - In place of `standby_port`, use `web_server_port`.
 - `latest_sdk_version` and `log_format` don't have replacement. SDK version checking isn't supported for the Python SDK and the log format should be adjusted in code instead.
 
-### Unused Configuration fields
+### Unused `Configuration` fields
 
 The `disable_outdated_warning` and `fact` fields have been removed from `Configuration`. The SDK never read either of them, and `Actor.get_env()` no longer includes their keys. The corresponding `ApifyEnvVars.DISABLE_OUTDATED_WARNING` and `ApifyEnvVars.FACT` enum entries remain available.
 
