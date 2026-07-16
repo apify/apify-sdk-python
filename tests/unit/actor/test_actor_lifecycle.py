@@ -205,7 +205,7 @@ _detect_default_exit_process = _ActorType._get_default_exit_process
 
 
 def test_default_exit_process_true_when_scrapy_importable_but_not_running(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Regression for B7: `scrapy` merely being importable must not disable `exit_process`."""
+    """`scrapy` merely being importable must not disable `exit_process`."""
     from apify.scrapy import _detection
 
     monkeypatch.setattr(_detection, '_running_in_scrapy', False)
