@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import sys
 import warnings
 from contextlib import suppress
@@ -1467,9 +1468,16 @@ class _ActorType:
         return True
 
     def _get_remaining_time(self) -> timedelta | None:
-        """Get time remaining from the Actor timeout. Returns `None` if not on an Apify platform."""
+        """Get time remaining from the Actor timeout, rounded up to whole seconds with minimum value of 1 second.
+
+        API treats 0 second timeout as no timeout, the minimum acceptable timeout is 1 second.
+
+        Returns `None` if not on an Apify platform.
+        """
+        smallest_possible_api_timeout = 1
         if self.is_at_home() and self.configuration.timeout_at:
-            return max(self.configuration.timeout_at - datetime.now(tz=UTC), timedelta(0))
+            remaining = self.configuration.timeout_at - datetime.now(tz=UTC)
+            return timedelta(seconds=max(math.ceil(remaining.total_seconds()), smallest_possible_api_timeout))
 
         self.log.warning(
             'Using the `inherit` argument is only possible when the Actor is running on the Apify platform and '
