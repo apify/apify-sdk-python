@@ -17,8 +17,9 @@ if TYPE_CHECKING:
 class Webhook:
     """An Apify webhook definition used by the Actor SDK.
 
-    The same instance can be passed as an ad-hoc webhook to `Actor.start()` / `Actor.call()` or as a persistent
-    webhook to `Actor.add_webhook()` (the `condition.actor_run_id` is set automatically to the current run).
+    The same instance can be passed as an ad-hoc webhook to `Actor.start()` / `Actor.call()`, or to
+    `Actor.add_webhook()`, which registers it as an ad-hoc webhook for the current run (the
+    `condition.actor_run_id` is set automatically).
     """
 
     event_types: list[WebhookEventType]

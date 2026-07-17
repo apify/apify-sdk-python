@@ -1381,7 +1381,8 @@ class _ActorType:
             groups: Proxy groups which the Apify Proxy should use, if provided.
             country_code: Country which the Apify Proxy should use, if provided.
             subdivision_code: Subdivision (e.g. US state) which the Apify Proxy should use, if provided.
-                Requires `country_code` to be set. Two-letter ISO 3166-2 code (e.g. `CA` for California).
+                Requires `country_code` to be set. 1-3 character ISO 3166-2 code of uppercase letters/digits
+                (e.g. `CA` for California).
             proxy_urls: Custom proxy server URLs which should be rotated through.
             new_url_function: Function which returns a custom proxy URL to be used.
 

@@ -4,6 +4,8 @@ import re
 from datetime import timedelta
 from enum import StrEnum
 
+from apify._utils import docs_group
+
 EVENT_LISTENERS_TIMEOUT = timedelta(seconds=5)
 """Timeout for waiting on event listeners to finish during Actor exit."""
 
@@ -25,6 +27,7 @@ EXIT_CODE_ERROR_USER_FUNCTION_THREW = 91
 """Exit code indicating that the Actor's main function raised an exception."""
 
 
+@docs_group('Configuration')
 class ActorEnvVars(StrEnum):
     """Environment variables with ACTOR_ prefix set by the Apify platform."""
 
@@ -54,6 +57,7 @@ class ActorEnvVars(StrEnum):
     WEB_SERVER_URL = 'ACTOR_WEB_SERVER_URL'
 
 
+@docs_group('Configuration')
 class ApifyEnvVars(StrEnum):
     """Environment variables with APIFY_ prefix set by the Apify platform."""
 
