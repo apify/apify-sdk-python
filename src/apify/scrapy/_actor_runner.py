@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
+from ._detection import mark_running_in_scrapy
+
 if TYPE_CHECKING:
     from collections.abc import Coroutine
 
@@ -14,6 +16,10 @@ def run_scrapy_actor(coro: Coroutine) -> None:
     coroutine (typically the Actor's main) by converting it to a Deferred. This bridges the asyncio and Twisted
     event loops, enabling the Apify and Scrapy integration to work together.
     """
+    # Record that we are driving the process, so the Actor defaults `exit_process` to False (see
+    # `apify.scrapy._detection`). This runs before the coroutine, hence before the Actor initializes.
+    mark_running_in_scrapy()
+
     from scrapy.utils.reactor import install_reactor  # noqa: PLC0415
     from twisted.internet.error import ReactorAlreadyInstalledError  # noqa: PLC0415
 

@@ -18,13 +18,12 @@ from crawlee.events._types import Event, EventPersistStateData
 
 from ..._utils import poll_until_condition
 from apify import Actor
+from apify._actor import _ActorType
 from apify._charging import ChargingManagerImplementation
 from apify._consts import EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
-
-    from apify._actor import _ActorType
 
 
 @pytest.fixture(
@@ -242,6 +241,31 @@ async def test_cancelled_error_propagates_unchanged(caplog: pytest.LogCaptureFix
 
     assert actor.exit_code != EXIT_CODE_ERROR_USER_FUNCTION_THREW
     assert not [r for r in caplog.records if r.msg == 'Actor failed with an exception']
+
+
+# The autouse `_isolate_test_environment` fixture forces the `exit_process` default to False so a clean
+# context exit does not call `sys.exit()`. Capture the genuine detector at import time and call it
+# directly so these tests exercise the real logic rather than the test-environment override.
+_detect_default_exit_process = _ActorType._get_default_exit_process
+
+
+def test_default_exit_process_true_when_scrapy_importable_but_not_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`scrapy` merely being importable must not disable `exit_process`."""
+    from apify.scrapy import _detection
+
+    monkeypatch.setattr(_detection, '_running_in_scrapy', False)
+    monkeypatch.delenv('SCRAPY_SETTINGS_MODULE', raising=False)
+    actor = Actor(exit_process=False)
+    assert _detect_default_exit_process(actor) is True
+
+
+def test_default_exit_process_false_when_running_under_scrapy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A real Scrapy run (the runner flag is set) disables `exit_process` by default."""
+    from apify.scrapy import _detection
+
+    monkeypatch.setattr(_detection, '_running_in_scrapy', True)
+    actor = Actor(exit_process=False)
+    assert _detect_default_exit_process(actor) is False
 
 
 async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -4,7 +4,6 @@ import asyncio
 import math
 import sys
 import warnings
-from contextlib import suppress
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -1458,10 +1457,11 @@ class _ActorType:
             self.log.debug('Running in IPython, setting default `exit_process` to False.')
             return False
 
-        # Check if running in Scrapy by attempting to import it.
-        with suppress(ImportError):
-            import scrapy  # noqa: F401 PLC0415
-
+        # Consult `apify.scrapy._detection` only when it is already imported. A non-Scrapy Actor never
+        # imports `apify.scrapy` (which pulls in Scrapy itself), so this avoids that cost and the old bug of
+        # disabling `exit_process` just because Scrapy is an importable transitive dependency.
+        scrapy_detection = sys.modules.get('apify.scrapy._detection')
+        if scrapy_detection is not None and scrapy_detection.is_running_in_scrapy():
             self.log.debug('Running in Scrapy, setting default `exit_process` to False.')
             return False
 

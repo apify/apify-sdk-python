@@ -60,6 +60,11 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
     """
 
     def _prepare_test_env() -> None:
+        # Production code doesn't detect the test env (#641), so force the `exit_process` default to False.
+        # Otherwise a clean context exit calls `sys.exit()` and aborts the test. Patch before touching the
+        # `Actor` proxy below, which materializes its `_ActorType` instance.
+        monkeypatch.setattr(apify._actor._ActorType, '_get_default_exit_process', lambda _self: False)
+
         if hasattr(apify._actor.Actor, '__wrapped__'):
             delattr(apify._actor.Actor, '__wrapped__')
 
