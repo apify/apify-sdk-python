@@ -67,9 +67,7 @@ async def test_create_storage_unknown_type() -> None:
 
 def _client_from_configuration(api_url: str) -> ApifyClientAsync:
     """Build an API client the way storage clients do, via `_create_api_client`."""
-    config = Configuration(token='test-token')
-    object.__setattr__(config, 'api_base_url', api_url)
-    object.__setattr__(config, 'api_public_base_url', api_url)
+    config = Configuration(token='test-token', api_base_url=api_url, api_public_base_url=api_url)
     return _create_api_client(config)
 
 
