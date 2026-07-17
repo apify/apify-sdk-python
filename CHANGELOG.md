@@ -35,6 +35,7 @@ All notable changes to this project will be documented in this file.
 - Prevent request queue softlock by adding `is_finished` and correcting `is_empty` ([#1008](https://github.com/apify/apify-sdk-python/pull/1008)) ([4ead0c6](https://github.com/apify/apify-sdk-python/commit/4ead0c64d2a95263b2fa970f5a8fff9141db62b2)) by [@Mantisus](https://github.com/Mantisus), closes [#987](https://github.com/apify/apify-sdk-python/issues/987)
 - [**breaking**] Honor explicit exit codes and control-flow signals in Actor exit ([#1048](https://github.com/apify/apify-sdk-python/pull/1048)) ([573e3a3](https://github.com/apify/apify-sdk-python/commit/573e3a36659cb4d46b86b9d3fb52d5e93c4eee32)) by [@vdusek](https://github.com/vdusek)
 - Limit timeout to minimum of 1 seconds when timeout=&#x27;inherit&#x27; ([#1051](https://github.com/apify/apify-sdk-python/pull/1051)) ([54e52e6](https://github.com/apify/apify-sdk-python/commit/54e52e6ddfd348b7cf65733a94b8db4c62cb1753)) by [@Pijukatel](https://github.com/Pijukatel)
+- Don&#x27;t disable Actor exit_process just because scrapy is importable ([#1049](https://github.com/apify/apify-sdk-python/pull/1049)) ([9d154ae](https://github.com/apify/apify-sdk-python/commit/9d154ae1093c8839c343302ca3d0f7da2600c6ea)) by [@vdusek](https://github.com/vdusek)
 
 ### 🚜 Refactor
 
