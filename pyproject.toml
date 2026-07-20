@@ -35,8 +35,6 @@ keywords = [
     "scraping",
 ]
 dependencies = [
-    # The `brotli` extra enables brotli request body compression by default (falling back to gzip
-    # when brotli isn't installed).
     "apify-client[brotli]>=3.1.0,<4.0.0",
     "crawlee>=1.8.0,<2.0.0",
     "cachetools>=5.5.0",
