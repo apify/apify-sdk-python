@@ -536,6 +536,7 @@ class _ActorType:
         client_kwargs: dict[str, Any] = {
             'token': token or self.configuration.token,
             'api_url': api_url or self.configuration.api_base_url,
+            'compression': 'brotli',
         }
         if max_retries is not None:
             client_kwargs['max_retries'] = max_retries
