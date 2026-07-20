@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 3.4.2 - **not yet released**
+## [4.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.0) (2026-07-20)
 
 ### 🚀 Features
 
@@ -55,7 +54,6 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Drop Python 3.10 support ([#908](https://github.com/apify/apify-sdk-python/pull/908)) ([a67788e](https://github.com/apify/apify-sdk-python/commit/a67788e4d7845445a3e80a30af70580d2ab84f32)) by [@vdusek](https://github.com/vdusek), closes [#757](https://github.com/apify/apify-sdk-python/issues/757)
 
 
-<!-- git-cliff-unreleased-end -->
 
 ## [3.4.1](https://github.com/apify/apify-sdk-python/releases/tag/v3.4.1) (2026-05-29)
 
