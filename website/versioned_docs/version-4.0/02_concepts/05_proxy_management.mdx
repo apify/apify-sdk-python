@@ -1,0 +1,129 @@
+---
+id: proxy-management
+title: Proxy management
+description: Configure Apify Proxy or your own proxies for IP rotation and session management.
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import ApifyProxyExample from '!!raw-loader!roa-loader!./code/05_apify_proxy.py';
+import CustomProxyExample from '!!raw-loader!roa-loader!./code/05_custom_proxy.py';
+import ProxyRotationExample from '!!raw-loader!roa-loader!./code/05_proxy_rotation.py';
+import ApifyProxyConfig from '!!raw-loader!roa-loader!./code/05_apify_proxy_config.py';
+import CustomProxyFunctionExample from '!!raw-loader!roa-loader!./code/05_custom_proxy_function.py';
+import ProxyActorInputExample from '!!raw-loader!roa-loader!./code/05_proxy_actor_input.py';
+import ProxyHttpxExample from '!!raw-loader!roa-loader!./code/05_proxy_httpx.py';
+import TieredProxyExample from '!!raw-loader!roa-loader!./code/05_tiered_proxy.py';
+import ApiLink from '@theme/ApiLink';
+
+The Apify SDK provides built-in proxy management through the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class, supporting both [Apify Proxy](https://apify.com/proxy) and custom proxy servers. Proxies are essential for web scraping to avoid [IP address blocking](https://en.wikipedia.org/wiki/IP_address_blocking) and distribute requests across multiple addresses.
+
+## Quick start
+
+If you want to use Apify Proxy locally, make sure that you run your Actors via the Apify CLI and that you are [logged in](https://docs.apify.com/cli/docs/installation#login-with-your-apify-account) with your Apify account in the CLI.
+
+### Using Apify Proxy
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ApifyProxyExample}
+</RunnableCodeBlock>
+
+### Using your own proxies
+
+<RunnableCodeBlock className="language-python" language="python">
+    {CustomProxyExample}
+</RunnableCodeBlock>
+
+## Proxy configuration
+
+All your proxy needs are managed by the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class. You create an instance using the <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration()`</ApiLink> method. Then you generate proxy URLs using the <ApiLink to="class/ProxyConfiguration#new_url">`ProxyConfiguration.new_url()`</ApiLink> method.
+
+### Apify Proxy vs. your own proxies
+
+The `ProxyConfiguration` class covers both Apify Proxy and custom proxy URLs, so that you can easily switch between proxy providers. However, some features of the class are available only to Apify Proxy users, mainly because Apify Proxy is what one would call a super-proxy. It's not a single proxy server, but an API endpoint that allows connection through millions of different IP addresses. So the class essentially has two modes: Apify Proxy or Your proxy.
+
+The difference is easy to remember. Using the `proxy_urls` or `new_url_function` arguments enables use of your custom proxy URLs, whereas all the other options are there to configure Apify Proxy. Visit the [Apify Proxy docs](https://docs.apify.com/proxy) for more info on how these parameters work.
+
+### IP rotation and session management
+
+`ProxyConfiguration.new_url` allows you to pass a `session_id` parameter. It will then be used to create a `session_id`-`proxy_url` pair, and subsequent `new_url()` calls with the same `session_id` will always return the same `proxy_url`. This is extremely useful in scraping, because you want to create the impression of a real user.
+
+When no `session_id` is provided, your custom proxy URLs are rotated round-robin, whereas Apify Proxy manages their rotation using black magic to get the best performance.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ProxyRotationExample}
+</RunnableCodeBlock>
+
+### Apify Proxy configuration
+
+With Apify Proxy, you can select specific proxy groups to use, or countries to connect from. For even finer control, you can also target a specific subdivision (e.g. a US state) using the `subdivision_code` parameter alongside `country_code`. This allows you to get better proxy performance after some initial research.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ApifyProxyConfig}
+</RunnableCodeBlock>
+
+Now your connections using proxy_url will use only Residential proxies from California, US. The `subdivision_code` accepts a 1–3 character ISO 3166-2 code (e.g. `CA` for California) and currently only works for the United States (`country_code='US'`). Note that you must first get access to a proxy group before you are able to use it. You can find your available proxy groups in the [proxy dashboard](https://console.apify.com/proxy).
+
+If you don't specify any proxy groups, automatic proxy selection will be used.
+
+### Your own proxy configuration
+
+There are two options how to make `ProxyConfiguration` work with your own proxies.
+
+Either you can pass it a list of your own proxy servers:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {CustomProxyExample}
+</RunnableCodeBlock>
+
+Or you can pass it a method (accepting one optional argument, the session ID), to generate proxy URLs automatically:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {CustomProxyFunctionExample}
+</RunnableCodeBlock>
+
+### Tiered proxy rotation
+
+<ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> supports tiered proxy URLs via the `tiered_proxy_urls` parameter. This accepts a list of lists of proxy URLs, where each inner list represents a tier. The proxy rotator starts with the first (cheapest) tier and automatically escalates to higher tiers when lower-tier proxies get blocked. This is useful for optimizing proxy costs — you use cheap datacenter proxies for most requests and only switch to expensive residential proxies when necessary.
+
+:::info
+The `tiered_proxy_urls` parameter is only available when constructing `ProxyConfiguration` directly. It is not supported by `Actor.create_proxy_configuration()`.
+:::
+
+<RunnableCodeBlock className="language-python" language="python">
+    {TieredProxyExample}
+</RunnableCodeBlock>
+
+### Configuring proxy based on Actor input
+
+To make selecting the proxies that the Actor uses easier, you can use an input field with the editor [`proxy` in your input schema](https://docs.apify.com/platform/actors/development/input-schema#object). This input will then be filled with a dictionary containing the proxy settings you or the users of your Actor selected for the Actor run.
+
+You can then use that input to create the proxy configuration:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ProxyActorInputExample}
+</RunnableCodeBlock>
+
+## Using the generated proxy URLs
+
+`ProxyConfiguration` only generates proxy URLs. It doesn't make requests. To route requests through the proxy, pass a generated URL to the HTTP client your Actor uses.
+
+### HTTPX
+
+To use the generated proxy URLs with the `httpx` library, use the [`proxy`](https://www.python-httpx.org/advanced/proxies/) argument:
+
+<RunnableCodeBlock className="language-python" language="python">
+    {ProxyHttpxExample}
+</RunnableCodeBlock>
+
+Make sure you have the `httpx` library installed:
+
+```bash
+pip install httpx
+```
+
+## Conclusion
+
+This page has explained how to manage proxies with the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> class: using Apify Proxy or your own servers, keeping sessions sticky across requests, configuring tiered proxy rotation, and feeding proxy settings from Actor input.
+
+For full details on proxy configuration options, see the <ApiLink to="class/ProxyConfiguration">`ProxyConfiguration`</ApiLink> API reference and the [Apify Proxy documentation](https://docs.apify.com/proxy).

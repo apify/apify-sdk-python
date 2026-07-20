@@ -1,0 +1,122 @@
+---
+id: quick-start
+title: Quick start
+slug: /quick-start
+description: Get started with the Apify SDK for Python by creating your first Actor and learning the basics.
+---
+
+Learn how to create and run Actors using the Apify SDK for Python.
+
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import CodeBlock from '@theme/CodeBlock';
+
+import MainExample from '!!raw-loader!./code/actor_structure/main.py';
+import UnderscoreMainExample from '!!raw-loader!./code/actor_structure/__main__.py';
+
+## Step 1: Create Actors
+
+To create and run Actors in [Apify Console](https://docs.apify.com/platform/console), refer to the [Console documentation](https://docs.apify.com/platform/actors/development/quick-start/web-ide).
+
+To create a new Apify Actor on your computer, you can use the [Apify CLI](/cli), and select one of the [Python Actor templates](https://apify.com/templates?category=python).
+
+For example, to create an Actor from the "Getting started with Python" template, you can use the [`apify create` command](/cli/docs/reference#apify-create-actorname).
+
+```bash
+apify create my-first-actor --template python-start
+```
+
+This will create a new folder called `my-first-actor`, download and extract the "Getting started with Python" Actor template there, create a virtual environment in `my-first-actor/.venv`, and install the Actor dependencies in it.
+
+![actor create command run](./images/apify-create.gif)
+
+## Step 2: Run Actors
+
+To run the Actor, you can use the [`apify run` command](/cli/docs/reference#apify-run):
+
+```bash
+cd my-first-actor
+apify run
+```
+
+This command:
+
+- Activates the virtual environment in `.venv` (if no other virtual environment is activated yet)
+- Starts the Actor with the appropriate environment variables for local running
+- Configures it to use local storages from the `storage` folder
+
+The Actor input, for example, will be in `storage/key_value_stores/default/INPUT.json`.
+
+## Step 3: Understand Actor structure
+
+All Python Actor templates follow the same structure.
+
+The `.actor` directory contains the [Actor configuration](https://docs.apify.com/platform/actors/development/actor-config), such as the Actor's definition and input schema, and the Dockerfile necessary to run the Actor on the Apify platform.
+
+The Actor's runtime dependencies are specified in the `requirements.txt` file, which follows the [standard requirements file format](https://pip.pypa.io/en/stable/reference/requirements-file-format/).
+
+The Actor's source code is in the `src` folder. This folder contains two important files:
+
+- `main.py` - which contains the main function of the Actor
+- `__main__.py` - which is the entrypoint of the Actor package, executing the Actor's main function via [`asyncio.run()`](https://docs.python.org/3/library/asyncio-runner.html#asyncio.run).
+
+<Tabs>
+    <TabItem value="main.py" label="main.py" default>
+        <CodeBlock className="language-python">
+            {MainExample}
+        </CodeBlock>
+    </TabItem>
+    <TabItem value="__main__.py" label="__main__.py">
+        <CodeBlock className="language-python">
+            {UnderscoreMainExample}
+        </CodeBlock>
+    </TabItem>
+</Tabs>
+
+If you want to modify the Actor structure, you need to make sure that your Actor is executable as a module, via `python -m src`, as that is the command started by `apify run` in the Apify CLI.
+We recommend keeping the entrypoint for the Actor in the `src/__main__.py` file.
+
+## Next steps
+
+Now that you can create and run an Actor locally, explore the rest of the SDK's features and its framework integrations.
+
+### Concepts
+
+To learn more about the features of the Apify SDK and how to use them, check out the Concepts section in the sidebar:
+
+- [Actor lifecycle](./concepts/actor-lifecycle)
+- [Actor input](./concepts/actor-input)
+- [Storages](./concepts/storages)
+- [Actor events & state persistence](./concepts/actor-events)
+- [Proxy management](./concepts/proxy-management)
+- [Interacting with other Actors](./concepts/interacting-with-other-actors)
+- [Creating webhooks](./concepts/webhooks)
+- [Accessing Apify API](./concepts/access-apify-api)
+- [Logging](./concepts/logging)
+- [Actor configuration](./concepts/actor-configuration)
+- [Pay-per-event monetization](./concepts/pay-per-event)
+- [Storage clients](./concepts/storage-clients)
+
+### Guides
+
+To see how you can integrate the Apify SDK with popular scraping libraries and frameworks, check out these guides:
+
+- [Scraping with BeautifulSoup and HTTPX](./guides/beautifulsoup-httpx)
+- [Scraping with Parsel and Impit](./guides/parsel-impit)
+- [Browser automation with Playwright](./guides/playwright)
+- [Browser automation with Selenium](./guides/selenium)
+- [Building crawlers with Crawlee](./guides/crawlee)
+- [Building crawlers with Scrapy](./guides/scrapy)
+- [Adaptive scraping with Scrapling](./guides/scrapling)
+- [LLM-ready scraping with Crawl4AI](./guides/crawl4ai)
+- [Browser AI agents with Browser Use](./guides/browser-use)
+- [Hosting AI agents](./guides/ai-agents)
+
+For other aspects of Actor development, explore these guides:
+
+- [Project management with uv](./guides/uv)
+- [Input validation with Pydantic](./guides/input-validation)
+- [Running a web server](./guides/running-webserver)
+- [Building MCP servers](./guides/mcp-servers)

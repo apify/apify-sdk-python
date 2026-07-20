@@ -1,0 +1,41 @@
+---
+id: beautifulsoup-httpx
+title: Scraping with BeautifulSoup and HTTPX
+description: Build an Apify Actor that scrapes web pages using BeautifulSoup and HTTPX.
+---
+
+import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
+
+import BeautifulSoupHttpxExample from '!!raw-loader!roa-loader!./code/01_beautifulsoup_httpx.py';
+
+In this guide, you'll learn how to scrape web pages with the [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) and [HTTPX](https://www.python-httpx.org/) libraries in your Apify Actors.
+
+## Introduction
+
+[BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) is a Python library for extracting data from HTML and XML files. It provides simple methods and Pythonic idioms for navigating, searching, and modifying a website's element tree, enabling efficient data extraction.
+
+[HTTPX](https://www.python-httpx.org/) is a modern, high-level HTTP client library for Python. It provides a simple interface for making HTTP requests and supports both synchronous and asynchronous requests.
+
+To create an Actor which uses those libraries, start from the [BeautifulSoup & Python](https://apify.com/templates/categories/python) Actor template. This template includes the [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) and [HTTPX](https://www.python-httpx.org/) libraries preinstalled, allowing you to begin development immediately.
+
+## Example Actor
+
+The following example is a simple Actor that recursively scrapes data from linked pages on the same site, up to a specified maximum depth, starting from URLs provided in the Actor input. It uses [HTTPX](https://www.python-httpx.org/) for fetching pages through [Apify Proxy](https://docs.apify.com/platform/proxy) and [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) for parsing their content to extract the title, headings, and links to other pages.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {BeautifulSoupHttpxExample}
+</RunnableCodeBlock>
+
+## Using Apify Proxy
+
+Running on the Apify platform gives your scraper access to [Apify Proxy](https://docs.apify.com/platform/proxy), which rotates IP addresses to avoid rate limiting and blocking. The example creates a proxy configuration with `Actor.create_proxy_configuration` and fetches a fresh proxy URL for every request. Each page then goes through a different IP. A new HTTPX client is created per request to apply that URL. To select specific proxy groups or a country, pass the relevant arguments to `Actor.create_proxy_configuration`. For details, see [Proxy management](../concepts/proxy-management).
+
+## Conclusion
+
+In this guide, you learned how to use the [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) with the [HTTPX](https://www.python-httpx.org/) in your Apify Actors. By combining these libraries, you can efficiently extract data from HTML or XML files, making it easy to build web scraping tasks in Python. See the [Actor templates](https://apify.com/templates/categories/python) to get started with your own scraping tasks. If you have questions or need assistance, feel free to reach out on our [GitHub](https://github.com/apify/apify-sdk-python) or join our [Discord community](https://discord.com/invite/jyEM2PRvMU). Happy scraping!
+
+## Additional resources
+
+- [Apify templates: BeautifulSoup](https://apify.com/templates/python-beautifulsoup)
+- [BeautifulSoup: Official documentation](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
+- [HTTPX: Official documentation](https://www.python-httpx.org/)
