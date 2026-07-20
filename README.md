@@ -158,6 +158,9 @@ async def main() -> None:
                 'url': request.url,
                 'title': soup.title.string if soup.title else None,
             })
+
+            # Mark the request as handled so it is not processed again.
+            await request_queue.mark_request_as_handled(request)
 ```
 
 ### Crawlee with Playwright

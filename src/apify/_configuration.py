@@ -108,8 +108,8 @@ def _parse_actor_pricing_info(data: Any) -> Any:
 class Configuration(CrawleeConfiguration):
     """A class for specifying the configuration of an Actor.
 
-    Can be used either globally via `Configuration.get_global_configuration()`,
-    or it can be specific to each `Actor` instance on the `actor.config` property.
+    Can be used either globally via `Configuration.get_global_configuration()`, or it can be specific to each
+    `Actor` instance via the `Actor.configuration` property.
     """
 
     # Fields are validated from environment variables via their `validation_alias`, but serialized under a

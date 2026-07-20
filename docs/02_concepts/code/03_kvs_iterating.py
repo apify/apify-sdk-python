@@ -16,8 +16,8 @@ async def main() -> None:
         # Print the info for each record
         Actor.log.info('Records in store:')
 
-        async for key, info in kvs.iterate_keys():
-            Actor.log.info(f'key={key}, info={info}')
+        async for item in kvs.iterate_keys():
+            Actor.log.info(f'key={item.key}, size={item.size}')
 
 
 if __name__ == '__main__':

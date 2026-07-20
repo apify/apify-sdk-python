@@ -159,7 +159,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             logger.warning(
                 'Some Apify proxy features may work incorrectly. Please consider setting up Apify properties '
                 'instead of `proxy_urls`.\n'
-                'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration'
+                'See https://docs.apify.com/sdk/python/docs/concepts/proxy-management'
             )
 
         self._uses_apify_proxy = not (proxy_urls or new_url_function or tiered_proxy_urls)
@@ -230,7 +230,8 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             proxy_tier: allows forcing the proxy tier to be used.
 
         Returns:
-            Dictionary that represents information about the proxy and its configuration.
+            A `ProxyInfo` instance with information about the proxy and its configuration, or `None` if no proxy
+            is available.
         """
         if session_id is not None:
             _check(session_id, label='session_id', max_length=SESSION_ID_MAX_LENGTH, pattern=APIFY_PROXY_VALUE_REGEX)

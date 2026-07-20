@@ -69,7 +69,7 @@ The choice between using a context manager or manual initialization depends on h
 
 ## Error handling
 
-Good error handling lets your Actor fail fast on critical errors, retry transient issues safely, and keep data consistent. Normally you rely on the `async with Actor:` block—if it finishes, the run succeeds (exit code 0); if an unhandled exception occurs, the run fails (exit code 1).
+Good error handling lets your Actor fail fast on critical errors, retry transient issues safely, and keep data consistent. Normally you rely on the `async with Actor:` block—if it finishes, the run succeeds (exit code 0); if an unhandled exception occurs, the run fails (exit code 91).
 
 The SDK provides helper methods for explicit control:
 
