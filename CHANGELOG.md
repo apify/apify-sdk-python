@@ -46,6 +46,10 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Polish logging across the codebase ([#1005](https://github.com/apify/apify-sdk-python/pull/1005)) ([f949c24](https://github.com/apify/apify-sdk-python/commit/f949c24529e424b9151c8600f8057d7518c9b6ff)) by [@vdusek](https://github.com/vdusek)
 - [**breaking**] Remove unused disable_outdated_warning and fact Configuration fields ([#1044](https://github.com/apify/apify-sdk-python/pull/1044)) ([275e770](https://github.com/apify/apify-sdk-python/commit/275e7704f3a2dbced08466291f868e9ed432f9b3)) by [@Pijukatel](https://github.com/Pijukatel)
 
+### ⚡ Performance
+
+- Enable brotli request compression by default ([#1052](https://github.com/apify/apify-sdk-python/pull/1052)) ([78858ce](https://github.com/apify/apify-sdk-python/commit/78858ce1f8aa4024e6f2b2d8a7b106ae3c4fca77)) by [@vdusek](https://github.com/vdusek), closes [#1045](https://github.com/apify/apify-sdk-python/issues/1045)
+
 ### ⚙️ Miscellaneous Tasks
 
 - [**breaking**] Drop Python 3.10 support ([#908](https://github.com/apify/apify-sdk-python/pull/908)) ([a67788e](https://github.com/apify/apify-sdk-python/commit/a67788e4d7845445a3e80a30af70580d2ab84f32)) by [@vdusek](https://github.com/vdusek), closes [#757](https://github.com/apify/apify-sdk-python/issues/757)
