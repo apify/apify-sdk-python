@@ -8,7 +8,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import AddedRequest, BatchAddResult, RequestDraft, RequestQueueHead, RequestQueueStats
+from apify_client._models import (
+    AddedRequest,
+    BatchAddResult,
+    LockedRequestQueueHead,
+    RequestDraft,
+    RequestQueueHead,
+    RequestQueueStats,
+    RequestRegistration,
+)
 from crawlee.storage_clients.models import AddRequestsResponse, RequestQueueMetadata
 
 from apify import Request
@@ -338,3 +346,69 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     assert api_client.batch_add_requests.await_args is not None
     resent = api_client.batch_add_requests.await_args.kwargs['requests']
     assert [request['uniqueKey'] for request in resent] == [rejected.unique_key]
+
+
+def _request_registration(request: Request, *, was_already_handled: bool = False) -> RequestRegistration:
+    """Build an `update_request` response for the given request."""
+    return RequestRegistration.model_construct(
+        request_id=unique_key_to_request_id(request.unique_key),
+        was_already_present=True,
+        was_already_handled=was_already_handled,
+    )
+
+
+async def test_reclaimed_request_kept_pending_while_head_lags_single() -> None:
+    """A reclaimed request (default forefront=False) stays pending in single mode while the platform head lags."""
+    client, api_client = _make_single_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    # The platform head listing lags and does not yet report the reclaimed request during the window.
+    api_client.list_head = AsyncMock(
+        return_value=RequestQueueHead(
+            limit=200,
+            queue_modified_at=datetime.now(tz=UTC),
+            had_multiple_clients=False,
+            items=[],
+        )
+    )
+    api_client.update_request = AsyncMock(return_value=_request_registration(request))
+
+    # The request was fetched and is being processed by this client.
+    client._requests_in_progress.add(request_id)
+    client._requests_cache[request_id] = request
+
+    # Reclaim it via the default retry path (forefront=False).
+    assert await client.reclaim_request(request) is not None
+
+    # While the head propagation lags, the request must still count as locally pending, or the run would shut
+    # down and silently drop it.
+    assert await client.is_empty() is False
+    assert await client.is_finished() is False
+
+
+async def test_reclaimed_request_kept_pending_while_head_lags_shared() -> None:
+    """A reclaimed request (default forefront=False) stays pending in shared mode while the platform head lags."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+
+    # `list_and_lock_head` lags and returns nothing during the propagation window.
+    api_client.list_and_lock_head = AsyncMock(
+        return_value=LockedRequestQueueHead.model_construct(
+            limit=1,
+            queue_modified_at=datetime.now(tz=UTC),
+            had_multiple_clients=False,
+            queue_has_locked_requests=False,
+            lock_secs=180,
+            items=[],
+        )
+    )
+    api_client.update_request = AsyncMock(return_value=_request_registration(request))
+
+    # Reclaim it via the default retry path (forefront=False).
+    assert await client.reclaim_request(request) is not None
+
+    # While the head propagation lags, the request must still count as locally pending, or the run would shut
+    # down and silently drop it.
+    assert await client.is_empty() is False
+    assert await client.is_finished() is False

@@ -326,6 +326,12 @@ class ApifyRequestQueueSharedClient:
                 # in the next list_head call
                 if forefront:
                     self._should_check_for_forefront_requests = True
+                else:
+                    # Re-enter at the back of the local head. Without this the reclaimed request lives only in
+                    # `_requests_cache`, which `is_empty` and `is_finished` do not consult, so they would report
+                    # the queue finished while `list_and_lock_head` still lags behind the reclaim, silently
+                    # dropping the request.
+                    self._queue_head.append(request_id)
 
             except Exception:
                 logger.exception(f'Error reclaiming request {request.unique_key}')

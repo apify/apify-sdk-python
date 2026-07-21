@@ -306,6 +306,12 @@ class ApifyRequestQueueSingleClient:
             if forefront:
                 # Append to top of the local head estimation
                 self._head_requests.append(request_id)
+            else:
+                # Re-enter at the bottom of the local head estimation, mirroring `add_batch_of_requests`.
+                # Without this the reclaimed request lives only in `_requests_cache`, which `is_empty` and
+                # `is_finished` do not consult, so they would report the queue finished while the platform head
+                # listing still lags behind the reclaim, silently dropping the request.
+                self._head_requests.appendleft(request_id)
 
             processed_request = await self._update_request(request, forefront=forefront)
             processed_request.id = request_id
