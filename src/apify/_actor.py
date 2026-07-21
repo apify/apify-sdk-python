@@ -283,11 +283,24 @@ class _ActorType:
             except Exception:
                 self.log.exception('Failed to save Actor state')
 
+        # When `exit()` / `fail()` is called from within an event listener (e.g. an `ABORTING` handler), that
+        # listener's own task is tracked in the event manager's listener-task set. The cleanup below waits for
+        # all listener tasks to finish -- directly, and again inside the event manager shutdown -- which would
+        # deadlock on the caller's own task and then, on the timeout cancellation, recurse into cancelling it,
+        # raising `RecursionError`. Detach it for the duration so the waits ignore it, then restore it so its
+        # wrapper can deregister it normally.
+        current_task = asyncio.current_task()
+        current_task_is_listener = current_task is not None and current_task in self.event_manager._listener_tasks  # noqa: SLF001
+        if current_task_is_listener:
+            self.event_manager._listener_tasks.discard(current_task)  # noqa: SLF001
+
         try:
             await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
+            if current_task_is_listener:
+                self.event_manager._listener_tasks.add(current_task)  # noqa: SLF001
             self._active = False
 
         if reraise_control_flow:
