@@ -1496,17 +1496,12 @@ class _ActorType:
     def _detach_current_listener_task(self) -> Iterator[None]:
         """Temporarily remove the current task from the event manager's listener-task set.
 
-        When `exit()` / `fail()` is called from within an event listener (e.g. an `ABORTING` handler), the current
-        task is that listener's own task, which the event manager tracks in its listener-task set. Actor cleanup
-        waits for all listener tasks to finish -- directly, and again inside the event manager shutdown -- which
-        would deadlock on the caller's own task and then, on the timeout cancellation, recurse into cancelling it,
-        raising `RecursionError`. Detaching it for the duration makes those waits ignore it; restoring it
-        afterwards lets the listener wrapper deregister it normally.
+        If `exit()` / `fail()` runs inside an event listener, the current task is that listener's own tracked
+        task, so the cleanup waits below would deadlock on it and raise `RecursionError` on the timeout
+        cancellation. Detaching it skips it in those waits; restoring it lets the listener wrapper deregister it.
 
-        Only a direct call on the listener's own task is handled. A call from a task the listener spawns itself
-        (e.g. via `asyncio.create_task` or `asyncio.gather`) is not detected, because asyncio does not expose
-        task ancestry; robustly covering that would require reworking listener registration or upstream support
-        in the event manager.
+        Only a direct call on the listener's task is handled, not one from a task the listener itself spawns
+        (asyncio exposes no task ancestry).
         """
         listener_tasks = self.event_manager._listener_tasks  # noqa: SLF001
         current_task = asyncio.current_task()
