@@ -74,11 +74,7 @@ class ApifyRequestQueueSharedClient:
         """Local cache of request IDs from the request queue head for efficient fetching."""
 
         self._requests_in_progress = set[str]()
-        """Set of request IDs currently handed to a consumer of this client and not yet handled or reclaimed.
-
-        Tracked locally so a request is never handed to a second consumer in this process, even if its platform
-        lock lapses and the queue head re-lists it.
-        """
+        """Request IDs handed to a consumer and not yet handled or reclaimed, tracked to avoid double-handing."""
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """LRU cache storing request objects, keyed by request ID."""
