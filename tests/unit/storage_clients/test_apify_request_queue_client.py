@@ -514,7 +514,7 @@ async def test_fetch_next_request_skips_when_lock_not_reacquired() -> None:
         return_value=_locked_head([_locked_item(request, lock_expires_at=future)])
     )
     api_client.get_request = AsyncMock(return_value=_client_request(request))
-    # First call reports the lock as not (re)acquired via a `None` return; the second re-acquires it.
+    # First fetch: lock not re-acquired (`None`); second: re-acquired.
     api_client.prolong_request_lock = AsyncMock(side_effect=[None, RequestLockInfo(lock_expires_at=future)])
 
     first = await client.fetch_next_request()
@@ -534,7 +534,7 @@ async def test_is_finished_false_while_request_in_progress() -> None:
     api_client.list_and_lock_head = AsyncMock(
         side_effect=[
             _locked_head([_locked_item(request, lock_expires_at=future)]),
-            # The in-progress request is locked, so the platform head lists empty and reports no locked requests.
+            # In-progress request stays locked: head lists empty, no locked requests reported.
             _locked_head([], queue_has_locked_requests=False),
         ]
     )
@@ -544,7 +544,6 @@ async def test_is_finished_false_while_request_in_progress() -> None:
     fetched = await client.fetch_next_request()
 
     assert fetched is not None
-    # The request is handed out but not yet handled or reclaimed, so the queue is not finished.
     assert await client.is_finished() is False
 
 

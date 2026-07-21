@@ -1033,7 +1033,8 @@ async def test_request_queue_simple_and_full_at_the_same_time(
 
 @pytest.mark.parametrize(
     ('access', 'expected_write_count_per_request'),
-    [pytest.param('single', 2, id='Simple rq client'), pytest.param('shared', 3, id='Full rq client')],
+    # Shared does one extra write/request vs single: `fetch_next_request` prolongs the lock (a PUT).
+    [pytest.param('single', 2, id='Simple rq client'), pytest.param('shared', 4, id='Full rq client')],
 )
 async def test_crawler_run_request_queue_variant_stats(
     *,
@@ -1617,14 +1618,7 @@ async def test_shared_is_finished_false_while_request_in_progress(
     apify_token: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A shared queue must not report finished while a request is still tracked in progress locally.
-
-    Reproduces the pre-fix premature-finish bug against the real platform. Once a request has left the platform
-    queue (here it is marked handled and unlocked out-of-band, as if another consumer took over its lapsed lock
-    and finished it) the head lists empty and reports no locked requests. Pre-fix, `is_finished` was
-    `is_empty and not queue_has_locked_requests`, so it wrongly returned True; the fix additionally requires that
-    no request is still in progress locally.
-    """
+    """A shared queue stays unfinished while a request is in progress locally, even after it left the queue."""
     monkeypatch.setenv(ApifyEnvVars.TOKEN, apify_token)
 
     async with Actor:
@@ -1639,23 +1633,20 @@ async def test_shared_is_finished_false_while_request_in_progress(
             request_id = unique_key_to_request_id(fetched.unique_key)
             assert request_id in impl._requests_in_progress
 
-            # Simulate another consumer taking over the request (whose lock lapsed) and finishing it: mark it
-            # handled on the platform and drop its lock, bypassing the SDK so our local in-progress tracking is
-            # untouched, exactly like a slow local handler that is still running.
+            # Finish the request out-of-band via the raw API (mark handled, drop lock), as another consumer would
+            # after our lock lapsed, so our local in-progress tracking still holds it.
             fetched.handled_at = datetime.now(tz=UTC)
             await impl._update_request(fetched)
             with contextlib.suppress(Exception):
                 await impl._api_client.delete_request_lock(request_id)
 
-            # Wait for the platform head to reflect the empty, unlocked queue (shared-mode propagation delay).
+            # Wait for the head to reflect the empty, unlocked queue (shared-mode propagation delay).
             async def _head_empty_and_unlocked() -> bool:
                 return await rq.is_empty() and not impl._queue_has_locked_requests
 
-            reached = await poll_until_condition(_head_empty_and_unlocked, timeout=30, backoff_factor=2)
-            # This is precisely the state in which the pre-fix `is_finished` returned True by mistake.
-            assert reached is True
+            # This is the state where pre-fix `is_finished` wrongly returned True.
+            assert await poll_until_condition(_head_empty_and_unlocked, timeout=30, backoff_factor=2) is True
 
-            # The request is still in progress locally, so the queue is not finished.
             assert request_id in impl._requests_in_progress
             assert await rq.is_finished() is False
         finally:

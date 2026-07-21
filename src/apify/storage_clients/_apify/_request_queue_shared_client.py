@@ -267,8 +267,7 @@ class ApifyRequestQueueSharedClient:
             self._requests_in_progress.discard(next_request_id)
             return None
 
-        # A `None` response means the lock was not (re)acquired, so another consumer may hold it. Skip the request
-        # rather than hand out one whose lock we do not hold.
+        # `None` means the lock was not (re)acquired; skip the request rather than process it without a lock.
         if lock_info is None:
             logger.debug(f'Lock of request {next_request_id} could not be re-acquired, skipping it')
             self._requests_in_progress.discard(next_request_id)
@@ -402,8 +401,7 @@ class ApifyRequestQueueSharedClient:
         """Specific implementation of this method for the RQ shared access mode."""
         async with self._fetch_lock:
             # Order of operations is important here, because affects on `_queue_has_locked_requests`.
-            # A request handed out locally but not yet handled or reclaimed keeps the queue unfinished, even if
-            # the platform head lists empty and reports no locked requests.
+            # A locally in-progress request keeps the queue unfinished even when the head lists empty.
             return await self._is_empty() and not self._queue_has_locked_requests and not self._requests_in_progress
 
     async def _is_empty(self) -> bool:
@@ -466,8 +464,7 @@ class ApifyRequestQueueSharedClient:
             if not request:
                 return None
 
-            # Update cache with hydrated request, preserving any known lock expiry so the lock-liveness check in
-            # `fetch_next_request` is not silently lost when an unhydrated head entry is hydrated here.
+            # Cache the hydrated request, preserving any known lock expiry for `fetch_next_request`'s liveness check.
             self._cache_request(
                 cache_key=request_id,
                 processed_request=ProcessedRequest(
