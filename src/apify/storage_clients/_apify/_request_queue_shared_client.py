@@ -322,19 +322,14 @@ class ApifyRequestQueueSharedClient:
                     hydrated_request=request,
                 )
 
-                # Re-enter the reclaimed request into the local head so `is_empty` and `is_finished` keep seeing
-                # it while `list_and_lock_head` lags behind the reclaim; otherwise they would report the queue
-                # finished and silently drop it. This holds for both the forefront and the default path: forefront
-                # goes to the front so it is fetched next, the default to the back.
+                # Re-enter into the local head so `is_empty`/`is_finished` still see it while `list_and_lock_head`
+                # lags behind the reclaim (else it is silently dropped); forefront to the front, default to the back.
                 if forefront:
                     self._queue_head.appendleft(request_id)
                 else:
                     self._queue_head.append(request_id)
 
-                # For a forefront reclaim, also refresh the head from the platform on the next listing so any
-                # forefront requests added concurrently surface ahead of the requests already cached in the local
-                # head. The local re-entry above still keeps the reclaimed request itself from being dropped while
-                # that refreshed listing lags behind the reclaim.
+                # Forefront also forces a head refresh, so concurrent forefront additions surface first.
                 if forefront:
                     self._should_check_for_forefront_requests = True
 
@@ -360,9 +355,7 @@ class ApifyRequestQueueSharedClient:
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
         head = await self._list_head(limit=1)
-        # A forefront reclaim (and any forefront refresh) makes `_list_head` refetch from the platform, whose
-        # response omits the just-reclaimed request while it propagates. Consult the local head too, so such a
-        # request is not reported as gone and silently dropped.
+        # A forefront refresh refetches the platform head (which lags the reclaim), so consult the local head too.
         return len(head.items) == 0 and not self._queue_head
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
@@ -542,9 +535,7 @@ class ApifyRequestQueueSharedClient:
             self._queue_head.append(request_id)
 
         for leftover_id in leftover_buffer:
-            # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
-            # Skip ids the platform already returned above, so a request re-entered locally by a forefront reclaim
-            # is not enqueued twice (which would double-process it).
+            # Keep leftovers at the end; skip ids already returned above so a re-entered reclaim isn't enqueued twice.
             if leftover_id not in self._queue_head:
                 self._queue_head.append(leftover_id)
 

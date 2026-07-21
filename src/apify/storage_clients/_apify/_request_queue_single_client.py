@@ -288,8 +288,7 @@ class ApifyRequestQueueSingleClient:
         """Specific implementation of this method for the RQ single access mode."""
         request_id = unique_key_to_request_id(request.unique_key)
 
-        # `was_already_handled` is derived from `handled_at`, so capture it before clearing `handled_at` below.
-        # When reclaiming, we want to put the request back for processing.
+        # `was_already_handled` derives from `handled_at`, so capture it before clearing `handled_at`.
         was_already_handled = request.was_already_handled
         if was_already_handled:
             request.handled_at = None
@@ -303,19 +302,14 @@ class ApifyRequestQueueSingleClient:
             # No longer handled
             self._requests_already_handled.discard(request_id)
 
-            # Re-enter the reclaimed request into the local head estimation, mirroring `add_batch_of_requests`, so
-            # `is_empty` and `is_finished` keep seeing it while the platform head listing lags behind the reclaim;
-            # otherwise they would report the queue finished and silently drop it. Forefront goes to the top so it
-            # is fetched next, the default to the bottom.
+            # Re-enter into the local head (like `add_batch_of_requests`) so `is_empty`/`is_finished` still see it
+            # while the platform head lags behind the reclaim (else it is dropped); forefront to top, default bottom.
             if forefront:
                 self._head_requests.append(request_id)
             else:
                 self._head_requests.appendleft(request_id)
 
-            # Reclaiming a previously handled request moves it from handled back to pending. In single-consumer
-            # mode local knowledge is authoritative, so mirror that in the local metadata alongside the re-entry
-            # above (before the platform update below), keeping the counts consistent with the locally re-queued
-            # request whether or not that update ultimately succeeds.
+            # Previously handled -> pending; adjust counts before the update so they stay consistent even if it fails.
             if was_already_handled:
                 self.metadata.handled_request_count -= 1
                 self.metadata.pending_request_count += 1

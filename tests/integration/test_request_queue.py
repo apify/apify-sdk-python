@@ -379,8 +379,7 @@ async def test_forefront_reclaim_of_last_request_completes(
     # The queue must not report itself empty while the reclaimed request is still pending.
     assert await rq.is_empty() is False
 
-    # And the request is actually retrievable again, not lost. A reclaimed request may take a moment to reappear
-    # at the queue head (eventually-consistent API state), so poll until it does.
+    # The request must be retrievable again, not lost; it may take a moment to reappear at the head, so poll.
     refetched = await poll_until_condition(
         rq.fetch_next_request,
         lambda result: result is not None,

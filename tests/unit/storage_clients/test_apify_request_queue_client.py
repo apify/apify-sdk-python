@@ -427,7 +427,6 @@ async def test_reclaim_handled_update_failure_keeps_local_state_consistent_singl
             items=[],
         )
     )
-    # The platform update fails during the reclaim.
     api_client.update_request = AsyncMock(side_effect=RuntimeError('network down'))
 
     # An already-handled request is being reclaimed.
@@ -435,11 +434,9 @@ async def test_reclaim_handled_update_failure_keeps_local_state_consistent_singl
     client._requests_already_handled.add(request_id)
     client.metadata.handled_request_count = 1
 
-    # The reclaim reports failure (the platform update raised)...
+    # The reclaim reports failure (the update raised), yet the request stays locally pending and the counts move
+    # handled -> pending, so a later successful handling does not double-count it.
     assert await client.reclaim_request(request) is None
-
-    # ...but the request is still locally pending (not dropped) and the counts consistently reflect handled ->
-    # pending, so a later successful handling does not double-count it.
     assert await client.is_empty() is False
     assert client.metadata.handled_request_count == 0
     assert client.metadata.pending_request_count == 1
