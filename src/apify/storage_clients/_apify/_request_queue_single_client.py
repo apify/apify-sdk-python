@@ -286,12 +286,12 @@ class ApifyRequestQueueSingleClient:
         forefront: bool = False,
     ) -> ProcessedRequest | None:
         """Specific implementation of this method for the RQ single access mode."""
-        # Check if the request was marked as handled and clear it. When reclaiming,
-        # we want to put the request back for processing.
-
         request_id = unique_key_to_request_id(request.unique_key)
 
-        if request.was_already_handled:
+        # `was_already_handled` is derived from `handled_at`, so capture it before clearing `handled_at` below.
+        # When reclaiming, we want to put the request back for processing.
+        was_already_handled = request.was_already_handled
+        if was_already_handled:
             request.handled_at = None
 
         try:
@@ -303,24 +303,26 @@ class ApifyRequestQueueSingleClient:
             # No longer handled
             self._requests_already_handled.discard(request_id)
 
+            # Re-enter the reclaimed request into the local head estimation, mirroring `add_batch_of_requests`, so
+            # `is_empty` and `is_finished` keep seeing it while the platform head listing lags behind the reclaim;
+            # otherwise they would report the queue finished and silently drop it. Forefront goes to the top so it
+            # is fetched next, the default to the bottom.
             if forefront:
-                # Append to top of the local head estimation
                 self._head_requests.append(request_id)
             else:
-                # Re-enter at the bottom of the local head estimation, mirroring `add_batch_of_requests`.
-                # Without this the reclaimed request lives only in `_requests_cache`, which `is_empty` and
-                # `is_finished` do not consult, so they would report the queue finished while the platform head
-                # listing still lags behind the reclaim, silently dropping the request.
                 self._head_requests.appendleft(request_id)
+
+            # Reclaiming a previously handled request moves it from handled back to pending. In single-consumer
+            # mode local knowledge is authoritative, so mirror that in the local metadata alongside the re-entry
+            # above (before the platform update below), keeping the counts consistent with the locally re-queued
+            # request whether or not that update ultimately succeeds.
+            if was_already_handled:
+                self.metadata.handled_request_count -= 1
+                self.metadata.pending_request_count += 1
 
             processed_request = await self._update_request(request, forefront=forefront)
             processed_request.id = request_id
             processed_request.unique_key = request.unique_key
-            # The platform reports the request's state before this update via `was_already_handled`. If it was
-            # handled, this update moved it from handled back to pending, so mirror that in the local metadata.
-            if processed_request.was_already_handled:
-                self.metadata.handled_request_count -= 1
-                self.metadata.pending_request_count += 1
 
         except Exception:
             logger.exception(f'Error reclaiming request {request.unique_key}')
