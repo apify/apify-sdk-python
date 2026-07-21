@@ -92,9 +92,19 @@ class ApifyEventManager(EventManager):
         self._connected_to_platform_websocket: asyncio.Future[bool] | None = None
         """Future that resolves when the connection to the platform websocket is established."""
 
+        self._context_depth = 0
+        """Nesting depth of active contexts; the outermost enter/exit (0 <-> 1) starts/tears down the websocket."""
+
     @override
     async def __aenter__(self) -> Self:
         await super().__aenter__()
+
+        # Track nesting depth ourselves rather than reading the parent's private ref count. Only the outermost
+        # enter (0 -> 1) starts the websocket machinery; a nested enter reuses the existing connection.
+        self._context_depth += 1
+        if self._context_depth > 1:
+            return self
+
         self._connected_to_platform_websocket = asyncio.Future()
 
         # Run tasks but don't await them
@@ -119,16 +129,20 @@ class ApifyEventManager(EventManager):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
-        # and followed by a reconnect attempt.
-        if self._process_platform_messages_task and not self._process_platform_messages_task.done():
-            self._process_platform_messages_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._process_platform_messages_task
+        # Only the outermost exit (1 -> 0) tears down the websocket machinery; a nested exit must leave the
+        # connection and its processing task intact for the still-active outer context.
+        if self._context_depth == 1:
+            # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
+            # and followed by a reconnect attempt.
+            if self._process_platform_messages_task and not self._process_platform_messages_task.done():
+                self._process_platform_messages_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._process_platform_messages_task
 
-        if self._platform_events_websocket:
-            await self._platform_events_websocket.close()
+            if self._platform_events_websocket:
+                await self._platform_events_websocket.close()
 
+        self._context_depth -= 1
         await super().__aexit__(exc_type, exc_value, exc_traceback)
 
     def _process_connection_exception(self, exc: Exception) -> Exception | None:
