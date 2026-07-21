@@ -93,20 +93,14 @@ class ApifyEventManager(EventManager):
         """Future that resolves when the connection to the platform websocket is established."""
 
         self._context_depth = 0
-        """Nesting depth of active `async with` contexts, tracked independently of the parent's ref counting.
-
-        The platform websocket machinery is started on the outermost enter (0 -> 1) and torn down on the
-        outermost exit (1 -> 0); nested enters/exits reuse the single existing connection.
-        """
+        """Nesting depth of active contexts; the outermost enter/exit (0 <-> 1) starts/tears down the websocket."""
 
     @override
     async def __aenter__(self) -> Self:
         await super().__aenter__()
 
-        # Ref-count nested contexts (e.g. a crawler entering the same event manager) with our own counter,
-        # incremented right after a successful parent enter, rather than reading the parent's private ref-count
-        # internals (whose mutation timing we would otherwise depend on). Only the outermost enter (0 -> 1) starts
-        # the platform websocket machinery; a nested enter reuses the connection instead of opening a second one.
+        # Track nesting depth ourselves rather than reading the parent's private ref count. Only the outermost
+        # enter (0 -> 1) starts the websocket machinery; a nested enter reuses the existing connection.
         self._context_depth += 1
         if self._context_depth > 1:
             return self
@@ -135,9 +129,8 @@ class ApifyEventManager(EventManager):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        # Mirror the enter's own ref counting: only the outermost exit (1 -> 0) tears down the platform websocket
-        # machinery. A nested exit must leave the connection and its processing task intact for the still-active
-        # outer context.
+        # Only the outermost exit (1 -> 0) tears down the websocket machinery; a nested exit must leave the
+        # connection and its processing task intact for the still-active outer context.
         if self._context_depth == 1:
             # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
             # and followed by a reconnect attempt.
