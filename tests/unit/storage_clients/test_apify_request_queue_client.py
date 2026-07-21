@@ -19,7 +19,7 @@ from apify_client._models import (
     RequestQueueStats,
 )
 from apify_client._models import Request as ClientRequest
-from crawlee.storage_clients.models import AddRequestsResponse, RequestQueueMetadata
+from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from apify import Request
 from apify.storage_clients._apify._models import ApifyRequestQueueMetadata
@@ -350,11 +350,6 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     assert [request['uniqueKey'] for request in resent] == [rejected.unique_key]
 
 
-# The shared client hands out requests locked on the platform. To prevent duplicate processing it must keep those
-# locks alive while a request is being processed, refuse to hand out a queued request whose lock has already lapsed
-# (another consumer may have taken it over), and never re-hand a request it is already processing.
-
-
 def _locked_item(request: Request, *, lock_expires_at: datetime) -> LockedHeadRequest:
     """Build a single locked head entry for `request` with the given lock expiry."""
     return LockedHeadRequest(
@@ -367,15 +362,29 @@ def _locked_item(request: Request, *, lock_expires_at: datetime) -> LockedHeadRe
     )
 
 
-def _locked_head(items: Sequence[LockedHeadRequest]) -> LockedRequestQueueHead:
+def _locked_head(
+    items: Sequence[LockedHeadRequest],
+    *,
+    queue_has_locked_requests: bool = True,
+) -> LockedRequestQueueHead:
     """Build a `list_and_lock_head` response wrapping the given locked entries."""
     return LockedRequestQueueHead(
         limit=25,
         queue_modified_at=datetime.now(tz=UTC),
-        queue_has_locked_requests=True,
+        queue_has_locked_requests=queue_has_locked_requests,
         had_multiple_clients=True,
         lock_secs=180,
         items=list(items),
+    )
+
+
+def _processed(request: Request, *, was_already_handled: bool = False) -> ProcessedRequest:
+    """Build the `update_request` result returned by the API for a handled or reclaimed request."""
+    return ProcessedRequest(
+        id=unique_key_to_request_id(request.unique_key),
+        unique_key=request.unique_key,
+        was_already_present=True,
+        was_already_handled=was_already_handled,
     )
 
 
@@ -491,5 +500,103 @@ async def test_fetch_next_request_skips_when_lock_prolong_fails() -> None:
     second = await client.fetch_next_request()
 
     assert first is None
+    assert second is not None
+    assert second.unique_key == request.unique_key
+
+
+async def test_fetch_next_request_skips_when_lock_not_reacquired() -> None:
+    """A `None` from `prolong_request_lock` (lock not re-acquired) is a skip, not a successful hand-out."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+
+    api_client.list_and_lock_head = AsyncMock(
+        return_value=_locked_head([_locked_item(request, lock_expires_at=future)])
+    )
+    api_client.get_request = AsyncMock(return_value=_client_request(request))
+    # First call reports the lock as not (re)acquired via a `None` return; the second re-acquires it.
+    api_client.prolong_request_lock = AsyncMock(side_effect=[None, RequestLockInfo(lock_expires_at=future)])
+
+    first = await client.fetch_next_request()
+    second = await client.fetch_next_request()
+
+    assert first is None
+    assert second is not None
+    assert second.unique_key == request.unique_key
+
+
+async def test_is_finished_false_while_request_in_progress() -> None:
+    """`is_finished` stays False while a fetched request is still in progress, even if the head lists empty."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+
+    api_client.list_and_lock_head = AsyncMock(
+        side_effect=[
+            _locked_head([_locked_item(request, lock_expires_at=future)]),
+            # The in-progress request is locked, so the platform head lists empty and reports no locked requests.
+            _locked_head([], queue_has_locked_requests=False),
+        ]
+    )
+    api_client.get_request = AsyncMock(return_value=_client_request(request))
+    api_client.prolong_request_lock = AsyncMock(return_value=RequestLockInfo(lock_expires_at=future))
+
+    fetched = await client.fetch_next_request()
+
+    assert fetched is not None
+    # The request is handed out but not yet handled or reclaimed, so the queue is not finished.
+    assert await client.is_finished() is False
+
+
+async def test_mark_request_as_handled_clears_in_progress() -> None:
+    """Marking a fetched request handled stops tracking it as in progress, so the queue can finish."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+
+    api_client.list_and_lock_head = AsyncMock(
+        return_value=_locked_head([_locked_item(request, lock_expires_at=future)])
+    )
+    api_client.get_request = AsyncMock(return_value=_client_request(request))
+    api_client.prolong_request_lock = AsyncMock(return_value=RequestLockInfo(lock_expires_at=future))
+    api_client.update_request = AsyncMock(return_value=_processed(request))
+
+    fetched = await client.fetch_next_request()
+
+    assert fetched is not None
+    assert request_id in client._requests_in_progress
+
+    await client.mark_request_as_handled(fetched)
+
+    assert request_id not in client._requests_in_progress
+
+
+async def test_reclaim_request_frees_in_progress() -> None:
+    """Reclaiming a fetched request stops tracking it as in progress so it can be handed out again."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+
+    api_client.list_and_lock_head = AsyncMock(
+        return_value=_locked_head([_locked_item(request, lock_expires_at=future)])
+    )
+    api_client.get_request = AsyncMock(return_value=_client_request(request))
+    api_client.prolong_request_lock = AsyncMock(return_value=RequestLockInfo(lock_expires_at=future))
+    api_client.update_request = AsyncMock(return_value=_processed(request))
+
+    first = await client.fetch_next_request()
+
+    assert first is not None
+    assert request_id in client._requests_in_progress
+
+    await client.reclaim_request(first)
+
+    assert request_id not in client._requests_in_progress
+
+    # After reclaim the same request is eligible to be handed out again.
+    second = await client.fetch_next_request()
+
     assert second is not None
     assert second.unique_key == request.unique_key

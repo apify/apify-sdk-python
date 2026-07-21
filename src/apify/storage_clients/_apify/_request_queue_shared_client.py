@@ -267,7 +267,14 @@ class ApifyRequestQueueSharedClient:
             self._requests_in_progress.discard(next_request_id)
             return None
 
-        if lock_info is not None and (cached := self._requests_cache.get(next_request_id)) is not None:
+        # A `None` response means the lock was not (re)acquired, so another consumer may hold it. Skip the request
+        # rather than hand out one whose lock we do not hold.
+        if lock_info is None:
+            logger.debug(f'Lock of request {next_request_id} could not be re-acquired, skipping it')
+            self._requests_in_progress.discard(next_request_id)
+            return None
+
+        if (cached := self._requests_cache.get(next_request_id)) is not None:
             cached.lock_expires_at = lock_info.lock_expires_at
 
         request = await self._get_or_hydrate_request(next_request_id)
@@ -395,7 +402,9 @@ class ApifyRequestQueueSharedClient:
         """Specific implementation of this method for the RQ shared access mode."""
         async with self._fetch_lock:
             # Order of operations is important here, because affects on `_queue_has_locked_requests`.
-            return await self._is_empty() and not self._queue_has_locked_requests
+            # A request handed out locally but not yet handled or reclaimed keeps the queue unfinished, even if
+            # the platform head lists empty and reports no locked requests.
+            return await self._is_empty() and not self._queue_has_locked_requests and not self._requests_in_progress
 
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
@@ -457,7 +466,8 @@ class ApifyRequestQueueSharedClient:
             if not request:
                 return None
 
-            # Update cache with hydrated request
+            # Update cache with hydrated request, preserving any known lock expiry so the lock-liveness check in
+            # `fetch_next_request` is not silently lost when an unhydrated head entry is hydrated here.
             self._cache_request(
                 cache_key=request_id,
                 processed_request=ProcessedRequest(
@@ -467,6 +477,7 @@ class ApifyRequestQueueSharedClient:
                     was_already_handled=request.handled_at is not None,
                 ),
                 hydrated_request=request,
+                lock_expires_at=cached_entry.lock_expires_at if cached_entry else None,
             )
         except Exception as exc:
             logger.debug(f'Error fetching request {request_id}: {exc!s}')
