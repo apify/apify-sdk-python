@@ -8,7 +8,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import AddedRequest, BatchAddResult, RequestDraft, RequestQueueHead, RequestQueueStats
+from apify_client._models import (
+    AddedRequest,
+    BatchAddResult,
+    LockedHeadRequest,
+    LockedRequestQueueHead,
+    RequestDraft,
+    RequestQueueHead,
+    RequestQueueStats,
+    RequestRegistration,
+)
 from crawlee.storage_clients.models import AddRequestsResponse, RequestQueueMetadata
 
 from apify import Request
@@ -338,3 +347,179 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     assert api_client.batch_add_requests.await_args is not None
     resent = api_client.batch_add_requests.await_args.kwargs['requests']
     assert [request['uniqueKey'] for request in resent] == [rejected.unique_key]
+
+
+def _request_registration(request: Request, *, was_already_handled: bool = False) -> RequestRegistration:
+    """Build an `update_request` response for the given request."""
+    return RequestRegistration.model_construct(
+        request_id=unique_key_to_request_id(request.unique_key),
+        was_already_present=True,
+        was_already_handled=was_already_handled,
+    )
+
+
+async def test_reclaimed_request_kept_pending_while_head_lags_single() -> None:
+    """A reclaimed request (default forefront=False) stays pending in single mode while the platform head lags."""
+    client, api_client = _make_single_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    # The platform head listing lags and does not yet report the reclaimed request during the window.
+    api_client.list_head = AsyncMock(
+        return_value=RequestQueueHead(
+            limit=200,
+            queue_modified_at=datetime.now(tz=UTC),
+            had_multiple_clients=False,
+            items=[],
+        )
+    )
+    api_client.update_request = AsyncMock(return_value=_request_registration(request))
+
+    # The request was fetched and is being processed by this client.
+    client._requests_in_progress.add(request_id)
+    client._requests_cache[request_id] = request
+
+    # Reclaim it via the default retry path (forefront=False).
+    assert await client.reclaim_request(request) is not None
+
+    # While the head propagation lags, the request must still count as locally pending, or the run would shut
+    # down and silently drop it.
+    assert await client.is_empty() is False
+    assert await client.is_finished() is False
+
+
+async def test_reclaimed_forefront_request_kept_pending_while_head_lags_single() -> None:
+    """A forefront reclaim stays pending in single mode while the platform head listing lags behind the reclaim."""
+    client, api_client = _make_single_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    api_client.list_head = AsyncMock(
+        return_value=RequestQueueHead(
+            limit=200,
+            queue_modified_at=datetime.now(tz=UTC),
+            had_multiple_clients=False,
+            items=[],
+        )
+    )
+    api_client.update_request = AsyncMock(return_value=_request_registration(request))
+
+    client._requests_in_progress.add(request_id)
+    client._requests_cache[request_id] = request
+
+    assert await client.reclaim_request(request, forefront=True) is not None
+
+    assert await client.is_empty() is False
+    assert await client.is_finished() is False
+
+
+async def test_reclaim_handled_update_failure_keeps_local_state_consistent_single() -> None:
+    """A failed reclaim update still re-queues the handled request locally and moves the counts handled -> pending."""
+    client, api_client = _make_single_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    api_client.list_head = AsyncMock(
+        return_value=RequestQueueHead(
+            limit=200,
+            queue_modified_at=datetime.now(tz=UTC),
+            had_multiple_clients=False,
+            items=[],
+        )
+    )
+    api_client.update_request = AsyncMock(side_effect=RuntimeError('network down'))
+
+    # An already-handled request is being reclaimed.
+    request.handled_at = datetime.now(tz=UTC)
+    client._requests_already_handled.add(request_id)
+    client.metadata.handled_request_count = 1
+
+    # The reclaim reports failure (the update raised), yet the request stays locally pending and the counts move
+    # handled -> pending, so a later successful handling does not double-count it.
+    assert await client.reclaim_request(request) is None
+    assert await client.is_empty() is False
+    assert client.metadata.handled_request_count == 0
+    assert client.metadata.pending_request_count == 1
+
+
+async def test_reclaimed_request_kept_pending_while_head_lags_shared() -> None:
+    """A reclaimed request (default forefront=False) stays pending in shared mode while the platform head lags."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+
+    # `list_and_lock_head` lags and returns nothing during the propagation window.
+    api_client.list_and_lock_head = AsyncMock(
+        return_value=LockedRequestQueueHead.model_construct(
+            limit=1,
+            queue_modified_at=datetime.now(tz=UTC),
+            had_multiple_clients=False,
+            queue_has_locked_requests=False,
+            lock_secs=180,
+            items=[],
+        )
+    )
+    api_client.update_request = AsyncMock(return_value=_request_registration(request))
+
+    # Reclaim it via the default retry path (forefront=False).
+    assert await client.reclaim_request(request) is not None
+
+    # While the head propagation lags, the request must still count as locally pending, or the run would shut
+    # down and silently drop it.
+    assert await client.is_empty() is False
+    assert await client.is_finished() is False
+
+
+def _locked_head_item(request: Request) -> LockedHeadRequest:
+    """Build a `list_and_lock_head` item for the given request."""
+    return LockedHeadRequest.model_construct(
+        id=unique_key_to_request_id(request.unique_key),
+        unique_key=request.unique_key,
+        url=request.url,
+        method=request.method,
+        retry_count=0,
+        lock_expires_at=None,
+    )
+
+
+def _locked_head(*items: LockedHeadRequest, limit: int = 25) -> LockedRequestQueueHead:
+    """Build a `list_and_lock_head` response wrapping the given items."""
+    return LockedRequestQueueHead.model_construct(
+        limit=limit,
+        queue_modified_at=datetime.now(tz=UTC),
+        had_multiple_clients=False,
+        queue_has_locked_requests=False,
+        lock_secs=180,
+        items=list(items),
+    )
+
+
+async def test_reclaimed_forefront_request_kept_pending_while_head_lags_shared() -> None:
+    """A forefront reclaim stays pending in shared mode while `list_and_lock_head` lags behind the reclaim."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+
+    # The forefront reclaim flags a head refresh; the refreshed listing lags and returns nothing in the window.
+    api_client.list_and_lock_head = AsyncMock(return_value=_locked_head())
+    api_client.update_request = AsyncMock(return_value=_request_registration(request))
+
+    assert await client.reclaim_request(request, forefront=True) is not None
+
+    assert await client.is_empty() is False
+    assert await client.is_finished() is False
+
+
+async def test_reclaimed_forefront_request_not_duplicated_after_head_refresh_shared() -> None:
+    """A forefront reclaim re-entered locally must not be duplicated when the refreshed head also returns it."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    # After the reclaim, the platform head listing catches up and returns the same request.
+    api_client.list_and_lock_head = AsyncMock(return_value=_locked_head(_locked_head_item(request)))
+    api_client.update_request = AsyncMock(return_value=_request_registration(request))
+
+    assert await client.reclaim_request(request, forefront=True) is not None
+
+    # Trigger the forefront refresh flagged by the reclaim; the request must appear exactly once in the head.
+    await client._list_head()
+    assert list(client._queue_head).count(request_id) == 1
