@@ -92,14 +92,23 @@ class ApifyEventManager(EventManager):
         self._connected_to_platform_websocket: asyncio.Future[bool] | None = None
         """Future that resolves when the connection to the platform websocket is established."""
 
+        self._context_depth = 0
+        """Nesting depth of active `async with` contexts, tracked independently of the parent's ref counting.
+
+        The platform websocket machinery is started on the outermost enter (0 -> 1) and torn down on the
+        outermost exit (1 -> 0); nested enters/exits reuse the single existing connection.
+        """
+
     @override
     async def __aenter__(self) -> Self:
         await super().__aenter__()
 
-        # The parent ref-counts nested contexts (e.g. a crawler entering the same event manager). Only the
-        # outermost enter (0 -> 1) may start the platform websocket machinery; a nested enter must reuse the
-        # existing connection rather than open a second one.
-        if self._active_ref_count > 1:
+        # Ref-count nested contexts (e.g. a crawler entering the same event manager) with our own counter,
+        # incremented right after a successful parent enter, rather than reading the parent's private ref-count
+        # internals (whose mutation timing we would otherwise depend on). Only the outermost enter (0 -> 1) starts
+        # the platform websocket machinery; a nested enter reuses the connection instead of opening a second one.
+        self._context_depth += 1
+        if self._context_depth > 1:
             return self
 
         self._connected_to_platform_websocket = asyncio.Future()
@@ -126,10 +135,10 @@ class ApifyEventManager(EventManager):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        # Mirror the parent's ref counting: only the outermost exit (1 -> 0) tears down the platform websocket
+        # Mirror the enter's own ref counting: only the outermost exit (1 -> 0) tears down the platform websocket
         # machinery. A nested exit must leave the connection and its processing task intact for the still-active
         # outer context.
-        if self._active_ref_count == 1:
+        if self._context_depth == 1:
             # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
             # and followed by a reconnect attempt.
             if self._process_platform_messages_task and not self._process_platform_messages_task.done():
@@ -140,6 +149,7 @@ class ApifyEventManager(EventManager):
             if self._platform_events_websocket:
                 await self._platform_events_websocket.close()
 
+        self._context_depth -= 1
         await super().__aexit__(exc_type, exc_value, exc_traceback)
 
     def _process_connection_exception(self, exc: Exception) -> Exception | None:

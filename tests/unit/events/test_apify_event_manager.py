@@ -303,6 +303,12 @@ async def test_reentrant_context_reuses_single_platform_connection(monkeypatch: 
                 await asyncio.sleep(0.2)
                 assert len(event_calls) == 1
 
+        # The outermost exit tears down the single shared connection and its processing task; nothing is leaked.
+        assert outer_task is not None
+        assert outer_task.done()
+        await poll_until_condition(lambda: len(connected_ws_clients) == 0, poll_interval=0.05)
+        assert len(connected_ws_clients) == 0
+
 
 async def test_reentrant_exit_leaves_outer_context_functional(monkeypatch: pytest.MonkeyPatch) -> None:
     """Exiting a nested context leaves the outer connection alive and working; only the final exit tears it down."""
