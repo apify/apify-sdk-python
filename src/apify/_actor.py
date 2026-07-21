@@ -4,6 +4,7 @@ import asyncio
 import math
 import sys
 import warnings
+from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -41,7 +42,7 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Callable, MutableMapping
+    from collections.abc import Callable, Iterator, MutableMapping
     from decimal import Decimal
     from types import TracebackType
     from typing import Self
@@ -283,12 +284,15 @@ class _ActorType:
             except Exception:
                 self.log.exception('Failed to save Actor state')
 
-        try:
-            await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
-        except TimeoutError:
-            self.log.exception('Actor cleanup timed out')
-        finally:
-            self._active = False
+        # `exit()` / `fail()` may be called from within an event listener; detach that listener's own task for
+        # the duration of the cleanup so the waits below don't deadlock on it (see `_detach_current_listener_task`).
+        with self._detach_current_listener_task():
+            try:
+                await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
+            except TimeoutError:
+                self.log.exception('Actor cleanup timed out')
+            finally:
+                self._active = False
 
         if reraise_control_flow:
             # Return without `sys.exit()` so the original exception re-raises.
@@ -1487,6 +1491,28 @@ class _ActorType:
             extra={'is_at_home': self.is_at_home(), 'timeout_at': self.configuration.timeout_at},
         )
         return None
+
+    @contextmanager
+    def _detach_current_listener_task(self) -> Iterator[None]:
+        """Temporarily remove the current task from the event manager's listener-task set.
+
+        If `exit()` / `fail()` runs inside an event listener, the current task is that listener's own tracked
+        task, so the cleanup waits below would deadlock on it and raise `RecursionError` on the timeout
+        cancellation. Detaching it skips it in those waits; restoring it lets the listener wrapper deregister it.
+
+        Only a direct call on the listener's task is handled, not one from a task the listener itself spawns
+        (asyncio exposes no task ancestry).
+        """
+        listener_tasks = self.event_manager._listener_tasks  # noqa: SLF001
+        current_task = asyncio.current_task()
+        is_listener_task = current_task is not None and current_task in listener_tasks
+        if is_listener_task:
+            listener_tasks.discard(current_task)
+        try:
+            yield
+        finally:
+            if is_listener_task:
+                listener_tasks.add(current_task)
 
 
 Actor = cast('_ActorType', Proxy(_ActorType))
