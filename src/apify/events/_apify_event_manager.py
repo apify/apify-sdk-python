@@ -95,6 +95,13 @@ class ApifyEventManager(EventManager):
     @override
     async def __aenter__(self) -> Self:
         await super().__aenter__()
+
+        # The parent ref-counts nested contexts (e.g. a crawler entering the same event manager). Only the
+        # outermost enter (0 -> 1) may start the platform websocket machinery; a nested enter must reuse the
+        # existing connection rather than open a second one.
+        if self._active_ref_count > 1:
+            return self
+
         self._connected_to_platform_websocket = asyncio.Future()
 
         # Run tasks but don't await them
@@ -119,15 +126,19 @@ class ApifyEventManager(EventManager):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
-        # and followed by a reconnect attempt.
-        if self._process_platform_messages_task and not self._process_platform_messages_task.done():
-            self._process_platform_messages_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._process_platform_messages_task
+        # Mirror the parent's ref counting: only the outermost exit (1 -> 0) tears down the platform websocket
+        # machinery. A nested exit must leave the connection and its processing task intact for the still-active
+        # outer context.
+        if self._active_ref_count == 1:
+            # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
+            # and followed by a reconnect attempt.
+            if self._process_platform_messages_task and not self._process_platform_messages_task.done():
+                self._process_platform_messages_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._process_platform_messages_task
 
-        if self._platform_events_websocket:
-            await self._platform_events_websocket.close()
+            if self._platform_events_websocket:
+                await self._platform_events_websocket.close()
 
         await super().__aexit__(exc_type, exc_value, exc_traceback)
 

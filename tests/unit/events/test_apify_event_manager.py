@@ -277,6 +277,63 @@ async def test_lifecycle_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
         assert len(connected_ws_clients) == 1
 
 
+async def test_reentrant_context_reuses_single_platform_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A nested `async with` on the same event manager reuses the one platform connection, not a second."""
+    async with _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected):
+        event_manager = ApifyEventManager(Configuration.get_global_configuration())
+        async with event_manager:
+            await client_connected.wait()
+            assert len(connected_ws_clients) == 1
+            outer_task = event_manager._process_platform_messages_task
+
+            event_calls: list[Any] = []
+            event_manager.on(event=Event.SYSTEM_INFO, listener=event_calls.append)
+
+            async with event_manager:
+                # The nested enter must not replace the message-processing task nor open a second connection.
+                assert event_manager._process_platform_messages_task is outer_task
+                await asyncio.sleep(0.2)
+                assert len(connected_ws_clients) == 1
+
+                # A single platform event must be delivered exactly once, not once per connection.
+                websockets.broadcast(
+                    connected_ws_clients, json.dumps({'name': 'systemInfo', 'data': DUMMY_SYSTEM_INFO})
+                )
+                await poll_until_condition(lambda: len(event_calls) >= 1, poll_interval=0.05)
+                await asyncio.sleep(0.2)
+                assert len(event_calls) == 1
+
+
+async def test_reentrant_exit_leaves_outer_context_functional(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exiting a nested context leaves the outer connection alive and working; only the final exit tears it down."""
+    async with _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected):
+        event_manager = ApifyEventManager(Configuration.get_global_configuration())
+        async with event_manager:
+            await client_connected.wait()
+            outer_task = event_manager._process_platform_messages_task
+            assert outer_task is not None
+
+            async with event_manager:
+                pass
+
+            # The nested exit must not cancel the outer context's processing task.
+            assert event_manager.active is True
+            assert not outer_task.done()
+
+            # Events must still be delivered on the surviving connection.
+            event_calls: list[Any] = []
+            event_manager.on(event=Event.SYSTEM_INFO, listener=event_calls.append)
+            websockets.broadcast(connected_ws_clients, json.dumps({'name': 'systemInfo', 'data': DUMMY_SYSTEM_INFO}))
+            await poll_until_condition(lambda: len(event_calls) == 1, poll_interval=0.05)
+            assert len(event_calls) == 1
+
+        # The final exit tears everything down; no connection or task is leaked.
+        assert event_manager.active is False
+        assert outer_task.done()
+        await poll_until_condition(lambda: len(connected_ws_clients) == 0, poll_interval=0.05)
+        assert len(connected_ws_clients) == 0
+
+
 async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
     async with _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected):
 
