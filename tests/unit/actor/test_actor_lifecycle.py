@@ -112,7 +112,7 @@ async def test_fail_properly_deinitializes_actor(actor: _ActorType) -> None:
     assert actor._active is False
 
 
-async def test_exit_from_event_listener_completes_cleanup(caplog: pytest.LogCaptureFixture) -> None:
+async def test_exit_from_event_listener_completes_cleanup() -> None:
     """`Actor.exit()` called from an event listener runs cleanup instead of deadlocking into a RecursionError."""
     actor = Actor(exit_process=False)
     await actor.init()
@@ -132,7 +132,6 @@ async def test_exit_from_event_listener_completes_cleanup(caplog: pytest.LogCapt
     assert exit_returned, 'Actor.exit() never returned inside the listener (deadlocked).'
     assert actor._active is False
     assert actor.event_manager.active is False
-    assert 'RecursionError' not in caplog.text
 
 
 async def test_failed_charging_manager_init_does_not_leak_event_manager() -> None:

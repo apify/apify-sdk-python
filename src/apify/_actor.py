@@ -4,6 +4,7 @@ import asyncio
 import math
 import sys
 import warnings
+from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -41,7 +42,7 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Callable, MutableMapping
+    from collections.abc import Callable, Iterator, MutableMapping
     from decimal import Decimal
     from types import TracebackType
     from typing import Self
@@ -283,25 +284,15 @@ class _ActorType:
             except Exception:
                 self.log.exception('Failed to save Actor state')
 
-        # When `exit()` / `fail()` is called from within an event listener (e.g. an `ABORTING` handler), that
-        # listener's own task is tracked in the event manager's listener-task set. The cleanup below waits for
-        # all listener tasks to finish -- directly, and again inside the event manager shutdown -- which would
-        # deadlock on the caller's own task and then, on the timeout cancellation, recurse into cancelling it,
-        # raising `RecursionError`. Detach it for the duration so the waits ignore it, then restore it so its
-        # wrapper can deregister it normally.
-        current_task = asyncio.current_task()
-        current_task_is_listener = current_task is not None and current_task in self.event_manager._listener_tasks  # noqa: SLF001
-        if current_task_is_listener:
-            self.event_manager._listener_tasks.discard(current_task)  # noqa: SLF001
-
-        try:
-            await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
-        except TimeoutError:
-            self.log.exception('Actor cleanup timed out')
-        finally:
-            if current_task_is_listener:
-                self.event_manager._listener_tasks.add(current_task)  # noqa: SLF001
-            self._active = False
+        # `exit()` / `fail()` may be called from within an event listener; detach that listener's own task for
+        # the duration of the cleanup so the waits below don't deadlock on it (see `_detach_current_listener_task`).
+        with self._detach_current_listener_task():
+            try:
+                await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
+            except TimeoutError:
+                self.log.exception('Actor cleanup timed out')
+            finally:
+                self._active = False
 
         if reraise_control_flow:
             # Return without `sys.exit()` so the original exception re-raises.
@@ -1500,6 +1491,33 @@ class _ActorType:
             extra={'is_at_home': self.is_at_home(), 'timeout_at': self.configuration.timeout_at},
         )
         return None
+
+    @contextmanager
+    def _detach_current_listener_task(self) -> Iterator[None]:
+        """Temporarily remove the current task from the event manager's listener-task set.
+
+        When `exit()` / `fail()` is called from within an event listener (e.g. an `ABORTING` handler), the current
+        task is that listener's own task, which the event manager tracks in its listener-task set. Actor cleanup
+        waits for all listener tasks to finish -- directly, and again inside the event manager shutdown -- which
+        would deadlock on the caller's own task and then, on the timeout cancellation, recurse into cancelling it,
+        raising `RecursionError`. Detaching it for the duration makes those waits ignore it; restoring it
+        afterwards lets the listener wrapper deregister it normally.
+
+        Only a direct call on the listener's own task is handled. A call from a task the listener spawns itself
+        (e.g. via `asyncio.create_task` or `asyncio.gather`) is not detected, because asyncio does not expose
+        task ancestry; robustly covering that would require reworking listener registration or upstream support
+        in the event manager.
+        """
+        listener_tasks = self.event_manager._listener_tasks  # noqa: SLF001
+        current_task = asyncio.current_task()
+        is_listener_task = current_task is not None and current_task in listener_tasks
+        if is_listener_task:
+            listener_tasks.discard(current_task)
+        try:
+            yield
+        finally:
+            if is_listener_task:
+                listener_tasks.add(current_task)
 
 
 Actor = cast('_ActorType', Proxy(_ActorType))
