@@ -73,6 +73,9 @@ class ApifyRequestQueueSharedClient:
         self._queue_head = deque[str]()
         """Local cache of request IDs from the request queue head for efficient fetching."""
 
+        self._requests_in_progress = set[str]()
+        """Request IDs handed to a consumer and not yet handled or reclaimed, tracked to avoid double-handing."""
+
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """LRU cache storing request objects, keyed by request ID."""
 
@@ -219,12 +222,55 @@ class ApifyRequestQueueSharedClient:
         async with self._fetch_lock:
             await self._ensure_head_is_non_empty()
 
+            # Pick the next request this client can safely process: one it is not already processing, and whose
+            # platform lock has not lapsed (an expired lock may have been taken over by another consumer).
+            now = datetime.now(tz=UTC)
+            next_request_id: str | None = None
+            while self._queue_head:
+                candidate_id = self._queue_head.popleft()
+
+                if candidate_id in self._requests_in_progress:
+                    # Already handed to a consumer in this process; do not process it twice.
+                    continue
+
+                cached = self._requests_cache.get(candidate_id)
+                if cached is not None and cached.lock_expires_at is not None and cached.lock_expires_at <= now:
+                    logger.debug(
+                        'Skipping a queued request whose lock has expired; it may have been taken over by another '
+                        'client and will be re-fetched with a fresh lock if still available',
+                        extra={'next_request_id': candidate_id},
+                    )
+                    continue
+
+                # Reserve the request before releasing the fetch lock so a concurrent fetch cannot pick it too.
+                self._requests_in_progress.add(candidate_id)
+                next_request_id = candidate_id
+                break
+
             # If queue head is empty after ensuring, there are no requests
-            if not self._queue_head:
+            if next_request_id is None:
                 return None
 
-            # Get the next request ID from the request queue head
-            next_request_id = self._queue_head.popleft()
+        # Prolong the lock so the consumer gets a full lock window starting now instead of sharing the batch lock
+        # acquired when the head was listed. If the lock can no longer be (re)acquired, skip the request.
+        try:
+            lock_info = await self._api_client.prolong_request_lock(
+                next_request_id,
+                lock_duration=self._DEFAULT_LOCK_TIME,
+            )
+        except Exception as exc:
+            logger.debug(f'Failed to prolong the lock of request {next_request_id}, skipping it: {exc!s}')
+            self._requests_in_progress.discard(next_request_id)
+            return None
+
+        # `None` means the lock was not (re)acquired; skip the request rather than process it without a lock.
+        if lock_info is None:
+            logger.debug(f'Lock of request {next_request_id} could not be re-acquired, skipping it')
+            self._requests_in_progress.discard(next_request_id)
+            return None
+
+        if (cached := self._requests_cache.get(next_request_id)) is not None:
+            cached.lock_expires_at = lock_info.lock_expires_at
 
         request = await self._get_or_hydrate_request(next_request_id)
 
@@ -234,6 +280,7 @@ class ApifyRequestQueueSharedClient:
                 'Cannot find a request from the beginning of queue, will be retried later',
                 extra={'next_request_id': next_request_id},
             )
+            self._requests_in_progress.discard(next_request_id)
             return None
 
         # If the request was already handled, skip it
@@ -242,6 +289,7 @@ class ApifyRequestQueueSharedClient:
                 'Request fetched from the beginning of queue was already handled',
                 extra={'next_request_id': next_request_id},
             )
+            self._requests_in_progress.discard(next_request_id)
             return None
 
         # `_get_or_hydrate_request` may return a request from the queue-head cache, which is populated by
@@ -253,6 +301,7 @@ class ApifyRequestQueueSharedClient:
                 'Request fetched from the beginning of queue was not found in the RQ',
                 extra={'next_request_id': next_request_id},
             )
+            self._requests_in_progress.discard(next_request_id)
             return None
 
         return request
@@ -260,6 +309,8 @@ class ApifyRequestQueueSharedClient:
     async def mark_request_as_handled(self, request: Request) -> ProcessedRequest | None:
         """Specific implementation of this method for the RQ shared access mode."""
         request_id = unique_key_to_request_id(request.unique_key)
+        # The consumer is done with this request; stop tracking it as in progress.
+        self._requests_in_progress.discard(request_id)
         # Set the handled_at timestamp if not already set
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=UTC)
@@ -303,6 +354,9 @@ class ApifyRequestQueueSharedClient:
 
         # Reclaim with lock to prevent race conditions that could lead to double processing of the same request.
         async with self._fetch_lock:
+            request_id = unique_key_to_request_id(request.unique_key)
+            # The consumer is giving the request back; stop tracking it as in progress so it can be handed out again.
+            self._requests_in_progress.discard(request_id)
             try:
                 # Update the request in the API.
                 processed_request = await self._update_request(request, forefront=forefront)
@@ -315,7 +369,6 @@ class ApifyRequestQueueSharedClient:
                     self.metadata.pending_request_count += 1
 
                 # Update the cache
-                request_id = unique_key_to_request_id(request.unique_key)
                 self._cache_request(
                     request_id,
                     processed_request,
@@ -344,7 +397,8 @@ class ApifyRequestQueueSharedClient:
         """Specific implementation of this method for the RQ shared access mode."""
         async with self._fetch_lock:
             # Order of operations is important here, because affects on `_queue_has_locked_requests`.
-            return await self._is_empty() and not self._queue_has_locked_requests
+            # A locally in-progress request keeps the queue unfinished even when the head lists empty.
+            return await self._is_empty() and not self._queue_has_locked_requests and not self._requests_in_progress
 
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
@@ -406,7 +460,7 @@ class ApifyRequestQueueSharedClient:
             if not request:
                 return None
 
-            # Update cache with hydrated request
+            # Cache the hydrated request, preserving any known lock expiry for `fetch_next_request`'s liveness check.
             self._cache_request(
                 cache_key=request_id,
                 processed_request=ProcessedRequest(
@@ -416,6 +470,7 @@ class ApifyRequestQueueSharedClient:
                     was_already_handled=request.handled_at is not None,
                 ),
                 hydrated_request=request,
+                lock_expires_at=cached_entry.lock_expires_at if cached_entry else None,
             )
         except Exception as exc:
             logger.debug(f'Error fetching request {request_id}: {exc!s}')
@@ -514,7 +569,13 @@ class ApifyRequestQueueSharedClient:
                 )
                 continue
 
-            # Cache the request
+            # Skip requests this client is already processing (e.g. re-listed after their lock lapsed). Re-adding
+            # them would hand the same request to a second consumer in this process.
+            if request_id in self._requests_in_progress:
+                continue
+
+            # Cache the request together with its lock expiry, so `fetch_next_request` can tell whether the lock is
+            # still held before handing the request to a consumer.
             self._cache_request(
                 request_id,
                 ProcessedRequest(
@@ -524,6 +585,7 @@ class ApifyRequestQueueSharedClient:
                     was_already_handled=False,
                 ),
                 hydrated_request=request,
+                lock_expires_at=request_data.lock_expires_at,
             )
             self._queue_head.append(request_id)
 
@@ -539,14 +601,15 @@ class ApifyRequestQueueSharedClient:
         processed_request: ProcessedRequest,
         *,
         hydrated_request: Request | None = None,
+        lock_expires_at: datetime | None = None,
     ) -> None:
         """Cache a request for future use.
 
         Args:
             cache_key: The key to use for caching the request. It should be request ID.
             processed_request: The processed request information.
-            forefront: Whether the request was added to the forefront of the queue.
             hydrated_request: The hydrated request object, if available.
+            lock_expires_at: When the platform lock on the request expires, if it is currently locked by this client.
         """
         if processed_request.id is None:
             raise ValueError('ProcessedRequest must have an ID to be cached.')
@@ -555,5 +618,5 @@ class ApifyRequestQueueSharedClient:
             id=processed_request.id,
             was_already_handled=processed_request.was_already_handled,
             hydrated=hydrated_request,
-            lock_expires_at=None,
+            lock_expires_at=lock_expires_at,
         )
