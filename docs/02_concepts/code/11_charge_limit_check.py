@@ -16,7 +16,7 @@ async def main() -> None:
             result = {'url': url, 'data': f'Scraped data from {url}'}
 
             # highlight-start
-            # push_data returns a ChargeResult - check it to know if the budget ran out
+            # push_data returns a ChargeResult, check it to know if the budget ran out
             charge_result = await Actor.push_data(
                 result, charged_event_name='result-item'
             )
