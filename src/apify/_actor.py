@@ -249,7 +249,8 @@ class _ActorType:
             self.exit_code = code if isinstance(code, int) else 0 if code is None else 1
         elif isinstance(exc_value, Exception) and not is_running_in_ipython():
             # In IPython we don't call `sys.exit()`, so the traceback prints on its own.
-            self.log.exception('Actor failed with an exception', exc_info=exc_value)
+            # `error(exc_info=...)` not `exception()`: there is no ambient exception outside an `except` block.
+            self.log.error('Actor failed with an exception', exc_info=exc_value)
             # Fall back to the error code only if the caller hasn't chosen one (e.g. via `fail(exit_code=...)`).
             if self.exit_code == 0:
                 self.exit_code = EXIT_CODE_ERROR_USER_FUNCTION_THREW
@@ -909,7 +910,7 @@ class _ActorType:
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit'] = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
     ) -> Run:
@@ -1015,11 +1016,11 @@ class _ActorType:
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit'] = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
-        logger: logging.Logger | None | Literal['default'] = 'default',
+        logger: logging.Logger | Literal['default'] | None = 'default',
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1093,7 +1094,7 @@ class _ActorType:
         build: str | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit'] = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,

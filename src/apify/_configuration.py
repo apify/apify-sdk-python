@@ -65,7 +65,7 @@ class ActorStorages(TypedDict):
     request_queues: dict[str, str]
 
 
-def _load_storage_keys(data: None | str | ActorStorages) -> ActorStorages | None:
+def _load_storage_keys(data: str | ActorStorages | None) -> ActorStorages | None:
     """Parse the `ACTOR_STORAGES_JSON` value into a normalized `ActorStorages` dict.
 
     The platform provides this as a JSON string with camelCase keys (`keyValueStores`, `requestQueues`, `datasets`).
