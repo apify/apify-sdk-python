@@ -228,6 +228,7 @@ _ACTOR_REMOTE_METHODS = [
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
 async def test_remote_method_with_webhooks(
+    *,
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
     client_resource: str,
@@ -254,6 +255,7 @@ async def test_remote_method_with_webhooks(
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
 async def test_remote_method_with_timedelta_timeout(
+    *,
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
     client_resource: str,
@@ -276,6 +278,7 @@ async def test_remote_method_with_timedelta_timeout(
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
 async def test_remote_method_with_invalid_timeout(
+    *,
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
     client_resource: str,
