@@ -227,11 +227,15 @@ Secondary parameters on several client methods can no longer be passed positiona
 
 ```python
 # Before (v3)
-await client.key_value_store('my-store').set_record('my-key', {'data': 1}, 'application/json')
+await client.key_value_store('my-store').set_record(
+    'my-key', {'data': 1}, 'application/json'
+)
 await client.run('my-run').charge('my-event', 5)
 
 # After (v4)
-await client.key_value_store('my-store').set_record('my-key', {'data': 1}, content_type='application/json')
+await client.key_value_store('my-store').set_record(
+    'my-key', {'data': 1}, content_type='application/json'
+)
 await client.run('my-run').charge('my-event', count=5)
 ```
 

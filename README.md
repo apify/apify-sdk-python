@@ -154,10 +154,12 @@ async def main() -> None:
             soup = BeautifulSoup(response.content, 'html.parser')
 
             # Push the extracted data to the default dataset.
-            await Actor.push_data({
-                'url': request.url,
-                'title': soup.title.string if soup.title else None,
-            })
+            await Actor.push_data(
+                {
+                    'url': request.url,
+                    'title': soup.title.string if soup.title else None,
+                }
+            )
 
             # Mark the request as handled so it is not processed again.
             await request_queue.mark_request_as_handled(request)
@@ -183,10 +185,12 @@ async def main() -> None:
         @crawler.router.default_handler
         async def handler(context: PlaywrightCrawlingContext) -> None:
             Actor.log.info(f'Scraping {context.request.url} ...')
-            await context.push_data({
-                'url': context.request.url,
-                'title': await context.page.title(),
-            })
+            await context.push_data(
+                {
+                    'url': context.request.url,
+                    'title': await context.page.title(),
+                }
+            )
             # Follow links found on the page.
             await context.enqueue_links()
 
