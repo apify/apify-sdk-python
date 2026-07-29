@@ -62,7 +62,3 @@ To detect the limit, check the `event_charge_limit_reached` field on the `Charge
 ## Errors while crawling
 
 If your Actor runs a [Crawlee](https://crawlee.dev/python) crawler, failures inside request handlers surface as Crawlee exceptions. Crawlee handles the retries and session rotation around them, so a single failing request doesn't stop the crawl. API calls you make from inside a handler still raise <ApiLink to="class/ApifyApiError">`ApifyApiError`</ApiLink>. For how to handle those errors, see [Errors from the Apify API](#errors-from-the-apify-api).
-
-## Conclusion
-
-Most failures you handle at runtime are <ApiLink to="class/ApifyApiError">`ApifyApiError`</ApiLink> from the API client. Catch it to cover any API failure, and reach for a subclass or the HTTP `status_code` when you need finer control. The standard [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError), [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError), and [`TypeError`](https://docs.python.org/3/library/exceptions.html#TypeError) signal a bug or bad input, so correct the call rather than catch them. After <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>, check `run.status` to react to a failed run, and let Crawlee handle the errors raised inside a crawler.

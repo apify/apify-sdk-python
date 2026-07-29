@@ -103,7 +103,3 @@ Before triggering a reboot, persist any essential state externally (e.g., to the
 Update the status only when the user's understanding of progress changes - avoid frequent updates for every processed item. Detailed information should go to logs or storages (dataset, key-value store) instead.
 
 <RunnableCodeBlock className="language-python" language="python">{StatusMessageExample}</RunnableCodeBlock>
-
-## Conclusion
-
-This page has presented the full Actor lifecycle: initialization, execution, error handling, rebooting, shutdown and status messages. You've seen how the SDK supports both context-based and manual control patterns. For deeper dives, explore the <ApiLink to="class/Actor">`Actor`</ApiLink> API reference, [guides](../guides/beautifulsoup-httpx), and [platform documentation](https://docs.apify.com/platform).
