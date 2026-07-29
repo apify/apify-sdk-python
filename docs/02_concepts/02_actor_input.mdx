@@ -37,9 +37,3 @@ Actors commonly receive a list of URLs to process via their input. The <ApiLink 
 The Apify platform supports [secret input fields](https://docs.apify.com/platform/actors/development/secret-input) that are encrypted before being stored. When you mark an input field as `"isSecret": true` in your Actor's [input schema](https://docs.apify.com/platform/actors/development/input-schema), the platform encrypts the value with the Actor's public key.
 
 No special handling is needed in your code — when you call <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink>, encrypted fields are automatically decrypted using the Actor's private key, which is provided by the platform via environment variables. You receive the plaintext values directly.
-
-## Conclusion
-
-This page has shown how to read Actor input with <ApiLink to="class/Actor#get_input">`Actor.get_input`</ApiLink>, how to load URL sources with <ApiLink to="class/ApifyRequestList">`ApifyRequestList`</ApiLink>, and how secret input fields are decrypted automatically when you read them.
-
-For more details on Actor input and how to define input schemas, see the [Actor input](https://docs.apify.com/platform/actors/running/input) and [input schema](https://docs.apify.com/platform/actors/development/input-schema) documentation on the Apify platform.
