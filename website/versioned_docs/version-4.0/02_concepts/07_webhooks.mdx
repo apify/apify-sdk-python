@@ -10,7 +10,9 @@ import ApiLink from '@theme/ApiLink';
 import WebhookExample from '!!raw-loader!roa-loader!./code/07_webhook.py';
 import WebhookPreventingExample from '!!raw-loader!roa-loader!./code/07_webhook_preventing.py';
 
-[Webhooks](https://docs.apify.com/platform/integrations/webhooks) allow you to configure the Apify platform to perform an action when a certain event occurs. For example, you can use them to start another Actor when the current run finishes or fails.
+Webhooks allow you to configure the Apify platform to perform an action when a certain event occurs. For example, you can use them to start another Actor when the current run finishes or fails.
+
+You can learn more in the [documentation for webhooks](https://docs.apify.com/platform/integrations/webhooks).
 
 ## Creating an ad-hoc webhook dynamically
 
@@ -29,3 +31,9 @@ To ensure that duplicate ad-hoc webhooks won't get created in a case of Actor re
 <RunnableCodeBlock className="language-python" language="python">
     {WebhookPreventingExample}
 </RunnableCodeBlock>
+
+## Conclusion
+
+This page has shown how to create ad-hoc webhooks dynamically with <ApiLink to="class/Actor#add_webhook">`Actor.add_webhook`</ApiLink> and how to avoid creating duplicates across Actor restarts using the `idempotency_key` parameter.
+
+For more information about webhooks, including event types and payloads, see the [Apify webhooks documentation](https://docs.apify.com/platform/integrations/webhooks).

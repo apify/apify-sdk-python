@@ -35,3 +35,9 @@ To create a completely new instance of the client (for example, to use a differe
 </RunnableCodeBlock>
 
 This is useful when the Actor's own token is not the right one, for instance when acting on behalf of another user, or when you want different retry and timeout behavior than the shared `Actor.apify_client` instance.
+
+## Conclusion
+
+This page has shown how to reach the Apify API directly for platform features the SDK does not wrap. You can use the built-in client exposed by <ApiLink to="class/Actor#apify_client">`Actor.apify_client`</ApiLink>, or a freshly configured one created with <ApiLink to="class/Actor#new_client">`Actor.new_client`</ApiLink>.
+
+For the full API client documentation, see the [Apify API Client for Python](https://docs.apify.com/api/client/python).

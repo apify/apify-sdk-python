@@ -113,3 +113,7 @@ You can further decide whether you want to redirect just new logs of the ongoing
 <RunnableCodeBlock className="language-python" language="python">
     {RedirectLogExistingRun}
 </RunnableCodeBlock>
+
+## Conclusion
+
+This page has covered how the SDK logs through the `apify` logger: setting the log level, formatting output with <ApiLink to="class/ActorLogFormatter">`ActorLogFormatter`</ApiLink>, using the logger at each level, and redirecting logs from other Actor runs back into the parent run. For more on the underlying logging machinery, see Python's standard [`logging`](https://docs.python.org/3/library/logging.html) module documentation.
