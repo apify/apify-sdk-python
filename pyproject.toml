@@ -88,8 +88,8 @@ dev = [
     "werkzeug<4.0.0", # Werkzeug is used by httpserver
 ]
 
-# The module, pyproject.toml, README, and LICENSE are included in the sdist by default.
 [tool.uv.build-backend]
+# The module, pyproject.toml, README, and LICENSE are included in the sdist by default.
 source-include = ["CHANGELOG.md", "CONTRIBUTING.md"]
 
 [tool.ruff]
