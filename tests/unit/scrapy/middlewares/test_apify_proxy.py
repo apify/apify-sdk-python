@@ -111,6 +111,7 @@ async def test_retrieves_new_proxy_url(
     ids=['valid_example_proxy', 'valid_apify_proxy', 'invalid_proxy_missing_credentials'],
 )
 async def test_process_request_with_proxy(
+    *,
     monkeypatch: pytest.MonkeyPatch,
     middleware: ApifyHttpProxyMiddleware,
     dummy_request: Request,
