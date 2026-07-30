@@ -1033,8 +1033,9 @@ async def test_request_queue_simple_and_full_at_the_same_time(
 
 @pytest.mark.parametrize(
     ('access', 'expected_write_count_per_request'),
-    # Shared does one extra write/request vs single: `fetch_next_request` prolongs the lock (a PUT).
-    [pytest.param('single', 2, id='Simple rq client'), pytest.param('shared', 4, id='Full rq client')],
+    # Shared does one extra write/request vs single: locking the request when listing the queue head. The lock
+    # prolong in `fetch_next_request` would be another one, but this crawl hands requests out with a fresh lock.
+    [pytest.param('single', 2, id='Simple rq client'), pytest.param('shared', 3, id='Full rq client')],
 )
 async def test_crawler_run_request_queue_variant_stats(
     *,

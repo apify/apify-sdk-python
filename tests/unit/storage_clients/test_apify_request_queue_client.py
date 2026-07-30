@@ -409,11 +409,34 @@ def _client_request_getter(requests: Sequence[Request]) -> Callable[[str], Clien
     return lambda request_id: by_id[request_id]
 
 
-async def test_fetch_next_request_prolongs_lock() -> None:
-    """Handing a request to a consumer prolongs its lock, so a handler slower than the initial lock is still safe."""
+async def test_fetch_next_request_prolongs_expiring_lock() -> None:
+    """A request whose lock is about to expire is prolonged, so a handler slower than the batch lock is still safe."""
     client, api_client = _make_shared_client()
     request = Request.from_url('https://example.com/1')
     request_id = unique_key_to_request_id(request.unique_key)
+    now = datetime.now(tz=UTC)
+
+    api_client.list_and_lock_head = AsyncMock(
+        return_value=_locked_head([_locked_item(request, lock_expires_at=now + timedelta(seconds=30))])
+    )
+    api_client.get_request = AsyncMock(return_value=_client_request(request))
+    api_client.prolong_request_lock = AsyncMock(
+        return_value=RequestLockInfo(lock_expires_at=now + timedelta(seconds=180))
+    )
+
+    fetched = await client.fetch_next_request()
+
+    assert fetched is not None
+    assert fetched.unique_key == request.unique_key
+    api_client.prolong_request_lock.assert_awaited_once()
+    assert api_client.prolong_request_lock.await_args is not None
+    assert api_client.prolong_request_lock.await_args.args[0] == request_id
+
+
+async def test_fetch_next_request_keeps_fresh_lock() -> None:
+    """A request still holding most of its batch lock is handed out as it is, without paying for a lock prolong."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
     future = datetime.now(tz=UTC) + timedelta(seconds=180)
 
     api_client.list_and_lock_head = AsyncMock(
@@ -426,9 +449,7 @@ async def test_fetch_next_request_prolongs_lock() -> None:
 
     assert fetched is not None
     assert fetched.unique_key == request.unique_key
-    api_client.prolong_request_lock.assert_awaited_once()
-    assert api_client.prolong_request_lock.await_args is not None
-    assert api_client.prolong_request_lock.await_args.args[0] == request_id
+    api_client.prolong_request_lock.assert_not_awaited()
 
 
 async def test_fetch_next_request_skips_expired_lock() -> None:
@@ -455,10 +476,8 @@ async def test_fetch_next_request_skips_expired_lock() -> None:
 
     assert fetched is not None
     assert fetched.unique_key == valid.unique_key
-    # Only the live-lock request is prolonged; the expired one is skipped rather than re-processed.
-    api_client.prolong_request_lock.assert_awaited_once()
-    assert api_client.prolong_request_lock.await_args is not None
-    assert api_client.prolong_request_lock.await_args.args[0] == unique_key_to_request_id(valid.unique_key)
+    # The expired request is skipped rather than re-processed, and the live-lock one needs no prolong.
+    api_client.prolong_request_lock.assert_not_awaited()
 
 
 async def test_fetch_next_request_does_not_rehand_in_progress() -> None:
@@ -486,14 +505,15 @@ async def test_fetch_next_request_skips_when_lock_prolong_fails() -> None:
     """A request whose lock cannot be prolonged is skipped and released, so a later fetch can still hand it out."""
     client, api_client = _make_shared_client()
     request = Request.from_url('https://example.com/1')
-    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+    now = datetime.now(tz=UTC)
 
+    # The lock is about to expire, so every fetch of this request goes through a prolong.
     api_client.list_and_lock_head = AsyncMock(
-        return_value=_locked_head([_locked_item(request, lock_expires_at=future)])
+        return_value=_locked_head([_locked_item(request, lock_expires_at=now + timedelta(seconds=30))])
     )
     api_client.get_request = AsyncMock(return_value=_client_request(request))
     api_client.prolong_request_lock = AsyncMock(
-        side_effect=[RuntimeError('lock lost'), RequestLockInfo(lock_expires_at=future)]
+        side_effect=[RuntimeError('lock lost'), RequestLockInfo(lock_expires_at=now + timedelta(seconds=180))]
     )
 
     first = await client.fetch_next_request()
@@ -508,14 +528,17 @@ async def test_fetch_next_request_skips_when_lock_not_reacquired() -> None:
     """A `None` from `prolong_request_lock` (lock not re-acquired) is a skip, not a successful hand-out."""
     client, api_client = _make_shared_client()
     request = Request.from_url('https://example.com/1')
-    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+    now = datetime.now(tz=UTC)
 
+    # The lock is about to expire, so every fetch of this request goes through a prolong.
     api_client.list_and_lock_head = AsyncMock(
-        return_value=_locked_head([_locked_item(request, lock_expires_at=future)])
+        return_value=_locked_head([_locked_item(request, lock_expires_at=now + timedelta(seconds=30))])
     )
     api_client.get_request = AsyncMock(return_value=_client_request(request))
     # First fetch: lock not re-acquired (`None`); second: re-acquired.
-    api_client.prolong_request_lock = AsyncMock(side_effect=[None, RequestLockInfo(lock_expires_at=future)])
+    api_client.prolong_request_lock = AsyncMock(
+        side_effect=[None, RequestLockInfo(lock_expires_at=now + timedelta(seconds=180))]
+    )
 
     first = await client.fetch_next_request()
     second = await client.fetch_next_request()

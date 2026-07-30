@@ -43,6 +43,16 @@ class ApifyRequestQueueSharedClient:
     _DEFAULT_LOCK_TIME: Final[timedelta] = timedelta(minutes=3)
     """The default lock time for requests in the queue."""
 
+    _MIN_LOCK_TIME_AT_HANDOFF: Final[timedelta] = _DEFAULT_LOCK_TIME / 2
+    """The lock window a request must still have left when handed to a consumer, otherwise its lock is prolonged.
+
+    Requests are locked in batches by `list_and_lock_head`, so a request handed out shortly after the batch was
+    listed still has almost the whole lock window left and needs no prolonging. Only a request whose window already
+    shrank below this threshold gets a fresh lock, which keeps the extra API write (and its cost) off the common path.
+    Every request is therefore handed out with at least this much lock time, comfortably covering the default Crawlee
+    `request_handler_timeout` of one minute.
+    """
+
     def __init__(
         self,
         *,
@@ -226,6 +236,7 @@ class ApifyRequestQueueSharedClient:
             # platform lock has not lapsed (an expired lock may have been taken over by another consumer).
             now = datetime.now(tz=UTC)
             next_request_id: str | None = None
+            lock_expires_at: datetime | None = None
             while self._queue_head:
                 candidate_id = self._queue_head.popleft()
 
@@ -245,32 +256,17 @@ class ApifyRequestQueueSharedClient:
                 # Reserve the request before releasing the fetch lock so a concurrent fetch cannot pick it too.
                 self._requests_in_progress.add(candidate_id)
                 next_request_id = candidate_id
+                lock_expires_at = cached.lock_expires_at if cached is not None else None
                 break
 
             # If queue head is empty after ensuring, there are no requests
             if next_request_id is None:
                 return None
 
-        # Prolong the lock so the consumer gets a full lock window starting now instead of sharing the batch lock
-        # acquired when the head was listed. If the lock can no longer be (re)acquired, skip the request.
-        try:
-            lock_info = await self._api_client.prolong_request_lock(
-                next_request_id,
-                lock_duration=self._DEFAULT_LOCK_TIME,
-            )
-        except Exception as exc:
-            logger.debug(f'Failed to prolong the lock of request {next_request_id}, skipping it: {exc!s}')
+        # Make sure the consumer gets the request with a lock window long enough to process it.
+        if not await self._ensure_lock_window(next_request_id, lock_expires_at=lock_expires_at, now=now):
             self._requests_in_progress.discard(next_request_id)
             return None
-
-        # `None` means the lock was not (re)acquired; skip the request rather than process it without a lock.
-        if lock_info is None:
-            logger.debug(f'Lock of request {next_request_id} could not be re-acquired, skipping it')
-            self._requests_in_progress.discard(next_request_id)
-            return None
-
-        if (cached := self._requests_cache.get(next_request_id)) is not None:
-            cached.lock_expires_at = lock_info.lock_expires_at
 
         request = await self._get_or_hydrate_request(next_request_id)
 
@@ -434,6 +430,50 @@ class ApifyRequestQueueSharedClient:
 
         # Fetch requests from the API and populate the queue head
         await self._list_head()
+
+    async def _ensure_lock_window(
+        self,
+        request_id: str,
+        *,
+        lock_expires_at: datetime | None,
+        now: datetime,
+    ) -> bool:
+        """Ensure a request about to be handed to a consumer stays locked long enough to be processed.
+
+        A request whose lock still has at least `_MIN_LOCK_TIME_AT_HANDOFF` left is handed out as it is - the batch
+        lock acquired when the head was listed already covers the consumer, and prolonging it would only cost an
+        extra API write. Anything below that (or an unknown expiry) is prolonged, so the consumer gets a full lock
+        window starting at hand-off.
+
+        Args:
+            request_id: Id of the request about to be handed to a consumer.
+            lock_expires_at: When the currently held lock on the request expires, if known.
+            now: The current time, as observed when the request was picked from the queue head.
+
+        Returns:
+            Whether the request is locked for long enough to be handed to a consumer.
+        """
+        if lock_expires_at is not None and lock_expires_at - now >= self._MIN_LOCK_TIME_AT_HANDOFF:
+            return True
+
+        try:
+            lock_info = await self._api_client.prolong_request_lock(
+                request_id,
+                lock_duration=self._DEFAULT_LOCK_TIME,
+            )
+        except Exception as exc:
+            logger.debug(f'Failed to prolong the lock of request {request_id}, skipping it: {exc!s}')
+            return False
+
+        # `None` means the lock was not (re)acquired; skip the request rather than process it without a lock.
+        if lock_info is None:
+            logger.debug(f'Lock of request {request_id} could not be re-acquired, skipping it')
+            return False
+
+        if (cached := self._requests_cache.get(request_id)) is not None:
+            cached.lock_expires_at = lock_info.lock_expires_at
+
+        return True
 
     async def _get_or_hydrate_request(self, request_id: str) -> Request | None:
         """Get a request by id, either from cache or by fetching from API.
