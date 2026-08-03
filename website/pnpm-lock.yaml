@@ -278,8 +278,8 @@ packages:
       react: 17.x || 18.x || 19.x
       react-dom: 17.x || 18.x || 19.x
 
-  '@apify/ui-library@1.156.13':
-    resolution: {integrity: sha512-u5ey7BdwkMQTVDCI3B+9nxORXKp+RGjj8nZhkPZPb7SazlKks6t4p6bUgklT2uHdT+rZjnAuDfN+NF/NhrmKDg==}
+  '@apify/ui-library@1.156.14':
+    resolution: {integrity: sha512-0jxN0+aZmte8vElz/5ZbXdZ1x/NHjdBxNj/75kqi3CSlnt97d27Dolgc0j6f4+qeZE/s6goA9jERs+V/ih9lEA==}
     peerDependencies:
       react: 17.x || 18.x || 19.x
       react-dom: 17.x || 18.x || 19.x
@@ -7661,7 +7661,7 @@ snapshots:
     dependencies:
       '@algolia/autocomplete-js': 1.19.9(@algolia/client-search@5.56.0)(algoliasearch@4.27.0)(search-insights@2.17.3)
       '@algolia/autocomplete-theme-classic': 1.19.9
-      '@apify/ui-library': 1.156.13(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8))(supports-color@8.1.1)
+      '@apify/ui-library': 1.156.14(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8))(supports-color@8.1.1)
       algoliasearch: 4.27.0
       html-entities: 2.6.0
       react: 19.2.8
@@ -7683,7 +7683,7 @@ snapshots:
     dependencies:
       '@apify/docs-search-modal': 1.4.0(@algolia/client-search@5.56.0)(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(search-insights@2.17.3)(supports-color@8.1.1)
       '@apify/ui-icons': 1.48.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@apify/ui-library': 1.156.13(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@6.4.4(css-to-react-native@3.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)
+      '@apify/ui-library': 1.156.14(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@6.4.4(css-to-react-native@3.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)
       '@docusaurus/theme-common': 3.10.2(25e04da86b8ef73c0035cafff420001a)
       '@stackql/docusaurus-plugin-hubspot': 1.1.0
       algoliasearch: 5.56.0
@@ -7760,7 +7760,7 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
 
-  '@apify/ui-library@1.156.13(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8))(supports-color@8.1.1)':
+  '@apify/ui-library@1.156.14(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8))(supports-color@8.1.1)':
     dependencies:
       '@apify/ui-icons': 1.48.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@floating-ui/react': 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -7796,7 +7796,7 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@apify/ui-library@1.156.13(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@6.4.4(css-to-react-native@3.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)':
+  '@apify/ui-library@1.156.14(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(styled-components@6.4.4(css-to-react-native@3.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)':
     dependencies:
       '@apify/ui-icons': 1.48.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@floating-ui/react': 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
