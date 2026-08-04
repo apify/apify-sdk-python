@@ -2,8 +2,10 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 from apify import Actor, Configuration
 from apify._charging import ChargingManagerImplementation, PayPerEventActorPricingInfo, PricingInfoItem
@@ -232,6 +234,48 @@ async def test_charge_lock_concurrent_with_limited_budget() -> None:
 
         # Verify total charged events matches items pushed
         assert setup.charging_mgr.get_charged_event_count('apify-default-dataset-item') == 5
+
+
+async def test_concurrent_actor_push_data_stays_within_budget() -> None:
+    """Concurrent `Actor.push_data` calls do not overdraw the budget - the reservation and the charge stay atomic."""
+    async with setup_mocked_charging(
+        Configuration(max_total_charge_usd=Decimal('0.50'), test_pay_per_event=True),
+        {'scrape': Decimal('0.10')},
+    ) as setup:
+        # Both try to push 5 items, but the budget only allows 5 in total.
+        await asyncio.gather(
+            Actor.push_data([{'source': 'a', 'id': i} for i in range(5)], charged_event_name='scrape'),
+            Actor.push_data([{'source': 'b', 'id': i} for i in range(5)], charged_event_name='scrape'),
+        )
+
+        assert setup.charging_mgr.get_charged_event_count('scrape') == 5
+
+        dataset = await Actor.open_dataset()
+        items = await dataset.get_data()
+        assert len(items.items) == 5
+
+
+async def test_push_data_does_not_serialize_without_pay_per_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Concurrent `Actor.push_data` calls overlap when the Actor does not use the pay-per-event pricing model."""
+    concurrency = 3
+    barrier = asyncio.Barrier(concurrency)
+
+    async with Actor:
+        dataset = await Actor.open_dataset()
+        original_push_data = dataset.push_data
+
+        async def barriered_push_data(*args: Any, **kwargs: Any) -> None:
+            # All concurrent pushes must reach this point before any of them is allowed to finish.
+            await barrier.wait()
+            await original_push_data(*args, **kwargs)
+
+        monkeypatch.setattr(dataset, 'push_data', barriered_push_data)
+
+        async with asyncio.timeout(5):
+            await asyncio.gather(*(Actor.push_data({'id': i}) for i in range(concurrency)))
+
+        items = await dataset.get_data()
+        assert len(items.items) == concurrency
 
 
 async def test_charge_with_overdrawn_budget() -> None:

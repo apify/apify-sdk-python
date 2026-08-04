@@ -4,6 +4,7 @@ import asyncio
 import math
 import sys
 import warnings
+from contextlib import nullcontext
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -687,9 +688,14 @@ class _ActorType:
 
         dataset = await self.open_dataset()
 
-        # Acquire the charge lock to prevent race conditions between concurrent
-        # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
-        async with charging_manager.charge_lock():
+        # Acquire the charge lock to prevent race conditions between concurrent push_data calls. We need to hold
+        # the lock for the entire push_data + charge sequence. Only pay-per-event runs charge anything, so for the
+        # rest the lock would serialize every push - including the network I/O - without protecting anything.
+        charge_lock = (
+            charging_manager.charge_lock() if charging_manager.get_pricing_info().is_pay_per_event else nullcontext()
+        )
+
+        async with charge_lock:
             # Synthetic events are handled within dataset.push_data, only get data for `ChargeResult`.
             if charged_event_name is None:
                 before = charging_manager.get_charged_event_count(DEFAULT_DATASET_ITEM_EVENT)
