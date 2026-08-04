@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 4.0.1 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Close the platform events websocket iterator on shutdown ([#1077](https://github.com/apify/apify-sdk-python/pull/1077)) ([cad8d7e](https://github.com/apify/apify-sdk-python/commit/cad8d7e9e95e91270348c6b9b2d57b2a7d98e733)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [4.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.0) (2026-07-20)
 
 ### 🚀 Features
