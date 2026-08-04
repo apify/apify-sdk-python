@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Self
+from typing import Annotated, Any, Self
 
 from pydantic import AliasChoices, AliasGenerator, BeforeValidator, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
@@ -24,9 +24,6 @@ from apify._charging import (
 )
 from apify._utils import docs_group
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
 logger = getLogger(__name__)
 
 
@@ -36,20 +33,6 @@ def _transform_to_list(value: Any) -> list[str] | None:
     if not value:
         return []
     return value if isinstance(value, list) else str(value).split(',')
-
-
-def _default_if_empty(*, default: Any) -> Callable[[Any], Any]:
-    """Build a validator that substitutes `default` for an empty-string env var.
-
-    The Apify platform sometimes sets an env var to an empty string instead of leaving it unset. For fields whose
-    target type cannot parse `''` (datetimes, numbers, booleans, ...), passing the value straight through would crash
-    validation and, in turn, `Actor.init()`. Treat `''` as "not provided" and fall back to the field default instead.
-    """
-
-    def transform(value: Any) -> Any:
-        return default if value == '' else value
-
-    return transform
 
 
 class ActorStorages(TypedDict):
@@ -306,7 +289,6 @@ class Configuration(CrawleeConfiguration):
             validation_alias='actor_max_paid_dataset_items',
             description='For paid-per-result Actors, the user-set limit on returned results. Do not exceed this limit',
         ),
-        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     max_total_charge_usd: Annotated[
@@ -315,7 +297,6 @@ class Configuration(CrawleeConfiguration):
             validation_alias='actor_max_total_charge_usd',
             description='For pay-per-event Actors, the user-set limit on total charges. Do not exceed this limit',
         ),
-        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     test_pay_per_event: Annotated[
@@ -394,7 +375,6 @@ class Configuration(CrawleeConfiguration):
             ),
             description='Date when the Actor will time out',
         ),
-        BeforeValidator(_default_if_empty(default=None)),
     ] = None
 
     standby_url: Annotated[
@@ -428,7 +408,6 @@ class Configuration(CrawleeConfiguration):
             validation_alias='apify_user_is_paying',
             description='True if the user calling the Actor is paying user',
         ),
-        BeforeValidator(_default_if_empty(default=False)),
     ] = False
 
     web_server_port: Annotated[
@@ -493,6 +472,20 @@ class Configuration(CrawleeConfiguration):
         ),
         BeforeValidator(_load_storage_keys),
     ] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def treat_empty_values_as_unset(cls, data: Any) -> Any:
+        """Discard inputs that are an empty string so the field default applies.
+
+        The Apify platform sometimes exports an env var as `''` instead of leaving it unset. Fields whose target type
+        cannot parse `''` (datetimes, numbers, booleans, JSON, URLs, ...) would fail validation and crash
+        `Actor.init()` with a raw pydantic error. Dropping such values makes `''` mean "not provided" for every field
+        at once, so no field can be forgotten.
+        """
+        if isinstance(data, dict):
+            return {key: value for key, value in data.items() if value != ''}
+        return data
 
     @model_validator(mode='after')
     def disable_browser_sandbox_on_platform(self) -> Self:

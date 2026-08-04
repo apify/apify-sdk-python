@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -397,10 +398,26 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     ('env_var', 'attr', 'expected'),
     [
-        ('APIFY_TIMEOUT_AT', 'timeout_at', None),
-        ('ACTOR_MAX_PAID_DATASET_ITEMS', 'max_paid_dataset_items', None),
-        ('ACTOR_MAX_TOTAL_CHARGE_USD', 'max_total_charge_usd', None),
-        ('APIFY_USER_IS_PAYING', 'user_is_paying', False),
+        pytest.param('APIFY_TIMEOUT_AT', 'timeout_at', None, id='timeout_at'),
+        pytest.param('ACTOR_MAX_PAID_DATASET_ITEMS', 'max_paid_dataset_items', None, id='max_paid_dataset_items'),
+        pytest.param('ACTOR_MAX_TOTAL_CHARGE_USD', 'max_total_charge_usd', None, id='max_total_charge_usd'),
+        pytest.param('APIFY_USER_IS_PAYING', 'user_is_paying', False, id='user_is_paying'),
+        pytest.param('ACTOR_STORAGES_JSON', 'actor_storages', None, id='actor_storages'),
+        pytest.param('ACTOR_STARTED_AT', 'started_at', None, id='started_at'),
+        pytest.param('APIFY_DEDICATED_CPUS', 'dedicated_cpus', None, id='dedicated_cpus'),
+        pytest.param('ACTOR_TEST_PAY_PER_EVENT', 'test_pay_per_event', False, id='test_pay_per_event'),
+        pytest.param('APIFY_IS_AT_HOME', 'is_at_home', False, id='is_at_home'),
+        pytest.param('ACTOR_STANDBY_URL', 'standby_url', 'http://localhost', id='standby_url'),
+        pytest.param(
+            'APIFY_METAMORPH_AFTER_SLEEP_MILLIS',
+            'metamorph_after_sleep',
+            timedelta(minutes=5),
+            id='metamorph_after_sleep',
+        ),
+        pytest.param('APIFY_PROXY_PORT', 'proxy_port', 8000, id='proxy_port'),
+        pytest.param('ACTOR_WEB_SERVER_PORT', 'web_server_port', 4321, id='web_server_port'),
+        pytest.param('APIFY_CHARGED_ACTOR_EVENT_COUNTS', 'charged_event_counts', None, id='charged_event_counts'),
+        pytest.param('ACTOR_INPUT_KEY', 'input_key', 'INPUT', id='input_key'),
     ],
 )
 def test_typed_env_var_empty_string_falls_back_to_default(
