@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from logging import getLogger
 from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
 from crawlee._utils.byte_size import ByteSize
-from crawlee._utils.file import json_dumps
 from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
@@ -138,10 +138,6 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
     @override
     async def push_data(self, data: Sequence[Mapping[str, JsonSerializable]] | Mapping[str, JsonSerializable]) -> None:
-        async def payloads_generator(items: Sequence[Mapping[str, JsonSerializable]]) -> AsyncIterator[str]:
-            for index, item in enumerate(items):
-                yield await self._check_and_serialize(item, index)
-
         async with self._charge_lock(), self._lock:
             items = data if self._is_sequence_of_items(data) else [data]
             if not items:
@@ -149,7 +145,9 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             limit = self._compute_limit_for_push(len(items))
             items = items[:limit]
 
-            async for chunk in self._chunk_by_size(payloads_generator(items)):
+            offset = 0
+            while offset < len(items):
+                chunk, offset = await asyncio.to_thread(self._serialize_chunk, items, offset)
                 await self._api_client.push_items(items=chunk)
 
             await self._charge_for_items(count_items=limit)
@@ -213,58 +211,43 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             yield item
 
     @classmethod
-    async def _check_and_serialize(cls, item: Mapping[str, JsonSerializable], index: int | None = None) -> str:
-        """Serialize a given item to JSON, checks its serializability and size against a limit.
+    def _serialize_chunk(cls, items: Sequence[Mapping[str, JsonSerializable]], offset: int) -> tuple[str, int]:
+        """Serialize items starting at `offset` into one JSON array staying within the payload size limit.
+
+        The array holds as many consecutive items as fit below `_EFFECTIVE_LIMIT_SIZE`, always at least one.
+        The result is compact JSON - it goes on the wire, so indentation and separator padding would be
+        pure overhead. This is CPU-bound and blocking; call it via `asyncio.to_thread`.
 
         Args:
-            item: The item to serialize.
-            index: Index of the item, used for error context.
+            items: The items to serialize.
+            offset: Index of the first item to serialize.
 
         Returns:
-            Serialized JSON string.
+            The JSON array string and the index of the first item that did not fit into it.
 
         Raises:
-            ValueError: If item is not JSON serializable or exceeds size limit.
+            ValueError: If an item is not JSON serializable or on its own exceeds the size limit.
         """
-        s = ' ' if index is None else f' at index {index} '
+        payloads: list[str] = []
+        chunk_size = ByteSize(2)  # Add 2 bytes for [] wrapper.
 
-        try:
-            payload = await json_dumps(item)
-        except Exception as exc:
-            raise ValueError(f'Data item{s}is not serializable to JSON.') from exc
+        for index in range(offset, len(items)):
+            try:
+                payload = json.dumps(items[index], ensure_ascii=False, separators=(',', ':'), default=str)
+            except Exception as exc:
+                raise ValueError(f'Data item at index {index} is not serializable to JSON.') from exc
 
-        payload_size = ByteSize(len(payload.encode('utf-8')))
-        if payload_size > cls._EFFECTIVE_LIMIT_SIZE:
-            raise ValueError(f'Data item{s}is too large (size: {payload_size}, limit: {cls._EFFECTIVE_LIMIT_SIZE})')
-
-        return payload
-
-    async def _chunk_by_size(self, items: AsyncIterator[str]) -> AsyncIterator[str]:
-        """Yield chunks of JSON arrays composed of input strings, respecting a size limit.
-
-        Groups an iterable of JSON string payloads into larger JSON arrays, ensuring the total size
-        of each array does not exceed `EFFECTIVE_LIMIT_SIZE`. Each output is a JSON array string that
-        contains as many payloads as possible without breaching the size threshold, maintaining the
-        order of the original payloads. Assumes individual items are below the size limit.
-
-        Args:
-            items: Iterable of JSON string payloads.
-
-        Yields:
-            Strings representing JSON arrays of payloads, each staying within the size limit.
-        """
-        last_chunk_size = ByteSize(2)  # Add 2 bytes for [] wrapper.
-        current_chunk = []
-
-        async for payload in items:
             payload_size = ByteSize(len(payload.encode('utf-8')))
+            if payload_size > cls._EFFECTIVE_LIMIT_SIZE:
+                raise ValueError(
+                    f'Data item at index {index} is too large '
+                    f'(size: {payload_size}, limit: {cls._EFFECTIVE_LIMIT_SIZE})'
+                )
 
-            if last_chunk_size + payload_size <= self._EFFECTIVE_LIMIT_SIZE:
-                current_chunk.append(payload)
-                last_chunk_size += payload_size + ByteSize(1)  # Add 1 byte for ',' separator.
-            else:
-                yield f'[{",".join(current_chunk)}]'
-                current_chunk = [payload]
-                last_chunk_size = payload_size + ByteSize(2)  # Add 2 bytes for [] wrapper.
+            if payloads and chunk_size + payload_size > cls._EFFECTIVE_LIMIT_SIZE:
+                return f'[{",".join(payloads)}]', index
 
-        yield f'[{",".join(current_chunk)}]'
+            payloads.append(payload)
+            chunk_size += payload_size + ByteSize(1)  # Add 1 byte for ',' separator.
+
+        return f'[{",".join(payloads)}]', len(items)
