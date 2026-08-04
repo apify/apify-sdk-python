@@ -13,6 +13,7 @@ from unittest.mock import Mock
 
 import pytest
 import websockets
+import websockets.asyncio.client
 import websockets.asyncio.server
 
 from crawlee.events._types import Event
@@ -24,7 +25,7 @@ from apify.events import ApifyEventManager
 from apify.events._types import SystemInfoEventData
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable
+    from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 
 
 DUMMY_SYSTEM_INFO = {
@@ -593,6 +594,34 @@ async def test_shutdown_during_reconnect_backoff_is_clean(monkeypatch: pytest.Mo
     # The parent recurring persist-state task must be stopped too, mirroring the failed-connect lifecycle test.
     persist_state_task = event_manager._emit_persist_state_event_rec_task.task
     assert persist_state_task is None or persist_state_task.done()
+
+
+async def test_exit_closes_the_reconnecting_iterator(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that exiting closes the `connect` async iterator itself, rather than leaving it to the garbage collector."""
+    # Keeping a reference to every iterator prevents the garbage collector from finalizing it, so the assertion below
+    # holds only if the event manager closes the iterator on its own.
+    iterators: list[Any] = []
+    original_aiter = websockets.asyncio.client.connect.__aiter__
+
+    def recording_aiter(
+        connector: websockets.asyncio.client.connect,
+    ) -> AsyncIterator[websockets.asyncio.client.ClientConnection]:
+        iterator = original_aiter(connector)
+        iterators.append(iterator)
+        return iterator
+
+    monkeypatch.setattr(websockets.asyncio.client.connect, '__aiter__', recording_aiter)
+
+    async with (
+        _platform_ws_server(monkeypatch) as (_, client_connected),
+        ApifyEventManager(Configuration.get_global_configuration()),
+    ):
+        await asyncio.wait_for(client_connected.wait(), timeout=10)
+
+    # An iterator left suspended keeps its websocket open, and closing it is then deferred to the garbage collector.
+    # On Actor exit that lands in `asyncio.run` teardown, too late to be awaited, breaking async generator shutdown.
+    assert iterators
+    assert all(iterator.ag_frame is None for iterator in iterators)
 
 
 async def test_malformed_message_logs_exception(

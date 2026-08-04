@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import time
 from logging import getLogger
-from typing import TYPE_CHECKING, Annotated, Self
+from typing import TYPE_CHECKING, Annotated, Self, cast
 
 import websockets.asyncio.client
 import websockets.client
@@ -20,7 +20,7 @@ from apify._utils import docs_group
 from apify.events._types import DeprecatedEvent, EventMessage, SystemInfoEventData, UnknownEvent
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import AsyncGenerator, Generator
     from types import TracebackType
 
     from crawlee.events._event_manager import EventManagerOptions
@@ -149,31 +149,38 @@ class ApifyEventManager(EventManager):
 
         try:
             # Used as an async iterator, `connect` reconnects with exponential backoff on failed connection attempts.
-            async for websocket in websockets.asyncio.client.connect(
-                ws_url, process_exception=self._process_connection_exception
-            ):
-                self._platform_events_websocket = websocket
-                if self._connected_to_platform_websocket and not self._connected_to_platform_websocket.done():
-                    self._connected_to_platform_websocket.set_result(True)
-                else:
-                    logger.info('Reconnected to the platform events websocket.')
+            connector = websockets.asyncio.client.connect(ws_url, process_exception=self._process_connection_exception)
 
-                connection_opened_at = time.monotonic()
-                connection_lost = await self._consume_messages(websocket)
+            # That iterator is an async generator whose cleanup closes the current connection, and neither `break` nor
+            # cancelling this task closes it. Left suspended, it is closed by the garbage collector instead - on Actor
+            # exit that lands in `asyncio.run` teardown, too late to be awaited, which then breaks the event loop's
+            # async generator shutdown. `websockets` types the iterator as a plain `AsyncIterator`, hence the cast.
+            connections = cast('AsyncGenerator[websockets.asyncio.client.ClientConnection]', aiter(connector))
 
-                if not self._should_reconnect_after_close(websocket, connection_lost=connection_lost):
-                    break
+            async with contextlib.aclosing(connections):
+                async for websocket in connections:
+                    self._platform_events_websocket = websocket
+                    if self._connected_to_platform_websocket and not self._connected_to_platform_websocket.done():
+                        self._connected_to_platform_websocket.set_result(True)
+                    else:
+                        logger.info('Reconnected to the platform events websocket.')
 
-                # Reconnect a healthy connection immediately; back off only on repeated rapid drops. The first
-                # rapid drop reconnects once without delay (it only primes the backoff generator), and each
-                # subsequent consecutive rapid drop then sleeps for the next backoff interval. A healthy
-                # connection resets the generator, so the next rapid drop again gets that one free retry.
-                if time.monotonic() - connection_opened_at >= self._HEALTHY_CONNECTION_MIN_DURATION:
-                    backoff_delays = None
-                elif backoff_delays is None:
-                    backoff_delays = websockets.client.backoff()
-                else:
-                    await asyncio.sleep(next(backoff_delays))
+                    connection_opened_at = time.monotonic()
+                    connection_lost = await self._consume_messages(websocket)
+
+                    if not self._should_reconnect_after_close(websocket, connection_lost=connection_lost):
+                        break
+
+                    # Reconnect a healthy connection immediately; back off only on repeated rapid drops. The first
+                    # rapid drop reconnects once without delay (it only primes the backoff generator), and each
+                    # subsequent consecutive rapid drop then sleeps for the next backoff interval. A healthy
+                    # connection resets the generator, so the next rapid drop again gets that one free retry.
+                    if time.monotonic() - connection_opened_at >= self._HEALTHY_CONNECTION_MIN_DURATION:
+                        backoff_delays = None
+                    elif backoff_delays is None:
+                        backoff_delays = websockets.client.backoff()
+                    else:
+                        await asyncio.sleep(next(backoff_delays))
         except Exception:
             logger.exception('Error in websocket connection')
             if self._connected_to_platform_websocket is not None and not self._connected_to_platform_websocket.done():
