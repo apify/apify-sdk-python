@@ -151,9 +151,8 @@ class ApifyEventManager(EventManager):
             # Used as an async iterator, `connect` reconnects with exponential backoff on failed connection attempts.
             connector = websockets.asyncio.client.connect(ws_url, process_exception=self._process_connection_exception)
 
-            # Close the iterator explicitly: neither `break` nor cancellation does it, and leaving it to the garbage
-            # collector lands its cleanup in `asyncio.run` teardown, too late to be awaited, which breaks the event
-            # loop's async generator shutdown. The cast is only because `websockets` types it as `AsyncIterator`.
+            # Neither `break` nor cancellation closes the iterator; left to the garbage collector, its cleanup lands
+            # in `asyncio.run` teardown, too late to await, and breaks the loop's async generator shutdown.
             connections = cast('AsyncGenerator[websockets.asyncio.client.ClientConnection]', aiter(connector))
 
             async with contextlib.aclosing(connections):
@@ -171,9 +170,8 @@ class ApifyEventManager(EventManager):
                         break
 
                     # Reconnect a healthy connection immediately; back off only on repeated rapid drops. The first
-                    # rapid drop reconnects once without delay (it only primes the backoff generator), and each
-                    # subsequent consecutive rapid drop then sleeps for the next backoff interval. A healthy
-                    # connection resets the generator, so the next rapid drop again gets that one free retry.
+                    # rapid drop retries without delay (it just primes the backoff generator), each consecutive one
+                    # after it sleeps for the next interval. A healthy connection resets the generator.
                     if time.monotonic() - connection_opened_at >= self._HEALTHY_CONNECTION_MIN_DURATION:
                         backoff_delays = None
                     elif backoff_delays is None:

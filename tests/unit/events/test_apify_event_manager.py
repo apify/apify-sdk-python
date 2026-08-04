@@ -598,8 +598,8 @@ async def test_shutdown_during_reconnect_backoff_is_clean(monkeypatch: pytest.Mo
 
 async def test_exit_closes_the_reconnecting_iterator(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that exiting closes the `connect` async iterator itself, rather than leaving it to the garbage collector."""
-    # Holding a reference to every iterator blocks garbage collection, so the assertion below holds only if the event
-    # manager closes the iterator itself.
+    # Keeping a reference to every iterator blocks garbage collection, so the assertion holds only if the manager
+    # closes it itself.
     iterators: list[Any] = []
     original_aiter = websockets.asyncio.client.connect.__aiter__
 
