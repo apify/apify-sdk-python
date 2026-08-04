@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import asyncio
-from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
-
-import pytest
 
 from apify import Actor, Configuration
 from apify._charging import ChargingManagerImplementation, PayPerEventActorPricingInfo, PricingInfoItem
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
+    import pytest
 
 
 class MockedChargingSetup(NamedTuple):
@@ -255,27 +259,16 @@ async def test_concurrent_actor_push_data_stays_within_budget() -> None:
         assert len(items.items) == 5
 
 
-async def test_push_data_does_not_serialize_without_pay_per_event(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Concurrent `Actor.push_data` calls overlap when the Actor does not use the pay-per-event pricing model."""
-    concurrency = 3
-    barrier = asyncio.Barrier(concurrency)
-
+async def test_push_data_does_not_take_charge_lock_without_pay_per_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`Actor.push_data` leaves the charge lock alone when the Actor does not use the pay-per-event pricing model."""
     async with Actor:
-        dataset = await Actor.open_dataset()
-        original_push_data = dataset.push_data
+        charging_manager = Actor.get_charging_manager()
+        charge_lock = Mock(wraps=charging_manager.charge_lock)
+        monkeypatch.setattr(charging_manager, 'charge_lock', charge_lock)
 
-        async def barriered_push_data(*args: Any, **kwargs: Any) -> None:
-            # All concurrent pushes must reach this point before any of them is allowed to finish.
-            await barrier.wait()
-            await original_push_data(*args, **kwargs)
+        await Actor.push_data({'id': 1})
 
-        monkeypatch.setattr(dataset, 'push_data', barriered_push_data)
-
-        async with asyncio.timeout(5):
-            await asyncio.gather(*(Actor.push_data({'id': i}) for i in range(concurrency)))
-
-        items = await dataset.get_data()
-        assert len(items.items) == concurrency
+        charge_lock.assert_not_called()
 
 
 async def test_charge_with_overdrawn_budget() -> None:

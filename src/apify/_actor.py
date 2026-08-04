@@ -4,7 +4,6 @@ import asyncio
 import math
 import sys
 import warnings
-from contextlib import nullcontext
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -27,7 +26,13 @@ from crawlee.events import (
     EventSystemInfoData,
 )
 
-from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingManager, ChargingManagerImplementation
+from apify._charging import (
+    DEFAULT_DATASET_ITEM_EVENT,
+    ChargeResult,
+    ChargingManager,
+    ChargingManagerImplementation,
+    charge_lock_if_charging,
+)
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -688,14 +693,10 @@ class _ActorType:
 
         dataset = await self.open_dataset()
 
-        # Acquire the charge lock to prevent race conditions between concurrent push_data calls. We need to hold
-        # the lock for the entire push_data + charge sequence. Only pay-per-event runs charge anything, so for the
-        # rest the lock would serialize every push - including the network I/O - without protecting anything.
-        charge_lock = (
-            charging_manager.charge_lock() if charging_manager.get_pricing_info().is_pay_per_event else nullcontext()
-        )
-
-        async with charge_lock:
+        # The whole push + charge sequence has to stay under the charge lock, so that a concurrent push cannot
+        # charge in between the limit reservation below and the charge that acts on it. Runs that charge nothing
+        # skip the lock and push concurrently.
+        async with charge_lock_if_charging():
             # Synthetic events are handled within dataset.push_data, only get data for `ChargeResult`.
             if charged_event_name is None:
                 before = charging_manager.get_charged_event_count(DEFAULT_DATASET_ITEM_EVENT)

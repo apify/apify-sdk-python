@@ -12,6 +12,7 @@ from crawlee.storage_clients._base import DatasetClient
 from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
 from ._api_client_creation import create_storage_api_client
+from apify._charging import charge_lock_if_charging
 from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 
 if TYPE_CHECKING:
@@ -54,7 +55,7 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         """The Apify dataset client for API operations."""
 
         self._lock = lock
-        """A lock to ensure that only one operation is performed at a time."""
+        """A lock serializing destructive operations on the dataset."""
 
     @override
     async def get_metadata(self) -> DatasetMetadata:
@@ -142,7 +143,9 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             for index, item in enumerate(items):
                 yield await self._check_and_serialize(item, index)
 
-        async with self._charge_lock(), self._lock:
+        # Pushing mutates no client state - `push_items` is a stateless API call - so concurrent pushes only need
+        # the charge lock, which keeps the limit reservation and the charge atomic for pay-per-event runs.
+        async with charge_lock_if_charging():
             items = data if self._is_sequence_of_items(data) else [data]
             if not items:
                 return
