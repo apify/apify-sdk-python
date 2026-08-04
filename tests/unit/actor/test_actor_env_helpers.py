@@ -166,8 +166,10 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch,
 
         list_get_env_var = list_env_var.name.lower()
         expected_value_count = random.randint(0, len(available_values))
-        expected_get_env[list_get_env_var] = random.sample(available_values, expected_value_count)
-        monkeypatch.setenv(list_env_var, ','.join(expected_get_env[list_get_env_var]))
+        expected_values = random.sample(available_values, expected_value_count)
+        monkeypatch.setenv(list_env_var, ','.join(expected_values))
+        # An env var exported as an empty string counts as unset, same as a missing one.
+        expected_get_env[list_get_env_var] = expected_values or None
 
         # Test behavior with missing env var in case of empty list
         if expected_value_count == 0 and random.random() < 0.5:

@@ -410,6 +410,7 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
         pytest.param('ACTOR_WEB_SERVER_PORT', 'web_server_port', 4321, id='web_server_port'),
         pytest.param('APIFY_CHARGED_ACTOR_EVENT_COUNTS', 'charged_event_counts', None, id='charged_event_counts'),
         pytest.param('ACTOR_INPUT_KEY', 'input_key', 'INPUT', id='input_key'),
+        pytest.param('ACTOR_BUILD_TAGS', 'actor_build_tags', None, id='actor_build_tags'),
         pytest.param('CRAWLEE_PURGE_ON_START', 'purge_on_start', True, id='purge_on_start'),
     ],
 )
