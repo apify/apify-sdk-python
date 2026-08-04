@@ -141,13 +141,16 @@ async def test_events_websocket_shutdown_is_clean(
     async def main() -> None:
         from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
 
-        # The crawler run keeps the event loop busy, so an unclosed events websocket iterator would be
-        # garbage-collected only during interpreter shutdown - the timing that triggers the error.
+        # A real crawler run is needed: the concurrency around Actor exit is what leaves an unclosed events
+        # websocket iterator's finalizer still in flight when the event loop tears down.
         async with Actor:
+            assert Actor.configuration.actor_events_ws_url, 'The run must use the platform events websocket.'
+
             crawler = ParselCrawler(max_crawl_depth=2)
 
             @crawler.router.default_handler
             async def handler(context: ParselCrawlingContext) -> None:
+                await context.push_data({'url': context.request.url})
                 await context.enqueue_links()
 
             await crawler.run(['http://localhost:8080/'])
@@ -156,7 +159,10 @@ async def test_events_websocket_shutdown_is_clean(
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
-    assert run_result.exit_code == 0
+
+    # The log assertions below are negative, so confirm the crawl that drives them really visited pages.
+    dataset_items_page = await actor.last_run().dataset().list_items()
+    assert dataset_items_page.count > 1
 
     run_log = await actor.last_run().log().get()
     assert run_log is not None
