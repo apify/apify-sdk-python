@@ -410,20 +410,28 @@ async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFi
         assert status_records[0].levelno == logging.INFO
 
 
-async def test_failing_terminal_status_message_does_not_abort_exit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A failing terminal status message must not skip the remaining cleanup steps nor the final exit code."""
+async def test_failing_terminal_status_message_does_not_abort_exit(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failing terminal status message must be logged and must not skip the rest of the cleanup nor the exit code."""
+    set_status_message = AsyncMock(side_effect=RuntimeError('Status update failed'))
     charging_manager_exit = AsyncMock()
     save_actor_state = AsyncMock()
-    monkeypatch.setattr(_ActorType, 'set_status_message', AsyncMock(side_effect=RuntimeError('Status update failed')))
+    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
     monkeypatch.setattr(ChargingManagerImplementation, '__aexit__', charging_manager_exit)
     monkeypatch.setattr(_ActorType, '_save_actor_state', save_actor_state)
 
+    # Explicitly set exit_process=True since in Pytest env it defaults to False.
     actor = Actor(exit_process=True)
     await actor.init()
 
     with pytest.raises(SystemExit) as exc_info:
         await actor.exit(exit_code=7, status_message='Done')
 
+    # The mock replaces a class attribute, so it is not bound and does not receive `self`.
+    set_status_message.assert_called_once_with('Done', is_terminal=True)
+    assert [r for r in caplog.records if r.msg == 'Failed to set terminal status message']
     assert exc_info.value.code == 7
     assert actor.event_manager.active is False
     charging_manager_exit.assert_called_once()
