@@ -130,3 +130,35 @@ async def test_event_listener_can_be_removed_successfully(
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
+
+
+async def test_events_websocket_shutdown_is_clean(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Test that a run using the platform events websocket exits without an async generator shutdown error."""
+
+    async def main() -> None:
+        from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
+
+        # The crawler run keeps the event loop busy, so an unclosed events websocket iterator would be
+        # garbage-collected only during interpreter shutdown - the timing that triggers the error.
+        async with Actor:
+            crawler = ParselCrawler(max_crawl_depth=2)
+
+            @crawler.router.default_handler
+            async def handler(context: ParselCrawlingContext) -> None:
+                await context.enqueue_links()
+
+            await crawler.run(['http://localhost:8080/'])
+
+    actor = await make_actor(label='actor-events-shutdown', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+    assert run_result.exit_code == 0
+
+    run_log = await actor.last_run().log().get()
+    assert run_log is not None
+    assert 'error occurred during closing of asynchronous generator' not in run_log
+    assert 'asynchronous generator is already running' not in run_log
