@@ -598,8 +598,8 @@ async def test_shutdown_during_reconnect_backoff_is_clean(monkeypatch: pytest.Mo
 
 async def test_exit_closes_the_reconnecting_iterator(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that exiting closes the `connect` async iterator itself, rather than leaving it to the garbage collector."""
-    # Keeping a reference to every iterator prevents the garbage collector from finalizing it, so the assertion below
-    # holds only if the event manager closes the iterator on its own.
+    # Holding a reference to every iterator blocks garbage collection, so the assertion below holds only if the event
+    # manager closes the iterator itself.
     iterators: list[Any] = []
     original_aiter = websockets.asyncio.client.connect.__aiter__
 
@@ -618,9 +618,8 @@ async def test_exit_closes_the_reconnecting_iterator(monkeypatch: pytest.MonkeyP
     ):
         await asyncio.wait_for(client_connected.wait(), timeout=10)
 
-    # An iterator left suspended keeps its websocket open, and closing it is then deferred to the garbage collector.
-    # On Actor exit that lands in `asyncio.run` teardown, too late to be awaited, breaking async generator shutdown.
     assert iterators
+    # A closed async generator has no frame left.
     assert all(iterator.ag_frame is None for iterator in iterators)
 
 

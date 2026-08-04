@@ -151,10 +151,9 @@ class ApifyEventManager(EventManager):
             # Used as an async iterator, `connect` reconnects with exponential backoff on failed connection attempts.
             connector = websockets.asyncio.client.connect(ws_url, process_exception=self._process_connection_exception)
 
-            # That iterator is an async generator whose cleanup closes the current connection, and neither `break` nor
-            # cancelling this task closes it. Left suspended, it is closed by the garbage collector instead - on Actor
-            # exit that lands in `asyncio.run` teardown, too late to be awaited, which then breaks the event loop's
-            # async generator shutdown. `websockets` types the iterator as a plain `AsyncIterator`, hence the cast.
+            # Close the iterator explicitly: neither `break` nor cancellation does it, and leaving it to the garbage
+            # collector lands its cleanup in `asyncio.run` teardown, too late to be awaited, which breaks the event
+            # loop's async generator shutdown. The cast is only because `websockets` types it as `AsyncIterator`.
             connections = cast('AsyncGenerator[websockets.asyncio.client.ClientConnection]', aiter(connector))
 
             async with contextlib.aclosing(connections):
