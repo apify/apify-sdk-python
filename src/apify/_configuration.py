@@ -7,8 +7,9 @@ from logging import getLogger
 from pathlib import Path
 from typing import Annotated, Any, Self
 
-from pydantic import AliasChoices, AliasGenerator, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, AliasGenerator, BeforeValidator, Field, model_validator
 from pydantic.alias_generators import to_camel
+from pydantic_settings import SettingsConfigDict
 from typing_extensions import TypedDict
 
 from crawlee import service_locator
@@ -98,7 +99,15 @@ class Configuration(CrawleeConfiguration):
     # Fields are validated from environment variables via their `validation_alias`, but serialized under a
     # camelCase name derived from the Python field name. This keeps `model_dump(by_alias=True)` consistent
     # (e.g. `is_at_home` -> `isAtHome`) instead of leaking the raw env-var names.
-    model_config = ConfigDict(alias_generator=AliasGenerator(serialization_alias=to_camel))
+    #
+    # `env_ignore_empty` makes an env var exported as an empty string count as unset. The Apify platform sometimes
+    # does that instead of omitting the variable, and fields whose target type cannot parse `''` (datetimes, numbers,
+    # booleans, JSON, URLs, ...) would otherwise fail validation and crash `Actor.init()`. Skipping the value in the
+    # env source - rather than after the sources are merged - also lets the next name in an `AliasChoices` be tried.
+    model_config = SettingsConfigDict(
+        alias_generator=AliasGenerator(serialization_alias=to_camel),
+        env_ignore_empty=True,
+    )
 
     actor_id: Annotated[
         str | None,
@@ -175,7 +184,7 @@ class Configuration(CrawleeConfiguration):
                 'actor_task_id',
                 'apify_actor_task_id',
             ),
-            description='ID of the Actor task. Empty if Actor is run outside of any task, e.g. directly using the API',
+            description='ID of the Actor task. None if Actor is run outside of any task, e.g. directly using the API',
         ),
     ] = None
 
@@ -472,20 +481,6 @@ class Configuration(CrawleeConfiguration):
         ),
         BeforeValidator(_load_storage_keys),
     ] = None
-
-    @model_validator(mode='before')
-    @classmethod
-    def treat_empty_values_as_unset(cls, data: Any) -> Any:
-        """Discard inputs that are an empty string so the field default applies.
-
-        The Apify platform sometimes exports an env var as `''` instead of leaving it unset. Fields whose target type
-        cannot parse `''` (datetimes, numbers, booleans, JSON, URLs, ...) would fail validation and crash
-        `Actor.init()` with a raw pydantic error. Dropping such values makes `''` mean "not provided" for every field
-        at once, so no field can be forgotten.
-        """
-        if isinstance(data, dict):
-            return {key: value for key, value in data.items() if value != ''}
-        return data
 
     @model_validator(mode='after')
     def disable_browser_sandbox_on_platform(self) -> Self:

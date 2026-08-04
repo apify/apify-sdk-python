@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import json
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from crawlee import Request, service_locator
-from crawlee._types import BasicCrawlingContext
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.crawlers import BasicCrawler
 from crawlee.errors import ServiceConflictError
@@ -14,6 +15,11 @@ from crawlee.errors import ServiceConflictError
 from apify import Actor
 from apify import Configuration as ApifyConfiguration
 from apify.storage_clients._smart_apify._storage_client import SmartApifyStorageClient
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from crawlee._types import BasicCrawlingContext
 
 
 @pytest.mark.parametrize(
@@ -291,20 +297,6 @@ def test_max_total_charge_usd_zero_is_preserved(monkeypatch: pytest.MonkeyPatch)
     assert config.max_total_charge_usd == Decimal(0)
 
 
-def test_max_paid_dataset_items_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that an empty env var for max_paid_dataset_items is converted to None."""
-    monkeypatch.setenv('ACTOR_MAX_PAID_DATASET_ITEMS', '')
-    config = ApifyConfiguration()
-    assert config.max_paid_dataset_items is None
-
-
-def test_max_total_charge_usd_empty_string_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that an empty env var for max_total_charge_usd is converted to None."""
-    monkeypatch.setenv('ACTOR_MAX_TOTAL_CHARGE_USD', '')
-    config = ApifyConfiguration()
-    assert config.max_total_charge_usd is None
-
-
 def test_max_total_charge_usd_decimal_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that max_total_charge_usd is parsed as Decimal from env var."""
     from decimal import Decimal
@@ -418,6 +410,7 @@ def test_actor_storage_json_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
         pytest.param('ACTOR_WEB_SERVER_PORT', 'web_server_port', 4321, id='web_server_port'),
         pytest.param('APIFY_CHARGED_ACTOR_EVENT_COUNTS', 'charged_event_counts', None, id='charged_event_counts'),
         pytest.param('ACTOR_INPUT_KEY', 'input_key', 'INPUT', id='input_key'),
+        pytest.param('CRAWLEE_PURGE_ON_START', 'purge_on_start', True, id='purge_on_start'),
     ],
 )
 def test_typed_env_var_empty_string_falls_back_to_default(
@@ -427,3 +420,69 @@ def test_typed_env_var_empty_string_falls_back_to_default(
     monkeypatch.setenv(env_var, '')
     config = ApifyConfiguration()
     assert getattr(config, attr) == expected
+
+
+@pytest.mark.parametrize(
+    ('env_var', 'env_value', 'attr', 'expected'),
+    [
+        pytest.param(
+            'ACTOR_STARTED_AT',
+            '2024-01-01T00:00:00.000Z',
+            'started_at',
+            datetime(2024, 1, 1, tzinfo=UTC),
+            id='started_at',
+        ),
+        pytest.param('APIFY_DEDICATED_CPUS', '1.5', 'dedicated_cpus', 1.5, id='dedicated_cpus'),
+        pytest.param('ACTOR_TEST_PAY_PER_EVENT', 'true', 'test_pay_per_event', True, id='test_pay_per_event'),
+        pytest.param(
+            'ACTOR_STANDBY_URL',
+            'https://standby.apify.com',
+            'standby_url',
+            'https://standby.apify.com',
+            id='standby_url',
+        ),
+        pytest.param(
+            'APIFY_METAMORPH_AFTER_SLEEP_MILLIS',
+            '1000',
+            'metamorph_after_sleep',
+            timedelta(seconds=1),
+            id='metamorph_after_sleep',
+        ),
+        pytest.param('APIFY_PROXY_PORT', '9000', 'proxy_port', 9000, id='proxy_port'),
+        pytest.param('ACTOR_WEB_SERVER_PORT', '5000', 'web_server_port', 5000, id='web_server_port'),
+        pytest.param(
+            'APIFY_CHARGED_ACTOR_EVENT_COUNTS',
+            '{"search": 3}',
+            'charged_event_counts',
+            {'search': 3},
+            id='charged_event_counts',
+        ),
+        pytest.param('CRAWLEE_PURGE_ON_START', 'false', 'purge_on_start', False, id='purge_on_start'),
+    ],
+)
+def test_typed_env_var_non_empty_value_is_still_parsed(
+    monkeypatch: pytest.MonkeyPatch, env_var: str, env_value: str, attr: str, expected: object
+) -> None:
+    """Only '' counts as unset - a populated typed env var must still reach the field."""
+    monkeypatch.setenv(env_var, env_value)
+    config = ApifyConfiguration()
+    assert getattr(config, attr) == expected
+
+
+def test_empty_env_var_falls_through_to_legacy_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty value under one alias must not shadow a populated legacy alias of the same field."""
+    monkeypatch.setenv('ACTOR_WEB_SERVER_PORT', '')
+    monkeypatch.setenv('APIFY_CONTAINER_PORT', '9999')
+    monkeypatch.setenv('ACTOR_ID', '')
+    monkeypatch.setenv('APIFY_ACTOR_ID', 'legacy-actor-id')
+    config = ApifyConfiguration()
+    assert config.web_server_port == 9999
+    assert config.actor_id == 'legacy-actor-id'
+
+
+def test_explicitly_passed_empty_string_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only env vars treat '' as unset - a value passed to the constructor is taken as given."""
+    monkeypatch.delenv('ACTOR_INPUT_KEY', raising=False)
+    config = ApifyConfiguration(input_key='', token='')
+    assert config.input_key == ''
+    assert config.token == ''
