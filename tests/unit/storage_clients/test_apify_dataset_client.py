@@ -48,14 +48,29 @@ async def test_push_data_sends_compact_json() -> None:
 
 async def test_push_data_serializes_in_a_single_thread_hop_per_chunk(monkeypatch: pytest.MonkeyPatch) -> None:
     """Serialization is offloaded once per pushed chunk rather than once per item."""
+    monkeypatch.setattr(ApifyDatasetClient, '_EFFECTIVE_LIMIT_SIZE', ByteSize(200))
     to_thread = Mock(wraps=asyncio.to_thread)
     monkeypatch.setattr(asyncio, 'to_thread', to_thread)
     client, api_client = _make_dataset_client()
 
     await client.push_data([{'id': i} for i in range(500)])
 
-    api_client.push_items.assert_awaited_once()
-    assert to_thread.call_count == 1
+    assert api_client.push_items.await_count > 1
+    assert to_thread.call_count == api_client.push_items.await_count
+
+
+async def test_push_data_makes_progress_when_an_item_fills_a_whole_chunk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An item that fits the limit only without the array wrapper still yields one chunk per item."""
+    items = [{'value': 'x' * 30} for _ in range(3)]
+    payloads = [json.dumps(item, ensure_ascii=False, separators=(',', ':')) for item in items]
+    monkeypatch.setattr(ApifyDatasetClient, '_EFFECTIVE_LIMIT_SIZE', ByteSize(len(payloads[0].encode('utf-8'))))
+    client, api_client = _make_dataset_client()
+
+    async with asyncio.timeout(5):
+        await client.push_data(items)
+
+    chunks = [call.kwargs['items'] for call in api_client.push_items.await_args_list]
+    assert chunks == [f'[{payload}]' for payload in payloads]
 
 
 async def test_push_data_splits_items_into_chunks_within_the_size_limit(monkeypatch: pytest.MonkeyPatch) -> None:

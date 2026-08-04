@@ -214,9 +214,8 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
     def _serialize_chunk(cls, items: Sequence[Mapping[str, JsonSerializable]], offset: int) -> tuple[str, int]:
         """Serialize items starting at `offset` into one JSON array staying within the payload size limit.
 
-        The array holds as many consecutive items as fit below `_EFFECTIVE_LIMIT_SIZE`, always at least one.
-        The result is compact JSON - it goes on the wire, so indentation and separator padding would be
-        pure overhead. This is CPU-bound and blocking; call it via `asyncio.to_thread`.
+        The array holds as many consecutive items as fit within `_EFFECTIVE_LIMIT_SIZE`, always at least one. Output
+        is compact JSON - it goes straight on the wire. This is CPU-bound and blocking; call it via `asyncio.to_thread`.
 
         Args:
             items: The items to serialize.
@@ -228,8 +227,9 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         Raises:
             ValueError: If an item is not JSON serializable or on its own exceeds the size limit.
         """
+        limit = cls._EFFECTIVE_LIMIT_SIZE.bytes
         payloads: list[str] = []
-        chunk_size = ByteSize(2)  # Add 2 bytes for [] wrapper.
+        chunk_size = 2  # Add 2 bytes for [] wrapper.
 
         for index in range(offset, len(items)):
             try:
@@ -237,17 +237,17 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
             except Exception as exc:
                 raise ValueError(f'Data item at index {index} is not serializable to JSON.') from exc
 
-            payload_size = ByteSize(len(payload.encode('utf-8')))
-            if payload_size > cls._EFFECTIVE_LIMIT_SIZE:
+            payload_size = len(payload.encode('utf-8'))
+            if payload_size > limit:
                 raise ValueError(
                     f'Data item at index {index} is too large '
-                    f'(size: {payload_size}, limit: {cls._EFFECTIVE_LIMIT_SIZE})'
+                    f'(size: {ByteSize(payload_size)}, limit: {cls._EFFECTIVE_LIMIT_SIZE})'
                 )
 
-            if payloads and chunk_size + payload_size > cls._EFFECTIVE_LIMIT_SIZE:
+            if payloads and chunk_size + payload_size > limit:
                 return f'[{",".join(payloads)}]', index
 
             payloads.append(payload)
-            chunk_size += payload_size + ByteSize(1)  # Add 1 byte for ',' separator.
+            chunk_size += payload_size + 1  # Add 1 byte for ',' separator.
 
         return f'[{",".join(payloads)}]', len(items)
