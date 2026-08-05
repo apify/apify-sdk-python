@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Close the platform events websocket iterator on shutdown ([#1077](https://github.com/apify/apify-sdk-python/pull/1077)) ([cad8d7e](https://github.com/apify/apify-sdk-python/commit/cad8d7e9e95e91270348c6b9b2d57b2a7d98e733)) by [@vdusek](https://github.com/vdusek)
+- Do not abort Actor exit when the terminal status message fails ([#1078](https://github.com/apify/apify-sdk-python/pull/1078)) ([439ee7b](https://github.com/apify/apify-sdk-python/commit/439ee7b68fe71bc0965f3ed3f8b08d7666b6f657)) by [@vdusek](https://github.com/vdusek)
 
 ### ⚡ Performance
 
