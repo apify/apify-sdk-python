@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from unittest import mock
 from unittest.mock import AsyncMock, Mock
@@ -14,7 +14,7 @@ import websockets
 import websockets.asyncio.server
 
 from apify_client._models import Run
-from crawlee.events._types import Event, EventPersistStateData
+from crawlee.events._types import Event, EventAbortingData, EventPersistStateData
 
 from ..._utils import poll_until_condition
 from apify import Actor
@@ -110,6 +110,28 @@ async def test_fail_properly_deinitializes_actor(actor: _ActorType) -> None:
     assert actor._active
     await actor.fail()
     assert actor._active is False
+
+
+async def test_exit_from_event_listener_completes_cleanup() -> None:
+    """`Actor.exit()` called from an event listener runs cleanup instead of deadlocking into a RecursionError."""
+    actor = Actor(exit_process=False)
+    await actor.init()
+
+    exit_returned = False
+
+    async def on_aborting(_data: EventAbortingData) -> None:
+        nonlocal exit_returned
+        await actor.exit(event_listeners_timeout=timedelta(seconds=1))
+        exit_returned = True
+
+    actor.on(Event.ABORTING, on_aborting)
+    actor.event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+
+    await poll_until_condition(lambda: not actor._active, timeout=5, poll_interval=0.1)
+
+    assert exit_returned, 'Actor.exit() never returned inside the listener (deadlocked).'
+    assert actor._active is False
+    assert actor.event_manager.active is False
 
 
 async def test_failed_charging_manager_init_does_not_leak_event_manager() -> None:
