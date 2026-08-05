@@ -260,7 +260,10 @@ class _ActorType:
 
         async def finalize() -> None:
             if self.status_message is not None:
-                await self.set_status_message(self.status_message, is_terminal=True)
+                try:
+                    await self.set_status_message(self.status_message, is_terminal=True)
+                except Exception:
+                    self.log.exception('Failed to set terminal status message')
 
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
