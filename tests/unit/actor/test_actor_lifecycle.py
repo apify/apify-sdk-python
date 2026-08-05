@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import sys
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from unittest import mock
@@ -112,6 +113,13 @@ async def test_fail_properly_deinitializes_actor(actor: _ActorType) -> None:
     assert actor._active is False
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason=(
+        'On Python 3.11, `asyncio.wait_for` runs the awaited coroutine in a separate task, which defeats '
+        "crawlee's own self-wait detection in `EventManager.wait_for_all_listeners_to_complete` and deadlocks."
+    ),
+)
 async def test_exit_from_event_listener_completes_cleanup() -> None:
     """`Actor.exit()` called from an event listener runs cleanup instead of deadlocking into a RecursionError."""
     actor = Actor(exit_process=False)
