@@ -362,6 +362,38 @@ async def test_request_reclaim_with_forefront(
     Actor.log.info(f'Test completed - processed {remaining_count} additional requests')
 
 
+async def test_forefront_reclaim_of_last_request_completes(
+    request_queue_apify: RequestQueue,
+    rq_poll_timeout: int,
+) -> None:
+    """Reclaiming the only in-flight request to the forefront keeps it pending and lets the run finish cleanly."""
+    rq = request_queue_apify
+
+    await rq.add_request('https://example.com/only')
+    request = await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2)
+    assert request is not None
+
+    # Reclaim the sole in-flight request to the forefront.
+    await rq.reclaim_request(request, forefront=True)
+
+    # The queue must not report itself empty while the reclaimed request is still pending.
+    assert await rq.is_empty() is False
+
+    # The request must be retrievable again, not lost; it may take a moment to reappear at the head, so poll.
+    refetched = await poll_until_condition(
+        rq.fetch_next_request,
+        lambda result: result is not None,
+        timeout=60,
+        poll_interval=5,
+    )
+    assert refetched is not None
+    assert refetched.url == request.url
+
+    await rq.mark_request_as_handled(refetched)
+    is_finished = await poll_until_condition(rq.is_finished, timeout=rq_poll_timeout, backoff_factor=2)
+    assert is_finished is True
+
+
 async def test_reclaim_handled_request_moves_back_to_pending(
     request_queue_apify: RequestQueue,
     rq_poll_timeout: int,

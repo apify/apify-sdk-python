@@ -322,8 +322,14 @@ class ApifyRequestQueueSharedClient:
                     hydrated_request=request,
                 )
 
-                # If we're adding to the forefront, we need to check for forefront requests
-                # in the next list_head call
+                # Re-enter into the local head so `is_empty`/`is_finished` still see it while `list_and_lock_head`
+                # lags behind the reclaim (else it is silently dropped); forefront to the front, default to the back.
+                if forefront:
+                    self._queue_head.appendleft(request_id)
+                else:
+                    self._queue_head.append(request_id)
+
+                # Forefront also forces a head refresh, so concurrent forefront additions surface first.
                 if forefront:
                     self._should_check_for_forefront_requests = True
 
@@ -349,7 +355,8 @@ class ApifyRequestQueueSharedClient:
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
         head = await self._list_head(limit=1)
-        return len(head.items) == 0
+        # A forefront refresh refetches the platform head (which lags the reclaim), so consult the local head too.
+        return len(head.items) == 0 and not self._queue_head
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.
@@ -528,8 +535,9 @@ class ApifyRequestQueueSharedClient:
             self._queue_head.append(request_id)
 
         for leftover_id in leftover_buffer:
-            # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
-            self._queue_head.append(leftover_id)
+            # Keep leftovers at the end; skip ids already returned above so a re-entered reclaim isn't enqueued twice.
+            if leftover_id not in self._queue_head:
+                self._queue_head.append(leftover_id)
 
         return RequestQueueHead.from_client_locked_head(locked_queue_head)
 

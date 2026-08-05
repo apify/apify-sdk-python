@@ -286,12 +286,11 @@ class ApifyRequestQueueSingleClient:
         forefront: bool = False,
     ) -> ProcessedRequest | None:
         """Specific implementation of this method for the RQ single access mode."""
-        # Check if the request was marked as handled and clear it. When reclaiming,
-        # we want to put the request back for processing.
-
         request_id = unique_key_to_request_id(request.unique_key)
 
-        if request.was_already_handled:
+        # `was_already_handled` derives from `handled_at`, so capture it before clearing `handled_at`.
+        was_already_handled = request.was_already_handled
+        if was_already_handled:
             request.handled_at = None
 
         try:
@@ -303,18 +302,21 @@ class ApifyRequestQueueSingleClient:
             # No longer handled
             self._requests_already_handled.discard(request_id)
 
+            # Re-enter into the local head (like `add_batch_of_requests`) so `is_empty`/`is_finished` still see it
+            # while the platform head lags behind the reclaim (else it is dropped); forefront to top, default bottom.
             if forefront:
-                # Append to top of the local head estimation
                 self._head_requests.append(request_id)
+            else:
+                self._head_requests.appendleft(request_id)
+
+            # Previously handled -> pending; adjust counts before the update so they stay consistent even if it fails.
+            if was_already_handled:
+                self.metadata.handled_request_count -= 1
+                self.metadata.pending_request_count += 1
 
             processed_request = await self._update_request(request, forefront=forefront)
             processed_request.id = request_id
             processed_request.unique_key = request.unique_key
-            # The platform reports the request's state before this update via `was_already_handled`. If it was
-            # handled, this update moved it from handled back to pending, so mirror that in the local metadata.
-            if processed_request.was_already_handled:
-                self.metadata.handled_request_count -= 1
-                self.metadata.pending_request_count += 1
 
         except Exception:
             logger.exception(f'Error reclaiming request {request.unique_key}')
