@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 
 - Close the platform events websocket iterator on shutdown ([#1077](https://github.com/apify/apify-sdk-python/pull/1077)) ([cad8d7e](https://github.com/apify/apify-sdk-python/commit/cad8d7e9e95e91270348c6b9b2d57b2a7d98e733)) by [@vdusek](https://github.com/vdusek)
 
+### ⚡ Performance
+
+- Serialize dataset push payloads once per chunk ([#1081](https://github.com/apify/apify-sdk-python/pull/1081)) ([eb6475d](https://github.com/apify/apify-sdk-python/commit/eb6475d89576cf8a14ca7c80cc8eff2c6eff8983)) by [@vdusek](https://github.com/vdusek)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [4.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.0) (2026-07-20)
