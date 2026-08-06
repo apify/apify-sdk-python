@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 ### ⚡ Performance
 
 - Serialize dataset push payloads once per chunk ([#1081](https://github.com/apify/apify-sdk-python/pull/1081)) ([eb6475d](https://github.com/apify/apify-sdk-python/commit/eb6475d89576cf8a14ca7c80cc8eff2c6eff8983)) by [@vdusek](https://github.com/vdusek)
+- Allow concurrent dataset pushes by narrowing the push-path locks ([#1079](https://github.com/apify/apify-sdk-python/pull/1079)) ([7d23ecd](https://github.com/apify/apify-sdk-python/commit/7d23ecdc656f36cc087a23e419ae77fde1adbad8)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
