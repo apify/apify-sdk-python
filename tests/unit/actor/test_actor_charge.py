@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 import asyncio
-from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
 
 from apify import Actor, Configuration
 from apify._charging import ChargingManagerImplementation, PayPerEventActorPricingInfo, PricingInfoItem
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
+    import pytest
 
 
 class MockedChargingSetup(NamedTuple):
@@ -232,6 +238,37 @@ async def test_charge_lock_concurrent_with_limited_budget() -> None:
 
         # Verify total charged events matches items pushed
         assert setup.charging_mgr.get_charged_event_count('apify-default-dataset-item') == 5
+
+
+async def test_concurrent_actor_push_data_stays_within_budget() -> None:
+    """Concurrent `Actor.push_data` calls do not overdraw the budget - the reservation and the charge stay atomic."""
+    async with setup_mocked_charging(
+        Configuration(max_total_charge_usd=Decimal('0.50'), test_pay_per_event=True),
+        {'scrape': Decimal('0.10')},
+    ) as setup:
+        # Both try to push 5 items, but the budget only allows 5 in total.
+        await asyncio.gather(
+            Actor.push_data([{'source': 'a', 'id': i} for i in range(5)], charged_event_name='scrape'),
+            Actor.push_data([{'source': 'b', 'id': i} for i in range(5)], charged_event_name='scrape'),
+        )
+
+        assert setup.charging_mgr.get_charged_event_count('scrape') == 5
+
+        dataset = await Actor.open_dataset()
+        items = await dataset.get_data()
+        assert len(items.items) == 5
+
+
+async def test_push_data_does_not_take_charge_lock_without_pay_per_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`Actor.push_data` leaves the charge lock alone when the Actor does not use the pay-per-event pricing model."""
+    async with Actor:
+        charging_manager = Actor.get_charging_manager()
+        charge_lock = Mock(wraps=charging_manager.charge_lock)
+        monkeypatch.setattr(charging_manager, 'charge_lock', charge_lock)
+
+        await Actor.push_data({'id': 1})
+
+        charge_lock.assert_not_called()
 
 
 async def test_charge_with_overdrawn_budget() -> None:

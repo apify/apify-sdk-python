@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -23,6 +24,7 @@ from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from types import TracebackType
 
     from apify_client import ApifyClientAsync
@@ -44,6 +46,23 @@ PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PE
 """Pricing model for an Actor."""
 
 _ensure_context = ensure_context('active')
+
+
+@asynccontextmanager
+async def charge_lock_if_charging() -> AsyncIterator[None]:
+    """Acquire the charge lock if a charging manager is active, otherwise proceed without locking.
+
+    The lock keeps a limit reservation and the charge that follows it atomic. Only pay-per-event runs charge
+    anything, and `charging_manager_ctx` is set exactly for those, so for any other run there is nothing to
+    serialize and the lock is skipped.
+    """
+    charging_manager = charging_manager_ctx.get()
+    if charging_manager is None:
+        yield
+        return
+
+    async with charging_manager.charge_lock():
+        yield
 
 
 # These are thin subclasses of the `apify-client` pricing models. The Apify platform serializes Actor

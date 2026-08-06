@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -16,10 +17,7 @@ def _make_dataset_client(api_client: AsyncMock | None = None) -> tuple[ApifyData
     if api_client is None:
         api_client = AsyncMock()
 
-    return ApifyDatasetClient(
-        api_client=api_client,
-        lock=asyncio.Lock(),
-    ), api_client
+    return ApifyDatasetClient(api_client=api_client), api_client
 
 
 async def test_purge_raises_not_implemented() -> None:
@@ -104,3 +102,46 @@ async def test_push_data_rejects_a_non_serializable_item() -> None:
 
     with pytest.raises(ValueError, match='at index 0 is not serializable'):
         await client.push_data(circular)
+
+
+async def test_concurrent_push_data_overlaps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Concurrent pushes reach the API at the same time instead of queueing behind each other."""
+    concurrency = 3
+    barrier = asyncio.Barrier(concurrency)
+    client, api_client = _make_dataset_client()
+
+    async def push_items(**_kwargs: Any) -> None:
+        # Every concurrent push must reach the API call before any of them is allowed to return.
+        await barrier.wait()
+
+    monkeypatch.setattr(api_client, 'push_items', AsyncMock(side_effect=push_items))
+
+    async with asyncio.timeout(5):
+        await asyncio.gather(*(client.push_data({'id': i}) for i in range(concurrency)))
+
+
+async def test_concurrent_multi_chunk_pushes_preserve_per_push_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A push's own chunks stay in order even while they interleave on the wire with other pushes' chunks."""
+    monkeypatch.setattr(ApifyDatasetClient, '_EFFECTIVE_LIMIT_SIZE', ByteSize(60))
+    client, api_client = _make_dataset_client()
+    received: list[tuple[int, int]] = []
+    chunk_count = 0
+
+    async def push_items(**kwargs: Any) -> None:
+        nonlocal chunk_count
+        chunk_count += 1
+        await asyncio.sleep(0)  # Yield so chunks from other concurrent pushes can land in between.
+        received.extend((item['push'], item['i']) for item in json.loads(kwargs['items']))
+
+    monkeypatch.setattr(api_client, 'push_items', AsyncMock(side_effect=push_items))
+
+    concurrency, items_per_push = 4, 6
+    async with asyncio.timeout(5):
+        await asyncio.gather(
+            *(client.push_data([{'push': p, 'i': i} for i in range(items_per_push)]) for p in range(concurrency))
+        )
+
+    assert chunk_count > concurrency, 'each push must split into more than one chunk'
+    for push in range(concurrency):
+        indices = [i for p, i in received if p == push]
+        assert indices == list(range(items_per_push))
