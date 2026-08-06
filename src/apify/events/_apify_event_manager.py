@@ -86,29 +86,47 @@ class ApifyEventManager(EventManager):
         self._platform_events_websocket: websockets.asyncio.client.ClientConnection | None = None
         """WebSocket connection to the platform events."""
 
-        self._process_platform_messages_task: asyncio.Task | None = None
+        self._process_platform_messages_task: asyncio.Task[None] | None = None
         """Task for processing messages from the platform websocket."""
 
-        self._connected_to_platform_websocket: asyncio.Future[bool] | None = None
-        """Future that resolves when the connection to the platform websocket is established."""
+        self._connected_to_platform_websocket: asyncio.Future[None] | None = None
+        """Resolves once the platform websocket is connected, or fails with the error that prevented the first
+        connection, so that `__aenter__` can report it.
+        """
 
     @override
     async def __aenter__(self) -> Self:
-        await super().__aenter__()
-        self._connected_to_platform_websocket = asyncio.Future()
+        """Initialize the event manager upon entering the async context.
 
-        # Run tasks but don't await them
-        if self._configuration.actor_events_ws_url:
-            self._process_platform_messages_task = asyncio.create_task(
-                self._process_platform_messages(self._configuration.actor_events_ws_url)
-            )
-            is_connected = await self._connected_to_platform_websocket
-            if not is_connected:
-                # Exit the already-entered parent so the recurring persist state task does not leak.
-                await self.__aexit__(None, None, None)
-                raise RuntimeError('Error connecting to platform events websocket!')
-        else:
+        On the outermost entry, it connects to the platform events websocket and starts consuming its messages.
+        """
+        await super().__aenter__()
+
+        # Only the outermost context owns the websocket, so a nested one must not open a second connection.
+        if self._active_ref_count > 1:
+            return self
+
+        if not self._configuration.actor_events_ws_url:
             logger.debug('APIFY_ACTOR_EVENTS_WS_URL env var not set, no events from Apify platform will be emitted.')
+            return self
+
+        # The future has to exist before the task that resolves it starts running.
+        self._connected_to_platform_websocket = asyncio.Future()
+        self._process_platform_messages_task = asyncio.create_task(
+            self._process_platform_messages(self._configuration.actor_events_ws_url)
+        )
+
+        try:
+            await self._connected_to_platform_websocket
+        except Exception as exc:
+            # Exit the already-entered parent so the recurring persist state task does not leak.
+            await self.__aexit__(None, None, None)
+            raise RuntimeError('Error connecting to platform events websocket!') from exc
+        except BaseException:
+            # Cancellation has to clean up as well. A stale task left behind would make the next entry look nested,
+            # returning a manager that silently receives no platform events at all.
+            await self.__aexit__(None, None, None)
+            raise
 
         return self
 
@@ -119,17 +137,35 @@ class ApifyEventManager(EventManager):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
-        # and followed by a reconnect attempt.
-        if self._process_platform_messages_task and not self._process_platform_messages_task.done():
-            self._process_platform_messages_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._process_platform_messages_task
+        """Close the event manager upon exiting the async context.
 
-        if self._platform_events_websocket:
-            await self._platform_events_websocket.close()
+        On the outermost exit, it stops consuming the platform messages and closes the websocket connection.
+        """
+        try:
+            if self._active_ref_count == 1:
+                await self._teardown_platform_websocket()
+        finally:
+            # The parent context has to be left even if the shutdown above fails. Staying active would mean never
+            # emitting `PersistState` again, as re-entering the context would be a no-op.
+            await super().__aexit__(exc_type, exc_value, exc_traceback)
 
-        await super().__aexit__(exc_type, exc_value, exc_traceback)
+    async def _teardown_platform_websocket(self) -> None:
+        """Stop consuming the platform messages and close the websocket connection to the platform events."""
+        try:
+            # Cancel the task before closing the websocket so that the closed connection is not treated as a drop
+            # and followed by a reconnect attempt.
+            if self._process_platform_messages_task and not self._process_platform_messages_task.done():
+                self._process_platform_messages_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._process_platform_messages_task
+
+            if self._platform_events_websocket:
+                await self._platform_events_websocket.close()
+        finally:
+            # Leave no closed connection or resolved future behind, so that the context can be entered again.
+            self._process_platform_messages_task = None
+            self._platform_events_websocket = None
+            self._connected_to_platform_websocket = None
 
     def _process_connection_exception(self, exc: Exception) -> Exception | None:
         """Decide whether a failed connection attempt to the platform websocket should be retried.
@@ -159,7 +195,7 @@ class ApifyEventManager(EventManager):
                 async for websocket in connections:
                     self._platform_events_websocket = websocket
                     if self._connected_to_platform_websocket and not self._connected_to_platform_websocket.done():
-                        self._connected_to_platform_websocket.set_result(True)
+                        self._connected_to_platform_websocket.set_result(None)
                     else:
                         logger.info('Reconnected to the platform events websocket.')
 
@@ -178,10 +214,12 @@ class ApifyEventManager(EventManager):
                         backoff_delays = websockets.client.backoff()
                     else:
                         await asyncio.sleep(next(backoff_delays))
-        except Exception:
+        except Exception as exc:
             logger.exception('Error in websocket connection')
+
             if self._connected_to_platform_websocket is not None and not self._connected_to_platform_websocket.done():
-                self._connected_to_platform_websocket.set_result(False)
+                # `__aenter__` is still waiting for the first connection, so let it fail with this as the cause.
+                self._connected_to_platform_websocket.set_exception(exc)
 
     async def _consume_messages(self, websocket: websockets.asyncio.client.ClientConnection) -> bool:
         """Handle platform messages until the connection closes; return whether it was lost vs. closed cleanly."""
