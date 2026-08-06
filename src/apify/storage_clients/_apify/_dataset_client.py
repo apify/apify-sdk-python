@@ -42,7 +42,6 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         self,
         *,
         api_client: DatasetClientAsync,
-        lock: asyncio.Lock | None = None,  # noqa: ARG002 - no-op, kept for backward compatibility
     ) -> None:
         """Initialize a new instance.
 
