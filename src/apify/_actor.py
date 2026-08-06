@@ -1249,12 +1249,10 @@ class _ActorType:
             # the reboot. Typically, crawlers are listening for the MIGRATING event to stop processing new requests.
             # We can't just emit the events and wait for all listeners to finish,
             # because this method might be called from an event listener itself, and we would deadlock.
-            persist_state_listeners = flatten(
-                (self.event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
-            )
-            migrating_listeners = flatten(
-                (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
-            )
+            # Read the mapping with `get` - subscripting it would insert entries for events nobody listens to.
+            listeners_to_wrappers = self.event_manager._listeners_to_wrappers  # noqa: SLF001
+            persist_state_listeners = flatten(listeners_to_wrappers.get(Event.PERSIST_STATE, {}).values())
+            migrating_listeners = flatten(listeners_to_wrappers.get(Event.MIGRATING, {}).values())
 
             async def safe_dispatch(listener: Any, data: Any) -> None:
                 try:

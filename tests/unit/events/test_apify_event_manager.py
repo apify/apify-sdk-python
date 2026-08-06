@@ -151,6 +151,33 @@ async def _restartable_ws_server(
         await stop()
 
 
+@contextlib.asynccontextmanager
+async def _unresponsive_ws_server(monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[None]:
+    """A `127.0.0.1` server that accepts connections but never completes the WebSocket handshake.
+
+    It keeps `__aenter__` waiting for its first connection, which is what lets a test cancel it mid-connect.
+    """
+    shutdown = asyncio.Event()
+
+    async def handler(_reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        try:
+            await shutdown.wait()
+        finally:
+            writer.close()
+
+    server = await asyncio.start_server(handler, host='127.0.0.1')
+    port: int = server.sockets[0].getsockname()[1]
+    monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://127.0.0.1:{port}')
+
+    try:
+        yield
+    finally:
+        # Release the handlers first, `wait_closed` would block on them otherwise.
+        shutdown.set()
+        server.close()
+        await server.wait_closed()
+
+
 async def test_lifecycle_local(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger='apify')
 
@@ -260,10 +287,12 @@ async def test_lifecycle_on_platform_without_websocket(monkeypatch: pytest.Monke
     monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
     event_manager = ApifyEventManager(Configuration.get_global_configuration())
 
-    with pytest.raises(RuntimeError, match=r'Error connecting to platform events websocket!'):
+    with pytest.raises(RuntimeError, match=r'Error connecting to platform events websocket!') as exc_info:
         async with event_manager:
             pass
 
+    # The error that prevented the connection is reported as the cause, not only logged.
+    assert isinstance(exc_info.value.__cause__, OSError)
     assert event_manager.active is False
     persist_state_task = event_manager._emit_persist_state_event_rec_task.task
     assert persist_state_task is None or persist_state_task.done()
@@ -276,6 +305,119 @@ async def test_lifecycle_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         await client_connected.wait()
         assert len(connected_ws_clients) == 1
+
+
+async def test_nested_context_keeps_a_single_websocket(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A nested context reuses the single platform connection, and only the outermost exit tears it down."""
+    async with _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected):
+        event_manager = ApifyEventManager(Configuration.get_global_configuration())
+
+        async with event_manager:
+            await client_connected.wait()
+            assert len(connected_ws_clients) == 1
+            task = event_manager._process_platform_messages_task
+
+            # A crawler running under an Actor enters the already-entered event manager again.
+            async with event_manager:
+                await asyncio.sleep(0.2)
+                assert len(connected_ws_clients) == 1
+                assert event_manager._process_platform_messages_task is task
+
+            # The inner exit must leave the connection alone, the Actor still needs the platform events.
+            await asyncio.sleep(0.2)
+            assert len(connected_ws_clients) == 1
+            assert task is not None
+            assert not task.done()
+
+            # A single connection also means every event is delivered exactly once.
+            event_calls: list[Any] = []
+            event_manager.on(event=Event.SYSTEM_INFO, listener=event_calls.append)
+            websockets.broadcast(connected_ws_clients, json.dumps({'name': 'systemInfo', 'data': DUMMY_SYSTEM_INFO}))
+            await poll_until_condition(lambda: bool(event_calls), poll_interval=0.05)
+            await asyncio.sleep(0.2)
+            assert len(event_calls) == 1
+
+        # Poll because the server-side handler may not have deregistered its connection yet.
+        await poll_until_condition(lambda: not connected_ws_clients, poll_interval=0.05)
+        assert not connected_ws_clients
+        assert task.done()
+
+
+async def test_context_can_be_reentered_after_full_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Entering a fully exited event manager again opens a fresh platform connection."""
+    async with _platform_ws_server(monkeypatch) as (connected_ws_clients, client_connected):
+        event_manager = ApifyEventManager(Configuration.get_global_configuration())
+
+        async with event_manager:
+            await client_connected.wait()
+            assert len(connected_ws_clients) == 1
+
+        await poll_until_condition(lambda: not connected_ws_clients, poll_interval=0.05)
+        assert event_manager._process_platform_messages_task is None
+        assert event_manager._platform_events_websocket is None
+
+        client_connected.clear()
+        async with event_manager:
+            await asyncio.wait_for(client_connected.wait(), timeout=10)
+            assert len(connected_ws_clients) == 1
+
+
+async def test_cancelled_entry_leaves_no_stale_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cancelled entry releases the context, so the next entry connects again instead of looking like a nested one."""
+    async with _unresponsive_ws_server(monkeypatch):
+        event_manager = ApifyEventManager(Configuration.get_global_configuration())
+
+        first_entry = asyncio.create_task(event_manager.__aenter__())
+        await asyncio.sleep(0.2)
+        assert not first_entry.done()
+
+        first_entry.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await first_entry
+
+        assert event_manager.active is False
+        assert event_manager._process_platform_messages_task is None
+        assert event_manager._platform_events_websocket is None
+        persist_state_task = event_manager._emit_persist_state_event_rec_task.task
+        assert persist_state_task is None or persist_state_task.done()
+
+        # The next entry has to attempt a connection of its own, rather than return a manager receiving no events.
+        second_entry = asyncio.create_task(event_manager.__aenter__())
+        await asyncio.sleep(0.2)
+        assert not second_entry.done()
+        assert event_manager._active_ref_count == 1
+        assert event_manager._process_platform_messages_task is not None
+
+        second_entry.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await second_entry
+        assert event_manager.active is False
+
+
+async def test_exit_releases_context_when_the_websocket_shutdown_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failing websocket shutdown still releases the context, so the manager cannot stay active for good."""
+    async with _platform_ws_server(monkeypatch) as (_, client_connected):
+        event_manager = ApifyEventManager(Configuration.get_global_configuration())
+        await event_manager.__aenter__()
+        await client_connected.wait()
+
+        monkeypatch.setattr(
+            event_manager, '_teardown_platform_websocket', Mock(side_effect=RuntimeError('close failed'))
+        )
+
+        with pytest.raises(RuntimeError, match='close failed'):
+            await event_manager.__aexit__(None, None, None)
+
+        assert event_manager.active is False
+        persist_state_task = event_manager._emit_persist_state_event_rec_task.task
+        assert persist_state_task is None or persist_state_task.done()
+
+        # The mocked shutdown left the message-processing task running.
+        task = event_manager._process_platform_messages_task
+        assert task is not None
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 async def test_event_handling_on_platform(monkeypatch: pytest.MonkeyPatch) -> None:
