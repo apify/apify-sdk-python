@@ -585,7 +585,7 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "1.8.3"
+version = "1.9.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-timeout" },
@@ -597,14 +597,13 @@ dependencies = [
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "pyee" },
     { name = "tldextract" },
     { name = "typing-extensions" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/b4/4c359c2e073c720b3960d2d41ab6e06b1ea0ff3d570e7c6467b899e787c1/crawlee-1.8.3.tar.gz", hash = "sha256:8f06e4bec07a5438126a22f5c6ae040f238e22eeaba1a4257de4240292419e6d", size = 316089, upload-time = "2026-07-20T07:07:51.617Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/0e/ff363177fdbbb774d392f419db2363daaf4c3838b1e13649337af9d2ac31/crawlee-1.9.1.tar.gz", hash = "sha256:5ddbe6b7188ad4acee4221ad8afc4c27a6e0f77f815d2c1617e3e00eaafcd950", size = 325529, upload-time = "2026-08-06T09:28:36.247Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/85/05b8c4c73cad542e9aefe9a5568d03f73eb7ccb5f84524c47d066ce3bc85/crawlee-1.8.3-py3-none-any.whl", hash = "sha256:42c3e2404922a1ba51659e97ab31f0b451eeeed02faaf673d5ad4932f12bda7e", size = 403479, upload-time = "2026-07-20T07:07:49.96Z" },
+    { url = "https://files.pythonhosted.org/packages/21/eb/ac3e04315130801b6a20e8d14b954f3b1fac27d5bae9e15601b42bbd174b/crawlee-1.9.1-py3-none-any.whl", hash = "sha256:012c2f2c6e2f7021ea772eb2d95951f62092d2de1933f70fdffc31e716c53e94", size = 412364, upload-time = "2026-08-06T09:28:34.759Z" },
 ]
 
 [package.optional-dependencies]
@@ -1850,18 +1849,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e1/8a/2c7f7ad656d22371a596d232fc140327b958d7f1d491b889632ea0cb7e87/pydoc_markdown-4.8.2.tar.gz", hash = "sha256:fb6c927e31386de17472d42f9bd3d3be2905977d026f6216881c65145aa67f0b", size = 44506, upload-time = "2023-06-26T12:37:01.152Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/5a/ce0b056d9a95fd0c06a6cfa5972477d79353392d19230c748a7ba5a9df04/pydoc_markdown-4.8.2-py3-none-any.whl", hash = "sha256:203f74119e6bb2f9deba43d452422de7c8ec31955b61e0620fa4dd8c2611715f", size = 67830, upload-time = "2023-06-26T12:36:59.502Z" },
-]
-
-[[package]]
-name = "pyee"
-version = "13.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/04/e7c1fe4dc78a6fdbfd6c337b1c3732ff543b8a397683ab38378447baa331/pyee-13.0.1.tar.gz", hash = "sha256:0b931f7c14535667ed4c7e0d531716368715e860b988770fc7eb8578d1f67fc8", size = 31655, upload-time = "2026-02-14T21:12:28.044Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/c4/b4d4827c93ef43c01f599ef31453ccc1c132b353284fc6c87d535c233129/pyee-13.0.1-py3-none-any.whl", hash = "sha256:af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228", size = 15659, upload-time = "2026-02-14T21:12:26.263Z" },
 ]
 
 [[package]]
