@@ -42,16 +42,11 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         self,
         *,
         api_client: DatasetClientAsync,
-        lock: asyncio.Lock | None = None,  # noqa: ARG002
+        lock: asyncio.Lock | None = None,  # noqa: ARG002 - no-op, kept for backward compatibility
     ) -> None:
         """Initialize a new instance.
 
         Preferably use the `ApifyDatasetClient.open` class method to create a new instance.
-
-        Args:
-            api_client: The Apify dataset client for API operations.
-            lock: Unused - no operation performed by this client needs client-side locking anymore. Kept for
-                backward compatibility with existing call sites.
         """
         DatasetClient.__init__(self)
         DatasetClientPpeMixin.__init__(self)
