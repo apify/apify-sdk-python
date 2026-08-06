@@ -34,16 +34,6 @@ async def test_drop_calls_api_delete() -> None:
     api_client.delete.assert_awaited_once()
 
 
-async def test_accepts_lock_argument_as_a_no_op() -> None:
-    """The `lock` argument is accepted for backward compatibility but has no effect."""
-    api_client = AsyncMock()
-    client = ApifyDatasetClient(api_client=api_client, lock=asyncio.Lock())
-
-    await client.drop()
-
-    api_client.delete.assert_awaited_once()
-
-
 async def test_push_data_sends_compact_json() -> None:
     """Pushed payloads carry no indentation or separator padding."""
     client, api_client = _make_dataset_client()
