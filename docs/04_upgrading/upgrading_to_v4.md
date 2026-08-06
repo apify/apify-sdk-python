@@ -48,6 +48,7 @@ client = ApifyDatasetClient(
 # After (v4)
 client = ApifyDatasetClient(
     api_client=api_client,
+    lock=lock,
 )
 ```
 
