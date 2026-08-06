@@ -6,6 +6,7 @@ from typing_extensions import override
 
 from crawlee.storage_clients._file_system import FileSystemDatasetClient
 
+from apify._charging import charge_lock_if_charging
 from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ class ApifyFileSystemDatasetClient(FileSystemDatasetClient, DatasetClientPpeMixi
 
     @override
     async def push_data(self, data: Sequence[Mapping[str, JsonSerializable]] | Mapping[str, JsonSerializable]) -> None:
-        async with self._charge_lock():
+        async with charge_lock_if_charging():
             items = data if self._is_sequence_of_items(data) else [data]
             limit = self._compute_limit_for_push(len(items))
 

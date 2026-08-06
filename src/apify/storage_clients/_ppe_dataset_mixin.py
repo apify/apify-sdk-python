@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
-
 from apify._charging import DEFAULT_DATASET_ITEM_EVENT, charging_manager_ctx
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
 
 
 class DatasetClientPpeMixin:
@@ -29,13 +23,3 @@ class DatasetClientPpeMixin:
                 event_name=DEFAULT_DATASET_ITEM_EVENT,
                 count=count_items,
             )
-
-    @asynccontextmanager
-    async def _charge_lock(self) -> AsyncIterator[None]:
-        """Context manager to acquire the charge lock if PPE charging manager is active."""
-        charging_manager = charging_manager_ctx.get()
-        if charging_manager:
-            async with charging_manager.charge_lock():
-                yield
-        else:
-            yield

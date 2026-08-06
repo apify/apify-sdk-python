@@ -26,7 +26,13 @@ from crawlee.events import (
     EventSystemInfoData,
 )
 
-from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingManager, ChargingManagerImplementation
+from apify._charging import (
+    DEFAULT_DATASET_ITEM_EVENT,
+    ChargeResult,
+    ChargingManager,
+    ChargingManagerImplementation,
+    charge_lock_if_charging,
+)
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -690,9 +696,10 @@ class _ActorType:
 
         dataset = await self.open_dataset()
 
-        # Acquire the charge lock to prevent race conditions between concurrent
-        # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
-        async with charging_manager.charge_lock():
+        # The whole push + charge sequence has to stay under the charge lock, so that a concurrent push cannot
+        # charge in between the limit reservation below and the charge that acts on it. Runs that charge nothing
+        # skip the lock and push concurrently.
+        async with charge_lock_if_charging():
             # Synthetic events are handled within dataset.push_data, only get data for `ChargeResult`.
             if charged_event_name is None:
                 before = charging_manager.get_charged_event_count(DEFAULT_DATASET_ITEM_EVENT)
@@ -1242,12 +1249,10 @@ class _ActorType:
             # the reboot. Typically, crawlers are listening for the MIGRATING event to stop processing new requests.
             # We can't just emit the events and wait for all listeners to finish,
             # because this method might be called from an event listener itself, and we would deadlock.
-            persist_state_listeners = flatten(
-                (self.event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
-            )
-            migrating_listeners = flatten(
-                (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
-            )
+            # Read the mapping with `get` - subscripting it would insert entries for events nobody listens to.
+            listeners_to_wrappers = self.event_manager._listeners_to_wrappers  # noqa: SLF001
+            persist_state_listeners = flatten(listeners_to_wrappers.get(Event.PERSIST_STATE, {}).values())
+            migrating_listeners = flatten(listeners_to_wrappers.get(Event.MIGRATING, {}).values())
 
             async def safe_dispatch(listener: Any, data: Any) -> None:
                 try:
