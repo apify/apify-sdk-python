@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 4.0.1 - **not yet released**
+## [4.0.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.1) (2026-08-07)
 
 ### 🐛 Bug Fixes
 
@@ -17,7 +16,6 @@ All notable changes to this project will be documented in this file.
 - Allow concurrent dataset pushes by narrowing the push-path locks ([#1079](https://github.com/apify/apify-sdk-python/pull/1079)) ([7d23ecd](https://github.com/apify/apify-sdk-python/commit/7d23ecdc656f36cc087a23e419ae77fde1adbad8)) by [@vdusek](https://github.com/vdusek)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.0.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.0) (2026-07-20)
 
 ### 🚀 Features
