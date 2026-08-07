@@ -96,6 +96,7 @@ from crawlee.configuration import Configuration
 from crawlee.events import LocalEventManager
 from apify import Actor
 
+
 async def main():
 
     async with Actor():
@@ -125,15 +126,19 @@ Apify SDK v3.0 also reworks how storage clients are configured, giving you expli
 
 ```python
 from crawlee import service_locator
-from apify.storage_clients import ApifyStorageClient, SmartApifyStorageClient, MemoryStorageClient
+from apify.storage_clients import (
+    ApifyStorageClient,
+    SmartApifyStorageClient,
+    MemoryStorageClient,
+)
 from apify import Actor
 
 
 async def main():
     service_locator.set_storage_client(
         SmartApifyStorageClient(
-            cloud_storage_client=ApifyStorageClient(request_queue_access="single"),
-            local_storage_client=MemoryStorageClient()
+            cloud_storage_client=ApifyStorageClient(request_queue_access='single'),
+            local_storage_client=MemoryStorageClient(),
         )
     )
     async with Actor:
@@ -158,7 +163,7 @@ async def main():
     # Full client that supports multiple consumers of the Apify Request Queue
     service_locator.set_storage_client(
         SmartApifyStorageClient(
-            cloud_storage_client=ApifyStorageClient(request_queue_access="shared"),
+            cloud_storage_client=ApifyStorageClient(request_queue_access='shared'),
         )
     )
     async with Actor:
