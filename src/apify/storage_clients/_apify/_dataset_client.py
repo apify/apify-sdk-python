@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Sequence
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -16,7 +17,7 @@ from apify._charging import charge_lock_if_charging
 from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Mapping, Sequence
+    from collections.abc import AsyncIterator, Mapping
 
     from apify_client._resource_clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
@@ -134,7 +135,7 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         # Pushing mutates no client state - `push_items` is a stateless API call - so concurrent pushes only need
         # the charge lock, which keeps the limit reservation and the charge atomic for pay-per-event runs.
         async with charge_lock_if_charging():
-            items = data if self._is_sequence_of_items(data) else [data]
+            items = data if isinstance(data, Sequence) else [data]
             if not items:
                 return
             limit = self._compute_limit_for_push(len(items))
