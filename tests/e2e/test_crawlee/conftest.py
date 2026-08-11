@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..._utils import poll_until_condition
+
 if TYPE_CHECKING:
     from apify_client._models import Run
     from apify_client._resource_clients import ActorClientAsync
@@ -39,9 +41,16 @@ async def verify_crawler_results(
     """Verify dataset items and KVS record after a crawler Actor run."""
     assert run_result.status == 'SUCCEEDED'
 
-    # Verify dataset items.
-    items = await actor.last_run().dataset().list_items()
-    assert items.count == 3
+    # Verify dataset items. The dataset is eventually consistent - right after a run finishes, the API can already
+    # report the final item count in the pagination headers while the items themselves are not returned yet - so poll
+    # until all the pushed items are readable.
+    dataset = actor.last_run().dataset()
+    items = await poll_until_condition(
+        dataset.list_items,
+        lambda page: len(page.items) >= len(_EXPECTED_PRODUCTS),
+        timeout=30,
+    )
+    assert len(items.items) == len(_EXPECTED_PRODUCTS)
 
     items_by_name = {item['name']: item for item in items.items}
 
