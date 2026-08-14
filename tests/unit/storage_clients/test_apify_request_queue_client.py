@@ -15,6 +15,7 @@ from apify_client._models import (
     RequestDraft,
     RequestQueueHead,
     RequestQueueStats,
+    RequestRegistration,
 )
 from apify_client._models import Request as ClientRequest
 from crawlee.storage_clients.models import AddRequestsResponse, RequestQueueMetadata
@@ -117,6 +118,15 @@ def _client_request(request: Request, *, handled_at: datetime | None) -> ClientR
     return ClientRequest.model_validate(
         request.model_dump(by_alias=True)
         | {'id': unique_key_to_request_id(request.unique_key), 'handledAt': handled_at}
+    )
+
+
+def _request_registration(request: Request, *, was_already_handled: bool) -> RequestRegistration:
+    """Build an `update_request` response reporting the given pre-update handled state."""
+    return RequestRegistration(
+        request_id=unique_key_to_request_id(request.unique_key),
+        was_already_present=True,
+        was_already_handled=was_already_handled,
     )
 
 
@@ -429,6 +439,67 @@ async def test_shared_is_finished_true_on_queue_with_no_known_requests() -> None
 
     assert await client.is_finished() is True
     api_client.get_request.assert_not_awaited()
+
+
+async def test_shared_is_finished_true_after_this_client_marked_request_handled() -> None:
+    """A request this client marked handled is trusted from the cache, so `is_finished` needs no per-request read."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([request]))
+    await client.add_batch_of_requests([request])
+
+    # The platform reports the pre-update state, so a first-time handle comes back as not yet handled.
+    api_client.update_request = AsyncMock(return_value=_request_registration(request, was_already_handled=False))
+    assert await client.mark_request_as_handled(request) is not None
+
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock()
+
+    assert await client.is_finished() is True
+    api_client.get_request.assert_not_awaited()
+
+
+async def test_shared_is_finished_false_after_failed_mark_request_as_handled() -> None:
+    """A failed `mark_request_as_handled` leaves the request unconfirmed, so `is_finished` re-checks it."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([request]))
+    await client.add_batch_of_requests([request])
+
+    api_client.update_request = AsyncMock(side_effect=RuntimeError('network down'))
+    assert await client.mark_request_as_handled(request) is None
+
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock(return_value=_client_request(request, handled_at=None))
+
+    assert await client.is_finished() is False
+    api_client.get_request.assert_awaited_once_with(request_id)
+
+
+async def test_shared_is_finished_false_after_reclaiming_handled_request() -> None:
+    """A reclaimed previously-handled request is pending again, so `is_finished` re-checks it via the platform."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([request]))
+    await client.add_batch_of_requests([request])
+
+    api_client.update_request = AsyncMock(return_value=_request_registration(request, was_already_handled=False))
+    await client.mark_request_as_handled(request)
+
+    # Reclaim the handled request: the platform reports the pre-update (handled) state.
+    api_client.update_request = AsyncMock(return_value=_request_registration(request, was_already_handled=True))
+    assert await client.reclaim_request(request) is not None
+
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock(return_value=_client_request(request, handled_at=None))
+
+    assert await client.is_finished() is False
+    api_client.get_request.assert_awaited_once_with(request_id)
 
 
 async def test_shared_is_finished_false_while_add_batch_in_flight() -> None:

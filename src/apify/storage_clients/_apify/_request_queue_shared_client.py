@@ -264,8 +264,6 @@ class ApifyRequestQueueSharedClient:
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=UTC)
 
-        if cached_request := self._requests_cache.get(request_id):
-            cached_request.was_already_handled = request.was_already_handled
         try:
             # Update the request in the API
             processed_request = await self._update_request(request)
@@ -277,10 +275,11 @@ class ApifyRequestQueueSharedClient:
                 self.metadata.handled_request_count += 1
                 self.metadata.pending_request_count -= 1
 
-            # Update the cache with the handled request
+            # Cache the request as handled. The platform response's `was_already_handled` reports the state
+            # before this update, so it must not be cached as the request's current state.
             self._cache_request(
                 cache_key=request_id,
-                processed_request=processed_request,
+                processed_request=processed_request.model_copy(update={'was_already_handled': True}),
                 hydrated_request=request,
             )
         except Exception:
@@ -314,11 +313,12 @@ class ApifyRequestQueueSharedClient:
                     self.metadata.handled_request_count -= 1
                     self.metadata.pending_request_count += 1
 
-                # Update the cache
+                # Cache the request as pending again. The platform response's `was_already_handled` reports the
+                # state before this update, so it must not be cached as the request's current state.
                 request_id = unique_key_to_request_id(request.unique_key)
                 self._cache_request(
                     request_id,
-                    processed_request,
+                    processed_request.model_copy(update={'was_already_handled': False}),
                     hydrated_request=request,
                 )
 
