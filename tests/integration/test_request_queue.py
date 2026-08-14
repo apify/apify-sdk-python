@@ -1241,14 +1241,7 @@ async def test_request_queue_is_finished_and_is_empty(
     )
 
     await request_queue_apify.add_request(Request.from_url('http://example.com'))
-    # `is_finished` reads the queue head, which reflects the newly added request only after propagation, so poll
-    # until the queue stops reporting itself as finished.
-    assert not await poll_until_condition(
-        request_queue_apify.is_finished,
-        lambda finished: not finished,
-        timeout=rq_poll_timeout,
-        backoff_factor=2,
-    ), 'RequestQueue should not be finished after a request is added.'
+    assert not await request_queue_apify.is_finished()
 
     fetched = await poll_until_condition(
         request_queue_apify.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2
@@ -1258,12 +1251,9 @@ async def test_request_queue_is_finished_and_is_empty(
     assert await poll_until_condition(request_queue_apify.is_empty, timeout=rq_poll_timeout, backoff_factor=2), (
         'RequestQueue should be empty because queue does not contain any requests for fetching.'
     )
-    assert not await poll_until_condition(
-        request_queue_apify.is_finished,
-        lambda finished: not finished,
-        timeout=rq_poll_timeout,
-        backoff_factor=2,
-    ), 'RequestQueue should not be finished unless the request is marked as handled.'
+    assert not await request_queue_apify.is_finished(), (
+        'RequestQueue should not be finished unless the request is marked as handled.'
+    )
 
     await request_queue_apify.mark_request_as_handled(fetched)
     assert await poll_until_condition(request_queue_apify.is_empty, timeout=rq_poll_timeout, backoff_factor=2)

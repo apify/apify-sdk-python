@@ -344,7 +344,37 @@ class ApifyRequestQueueSharedClient:
         """Specific implementation of this method for the RQ shared access mode."""
         async with self._fetch_lock:
             # Order of operations is important here, because affects on `_queue_has_locked_requests`.
-            return await self._is_empty() and not self._queue_has_locked_requests
+            if not await self._is_empty() or self._queue_has_locked_requests:
+                return False
+
+            # The head listing is eventually consistent: it can miss a just-added request (and report no locked
+            # requests) for a short while, so an empty head alone is not proof the queue is finished. Confirm the
+            # verdict against per-request reads before reporting `True`.
+            return await self._all_known_requests_handled()
+
+    async def _all_known_requests_handled(self) -> bool:
+        """Confirm via the API that every request this client knows about was handled. Caller must hold the lock.
+
+        Unlike the head listing, fetching a request by id is strongly consistent, so each locally known request
+        that was not yet seen handled is re-checked against the platform. A request that is missing (not yet
+        propagated) or unhandled (pending, or locked by another client) means the queue is not finished. Requests
+        confirmed as handled are remembered in the cache, so each one is verified at most once.
+        """
+        if self._requests_being_added:
+            # An in-flight `add_batch_of_requests` call is about to commit new requests.
+            return False
+
+        for request_id, cached_request in list(self._requests_cache.items()):
+            if cached_request.was_already_handled:
+                continue
+
+            request = await self._get_request_by_id(request_id)
+            if request is None or request.handled_at is None:
+                return False
+
+            cached_request.was_already_handled = True
+
+        return True
 
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""

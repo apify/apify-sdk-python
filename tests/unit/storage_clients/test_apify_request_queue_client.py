@@ -8,7 +8,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apify_client._models import AddedRequest, BatchAddResult, RequestDraft, RequestQueueHead, RequestQueueStats
+from apify_client._models import (
+    AddedRequest,
+    BatchAddResult,
+    LockedRequestQueueHead,
+    RequestDraft,
+    RequestQueueHead,
+    RequestQueueStats,
+)
+from apify_client._models import Request as ClientRequest
 from crawlee.storage_clients.models import AddRequestsResponse, RequestQueueMetadata
 
 from apify import Request
@@ -90,6 +98,26 @@ def _make_shared_client(
         metadata_getter=AsyncMock(return_value=metadata),
     )
     return client, api_client
+
+
+def _empty_locked_head(*, queue_has_locked_requests: bool = False) -> LockedRequestQueueHead:
+    """Build an empty `list_and_lock_head` response, optionally reporting locked requests."""
+    return LockedRequestQueueHead(
+        limit=1,
+        queue_modified_at=datetime.now(tz=UTC),
+        queue_has_locked_requests=queue_has_locked_requests,
+        had_multiple_clients=True,
+        lock_secs=60,
+        items=[],
+    )
+
+
+def _client_request(request: Request, *, handled_at: datetime | None) -> ClientRequest:
+    """Build a `get_request` response for the given request in the given handled state."""
+    return ClientRequest.model_validate(
+        request.model_dump(by_alias=True)
+        | {'id': unique_key_to_request_id(request.unique_key), 'handledAt': handled_at}
+    )
 
 
 def test_unique_key_to_request_id_length() -> None:
@@ -338,3 +366,93 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     assert api_client.batch_add_requests.await_args is not None
     resent = api_client.batch_add_requests.await_args.kwargs['requests']
     assert [request['uniqueKey'] for request in resent] == [rejected.unique_key]
+
+
+@pytest.mark.parametrize(
+    'platform_request_visible',
+    [
+        pytest.param(True, id='still_pending'),
+        pytest.param(False, id='not_yet_visible'),
+    ],
+)
+async def test_shared_is_finished_false_while_known_request_unhandled(*, platform_request_visible: bool) -> None:
+    """An empty, lock-free head listing does not report the queue finished while a known request is unhandled:
+    the eventually consistent head can miss a just-added request, so its state is confirmed by fetching it."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    request_id = unique_key_to_request_id(request.unique_key)
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([request]))
+    await client.add_batch_of_requests([request])
+
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock(
+        return_value=_client_request(request, handled_at=None) if platform_request_visible else None
+    )
+
+    assert await client.is_finished() is False
+    api_client.get_request.assert_awaited_once_with(request_id)
+
+
+async def test_shared_is_finished_true_once_known_requests_confirmed_handled() -> None:
+    """The queue reports finished once every known request is confirmed handled, and the confirmation is cached
+    so repeated `is_finished` calls do not re-fetch the request."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([request]))
+    await client.add_batch_of_requests([request])
+
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock(return_value=_client_request(request, handled_at=datetime.now(tz=UTC)))
+
+    assert await client.is_finished() is True
+    assert await client.is_finished() is True
+    assert api_client.get_request.await_count == 1
+
+
+async def test_shared_is_finished_false_when_head_reports_locked_requests() -> None:
+    """Locked requests reported by the head listing mean the queue is not finished, without any per-request reads."""
+    client, api_client = _make_shared_client()
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head(queue_has_locked_requests=True))
+    api_client.get_request = AsyncMock()
+
+    assert await client.is_finished() is False
+    api_client.get_request.assert_not_awaited()
+
+
+async def test_shared_is_finished_true_on_queue_with_no_known_requests() -> None:
+    """An empty, lock-free queue with no locally known requests reports finished without per-request reads."""
+    client, api_client = _make_shared_client()
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock()
+
+    assert await client.is_finished() is True
+    api_client.get_request.assert_not_awaited()
+
+
+async def test_shared_is_finished_false_while_add_batch_in_flight() -> None:
+    """The queue does not report finished while an `add_batch_of_requests` call is still in flight."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+
+    in_flight = asyncio.Event()
+    release = asyncio.Event()
+
+    async def batch_add(*, requests: list, forefront: bool = False) -> BatchAddResult:  # noqa: ARG001
+        in_flight.set()
+        await release.wait()
+        return _batch_result_all_processed([request])
+
+    api_client.batch_add_requests = AsyncMock(side_effect=batch_add)
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock()
+
+    add_task = asyncio.create_task(client.add_batch_of_requests([request]))
+    await in_flight.wait()
+
+    assert await client.is_finished() is False
+    api_client.get_request.assert_not_awaited()
+
+    release.set()
+    await add_task
