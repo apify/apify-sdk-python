@@ -527,3 +527,59 @@ async def test_shared_is_finished_false_while_add_batch_in_flight() -> None:
 
     release.set()
     await add_task
+
+
+async def test_shared_is_finished_confirms_known_requests_in_bounded_parallel_batches() -> None:
+    """`is_finished` confirms unhandled requests concurrently, in batches bounded by `_VERIFICATION_BATCH_SIZE`."""
+    client, api_client = _make_shared_client()
+    batch_size = ApifyRequestQueueSharedClient._VERIFICATION_BATCH_SIZE
+    requests = [Request.from_url(f'https://example.com/{i}') for i in range(batch_size * 2 + 5)]
+    requests_by_id = {unique_key_to_request_id(request.unique_key): request for request in requests}
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed(requests))
+    await client.add_batch_of_requests(requests)
+
+    in_flight = 0
+    peak_in_flight = 0
+
+    async def get_request(request_id: str) -> ClientRequest:
+        nonlocal in_flight, peak_in_flight
+        in_flight += 1
+        peak_in_flight = max(peak_in_flight, in_flight)
+        # Yield to the loop so the whole batch is in flight before any of its calls completes.
+        await asyncio.sleep(0)
+        in_flight -= 1
+        return _client_request(requests_by_id[request_id], handled_at=datetime.now(tz=UTC))
+
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock(side_effect=get_request)
+
+    assert await client.is_finished() is True
+    assert api_client.get_request.await_count == len(requests)
+    assert peak_in_flight == batch_size
+
+
+async def test_shared_is_finished_does_not_refetch_requests_confirmed_in_an_unfinished_batch() -> None:
+    """Requests confirmed handled alongside an unhandled one are not fetched again by the next `is_finished`."""
+    client, api_client = _make_shared_client()
+    handled, straggler = (Request.from_url(f'https://example.com/{i}') for i in range(2))
+    straggler_id = unique_key_to_request_id(straggler.unique_key)
+
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result_all_processed([handled, straggler]))
+    await client.add_batch_of_requests([handled, straggler])
+
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock(
+        side_effect=lambda request_id: _client_request(
+            straggler if request_id == straggler_id else handled,
+            handled_at=None if request_id == straggler_id else datetime.now(tz=UTC),
+        )
+    )
+
+    assert await client.is_finished() is False
+    assert api_client.get_request.await_count == 2
+
+    api_client.get_request = AsyncMock(return_value=_client_request(straggler, handled_at=datetime.now(tz=UTC)))
+
+    assert await client.is_finished() is True
+    api_client.get_request.assert_awaited_once_with(straggler_id)
