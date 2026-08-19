@@ -102,7 +102,9 @@ async def test_sdk_client_compresses_request_body_with_brotli(
         request_handler
     ).respond_with_json({'data': {}}, status=201)
 
-    items = [{'hello': 'world'}, {'answer': 42}]
+    # The client leaves bodies under 1 KiB uncompressed, so the payload has to be large enough to cross that
+    # threshold for `Content-Encoding` to be set at all.
+    items = [{'index': i, 'payload': 'x' * 100} for i in range(20)]
     await client.dataset(dataset_id='test-dataset').push_items(items)
 
     assert captured['content_encoding'] == 'br'
