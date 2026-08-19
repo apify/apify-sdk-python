@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 4.0.2 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Prolong and track shared request queue locks to prevent duplicate processing ([#1062](https://github.com/apify/apify-sdk-python/pull/1062)) ([ccaad7b](https://github.com/apify/apify-sdk-python/commit/ccaad7b71cd6cd1ddc2c71e5e9d9780001f2688a)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [4.0.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.1) (2026-08-07)
 
 ### 🐛 Bug Fixes
