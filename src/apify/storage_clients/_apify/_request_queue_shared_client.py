@@ -53,6 +53,9 @@ class ApifyRequestQueueSharedClient:
     `request_handler_timeout` of one minute.
     """
 
+    _VERIFICATION_BATCH_SIZE: Final[int] = 10
+    """How many requests `is_finished` confirms with the platform in parallel."""
+
     def __init__(
         self,
         *,
@@ -100,6 +103,13 @@ class ApifyRequestQueueSharedClient:
         committed, `False` otherwise. A concurrent call adding the same request awaits the future instead of
         re-sending it, which avoids a duplicate platform write while still avoiding false success when the original
         add fails.
+        """
+
+        self._unhandled_request_ids = set[str]()
+        """IDs of locally known requests not yet confirmed handled, maintained by `_cache_request`.
+
+        An index over `_requests_cache` so that `is_finished` verification does not have to walk the whole cache,
+        which holds up to a million entries and is consulted on every poll of the crawler's finished check.
         """
 
         self._queue_has_locked_requests: bool | None = None
@@ -289,7 +299,7 @@ class ApifyRequestQueueSharedClient:
             return None
 
         # `_get_or_hydrate_request` may return a request from the queue-head cache, which is populated by
-        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by id to
+        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by ID to
         # guarantee the caller gets the full request object.
         request = await self._get_request_by_id(next_request_id)
         if request is None:
@@ -311,8 +321,6 @@ class ApifyRequestQueueSharedClient:
         if request.handled_at is None:
             request.handled_at = datetime.now(tz=UTC)
 
-        if cached_request := self._requests_cache.get(request_id):
-            cached_request.was_already_handled = request.was_already_handled
         try:
             # Update the request in the API
             processed_request = await self._update_request(request)
@@ -324,10 +332,11 @@ class ApifyRequestQueueSharedClient:
                 self.metadata.handled_request_count += 1
                 self.metadata.pending_request_count -= 1
 
-            # Update the cache with the handled request
+            # Cache the request as handled. The platform response's `was_already_handled` reports the state
+            # before this update, so it must not be cached as the request's current state.
             self._cache_request(
                 cache_key=request_id,
-                processed_request=processed_request,
+                processed_request=processed_request.model_copy(update={'was_already_handled': True}),
                 hydrated_request=request,
             )
         except Exception:
@@ -364,10 +373,11 @@ class ApifyRequestQueueSharedClient:
                     self.metadata.handled_request_count -= 1
                     self.metadata.pending_request_count += 1
 
-                # Update the cache
+                # Cache the request as pending again. The platform response's `was_already_handled` reports the
+                # state before this update, so it must not be cached as the request's current state.
                 self._cache_request(
                     request_id,
-                    processed_request,
+                    processed_request.model_copy(update={'was_already_handled': False}),
                     hydrated_request=request,
                 )
 
@@ -392,9 +402,59 @@ class ApifyRequestQueueSharedClient:
     async def is_finished(self) -> bool:
         """Specific implementation of this method for the RQ shared access mode."""
         async with self._fetch_lock:
-            # Order of operations is important here, because affects on `_queue_has_locked_requests`.
-            # A locally in-progress request keeps the queue unfinished even when the head lists empty.
-            return await self._is_empty() and not self._queue_has_locked_requests and not self._requests_in_progress
+            # `_is_empty` has to be awaited first: listing the head is what refreshes `_queue_has_locked_requests`,
+            # which stays `None` until then. A request this client is still processing keeps the queue unfinished even
+            # when the head lists empty.
+            if not await self._is_empty() or self._queue_has_locked_requests or self._requests_in_progress:
+                return False
+
+            # The head listing is eventually consistent: it can miss a just-added request (and report no locked
+            # requests) for a short while, so an empty head alone is not proof the queue is finished. Confirm the
+            # verdict against per-request reads before reporting `True`.
+            return await self._all_known_requests_handled()
+
+    async def _all_known_requests_handled(self) -> bool:
+        """Confirm via the API that every request this client knows about was handled. Caller must hold the lock.
+
+        Each locally known request not yet seen handled is re-read by ID, a signal independent of the head listing
+        that missed it. The check is one-sided on purpose: only a request the platform reports as handled counts as
+        done, so a by-ID read that lags behind can delay the finished verdict but never produce it too early.
+        Confirmed requests stop being tracked as unhandled, so each one is verified at most once: a client that
+        handled its own requests has nothing left to check, and one waiting on a straggler only re-fetches that
+        straggler.
+        """
+        if self._requests_being_added:
+            # An in-flight `add_batch_of_requests` call is about to commit new requests.
+            return False
+
+        unhandled = list(self._unhandled_request_ids)
+        for start in range(0, len(unhandled), self._VERIFICATION_BATCH_SIZE):
+            if not await self._confirm_requests_handled(unhandled[start : start + self._VERIFICATION_BATCH_SIZE]):
+                return False
+
+        return True
+
+    async def _confirm_requests_handled(self, request_ids: Sequence[str]) -> bool:
+        """Fetch the given requests in parallel and report whether the platform has all of them handled.
+
+        Requests the platform confirms as handled are dropped from `_unhandled_request_ids` even when another
+        request in the same batch reports the queue as unfinished, so no confirmation is fetched twice.
+        """
+        requests = await asyncio.gather(*(self._get_request_by_id(request_id) for request_id in request_ids))
+
+        all_handled = True
+        for request_id, request in zip(request_ids, requests, strict=True):
+            # A request that is missing (not yet propagated) or unhandled (pending, or locked by another client)
+            # means the queue is not finished.
+            if request is None or request.handled_at is None:
+                all_handled = False
+                continue
+
+            self._unhandled_request_ids.discard(request_id)
+            if cached_request := self._requests_cache.get(request_id):
+                cached_request.was_already_handled = True
+
+        return all_handled
 
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
@@ -446,7 +506,7 @@ class ApifyRequestQueueSharedClient:
         window starting at hand-off.
 
         Args:
-            request_id: Id of the request about to be handed to a consumer.
+            request_id: ID of the request about to be handed to a consumer.
             lock_expires_at: When the currently held lock on the request expires, if known.
             now: The current time, as observed when the request was picked from the queue head.
 
@@ -476,10 +536,10 @@ class ApifyRequestQueueSharedClient:
         return True
 
     async def _get_or_hydrate_request(self, request_id: str) -> Request | None:
-        """Get a request by id, either from cache or by fetching from API.
+        """Get a request by ID, either from cache or by fetching from API.
 
         Args:
-            request_id: Id of the request to get.
+            request_id: ID of the request to get.
 
         Returns:
             The request if found and valid, otherwise None.
@@ -660,3 +720,8 @@ class ApifyRequestQueueSharedClient:
             hydrated=hydrated_request,
             lock_expires_at=lock_expires_at,
         )
+
+        if processed_request.was_already_handled:
+            self._unhandled_request_ids.discard(cache_key)
+        else:
+            self._unhandled_request_ids.add(cache_key)
