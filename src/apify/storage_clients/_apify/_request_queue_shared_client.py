@@ -106,7 +106,7 @@ class ApifyRequestQueueSharedClient:
         """
 
         self._unhandled_request_ids = set[str]()
-        """Ids of locally known requests not yet confirmed handled, maintained by `_cache_request`.
+        """IDs of locally known requests not yet confirmed handled, maintained by `_cache_request`.
 
         An index over `_requests_cache` so that `is_finished` verification does not have to walk the whole cache,
         which holds up to a million entries and is consulted on every poll of the crawler's finished check.
@@ -299,7 +299,7 @@ class ApifyRequestQueueSharedClient:
             return None
 
         # `_get_or_hydrate_request` may return a request from the queue-head cache, which is populated by
-        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by id to
+        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by ID to
         # guarantee the caller gets the full request object.
         request = await self._get_request_by_id(next_request_id)
         if request is None:
@@ -402,8 +402,9 @@ class ApifyRequestQueueSharedClient:
     async def is_finished(self) -> bool:
         """Specific implementation of this method for the RQ shared access mode."""
         async with self._fetch_lock:
-            # Order of operations is important here, because affects on `_queue_has_locked_requests`.
-            # A locally in-progress request keeps the queue unfinished even when the head lists empty.
+            # `_is_empty` has to be awaited first: listing the head is what refreshes `_queue_has_locked_requests`,
+            # which stays `None` until then. A request this client is still processing keeps the queue unfinished even
+            # when the head lists empty.
             if not await self._is_empty() or self._queue_has_locked_requests or self._requests_in_progress:
                 return False
 
@@ -415,10 +416,12 @@ class ApifyRequestQueueSharedClient:
     async def _all_known_requests_handled(self) -> bool:
         """Confirm via the API that every request this client knows about was handled. Caller must hold the lock.
 
-        Unlike the head listing, fetching a request by id is strongly consistent, so each locally known request that
-        was not yet seen handled is re-checked against the platform. Confirmed requests stop being tracked as
-        unhandled, so each one is verified at most once: a client that handled its own requests has nothing left to
-        check, and one that is waiting on a straggler only re-fetches that straggler.
+        Each locally known request not yet seen handled is re-read by ID, a signal independent of the head listing
+        that missed it. The check is one-sided on purpose: only a request the platform reports as handled counts as
+        done, so a by-ID read that lags behind can delay the finished verdict but never produce it too early.
+        Confirmed requests stop being tracked as unhandled, so each one is verified at most once: a client that
+        handled its own requests has nothing left to check, and one waiting on a straggler only re-fetches that
+        straggler.
         """
         if self._requests_being_added:
             # An in-flight `add_batch_of_requests` call is about to commit new requests.
@@ -503,7 +506,7 @@ class ApifyRequestQueueSharedClient:
         window starting at hand-off.
 
         Args:
-            request_id: Id of the request about to be handed to a consumer.
+            request_id: ID of the request about to be handed to a consumer.
             lock_expires_at: When the currently held lock on the request expires, if known.
             now: The current time, as observed when the request was picked from the queue head.
 
@@ -533,10 +536,10 @@ class ApifyRequestQueueSharedClient:
         return True
 
     async def _get_or_hydrate_request(self, request_id: str) -> Request | None:
-        """Get a request by id, either from cache or by fetching from API.
+        """Get a request by ID, either from cache or by fetching from API.
 
         Args:
-            request_id: Id of the request to get.
+            request_id: ID of the request to get.
 
         Returns:
             The request if found and valid, otherwise None.
