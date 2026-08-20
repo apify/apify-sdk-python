@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Prolong and track shared request queue locks to prevent duplicate processing ([#1062](https://github.com/apify/apify-sdk-python/pull/1062)) ([ccaad7b](https://github.com/apify/apify-sdk-python/commit/ccaad7b71cd6cd1ddc2c71e5e9d9780001f2688a)) by [@vdusek](https://github.com/vdusek)
+- Verify shared request queue is_finished against per-request reads ([#1087](https://github.com/apify/apify-sdk-python/pull/1087)) ([22613aa](https://github.com/apify/apify-sdk-python/commit/22613aac0ce4e6ef852d5d3daf8c1a25cb3731e3)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
