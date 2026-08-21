@@ -190,6 +190,16 @@ def test_apify_request_id_in_meta_is_ignored(spider: Spider) -> None:
     assert apify_request.unique_key == 'https://example.com'
 
 
+def test_unchanged_request_keeps_the_unique_key_it_was_stamped_with(spider: Spider) -> None:
+    """A request handed to Scrapy and enqueued again unchanged reuses the unique key it was minted for."""
+    scrapy_request = to_scrapy_request(ApifyRequest.from_url('https://example.com'), spider)
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == scrapy_request.meta['apify_request_unique_key']
+
+
 def test_redirected_request_does_not_inherit_the_parents_unique_key(spider: Spider) -> None:
     """A redirect derived from a fetched request gets its own unique key instead of the parent's stamp."""
     parent = to_scrapy_request(ApifyRequest.from_url('https://example.com/redirect'), spider)
