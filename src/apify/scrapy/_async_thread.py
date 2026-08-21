@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+_SUBMITTED_PRUNE_THRESHOLD = 128
+"""How many `submit_coro` futures may pile up before the finished ones are dropped from the tracking list."""
+
 
 class AsyncThread:
     """Run an asyncio event loop in a dedicated background thread.
@@ -25,6 +28,9 @@ class AsyncThread:
     def __init__(self, default_timeout: timedelta = timedelta(seconds=60)) -> None:
         self._default_timeout = default_timeout
         self._eventloop = asyncio.new_event_loop()
+
+        self._submitted: list[futures.Future] = []
+        """Futures of the coroutines submitted via `submit_coro` that may still be running."""
 
         # Start the event loop in a dedicated daemon thread.
         self._thread = threading.Thread(
@@ -79,7 +85,8 @@ class AsyncThread:
 
         Use this for work whose result nothing depends on, so the calling thread is not blocked by the round
         trip. Failures are logged, as there is no caller left to propagate them to, and a coroutine still
-        pending when `close` runs is cancelled along with the rest.
+        pending when `close` runs is cancelled along with the rest - call `wait_for_submitted` before anything
+        that must not see that happen.
 
         Args:
             coro: The coroutine to run.
@@ -90,8 +97,34 @@ class AsyncThread:
         if self._eventloop.is_closed():
             raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
 
+        # Drop the futures that already finished. `wait_for_submitted` only runs once Scrapy goes idle, so
+        # without this the list would hold every coroutine the whole crawl ever submitted, with its result.
+        if len(self._submitted) >= _SUBMITTED_PRUNE_THRESHOLD:
+            self._submitted = [submitted for submitted in self._submitted if not submitted.done()]
+
         future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
         future.add_done_callback(self._log_failure)
+        self._submitted.append(future)
+
+    def wait_for_submitted(self, timeout: timedelta | None = None) -> None:
+        """Block until the coroutines submitted via `submit_coro` have finished.
+
+        Use this before anything that would observe their effects, or before `close`, which cancels whatever is
+        still running. Coroutines that do not finish within the timeout stay tracked for the next call.
+
+        Args:
+            timeout: The maximum time to wait for the submitted coroutines. Pass `None` to use the
+                `default_timeout` passed to the constructor.
+        """
+        if timeout is None:
+            timeout = self._default_timeout
+
+        self._submitted = list(futures.wait(self._submitted, timeout=timeout.total_seconds()).not_done)
+
+        # Returning with coroutines still pending breaks the guarantee the callers rely on, so say so rather
+        # than letting them act on effects that have not landed.
+        if self._submitted:
+            logger.warning(f'{len(self._submitted)} submitted coroutines did not finish within the timeout.')
 
     def close(self, timeout: timedelta | None = None) -> None:
         """Close the event loop and its thread gracefully.

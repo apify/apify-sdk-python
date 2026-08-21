@@ -11,7 +11,7 @@ from typing import Any, Literal
 import pytest
 
 from ..._utils import poll_until_condition
-from apify.scrapy._async_thread import AsyncThread
+from apify.scrapy._async_thread import _SUBMITTED_PRUNE_THRESHOLD, AsyncThread
 
 
 async def _return(value: int) -> int:
@@ -213,3 +213,65 @@ def test_submit_coro_raises_after_close() -> None:
     with pytest.raises(RuntimeError):
         thread.submit_coro(coro)
     coro.close()
+
+
+def test_wait_for_submitted_blocks_until_the_coroutines_finish() -> None:
+    """`wait_for_submitted` waits for the fire-and-forget coroutines, so `close` cannot cancel them."""
+    thread = AsyncThread()
+    _wait_until_running(thread)
+
+    release = threading.Event()
+    finished = threading.Event()
+
+    async def gated() -> None:
+        await asyncio.to_thread(release.wait)
+        finished.set()
+
+    thread.submit_coro(gated())
+    release.set()
+
+    thread.wait_for_submitted()
+
+    assert finished.is_set()
+    thread.close()
+
+
+def test_wait_for_submitted_keeps_an_unfinished_coroutine_tracked(caplog: pytest.LogCaptureFixture) -> None:
+    """A coroutine that outlasts the timeout stays tracked and is reported, so a later call can wait for it."""
+    thread = AsyncThread()
+    _wait_until_running(thread)
+
+    release = threading.Event()
+
+    async def gated() -> None:
+        await asyncio.to_thread(release.wait)
+
+    thread.submit_coro(gated())
+
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy._async_thread'):
+        thread.wait_for_submitted(timeout=timedelta(seconds=0.01))
+    assert len(thread._submitted) == 1
+    assert [record for record in caplog.records if record.levelno == logging.WARNING]
+
+    release.set()
+    thread.wait_for_submitted()
+    assert thread._submitted == []
+
+    thread.close()
+
+
+def test_submit_coro_drops_the_finished_futures() -> None:
+    """Only the coroutines still running stay tracked, so a long crawl does not pile up finished futures."""
+    thread = AsyncThread()
+    _wait_until_running(thread)
+
+    for _ in range(_SUBMITTED_PRUNE_THRESHOLD):
+        thread.submit_coro(_return(1))
+
+    assert futures.wait(list(thread._submitted), timeout=2).not_done == set()
+
+    # Every tracked coroutine has finished, so this submission drops them instead of growing the list.
+    thread.submit_coro(_return(1))
+    assert len(thread._submitted) == 1
+
+    thread.close()

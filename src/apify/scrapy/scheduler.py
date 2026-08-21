@@ -106,15 +106,24 @@ class ApifyScheduler(BaseScheduler):
         rq = self._rq
         if isinstance(rq, RequestQueue):
             try:
-                # Resolve what Scrapy holds while the event loop is still around. Whatever it did not finish -
-                # an interrupted run, an Actor migration - goes back to the queue, so the next run picks it up
-                # instead of waiting for its lock to expire.
                 self._resolve_finished_requests(wait=True)
-                for apify_request, _ in self._requests_in_flight:
-                    self._async_thread.run_coro(rq.reclaim_request(apify_request))
-                self._requests_in_flight.clear()
             except Exception:
                 logger.exception('Failed to resolve the requests still in flight in the request queue.')
+
+            # Whatever Scrapy did not finish - an interrupted run, an Actor migration - goes back to the queue
+            # while the event loop is still around, so the next run gets it as pending. Each request is
+            # reclaimed on its own, so one failure does not strand the rest.
+            for apify_request, _ in self._requests_in_flight:
+                try:
+                    self._async_thread.run_coro(rq.reclaim_request(apify_request))
+                except Exception:
+                    logger.exception(f'Failed to reclaim the request {apify_request} in the request queue.')
+
+            self._requests_in_flight.clear()
+
+        # Let the updates fired off on the hot path finish: closing the event loop cancels them silently, which
+        # would leave those requests unhandled in the queue.
+        self._async_thread.wait_for_submitted()
 
         try:
             self._async_thread.close()
@@ -131,6 +140,8 @@ class ApifyScheduler(BaseScheduler):
     def has_pending_requests(self) -> bool:
         """Check if the scheduler has any pending requests.
 
+        Resolves the requests Scrapy has finished with first, as their outcome is what decides the answer.
+
         Returns:
             True if the scheduler has any pending requests, False otherwise.
         """
@@ -138,9 +149,12 @@ class ApifyScheduler(BaseScheduler):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
         # Scrapy asks this only once both its downloader and its scraper are idle, so everything still tracked
-        # as in flight is provably finished. Wait for those updates to land: the queue reports itself unfinished
-        # while any request it handed out is still unresolved.
+        # as in flight is provably finished.
         self._resolve_finished_requests(wait=True)
+
+        # The queue answers from its own bookkeeping, so an update still in flight would let it report itself
+        # finished while a request is unhandled - and closing the crawl would then cancel that update.
+        self._async_thread.wait_for_submitted()
 
         # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
         # otherwise easy to lose as it crosses that thread boundary back into Scrapy's synchronous machinery.
@@ -234,10 +248,10 @@ class ApifyScheduler(BaseScheduler):
     def _requests_busy_in_scrapy(self) -> set[Request]:
         """Return the requests Scrapy is still working on.
 
-        A request handed out by `next_request` stays in the downloader's or the scraper's active set until its
-        download, the downloader middleware chain and the spider callback have all finished, so absence from
-        both means Scrapy is done with it. Requests a middleware drops before the download reach neither set,
-        but Scrapy only asks `has_pending_requests` once both are empty, which is what settles those too.
+        A request handed out by `next_request` joins the downloader's active set before the middleware chain
+        runs, and leaves the scraper's only once the spider callback and the item pipeline have finished with
+        it. Absence from both therefore means Scrapy is done with the request, whether it was downloaded,
+        dropped by a middleware or errored out.
         """
         engine = self._crawler.engine if self._crawler is not None else None
         if engine is None:
@@ -249,6 +263,11 @@ class ApifyScheduler(BaseScheduler):
     def _resolve_finished_requests(self, *, wait: bool) -> None:
         """Mark every request Scrapy has finished processing as handled in the request queue.
 
+        Only a failure to dispatch the update - a timed-out or closed event loop - keeps a request tracked for
+        the next call to retry, without stopping the rest of the list from being resolved. The queue reports
+        the update's own failures by returning `None`, which is indistinguishable from success here, so such a
+        request is left unhandled for the next run to pick up.
+
         Args:
             wait: Whether to block until the queue has been updated. Pass False on the crawl's hot path, where
                 nothing depends on the result and blocking would stall the Twisted reactor.
@@ -258,14 +277,20 @@ class ApifyScheduler(BaseScheduler):
             return
 
         busy = self._requests_busy_in_scrapy()
-        still_in_flight = []
+        unresolved: list[tuple[ApifyRequest, Request]] = []
 
         for apify_request, scrapy_request in self._requests_in_flight:
             if scrapy_request in busy:
-                still_in_flight.append((apify_request, scrapy_request))
-            elif wait:
-                self._async_thread.run_coro(rq.mark_request_as_handled(apify_request))
-            else:
-                self._async_thread.submit_coro(rq.mark_request_as_handled(apify_request))
+                unresolved.append((apify_request, scrapy_request))
+                continue
 
-        self._requests_in_flight = still_in_flight
+            try:
+                if wait:
+                    self._async_thread.run_coro(rq.mark_request_as_handled(apify_request))
+                else:
+                    self._async_thread.submit_coro(rq.mark_request_as_handled(apify_request))
+            except Exception:
+                logger.exception(f'Failed to mark the request {apify_request} as handled in the request queue.')
+                unresolved.append((apify_request, scrapy_request))
+
+        self._requests_in_flight = unresolved
