@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-_SUBMITTED_PRUNE_THRESHOLD = 128
+SUBMITTED_PRUNE_THRESHOLD = 128
 """How many `submit_coro` futures may pile up before the finished ones are dropped from the tracking list."""
 
 
@@ -84,9 +84,8 @@ class AsyncThread:
         """Schedule a coroutine on the event loop without waiting for its result.
 
         Use this for work whose result nothing depends on, so the calling thread is not blocked by the round
-        trip. Failures are logged, as there is no caller left to propagate them to, and a coroutine still
-        pending when `close` runs is cancelled along with the rest - call `wait_for_submitted` before anything
-        that must not see that happen.
+        trip. Failures are logged, as no caller is left to propagate them to, and `close` cancels whatever is
+        still pending - call `wait_for_submitted` first if that matters.
 
         Args:
             coro: The coroutine to run.
@@ -97,9 +96,9 @@ class AsyncThread:
         if self._eventloop.is_closed():
             raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
 
-        # Drop the futures that already finished. `wait_for_submitted` only runs once Scrapy goes idle, so
-        # without this the list would hold every coroutine the whole crawl ever submitted, with its result.
-        if len(self._submitted) >= _SUBMITTED_PRUNE_THRESHOLD:
+        # `wait_for_submitted` only runs once Scrapy goes idle, so without pruning here the list would hold
+        # every coroutine the whole crawl ever submitted, with its result.
+        if len(self._submitted) >= SUBMITTED_PRUNE_THRESHOLD:
             self._submitted = [submitted for submitted in self._submitted if not submitted.done()]
 
         future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
@@ -121,8 +120,7 @@ class AsyncThread:
 
         self._submitted = list(futures.wait(self._submitted, timeout=timeout.total_seconds()).not_done)
 
-        # Returning with coroutines still pending breaks the guarantee the callers rely on, so say so rather
-        # than letting them act on effects that have not landed.
+        # Callers rely on the effects having landed, so a timeout has to be visible.
         if self._submitted:
             logger.warning(f'{len(self._submitted)} submitted coroutines did not finish within the timeout.')
 

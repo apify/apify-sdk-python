@@ -11,7 +11,7 @@ from typing import Any, Literal
 import pytest
 
 from ..._utils import poll_until_condition
-from apify.scrapy._async_thread import _SUBMITTED_PRUNE_THRESHOLD, AsyncThread
+from apify.scrapy._async_thread import SUBMITTED_PRUNE_THRESHOLD, AsyncThread
 
 
 async def _return(value: int) -> int:
@@ -265,7 +265,7 @@ def test_submit_coro_drops_the_finished_futures() -> None:
     thread = AsyncThread()
     _wait_until_running(thread)
 
-    for _ in range(_SUBMITTED_PRUNE_THRESHOLD):
+    for _ in range(SUBMITTED_PRUNE_THRESHOLD):
         thread.submit_coro(_return(1))
 
     assert futures.wait(list(thread._submitted), timeout=2).not_done == set()

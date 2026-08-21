@@ -76,11 +76,10 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
     try:
         if scrapy_request.dont_filter:
             request_kwargs['always_enqueue'] = True
-        # Reuse the queue's own unique key only while this is still the very request it was minted for.
-        # Scrapy derives new requests from a fetched one with `Request.replace()` (redirects) and spiders
-        # often forward `meta` verbatim to another URL; both inherit the stamp, and reusing it there would
-        # deduplicate the derived request against its parent and silently drop it. A stamp without a URL
-        # beside it was set by hand rather than by `to_scrapy_request`, so it is taken at face value.
+        # Reuse the queue's unique key only while this is still the request it was minted for. Redirects
+        # (`Request.replace()`) and spiders forwarding `meta` to another URL both inherit the stamp, and
+        # reusing it there deduplicates the derived request against its parent. A stamp without a URL beside
+        # it was set by hand, so it is taken at face value.
         elif (unique_key := scrapy_request.meta.get('apify_request_unique_key')) and (
             scrapy_request.meta.get('apify_request_url', scrapy_request.url) == scrapy_request.url
         ):
@@ -198,8 +197,8 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     else:
         scrapy_request = ScrapyRequest(url=apify_request.url, method=apify_request.method)
 
-    # Stamp the queue's unique key together with the URL it belongs to, so that `to_apify_request` can tell
-    # this request apart from the ones Scrapy derives from it.
+    # Stamp the unique key together with the URL it belongs to, so `to_apify_request` can tell this request
+    # apart from the ones Scrapy derives from it.
     scrapy_request.meta['apify_request_unique_key'] = apify_request.unique_key
     scrapy_request.meta['apify_request_url'] = scrapy_request.url
 
