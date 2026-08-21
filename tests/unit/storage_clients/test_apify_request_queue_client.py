@@ -888,7 +888,6 @@ async def test_single_reclaimed_request_kept_pending_while_head_lags(*, forefron
 
     await client.reclaim_request(fetched, forefront=forefront)
 
-    # The platform head listing lags behind the reclaim, so only the local head estimate keeps the request visible.
     # A True here would let `AutoscaledPool` end the run while the request is still pending on the platform.
     assert await client.is_empty() is False
     assert await client.is_finished() is False
@@ -897,3 +896,64 @@ async def test_single_reclaimed_request_kept_pending_while_head_lags(*, forefron
 
     assert refetched is not None
     assert refetched.unique_key == request.unique_key
+
+
+@pytest.mark.parametrize(
+    ('forefront', 'expected_order'),
+    [
+        pytest.param(False, ['https://example.com/2', 'https://example.com/1'], id='default'),
+        pytest.param(True, ['https://example.com/1', 'https://example.com/2'], id='forefront'),
+    ],
+)
+async def test_single_reclaimed_request_position_follows_forefront(
+    *,
+    forefront: bool,
+    expected_order: list[str],
+) -> None:
+    """A reclaimed request re-enters the local head estimate at the top with `forefront`, at the bottom without it."""
+    client, api_client = _make_single_client()
+    first = Request.from_url('https://example.com/1')
+    second = Request.from_url('https://example.com/2')
+
+    # The head serves both requests once, then lags behind the reclaim and keeps listing empty.
+    api_client.list_head = AsyncMock(side_effect=chain([_head(_head_item(first), _head_item(second))], repeat(_head())))
+    api_client.get_request = AsyncMock(side_effect=_client_request_getter([first, second]))
+    api_client.update_request = AsyncMock(return_value=_request_registration(first, was_already_handled=False))
+
+    fetched = await client.fetch_next_request()
+
+    assert fetched is not None
+    assert fetched.url == first.url
+
+    await client.reclaim_request(fetched, forefront=forefront)
+
+    first_served = await client.fetch_next_request()
+    second_served = await client.fetch_next_request()
+
+    assert first_served is not None
+    assert second_served is not None
+    assert [first_served.url, second_served.url] == expected_order
+
+
+async def test_single_reclaimed_request_finishes_queue_once_handled() -> None:
+    """The head entry a reclaim leaves behind is drained, so the queue still reports finished once handled."""
+    client, api_client = _make_single_client()
+    request = Request.from_url('https://example.com/1')
+
+    api_client.list_head = AsyncMock(side_effect=chain([_head(_head_item(request))], repeat(_head())))
+    api_client.get_request = AsyncMock(return_value=_client_request(request, handled_at=None))
+    api_client.update_request = AsyncMock(return_value=_request_registration(request, was_already_handled=False))
+
+    fetched = await client.fetch_next_request()
+
+    assert fetched is not None
+
+    await client.reclaim_request(fetched)
+
+    refetched = await client.fetch_next_request()
+
+    assert refetched is not None
+
+    await client.mark_request_as_handled(refetched)
+
+    assert await client.is_finished() is True
