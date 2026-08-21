@@ -3,15 +3,19 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from ..._utils import poll_until_condition
 from .conftest import get_scrapy_source_files
 
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
     from ..conftest import MakeActorFunction, RunActorFunction
 
 
 async def test_ppe_spider_charges_pushed_items_within_budget(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
+    apify_client_async: ApifyClientAsync,
 ) -> None:
     """A pay-per-event Scrapy Actor charges the synthetic dataset-item event and stops pushing at the budget cap."""
     actor = await make_actor(
@@ -46,7 +50,20 @@ async def test_ppe_spider_charges_pushed_items_within_budget(
     run = await run_actor(actor, max_total_charge_usd=Decimal('0.125'))
 
     assert run.status == 'SUCCEEDED'
-    assert run.charged_event_counts == {'apify-default-dataset-item': 2}
+
+    expected_charges = {'apify-default-dataset-item': 2}
+
+    # The SDK only tracks the synthetic event internally - the platform derives the charges from dataset writes
+    # asynchronously, so they can lag behind the run reaching a terminal status. Refetch until they propagate.
+    charged_run = await poll_until_condition(
+        apify_client_async.run(run.id).get,
+        lambda refetched: refetched is not None and refetched.charged_event_counts == expected_charges,
+        timeout=120,
+        poll_interval=1,
+    )
+
+    assert charged_run is not None
+    assert charged_run.charged_event_counts == expected_charges
 
     items = await actor.last_run().dataset().list_items()
     assert items.count == 2
