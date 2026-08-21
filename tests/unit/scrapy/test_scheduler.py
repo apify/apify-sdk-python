@@ -25,6 +25,20 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
+def fake_crawler(
+    *,
+    downloader_busy: set[Request] | None = None,
+    scraper_busy: set[Request] | None = None,
+) -> Any:
+    """Build a crawler stub reporting the given requests as busy; without `scraper_busy` its scraper slot is None."""
+    scraper_slot = SimpleNamespace(active=scraper_busy) if scraper_busy is not None else None
+    engine = SimpleNamespace(
+        downloader=SimpleNamespace(active=downloader_busy if downloader_busy is not None else set()),
+        scraper=SimpleNamespace(slot=scraper_slot),
+    )
+    return SimpleNamespace(engine=engine)
+
+
 @pytest.fixture
 def scheduler(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> ApifyScheduler:
     """Create a scheduler with its reactor check and async thread stubbed out."""
@@ -124,7 +138,7 @@ def test_next_request_skips_request_that_fails_to_convert(
 
 
 def test_next_request_returns_converted_request(scheduler: ApifyScheduler) -> None:
-    """A valid queue entry is reconstructed into a Scrapy request and marked handled."""
+    """A valid queue entry is reconstructed into a Scrapy request and left unhandled until Scrapy is done."""
     rq = cast('mock.MagicMock', scheduler._rq)
     async_thread = cast('mock.MagicMock', scheduler._async_thread)
 
@@ -134,13 +148,13 @@ def test_next_request_returns_converted_request(scheduler: ApifyScheduler) -> No
         unique_key='https://example.com',
         user_data={},
     )
-    async_thread.run_coro.side_effect = [apify_request, None]
+    async_thread.run_coro.return_value = apify_request
 
     result = scheduler.next_request()
 
     assert isinstance(result, Request)
     assert result.url == apify_request.url
-    rq.mark_request_as_handled.assert_called_once_with(apify_request)
+    rq.mark_request_as_handled.assert_not_called()
 
 
 def test_next_request_returns_none_when_queue_empty(scheduler: ApifyScheduler) -> None:
@@ -190,3 +204,209 @@ def test_from_crawler_reads_async_thread_timeout_setting(monkeypatch: pytest.Mon
     ApifyScheduler.from_crawler(cast('Any', crawler))
 
     assert captured['default_timeout'] == timedelta(seconds=123)
+
+
+def test_has_pending_requests_marks_finished_requests_as_handled(scheduler: ApifyScheduler) -> None:
+    """Requests Scrapy has finished with are marked as handled once it goes idle and asks about pending work."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={},
+    )
+    async_thread.run_coro.return_value = apify_request
+    scheduler.next_request()
+    rq.mark_request_as_handled.assert_not_called()
+
+    # Scrapy asks about pending work only once its downloader and its scraper are both idle.
+    scheduler._crawler = fake_crawler(scraper_busy=set())
+    async_thread.run_coro.return_value = True  # the queue reports itself finished
+    assert scheduler.has_pending_requests() is False
+
+    rq.mark_request_as_handled.assert_called_once_with(apify_request)
+
+
+def test_next_request_marks_finished_requests_without_blocking(scheduler: ApifyScheduler) -> None:
+    """On the crawl's hot path a finished request is marked as handled without blocking the reactor on it."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={},
+    )
+    async_thread.run_coro.return_value = apify_request
+    scrapy_request = scheduler.next_request()
+
+    # The queue is drained from here on, so no further request is handed out.
+    async_thread.run_coro.return_value = None
+
+    # Scrapy is still downloading the request, so it stays unresolved.
+    scheduler._crawler = fake_crawler(downloader_busy={cast('Request', scrapy_request)})
+    assert scheduler.next_request() is None
+    async_thread.submit_coro.assert_not_called()
+
+    # Scrapy is done with it, so it is resolved off the reactor thread instead of blocking on the round trip.
+    scheduler._crawler = fake_crawler(scraper_busy=set())
+    assert scheduler.next_request() is None
+
+    rq.mark_request_as_handled.assert_called_once_with(apify_request)
+    async_thread.submit_coro.assert_called_once_with(rq.mark_request_as_handled.return_value)
+
+
+def test_has_pending_requests_waits_for_the_non_blocking_updates(scheduler: ApifyScheduler) -> None:
+    """The queue is asked whether it is finished only after the updates fired off on the hot path have landed."""
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+    scheduler._crawler = fake_crawler()
+
+    async_thread.run_coro.return_value = True  # the queue reports itself finished
+    assert scheduler.has_pending_requests() is False
+
+    # The queue answers from its own bookkeeping, which a pending update has not reached yet.
+    assert async_thread.mock_calls == [
+        mock.call.wait_for_submitted(),
+        mock.call.run_coro(cast('mock.MagicMock', scheduler._rq).is_finished()),
+    ]
+
+
+@pytest.mark.parametrize(
+    'busy_kwarg',
+    [
+        pytest.param('downloader_busy', id='busy in the downloader'),
+        pytest.param('scraper_busy', id='busy in the scraper slot'),
+    ],
+)
+def test_close_reclaims_requests_scrapy_never_finished(scheduler: ApifyScheduler, busy_kwarg: str) -> None:
+    """Requests still being processed when the scheduler closes go back to the queue instead of being lost."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={},
+    )
+    async_thread.run_coro.return_value = apify_request
+    scrapy_request = scheduler.next_request()
+
+    # Scrapy is still working on the request when the run is interrupted.
+    scheduler._crawler = fake_crawler(**{busy_kwarg: {cast('Request', scrapy_request)}})
+
+    scheduler.close('shutdown')
+
+    rq.reclaim_request.assert_called_once_with(apify_request)
+    rq.mark_request_as_handled.assert_not_called()
+
+
+def test_close_marks_the_requests_scrapy_finished_as_handled(scheduler: ApifyScheduler) -> None:
+    """Requests Scrapy drained before the shutdown are marked as handled rather than reclaimed."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={},
+    )
+    async_thread.run_coro.return_value = apify_request
+    scheduler.next_request()
+
+    # Scrapy drains its downloader and its scraper before the scheduler is closed.
+    scheduler._crawler = fake_crawler(scraper_busy=set())
+
+    scheduler.close('finished')
+
+    rq.mark_request_as_handled.assert_called_once_with(apify_request)
+    rq.reclaim_request.assert_not_called()
+
+
+def test_close_reclaims_the_other_requests_after_a_failed_reclaim(
+    scheduler: ApifyScheduler,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """One failing reclaim does not stop the other in-flight requests from going back to the queue."""
+    rq = cast('mock.MagicMock', scheduler._rq)
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    apify_requests = [
+        ApifyRequest(
+            url=f'https://example.com/{index}',
+            method='GET',
+            unique_key=f'https://example.com/{index}',
+            user_data={},
+        )
+        for index in range(2)
+    ]
+
+    # The crawler stub keeps a reference to this set, so both requests stay busy as they are handed out.
+    busy: set[Request] = set()
+    scheduler._crawler = fake_crawler(downloader_busy=busy)
+
+    async_thread.run_coro.side_effect = apify_requests
+    for _ in apify_requests:
+        busy.add(cast('Request', scheduler.next_request()))
+
+    async_thread.run_coro.side_effect = [RuntimeError('boom'), None]
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'):
+        scheduler.close('shutdown')
+
+    assert rq.reclaim_request.call_count == len(apify_requests)
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert len(errors) == 1
+
+
+def test_close_waits_for_the_non_blocking_updates(scheduler: ApifyScheduler) -> None:
+    """The event loop is not torn down before the updates fired off on the hot path have landed."""
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    scheduler.close('finished')
+
+    calls = async_thread.mock_calls
+    assert calls.index(mock.call.wait_for_submitted()) < calls.index(mock.call.close())
+
+
+def test_a_failed_mark_keeps_the_request_tracked(
+    scheduler: ApifyScheduler,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A request whose mark-as-handled fails stays tracked, so the next resolution retries it."""
+    async_thread = cast('mock.MagicMock', scheduler._async_thread)
+
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={},
+    )
+    async_thread.run_coro.return_value = apify_request
+    scheduler.next_request()
+
+    scheduler._crawler = fake_crawler()
+    # The mark fails, then the queue reports itself unfinished because the request is still in progress.
+    async_thread.run_coro.side_effect = [RuntimeError('boom'), False]
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.scheduler'):
+        assert scheduler.has_pending_requests() is True
+
+    assert scheduler._requests_in_flight
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert len(errors) == 1
+
+
+def test_from_crawler_keeps_the_crawler(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`from_crawler` keeps the crawler, which is how the scheduler learns what Scrapy is still working on."""
+    monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
+    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', mock.MagicMock())
+
+    crawler = SimpleNamespace(settings=Settings())
+    scheduler = ApifyScheduler.from_crawler(cast('Any', crawler))
+
+    assert scheduler._crawler is crawler

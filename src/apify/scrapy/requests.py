@@ -76,8 +76,14 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
     try:
         if scrapy_request.dont_filter:
             request_kwargs['always_enqueue'] = True
-        elif scrapy_request.meta.get('apify_request_unique_key'):
-            request_kwargs['unique_key'] = scrapy_request.meta['apify_request_unique_key']
+        # Reuse the queue's unique key only while this is still the request it was minted for. Redirects
+        # (`Request.replace()`) and spiders forwarding `meta` to another URL both inherit the stamp, and
+        # reusing it there deduplicates the derived request against its parent. A stamp without a URL beside
+        # it was set by hand, so it is taken at face value.
+        elif (unique_key := scrapy_request.meta.get('apify_request_unique_key')) and (
+            scrapy_request.meta.get('apify_request_url', scrapy_request.url) == scrapy_request.url
+        ):
+            request_kwargs['unique_key'] = unique_key
 
         # Serialize the Scrapy request now, before `Request.from_url()` runs below. `from_url()` mutates the
         # `user_data` dict it receives in place (it injects a live `CrawleeRequestData` under `__crawlee`), and that
@@ -187,21 +193,14 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
         if not isinstance(scrapy_request, ScrapyRequest):
             raise TypeError('scrapy_request must be an instance of the ScrapyRequest class')
 
-        # Update the meta field with the meta field from the apify_request
-        meta = scrapy_request.meta or {}
-        meta.update({'apify_request_unique_key': apify_request.unique_key})
-        # scrapy_request.meta is a property, so we have to set it like this
-        scrapy_request._meta = meta  # noqa: SLF001
-
     # If the apify_request comes directly from the Scrapy, typically start URLs.
     else:
-        scrapy_request = ScrapyRequest(
-            url=apify_request.url,
-            method=apify_request.method,
-            meta={
-                'apify_request_unique_key': apify_request.unique_key,
-            },
-        )
+        scrapy_request = ScrapyRequest(url=apify_request.url, method=apify_request.method)
+
+    # Stamp the unique key together with the URL it belongs to, so `to_apify_request` can tell this request
+    # apart from the ones Scrapy derives from it.
+    scrapy_request.meta['apify_request_unique_key'] = apify_request.unique_key
+    scrapy_request.meta['apify_request_url'] = scrapy_request.url
 
     # Add optional 'headers' field
     if apify_request.headers:

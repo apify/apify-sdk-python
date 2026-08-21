@@ -68,6 +68,21 @@ def test_without_reconstruction(spider: Spider) -> None:
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
 
 
+def test_unique_key_is_stamped_together_with_its_url(spider: Spider) -> None:
+    """The queue's unique key is stamped alongside the URL it belongs to, so derived requests can be told apart."""
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={},
+    )
+
+    scrapy_request = to_scrapy_request(apify_request, spider)
+
+    assert scrapy_request.meta['apify_request_unique_key'] == apify_request.unique_key
+    assert scrapy_request.meta['apify_request_url'] == scrapy_request.url
+
+
 def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
     """The without-reconstruction path also carries optional headers and user data to the Scrapy request."""
     apify_request = ApifyRequest(
