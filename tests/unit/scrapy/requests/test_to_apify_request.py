@@ -10,6 +10,7 @@ from scrapy.http.headers import Headers
 
 from crawlee._types import HttpHeaders
 
+from apify import Request as ApifyRequest
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
 
 
@@ -187,3 +188,26 @@ def test_apify_request_id_in_meta_is_ignored(spider: Spider) -> None:
 
     assert apify_request is not None
     assert apify_request.unique_key == 'https://example.com'
+
+
+def test_redirected_request_does_not_inherit_the_parents_unique_key(spider: Spider) -> None:
+    """A redirect derived from a fetched request gets its own unique key instead of the parent's stamp."""
+    parent = to_scrapy_request(ApifyRequest.from_url('https://example.com/redirect'), spider)
+    redirected = parent.replace(url='https://example.com/target')
+
+    apify_request = to_apify_request(redirected, spider)
+
+    assert apify_request is not None
+    assert apify_request.url == 'https://example.com/target'
+    assert apify_request.unique_key != parent.meta['apify_request_unique_key']
+
+
+def test_follow_up_request_with_propagated_meta_gets_its_own_unique_key(spider: Spider) -> None:
+    """A spider callback forwarding `meta` verbatim to another URL must not reuse the parent's unique key."""
+    parent = to_scrapy_request(ApifyRequest.from_url('https://example.com/listing'), spider)
+    follow_up = Request(url='https://example.com/detail', meta=parent.meta)
+
+    apify_request = to_apify_request(follow_up, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key != parent.meta['apify_request_unique_key']

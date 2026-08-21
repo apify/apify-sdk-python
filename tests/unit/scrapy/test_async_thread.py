@@ -161,3 +161,55 @@ def test_close_stops_and_joins_thread_even_when_task_cancellation_fails(monkeypa
     # The loop was stopped and its thread joined despite the failing cancellation, so nothing is left running.
     assert not thread._thread.is_alive()
     assert thread._eventloop.is_closed()
+
+
+def test_submit_coro_runs_the_coroutine_without_blocking() -> None:
+    """`submit_coro` schedules the coroutine on the background loop and returns before it completes."""
+    thread = AsyncThread()
+    _wait_until_running(thread)
+
+    release = threading.Event()
+    finished = threading.Event()
+
+    async def gated() -> None:
+        await asyncio.to_thread(release.wait)
+        finished.set()
+
+    thread.submit_coro(gated())
+
+    # The call returned while the coroutine is still parked on the gate.
+    assert not finished.is_set()
+
+    release.set()
+    assert finished.wait(timeout=2)
+
+    thread.close()
+
+
+def test_submit_coro_logs_a_failing_coroutine(caplog: pytest.LogCaptureFixture) -> None:
+    """A coroutine submitted without a caller to propagate to has its failure logged instead of swallowed."""
+    thread = AsyncThread()
+    _wait_until_running(thread)
+
+    async def boom() -> None:
+        raise RuntimeError('boom')
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy._async_thread'):
+        thread.submit_coro(boom())
+        thread.close()
+
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert len(errors) == 1
+    assert errors[0].exc_info is not None
+    assert str(errors[0].exc_info[1]) == 'boom'
+
+
+def test_submit_coro_raises_after_close() -> None:
+    """`submit_coro` raises `RuntimeError` once the loop has been closed."""
+    thread = AsyncThread()
+    thread.close()
+
+    coro = _return(42)
+    with pytest.raises(RuntimeError):
+        thread.submit_coro(coro)
+    coro.close()

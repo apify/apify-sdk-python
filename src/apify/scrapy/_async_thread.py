@@ -74,6 +74,25 @@ class AsyncThread:
             future.cancel()
             raise
 
+    def submit_coro(self, coro: Coroutine) -> None:
+        """Schedule a coroutine on the event loop without waiting for its result.
+
+        Use this for work whose result nothing depends on, so the calling thread is not blocked by the round
+        trip. Failures are logged, as there is no caller left to propagate them to, and a coroutine still
+        pending when `close` runs is cancelled along with the rest.
+
+        Args:
+            coro: The coroutine to run.
+
+        Raises:
+            RuntimeError: If the event loop has been closed.
+        """
+        if self._eventloop.is_closed():
+            raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
+
+        future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
+        future.add_done_callback(self._log_failure)
+
     def close(self, timeout: timedelta | None = None) -> None:
         """Close the event loop and its thread gracefully.
 
@@ -109,6 +128,15 @@ class AsyncThread:
             if self._thread.is_alive():
                 logger.warning('Event loop thread did not exit cleanly! Forcing shutdown...')
                 self._force_exit_event_loop()
+
+    @staticmethod
+    def _log_failure(future: futures.Future) -> None:
+        """Log the failure of a coroutine submitted via `submit_coro`."""
+        if future.cancelled():
+            return
+
+        if (exc := future.exception()) is not None:
+            logger.error('A coroutine submitted to the event loop failed.', exc_info=exc)
 
     def _start_event_loop(self) -> None:
         """Set up and run the asyncio event loop in the dedicated thread."""
