@@ -82,7 +82,10 @@ class ApifyRequestQueueSingleClient:
         """LRU cache storing unhandled request objects, keyed by request ID."""
 
         self._head_requests: deque[str] = deque()
-        """Ordered queue of request IDs representing the local estimate of the queue head."""
+        """Ordered queue of request IDs representing the local estimate of the queue head.
+
+        Served from the right end, so `append` places a request at the top of the head and `appendleft` at the bottom.
+        """
 
         self._requests_already_handled: set[str] = set()
         """Set of request IDs known to be already processed on the platform.
@@ -303,9 +306,12 @@ class ApifyRequestQueueSingleClient:
             # No longer handled
             self._requests_already_handled.discard(request_id)
 
+            # `is_empty` reads only the head estimation, so the reclaimed request has to go back into it until the
+            # platform head listing catches up. Placement mirrors `add_batch_of_requests`.
             if forefront:
-                # Append to top of the local head estimation
                 self._head_requests.append(request_id)
+            else:
+                self._head_requests.appendleft(request_id)
 
             processed_request = await self._update_request(request, forefront=forefront)
             processed_request.id = request_id
