@@ -65,5 +65,7 @@ async def test_ppe_spider_charges_pushed_items_within_budget(
     assert charged_run is not None
     assert charged_run.charged_event_counts == expected_charges
 
+    # `total` counts the whole dataset, unlike `count`, which only covers the items returned in this page and
+    # can still lag right after a run finishes.
     items = await actor.last_run().dataset().list_items()
-    assert items.count == 2
+    assert items.total == 2
