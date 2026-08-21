@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from itertools import chain, repeat
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
@@ -11,6 +12,7 @@ import pytest
 from apify_client._models import (
     AddedRequest,
     BatchAddResult,
+    HeadRequest,
     LockedHeadRequest,
     LockedRequestQueueHead,
     RequestDraft,
@@ -846,3 +848,52 @@ async def test_reclaim_request_frees_in_progress() -> None:
 
     assert second is not None
     assert second.unique_key == request.unique_key
+
+
+def _head_item(request: Request) -> HeadRequest:
+    """Build a `list_head` item for the given request."""
+    return HeadRequest(
+        id=unique_key_to_request_id(request.unique_key),
+        unique_key=request.unique_key,
+        url=request.url,
+        method=request.method,
+        retry_count=0,
+    )
+
+
+def _head(*items: HeadRequest) -> RequestQueueHead:
+    """Build a `list_head` response wrapping the given items."""
+    return RequestQueueHead(
+        limit=200,
+        queue_modified_at=datetime.now(tz=UTC),
+        had_multiple_clients=False,
+        items=list(items),
+    )
+
+
+@pytest.mark.parametrize('forefront', [pytest.param(False, id='default'), pytest.param(True, id='forefront')])
+async def test_single_reclaimed_request_kept_pending_while_head_lags(*, forefront: bool) -> None:
+    """A reclaimed request stays locally pending in single mode while the platform head listing lags behind it."""
+    client, api_client = _make_single_client()
+    request = Request.from_url('https://example.com/1')
+
+    # The head serves the request once, then lags behind the reclaim and keeps listing empty.
+    api_client.list_head = AsyncMock(side_effect=chain([_head(_head_item(request))], repeat(_head())))
+    api_client.get_request = AsyncMock(return_value=_client_request(request, handled_at=None))
+    api_client.update_request = AsyncMock(return_value=_request_registration(request, was_already_handled=False))
+
+    fetched = await client.fetch_next_request()
+
+    assert fetched is not None
+
+    await client.reclaim_request(fetched, forefront=forefront)
+
+    # The platform head listing lags behind the reclaim, so only the local head estimate keeps the request visible.
+    # A True here would let `AutoscaledPool` end the run while the request is still pending on the platform.
+    assert await client.is_empty() is False
+    assert await client.is_finished() is False
+
+    refetched = await client.fetch_next_request()
+
+    assert refetched is not None
+    assert refetched.unique_key == request.unique_key

@@ -303,9 +303,13 @@ class ApifyRequestQueueSingleClient:
             # No longer handled
             self._requests_already_handled.discard(request_id)
 
+            # Re-enter the request into the local head estimation, mirroring `add_batch_of_requests`: forefront to
+            # the top, otherwise to the bottom. `is_empty` and `is_finished` see only the head estimation, so it has
+            # to cover the reclaimed request until the platform head listing catches up.
             if forefront:
-                # Append to top of the local head estimation
                 self._head_requests.append(request_id)
+            else:
+                self._head_requests.appendleft(request_id)
 
             processed_request = await self._update_request(request, forefront=forefront)
             processed_request.id = request_id
