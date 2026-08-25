@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, cast, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 from scrapy import Request as ScrapyRequest
 from scrapy import Spider
@@ -155,8 +155,9 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         # the old behavior, which dropped such requests entirely.
         if isinstance(scrapy_request.headers, Headers):
             try:
-                headers = cast('dict[str, str]', dict(scrapy_request.headers.to_unicode_dict()))
-                request_kwargs['headers'] = HttpHeaders(headers)
+                # `to_unicode_dict()` yields str keys and values, but Scrapy types it as `UserDict[str | bytes, Any]`,
+                # so the mapping goes through the model's validator instead of a cast.
+                request_kwargs['headers'] = HttpHeaders.model_validate(scrapy_request.headers.to_unicode_dict())
             except UnicodeDecodeError:
                 logger.warning(
                     'Could not represent Scrapy request headers as Apify request headers (non-UTF-8 values); '
