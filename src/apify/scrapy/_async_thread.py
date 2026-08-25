@@ -80,7 +80,7 @@ class AsyncThread:
             future.cancel()
             raise
 
-    def submit_coro(self, coro: Coroutine) -> None:
+    def submit_coro(self, coro: Coroutine) -> futures.Future:
         """Schedule a coroutine on the event loop without waiting for its result.
 
         Use this for work whose result nothing depends on, so the calling thread is not blocked by the round
@@ -89,6 +89,9 @@ class AsyncThread:
 
         Args:
             coro: The coroutine to run.
+
+        Returns:
+            The future of the scheduled coroutine, for callers that do want to inspect its outcome later.
 
         Raises:
             RuntimeError: If the event loop has been closed.
@@ -104,6 +107,8 @@ class AsyncThread:
         future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
         future.add_done_callback(self._log_failure)
         self._submitted.append(future)
+
+        return future
 
     def wait_for_submitted(self, timeout: timedelta | None = None) -> None:
         """Block until the coroutines submitted via `submit_coro` have finished.
