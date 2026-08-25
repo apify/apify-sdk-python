@@ -11,6 +11,12 @@ Serves an e-commerce test website with a category-based structure for testing cr
     /products/2 (depth 1 or 2) - Widget B
     /products/3 (depth 1 or 2) - Widget C
 
+Routes not linked from anywhere, for the tests that need a specific response rather than a site to crawl:
+
+    /redirect - Redirects (302) to /redirect-target
+    /redirect-target - Page the redirect lands on
+    /slow - Answers only after 10 minutes, to keep a request in flight while a run is interrupted
+
 The homepage includes both direct product links (for Scrapy spiders that look for /products/ links
 on the start page) and category links (for testing crawl depth with Crawlee crawlers).
 With max_crawl_depth=2, the crawler reaches all products and categories but does not go beyond /deep/2.
@@ -45,6 +51,17 @@ async def _send_html(send: Send, html: str, status: int = 200) -> None:
         }
     )
     await send({'type': 'http.response.body', 'body': html.encode()})
+
+
+async def _send_redirect(send: Send, location: str) -> None:
+    await send(
+        {
+            'type': 'http.response.start',
+            'status': 302,
+            'headers': [[b'location', location.encode()]],
+        }
+    )
+    await send({'type': 'http.response.body', 'body': b''})
 
 
 async def app(scope: dict[str, Any], _receive: Receive, send: Send) -> None:
@@ -107,6 +124,16 @@ async def app(scope: dict[str, Any], _receive: Receive, send: Send) -> None:
             '<a href="/">Back to Home</a>'
             '</body></html>',
         )
+    elif path == '/redirect':
+        await _send_redirect(send, '/redirect-target')
+    elif path == '/redirect-target':
+        await _send_html(
+            send,
+            '<html><head><title>Redirect Target</title></head><body><h1>Redirect Target</h1></body></html>',
+        )
+    elif path == '/slow':
+        await asyncio.sleep(600)
+        await _send_html(send, '<html><head><title>Slow Page</title></head><body><h1>Slow Page</h1></body></html>')
     elif path.startswith('/deep/'):
         try:
             n = int(path.split('/')[-1])
