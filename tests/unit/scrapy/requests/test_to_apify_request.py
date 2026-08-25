@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from scrapy import Request, Spider
@@ -10,6 +10,7 @@ from scrapy.http.headers import Headers
 
 from crawlee._types import HttpHeaders
 
+from apify import Request as ApifyRequest
 from apify.scrapy.requests import to_apify_request, to_scrapy_request
 
 
@@ -113,6 +114,18 @@ def test_non_json_serializable_meta_is_skipped(spider: Spider, caplog: pytest.Lo
     assert any('JSON-serializable' in record.getMessage() for record in caplog.records)
 
 
+def test_unsupported_http_method_is_skipped(spider: Spider, caplog: pytest.LogCaptureFixture) -> None:
+    """A request with an HTTP method the request queue does not accept is skipped (returns None) and logged."""
+    stamped_request = to_scrapy_request(ApifyRequest.from_url('https://example.com'), spider)
+    scrapy_request = stamped_request.replace(method='PROPFIND')
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.requests'):
+        apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is None
+    assert 'Unsupported HTTP method' in caplog.text
+
+
 def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
     """Regression: propagating userData across repeated roundtrips must not fail on `__crawlee` data."""
     # Step 1: Initial request -> first roundtrip
@@ -187,3 +200,76 @@ def test_apify_request_id_in_meta_is_ignored(spider: Spider) -> None:
 
     assert apify_request is not None
     assert apify_request.unique_key == 'https://example.com'
+
+
+def test_unchanged_request_keeps_the_unique_key_it_was_stamped_with(spider: Spider) -> None:
+    """A request handed to Scrapy and enqueued again unchanged reuses the unique key it was minted for."""
+    scrapy_request = to_scrapy_request(ApifyRequest.from_url('https://example.com'), spider)
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == scrapy_request.meta['apify_request_unique_key']
+
+
+def test_redirected_request_does_not_inherit_the_parents_unique_key(spider: Spider) -> None:
+    """A redirect derived from a fetched request gets its own unique key instead of the parent's stamp."""
+    parent = to_scrapy_request(ApifyRequest.from_url('https://example.com/redirect'), spider)
+    redirected = parent.replace(url='https://example.com/target')
+
+    apify_request = to_apify_request(redirected, spider)
+
+    assert apify_request is not None
+    assert apify_request.url == 'https://example.com/target'
+    assert apify_request.unique_key != parent.meta['apify_request_unique_key']
+
+
+@pytest.mark.parametrize(
+    'changes',
+    [
+        pytest.param({'method': 'POST', 'body': b'page=2'}, id='method and body'),
+        pytest.param({'body': b'page=2'}, id='body'),
+        pytest.param({'method': 'HEAD'}, id='method'),
+    ],
+)
+def test_derived_request_on_the_same_url_gets_its_own_unique_key(spider: Spider, changes: dict[str, Any]) -> None:
+    """A request Scrapy derives without leaving the URL must not be deduplicated against its parent."""
+    parent = to_scrapy_request(ApifyRequest.from_url('https://example.com/listing'), spider)
+    derived = parent.replace(**changes)
+
+    apify_request = to_apify_request(derived, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key != parent.meta['apify_request_unique_key']
+
+
+def test_stamp_survives_the_headers_scrapy_middlewares_add(spider: Spider) -> None:
+    """Scrapy's own middlewares add default headers in place, which must not read as a different request."""
+    scrapy_request = to_scrapy_request(ApifyRequest.from_url('https://example.com'), spider)
+    scrapy_request.headers.setdefault(b'User-Agent', b'Scrapy/2.14')
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == scrapy_request.meta['apify_request_unique_key']
+
+
+def test_hand_set_unique_key_without_a_fingerprint_is_taken_at_face_value(spider: Spider) -> None:
+    """A unique key put in `meta` by hand carries no fingerprint to check it against, so it is honoured."""
+    scrapy_request = Request(url='https://example.com', meta={'apify_request_unique_key': 'my-own-key'})
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == 'my-own-key'
+
+
+def test_follow_up_request_with_propagated_meta_gets_its_own_unique_key(spider: Spider) -> None:
+    """A spider callback forwarding `meta` verbatim to another URL must not reuse the parent's unique key."""
+    parent = to_scrapy_request(ApifyRequest.from_url('https://example.com/listing'), spider)
+    follow_up = Request(url='https://example.com/detail', meta=parent.meta)
+
+    apify_request = to_apify_request(follow_up, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key != parent.meta['apify_request_unique_key']

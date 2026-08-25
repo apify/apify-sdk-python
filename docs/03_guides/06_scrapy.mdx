@@ -104,7 +104,7 @@ The following example shows a Scrapy Actor that scrapes page titles and enqueues
 
 ## Dealing with imminent migration to another host
 
-Under some circumstances, the platform may decide to [migrate your Actor](https://docs.apify.com/academy/expert-scraping-with-apify/migrations-maintaining-state) from one piece of infrastructure to another while it's in progress. While [Crawlee](https://crawlee.dev/python)-based projects can pause and resume their work after a restart, achieving the same with a Scrapy-based project can be challenging.
+Under some circumstances, the platform may decide to [migrate your Actor](https://docs.apify.com/academy/expert-scraping-with-apify/migrations-maintaining-state) from one piece of infrastructure to another while the run is in progress. Requests that Scrapy hasn't finished when the run stops stay unhandled in the request queue, so the next run picks them up and downloads them from scratch. A Scrapy-based project doesn't resume where it left off the way a [Crawlee](https://crawlee.dev/python)-based one does, so items that their callbacks already pushed can land in the dataset twice.
 
 As a workaround for this issue (tracked as [apify/actor-templates#303](https://github.com/apify/actor-templates/issues/303)), turn on caching with `HTTPCACHE_ENABLED` and set `HTTPCACHE_EXPIRATION_SECS` to at least a few minutes—the exact value depends on your use case. If your Actor gets migrated and restarted, the subsequent run will hit the cache, making it fast and avoiding unnecessary resource consumption.
 

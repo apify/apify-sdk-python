@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+SUBMITTED_PRUNE_THRESHOLD = 128
+"""How many `submit_coro` futures may pile up before the finished ones are dropped from the tracking list."""
+
 
 class AsyncThread:
     """Run an asyncio event loop in a dedicated background thread.
@@ -25,6 +28,9 @@ class AsyncThread:
     def __init__(self, default_timeout: timedelta = timedelta(seconds=60)) -> None:
         self._default_timeout = default_timeout
         self._eventloop = asyncio.new_event_loop()
+
+        self._submitted: list[futures.Future] = []
+        """Futures of the coroutines submitted via `submit_coro` that may still be running."""
 
         # Start the event loop in a dedicated daemon thread.
         self._thread = threading.Thread(
@@ -74,6 +80,55 @@ class AsyncThread:
             future.cancel()
             raise
 
+    def submit_coro(self, coro: Coroutine) -> futures.Future:
+        """Schedule a coroutine on the event loop without waiting for its result.
+
+        Use this for work nothing depends on, so the calling thread is not blocked by the round trip. Failures
+        are logged, as there is no caller to propagate them to, and `close` cancels whatever is still pending -
+        call `wait_for_submitted` first if that matters.
+
+        Args:
+            coro: The coroutine to run.
+
+        Returns:
+            The future of the scheduled coroutine, for callers that want to inspect its outcome later.
+
+        Raises:
+            RuntimeError: If the event loop has been closed.
+        """
+        if self._eventloop.is_closed():
+            raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
+
+        # Callers may go a long time between `wait_for_submitted` calls, so without pruning the list would hold
+        # every coroutine ever submitted, with its result.
+        if len(self._submitted) >= SUBMITTED_PRUNE_THRESHOLD:
+            self._submitted = [submitted for submitted in self._submitted if not submitted.done()]
+
+        future = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
+        future.add_done_callback(self._log_failure)
+        self._submitted.append(future)
+
+        return future
+
+    def wait_for_submitted(self, timeout: timedelta | None = None) -> None:
+        """Block until the coroutines submitted via `submit_coro` have finished.
+
+        Use this before anything that would observe their effects, or before `close`, which cancels whatever is
+        still running. Coroutines that do not finish within the timeout stay tracked for the next call.
+
+        Args:
+            timeout: The maximum time to wait for the submitted coroutines. Pass `None` to use the
+                `default_timeout` passed to the constructor.
+        """
+        if timeout is None:
+            timeout = self._default_timeout
+
+        self._submitted = list(futures.wait(self._submitted, timeout=timeout.total_seconds()).not_done)
+
+        # Callers rely on the effects having landed, so a timeout has to be visible.
+        if self._submitted:
+            logger.warning(f'{len(self._submitted)} submitted coroutines did not finish within the timeout.')
+
     def close(self, timeout: timedelta | None = None) -> None:
         """Close the event loop and its thread gracefully.
 
@@ -109,6 +164,15 @@ class AsyncThread:
             if self._thread.is_alive():
                 logger.warning('Event loop thread did not exit cleanly! Forcing shutdown...')
                 self._force_exit_event_loop()
+
+    @staticmethod
+    def _log_failure(future: futures.Future) -> None:
+        """Log the failure of a coroutine submitted via `submit_coro`."""
+        if future.cancelled():
+            return
+
+        if (exc := future.exception()) is not None:
+            logger.error('A coroutine submitted to the event loop failed.', exc_info=exc)
 
     def _start_event_loop(self) -> None:
         """Set up and run the asyncio event loop in the dedicated thread."""

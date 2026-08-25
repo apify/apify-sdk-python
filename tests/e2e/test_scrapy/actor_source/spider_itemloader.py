@@ -9,7 +9,7 @@ from scrapy.loader import ItemLoader
 from src.items import ProductItem  # ty: ignore[unresolved-import]
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import AsyncIterator, Generator
 
     from scrapy.http.response import Response
 
@@ -29,7 +29,7 @@ class ItemLoaderSpider(Spider):
         super().__init__(*args, **kwargs)
         self.start_urls = start_urls
 
-    def start_requests(self) -> Generator[Request, None, None]:
+    async def start(self) -> AsyncIterator[Request]:
         for url in self.start_urls:
             yield Request(url, callback=self.parse)
 

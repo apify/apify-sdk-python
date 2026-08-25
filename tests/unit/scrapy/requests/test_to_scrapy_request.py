@@ -12,7 +12,7 @@ from crawlee._types import HttpHeaders
 
 from apify import Request as ApifyRequest
 from apify.scrapy._serialization import encode_to_json
-from apify.scrapy.requests import to_apify_request, to_scrapy_request
+from apify.scrapy.requests import _compute_fingerprint, to_apify_request, to_scrapy_request
 
 
 class DummySpider(Spider):
@@ -66,6 +66,21 @@ def test_without_reconstruction(spider: Spider) -> None:
     assert apify_request.url == scrapy_request.url
     assert apify_request.method == scrapy_request.method
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
+
+
+def test_unique_key_is_stamped_together_with_its_fingerprint(spider: Spider) -> None:
+    """The RQ unique key is stamped alongside a fingerprint of the request it belongs to."""
+    apify_request = ApifyRequest(
+        url='https://example.com',
+        method='GET',
+        unique_key='https://example.com',
+        user_data={},
+    )
+
+    scrapy_request = to_scrapy_request(apify_request, spider)
+
+    assert scrapy_request.meta['apify_request_unique_key'] == apify_request.unique_key
+    assert scrapy_request.meta['apify_request_fingerprint'] == _compute_fingerprint(scrapy_request)
 
 
 def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:

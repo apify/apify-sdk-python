@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from logging import getLogger
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, get_args
 
 from scrapy import Request as ScrapyRequest
 from scrapy import Spider
@@ -11,10 +11,14 @@ from scrapy.utils.misc import load_object
 from scrapy.utils.request import request_from_dict
 
 from crawlee._request import UserData
-from crawlee._types import HttpHeaders
+from crawlee._types import HttpHeaders, HttpMethod
+from crawlee._utils.requests import compute_unique_key
 
 from ._serialization import decode_from_json, encode_to_json
 from apify import Request as ApifyRequest
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeIs
 
 logger = getLogger(__name__)
 
@@ -47,6 +51,38 @@ def _ensure_known_request_class(request_dict: dict[str, Any]) -> None:
         )
 
 
+def _is_http_method(method: str) -> TypeIs[HttpMethod]:
+    """Tell whether `method` is one of the HTTP methods the RQ accepts; Scrapy itself takes any string."""
+    return method in get_args(HttpMethod)
+
+
+def _compute_fingerprint(scrapy_request: ScrapyRequest) -> str:
+    """Identify the request an RQ unique key was minted for.
+
+    `to_scrapy_request` stamps this beside the unique key so `to_apify_request` can tell a request that came out
+    of the RQ from one Scrapy derived from it. It covers the URL, the method and the body, so a redirect, a
+    method switch and a changed body all read as a different request rather than the parent.
+
+    Headers are left out even though the unique key covers them: `DefaultHeadersMiddleware` and
+    `UserAgentMiddleware` call `headers.setdefault()` on the request in place before the scheduler sees it
+    again, so an otherwise untouched request would no longer match its own stamp.
+    """
+    method = scrapy_request.method
+    if not _is_http_method(method):
+        raise ValueError(
+            f'Unsupported HTTP method {method!r} in {scrapy_request}; '
+            f'the request queue accepts {", ".join(get_args(HttpMethod))}.'
+        )
+
+    return compute_unique_key(
+        url=scrapy_request.url,
+        method=method,
+        payload=scrapy_request.body,
+        keep_url_fragment=False,
+        use_extended_unique_key=True,
+    )
+
+
 def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequest | None:
     """Convert a Scrapy request to an Apify request.
 
@@ -76,8 +112,14 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
     try:
         if scrapy_request.dont_filter:
             request_kwargs['always_enqueue'] = True
-        elif scrapy_request.meta.get('apify_request_unique_key'):
-            request_kwargs['unique_key'] = scrapy_request.meta['apify_request_unique_key']
+        elif unique_key := scrapy_request.meta.get('apify_request_unique_key'):
+            # Reuse the RQ unique key only while this is still the request it was minted for. Redirects
+            # (`Request.replace()`) and spiders forwarding `meta` to another URL inherit the stamp, and reusing
+            # it there deduplicates the derived request against its parent. A stamp without a fingerprint was
+            # set by hand, so it is taken at face value.
+            fingerprint = _compute_fingerprint(scrapy_request)
+            if scrapy_request.meta.get('apify_request_fingerprint', fingerprint) == fingerprint:
+                request_kwargs['unique_key'] = unique_key
 
         # Serialize the Scrapy request now, before `Request.from_url()` runs below. `from_url()` mutates the
         # `user_data` dict it receives in place (it injects a live `CrawleeRequestData` under `__crawlee`), and that
@@ -113,8 +155,9 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         # the old behavior, which dropped such requests entirely.
         if isinstance(scrapy_request.headers, Headers):
             try:
-                headers = cast('dict[str, str]', dict(scrapy_request.headers.to_unicode_dict()))
-                request_kwargs['headers'] = HttpHeaders(headers)
+                # `to_unicode_dict()` yields str keys and values, but Scrapy types it as `UserDict[str | bytes, Any]`,
+                # so the mapping goes through the model's validator instead of a cast.
+                request_kwargs['headers'] = HttpHeaders.model_validate(scrapy_request.headers.to_unicode_dict())
             except UnicodeDecodeError:
                 logger.warning(
                     'Could not represent Scrapy request headers as Apify request headers (non-UTF-8 values); '
@@ -165,7 +208,7 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     Returns:
         The converted Scrapy request.
     """
-    if not isinstance(cast('Any', apify_request), ApifyRequest):
+    if not isinstance(apify_request, ApifyRequest):
         raise TypeError('apify_request must be an apify.Request instance')
 
     # If the apify_request comes from the Scrapy
@@ -187,21 +230,14 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
         if not isinstance(scrapy_request, ScrapyRequest):
             raise TypeError('scrapy_request must be an instance of the ScrapyRequest class')
 
-        # Update the meta field with the meta field from the apify_request
-        meta = scrapy_request.meta or {}
-        meta.update({'apify_request_unique_key': apify_request.unique_key})
-        # scrapy_request.meta is a property, so we have to set it like this
-        scrapy_request._meta = meta  # noqa: SLF001
-
     # If the apify_request comes directly from the Scrapy, typically start URLs.
     else:
-        scrapy_request = ScrapyRequest(
-            url=apify_request.url,
-            method=apify_request.method,
-            meta={
-                'apify_request_unique_key': apify_request.unique_key,
-            },
-        )
+        scrapy_request = ScrapyRequest(url=apify_request.url, method=apify_request.method)
+
+    # Stamp the unique key with a fingerprint of the request it belongs to, so `to_apify_request` can tell
+    # this request apart from the ones Scrapy derives from it.
+    scrapy_request.meta['apify_request_unique_key'] = apify_request.unique_key
+    scrapy_request.meta['apify_request_fingerprint'] = _compute_fingerprint(scrapy_request)
 
     # Add optional 'headers' field
     if apify_request.headers:
