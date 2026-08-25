@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from logging import getLogger
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast, get_args
 
 from scrapy import Request as ScrapyRequest
 from scrapy import Spider
@@ -16,6 +16,9 @@ from crawlee._utils.requests import compute_unique_key
 
 from ._serialization import decode_from_json, encode_to_json
 from apify import Request as ApifyRequest
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeIs
 
 logger = getLogger(__name__)
 
@@ -48,6 +51,11 @@ def _ensure_known_request_class(request_dict: dict[str, Any]) -> None:
         )
 
 
+def _is_http_method(method: str) -> TypeIs[HttpMethod]:
+    """Tell whether `method` is one of the HTTP methods the RQ accepts; Scrapy itself takes any string."""
+    return method in get_args(HttpMethod)
+
+
 def _compute_fingerprint(scrapy_request: ScrapyRequest) -> str:
     """Identify the request an RQ unique key was minted for.
 
@@ -59,9 +67,16 @@ def _compute_fingerprint(scrapy_request: ScrapyRequest) -> str:
     `UserAgentMiddleware` call `headers.setdefault()` on the request in place before the scheduler sees it
     again, so an otherwise untouched request would no longer match its own stamp.
     """
+    method = scrapy_request.method
+    if not _is_http_method(method):
+        raise ValueError(
+            f'Unsupported HTTP method {method!r} in {scrapy_request}; '
+            f'the request queue accepts {", ".join(get_args(HttpMethod))}.'
+        )
+
     return compute_unique_key(
         url=scrapy_request.url,
-        method=cast('HttpMethod', scrapy_request.method),
+        method=method,
         payload=scrapy_request.body,
         keep_url_fragment=False,
         use_extended_unique_key=True,
@@ -192,7 +207,7 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     Returns:
         The converted Scrapy request.
     """
-    if not isinstance(cast('Any', apify_request), ApifyRequest):
+    if not isinstance(apify_request, ApifyRequest):
         raise TypeError('apify_request must be an apify.Request instance')
 
     # If the apify_request comes from the Scrapy

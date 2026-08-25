@@ -114,6 +114,18 @@ def test_non_json_serializable_meta_is_skipped(spider: Spider, caplog: pytest.Lo
     assert any('JSON-serializable' in record.getMessage() for record in caplog.records)
 
 
+def test_unsupported_http_method_is_skipped(spider: Spider, caplog: pytest.LogCaptureFixture) -> None:
+    """A request with an HTTP method the request queue does not accept is skipped (returns None) and logged."""
+    stamped_request = to_scrapy_request(ApifyRequest.from_url('https://example.com'), spider)
+    scrapy_request = stamped_request.replace(method='PROPFIND')
+
+    with caplog.at_level(logging.ERROR, logger='apify.scrapy.requests'):
+        apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is None
+    assert 'Unsupported HTTP method' in caplog.text
+
+
 def test_roundtrip_follow_up_request_with_propagated_userdata(spider: Spider) -> None:
     """Regression: propagating userData across repeated roundtrips must not fail on `__crawlee` data."""
     # Step 1: Initial request -> first roundtrip
