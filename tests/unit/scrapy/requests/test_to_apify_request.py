@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from scrapy import Request, Spider
@@ -210,6 +210,46 @@ def test_redirected_request_does_not_inherit_the_parents_unique_key(spider: Spid
     assert apify_request is not None
     assert apify_request.url == 'https://example.com/target'
     assert apify_request.unique_key != parent.meta['apify_request_unique_key']
+
+
+@pytest.mark.parametrize(
+    'changes',
+    [
+        pytest.param({'method': 'POST', 'body': b'page=2'}, id='method and body'),
+        pytest.param({'body': b'page=2'}, id='body'),
+        pytest.param({'method': 'HEAD'}, id='method'),
+    ],
+)
+def test_derived_request_on_the_same_url_gets_its_own_unique_key(spider: Spider, changes: dict[str, Any]) -> None:
+    """A request Scrapy derives without leaving the URL must not be deduplicated against its parent."""
+    parent = to_scrapy_request(ApifyRequest.from_url('https://example.com/listing'), spider)
+    derived = parent.replace(**changes)
+
+    apify_request = to_apify_request(derived, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key != parent.meta['apify_request_unique_key']
+
+
+def test_stamp_survives_the_headers_scrapy_middlewares_add(spider: Spider) -> None:
+    """Scrapy's own middlewares add default headers in place, which must not read as a different request."""
+    scrapy_request = to_scrapy_request(ApifyRequest.from_url('https://example.com'), spider)
+    scrapy_request.headers.setdefault(b'User-Agent', b'Scrapy/2.14')
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == scrapy_request.meta['apify_request_unique_key']
+
+
+def test_hand_set_unique_key_without_a_fingerprint_is_taken_at_face_value(spider: Spider) -> None:
+    """A unique key put in `meta` by hand carries no fingerprint to check it against, so it is honoured."""
+    scrapy_request = Request(url='https://example.com', meta={'apify_request_unique_key': 'my-own-key'})
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.unique_key == 'my-own-key'
 
 
 def test_follow_up_request_with_propagated_meta_gets_its_own_unique_key(spider: Spider) -> None:
