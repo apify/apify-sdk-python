@@ -8,7 +8,7 @@ from scrapy import Request, Spider
 from ..items import TitleItem
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import AsyncIterator, Generator
 
     from scrapy.http.response import Response
 
@@ -32,6 +32,11 @@ class TitleSpider(Spider):
         super().__init__(*args, **kwargs)
         self.start_urls = start_urls
         self.allowed_domains = allowed_domains
+
+    async def start(self) -> AsyncIterator[Request]:
+        """Yield plain requests, so a restarted run doesn't crawl the start URLs again."""
+        for url in self.start_urls:
+            yield Request(url, callback=self.parse)
 
     def parse(self, response: Response) -> Generator[TitleItem | Request, None, None]:
         """Yield a `TitleItem` and a `Request` for each link on the page."""

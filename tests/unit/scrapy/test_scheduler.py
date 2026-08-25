@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from concurrent.futures import Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import timedelta
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
@@ -12,6 +12,7 @@ import pytest
 from scrapy import Request, Spider
 from scrapy.settings import Settings
 
+from apify import Event, EventMigratingData
 from apify import Request as ApifyRequest
 from apify.scrapy._async_thread import AsyncThread
 from apify.scrapy.scheduler import ApifyScheduler
@@ -46,22 +47,27 @@ def fake_crawler(
 
 
 def fake_async_thread(default_timeout: timedelta | None = None) -> mock.Mock:  # noqa: ARG001
-    """Build an `AsyncThread` double that runs the scheduler's coroutines on a real event loop.
+    """Build an `AsyncThread` double that runs the scheduler's coroutines to completion on a real event loop.
 
     The scheduler batches the updates of a whole resolution pass into a single coroutine, so a double that
-    never runs them would leave these tests asserting on the batching instead of on what reaches the RQ.
+    never runs them would leave these tests asserting on the batching instead of on what reaches the RQ. Like
+    the real thread, the coroutines run on a worker thread, so the double also works from within an async test.
     """
+    executor = ThreadPoolExecutor(max_workers=1)
+
+    def run_coro(coro: Coroutine, timeout: Any = 'default') -> Any:  # noqa: ARG001
+        return executor.submit(asyncio.run, coro).result()
 
     def submit_coro(coro: Coroutine) -> Future:
         future: Future = Future()
         try:
-            future.set_result(asyncio.run(coro))
+            future.set_result(run_coro(coro))
         except Exception as exc:
             future.set_exception(exc)
         return future
 
     async_thread = mock.Mock(spec=AsyncThread)
-    async_thread.run_coro.side_effect = asyncio.run
+    async_thread.run_coro.side_effect = run_coro
     async_thread.submit_coro.side_effect = submit_coro
     return async_thread
 
@@ -71,10 +77,15 @@ def called_methods(async_thread: mock.Mock) -> list[str]:
     return [name for name, _args, _kwargs in async_thread.method_calls]
 
 
-def stub_scheduler_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stub out the reactor check, the event loop thread and the RQ that `open` reaches for."""
+def stub_scheduler_dependencies(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
+    """Stub out the reactor check, the event loop thread, the Actor and the RQ that `open` reaches for.
+
+    Returns the Actor double, for the tests that care about what the scheduler registers with it.
+    """
+    actor = mock.Mock()
     monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
     monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', mock.Mock(side_effect=fake_async_thread))
+    monkeypatch.setattr('apify.scrapy.scheduler.Actor', actor)
 
     async def open_rq(*_args: Any, **_kwargs: Any) -> Any:
         rq = mock.AsyncMock()
@@ -82,6 +93,8 @@ def stub_scheduler_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
         return rq
 
     monkeypatch.setattr(RequestQueue, 'open', open_rq)
+
+    return actor
 
 
 @pytest.fixture
@@ -499,3 +512,103 @@ def test_from_crawler_keeps_the_crawler(monkeypatch: pytest.MonkeyPatch) -> None
     scheduler = ApifyScheduler.from_crawler(cast('Any', crawler))
 
     assert scheduler._crawler is crawler
+
+
+def test_open_listens_for_the_migration(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> None:
+    """`open` registers the migration listener with the Actor, so the scheduler learns when the run is moving."""
+    actor = stub_scheduler_dependencies(monkeypatch)
+    scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
+
+    scheduler.open(spider)
+
+    actor.on.assert_called_once_with(Event.MIGRATING, scheduler._on_migrating)
+
+
+def test_close_stops_listening_for_the_migration(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> None:
+    """`close` unregisters the migration listener, so a closed scheduler is not told about a migration."""
+    actor = stub_scheduler_dependencies(monkeypatch)
+    scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
+    scheduler.open(spider)
+
+    scheduler.close('finished')
+
+    actor.off.assert_called_once_with(Event.MIGRATING, scheduler._on_migrating)
+
+
+def test_open_warns_when_the_actor_is_not_initialized(
+    monkeypatch: pytest.MonkeyPatch,
+    spider: DummySpider,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Without an initialized Actor there is nothing to register the migration listener with, and that is said."""
+    actor = stub_scheduler_dependencies(monkeypatch)
+    actor.on.side_effect = RuntimeError('The _ActorType is not active.')
+    scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
+
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy.scheduler'):
+        scheduler.open(spider)
+    scheduler.close('finished')
+
+    assert 'Actor is not initialized' in caplog.text
+    actor.off.assert_not_called()
+
+
+async def test_migration_settles_the_requests_as_scrapy_finishes_them(
+    scheduler: ApifyScheduler,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Once a migration is announced, nothing more goes out and the requests Scrapy holds are marked as they finish."""
+    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    rq = cast('mock.AsyncMock', scheduler._rq)
+    busy = set(hand_out(scheduler, 2))
+    scheduler._crawler = fake_crawler(downloader_busy=busy)
+    (first_apify, first), (second_apify, second) = scheduler._requests_in_flight
+    rq.fetch_next_request.reset_mock()
+
+    settled = asyncio.create_task(scheduler._on_migrating(EventMigratingData(time_remaining=timedelta(seconds=27))))
+    await asyncio.sleep(0.05)
+
+    rq.mark_request_as_handled.assert_not_called()
+    assert not settled.done()
+
+    # The RQ is not even asked for more work.
+    rq.fetch_next_request.return_value = APIFY_REQUESTS[2]
+    assert scheduler.next_request() is None
+    rq.fetch_next_request.assert_not_called()
+
+    busy.discard(first)
+    await asyncio.sleep(0.05)
+    rq.mark_request_as_handled.assert_called_once_with(first_apify)
+    assert not settled.done()
+
+    busy.discard(second)
+    await asyncio.wait_for(settled, timeout=1)
+    assert rq.mark_request_as_handled.call_args_list == [mock.call(first_apify), mock.call(second_apify)]
+
+
+async def test_migration_with_nothing_in_flight_only_stops_handing_out_requests(scheduler: ApifyScheduler) -> None:
+    """With nothing in flight the migration listener returns at once; the RQ is still not asked for more work."""
+    rq = cast('mock.AsyncMock', scheduler._rq)
+
+    await asyncio.wait_for(scheduler._on_migrating(EventMigratingData()), timeout=1)
+
+    rq.fetch_next_request.return_value = APIFY_REQUESTS[0]
+    assert scheduler.next_request() is None
+    rq.fetch_next_request.assert_not_called()
+
+
+async def test_close_ends_the_migration_settling(scheduler: ApifyScheduler, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Closing the scheduler while it settles a migration ends the settling; `close` resolves the rest itself."""
+    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    rq = cast('mock.AsyncMock', scheduler._rq)
+    hand_out(scheduler, 1)
+
+    settled = asyncio.create_task(scheduler._on_migrating(EventMigratingData()))
+    await asyncio.sleep(0.05)
+    assert not settled.done()
+
+    scheduler.close('shutdown')
+    await asyncio.wait_for(settled, timeout=1)
+
+    rq.mark_request_as_handled.assert_not_called()
+    rq.reclaim_request.assert_called_once_with(APIFY_REQUESTS[0])
