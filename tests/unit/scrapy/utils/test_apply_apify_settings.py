@@ -49,6 +49,7 @@ def test_updates_downloader_middlewares() -> None:
 
 
 def test_registers_graceful_stop_extension() -> None:
+    """The graceful-stop extension is added to the extensions already configured, without displacing them."""
     settings = Settings({'EXTENSIONS': {'scrapy.extensions.corestats.CoreStats': 500}})
     new_settings = apply_apify_settings(settings=settings)
 

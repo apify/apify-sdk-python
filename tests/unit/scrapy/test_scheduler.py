@@ -63,10 +63,10 @@ def fake_async_thread(default_timeout: timedelta | None = None) -> mock.Mock:  #
     never runs them would leave these tests asserting on the batching instead of on what reaches the RQ. Like
     the real thread, the coroutines run on a worker thread, so the double also works from within an async test.
     """
-    executor = ThreadPoolExecutor(max_workers=1)
 
     def run_coro(coro: Coroutine, timeout: Any = 'default') -> Any:  # noqa: ARG001
-        return executor.submit(asyncio.run, coro).result()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(asyncio.run, coro).result()
 
     def submit_coro(coro: Coroutine) -> Future:
         future: Future = Future()
