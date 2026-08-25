@@ -582,7 +582,7 @@ async def test_migration_settles_the_requests_as_scrapy_finishes_them(
     rq: mock.AsyncMock,
 ) -> None:
     """Once a migration is announced, nothing more goes out and the requests Scrapy holds are marked as they finish."""
-    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    monkeypatch.setattr('apify.scrapy.scheduler._SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
     busy = set(hand_out(scheduler, rq, 2))
     scheduler._crawler = fake_crawler(downloader_busy=busy)
     (first_apify, first), (second_apify, second) = scheduler._requests_in_flight
@@ -615,7 +615,7 @@ async def test_abort_settles_the_requests_as_scrapy_finishes_them(
     rq: mock.AsyncMock,
 ) -> None:
     """Once an abort is announced, the requests Scrapy holds are marked as handled as they finish, not at the end."""
-    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    monkeypatch.setattr('apify.scrapy.scheduler._SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
     busy = set(hand_out(scheduler, rq, 2))
     scheduler._crawler = fake_crawler(downloader_busy=busy)
     (first_apify, first), (second_apify, second) = scheduler._requests_in_flight
@@ -642,7 +642,7 @@ async def test_a_repeated_migration_announcement_does_not_settle_again(
     rq: mock.AsyncMock,
 ) -> None:
     """A second announcement, e.g. a reboot during a migration, returns at once while the first one keeps settling."""
-    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    monkeypatch.setattr('apify.scrapy.scheduler._SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
     hand_out(scheduler, rq, 1)
 
     settled = asyncio.create_task(scheduler._on_migrating(EventMigratingData()))
@@ -673,7 +673,7 @@ async def test_close_ends_the_migration_settling(
     rq: mock.AsyncMock,
 ) -> None:
     """Closing the scheduler while it settles a migration ends the settling; `close` resolves the rest itself."""
-    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    monkeypatch.setattr('apify.scrapy.scheduler._SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
     hand_out(scheduler, rq, 1)
 
     settled = asyncio.create_task(scheduler._on_migrating(EventMigratingData()))

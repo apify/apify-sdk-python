@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-SETTLE_POLL_INTERVAL = timedelta(seconds=1)
+_SETTLE_POLL_INTERVAL = timedelta(seconds=1)
 """How often the settling of a migration or an abort checks whether Scrapy has finished more of its requests."""
 
 
@@ -363,7 +363,7 @@ class ApifyScheduler(BaseScheduler):
             if not self._requests_in_flight:
                 logger.info('Scrapy has finished the requests it was working on.')
                 break
-            await asyncio.sleep(SETTLE_POLL_INTERVAL.total_seconds())
+            await asyncio.sleep(_SETTLE_POLL_INTERVAL.total_seconds())
 
     def _verify_engine_internals(self) -> None:
         """Fail at open time if Scrapy's engine no longer exposes what the in-flight tracking reads.
