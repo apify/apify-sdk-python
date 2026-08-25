@@ -30,10 +30,9 @@ logger = getLogger(__name__)
 
 
 async def _gather_failures(operations: Iterable[Coroutine[Any, Any, Any]]) -> list[BaseException | None]:
-    """Run request queue updates concurrently, reporting each one's failure, or `None`, in the order given.
+    """Run RQ updates concurrently, reporting each one's failure, or `None`, in the order given.
 
-    The updates of a whole batch cost one round trip rather than one each, and one failing update neither
-    raises nor stops the others.
+    The whole batch costs one round trip, and one failing update neither raises nor stops the others.
     """
     outcomes = await asyncio.gather(*operations, return_exceptions=True)
     return [outcome if isinstance(outcome, BaseException) else None for outcome in outcomes]
@@ -61,7 +60,7 @@ class ApifyScheduler(BaseScheduler):
         self._crawler = crawler
 
         self._requests_in_flight: list[tuple[ApifyRequest, Request]] = []
-        """Requests handed over to Scrapy and not resolved in the request queue yet."""
+        """Requests handed over to Scrapy and not resolved in the RQ yet."""
 
         self._pending_marks: list[tuple[list[tuple[ApifyRequest, Request]], Future]] = []
         """Batches of mark-as-handled updates dispatched off the hot path, whose outcome is not known yet."""
@@ -137,9 +136,8 @@ class ApifyScheduler(BaseScheduler):
             except Exception:
                 logger.exception('Failed to resolve the requests still in flight in the request queue.')
 
-            # Whatever Scrapy did not finish goes back to the queue, so the next run gets it as pending. The
-            # reclaims travel together: a migration cuts the shutdown short, and one round trip per request may
-            # not fit in what is left of it. One failed reclaim must not strand the rest either.
+            # Whatever Scrapy did not finish goes back to the RQ as pending, in a single round trip: a migration
+            # cuts the shutdown short. One failed reclaim must not strand the rest either.
             if self._requests_in_flight:
                 reclaims = _gather_failures(
                     rq.reclaim_request(apify_request) for apify_request, _ in self._requests_in_flight
@@ -158,8 +156,7 @@ class ApifyScheduler(BaseScheduler):
 
             self._requests_in_flight.clear()
 
-        # Closing the event loop cancels the updates fired off on the hot path silently, leaving those
-        # requests unhandled.
+        # Closing the event loop would silently cancel the updates fired off on the hot path.
         self._async_thread.wait_for_submitted()
 
         try:
@@ -189,7 +186,7 @@ class ApifyScheduler(BaseScheduler):
         # as in flight is provably finished.
         self._resolve_finished_requests(wait=True)
 
-        # The queue answers from its own bookkeeping, which a pending update has not reached yet.
+        # The RQ answers from its own bookkeeping, which a pending update has not reached yet.
         self._async_thread.wait_for_submitted()
 
         # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
@@ -243,8 +240,8 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
-        # The engine polls this method throughout the crawl, so resolving here keeps the queue current
-        # without blocking on the round trips.
+        # The engine polls this method throughout the crawl, so resolving here keeps the RQ current without
+        # blocking on the round trips.
         self._resolve_finished_requests(wait=False)
 
         # Log here before re-raising: this coroutine ran on a separate event-loop thread, and the failure is
@@ -262,7 +259,7 @@ class ApifyScheduler(BaseScheduler):
             raise TypeError('self.spider must be an instance of the Spider class')
 
         # A corrupt or legacy payload must not crash the run, and is marked as handled right away, otherwise
-        # the queue would keep handing it back forever.
+        # the RQ would keep handing it back forever.
         try:
             scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
         except Exception as exc:
@@ -283,10 +280,9 @@ class ApifyScheduler(BaseScheduler):
     def _verify_engine_internals(self) -> None:
         """Fail early if Scrapy's engine no longer exposes what the in-flight tracking reads.
 
-        `_requests_busy_in_scrapy` reads engine internals Scrapy does not document as public API, and the hot
-        path deliberately does not guard them: swallowing an `AttributeError` there would quietly revert to
-        marking every request as handled the moment it is handed over, which is what the tracking exists to
-        prevent. Checking once at open time keeps such a breakage loud, early and easy to place.
+        The hot path deliberately does not guard those undocumented internals: swallowing an `AttributeError`
+        there would quietly go back to marking every request as handled the moment it is handed over. Checking
+        once at open time keeps such a breakage loud and early.
 
         Raises:
             RuntimeError: If the engine internals the tracking relies on cannot be read.
@@ -304,10 +300,10 @@ class ApifyScheduler(BaseScheduler):
         """Return the requests Scrapy is still working on.
 
         A request joins the downloader's active set before the middleware chain runs and leaves the scraper's
-        only once the callback and the item pipeline are done, so absence from both means Scrapy has finished
-        with it - downloaded, dropped by a middleware or errored out alike.
+        only once the callback and the item pipeline are done, so absence from both means Scrapy is done with
+        it - downloaded, dropped by a middleware or errored out alike.
 
-        Without a crawler there is nothing to ask, and every request reads as finished; `open` warns about that.
+        Without a crawler there is nothing to ask and every request reads as finished; `open` warns about that.
         """
         engine = self._crawler.engine if self._crawler is not None else None
         if engine is None:
@@ -317,14 +313,13 @@ class ApifyScheduler(BaseScheduler):
         return engine.downloader.active | (scraper_slot.active if scraper_slot is not None else set())
 
     def _resolve_finished_requests(self, *, wait: bool) -> None:
-        """Mark every request Scrapy has finished processing as handled in the request queue.
+        """Mark every request Scrapy has finished processing as handled in the RQ.
 
-        A whole resolution pass reaches the queue in a single round trip. A request whose update cannot be
-        dispatched, or whose dispatched update turns out to have failed, stays tracked for the next call to
-        retry, without holding up the rest of the list.
+        A whole pass reaches the RQ in a single round trip. A request whose update cannot be dispatched, or
+        turns out to have failed, stays tracked for the next call to retry.
 
         Args:
-            wait: Whether to block until the queue has been updated. Pass False on the crawl's hot path, where
+            wait: Whether to block until the RQ has been updated. Pass False on the crawl's hot path, where
                 nothing depends on the result and blocking would stall the Twisted reactor.
         """
         rq = self._rq
@@ -359,9 +354,9 @@ class ApifyScheduler(BaseScheduler):
     def _collect_failed_marks(self, *, wait: bool) -> list[tuple[ApifyRequest, Request]]:
         """Return the requests whose already dispatched mark-as-handled did not land, so it can be retried.
 
-        `submit_coro` reports nothing back to the reactor thread, so an update that fails after it was
-        dispatched would otherwise drop its request from the tracking for good and leave it in progress in the
-        queue forever - the queue would never report itself finished and the crawl would never end.
+        `submit_coro` reports nothing back to the reactor thread, so an update failing after dispatch would
+        otherwise drop its request from the tracking and leave it in progress in the RQ forever, which would
+        keep the RQ from ever reporting itself finished.
 
         Args:
             wait: Whether to block until every dispatched update has finished. Updates still running are kept
@@ -384,7 +379,7 @@ class ApifyScheduler(BaseScheduler):
                 failed.extend(requests)
             else:
                 # `_gather_failures` reports a failed update in its result rather than raising, so an exception
-                # here means the dispatch itself did not survive - the event loop was torn down under it.
+                # here means the dispatch itself did not survive the event loop being torn down under it.
                 try:
                     outcomes = future.result()
                 except Exception:

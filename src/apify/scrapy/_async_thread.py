@@ -83,15 +83,15 @@ class AsyncThread:
     def submit_coro(self, coro: Coroutine) -> futures.Future:
         """Schedule a coroutine on the event loop without waiting for its result.
 
-        Use this for work whose result nothing depends on, so the calling thread is not blocked by the round
-        trip. Failures are logged, as no caller is left to propagate them to, and `close` cancels whatever is
-        still pending - call `wait_for_submitted` first if that matters.
+        Use this for work nothing depends on, so the calling thread is not blocked by the round trip. Failures
+        are logged, as there is no caller to propagate them to, and `close` cancels whatever is still pending -
+        call `wait_for_submitted` first if that matters.
 
         Args:
             coro: The coroutine to run.
 
         Returns:
-            The future of the scheduled coroutine, for callers that do want to inspect its outcome later.
+            The future of the scheduled coroutine, for callers that want to inspect its outcome later.
 
         Raises:
             RuntimeError: If the event loop has been closed.
@@ -99,8 +99,8 @@ class AsyncThread:
         if self._eventloop.is_closed():
             raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
 
-        # `wait_for_submitted` only runs once Scrapy goes idle, so without pruning here the list would hold
-        # every coroutine the whole crawl ever submitted, with its result.
+        # `wait_for_submitted` only runs once Scrapy goes idle, so without pruning the list would hold every
+        # coroutine the crawl ever submitted, with its result.
         if len(self._submitted) >= SUBMITTED_PRUNE_THRESHOLD:
             self._submitted = [submitted for submitted in self._submitted if not submitted.done()]
 

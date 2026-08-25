@@ -69,7 +69,7 @@ def test_without_reconstruction(spider: Spider) -> None:
 
 
 def test_unique_key_is_stamped_together_with_its_fingerprint(spider: Spider) -> None:
-    """The queue's unique key is stamped alongside a fingerprint of the request it belongs to."""
+    """The RQ unique key is stamped alongside a fingerprint of the request it belongs to."""
     apify_request = ApifyRequest(
         url='https://example.com',
         method='GET',

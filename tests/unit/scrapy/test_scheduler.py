@@ -48,7 +48,7 @@ class FakeAsyncThread:
     """Stand-in for `AsyncThread` that runs the scheduler's coroutines on a real event loop.
 
     The scheduler batches the updates of a whole resolution pass into a single coroutine, so a double that
-    never runs them would leave these tests asserting on the batching instead of on what reaches the queue.
+    never runs them would leave these tests asserting on the batching instead of on what reaches the RQ.
     """
 
     def __init__(self, default_timeout: timedelta | None = None) -> None:
@@ -77,7 +77,7 @@ class FakeAsyncThread:
 
 
 def stub_scheduler_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stub out the reactor check, the event loop thread and the queue that `open` reaches for."""
+    """Stub out the reactor check, the event loop thread and the RQ that `open` reaches for."""
     monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
     monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', FakeAsyncThread)
 
@@ -91,7 +91,7 @@ def stub_scheduler_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def scheduler(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> ApifyScheduler:
-    """Create a scheduler with its reactor check stubbed out, a fake event loop thread and a mocked queue."""
+    """Create a scheduler with its reactor check stubbed out, a fake event loop thread and a mocked RQ."""
     stub_scheduler_dependencies(monkeypatch)
 
     scheduler = ApifyScheduler()
@@ -108,10 +108,10 @@ def test_has_pending_requests_reflects_queue_state(scheduler: ApifyScheduler) ->
     """`has_pending_requests` is True while the queue is not finished and False once it is."""
     rq = cast('mock.AsyncMock', scheduler._rq)
 
-    rq.is_finished.return_value = False  # the queue still has work
+    rq.is_finished.return_value = False  # the RQ still has work
     assert scheduler.has_pending_requests() is True
 
-    rq.is_finished.return_value = True  # the queue is drained
+    rq.is_finished.return_value = True  # the RQ is drained
     assert scheduler.has_pending_requests() is False
 
 
@@ -184,7 +184,7 @@ def test_next_request_skips_request_that_fails_to_convert(
 
 
 def test_next_request_returns_converted_request(scheduler: ApifyScheduler) -> None:
-    """A valid queue entry is reconstructed into a Scrapy request and left unhandled until Scrapy is done."""
+    """A valid RQ entry is reconstructed into a Scrapy request and left unhandled until Scrapy is done."""
     rq = cast('mock.AsyncMock', scheduler._rq)
 
     apify_request = ApifyRequest(
@@ -319,7 +319,7 @@ def test_next_request_marks_finished_requests_without_blocking(scheduler: ApifyS
 
 
 def test_has_pending_requests_waits_for_the_non_blocking_updates(scheduler: ApifyScheduler) -> None:
-    """The queue is asked whether it is finished only after the updates fired off on the hot path have landed."""
+    """The RQ is asked whether it is finished only after the updates fired off on the hot path have landed."""
     rq = cast('mock.AsyncMock', scheduler._rq)
     async_thread = cast('FakeAsyncThread', scheduler._async_thread)
     scheduler._crawler = fake_crawler()
@@ -327,7 +327,7 @@ def test_has_pending_requests_waits_for_the_non_blocking_updates(scheduler: Apif
     rq.is_finished.return_value = True
     assert scheduler.has_pending_requests() is False
 
-    # The queue answers from its own bookkeeping, which a pending update has not reached yet.
+    # The RQ answers from its own bookkeeping, which a pending update has not reached yet.
     assert async_thread.calls == ['wait_for_submitted', 'run_coro']
 
 
@@ -339,7 +339,7 @@ def test_has_pending_requests_waits_for_the_non_blocking_updates(scheduler: Apif
     ],
 )
 def test_close_reclaims_requests_scrapy_never_finished(scheduler: ApifyScheduler, busy_kwarg: str) -> None:
-    """Requests still being processed when the scheduler closes go back to the queue instead of being lost."""
+    """Requests still being processed when the scheduler closes go back to the RQ instead of being lost."""
     rq = cast('mock.AsyncMock', scheduler._rq)
 
     (scrapy_request,) = hand_out(scheduler, 1)
@@ -372,7 +372,7 @@ def test_close_reclaims_the_other_requests_after_a_failed_reclaim(
     scheduler: ApifyScheduler,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """One failing reclaim does not stop the other in-flight requests from going back to the queue."""
+    """One failing reclaim does not stop the other in-flight requests from going back to the RQ."""
     rq = cast('mock.AsyncMock', scheduler._rq)
 
     hand_out(scheduler, 2)
@@ -386,7 +386,7 @@ def test_close_reclaims_the_other_requests_after_a_failed_reclaim(
     assert len(errors) == 1
 
 
-def test_close_reaches_the_queue_in_one_round_trip_per_operation(scheduler: ApifyScheduler) -> None:
+def test_close_reaches_the_rq_in_one_round_trip_per_operation(scheduler: ApifyScheduler) -> None:
     """Marks and reclaims each travel together, as a migration may not leave room for one round trip each."""
     rq = cast('mock.AsyncMock', scheduler._rq)
     async_thread = cast('FakeAsyncThread', scheduler._async_thread)
@@ -423,7 +423,7 @@ def test_a_failed_mark_keeps_the_request_tracked(
     hand_out(scheduler, 1)
 
     scheduler._crawler = fake_crawler()
-    # The mark fails, then the queue reports itself unfinished because the request is still in progress.
+    # The mark fails, then the RQ reports itself unfinished because the request is still in progress.
     rq.mark_request_as_handled.side_effect = RuntimeError('boom')
     rq.is_finished.return_value = False
 
@@ -439,7 +439,7 @@ def test_a_mark_that_fails_after_being_fired_off_is_retried(
     scheduler: ApifyScheduler,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A hot-path mark that fails on its way to the queue is retried, instead of leaving the request in progress."""
+    """A hot-path mark that fails on its way to the RQ is retried, instead of leaving the request in progress."""
     rq = cast('mock.AsyncMock', scheduler._rq)
 
     hand_out(scheduler, 1)

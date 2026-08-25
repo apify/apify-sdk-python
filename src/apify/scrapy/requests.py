@@ -49,16 +49,15 @@ def _ensure_known_request_class(request_dict: dict[str, Any]) -> None:
 
 
 def _compute_fingerprint(scrapy_request: ScrapyRequest) -> str:
-    """Identify the request a queue unique key was minted for.
+    """Identify the request an RQ unique key was minted for.
 
     `to_scrapy_request` stamps this beside the unique key so `to_apify_request` can tell a request that came out
-    of the queue from one Scrapy derived from it. It covers the URL, the method and the body, so a redirect, a
-    method switch and a changed body are all recognized as a different request rather than the parent.
+    of the RQ from one Scrapy derived from it. It covers the URL, the method and the body, so a redirect, a
+    method switch and a changed body all read as a different request rather than the parent.
 
-    Headers are deliberately left out even though they are part of the unique key: Scrapy's own downloader
-    middlewares (`DefaultHeadersMiddleware`, `UserAgentMiddleware`) call `headers.setdefault()` on the request
-    in place before it is handed back to the scheduler, so a request that is otherwise untouched would no longer
-    match the stamp it was given.
+    Headers are left out even though the unique key covers them: `DefaultHeadersMiddleware` and
+    `UserAgentMiddleware` call `headers.setdefault()` on the request in place before the scheduler sees it
+    again, so an otherwise untouched request would no longer match its own stamp.
     """
     return compute_unique_key(
         url=scrapy_request.url,
@@ -99,10 +98,10 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         if scrapy_request.dont_filter:
             request_kwargs['always_enqueue'] = True
         elif unique_key := scrapy_request.meta.get('apify_request_unique_key'):
-            # Reuse the queue's unique key only while this is still the request it was minted for. Redirects
-            # (`Request.replace()`) and spiders forwarding `meta` to another URL both inherit the stamp, and
-            # reusing it there deduplicates the derived request against its parent. A stamp without a
-            # fingerprint beside it was set by hand, so it is taken at face value.
+            # Reuse the RQ unique key only while this is still the request it was minted for. Redirects
+            # (`Request.replace()`) and spiders forwarding `meta` to another URL inherit the stamp, and reusing
+            # it there deduplicates the derived request against its parent. A stamp without a fingerprint was
+            # set by hand, so it is taken at face value.
             fingerprint = _compute_fingerprint(scrapy_request)
             if scrapy_request.meta.get('apify_request_fingerprint', fingerprint) == fingerprint:
                 request_kwargs['unique_key'] = unique_key
@@ -219,8 +218,8 @@ def to_scrapy_request(apify_request: ApifyRequest, spider: Spider) -> ScrapyRequ
     else:
         scrapy_request = ScrapyRequest(url=apify_request.url, method=apify_request.method)
 
-    # Stamp the unique key together with a fingerprint of the request it belongs to, so `to_apify_request` can
-    # tell this request apart from the ones Scrapy derives from it.
+    # Stamp the unique key with a fingerprint of the request it belongs to, so `to_apify_request` can tell
+    # this request apart from the ones Scrapy derives from it.
     scrapy_request.meta['apify_request_unique_key'] = apify_request.unique_key
     scrapy_request.meta['apify_request_fingerprint'] = _compute_fingerprint(scrapy_request)
 
