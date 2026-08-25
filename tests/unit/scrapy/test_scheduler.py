@@ -528,25 +528,34 @@ def test_from_crawler_keeps_the_crawler(monkeypatch: pytest.MonkeyPatch) -> None
     assert scheduler._crawler is crawler
 
 
-def test_open_listens_for_the_migration(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> None:
-    """`open` registers the migration listener with the Actor, so the scheduler learns when the run is moving."""
+def test_open_listens_for_the_migration_and_the_abort(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> None:
+    """`open` registers the listeners with the Actor, so the scheduler learns when the run is moving or aborting."""
     actor = stub_scheduler_dependencies(monkeypatch)
     scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
 
     scheduler.open(spider)
 
-    actor.on.assert_called_once_with(Event.MIGRATING, scheduler._on_migrating)
+    assert actor.on.call_args_list == [
+        mock.call(Event.MIGRATING, scheduler._on_migrating),
+        mock.call(Event.ABORTING, scheduler._on_aborting),
+    ]
 
 
-def test_close_stops_listening_for_the_migration(monkeypatch: pytest.MonkeyPatch, spider: DummySpider) -> None:
-    """`close` unregisters the migration listener, so a closed scheduler is not told about a migration."""
+def test_close_stops_listening_for_the_migration_and_the_abort(
+    monkeypatch: pytest.MonkeyPatch,
+    spider: DummySpider,
+) -> None:
+    """`close` unregisters the listeners, so a closed scheduler is not told about a migration or an abort."""
     actor = stub_scheduler_dependencies(monkeypatch)
     scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
     scheduler.open(spider)
 
     scheduler.close('finished')
 
-    actor.off.assert_called_once_with(Event.MIGRATING, scheduler._on_migrating)
+    assert actor.off.call_args_list == [
+        mock.call(Event.MIGRATING, scheduler._on_migrating),
+        mock.call(Event.ABORTING, scheduler._on_aborting),
+    ]
 
 
 def test_open_warns_when_the_actor_is_not_initialized(
@@ -554,7 +563,7 @@ def test_open_warns_when_the_actor_is_not_initialized(
     spider: DummySpider,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Without an initialized Actor there is nothing to register the migration listener with, and that is said."""
+    """Without an initialized Actor there is nothing to register the listeners with, and that is said."""
     actor = stub_scheduler_dependencies(monkeypatch)
     actor.on.side_effect = RuntimeError('The _ActorType is not active.')
     scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
@@ -598,6 +607,52 @@ async def test_migration_settles_the_requests_as_scrapy_finishes_them(
     busy.discard(second)
     await asyncio.wait_for(settled, timeout=1)
     assert rq.mark_request_as_handled.call_args_list == [mock.call(first_apify), mock.call(second_apify)]
+
+
+async def test_abort_settles_the_requests_as_scrapy_finishes_them(
+    scheduler: ApifyScheduler,
+    monkeypatch: pytest.MonkeyPatch,
+    rq: mock.AsyncMock,
+) -> None:
+    """Once an abort is announced, the requests Scrapy holds are marked as handled as they finish, not at the end."""
+    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    busy = set(hand_out(scheduler, rq, 2))
+    scheduler._crawler = fake_crawler(downloader_busy=busy)
+    (first_apify, first), (second_apify, second) = scheduler._requests_in_flight
+
+    settled = asyncio.create_task(scheduler._on_aborting())
+    await asyncio.sleep(0.05)
+
+    rq.mark_request_as_handled.assert_not_called()
+    assert not settled.done()
+
+    busy.discard(first)
+    await asyncio.sleep(0.05)
+    rq.mark_request_as_handled.assert_called_once_with(first_apify)
+    assert not settled.done()
+
+    busy.discard(second)
+    await asyncio.wait_for(settled, timeout=1)
+    assert rq.mark_request_as_handled.call_args_list == [mock.call(first_apify), mock.call(second_apify)]
+
+
+async def test_a_repeated_migration_announcement_does_not_settle_again(
+    scheduler: ApifyScheduler,
+    monkeypatch: pytest.MonkeyPatch,
+    rq: mock.AsyncMock,
+) -> None:
+    """A second announcement, e.g. a reboot during a migration, returns at once while the first one keeps settling."""
+    monkeypatch.setattr('apify.scrapy.scheduler.SETTLE_POLL_INTERVAL', timedelta(milliseconds=10))
+    hand_out(scheduler, rq, 1)
+
+    settled = asyncio.create_task(scheduler._on_migrating(EventMigratingData()))
+    await asyncio.sleep(0.05)
+
+    await asyncio.wait_for(scheduler._on_migrating(EventMigratingData()), timeout=1)
+    assert not settled.done()
+
+    scheduler.close('shutdown')
+    await asyncio.wait_for(settled, timeout=1)
 
 
 async def test_migration_with_nothing_in_flight_only_stops_handing_out_requests(
