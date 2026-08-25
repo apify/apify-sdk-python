@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
     from apify import Request as ApifyRequest
 
+    InFlightRequest = tuple[ApifyRequest, Request]
+    """A request handed over to Scrapy, paired with the RQ request it came from."""
+
 logger = getLogger(__name__)
 
 
@@ -59,10 +62,10 @@ class ApifyScheduler(BaseScheduler):
         self.spider: Spider | None = None
         self._crawler = crawler
 
-        self._requests_in_flight: list[tuple[ApifyRequest, Request]] = []
+        self._requests_in_flight: list[InFlightRequest] = []
         """Requests handed over to Scrapy and not resolved in the RQ yet."""
 
-        self._pending_marks: list[tuple[list[tuple[ApifyRequest, Request]], Future]] = []
+        self._pending_marks: list[tuple[list[InFlightRequest], Future]] = []
         """Batches of mark-as-handled updates dispatched off the hot path, whose outcome is not known yet."""
 
         # A thread with the asyncio event loop to run coroutines on.
@@ -278,11 +281,12 @@ class ApifyScheduler(BaseScheduler):
         return scrapy_request
 
     def _verify_engine_internals(self) -> None:
-        """Fail early if Scrapy's engine no longer exposes what the in-flight tracking reads.
+        """Fail at open time if Scrapy's engine no longer exposes what the in-flight tracking reads.
 
         The hot path deliberately does not guard those undocumented internals: swallowing an `AttributeError`
-        there would quietly go back to marking every request as handled the moment it is handed over. Checking
-        once at open time keeps such a breakage loud and early.
+        there would quietly go back to marking every request as handled the moment it is handed over. The
+        scraper's slot does not exist yet when the scheduler opens, so this only proves `downloader.active` and
+        `scraper.slot` are there; a missing `slot.active` surfaces from `next_request` on the first request.
 
         Raises:
             RuntimeError: If the engine internals the tracking relies on cannot be read.
@@ -328,7 +332,7 @@ class ApifyScheduler(BaseScheduler):
 
         # Updates dispatched by an earlier pass that did not land are marked again by this one.
         finished = self._collect_failed_marks(wait=wait)
-        unresolved: list[tuple[ApifyRequest, Request]] = []
+        unresolved: list[InFlightRequest] = []
 
         if self._requests_in_flight:
             busy = self._requests_busy_in_scrapy()
@@ -351,7 +355,7 @@ class ApifyScheduler(BaseScheduler):
 
         self._requests_in_flight = unresolved
 
-    def _collect_failed_marks(self, *, wait: bool) -> list[tuple[ApifyRequest, Request]]:
+    def _collect_failed_marks(self, *, wait: bool) -> list[InFlightRequest]:
         """Return the requests whose already dispatched mark-as-handled did not land, so it can be retried.
 
         `submit_coro` reports nothing back to the reactor thread, so an update failing after dispatch would
@@ -368,8 +372,8 @@ class ApifyScheduler(BaseScheduler):
         if wait:
             self._async_thread.wait_for_submitted()
 
-        failed: list[tuple[ApifyRequest, Request]] = []
-        pending: list[tuple[list[tuple[ApifyRequest, Request]], Future]] = []
+        failed: list[InFlightRequest] = []
+        pending: list[tuple[list[InFlightRequest], Future]] = []
 
         for requests, future in self._pending_marks:
             if not future.done():
@@ -394,9 +398,9 @@ class ApifyScheduler(BaseScheduler):
 
     @staticmethod
     def _failed_marks(
-        requests: list[tuple[ApifyRequest, Request]],
+        requests: list[InFlightRequest],
         outcomes: list[BaseException | None],
-    ) -> list[tuple[ApifyRequest, Request]]:
+    ) -> list[InFlightRequest]:
         """Pair a batch of updates back with their requests, returning and logging the ones that failed."""
         failed = []
 

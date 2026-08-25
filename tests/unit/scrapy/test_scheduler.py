@@ -13,6 +13,7 @@ from scrapy import Request, Spider
 from scrapy.settings import Settings
 
 from apify import Request as ApifyRequest
+from apify.scrapy._async_thread import AsyncThread
 from apify.scrapy.scheduler import ApifyScheduler
 from apify.storages import RequestQueue
 
@@ -44,24 +45,14 @@ def fake_crawler(
     return SimpleNamespace(engine=engine)
 
 
-class FakeAsyncThread:
-    """Stand-in for `AsyncThread` that runs the scheduler's coroutines on a real event loop.
+def fake_async_thread(default_timeout: timedelta | None = None) -> mock.Mock:  # noqa: ARG001
+    """Build an `AsyncThread` double that runs the scheduler's coroutines on a real event loop.
 
     The scheduler batches the updates of a whole resolution pass into a single coroutine, so a double that
     never runs them would leave these tests asserting on the batching instead of on what reaches the RQ.
     """
 
-    def __init__(self, default_timeout: timedelta | None = None) -> None:
-        self.default_timeout = default_timeout
-        self.calls: list[str] = []
-        """The methods called on this thread, in order, for the tests that care about the ordering."""
-
-    def run_coro(self, coro: Coroutine) -> Any:
-        self.calls.append('run_coro')
-        return asyncio.run(coro)
-
-    def submit_coro(self, coro: Coroutine) -> Future:
-        self.calls.append('submit_coro')
+    def submit_coro(coro: Coroutine) -> Future:
         future: Future = Future()
         try:
             future.set_result(asyncio.run(coro))
@@ -69,17 +60,21 @@ class FakeAsyncThread:
             future.set_exception(exc)
         return future
 
-    def wait_for_submitted(self) -> None:
-        self.calls.append('wait_for_submitted')
+    async_thread = mock.Mock(spec=AsyncThread)
+    async_thread.run_coro.side_effect = asyncio.run
+    async_thread.submit_coro.side_effect = submit_coro
+    return async_thread
 
-    def close(self) -> None:
-        self.calls.append('close')
+
+def called_methods(async_thread: mock.Mock) -> list[str]:
+    """Name the methods called on an `AsyncThread` double, in order, for the tests that care about the ordering."""
+    return [name for name, _args, _kwargs in async_thread.method_calls]
 
 
 def stub_scheduler_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub out the reactor check, the event loop thread and the RQ that `open` reaches for."""
     monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
-    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', FakeAsyncThread)
+    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', mock.Mock(side_effect=fake_async_thread))
 
     async def open_rq(*_args: Any, **_kwargs: Any) -> Any:
         rq = mock.AsyncMock()
@@ -234,20 +229,14 @@ def test_next_request_logs_exception_before_propagating(
 
 def test_from_crawler_reads_async_thread_timeout_setting(monkeypatch: pytest.MonkeyPatch) -> None:
     """`from_crawler` wires the `APIFY_ASYNC_THREAD_TIMEOUT_SECS` setting into the async thread's timeout."""
-    monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
-
-    captured: dict[str, Any] = {}
-
-    class _RecordingAsyncThread:
-        def __init__(self, default_timeout: timedelta | None = None) -> None:
-            captured['default_timeout'] = default_timeout
-
-    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', _RecordingAsyncThread)
+    stub_scheduler_dependencies(monkeypatch)
+    async_thread_cls = mock.Mock(side_effect=fake_async_thread)
+    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', async_thread_cls)
 
     crawler = SimpleNamespace(settings=Settings({'APIFY_ASYNC_THREAD_TIMEOUT_SECS': 123}))
     ApifyScheduler.from_crawler(cast('Any', crawler))
 
-    assert captured['default_timeout'] == timedelta(seconds=123)
+    async_thread_cls.assert_called_once_with(default_timeout=timedelta(seconds=123))
 
 
 APIFY_REQUESTS = [
@@ -300,7 +289,7 @@ def test_has_pending_requests_marks_finished_requests_as_handled(scheduler: Apif
 def test_next_request_marks_finished_requests_without_blocking(scheduler: ApifyScheduler) -> None:
     """On the crawl's hot path a finished request is marked as handled without blocking the reactor on it."""
     rq = cast('mock.AsyncMock', scheduler._rq)
-    async_thread = cast('FakeAsyncThread', scheduler._async_thread)
+    async_thread = cast('mock.Mock', scheduler._async_thread)
 
     (scrapy_request,) = hand_out(scheduler, 1)
 
@@ -311,24 +300,24 @@ def test_next_request_marks_finished_requests_without_blocking(scheduler: ApifyS
 
     # Scrapy is done with it, so it is resolved off the reactor thread instead of blocking on the round trip.
     scheduler._crawler = fake_crawler(scraper_busy=set())
-    async_thread.calls.clear()
+    async_thread.reset_mock()
     assert scheduler.next_request() is None
 
     rq.mark_request_as_handled.assert_called_once_with(APIFY_REQUESTS[0])
-    assert 'submit_coro' in async_thread.calls
+    assert 'submit_coro' in called_methods(async_thread)
 
 
 def test_has_pending_requests_waits_for_the_non_blocking_updates(scheduler: ApifyScheduler) -> None:
     """The RQ is asked whether it is finished only after the updates fired off on the hot path have landed."""
     rq = cast('mock.AsyncMock', scheduler._rq)
-    async_thread = cast('FakeAsyncThread', scheduler._async_thread)
+    async_thread = cast('mock.Mock', scheduler._async_thread)
     scheduler._crawler = fake_crawler()
 
     rq.is_finished.return_value = True
     assert scheduler.has_pending_requests() is False
 
     # The RQ answers from its own bookkeeping, which a pending update has not reached yet.
-    assert async_thread.calls == ['wait_for_submitted', 'run_coro']
+    assert called_methods(async_thread) == ['wait_for_submitted', 'run_coro']
 
 
 @pytest.mark.parametrize(
@@ -389,28 +378,29 @@ def test_close_reclaims_the_other_requests_after_a_failed_reclaim(
 def test_close_reaches_the_rq_in_one_round_trip_per_operation(scheduler: ApifyScheduler) -> None:
     """Marks and reclaims each travel together, as a migration may not leave room for one round trip each."""
     rq = cast('mock.AsyncMock', scheduler._rq)
-    async_thread = cast('FakeAsyncThread', scheduler._async_thread)
+    async_thread = cast('mock.Mock', scheduler._async_thread)
 
     handed_out = hand_out(scheduler, 4)
 
     # Scrapy finished half of the requests and is still working on the rest when the run is interrupted.
     scheduler._crawler = fake_crawler(downloader_busy=set(handed_out[2:]))
 
-    async_thread.calls.clear()
+    async_thread.reset_mock()
     scheduler.close('shutdown')
 
     assert rq.mark_request_as_handled.await_count == 2
     assert rq.reclaim_request.await_count == 2
-    assert async_thread.calls.count('run_coro') == 2
+    assert called_methods(async_thread).count('run_coro') == 2
 
 
 def test_close_waits_for_the_non_blocking_updates(scheduler: ApifyScheduler) -> None:
     """The event loop is not torn down before the updates fired off on the hot path have landed."""
-    async_thread = cast('FakeAsyncThread', scheduler._async_thread)
+    async_thread = cast('mock.Mock', scheduler._async_thread)
 
     scheduler.close('finished')
 
-    assert async_thread.calls.index('wait_for_submitted') < async_thread.calls.index('close')
+    methods = called_methods(async_thread)
+    assert methods.index('wait_for_submitted') < methods.index('close')
 
 
 def test_a_failed_mark_keeps_the_request_tracked(
@@ -503,8 +493,7 @@ def test_open_fails_loudly_when_the_scrapy_engine_internals_move(
 
 def test_from_crawler_keeps_the_crawler(monkeypatch: pytest.MonkeyPatch) -> None:
     """`from_crawler` keeps the crawler, which is how the scheduler learns what Scrapy is still working on."""
-    monkeypatch.setattr('apify.scrapy.scheduler.is_asyncio_reactor_installed', lambda: True)
-    monkeypatch.setattr('apify.scrapy.scheduler.AsyncThread', mock.MagicMock())
+    stub_scheduler_dependencies(monkeypatch)
 
     crawler = SimpleNamespace(settings=Settings())
     scheduler = ApifyScheduler.from_crawler(cast('Any', crawler))
