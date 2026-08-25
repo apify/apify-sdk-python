@@ -20,7 +20,7 @@ IN_FLIGHT_LOG_MARKER = 'Handing the request over to the downloader'
 class MarkInFlightMiddleware:
     """Downloader middleware that logs `IN_FLIGHT_LOG_MARKER` for every request it sees."""
 
-    def process_request(self, request: Request, spider: Spider) -> None:  # noqa: ARG002
+    def process_request(self, request: Request) -> None:
         logger.info(f'{IN_FLIGHT_LOG_MARKER}: {request.url}')
 
 
