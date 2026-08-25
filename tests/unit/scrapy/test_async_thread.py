@@ -70,9 +70,11 @@ def test_run_coro_raises_after_close() -> None:
     async_thread.close()
 
     coro = _return(42)
-    with pytest.raises(RuntimeError):
-        async_thread.run_coro(coro)
-    coro.close()
+    try:
+        with pytest.raises(RuntimeError):
+            async_thread.run_coro(coro)
+    finally:
+        coro.close()
 
 
 def test_run_coro_cancels_the_coroutine_on_timeout() -> None:
@@ -91,13 +93,14 @@ def test_run_coro_cancels_the_coroutine_on_timeout() -> None:
             cancelled.set()
             raise
 
-    with pytest.raises(futures.TimeoutError):
-        thread.run_coro(slow(), timeout=timedelta(seconds=0.1))
+    try:
+        with pytest.raises(futures.TimeoutError):
+            thread.run_coro(slow(), timeout=timedelta(seconds=0.1))
 
-    assert started.wait(timeout=2)
-    assert cancelled.wait(timeout=2), 'the timed-out coroutine was left running instead of being cancelled'
-
-    thread.close()
+        assert started.wait(timeout=2)
+        assert cancelled.wait(timeout=2), 'the timed-out coroutine was left running instead of being cancelled'
+    finally:
+        thread.close()
 
 
 def test_run_coro_does_not_log_on_exception(caplog: pytest.LogCaptureFixture) -> None:
@@ -108,10 +111,14 @@ def test_run_coro_does_not_log_on_exception(caplog: pytest.LogCaptureFixture) ->
     async def boom() -> None:
         raise RuntimeError('boom')
 
-    with caplog.at_level(logging.DEBUG, logger='apify.scrapy._async_thread'), pytest.raises(RuntimeError, match='boom'):
-        thread.run_coro(boom())
-
-    thread.close()
+    try:
+        with (
+            caplog.at_level(logging.DEBUG, logger='apify.scrapy._async_thread'),
+            pytest.raises(RuntimeError, match='boom'),
+        ):
+            thread.run_coro(boom())
+    finally:
+        thread.close()
 
     assert [record for record in caplog.records if record.levelno >= logging.ERROR] == []
 
@@ -120,29 +127,36 @@ def test_close_is_idempotent() -> None:
     """Calling `close` twice is a no-op the second time, not a `RuntimeError` on the closed loop."""
     thread = AsyncThread()
     _wait_until_running(thread)
-    thread.run_coro(asyncio.sleep(0))
+    try:
+        thread.run_coro(asyncio.sleep(0))
 
-    thread.close()
-    thread.close()  # must not raise
+        thread.close()
+        thread.close()  # must not raise
+    finally:
+        thread.close()
 
 
 def test_close_passes_its_timeout_to_the_shutdown_step(monkeypatch: pytest.MonkeyPatch) -> None:
     """`close(timeout=...)` honours that timeout for the task-cancellation step, not only the thread join."""
     thread = AsyncThread()
     _wait_until_running(thread)
-    thread.run_coro(asyncio.sleep(0))
 
-    recorded: list[timedelta | str] = []
-    original = thread.run_coro
+    try:
+        thread.run_coro(asyncio.sleep(0))
 
-    def spy(coro: Any, timeout: timedelta | Literal['default'] = 'default') -> Any:
-        recorded.append(timeout)
-        return original(coro, timeout=timeout)
+        recorded: list[timedelta | str] = []
+        original = thread.run_coro
 
-    monkeypatch.setattr(thread, 'run_coro', spy)
-    thread.close(timeout=timedelta(seconds=42))
+        def spy(coro: Any, timeout: timedelta | Literal['default'] = 'default') -> Any:
+            recorded.append(timeout)
+            return original(coro, timeout=timeout)
 
-    assert recorded == [timedelta(seconds=42)]
+        monkeypatch.setattr(thread, 'run_coro', spy)
+        thread.close(timeout=timedelta(seconds=42))
+
+        assert recorded == [timedelta(seconds=42)]
+    finally:
+        thread.close()
 
 
 def test_close_stops_and_joins_thread_even_when_task_cancellation_fails(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -155,12 +169,15 @@ def test_close_stops_and_joins_thread_even_when_task_cancellation_fails(monkeypa
 
     monkeypatch.setattr(thread, '_shutdown_tasks', boom)
 
-    with pytest.raises(RuntimeError, match='shutdown boom'):
-        thread.close(timeout=timedelta(seconds=5))
+    try:
+        with pytest.raises(RuntimeError, match='shutdown boom'):
+            thread.close(timeout=timedelta(seconds=5))
 
-    # The loop was stopped and its thread joined despite the failing cancellation, so nothing is left running.
-    assert not thread._thread.is_alive()
-    assert thread._eventloop.is_closed()
+        # The loop was stopped and its thread joined despite the failing cancellation, so nothing is left running.
+        assert not thread._thread.is_alive()
+        assert thread._eventloop.is_closed()
+    finally:
+        thread.close()
 
 
 def test_submit_coro_runs_the_coroutine_without_blocking() -> None:
@@ -175,15 +192,18 @@ def test_submit_coro_runs_the_coroutine_without_blocking() -> None:
         await asyncio.to_thread(release.wait)
         finished.set()
 
-    thread.submit_coro(gated())
+    try:
+        thread.submit_coro(gated())
 
-    # The call returned while the coroutine is still parked on the gate.
-    assert not finished.is_set()
+        # The call returned while the coroutine is still parked on the gate.
+        assert not finished.is_set()
 
-    release.set()
-    assert finished.wait(timeout=2)
-
-    thread.close()
+        release.set()
+        assert finished.wait(timeout=2)
+    finally:
+        # Open the gate before closing, so a failed assertion above cannot leave `close` waiting on it.
+        release.set()
+        thread.close()
 
 
 def test_submit_coro_logs_a_failing_coroutine(caplog: pytest.LogCaptureFixture) -> None:
@@ -194,8 +214,11 @@ def test_submit_coro_logs_a_failing_coroutine(caplog: pytest.LogCaptureFixture) 
     async def boom() -> None:
         raise RuntimeError('boom')
 
-    with caplog.at_level(logging.ERROR, logger='apify.scrapy._async_thread'):
-        thread.submit_coro(boom())
+    try:
+        with caplog.at_level(logging.ERROR, logger='apify.scrapy._async_thread'):
+            thread.submit_coro(boom())
+            thread.close()
+    finally:
         thread.close()
 
     errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
@@ -210,9 +233,11 @@ def test_submit_coro_raises_after_close() -> None:
     thread.close()
 
     coro = _return(42)
-    with pytest.raises(RuntimeError):
-        thread.submit_coro(coro)
-    coro.close()
+    try:
+        with pytest.raises(RuntimeError):
+            thread.submit_coro(coro)
+    finally:
+        coro.close()
 
 
 def test_wait_for_submitted_blocks_until_the_coroutines_finish() -> None:
@@ -227,13 +252,16 @@ def test_wait_for_submitted_blocks_until_the_coroutines_finish() -> None:
         await asyncio.to_thread(release.wait)
         finished.set()
 
-    thread.submit_coro(gated())
-    release.set()
+    try:
+        thread.submit_coro(gated())
+        release.set()
 
-    thread.wait_for_submitted()
+        thread.wait_for_submitted()
 
-    assert finished.is_set()
-    thread.close()
+        assert finished.is_set()
+    finally:
+        release.set()
+        thread.close()
 
 
 def test_wait_for_submitted_keeps_an_unfinished_coroutine_tracked(caplog: pytest.LogCaptureFixture) -> None:
@@ -246,18 +274,21 @@ def test_wait_for_submitted_keeps_an_unfinished_coroutine_tracked(caplog: pytest
     async def gated() -> None:
         await asyncio.to_thread(release.wait)
 
-    thread.submit_coro(gated())
+    try:
+        thread.submit_coro(gated())
 
-    with caplog.at_level(logging.WARNING, logger='apify.scrapy._async_thread'):
-        thread.wait_for_submitted(timeout=timedelta(seconds=0.01))
-    assert len(thread._submitted) == 1
-    assert [record for record in caplog.records if record.levelno == logging.WARNING]
+        with caplog.at_level(logging.WARNING, logger='apify.scrapy._async_thread'):
+            thread.wait_for_submitted(timeout=timedelta(seconds=0.01))
+        assert len(thread._submitted) == 1
+        assert [record for record in caplog.records if record.levelno == logging.WARNING]
 
-    release.set()
-    thread.wait_for_submitted()
-    assert thread._submitted == []
-
-    thread.close()
+        release.set()
+        thread.wait_for_submitted()
+        assert thread._submitted == []
+    finally:
+        # Open the gate before closing, so a failed assertion above cannot leave `close` waiting on it.
+        release.set()
+        thread.close()
 
 
 def test_submit_coro_drops_the_finished_futures() -> None:
@@ -265,13 +296,14 @@ def test_submit_coro_drops_the_finished_futures() -> None:
     thread = AsyncThread()
     _wait_until_running(thread)
 
-    for _ in range(SUBMITTED_PRUNE_THRESHOLD):
+    try:
+        for _ in range(SUBMITTED_PRUNE_THRESHOLD):
+            thread.submit_coro(_return(1))
+
+        assert futures.wait(list(thread._submitted), timeout=2).not_done == set()
+
+        # Every tracked coroutine has finished, so this submission drops them instead of growing the list.
         thread.submit_coro(_return(1))
-
-    assert futures.wait(list(thread._submitted), timeout=2).not_done == set()
-
-    # Every tracked coroutine has finished, so this submission drops them instead of growing the list.
-    thread.submit_coro(_return(1))
-    assert len(thread._submitted) == 1
-
-    thread.close()
+        assert len(thread._submitted) == 1
+    finally:
+        thread.close()
