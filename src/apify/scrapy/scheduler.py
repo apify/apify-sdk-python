@@ -81,9 +81,6 @@ class ApifyScheduler(BaseScheduler):
         self._migrating = False
         """Whether the platform announced a migration of the Actor run; nothing is handed out to Scrapy then."""
 
-        self._listening = False
-        """Whether `_on_migrating` is registered with the Actor, so `close` knows to unregister it."""
-
         self._closed = False
         """Whether `close` has run; `_settle_requests_in_flight` stops then, as `close` resolves the rest itself."""
 
@@ -147,8 +144,6 @@ class ApifyScheduler(BaseScheduler):
                 'The Actor is not initialized, so the scheduler cannot react to a migration or an abort of the Actor '
                 'run; the requests Scrapy is working on when the run is interrupted stay pending in the request queue.'
             )
-        else:
-            self._listening = True
 
         return None
 
@@ -163,11 +158,10 @@ class ApifyScheduler(BaseScheduler):
         logger.debug(f'Closing {self.__class__.__name__} due to {reason}...')
         self._closed = True
 
-        if self._listening:
-            # The Actor may have exited already, in which case there is nothing left to unregister from.
-            with suppress(RuntimeError):
-                Actor.off(Event.MIGRATING, self._on_migrating)
-                Actor.off(Event.ABORTING, self._on_aborting)
+        # Without an initialized Actor (never initialized, or exited already) there is nothing to unregister from.
+        with suppress(RuntimeError):
+            Actor.off(Event.MIGRATING, self._on_migrating)
+            Actor.off(Event.ABORTING, self._on_aborting)
 
         rq = self._rq
         if isinstance(rq, RequestQueue):

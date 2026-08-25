@@ -563,9 +563,10 @@ def test_open_warns_when_the_actor_is_not_initialized(
     spider: DummySpider,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Without an initialized Actor there is nothing to register the listeners with, and that is said."""
+    """Without an initialized Actor there is nothing to register the listeners with, and that is said; `close` copes."""
     actor = stub_scheduler_dependencies(monkeypatch)
     actor.on.side_effect = RuntimeError('The _ActorType is not active.')
+    actor.off.side_effect = RuntimeError('The _ActorType is not active.')
     scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
 
     with caplog.at_level(logging.WARNING, logger='apify.scrapy.scheduler'):
@@ -573,7 +574,6 @@ def test_open_warns_when_the_actor_is_not_initialized(
     scheduler.close('finished')
 
     assert 'Actor is not initialized' in caplog.text
-    actor.off.assert_not_called()
 
 
 async def test_migration_settles_the_requests_as_scrapy_finishes_them(

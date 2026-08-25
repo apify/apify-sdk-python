@@ -45,7 +45,7 @@ class ApifyGracefulStopExtension:
 
     def spider_closed(self) -> None:
         """Stop listening for the abort of the Actor run."""
-        # The Actor may have exited already, in which case there is nothing left to unregister from.
+        # Without an initialized Actor (never initialized, or exited already) there is nothing to unregister from.
         with suppress(RuntimeError):
             Actor.off(Event.ABORTING, self._on_aborting)
 
