@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 - Prolong and track shared request queue locks to prevent duplicate processing ([#1062](https://github.com/apify/apify-sdk-python/pull/1062)) ([ccaad7b](https://github.com/apify/apify-sdk-python/commit/ccaad7b71cd6cd1ddc2c71e5e9d9780001f2688a)) by [@vdusek](https://github.com/vdusek)
 - Verify shared request queue is_finished against per-request reads ([#1087](https://github.com/apify/apify-sdk-python/pull/1087)) ([22613aa](https://github.com/apify/apify-sdk-python/commit/22613aac0ce4e6ef852d5d3daf8c1a25cb3731e3)) by [@vdusek](https://github.com/vdusek)
+- Keep non-forefront reclaimed requests pending in the single request queue client ([#1060](https://github.com/apify/apify-sdk-python/pull/1060)) ([b61890c](https://github.com/apify/apify-sdk-python/commit/b61890cf286c3a83faedac69315acff74b5fba5b)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
