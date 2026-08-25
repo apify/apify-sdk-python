@@ -139,8 +139,9 @@ class ApifyScheduler(BaseScheduler):
             except Exception:
                 logger.exception('Failed to resolve the requests still in flight in the request queue.')
 
-            # Whatever Scrapy did not finish goes back to the RQ as pending, in a single round trip: a migration
-            # cuts the shutdown short. One failed reclaim must not strand the rest either.
+            # Scrapy drains its in-progress requests before closing the scheduler, so this only runs if a future
+            # Scrapy closes it earlier; then they go back to the RQ as pending, in a single round trip. One failed
+            # reclaim must not strand the rest either.
             if self._requests_in_flight:
                 reclaims = _gather_failures(
                     rq.reclaim_request(apify_request) for apify_request, _ in self._requests_in_flight

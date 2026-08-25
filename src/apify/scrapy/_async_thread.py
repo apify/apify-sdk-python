@@ -99,8 +99,8 @@ class AsyncThread:
         if self._eventloop.is_closed():
             raise RuntimeError(f'The coroutine {coro} cannot be executed because the event loop is closed.')
 
-        # `wait_for_submitted` only runs once Scrapy goes idle, so without pruning the list would hold every
-        # coroutine the crawl ever submitted, with its result.
+        # Callers may go a long time between `wait_for_submitted` calls, so without pruning the list would hold
+        # every coroutine ever submitted, with its result.
         if len(self._submitted) >= SUBMITTED_PRUNE_THRESHOLD:
             self._submitted = [submitted for submitted in self._submitted if not submitted.done()]
 
