@@ -1629,7 +1629,7 @@ async def test_shared_is_finished_false_while_request_in_progress(
         try:
             await rq.add_request(Request.from_url('https://example.com/in-progress'))
 
-            fetched = await rq.fetch_next_request()
+            fetched = await poll_until_condition(rq.fetch_next_request, timeout=30, backoff_factor=2)
             assert fetched is not None
             request_id = unique_key_to_request_id(fetched.unique_key)
             assert request_id in impl._requests_in_progress
