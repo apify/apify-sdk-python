@@ -16,6 +16,7 @@ from scrapy.settings import Settings
 from apify import Event, EventMigratingData
 from apify import Request as ApifyRequest
 from apify.scrapy._async_thread import AsyncThread
+from apify.scrapy._warnings import logger_once
 from apify.scrapy.scheduler import ApifyScheduler
 from apify.storages import RequestQueue
 
@@ -567,9 +568,10 @@ def test_open_warns_when_the_actor_is_not_initialized(
     actor = stub_scheduler_dependencies(monkeypatch)
     actor.on.side_effect = RuntimeError('The _ActorType is not active.')
     actor.off.side_effect = RuntimeError('The _ActorType is not active.')
+    monkeypatch.setattr(logger_once, '_seen', set())
     scheduler = ApifyScheduler(crawler=fake_crawler(scraper_busy=set()))
 
-    with caplog.at_level(logging.WARNING, logger='apify.scrapy.scheduler'):
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy._warnings'):
         scheduler.open(spider)
     scheduler.close('finished')
 

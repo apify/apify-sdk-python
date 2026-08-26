@@ -9,6 +9,7 @@ from scrapy import signals
 from scrapy.signalmanager import SignalManager
 
 from apify import Actor, Event, EventAbortingData
+from apify.scrapy._warnings import logger_once
 from apify.scrapy.extensions import ApifyGracefulStopExtension
 
 if TYPE_CHECKING:
@@ -62,11 +63,15 @@ async def test_the_actor_abort_event_reaches_the_extension() -> None:
         crawler.stop_async.assert_awaited_once_with()
 
 
-def test_spider_opened_warns_when_the_actor_is_not_initialized(caplog: pytest.LogCaptureFixture) -> None:
+def test_spider_opened_warns_when_the_actor_is_not_initialized(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Without an initialized Actor there is nothing to register the abort listener with, and that is said."""
+    monkeypatch.setattr(logger_once, '_seen', set())
     extension = ApifyGracefulStopExtension.from_crawler(fake_crawler())
 
-    with caplog.at_level(logging.WARNING, logger='apify.scrapy.extensions._graceful_stop'):
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy._warnings'):
         extension.spider_opened()
     extension.spider_closed()
 

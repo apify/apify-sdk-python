@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from scrapy import signals
 
 from apify import Actor, Event
+from apify.scrapy._warnings import warn_about_uninitialized_actor
 
 if TYPE_CHECKING:
     from scrapy.crawler import Crawler
@@ -39,9 +40,7 @@ class ApifyGracefulStopExtension:
         try:
             Actor.on(Event.ABORTING, self._on_aborting)
         except RuntimeError:
-            logger.warning(
-                'The Actor is not initialized, so the crawl cannot be stopped gracefully when the run is aborted.'
-            )
+            warn_about_uninitialized_actor()
 
     def spider_closed(self) -> None:
         """Stop listening for the abort of the Actor run."""

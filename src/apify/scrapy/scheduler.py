@@ -12,6 +12,7 @@ from scrapy.core.scheduler import BaseScheduler
 from scrapy.utils.reactor import is_asyncio_reactor_installed
 
 from ._async_thread import AsyncThread
+from ._warnings import warn_about_uninitialized_actor
 from .requests import to_apify_request, to_scrapy_request
 from apify import Actor, Configuration, Event
 from apify.storage_clients import ApifyStorageClient
@@ -140,10 +141,7 @@ class ApifyScheduler(BaseScheduler):
             Actor.on(Event.MIGRATING, self._on_migrating)
             Actor.on(Event.ABORTING, self._on_aborting)
         except RuntimeError:
-            logger.warning(
-                'The Actor is not initialized, so the scheduler cannot react to a migration or an abort of the Actor '
-                'run; the requests Scrapy is working on when the run is interrupted stay pending in the request queue.'
-            )
+            warn_about_uninitialized_actor()
 
         return None
 
