@@ -435,8 +435,10 @@ async def test_reboot_proceeds_when_event_listener_exceeds_timeout(
     """Test that a hanging pre-reboot event listener does not block reboot beyond the timeout."""
     apify_client_async_patcher.patch('run', 'reboot', return_value=None)
 
+    release_listener = asyncio.Event()
+
     async def hanging_listener(*_args: object) -> None:
-        await asyncio.sleep(60)
+        await release_listener.wait()
 
     async with Actor:
         Actor.configuration.is_at_home = True
@@ -450,6 +452,9 @@ async def test_reboot_proceeds_when_event_listener_exceeds_timeout(
                 event_listeners_timeout=timedelta(milliseconds=50),
                 custom_after_sleep=timedelta(milliseconds=1),
             )
+
+        # Let the listener finish, so that exiting the context does not wait it out.
+        release_listener.set()
 
     # The timeout was honored and logged.
     assert any('Pre-reboot event listeners did not finish within timeout' in r.message for r in caplog.records)
