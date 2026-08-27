@@ -34,6 +34,19 @@ _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 _SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 _MAX_BUILD_ATTEMPTS = 2
 
+# The Actors in these suites install browsers or Scrapy into their images, so their platform builds take several
+# times longer than the rest of the suite.
+_HEAVY_IMAGE_SUITES = ('tests/e2e/test_crawlee/', 'tests/e2e/test_scrapy/')
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Schedule the tests with the heaviest Actor images first.
+
+    pytest-xdist distributes the collection in order, so the longest tests have to come first for the workers to
+    finish at roughly the same time.
+    """
+    items.sort(key=lambda item: not item.nodeid.startswith(_HEAVY_IMAGE_SUITES))
+
 
 @pytest.fixture(scope='session')
 def apify_token() -> str:
