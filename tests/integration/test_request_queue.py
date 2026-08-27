@@ -39,6 +39,22 @@ if TYPE_CHECKING:
 _SHARED_MODE_PROPAGATION_DELAY = 10
 
 
+async def poll_fetch_next_request(rq: RequestQueue, *, timeout: float) -> Request | None:
+    """Fetch the next request from `rq`, retrying an empty result until the queue reports itself finished.
+
+    In shared mode `fetch_next_request` can return `None` while requests are still propagating, so an empty
+    result has to be retried. A queue that is genuinely drained reports `is_finished`, which ends the retrying
+    right away instead of waiting out the whole `timeout`.
+    """
+
+    async def fetch_or_finished() -> Request | bool | None:
+        request = await rq.fetch_next_request()
+        return request if request is not None else await rq.is_finished()
+
+    result = await poll_until_condition(fetch_or_finished, timeout=timeout, backoff_factor=2)
+    return result if isinstance(result, Request) else None
+
+
 async def test_add_and_fetch_requests(
     request_queue_apify: RequestQueue,
     rq_poll_timeout: int,
@@ -55,7 +71,7 @@ async def test_add_and_fetch_requests(
         await rq.add_request(f'https://example.com/{i}')
 
     handled_request_count = 0
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         Actor.log.info('Fetching next request...')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
         assert queue_operation_info is not None, f'queue_operation_info={queue_operation_info}'
@@ -91,7 +107,7 @@ async def test_add_requests_in_batches(
     Actor.log.info(f'Added {desired_request_count} requests in batch, total in queue: {total_count}')
 
     handled_request_count = 0
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         if handled_request_count % 20 == 0:
             Actor.log.info(f'Processing request {handled_request_count + 1}...')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
@@ -131,7 +147,7 @@ async def test_add_non_unique_requests_in_batch(
     Actor.log.info(f'Added {desired_request_count} requests with duplicate unique keys, total in queue: {total_count}')
 
     handled_request_count = 0
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         if handled_request_count % 20 == 0:
             Actor.log.info(f'Processing request {handled_request_count + 1}: {next_request.url}')
         queue_operation_info = await rq.mark_request_as_handled(next_request)
@@ -182,7 +198,7 @@ async def test_forefront_requests_ordering(
 
     # Fetch requests and verify order.
     fetched_urls = []
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         Actor.log.info(f'Fetched request: {next_request.url}')
         fetched_urls.append(next_request.url)
         await rq.mark_request_as_handled(next_request)
@@ -248,7 +264,7 @@ async def test_request_unique_key_behavior(
     # Only 2 requests should be fetchable.
     fetched_count = 0
     fetched_requests = []
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         fetched_count += 1
         fetched_requests.append(next_request)
         await rq.mark_request_as_handled(next_request)
@@ -550,7 +566,7 @@ async def test_batch_operations_performance(
 
     # Process all requests.
     processed_count = 0
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         processed_count += 1
         await rq.mark_request_as_handled(next_request)
         if processed_count >= 50:  # Safety break
@@ -613,7 +629,7 @@ async def test_state_consistency(
 
     # Process remaining requests.
     remaining_count = 0
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         remaining_count += 1
         await rq.mark_request_as_handled(next_request)
 
@@ -636,7 +652,7 @@ async def test_empty_rq_behavior(request_queue_apify: RequestQueue, rq_poll_time
     assert is_finished is True, f'is_finished={is_finished}'
 
     # Fetch from empty queue
-    next_request = await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2)
+    next_request = await poll_fetch_next_request(rq, timeout=rq_poll_timeout)
     Actor.log.info(f'Fetch result from empty queue: {next_request}')
     assert next_request is None, f'request={next_request}'
 
@@ -677,7 +693,7 @@ async def test_large_batch_operations(
     # Process all in chunks to test performance.
     processed_count = 0
 
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         await rq.mark_request_as_handled(next_request)
         processed_count += 1
 
@@ -721,7 +737,7 @@ async def test_mixed_string_and_request_objects(
 
     # Fetch and verify all types work.
     fetched_requests = []
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         fetched_requests.append(next_request)
         await rq.mark_request_as_handled(next_request)
 
@@ -785,7 +801,7 @@ async def test_persistence_across_operations(
 
     # Process remaining.
     remaining_processed = 0
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         remaining_processed += 1
         await rq.mark_request_as_handled(next_request)
 
@@ -900,7 +916,7 @@ async def test_request_ordering_with_mixed_operations(
 
     # Fetch all requests and verify forefront behavior.
     urls_ordered = list[str]()
-    while next_request := await poll_until_condition(rq.fetch_next_request, timeout=rq_poll_timeout, backoff_factor=2):
+    while next_request := await poll_fetch_next_request(rq, timeout=rq_poll_timeout):
         urls_ordered.append(next_request.url)
         await rq.mark_request_as_handled(next_request)
 
@@ -1568,7 +1584,7 @@ async def test_concurrent_processing_simulation(apify_token: str, monkeypatch: p
             assert total_after_workers == 20
 
             remaining_count = 0
-            while request := await poll_until_condition(rq.fetch_next_request, timeout=30, backoff_factor=2):
+            while request := await poll_fetch_next_request(rq, timeout=30):
                 remaining_count += 1
                 await rq.mark_request_as_handled(request)
 
