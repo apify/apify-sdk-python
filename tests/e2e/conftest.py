@@ -34,6 +34,19 @@ _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 _SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
 _MAX_BUILD_ATTEMPTS = 2
 
+# The Actors in these suites install browsers or Scrapy into their images, so their platform builds take several
+# times longer than the rest of the suite.
+_HEAVY_IMAGE_SUITES = ('tests/e2e/test_crawlee/', 'tests/e2e/test_scrapy/')
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Schedule the tests with the heaviest Actor images first.
+
+    pytest-xdist distributes the collection in order, so the longest tests have to come first for the workers to
+    finish at roughly the same time.
+    """
+    items.sort(key=lambda item: not item.nodeid.startswith(_HEAVY_IMAGE_SUITES))
+
 
 @pytest.fixture(scope='session')
 def apify_token() -> str:
@@ -110,12 +123,16 @@ def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
 @pytest.fixture(scope='session')
 def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -> Path:
     """Build the package wheel if it hasn't been built yet, and return the path to the wheel."""
+    # `getbasetemp()` is per-xdist-worker, so both the lock and the indicator file live in its shared parent
+    # directory, which every worker sees.
+    shared_tmp_path = tmp_path_factory.getbasetemp().parent
+
     # Make sure the wheel is not being built concurrently across all the pytest-xdist runners,
     # through locking the building process with a temp file.
-    with FileLock(tmp_path_factory.getbasetemp().parent / 'sdk_wheel_build.lock'):
-        # Make sure the wheel is built exactly once across across all the pytest-xdist runners,
-        # through an indicator file saying that the wheel was already built.
-        was_wheel_built_this_test_run_file = tmp_path_factory.getbasetemp() / f'wheel_was_built_in_run_{testrun_uid}'
+    with FileLock(shared_tmp_path / 'sdk_wheel_build.lock'):
+        # Make sure the wheel is built exactly once across all the pytest-xdist runners, through an indicator
+        # file saying that the wheel was already built.
+        was_wheel_built_this_test_run_file = shared_tmp_path / f'wheel_was_built_in_run_{testrun_uid}'
         if not was_wheel_built_this_test_run_file.exists():
             subprocess.run(
                 args=[sys.executable, '-m', 'build'],

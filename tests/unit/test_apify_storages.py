@@ -1,5 +1,5 @@
-import asyncio
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
@@ -136,10 +136,11 @@ async def test_txt_input_missing_metadata(input_test_configuration: Configuratio
     kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
     input_file = kvs_path / f'{input_test_configuration.input_key}.txt'
     input_file.write_text(EXAMPLE_TXT_INPUT)
+    # Backdate the file so that a rewrite by `KeyValueStore.open` shows up as a changed mtime whatever the
+    # filesystem's timestamp granularity is.
+    backdated_time = input_file.stat().st_mtime - 10
+    os.utime(input_file, (backdated_time, backdated_time))
     last_modified = input_file.stat().st_mtime
-
-    # Make sure that filesystem has enough time to detect changes
-    await asyncio.sleep(1)
 
     kvs = await KeyValueStore.open(
         storage_client=ApifyFileSystemStorageClient(), configuration=input_test_configuration
@@ -156,10 +157,11 @@ async def test_json_input_missing_metadata(input_test_configuration: Configurati
     kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
     input_file = kvs_path / f'{input_test_configuration.input_key}{suffix}'
     input_file.write_text(EXAMPLE_JSON_INPUT)
+    # Backdate the file so that a rewrite by `KeyValueStore.open` shows up as a changed mtime whatever the
+    # filesystem's timestamp granularity is.
+    backdated_time = input_file.stat().st_mtime - 10
+    os.utime(input_file, (backdated_time, backdated_time))
     last_modified = input_file.stat().st_mtime
-
-    # Make sure that filesystem has enough time to detect changes
-    await asyncio.sleep(1)
 
     kvs = await KeyValueStore.open(
         storage_client=ApifyFileSystemStorageClient(), configuration=input_test_configuration
@@ -176,10 +178,11 @@ async def test_bytes_input_missing_metadata(input_test_configuration: Configurat
     kvs_path = Path(input_test_configuration.storage_dir) / 'key_value_stores' / 'default'
     input_file = kvs_path / f'{input_test_configuration.input_key}{suffix}'
     input_file.write_bytes(EXAMPLE_BYTES_INPUT)
+    # Backdate the file so that a rewrite by `KeyValueStore.open` shows up as a changed mtime whatever the
+    # filesystem's timestamp granularity is.
+    backdated_time = input_file.stat().st_mtime - 10
+    os.utime(input_file, (backdated_time, backdated_time))
     last_modified = input_file.stat().st_mtime
-
-    # Make sure that filesystem has enough time to detect changes
-    await asyncio.sleep(1)
 
     kvs = await KeyValueStore.open(
         storage_client=ApifyFileSystemStorageClient(), configuration=input_test_configuration
