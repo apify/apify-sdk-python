@@ -21,7 +21,8 @@ class ApifyGracefulStopExtension:
     A graceful abort gives the run a moment before it is killed. The extension uses it to stop the engine: no new
     requests are started, the ones in flight finish along with their callbacks and item pipelines, and the
     scheduler marks them as handled in the request queue, so resurrecting the run does not download them again.
-    A migration is handled by `ApifyScheduler` instead, as the crawl must not finish on its own then.
+    A migration is handled by `ApifyScheduler` instead: the platform restarts a migrating run only if its process
+    does not exit on its own, so the scheduler keeps the crawl running with nothing to do rather than stopping it.
     """
 
     def __init__(self, crawler: Crawler) -> None:
