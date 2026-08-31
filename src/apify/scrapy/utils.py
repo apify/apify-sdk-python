@@ -47,6 +47,9 @@ def apply_apify_settings(*, settings: Settings | None = None, proxy_config: dict
     # Set the default HTTPCache middleware storage backend to ApifyCacheStorage
     settings['HTTPCACHE_STORAGE'] = 'apify.scrapy.extensions.ApifyCacheStorage'
 
+    # Stop the crawl gracefully when the Actor run is aborted
+    settings['EXTENSIONS']['apify.scrapy.extensions.ApifyGracefulStopExtension'] = 0
+
     # Store the proxy configuration
     settings['APIFY_PROXY_SETTINGS'] = proxy_config
 

@@ -16,6 +16,7 @@ Routes not linked from anywhere, for the tests that need a specific response rat
     /redirect - Redirects (302) to /redirect-target
     /redirect-target - Page the redirect lands on
     /slow - Answers only after 10 minutes, to keep a request in flight while a run is interrupted
+    /delayed/<n> - Answers after 5 seconds with a link to /delayed/<n+1>, so a request is always in flight
 
 The homepage includes both direct product links (for Scrapy spiders that look for /products/ links
 on the start page) and category links (for testing crawl depth with Crawlee crawlers).
@@ -134,6 +135,20 @@ async def app(scope: dict[str, Any], _receive: Receive, send: Send) -> None:
     elif path == '/slow':
         await asyncio.sleep(600)
         await _send_html(send, '<html><head><title>Slow Page</title></head><body><h1>Slow Page</h1></body></html>')
+    elif path.startswith('/delayed/'):
+        try:
+            n = int(path.split('/')[-1])
+        except ValueError:
+            await _send_html(send, '<html><body>Not Found</body></html>', 404)
+            return
+        await asyncio.sleep(5)
+        await _send_html(
+            send,
+            f'<html><head><title>Delayed Page {n}</title></head><body>'
+            f'<h1>Delayed Page {n}</h1>'
+            f'<a href="/delayed/{n + 1}">Next</a>'
+            f'</body></html>',
+        )
     elif path.startswith('/deep/'):
         try:
             n = int(path.split('/')[-1])

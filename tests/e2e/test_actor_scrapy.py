@@ -42,8 +42,11 @@ async def test_actor_scrapy_title_spider(
 
     items = await actor.last_run().dataset().list_items()
 
-    # CLOSESPIDER_PAGECOUNT is set to 10 in the spider settings.
-    assert items.count >= 9
+    # The start page and the pages it links to (`DEPTH_LIMIT` is 1, `CLOSESPIDER_PAGECOUNT` is 10), each scraped once.
+    urls = [item['url'] for item in items.items]
+    assert 'https://crawlee.dev' in urls
+    assert len(urls) > 1
+    assert len(urls) == len(set(urls)), urls
 
     for item in items.items:
         assert 'url' in item

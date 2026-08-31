@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
@@ -11,8 +12,9 @@ from scrapy.core.scheduler import BaseScheduler
 from scrapy.utils.reactor import is_asyncio_reactor_installed
 
 from ._async_thread import AsyncThread
+from ._warnings import warn_about_uninitialized_actor
 from .requests import to_apify_request, to_scrapy_request
-from apify import Configuration
+from apify import Actor, Configuration, Event
 from apify.storage_clients import ApifyStorageClient
 from apify.storages import RequestQueue
 
@@ -24,12 +26,16 @@ if TYPE_CHECKING:
     from scrapy.http.request import Request
     from twisted.internet.defer import Deferred
 
+    from apify import EventMigratingData
     from apify import Request as ApifyRequest
 
     InFlightRequest = tuple[ApifyRequest, Request]
     """A request handed over to Scrapy, paired with the RQ request it came from."""
 
 logger = getLogger(__name__)
+
+_SETTLE_POLL_INTERVAL = timedelta(seconds=1)
+"""How often the settling of a migration or an abort checks whether Scrapy has finished more of its requests."""
 
 
 async def _gather_failures(operations: Iterable[Coroutine[Any, Any, Any]]) -> list[BaseException | None]:
@@ -43,6 +49,11 @@ async def _gather_failures(operations: Iterable[Coroutine[Any, Any, Any]]) -> li
 
 class ApifyScheduler(BaseScheduler):
     """A Scrapy scheduler that uses the Apify `RequestQueue` to manage requests.
+
+    A request stays unresolved in the RQ until Scrapy is done with it, so an interrupted run leaves it pending for
+    the next one. When the platform is about to migrate the Actor run, the scheduler stops handing out requests;
+    then, as when the run is being aborted, it marks the ones Scrapy finishes as handled, so the next run does not
+    repeat them.
 
     This scheduler requires the asyncio Twisted reactor to be installed.
     """
@@ -67,6 +78,12 @@ class ApifyScheduler(BaseScheduler):
 
         self._pending_marks: list[tuple[list[InFlightRequest], Future]] = []
         """Batches of mark-as-handled updates dispatched off the hot path, whose outcome is not known yet."""
+
+        self._migrating = False
+        """Whether the platform announced a migration of the Actor run; nothing is handed out to Scrapy then."""
+
+        self._closed = False
+        """Whether `close` has run; `_settle_requests_in_flight` stops then, as `close` resolves the rest itself."""
 
         # A thread with the asyncio event loop to run coroutines on.
         self._async_thread = AsyncThread(default_timeout=async_thread_timeout)
@@ -120,6 +137,12 @@ class ApifyScheduler(BaseScheduler):
                 logger.exception('Failed to close the async thread after a failed scheduler open.')
             raise
 
+        try:
+            Actor.on(Event.MIGRATING, self._on_migrating)
+            Actor.on(Event.ABORTING, self._on_aborting)
+        except RuntimeError:
+            warn_about_uninitialized_actor()
+
         return None
 
     def close(self, reason: str) -> None:
@@ -131,6 +154,12 @@ class ApifyScheduler(BaseScheduler):
             reason: The reason for closing the spider.
         """
         logger.debug(f'Closing {self.__class__.__name__} due to {reason}...')
+        self._closed = True
+
+        # Without an initialized Actor (never initialized, or exited already) there is nothing to unregister from.
+        with suppress(RuntimeError):
+            Actor.off(Event.MIGRATING, self._on_migrating)
+            Actor.off(Event.ABORTING, self._on_aborting)
 
         rq = self._rq
         if isinstance(rq, RequestQueue):
@@ -244,6 +273,10 @@ class ApifyScheduler(BaseScheduler):
         if not isinstance(self._rq, RequestQueue):
             raise TypeError('self._rq must be an instance of the RequestQueue class')
 
+        # Nothing goes out once a migration is announced; `_settle_requests_in_flight` handles what Scrapy holds.
+        if self._migrating:
+            return None
+
         # The engine polls this method throughout the crawl, so resolving here keeps the RQ current without
         # blocking on the round trips.
         self._resolve_finished_requests(wait=False)
@@ -280,6 +313,55 @@ class ApifyScheduler(BaseScheduler):
         self._requests_in_flight.append((apify_request, scrapy_request))
 
         return scrapy_request
+
+    async def _on_migrating(self, event_data: EventMigratingData) -> None:
+        """Stop handing out requests and settle the ones Scrapy holds, so the next run does not repeat them.
+
+        The platform restarts a migrating run on another host only if its process does not exit on its own: a
+        crawl that finished early would end the run as succeeded with work still pending. So the crawl is kept
+        running with nothing to do instead, and the requests Scrapy is still working on are marked as handled as
+        they finish, so the next run does not download them again and push their items a second time. Requests
+        still running when the process is killed stay pending.
+
+        Args:
+            event_data: The migration data; `time_remaining` tells how long until the process is killed.
+        """
+        if self._migrating:
+            return
+
+        self._migrating = True
+
+        remaining = event_data.time_remaining
+        deadline = '' if remaining is None else f' in {remaining.total_seconds():.0f} seconds'
+        logger.info(
+            f'The Actor run is migrating{deadline}: no more requests are handed out to Scrapy, and the '
+            f'{len(self._requests_in_flight)} request(s) it holds are marked as handled as they finish.'
+        )
+
+        await self._settle_requests_in_flight()
+
+    async def _on_aborting(self) -> None:
+        """Settle the requests Scrapy holds while the engine drains them, so a resurrected run does not repeat them.
+
+        `ApifyGracefulStopExtension` stops the engine, which closes the scheduler only once every request in flight
+        has finished. Until then nothing else marks the finished ones, so a request outliving the grace period of
+        the abort would leave all of them pending, their items already pushed.
+        """
+        logger.info(
+            f'The Actor run is being aborted: the {len(self._requests_in_flight)} request(s) Scrapy holds are marked '
+            'as handled as they finish.'
+        )
+
+        await self._settle_requests_in_flight()
+
+    async def _settle_requests_in_flight(self) -> None:
+        """Mark the requests Scrapy holds as handled as it finishes them, until none is left or `close` takes over."""
+        while not self._closed:
+            self._resolve_finished_requests(wait=True)
+            if not self._requests_in_flight:
+                logger.info('Scrapy has finished the requests it was working on.')
+                break
+            await asyncio.sleep(_SETTLE_POLL_INTERVAL.total_seconds())
 
     def _verify_engine_internals(self) -> None:
         """Fail at open time if Scrapy's engine no longer exposes what the in-flight tracking reads.
