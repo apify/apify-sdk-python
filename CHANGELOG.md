@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 4.0.2 - **not yet released**
+## [4.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.2) (2026-09-03)
 
 ### 🐛 Bug Fixes
 
@@ -14,7 +13,6 @@ All notable changes to this project will be documented in this file.
 - **scrapy:** Stop the crawl gracefully when the Actor run is migrated or aborted ([#1104](https://github.com/apify/apify-sdk-python/pull/1104)) ([d560af9](https://github.com/apify/apify-sdk-python/commit/d560af953f384cefd5a9c30e55a26dc3a9a49498)) by [@vdusek](https://github.com/vdusek), closes [#1103](https://github.com/apify/apify-sdk-python/issues/1103)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.0.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.1) (2026-08-07)
 
 ### 🐛 Bug Fixes
