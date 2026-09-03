@@ -8,7 +8,22 @@ import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import ModuleType
+    from typing import Any
+
+
+def get_members(module: ModuleType, predicate: Callable[[Any], bool]) -> list[tuple[str, Any]]:
+    """Like `inspect.getmembers`, but skip attributes that raise `ImportError` because an optional extra is missing."""
+    members = []
+    for name in dir(module):
+        try:
+            value = getattr(module, name)
+        except ImportError:
+            continue
+        if predicate(value):
+            members.append((name, value))
+    return members
 
 
 def get_module_shortcuts(module: ModuleType, parent_classes: list | None = None) -> dict:
@@ -21,12 +36,12 @@ def get_module_shortcuts(module: ModuleType, parent_classes: list | None = None)
     parent_module_name = '.'.join(module.__name__.split('.')[:-1])
     module_classes = []
 
-    for classname, cls in inspect.getmembers(module, inspect.isclass):
+    for classname, cls in get_members(module, inspect.isclass):
         module_classes.append(cls)
         if cls in parent_classes:
             shortcuts[f'{module.__name__}.{classname}'] = f'{parent_module_name}.{classname}'
 
-    for _, submodule in inspect.getmembers(module, inspect.ismodule):
+    for _, submodule in get_members(module, inspect.ismodule):
         if submodule.__name__.startswith('apify'):
             shortcuts.update(get_module_shortcuts(submodule, module_classes))
 
