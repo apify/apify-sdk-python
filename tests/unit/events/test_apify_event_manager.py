@@ -25,7 +25,7 @@ from apify.events import ApifyEventManager
 from apify.events._types import SystemInfoEventData
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+    from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 
 
 DUMMY_SYSTEM_INFO = {
@@ -178,6 +178,22 @@ async def _unresponsive_ws_server(monkeypatch: pytest.MonkeyPatch) -> AsyncGener
         await server.wait_closed()
 
 
+@contextlib.contextmanager
+def _unreachable_ws_url(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Point the events WebSocket URL at a `127.0.0.1` port that is guaranteed to refuse connections.
+
+    A hard-coded port number cannot be assumed dead: every port in the OS ephemeral range is fair game for any
+    `bind(host, 0)` in the suite, so a parallel xdist worker's server can end up listening on exactly that port and
+    the connection then succeeds instead of being refused. Reserving a port with a socket that never calls `listen()`
+    keeps the OS from handing it out to anyone else, while leaving every connect attempt refused with `ECONNREFUSED`.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reserved_sock:
+        reserved_sock.bind(('127.0.0.1', 0))
+        port: int = reserved_sock.getsockname()[1]
+        monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, f'ws://127.0.0.1:{port}')
+        yield
+
+
 async def test_lifecycle_local(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger='apify')
 
@@ -284,12 +300,12 @@ async def test_event_async_handling_local() -> None:
 
 async def test_lifecycle_on_platform_without_websocket(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a failed websocket connection raises and also exits the parent's recurring persist state task."""
-    monkeypatch.setenv(ActorEnvVars.EVENTS_WEBSOCKET_URL, 'ws://localhost:56565')
-    event_manager = ApifyEventManager(Configuration.get_global_configuration())
+    with _unreachable_ws_url(monkeypatch):
+        event_manager = ApifyEventManager(Configuration.get_global_configuration())
 
-    with pytest.raises(RuntimeError, match=r'Error connecting to platform events websocket!') as exc_info:
-        async with event_manager:
-            pass
+        with pytest.raises(RuntimeError, match=r'Error connecting to platform events websocket!') as exc_info:
+            async with event_manager:
+                pass
 
     # The error that prevented the connection is reported as the cause, not only logged.
     assert isinstance(exc_info.value.__cause__, OSError)
