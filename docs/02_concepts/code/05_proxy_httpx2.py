@@ -1,6 +1,6 @@
 import asyncio
 
-import httpx
+import httpx2
 
 from apify import Actor
 
@@ -19,8 +19,8 @@ async def main() -> None:
 
         proxy_url = await proxy_cfg.new_url()
 
-        async with httpx.AsyncClient(proxy=proxy_url) as httpx_client:
-            response = await httpx_client.get('http://example.com')
+        async with httpx2.AsyncClient(proxy=proxy_url) as httpx2_client:
+            response = await httpx2_client.get('http://example.com')
             Actor.log.info(f'Response: {response}')
 
 

@@ -84,7 +84,7 @@ class _ActorType:
     ```python
     import asyncio
 
-    import httpx
+    import httpx2
     from apify import Actor
     from bs4 import BeautifulSoup
 
@@ -92,7 +92,7 @@ class _ActorType:
     async def main() -> None:
         async with Actor:
             actor_input = await Actor.get_input()
-            async with httpx.AsyncClient() as client:
+            async with httpx2.AsyncClient() as client:
                 response = await client.get(actor_input['url'])
             soup = BeautifulSoup(response.content, 'html.parser')
             data = {

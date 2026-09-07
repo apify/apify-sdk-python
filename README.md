@@ -125,13 +125,13 @@ Whatever you build, the Apify SDK doesn't lock you into a particular framework. 
 
 The examples below show two common setups, but the same `async with Actor:` pattern works with any stack. For more, see the [guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx).
 
-### HTTPX with BeautifulSoup
+### HTTPX2 with BeautifulSoup
 
-Scrape pages with [HTTPX](https://www.python-httpx.org/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/), using the Actor's request queue to track URLs:
+Scrape pages with [HTTPX2](https://pydantic.dev/docs/httpx2/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/), using the Actor's request queue to track URLs:
 
 ```python
 from bs4 import BeautifulSoup
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from apify import Actor
 

@@ -1,6 +1,6 @@
 import asyncio
 
-import httpx
+import httpx2
 from bs4 import BeautifulSoup
 
 from apify import Actor
@@ -10,7 +10,7 @@ async def main() -> None:
     async with Actor:
         actor_input = await Actor.get_input() or {}
         url = actor_input.get('url', 'https://apify.com')
-        async with httpx.AsyncClient() as client:
+        async with httpx2.AsyncClient() as client:
             response = await client.get(url)
         soup = BeautifulSoup(response.content, 'html.parser')
         data = {
