@@ -788,7 +788,7 @@ class _ActorType:
         return self._charging_manager_implementation
 
     @_ensure_context
-    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -796,10 +796,13 @@ class _ActorType:
         Args:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
+            idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
+                under the same key is not sent to the API and reports the `charged_count` of the original call.
+                A key belongs to a single event and is only remembered for the lifetime of the run.
         """
         # charging_manager.charge() acquires charge_lock internally.
         charging_manager = self.get_charging_manager()
-        return await charging_manager.charge(event_name, count=count)
+        return await charging_manager.charge(event_name, count=count, idempotency_key=idempotency_key)
 
     @overload
     def on(

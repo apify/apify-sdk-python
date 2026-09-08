@@ -210,7 +210,7 @@ class ChargingManager(Protocol):
     charge_lock: ReentrantLock
     """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
 
-    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -218,6 +218,9 @@ class ChargingManager(Protocol):
         Args:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
+            idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
+                under the same key is not sent to the API and reports the `charged_count` of the original call.
+                A key belongs to a single event and is only remembered for the lifetime of the run.
         """
 
     def calculate_total_charged_amount(self) -> Decimal:
@@ -329,6 +332,7 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
+        self._idempotent_charges: dict[str, IdempotentChargeItem] = {}
 
         self._not_ppe_warning_printed = False
         self.active = False
@@ -412,7 +416,10 @@ class ChargingManagerImplementation(ChargingManager):
         self.active = False
 
     @_ensure_context
-    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+        if idempotency_key == '':
+            raise ValueError('idempotency_key must not be an empty string')
+
         # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
             if not self._not_ppe_warning_printed:
@@ -435,6 +442,21 @@ class ChargingManagerImplementation(ChargingManager):
             )
 
         async with self.charge_lock():
+            # The platform discards a charge repeated under a key it has already seen, so repeating it here would
+            # inflate the local charging state and make the run hit `max_total_charge_usd` sooner than it should.
+            if idempotency_key is not None and (previous := self._idempotent_charges.get(idempotency_key)):
+                if previous.event_name != event_name:
+                    raise ValueError(
+                        f"Idempotency key '{idempotency_key}' was already used to charge for event "
+                        f"'{previous.event_name}', so it cannot be reused for event '{event_name}'."
+                    )
+
+                return ChargeResult(
+                    event_charge_limit_reached=self.is_event_charge_limit_reached(event_name),
+                    charged_count=previous.charged_count,
+                    chargeable_within_limit=self.compute_chargeable(),
+                )
+
             # Determine the maximum amount of events that can be charged within the budget
             max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
             charged_count = min(count, max_chargeable if max_chargeable is not None else count)
@@ -455,10 +477,7 @@ class ChargingManagerImplementation(ChargingManager):
                 ),
             )
 
-            # Update the charging state
-            self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
-            self._charging_state[event_name].charge_count += charged_count
-            self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
+            charge_sent = False
 
             # If running on the platform, call the charge endpoint
             if self._is_at_home:
@@ -470,7 +489,12 @@ class ChargingManagerImplementation(ChargingManager):
                     # the platform handles them automatically based on dataset writes.
                     pass
                 elif event_name in self._pricing_info:
-                    await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
+                    await self._client.run(self._actor_run_id).charge(
+                        event_name,
+                        count=charged_count,
+                        idempotency_key=idempotency_key,
+                    )
+                    charge_sent = True
                     logger.debug(f"Charged {charged_count} occurrence(s) of event '{event_name}'.")
                 elif event_name in self._tier_priced_events:
                     logger.warning(
@@ -478,6 +502,19 @@ class ChargingManagerImplementation(ChargingManager):
                     )
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
+
+            # Update the charging state
+            self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
+            self._charging_state[event_name].charge_count += charged_count
+            self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
+
+            # Only remember a key that stands for a charge the platform actually received. Off the platform there
+            # is no request at all and the registry is the only thing providing deduplication.
+            if idempotency_key is not None and (not self._is_at_home or charge_sent):
+                self._idempotent_charges[idempotency_key] = IdempotentChargeItem(
+                    event_name=event_name,
+                    charged_count=charged_count,
+                )
 
             # Log the charged operation (if enabled)
             if self._charging_log_dataset:
@@ -487,6 +524,7 @@ class ChargingManagerImplementation(ChargingManager):
                         'event_title': pricing_info.title,
                         'event_price_usd': float(round(pricing_info.price, 3)),
                         'charged_count': charged_count,
+                        'idempotency_key': idempotency_key,
                         'timestamp': datetime.now(UTC).isoformat(),
                     }
                 )
@@ -634,6 +672,12 @@ class ChargingStateItem:
 class PricingInfoItem:
     price: Decimal
     title: str
+
+
+@dataclass(frozen=True)
+class IdempotentChargeItem:
+    event_name: str
+    charged_count: int
 
 
 class _FetchedPricingInfoDict(TypedDict):
