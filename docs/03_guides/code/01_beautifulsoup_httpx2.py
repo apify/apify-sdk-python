@@ -2,7 +2,7 @@ import asyncio
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
-import httpx
+import httpx2
 from bs4 import BeautifulSoup
 
 from apify import Actor, Request
@@ -14,9 +14,9 @@ async def scrape_page(
     *,
     proxy_url: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Fetch a page with HTTPX and return its data and same-site links."""
+    """Fetch a page with HTTPX2 and return its data and same-site links."""
     # A fresh client per call lets each request use a new proxy URL.
-    async with httpx.AsyncClient(proxy=proxy_url) as client:
+    async with httpx2.AsyncClient(proxy=proxy_url) as client:
         response = await client.get(url, follow_redirects=True)
 
     soup = BeautifulSoup(response.content, 'html.parser')
