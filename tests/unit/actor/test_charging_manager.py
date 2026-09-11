@@ -603,3 +603,67 @@ async def test_concurrent_charges_under_one_key_charge_once(mock_client: MagicMo
         assert [result.charged_count for result in results] == [1] * 5
         assert cm.get_charged_event_count('search') == 1
         assert mock_client.run.return_value.charge.await_count == 1
+
+
+async def test_charge_counts_a_retried_failed_charge_once(mock_client: MagicMock) -> None:
+    """Test that a charge whose API call failed is not counted, so a retry under the same key counts once."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
+    config = _make_config(
+        is_at_home=True,
+        actor_run_id='test-run-id',
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('10.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        mock_client.run.return_value.charge.side_effect = RuntimeError('request failed')
+        with pytest.raises(RuntimeError):
+            await cm.charge('search', count=1, idempotency_key='key-1')
+
+        assert cm.get_charged_event_count('search') == 0
+        assert cm.calculate_total_charged_amount() == Decimal('0.00')
+
+        # The platform may have received the failed request anyway, so the retry goes out under the same key.
+        mock_client.run.return_value.charge.side_effect = None
+        assert (await cm.charge('search', count=1, idempotency_key='key-1')).charged_count == 1
+        assert cm.get_charged_event_count('search') == 1
+        assert cm.calculate_total_charged_amount() == Decimal('1.00')
+
+
+async def test_charge_deduplicates_idempotency_key_off_platform(mock_client: MagicMock) -> None:
+    """Test that the key registry deduplicates repeats in local PPE mode, where no API call is made at all."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
+    config = _make_config(
+        test_pay_per_event=True,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('10.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        assert (await cm.charge('search', count=2, idempotency_key='key-1')).charged_count == 2
+        assert (await cm.charge('search', count=2, idempotency_key='key-1')).charged_count == 2
+
+        assert cm.get_charged_event_count('search') == 2
+        mock_client.run.return_value.charge.assert_not_awaited()
+
+
+async def test_charge_registers_the_count_capped_by_the_budget(mock_client: MagicMock) -> None:
+    """Test that a charge capped by the remaining budget registers the capped count, not the requested one."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
+    config = _make_config(
+        is_at_home=True,
+        actor_run_id='test-run-id',
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('2.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 2
+        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=2, idempotency_key='key-1')
+
+        assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 2
+        assert cm.get_charged_event_count('search') == 2
+        assert mock_client.run.return_value.charge.await_count == 1
