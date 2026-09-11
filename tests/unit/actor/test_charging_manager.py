@@ -556,7 +556,7 @@ async def test_charge_deduplicates_events_the_api_never_receives(mock_client: Ma
 
 
 async def test_charge_rejects_invalid_idempotency_key(mock_client: MagicMock) -> None:
-    """Test that an empty key and a key reused for another event are both refused."""
+    """Test that a blank key and a key reused for another event are both refused."""
     pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00'), 'scrape': Decimal('2.00')})
     config = _make_config(
         is_at_home=True,
@@ -567,8 +567,11 @@ async def test_charge_rejects_invalid_idempotency_key(mock_client: MagicMock) ->
     )
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
-        with pytest.raises(ValueError, match='must not be an empty string'):
+        with pytest.raises(ValueError, match='must not be blank'):
             await cm.charge('search', count=1, idempotency_key='')
+
+        with pytest.raises(ValueError, match='must not be blank'):
+            await cm.charge('search', count=1, idempotency_key='   ')
 
         await cm.charge('search', count=1, idempotency_key='key-1')
 

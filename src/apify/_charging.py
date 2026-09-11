@@ -417,8 +417,8 @@ class ChargingManagerImplementation(ChargingManager):
 
     @_ensure_context
     async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
-        if idempotency_key == '':
-            raise ValueError('idempotency_key must not be an empty string')
+        if idempotency_key is not None and not idempotency_key.strip():
+            raise ValueError('idempotency_key must not be blank')
 
         # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
