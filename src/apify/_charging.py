@@ -451,6 +451,8 @@ class ChargingManagerImplementation(ChargingManager):
                         f"'{previous.event_name}', so it cannot be reused for event '{event_name}'."
                     )
 
+                logger.debug(f"Skipped a repeated charge of event '{event_name}' under key '{idempotency_key}'.")
+
                 return ChargeResult(
                     event_charge_limit_reached=self.is_event_charge_limit_reached(event_name),
                     charged_count=previous.charged_count,
