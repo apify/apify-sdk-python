@@ -38,6 +38,16 @@ If you can split your work into individual units, for example scraping one page 
 
 If you use the `count` parameter, always check the returned `charged_count`. It tells you how many events were charged, which may be less than what you requested.
 
+### Retry charges safely
+
+When an operation may be retried, for example after a network error, pass an `idempotency_key` to `Actor.charge()`. A repeated call under the same key isn't charged again. It reports the `charged_count` of the original call:
+
+```python
+await Actor.charge(event_name='search-result', idempotency_key=result_id)
+```
+
+Keys are remembered for the lifetime of the Actor process, and each key belongs to a single event. Reusing a key for a different event raises a `ValueError`.
+
 ### Monitor charging
 
 For both custom and synthetic events, every `Actor.charge` call returns a <ApiLink to="class/ChargeResult">`ChargeResult`</ApiLink>. Inspect its fields to learn how much was charged.
