@@ -518,13 +518,14 @@ async def test_charge_deduplicates_repeated_idempotency_key(mock_client: MagicMo
         assert mock_client.run.return_value.charge.await_count == 2
 
 
-async def test_charge_does_not_register_key_for_uncharged_event(mock_client: MagicMock) -> None:
-    """Test that an event that never reached the API does not consume the idempotency key."""
+async def test_charge_deduplicates_events_the_api_never_receives(mock_client: MagicMock) -> None:
+    """Test that events counted locally without an API call are deduplicated by the key as well."""
     pricing_info = PayPerEventActorPricingInfo.model_validate(
         {
             'pricingModel': 'PAY_PER_EVENT',
             'pricingPerEvent': {
                 'actorChargeEvents': {
+                    'apify-default-dataset-item': {'eventPriceUsd': 0.50, 'eventTitle': 'Dataset item'},
                     'search': {'eventPriceUsd': 1.00, 'eventTitle': 'Search event'},
                     'tiered': {'eventTieredPricingUsd': {}, 'eventTitle': 'Tiered event'},
                 }
@@ -540,15 +541,18 @@ async def test_charge_does_not_register_key_for_uncharged_event(mock_client: Mag
     )
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
-        # Neither a tier-priced nor an unknown event is chargeable via the API.
-        await cm.charge('tiered', count=1, idempotency_key='key-1')
-        await cm.charge('typo-event', count=1, idempotency_key='key-2')
-        mock_client.run.return_value.charge.assert_not_awaited()
+        # A synthetic, a tier-priced and an unknown event all skip the API, yet each one is counted locally.
+        for event_name, key in (('apify-default-dataset-item', 'key-1'), ('tiered', 'key-2'), ('typo-event', 'key-3')):
+            await cm.charge(event_name, count=1, idempotency_key=key)
+            await cm.charge(event_name, count=1, idempotency_key=key)
+            assert cm.get_charged_event_count(event_name) == 1
 
-        # Both keys are still free, so a corrected charge under either one reaches the platform.
-        assert (await cm.charge('search', count=1, idempotency_key='key-1')).charged_count == 1
-        assert (await cm.charge('search', count=1, idempotency_key='key-2')).charged_count == 1
-        assert mock_client.run.return_value.charge.await_count == 2
+        mock_client.run.return_value.charge.assert_not_awaited()
+        assert cm.calculate_total_charged_amount() == Decimal('0.50')
+
+        # The keys belong to their original events, so none of them can be reused for another one.
+        with pytest.raises(ValueError, match='cannot be reused for event'):
+            await cm.charge('search', count=1, idempotency_key='key-2')
 
 
 async def test_charge_rejects_invalid_idempotency_key(mock_client: MagicMock) -> None:

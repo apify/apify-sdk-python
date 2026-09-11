@@ -477,8 +477,6 @@ class ChargingManagerImplementation(ChargingManager):
                 ),
             )
 
-            charge_sent = False
-
             # If running on the platform, call the charge endpoint
             if self._is_at_home:
                 if self._actor_run_id is None:
@@ -494,7 +492,6 @@ class ChargingManagerImplementation(ChargingManager):
                         count=charged_count,
                         idempotency_key=idempotency_key,
                     )
-                    charge_sent = True
                     logger.debug(f"Charged {charged_count} occurrence(s) of event '{event_name}'.")
                 elif event_name in self._tier_priced_events:
                     logger.warning(
@@ -508,9 +505,9 @@ class ChargingManagerImplementation(ChargingManager):
             self._charging_state[event_name].charge_count += charged_count
             self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
 
-            # Only remember a key that stands for a charge the platform actually received. Off the platform there
-            # is no request at all and the registry is the only thing providing deduplication.
-            if idempotency_key is not None and (not self._is_at_home or charge_sent):
+            # Remember the key for every charge that was counted, including events the API never receives, such as
+            # synthetic and tier-priced ones - those are counted locally and a repeat would count them twice.
+            if idempotency_key is not None:
                 self._idempotent_charges[idempotency_key] = IdempotentChargeItem(
                     event_name=event_name,
                     charged_count=charged_count,
