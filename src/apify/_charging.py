@@ -442,8 +442,9 @@ class ChargingManagerImplementation(ChargingManager):
             )
 
         async with self.charge_lock():
-            # The platform discards a charge repeated under a key it has already seen, so repeating it here would
-            # inflate the local charging state and make the run hit `max_total_charge_usd` sooner than it should.
+            # A repeat is resolved from this registry rather than left to the platform, whose own idempotency
+            # record expires after a few minutes: a late repeat would charge a second time, and counting it here
+            # would inflate the charging state and make the run hit `max_total_charge_usd` early.
             if idempotency_key is not None and (previous := self._idempotent_charges.get(idempotency_key)):
                 if previous.event_name != event_name:
                     raise ValueError(
@@ -502,7 +503,8 @@ class ChargingManagerImplementation(ChargingManager):
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 
-            # Update the charging state
+            # Count the charge only after the API call returns, so a request the platform never received leaves
+            # no local trace.
             self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
             self._charging_state[event_name].charge_count += charged_count
             self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
