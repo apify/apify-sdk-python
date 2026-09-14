@@ -73,7 +73,7 @@ async def test_actor_exit_with_different_exit_codes(
         run_result = await run_actor(actor, run_input={'exit_code': exit_code})
 
         assert run_result.exit_code == exit_code
-        assert run_result.status == 'FAILED' if exit_code > 0 else 'SUCCEEDED'
+        assert run_result.status == ('FAILED' if exit_code > 0 else 'SUCCEEDED')
 
 
 async def test_actor_fail_with_custom_exit_codes_and_status_messages(
