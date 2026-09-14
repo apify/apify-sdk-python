@@ -46,7 +46,7 @@ When an operation may be retried, for example after a network error, pass an `id
 await Actor.charge(event_name='search-result', idempotency_key=result_id)
 ```
 
-Keys are remembered for the lifetime of the Actor process, and each key belongs to a single event. Reusing a key for a different event raises a `ValueError`.
+Like the Apify platform, the SDK remembers a key for three minutes, so a later repeat is charged again. A repeat that names a different event is skipped with a warning and reports zero.
 
 ### Monitor charging
 

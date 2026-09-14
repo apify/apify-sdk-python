@@ -9,6 +9,7 @@ from decimal import Decimal
 from logging import getLogger
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
+from cachetools import TTLCache
 from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
@@ -219,9 +220,9 @@ class ChargingManager(Protocol):
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
             idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
-                under the same key is not sent to the API and reports the `charged_count` of the original call.
-                Keys are remembered for the lifetime of the Actor process. A key belongs to a single event, so
-                reusing one for a different event raises `ValueError`, as does passing a blank key.
+                under the same key within three minutes is not sent to the API and reports the `charged_count` of
+                the original call, or zero if it names a different event. Like the platform, the key is forgotten
+                afterwards.
         """
 
     def calculate_total_charged_amount(self) -> Decimal:
@@ -333,7 +334,8 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
-        self._idempotent_charges: dict[str, IdempotentChargeItem] = {}
+        # Keys expire after three minutes, the same as the platform's own idempotency records.
+        self._idempotent_charges: TTLCache[str, IdempotentChargeItem] = TTLCache(maxsize=float('inf'), ttl=180)
 
         self._not_ppe_warning_printed = False
         self.active = False
@@ -443,21 +445,22 @@ class ChargingManagerImplementation(ChargingManager):
             )
 
         async with self.charge_lock():
-            # A repeat is resolved from this registry rather than left to the platform, whose own idempotency
-            # record expires after a few minutes: a late repeat would charge a second time, and counting it here
-            # would inflate the charging state and make the run hit `max_total_charge_usd` early.
-            if idempotency_key is not None and (previous := self._idempotent_charges.get(idempotency_key)):
-                if previous.event_name != event_name:
-                    raise ValueError(
+            # A repeat the platform would discard is resolved here too - counting it would inflate the charging state
+            # and make the run hit `max_total_charge_usd` early. The key alone decides, as on the platform.
+            if idempotency_key is not None and (previous := self._idempotent_charges.get(idempotency_key)) is not None:
+                if previous.event_name == event_name:
+                    logger.debug(f"Skipped a repeated charge of event '{event_name}' under key '{idempotency_key}'.")
+                    repeated_count = previous.charged_count
+                else:
+                    logger.warning(
                         f"Idempotency key '{idempotency_key}' was already used to charge for event "
-                        f"'{previous.event_name}', so it cannot be reused for event '{event_name}'."
+                        f"'{previous.event_name}', so the charge of event '{event_name}' is skipped."
                     )
-
-                logger.debug(f"Skipped a repeated charge of event '{event_name}' under key '{idempotency_key}'.")
+                    repeated_count = 0
 
                 return ChargeResult(
                     event_charge_limit_reached=self.is_event_charge_limit_reached(event_name),
-                    charged_count=previous.charged_count,
+                    charged_count=repeated_count,
                     chargeable_within_limit=self.compute_chargeable(),
                 )
 

@@ -797,9 +797,9 @@ class _ActorType:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
             idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
-                under the same key is not sent to the API and reports the `charged_count` of the original call.
-                Keys are remembered for the lifetime of the Actor process. A key belongs to a single event, so
-                reusing one for a different event raises `ValueError`, as does passing a blank key.
+                under the same key within three minutes is not sent to the API and reports the `charged_count` of
+                the original call, or zero if it names a different event. Like the platform, the key is forgotten
+                afterwards.
         """
         # charging_manager.charge() acquires charge_lock internally.
         charging_manager = self.get_charging_manager()

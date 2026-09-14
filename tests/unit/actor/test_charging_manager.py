@@ -490,9 +490,11 @@ async def test_charge_forwards_idempotency_key_to_client(mock_client: MagicMock)
         mock_client.run.return_value.charge.assert_awaited_once_with('search', count=1, idempotency_key=None)
 
 
-async def test_charge_deduplicates_repeated_idempotency_key(mock_client: MagicMock) -> None:
+async def test_charge_deduplicates_repeated_idempotency_key(
+    mock_client: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that a repeated key skips both the API call and the local charging state update."""
-    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00'), 'scrape': Decimal('2.00')})
     config = _make_config(
         is_at_home=True,
         actor_run_id='test-run-id',
@@ -516,6 +518,12 @@ async def test_charge_deduplicates_repeated_idempotency_key(mock_client: MagicMo
         await cm.charge('search', count=1, idempotency_key='key-2')
         assert cm.get_charged_event_count('search') == 3
         assert mock_client.run.return_value.charge.await_count == 2
+
+        # Like on the platform, the key alone decides - a repeat naming another event is skipped with a warning.
+        assert (await cm.charge('scrape', count=1, idempotency_key='key-1')).charged_count == 0
+        assert cm.get_charged_event_count('scrape') == 0
+        assert mock_client.run.return_value.charge.await_count == 2
+        assert "was already used to charge for event 'search'" in caplog.text
 
 
 async def test_charge_deduplicates_events_the_api_never_receives(mock_client: MagicMock) -> None:
@@ -550,14 +558,10 @@ async def test_charge_deduplicates_events_the_api_never_receives(mock_client: Ma
         mock_client.run.return_value.charge.assert_not_awaited()
         assert cm.calculate_total_charged_amount() == Decimal('0.50')
 
-        # The keys belong to their original events, so none of them can be reused for another one.
-        with pytest.raises(ValueError, match='cannot be reused for event'):
-            await cm.charge('search', count=1, idempotency_key='key-2')
 
-
-async def test_charge_rejects_invalid_idempotency_key(mock_client: MagicMock) -> None:
-    """Test that a blank key and a key reused for another event are both refused."""
-    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00'), 'scrape': Decimal('2.00')})
+async def test_charge_rejects_blank_idempotency_key(mock_client: MagicMock) -> None:
+    """Test that a blank idempotency key is refused."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
     config = _make_config(
         is_at_home=True,
         actor_run_id='test-run-id',
@@ -567,21 +571,39 @@ async def test_charge_rejects_invalid_idempotency_key(mock_client: MagicMock) ->
     )
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
-        with pytest.raises(ValueError, match='must not be blank'):
-            await cm.charge('search', count=1, idempotency_key='')
+        for key in ('', '   '):
+            with pytest.raises(ValueError, match='must not be blank'):
+                await cm.charge('search', count=1, idempotency_key=key)
 
-        with pytest.raises(ValueError, match='must not be blank'):
-            await cm.charge('search', count=1, idempotency_key='   ')
+        mock_client.run.return_value.charge.assert_not_awaited()
 
+
+async def test_charge_forgets_idempotency_key_after_ttl(mock_client: MagicMock) -> None:
+    """Test that a repeat after the key expired is charged again."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
+    config = _make_config(
+        is_at_home=True,
+        actor_run_id='test-run-id',
+        actor_pricing_info=pricing_info,
+        charged_event_counts={},
+        max_total_charge_usd=Decimal('10.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
         await cm.charge('search', count=1, idempotency_key='key-1')
+        cache = cm._idempotent_charges
+        now = cache.timer()
 
-        with pytest.raises(ValueError, match='cannot be reused for event'):
-            await cm.charge('scrape', count=1, idempotency_key='key-1')
-
-        # The refused charge must leave no trace behind.
-        assert cm.get_charged_event_count('scrape') == 0
-        assert cm.calculate_total_charged_amount() == Decimal('1.00')
+        # Just inside the three-minute window the key is still remembered.
+        cache.expire(now + 170)
+        await cm.charge('search', count=1, idempotency_key='key-1')
         assert mock_client.run.return_value.charge.await_count == 1
+
+        # Once the window has passed the key is forgotten and the charge goes out again.
+        cache.expire(now + 180)
+        await cm.charge('search', count=1, idempotency_key='key-1')
+        assert cm.get_charged_event_count('search') == 2
+        assert mock_client.run.return_value.charge.await_count == 2
 
 
 async def test_concurrent_charges_under_one_key_charge_once(mock_client: MagicMock) -> None:
