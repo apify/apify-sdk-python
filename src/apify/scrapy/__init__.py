@@ -1,5 +1,5 @@
-from crawlee._utils.try_import import install_import_hook as _install_import_hook
-from crawlee._utils.try_import import try_import as _try_import
+from apify._try_import import install_import_hook as _install_import_hook
+from apify._try_import import try_import as _try_import
 
 _install_import_hook(__name__)
 
