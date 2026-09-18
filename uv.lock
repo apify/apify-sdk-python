@@ -12,8 +12,8 @@ exclude-newer-span = "PT24H"
 
 [options.exclude-newer-package]
 apify-client = false
-apify-fingerprint-datapoints = false
 crawlee = false
+apify-fingerprint-datapoints = false
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -925,7 +925,7 @@ toml = [
 
 [[package]]
 name = "crawlee"
-version = "1.10.0"
+version = "1.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-timeout" },
@@ -941,9 +941,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7d/f8/cc9deb758524bab531e302c843e594813dccd331fe5ec1c000d2fe8a6d74/crawlee-1.10.0.tar.gz", hash = "sha256:3f83a24258034aa11ab946cc528dd72c6307467e6d9d416966a011f7c549bf6c", size = 334721, upload-time = "2026-08-31T07:49:54.003Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/c4/9e077f31165b8b8e55bae61021925477c979081dddb8faf15c71a7cfd417/crawlee-1.10.1.tar.gz", hash = "sha256:86e40a8dedf16698765738f2b1f0df21cba3a418f5f60442ccdb15c3da14c24f", size = 336270, upload-time = "2026-09-16T12:48:20.325Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/11/d50bfcd0938b3a8eb83a8c75cf4c8cb6894d8c030dcdf8412af03f67aa82/crawlee-1.10.0-py3-none-any.whl", hash = "sha256:cf496f56b2d59b9416227169882e33c441b99dcf1127d3917a2ab7f891e35597", size = 420571, upload-time = "2026-08-31T07:49:52.435Z" },
+    { url = "https://files.pythonhosted.org/packages/33/1f/88cbfbc665649e4e8c143ceb7c4bfe24b1780845e1f2a8fdfcc991d48936/crawlee-1.10.1-py3-none-any.whl", hash = "sha256:27204c4e505d8e28c8ac432963732648267b0c353acddac04675aedb9dae9253", size = 421821, upload-time = "2026-09-16T12:48:18.769Z" },
 ]
 
 [package.optional-dependencies]
