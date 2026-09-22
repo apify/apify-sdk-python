@@ -110,8 +110,8 @@ importers:
   .:
     dependencies:
       '@apify/docs-theme':
-        specifier: ^1.0.271
-        version: 1.0.271(f81602dced5ffb768decf6331eb8e99a)
+        specifier: ^1.0.272
+        version: 1.0.272(f81602dced5ffb768decf6331eb8e99a)
       '@apify/docusaurus-plugin-typedoc-api':
         specifier: ^5.1.16
         version: 5.1.16(607fea62882ebe156fd3b5bc4917aee9)
@@ -342,8 +342,8 @@ packages:
       react: '> 18.0.0'
       react-dom: '> 18.0.0'
 
-  '@apify/docs-theme@1.0.271':
-    resolution: {integrity: sha512-HVMbc47+EYe2xjLkEynSmS7mPaX1Z79nRVbP4UHjmwRIu8YClQMAQuBbdRNR9cw5RrQfhBipQvK72k3S4GocpQ==}
+  '@apify/docs-theme@1.0.272':
+    resolution: {integrity: sha512-GnK8dMSsVnP21GjLwMG9NRsTsXgSfr4AwwmqL9JPBQBKQg0kHmsq4hk761YIBvGRjX+yevzPId3vLanPdc1cyw==}
     peerDependencies:
       clsx: '*'
       react: '*'
@@ -7805,7 +7805,7 @@ snapshots:
       - search-insights
       - supports-color
 
-  '@apify/docs-theme@1.0.271(f81602dced5ffb768decf6331eb8e99a)':
+  '@apify/docs-theme@1.0.272(f81602dced5ffb768decf6331eb8e99a)':
     dependencies:
       '@apify/docs-search-modal': 1.4.0(@algolia/client-search@5.59.0)(@babel/core@7.29.7(supports-color@5.5.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@16.13.1)(react@19.3.0)(search-insights@2.17.3)(supports-color@5.5.0)
       '@apify/ui-icons': 1.50.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
