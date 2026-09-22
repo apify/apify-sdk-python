@@ -337,6 +337,7 @@ module.exports = {
                     includePages: true,
                     relativePaths: false,
                     excludeRoutes: [
+                        '/sdk/python/',
                         '/sdk/python/reference/[0-9]*/**',
                         '/sdk/python/reference/[0-9]*',
                         '/sdk/python/reference/next/**',
