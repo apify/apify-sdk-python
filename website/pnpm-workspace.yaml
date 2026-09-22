@@ -13,3 +13,5 @@ allowBuilds:
   '@swc/core': true
   core-js: false
   unrs-resolver: true
+patchedDependencies:
+  '@signalwire/docusaurus-plugin-llms-txt@1.2.2': patches/@signalwire__docusaurus-plugin-llms-txt@1.2.2.patch
