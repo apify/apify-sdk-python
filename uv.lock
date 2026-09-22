@@ -12,8 +12,8 @@ exclude-newer-span = "PT24H"
 
 [options.exclude-newer-package]
 apify-client = false
-crawlee = false
 apify-fingerprint-datapoints = false
+crawlee = false
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -179,7 +179,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "4.0.2"
+version = "4.0.3"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client", extra = ["brotli"] },

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+<!-- git-cliff-unreleased-start -->
+## 4.0.3 - **not yet released**
+
+### 🐛 Bug Fixes
+
+- Do not use crawlee version 1.10.1 ([#1136](https://github.com/apify/apify-sdk-python/pull/1136)) ([19c3cba](https://github.com/apify/apify-sdk-python/commit/19c3cbad0c42fc6d51f478682fbc38a06ee9df5e)) by [@Pijukatel](https://github.com/Pijukatel)
+
+
+<!-- git-cliff-unreleased-end -->
 ## [4.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.2) (2026-09-03)
 
 ### 🐛 Bug Fixes
