@@ -1,23 +1,23 @@
-from crawlee._utils.try_import import install_import_hook as _install_import_hook
-from crawlee._utils.try_import import try_import as _try_import
+from apify._try_import import install_import_hook as _install_import_hook
+from apify._try_import import try_import as _try_import
 
 _install_import_hook(__name__)
 
 # The following imports use try_import to handle optional dependencies, as they may not always be available.
 
-with _try_import(__name__, 'run_scrapy_actor'):
+with _try_import(__name__, 'run_scrapy_actor', extra_name='scrapy'):
     from ._actor_runner import run_scrapy_actor
 
-with _try_import(__name__, 'initialize_logging'):
+with _try_import(__name__, 'initialize_logging', extra_name='scrapy'):
     from ._logging_config import initialize_logging
 
-with _try_import(__name__, 'to_apify_request', 'to_scrapy_request'):
+with _try_import(__name__, 'to_apify_request', 'to_scrapy_request', extra_name='scrapy'):
     from .requests import to_apify_request, to_scrapy_request
 
-with _try_import(__name__, 'ApifyScheduler'):
+with _try_import(__name__, 'ApifyScheduler', extra_name='scrapy'):
     from .scheduler import ApifyScheduler
 
-with _try_import(__name__, 'apply_apify_settings', 'get_basic_auth_header'):
+with _try_import(__name__, 'apply_apify_settings', 'get_basic_auth_header', extra_name='scrapy'):
     from .utils import apply_apify_settings, get_basic_auth_header
 
 
