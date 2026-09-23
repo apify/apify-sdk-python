@@ -15,11 +15,11 @@ from crawlee.events import (
 from apify._actor import Actor
 from apify._budget_pool import (
     BUDGET_POOL_POLL_INTERVAL,
-    BudgetAllocation,
     BudgetExhaustedError,
     BudgetPool,
-    BudgetPoolEntry,
-    BudgetPoolEvent,
+    BudgetPoolChild,
+    BudgetPoolNestingError,
+    BudgetPoolRunRecord,
 )
 from apify._configuration import Configuration
 from apify._consts import ActorEnvVars, ApifyEnvVars
@@ -35,11 +35,11 @@ __all__ = [
     'ActorEnvVars',
     'ActorEventTypes',
     'ApifyEnvVars',
-    'BudgetAllocation',
     'BudgetExhaustedError',
     'BudgetPool',
-    'BudgetPoolEntry',
-    'BudgetPoolEvent',
+    'BudgetPoolChild',
+    'BudgetPoolNestingError',
+    'BudgetPoolRunRecord',
     'Configuration',
     'Event',
     'EventAbortingData',

@@ -27,11 +27,7 @@ from crawlee.events import (
     EventSystemInfoData,
 )
 
-from apify._budget_pool import (
-    BUDGET_POOL_POLL_INTERVAL,
-    DEFAULT_BUDGET_POOL_ALIAS,
-    BudgetPool,
-)
+from apify._budget_pool import DEFAULT_BUDGET_POOL_ALIAS, BudgetPool, BudgetTracker
 from apify._charging import (
     DEFAULT_DATASET_ITEM_EVENT,
     ChargeResult,
@@ -62,7 +58,6 @@ if TYPE_CHECKING:
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
-    from apify._budget_pool import BudgetAllocation
     from apify._webhook import Webhook
 
 MainReturnType = TypeVar('MainReturnType')
@@ -165,10 +160,10 @@ class _ActorType:
         """Whether the Actor is currently exiting."""
 
         self._default_budget_pool: BudgetPool | None = None
-        """The budget pool shared by child runs, opened on first use."""
+        """The budget pool limited to this run's own `max_total_charge_usd`, opened on first use."""
 
-        self._watched_budget_pools: list[BudgetPool] = []
-        """Budget pools whose background watcher must be stopped on exit."""
+        self._budget_pools: dict[str, BudgetPool] = {}
+        """Budget pools opened by this run, keyed by the ID of the key-value store holding them."""
 
     async def __aenter__(self) -> Self:
         """Enter the Actor context.
@@ -294,12 +289,11 @@ class _ActorType:
             except Exception:
                 self.log.exception('Failed to exit event manager')
 
-            for budget_pool in self._watched_budget_pools:
+            if '_budget_tracker' in self.__dict__:
                 try:
-                    await budget_pool.stop_watching()
+                    await self._budget_tracker.close()
                 except Exception:
-                    self.log.exception('Failed to stop the budget pool watcher')
-            self._watched_budget_pools.clear()
+                    self.log.exception('Failed to record the final charges in the budget pools')
 
             try:
                 await self._charging_manager_implementation.__aexit__(None, None, None)
@@ -436,6 +430,10 @@ class _ActorType:
             event_manager = service_locator.get_event_manager()
 
         return event_manager
+
+    @cached_property
+    def _budget_tracker(self) -> BudgetTracker:
+        return BudgetTracker(self.apify_client, self._get_own_charged_usd)
 
     @cached_property
     def _charging_manager_implementation(self) -> ChargingManagerImplementation:
@@ -659,72 +657,64 @@ class _ActorType:
         alias: str | None = None,
         name: str | None = None,
         limit_usd: Decimal | None = None,
-        default_child_budget_usd: Decimal | None = None,
-        poll_interval: timedelta | None = BUDGET_POOL_POLL_INTERVAL,
         force_cloud: bool = False,
     ) -> BudgetPool:
-        """Open a budget pool - a charge budget shared by child runs, persisted as an append-only log in a dataset.
+        """Open a budget pool - a charge budget shared by child runs, persisted in a key-value store.
 
-        Pass the pool to `Actor.start` or `Actor.call` as `budget_pool`, and every child run started that way
-        charges against the pool while it runs: the pool polls the running children for their charges every
-        `poll_interval` in the background. A child gets the budget remaining when it starts as its
-        `max_total_charge_usd`. When the charges in the pool exceed the limit, the pool aborts all running children
-        it started. A child that charges more than its own `max_total_charge_usd` is aborted too - this covers
-        Actors using another pricing model, or orchestrators that do not limit their own children. Charges are only
-        known when polled, so the pool can overshoot its limit by what the children spend between two polls.
+        Pass the pool to `Actor.start` or `Actor.call` as `budget_pool`. A child run started that way gets the
+        budget remaining in the pool as its `max_total_charge_usd`, and this run polls it every
+        `BUDGET_POOL_POLL_INTERVAL` while it runs, recording its charges in the pool. When the charges in the pool
+        exceed its limit, this run aborts the running children it started through it. A child that charges more than
+        its own `max_total_charge_usd` is aborted too. This run's own charges count against the pool as well.
 
-        Without `id`, `name` or `alias`, the pool is kept in a dataset aliased to this run, so it survives
-        migrations and restarts, and it is the same pool `Actor.start` and `Actor.call` use by default. Its limit
-        defaults to this run's `max_total_charge_usd`. A pool kept in a named dataset can be shared by unrelated
-        Actor runs - the dataset is only ever appended to, so they never overwrite each other's data. The dataset
-        must not be used for anything else, and it must not be the run's default dataset.
+        Each run using the pool writes only its own record in it, so the pool can be shared by unrelated runs,
+        including runs of other Actors, through a named key-value store. A run started through a pool must not use
+        the same pool itself, as its charges are already recorded by its parent - it raises
+        `BudgetPoolNestingError`.
+
+        Without `id`, `name` or `alias`, this opens the run's default pool, kept in a key-value store aliased to the
+        run and limited to the run's own `max_total_charge_usd`. `Actor.start` and `Actor.call` use it whenever this
+        run uses the pay-per-event pricing model with `max_total_charge_usd` set, also next to any pool passed to
+        them explicitly.
 
         Args:
-            id: The ID of the dataset holding the pool. Mutually exclusive with name and alias.
-            name: The name of the dataset holding the pool (global scope, persists across runs).
+            id: The ID of the key-value store holding the pool. Mutually exclusive with name and alias.
+            name: The name of the key-value store holding the pool (global scope, persists across runs).
                 Mutually exclusive with id and alias.
-            alias: The alias of the dataset holding the pool (run scope, creates unnamed storage).
+            alias: The alias of the key-value store holding the pool (run scope, creates unnamed storage).
                 Mutually exclusive with id and name.
-            limit_usd: The total budget of the pool. If not set, the limit stored in the pool is kept, and a new
-                pool is unlimited, except for the default pool, which is limited to this run's
-                `max_total_charge_usd`.
-            default_child_budget_usd: The `max_total_charge_usd` of a child run started without one, capped at
-                the remaining budget. If not set, such a child gets the whole remaining budget.
-            poll_interval: How often the running child runs are polled for their charges. `None` disables the
-                polling, and with it aborting children that exceed the budget.
+            limit_usd: The total budget of the pool. If set, it is stored in the pool for all runs using it. If not
+                set, the stored limit is used, and a pool without one is unlimited. The default pool is limited to
+                this run's `max_total_charge_usd`.
             force_cloud: If set to `True` then the Apify cloud storage is always used.
 
         Returns:
             The opened budget pool.
+
+        Raises:
+            BudgetPoolNestingError: If this run is recorded in the pool as a child of another run.
         """
         is_default = id is None and name is None and alias is None
         if is_default:
+            if self._default_budget_pool is not None and not force_cloud:
+                return self._default_budget_pool
             alias = DEFAULT_BUDGET_POOL_ALIAS
             if limit_usd is None:
                 limit_usd = self._get_own_charge_limit()
-            if (
-                self._default_budget_pool is not None
-                and not force_cloud
-                and (limit_usd if limit_usd is not None else Decimal('inf')) == self._default_budget_pool.limit_usd
-                and default_child_budget_usd == self._default_budget_pool.default_child_budget_usd
-            ):
-                return self._default_budget_pool
 
-        dataset = await self.open_dataset(id=id, name=name, alias=alias, force_cloud=force_cloud)
-        pool = await BudgetPool.open(
-            dataset,
-            limit_usd=limit_usd,
-            default_child_budget_usd=default_child_budget_usd,
-            client=self.apify_client,
-            owner_run_id=self.configuration.actor_run_id or 'local',
-            poll_interval=poll_interval,
-        )
+        key_value_store = await self.open_key_value_store(id=id, name=name, alias=alias, force_cloud=force_cloud)
+        pool = self._budget_pools.get(key_value_store.id)
+        if pool is None:
+            pool = await BudgetPool.open(
+                key_value_store,
+                owner_run_id=self.configuration.actor_run_id or 'local',
+                limit_usd=limit_usd,
+            )
+            self._budget_pools[key_value_store.id] = pool
+            await self._budget_tracker.add_pool(pool)
 
         if is_default and not force_cloud:
             self._default_budget_pool = pool
-
-        # Resume watching the child runs this run started, e.g. after a migration.
-        self._watch_budget_pool(pool)
         return pool
 
     @_ensure_context
@@ -1046,10 +1036,10 @@ class _ActorType:
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
-            budget_pool: The budget pool the run charges against while it runs, see
-                `Actor.open_budget_pool`. The default, `'default'`, uses the pool limited to this run's own
-                `max_total_charge_usd` when this run uses the pay-per-event pricing model with such a limit set,
-                and no pool otherwise. Pass `None` to not use any pool.
+            budget_pool: The budget pool the run charges against while it runs, see `Actor.open_budget_pool`.
+                The run also charges against this run's default pool, limited to its own `max_total_charge_usd`,
+                when this run uses the pay-per-event pricing model with such a limit set. The default, `'default'`,
+                uses only that pool. Pass `None` to use no pool at all.
 
         Returns:
             Info about the started Actor run
@@ -1068,31 +1058,25 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        pool, allocation = await self._allocate_child_budget(budget_pool, actor_id, max_total_charge_usd)
-        if allocation is not None:
-            max_total_charge_usd = allocation.amount_usd if allocation.amount_usd.is_finite() else None
+        pools = await self._get_budget_pools(budget_pool)
+        if pools:
+            max_total_charge_usd = await self._budget_tracker.allocate(pools, max_total_charge_usd)
 
         actor_client = client.actor(actor_id)
-        try:
-            run = await actor_client.start(
-                run_input=run_input,
-                content_type=content_type,
-                build=build,
-                max_total_charge_usd=max_total_charge_usd,
-                restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                run_timeout=actor_start_timeout,
-                force_permission_level=force_permission_level,
-                webhooks=to_client_representations(webhooks),
-            )
-        except BaseException:
-            if pool is not None and allocation is not None:
-                await pool.release(allocation.id)
-            raise
+        run = await actor_client.start(
+            run_input=run_input,
+            content_type=content_type,
+            build=build,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            run_timeout=actor_start_timeout,
+            force_permission_level=force_permission_level,
+            webhooks=to_client_representations(webhooks),
+        )
 
-        if pool is not None and allocation is not None:
-            await pool.track_run(allocation.id, run)
-            self._watch_budget_pool(pool)
+        if pools:
+            await self._budget_tracker.track(pools, run, max_total_charge_usd)
 
         return run
 
@@ -1181,10 +1165,10 @@ class _ActorType:
             logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
                 default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
                 will redirect logs to the provided logger.
-            budget_pool: The budget pool the run charges against while it runs, see
-                `Actor.open_budget_pool`. The default, `'default'`, uses the pool limited to this run's own
-                `max_total_charge_usd` when this run uses the pay-per-event pricing model with such a limit set,
-                and no pool otherwise. Pass `None` to not use any pool.
+            budget_pool: The budget pool the run charges against while it runs, see `Actor.open_budget_pool`.
+                The run also charges against this run's default pool, limited to its own `max_total_charge_usd`,
+                when this run uses the pay-per-event pricing model with such a limit set. The default, `'default'`,
+                uses only that pool. Pass `None` to use no pool at all.
 
         Returns:
             Info about the started Actor run.
@@ -1203,13 +1187,13 @@ class _ActorType:
         else:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
-        pool, allocation = await self._allocate_child_budget(budget_pool, actor_id, max_total_charge_usd)
-        if allocation is not None:
-            max_total_charge_usd = allocation.amount_usd if allocation.amount_usd.is_finite() else None
+        pools = await self._get_budget_pools(budget_pool)
+        if pools:
+            max_total_charge_usd = await self._budget_tracker.allocate(pools, max_total_charge_usd)
 
         actor_client = client.actor(actor_id)
 
-        if pool is None or allocation is None:
+        if not pools:
             run = await actor_client.call(
                 run_input=run_input,
                 content_type=content_type,
@@ -1227,25 +1211,19 @@ class _ActorType:
                 raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
             return run
 
-        # With a budget pool, start the run separately, so the pool tracks (and watches) it while it runs.
-        try:
-            started_run = await actor_client.start(
-                run_input=run_input,
-                content_type=content_type,
-                build=build,
-                max_total_charge_usd=max_total_charge_usd,
-                restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                run_timeout=actor_call_timeout,
-                force_permission_level=force_permission_level,
-                webhooks=to_client_representations(webhooks),
-            )
-        except BaseException:
-            await pool.release(allocation.id)
-            raise
-
-        await pool.track_run(allocation.id, started_run)
-        self._watch_budget_pool(pool)
+        # With a budget pool, start the run separately, so that it is polled while it runs.
+        started_run = await actor_client.start(
+            run_input=run_input,
+            content_type=content_type,
+            build=build,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            run_timeout=actor_call_timeout,
+            force_permission_level=force_permission_level,
+            webhooks=to_client_representations(webhooks),
+        )
+        await self._budget_tracker.track(pools, started_run, max_total_charge_usd)
 
         run_client = client.run(started_run.id)
         if not logger:
@@ -1260,7 +1238,7 @@ class _ActorType:
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
 
-        await pool.update_run(run)
+        await self._budget_tracker.update(run)
         return run
 
     @_ensure_context
@@ -1646,12 +1624,6 @@ class _ActorType:
 
         return True
 
-    def _watch_budget_pool(self, pool: BudgetPool) -> None:
-        """Make sure the pool watches its running child runs, and that the watcher is stopped on exit."""
-        pool.start_watching()
-        if pool not in self._watched_budget_pools:
-            self._watched_budget_pools.append(pool)
-
     def _get_own_charge_limit(self) -> Decimal | None:
         """Return this run's `max_total_charge_usd` if it uses the pay-per-event pricing model with a finite limit."""
         pricing_info = self.get_charging_manager().get_pricing_info()
@@ -1659,31 +1631,26 @@ class _ActorType:
             return pricing_info.max_total_charge_usd
         return None
 
-    async def _allocate_child_budget(
-        self,
-        budget_pool: BudgetPool | Literal['default'] | None,
-        actor_id: str,
-        max_total_charge_usd: Decimal | None,
-    ) -> tuple[BudgetPool | None, BudgetAllocation | None]:
-        """Allocate the charge budget for a child run from the given budget pool, if any."""
-        if budget_pool == 'default':
-            if self._get_own_charge_limit() is None:
-                return None, None
-            budget_pool = self._default_budget_pool or await self.open_budget_pool()
-
-        if budget_pool is None:
-            return None, None
-
-        # This run's own charges count against the pool too, and are recorded on every poll.
+    def _get_own_charged_usd(self) -> Decimal:
+        """Return the amount this run has charged by itself, for its records in budget pools."""
         charging_manager = self.get_charging_manager()
         if charging_manager.get_pricing_info().is_pay_per_event:
-            budget_pool.track_charges(
-                self.configuration.actor_run_id or 'local',
-                charging_manager.calculate_total_charged_amount,
-            )
+            return charging_manager.calculate_total_charged_amount()
+        return Decimal(0)
 
-        allocation = await budget_pool.allocate(max_total_charge_usd, actor_id=actor_id)
-        return budget_pool, allocation
+    async def _get_budget_pools(self, budget_pool: BudgetPool | Literal['default'] | None) -> list[BudgetPool]:
+        """Return the budget pools a child run started with the given `budget_pool` argument charges against."""
+        if budget_pool is None:
+            return []
+
+        pools: list[BudgetPool] = []
+        if self._get_own_charge_limit() is not None:
+            pools.append(await self.open_budget_pool())
+        if isinstance(budget_pool, BudgetPool) and budget_pool not in pools:
+            if budget_pool not in self._budget_pools.values():
+                raise ValueError('The budget pool must be opened with `Actor.open_budget_pool`.')
+            pools.append(budget_pool)
+        return pools
 
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout, rounded up to whole seconds with minimum value of 1 second.
