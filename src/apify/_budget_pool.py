@@ -17,6 +17,8 @@ from crawlee._utils.crypto import crypto_random_object_id
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from apify_client import ApifyClientAsync
     from apify_client._models import Run
 
@@ -27,22 +29,29 @@ logger = getLogger(__name__)
 DEFAULT_BUDGET_POOL_KEY = 'APIFY_BUDGET_POOL'
 """Key-value store record under which a budget pool is persisted by default."""
 
+BUDGET_POOL_POLL_INTERVAL = timedelta(seconds=5)
+"""How often a budget pool polls its running child runs for their charges by default."""
+
+BUDGET_POOL_OVERSHOOT_TOLERANCE = Decimal('0.05')
+"""By how much, as a fraction of the limit, the charges in a budget pool may exceed the limit by default before the
+pool aborts its running child runs. Charges are polled, so a small overshoot cannot be avoided."""
+
 _TERMINAL_RUN_STATUSES = frozenset({'SUCCEEDED', 'FAILED', 'TIMED-OUT', 'ABORTED'})
 
 
 @docs_group('Charging')
 class BudgetExhaustedError(RuntimeError):
-    """Raised when a budget pool has no budget left for another reservation."""
+    """Raised when a budget pool has no budget left for another child run."""
 
 
 @docs_group('Charging')
 class BudgetPoolEntry(BaseModel):
-    """A single contribution to a budget pool - a reservation for a child run, or a run's own charges."""
+    """A single run charging against a budget pool - a child run, or a run's own charges."""
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     run_id: str | None = None
-    """ID of the run this entry belongs to, if known. A reservation has no run until the run is started."""
+    """ID of the run this entry belongs to, if known. An allocation has no run until the run is started."""
 
     actor_id: str | None = None
     """ID of the Actor whose run this entry belongs to, if known."""
@@ -52,46 +61,37 @@ class BudgetPoolEntry(BaseModel):
 
     is_child_run: bool = True
     """Whether the entry tracks a child run started through the pool, as opposed to charges recorded by a run itself
-    via `BudgetPool.record_charges`. Only child runs are refreshed from the Apify API."""
+    via `BudgetPool.record_charges`. Only child runs are polled from the Apify API."""
 
-    reserved_usd: Decimal | None = Decimal(0)
-    """Budget set aside for the run - the `max_total_charge_usd` it was started with. `None` if unlimited."""
+    max_charge_usd: Decimal | None = None
+    """The `max_total_charge_usd` the run was started with. `None` if unlimited."""
 
     charged_usd: Decimal = Decimal(0)
     """Amount the run has charged so far, as last observed."""
 
     is_finished: bool = False
-    """Whether the run has finished, so its unused reservation no longer counts against the pool."""
+    """Whether the run has finished."""
 
     is_aborted_by_pool: bool = False
-    """Whether the pool aborted the run because it charged more than its reservation."""
+    """Whether the pool aborted the run because the budget was exceeded."""
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     """When the entry was created."""
 
-    @property
-    def committed_usd(self) -> Decimal:
-        """Amount of the pool this entry currently takes up."""
-        if self.is_finished or self.reserved_usd is None:
-            return self.charged_usd
-        return max(self.reserved_usd, self.charged_usd)
-
-    @property
-    def is_over_budget(self) -> bool:
-        """Whether the run has charged more than its reservation."""
-        return self.reserved_usd is not None and self.charged_usd > self.reserved_usd
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    """When the charges of the entry were last updated."""
 
 
 @docs_group('Charging')
 @dataclass(frozen=True)
-class BudgetReservation:
-    """Result of `BudgetPool.reserve` - a slice of the pool set aside for one child run."""
+class BudgetAllocation:
+    """Result of `BudgetPool.allocate` - the budget a child run is about to be started with."""
 
     id: str
-    """ID of the pool entry holding the reservation."""
+    """ID of the pool entry tracking the child run."""
 
     amount_usd: Decimal
-    """The reserved amount - pass it to the child run as `max_total_charge_usd`."""
+    """The allocated amount - pass it to the child run as `max_total_charge_usd`. Infinite for an unlimited pool."""
 
 
 class _BudgetPoolState(BaseModel):
@@ -105,24 +105,24 @@ class _BudgetPoolState(BaseModel):
 class BudgetPool:
     """A charge budget shared by several Actor runs, persisted in a key-value store record.
 
-    Every child run started through the pool gets a slice of the remaining budget reserved for it and is started
-    with that slice as its `max_total_charge_usd`. Because the reservations of running children are counted
-    against the pool, children running at the same time can never be granted more than the pool's limit in total.
-    Once a child finishes, only what it actually charged stays counted, and the rest of its reservation returns to
-    the pool.
+    Every run in the pool charges against it continuously: while child runs are running, the pool polls their
+    charges (every `BUDGET_POOL_POLL_INTERVAL` by default) and records them, so the remaining budget reflects what
+    has been spent so far, not only what finished runs spent.
 
-    The platform stops a pay-per-event child once it reaches its `max_total_charge_usd`, but that limit does not
-    cover everything - a child using another pricing model, or a child that starts its own children without
-    reserving their budget, can cost more than its reservation. The pool therefore watches its unfinished child
-    runs in the background and aborts any that charged more than was reserved for it, see `enforce`.
+    A child run started through the pool gets the budget remaining at that moment as its `max_total_charge_usd`,
+    which the platform enforces for pay-per-event Actors. Children running at the same time share the remaining
+    budget, so together they can spend more than is left. When the charges in the pool exceed the limit by more
+    than the overshoot tolerance, the pool aborts all its running child runs. A child that charges more than its own
+    `max_total_charge_usd` by more than the tolerance - possible for Actors using another pricing model, or for
+    orchestrators that do not limit their own children - is aborted too. Because charges are polled, the pool can
+    overshoot its limit by what the children spend between two polls.
 
-    The pool also serves as a cost record: `get_entries` lists every run that contributed and by how much.
+    The pool also serves as a cost record: `get_entries` lists every run that charged against it and by how much.
 
     The state lives in a key-value store, so it survives migrations and restarts when kept in the run's default
     store, can be shared by unrelated Actor runs when kept in a named store, and works locally as well. Operations
     within one process are serialized. Runs sharing a pool through a named store read and write the record without
-    any cross-process locking, so concurrent updates from different runs are best-effort. Charged amounts are read
-    from the Apify API and may lag slightly behind the actual charges.
+    any cross-process locking, so concurrent updates from different runs are best-effort.
 
     Use `Actor.open_budget_pool` to open a pool. When the Actor run has `max_total_charge_usd` set and uses the
     pay-per-event pricing model, `Actor.start` and `Actor.call` use a default pool limited to that amount.
@@ -135,8 +135,9 @@ class BudgetPool:
         key: str = DEFAULT_BUDGET_POOL_KEY,
         limit_usd: Decimal | None = None,
         default_child_budget_usd: Decimal | None = None,
+        overshoot_tolerance: Decimal = BUDGET_POOL_OVERSHOOT_TOLERANCE,
         client: ApifyClientAsync | None = None,
-        watch_interval: timedelta | None = timedelta(seconds=30),
+        poll_interval: timedelta | None = BUDGET_POOL_POLL_INTERVAL,
     ) -> None:
         """Create a new instance. Prefer `Actor.open_budget_pool`, which also loads the stored state.
 
@@ -145,22 +146,29 @@ class BudgetPool:
             key: The record key under which the pool state is stored.
             limit_usd: The total budget of the pool. If `None`, the limit stored in the record is used, and if
                 there is none, the pool is unlimited and only tracks costs.
-            default_child_budget_usd: Amount reserved for a child run started without an explicit
-                `max_total_charge_usd`. If `None`, such a child gets the whole remaining budget, which leaves
-                nothing for children started while it runs.
-            client: The Apify API client used to read the charges of tracked child runs and to abort them.
-            watch_interval: How often the background watcher started by `start_watching` checks the charges of
-                unfinished child runs. `None` disables the watcher.
+            default_child_budget_usd: The `max_total_charge_usd` of a child run started without one, capped at
+                the remaining budget. If `None`, such a child gets the whole remaining budget.
+            overshoot_tolerance: By how much, as a fraction of the limit, the charges may exceed the limit before
+                the running child runs are aborted. The same fraction of a child's own `max_total_charge_usd`
+                applies to a single child.
+            client: The Apify API client used to poll the tracked child runs and to abort them.
+            poll_interval: How often the background watcher started by `start_watching` polls the running child
+                runs. `None` disables the watcher, and with it aborting the children.
         """
+        if overshoot_tolerance < 0:
+            raise ValueError(f'The overshoot tolerance must not be negative, got {overshoot_tolerance}.')
+
         self._key_value_store = key_value_store
         self._key = key
         self._limit_usd = limit_usd
         self._default_child_budget_usd = default_child_budget_usd
+        self._overshoot_tolerance = overshoot_tolerance
         self._client = client
+        self._poll_interval = poll_interval
         self._state = _BudgetPoolState(limit_usd=limit_usd)
         self._lock = asyncio.Lock()
-        self._watch_interval = watch_interval
         self._watch_task: asyncio.Task[None] | None = None
+        self._charge_sources: dict[str, tuple[Callable[[], Decimal], str | None]] = {}
 
     @classmethod
     async def open(
@@ -170,8 +178,9 @@ class BudgetPool:
         key: str = DEFAULT_BUDGET_POOL_KEY,
         limit_usd: Decimal | None = None,
         default_child_budget_usd: Decimal | None = None,
+        overshoot_tolerance: Decimal = BUDGET_POOL_OVERSHOOT_TOLERANCE,
         client: ApifyClientAsync | None = None,
-        watch_interval: timedelta | None = timedelta(seconds=30),
+        poll_interval: timedelta | None = BUDGET_POOL_POLL_INTERVAL,
     ) -> BudgetPool:
         """Open a budget pool stored in the given key-value store, creating the record if it does not exist.
 
@@ -179,19 +188,21 @@ class BudgetPool:
             key_value_store: The key-value store holding the pool state.
             key: The record key under which the pool state is stored.
             limit_usd: The total budget of the pool. Overrides the limit stored in the record, if any.
-            default_child_budget_usd: Amount reserved for a child run started without an explicit
-                `max_total_charge_usd`.
-            client: The Apify API client used to read the charges of tracked child runs and to abort them.
-            watch_interval: How often the background watcher started by `start_watching` checks the charges of
-                unfinished child runs. `None` disables the watcher.
+            default_child_budget_usd: The `max_total_charge_usd` of a child run started without one, capped at
+                the remaining budget.
+            overshoot_tolerance: By how much, as a fraction of the limit, the charges may exceed the limit before
+                the running child runs are aborted.
+            client: The Apify API client used to poll the tracked child runs and to abort them.
+            poll_interval: How often the background watcher polls the running child runs. `None` disables it.
         """
         pool = cls(
             key_value_store,
             key=key,
             limit_usd=limit_usd,
             default_child_budget_usd=default_child_budget_usd,
+            overshoot_tolerance=overshoot_tolerance,
             client=client,
-            watch_interval=watch_interval,
+            poll_interval=poll_interval,
         )
         async with pool._lock:
             await pool._load()
@@ -205,8 +216,13 @@ class BudgetPool:
 
     @property
     def default_child_budget_usd(self) -> Decimal | None:
-        """Amount reserved for a child run started without an explicit `max_total_charge_usd`."""
+        """The `max_total_charge_usd` of a child run started without one."""
         return self._default_child_budget_usd
+
+    @property
+    def overshoot_tolerance(self) -> Decimal:
+        """By how much, as a fraction of the limit, the charges may exceed the limit before children are aborted."""
+        return self._overshoot_tolerance
 
     async def get_entries(self) -> dict[str, BudgetPoolEntry]:
         """Return the entries of the pool, keyed by entry ID, as currently stored."""
@@ -215,71 +231,71 @@ class BudgetPool:
             return {entry_id: entry.model_copy() for entry_id, entry in self._state.entries.items()}
 
     async def get_charged_usd(self) -> Decimal:
-        """Return the total amount charged by all runs tracked in the pool, as currently stored."""
+        """Return the total amount charged against the pool so far, as currently stored."""
         async with self._lock:
             await self._load()
-            return sum((entry.charged_usd for entry in self._state.entries.values()), start=Decimal(0))
+            return self._charged_usd()
 
     async def get_remaining_usd(self, *, refresh: bool = True) -> Decimal:
-        """Return the part of the limit that is neither charged nor reserved for a running child.
+        """Return the part of the limit not charged yet.
 
         Args:
-            refresh: Whether to first update the charges of unfinished child runs from the Apify API.
+            refresh: Whether to first poll the running child runs for their current charges.
         """
         async with self._lock:
             await self._load()
-            if refresh and await self._refresh_runs():
+            if refresh and await self._refresh():
                 await self._save()
             return self._remaining_usd()
 
     async def refresh(self) -> None:
-        """Update the charges and status of unfinished child runs from the Apify API."""
+        """Poll the running child runs for their current charges and record them."""
         async with self._lock:
             await self._load()
-            if await self._refresh_runs():
+            if await self._refresh():
                 await self._save()
 
-    async def reserve(
+    async def allocate(
         self,
         amount_usd: Decimal | None = None,
         *,
         actor_id: str | None = None,
         label: str | None = None,
-    ) -> BudgetReservation:
-        """Set aside part of the remaining budget for a child run.
+    ) -> BudgetAllocation:
+        """Decide the `max_total_charge_usd` of a child run about to be started, and start tracking it.
 
-        The charges of unfinished child runs are refreshed first, so budget left unused by children that finished
-        in the meantime is available again.
+        The running child runs are polled first, so the remaining budget is current.
 
         Args:
             amount_usd: The requested amount. It is capped at the remaining budget. If `None`, the pool's
                 `default_child_budget_usd` is requested, or the whole remaining budget if that is not set either.
-            actor_id: ID of the Actor the reservation is for, stored for reference.
-            label: Optional human-readable description of the reservation.
+            actor_id: ID of the Actor the child run belongs to, stored for reference.
+            label: Optional human-readable description of the child run.
 
         Returns:
-            The reservation. Its `amount_usd` is infinite if both the pool and the request are unlimited.
+            The allocation. Its `amount_usd` is infinite if both the pool and the request are unlimited.
 
         Raises:
             BudgetExhaustedError: If there is no budget left.
         """
         if amount_usd is not None and amount_usd < 0:
-            raise ValueError(f'The reserved amount must not be negative, got {amount_usd}.')
+            raise ValueError(f'The allocated amount must not be negative, got {amount_usd}.')
 
         async with self._lock:
             await self._load()
-            await self._refresh_runs()
+            await self._refresh()
 
             remaining = self._remaining_usd()
             requested = amount_usd if amount_usd is not None else self._default_child_budget_usd
-            granted = remaining if requested is None else min(requested, remaining)
 
             if remaining <= 0 and (requested is None or requested > 0):
                 await self._save()
                 raise BudgetExhaustedError(
-                    f'The budget pool has no budget left (limit {self.limit_usd} USD, remaining {remaining} USD).'
+                    f'The budget pool has no budget left (limit {self.limit_usd} USD, '
+                    f'charged {self._charged_usd()} USD).'
                 )
 
+            granted = remaining if requested is None else min(requested, remaining)
             if requested is not None and granted < requested:
                 logger.info(f'Requested budget of {requested} USD capped at the remaining {granted} USD.')
 
@@ -287,36 +303,36 @@ class BudgetPool:
             self._state.entries[entry_id] = BudgetPoolEntry(
                 actor_id=actor_id,
                 label=label,
-                reserved_usd=granted if granted.is_finite() else None,
+                max_charge_usd=granted if granted.is_finite() else None,
             )
             await self._save()
 
-        return BudgetReservation(id=entry_id, amount_usd=granted)
+        return BudgetAllocation(id=entry_id, amount_usd=granted)
 
-    async def release(self, reservation_id: str) -> None:
-        """Drop a reservation that was not used, e.g. because starting the child run failed.
+    async def release(self, allocation_id: str) -> None:
+        """Drop an allocation whose child run was not started, e.g. because starting it failed.
 
         Args:
-            reservation_id: ID of the reservation, as returned by `reserve`.
+            allocation_id: ID of the allocation, as returned by `allocate`.
         """
         async with self._lock:
             await self._load()
-            if self._state.entries.pop(reservation_id, None) is not None:
+            if self._state.entries.pop(allocation_id, None) is not None:
                 await self._save()
 
-    async def track_run(self, reservation_id: str, run: Run) -> None:
-        """Associate a reservation with the child run started for it, and record the run's current charges.
+    async def track_run(self, allocation_id: str, run: Run) -> None:
+        """Associate an allocation with the child run started for it, and record the run's current charges.
 
         Args:
-            reservation_id: ID of the reservation, as returned by `reserve`.
-            run: The child run started with the reserved budget.
+            allocation_id: ID of the allocation, as returned by `allocate`.
+            run: The child run started with the allocated budget.
         """
         async with self._lock:
             await self._load()
-            entry = self._state.entries.get(reservation_id)
+            entry = self._state.entries.get(allocation_id)
             if entry is None:
                 entry = BudgetPoolEntry()
-                self._state.entries[reservation_id] = entry
+                self._state.entries[allocation_id] = entry
             entry.run_id = run.id
             entry.actor_id = run.act_id
             self._apply_run(entry, run)
@@ -350,40 +366,59 @@ class BudgetPool:
         """
         async with self._lock:
             await self._load()
-            entry = self._find_run_entry(run_id)
-            if entry is None:
-                entry = BudgetPoolEntry(run_id=run_id, label=label, is_child_run=False)
-                self._state.entries[run_id] = entry
-            if entry.charged_usd == charged_usd:
-                return
-            entry.charged_usd = charged_usd
-            await self._save()
+            if self._record_charges(run_id, charged_usd, label):
+                await self._save()
+
+    def track_charges(self, run_id: str, get_charged_usd: Callable[[], Decimal], *, label: str | None = None) -> None:
+        """Keep recording a run's own charges on every poll, e.g. the charges of the orchestrating run itself.
+
+        Args:
+            run_id: ID of the run.
+            get_charged_usd: Returns the total amount the run has charged so far.
+            label: Optional human-readable description of the entry.
+        """
+        self._charge_sources[run_id] = (get_charged_usd, label)
 
     async def enforce(self) -> list[str]:
-        """Refresh the unfinished child runs and abort those that charged more than was reserved for them.
+        """Poll the running child runs and abort them if the budget is exceeded beyond the overshoot tolerance.
+
+        All running children are aborted when the charges in the pool exceed the limit by more than the tolerance.
+        A single child is aborted when it charged more than its own `max_total_charge_usd` by more than the
+        tolerance.
 
         Returns:
             IDs of the runs that were aborted.
         """
         async with self._lock:
             await self._load()
-            changed = await self._refresh_runs()
+            changed = await self._refresh()
 
-            over_budget = [
+            running = [
                 entry
                 for entry in self._state.entries.values()
-                if entry.is_child_run and entry.run_id is not None and not entry.is_finished and entry.is_over_budget
+                if entry.is_child_run and entry.run_id is not None and not entry.is_finished
             ]
 
+            charged = self._charged_usd()
+            is_pool_exceeded = charged > self.limit_usd * (1 + self._overshoot_tolerance)
+            if is_pool_exceeded and running:
+                logger.warning(
+                    f'The budget pool charges ({charged} USD) exceed its limit ({self.limit_usd} USD) beyond the '
+                    f'tolerance, aborting {len(running)} running child run(s).'
+                )
+
+            to_abort = [entry for entry in running if is_pool_exceeded or self._is_over_own_limit(entry)]
+
             aborted: list[str] = []
-            if over_budget and self._client is not None:
-                for entry in over_budget:
+            if to_abort and self._client is not None:
+                for entry in to_abort:
                     if entry.run_id is None:
                         continue
-                    logger.warning(
-                        f'Aborting run {entry.run_id}: it charged {entry.charged_usd} USD, '
-                        f'more than the {entry.reserved_usd} USD reserved for it in the budget pool.'
-                    )
+                    if not is_pool_exceeded:
+                        logger.warning(
+                            f'Aborting run {entry.run_id}: it charged {entry.charged_usd} USD, beyond its '
+                            f'max_total_charge_usd of {entry.max_charge_usd} USD.'
+                        )
                     try:
                         run = await self._client.run(entry.run_id).abort()
                     except Exception as exc:
@@ -400,16 +435,16 @@ class BudgetPool:
             return aborted
 
     def start_watching(self) -> None:
-        """Start a background task that periodically calls `enforce` while there are unfinished child runs.
+        """Start a background task that calls `enforce` every poll interval while there are running child runs.
 
         The task stops by itself once all tracked child runs finish, and calling this again restarts it. It does
         nothing if the watcher is disabled or already running.
         """
-        if self._watch_interval is None or self._client is None:
+        if self._poll_interval is None or self._client is None:
             return
         if self._watch_task is not None and not self._watch_task.done():
             return
-        self._watch_task = asyncio.create_task(self._watch(self._watch_interval), name='budget-pool-watcher')
+        self._watch_task = asyncio.create_task(self._watch(self._poll_interval), name='budget-pool-watcher')
 
     async def stop_watching(self) -> None:
         """Stop the background task started by `start_watching`, if it is running."""
@@ -427,18 +462,25 @@ class BudgetPool:
                 await self.enforce()
             except Exception:
                 logger.exception('Failed to check the charges of child runs in the budget pool')
-            if not self._has_unfinished_child_runs():
+            if not self._has_running_child_runs():
                 return
 
-    def _has_unfinished_child_runs(self) -> bool:
+    def _has_running_child_runs(self) -> bool:
         return any(
             entry.is_child_run and entry.run_id is not None and not entry.is_finished
             for entry in self._state.entries.values()
         )
 
+    def _is_over_own_limit(self, entry: BudgetPoolEntry) -> bool:
+        return entry.max_charge_usd is not None and entry.charged_usd > entry.max_charge_usd * (
+            1 + self._overshoot_tolerance
+        )
+
+    def _charged_usd(self) -> Decimal:
+        return sum((entry.charged_usd for entry in self._state.entries.values()), start=Decimal(0))
+
     def _remaining_usd(self) -> Decimal:
-        committed = sum((entry.committed_usd for entry in self._state.entries.values()), start=Decimal(0))
-        return max(Decimal(0), self.limit_usd - committed)
+        return max(Decimal(0), self.limit_usd - self._charged_usd())
 
     def _find_run_entry(self, run_id: str) -> BudgetPoolEntry | None:
         entry = self._state.entries.get(run_id)
@@ -446,10 +488,25 @@ class BudgetPool:
             return entry
         return next((entry for entry in self._state.entries.values() if entry.run_id == run_id), None)
 
-    async def _refresh_runs(self) -> bool:
-        """Update unfinished child runs from the API. Returns whether anything changed."""
-        if self._client is None:
+    def _record_charges(self, run_id: str, charged_usd: Decimal, label: str | None) -> bool:
+        entry = self._find_run_entry(run_id)
+        if entry is None:
+            entry = BudgetPoolEntry(run_id=run_id, label=label, is_child_run=False)
+            self._state.entries[run_id] = entry
+        elif entry.charged_usd == charged_usd:
             return False
+        entry.charged_usd = charged_usd
+        entry.updated_at = datetime.now(UTC)
+        return True
+
+    async def _refresh(self) -> bool:
+        """Record the current charges of tracked runs. Returns whether anything changed."""
+        changed = False
+        for run_id, (get_charged_usd, label) in self._charge_sources.items():
+            changed = self._record_charges(run_id, get_charged_usd(), label) or changed
+
+        if self._client is None:
+            return changed
 
         entries = [
             entry
@@ -457,17 +514,16 @@ class BudgetPool:
             if entry.is_child_run and entry.run_id is not None and not entry.is_finished
         ]
         if not entries:
-            return False
+            return changed
 
         runs = await asyncio.gather(
             *(self._client.run(entry.run_id).get() for entry in entries if entry.run_id is not None),
             return_exceptions=True,
         )
 
-        changed = False
         for entry, run in zip(entries, runs, strict=True):
             if isinstance(run, BaseException):
-                logger.warning(f'Failed to refresh the charges of run {entry.run_id}: {run}')
+                logger.warning(f'Failed to poll the charges of run {entry.run_id}: {run}')
                 continue
             if run is None:
                 continue
@@ -478,7 +534,10 @@ class BudgetPool:
 
     @staticmethod
     def _apply_run(entry: BudgetPoolEntry, run: Run) -> None:
-        entry.charged_usd = max(entry.charged_usd, get_run_charged_usd(run))
+        charged_usd = max(entry.charged_usd, get_run_charged_usd(run))
+        if charged_usd != entry.charged_usd:
+            entry.charged_usd = charged_usd
+            entry.updated_at = datetime.now(UTC)
         entry.is_finished = run.status in _TERMINAL_RUN_STATUSES
 
     async def _load(self) -> None:
@@ -496,7 +555,7 @@ def get_run_charged_usd(run: Run) -> Decimal:
     """Compute the amount a run has charged - the amount its `max_total_charge_usd` limits.
 
     For pay-per-event runs this is the sum of the charged events multiplied by their prices. For other runs, or when
-    the event prices are not known, the run's `usage_total_usd` is used instead.
+    some event price is not known, the run's `usage_total_usd` is used instead.
     """
     usage_total_usd = Decimal(str(run.usage_total_usd)) if run.usage_total_usd is not None else Decimal(0)
 

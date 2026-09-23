@@ -13,7 +13,14 @@ from crawlee.events import (
 )
 
 from apify._actor import Actor
-from apify._budget_pool import BudgetExhaustedError, BudgetPool, BudgetPoolEntry, BudgetReservation
+from apify._budget_pool import (
+    BUDGET_POOL_OVERSHOOT_TOLERANCE,
+    BUDGET_POOL_POLL_INTERVAL,
+    BudgetAllocation,
+    BudgetExhaustedError,
+    BudgetPool,
+    BudgetPoolEntry,
+)
 from apify._configuration import Configuration
 from apify._consts import ActorEnvVars, ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, ProxyInfo
@@ -23,14 +30,16 @@ from apify.events._types import ActorEventTypes
 __version__ = metadata.version('apify')
 
 __all__ = [
+    'BUDGET_POOL_OVERSHOOT_TOLERANCE',
+    'BUDGET_POOL_POLL_INTERVAL',
     'Actor',
     'ActorEnvVars',
     'ActorEventTypes',
     'ApifyEnvVars',
+    'BudgetAllocation',
     'BudgetExhaustedError',
     'BudgetPool',
     'BudgetPoolEntry',
-    'BudgetReservation',
     'Configuration',
     'Event',
     'EventAbortingData',
