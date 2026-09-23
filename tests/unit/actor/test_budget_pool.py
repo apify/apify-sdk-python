@@ -11,7 +11,7 @@ import pytest
 from apify_client._models import Run
 
 from apify import BUDGET_POOL_POLL_INTERVAL, Actor, BudgetExhaustedError, BudgetPool, Configuration
-from apify._budget_pool import DEFAULT_BUDGET_POOL_KEY, get_run_charged_usd
+from apify._budget_pool import DEFAULT_BUDGET_POOL_ALIAS, get_run_charged_usd
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
@@ -83,9 +83,9 @@ class FakeClient:
         return run_client
 
 
-async def open_pool(client: FakeClient | None = None, **kwargs: Any) -> BudgetPool:
+async def open_pool(client: FakeClient | None = None, *, alias: str = 'pool', **kwargs: Any) -> BudgetPool:
     return await BudgetPool.open(
-        await Actor.open_key_value_store(),
+        await Actor.open_dataset(alias=alias),
         client=cast('ApifyClientAsync | None', client),
         **kwargs,
     )
@@ -117,9 +117,10 @@ async def test_charges_are_counted_while_child_runs() -> None:
 
         client.runs['child'] = make_run('child', status='SUCCEEDED', usage_total_usd=6)
         assert await pool.get_remaining_usd() == Decimal(4)
-        entry = next(iter((await pool.get_entries()).values()))
+        entry = (await pool.get_entries())['child']
         assert entry.is_finished
         assert entry.charged_usd == Decimal(6)
+        assert [event.charged_usd for event in entry.events] == [Decimal(0), Decimal(2), Decimal(5), Decimal(6)]
 
 
 async def test_allocation_is_capped_at_live_remaining_budget() -> None:
@@ -127,7 +128,7 @@ async def test_allocation_is_capped_at_live_remaining_budget() -> None:
 
     async with Actor:
         pool = await open_pool(client, limit_usd=Decimal(10))
-        first = await start_child(pool, client, 'first', Decimal(4))
+        await start_child(pool, client, 'first', Decimal(4))
 
         client.runs['first'] = make_run('first', usage_total_usd=7)
         second = await pool.allocate(Decimal(4))
@@ -137,28 +138,27 @@ async def test_allocation_is_capped_at_live_remaining_budget() -> None:
         with pytest.raises(BudgetExhaustedError):
             await pool.allocate()
 
-        assert (await pool.get_entries())[first].max_charge_usd == Decimal(4)
+        assert (await pool.get_entries())['first'].max_charge_usd == Decimal(4)
 
 
-async def test_enforce_aborts_all_children_when_pool_exceeded_beyond_tolerance() -> None:
+async def test_enforce_aborts_all_children_when_pool_exceeded() -> None:
     client = FakeClient()
 
     async with Actor:
-        pool = await open_pool(client, limit_usd=Decimal(10), overshoot_tolerance=Decimal('0.05'))
+        pool = await open_pool(client, limit_usd=Decimal(10))
         await start_child(pool, client, 'a')
         await start_child(pool, client, 'b')
 
-        # 10.4 USD is within the 5 % tolerance of the 10 USD limit.
         client.runs['a'] = make_run('a', usage_total_usd=5)
-        client.runs['b'] = make_run('b', usage_total_usd=5.4)
+        client.runs['b'] = make_run('b', usage_total_usd=5)
         assert await pool.enforce() == []
 
-        client.runs['b'] = make_run('b', usage_total_usd=5.6)
+        client.runs['b'] = make_run('b', usage_total_usd=5.01)
         assert sorted(await pool.enforce()) == ['a', 'b']
         assert sorted(client.aborted) == ['a', 'b']
 
         entries = list((await pool.get_entries()).values())
-        assert all(entry.is_aborted_by_pool and entry.is_finished for entry in entries)
+        assert all(entry.status == 'ABORTED_BY_POOL' for entry in entries)
 
 
 async def test_enforce_aborts_child_over_its_own_limit() -> None:
@@ -166,11 +166,11 @@ async def test_enforce_aborts_child_over_its_own_limit() -> None:
     client = FakeClient()
 
     async with Actor:
-        pool = await open_pool(client, limit_usd=Decimal(100), overshoot_tolerance=Decimal('0.05'))
+        pool = await open_pool(client, limit_usd=Decimal(100))
         await start_child(pool, client, 'modest', Decimal(2))
         await start_child(pool, client, 'greedy', Decimal(2))
 
-        client.runs['modest'] = make_run('modest', usage_total_usd=2.05)
+        client.runs['modest'] = make_run('modest', usage_total_usd=2)
         client.runs['greedy'] = make_run('greedy', usage_total_usd=2.2)
 
         assert await pool.enforce() == ['greedy']
@@ -214,21 +214,59 @@ async def test_tracked_own_charges_are_recorded_on_every_poll() -> None:
         assert await pool.get_remaining_usd() == Decimal(6)
 
 
-async def test_state_is_persisted_in_key_value_store() -> None:
+async def test_state_is_persisted_as_append_only_log() -> None:
+    client = FakeClient()
+
     async with Actor:
-        kvs = await Actor.open_key_value_store()
-        pool = await BudgetPool.open(kvs, limit_usd=Decimal(5))
-        allocation = await pool.allocate(Decimal(2))
+        dataset = await Actor.open_dataset(alias='pool')
+        pool = await BudgetPool.open(dataset, limit_usd=Decimal(5), owner_run_id='parent', client=cast('Any', client))
+        await start_child(pool, client, 'child', Decimal(2))
+        await pool.record_charges('parent', Decimal('0.5'))
+        await pool.record_charges('parent', Decimal('0.4'))  # Lower than seen before - not appended.
         await pool.record_charges('parent', Decimal(1))
 
-        reopened = await BudgetPool.open(kvs)
-        assert reopened.limit_usd == Decimal(5)
-        assert set(await reopened.get_entries()) == {allocation.id, 'parent'}
-        assert await reopened.get_remaining_usd() == Decimal(4)
-        assert await reopened.get_charged_usd() == Decimal(1)
+        items = [dict(item) async for item in dataset.iterate_items()]
+        assert [item['type'] for item in items] == ['limit', 'run', 'charge', 'charge', 'charge']
+        assert [item['chargedUsd'] for item in items if item.get('runId') == 'parent'] == ['0.5', '1']
 
-        stored = await kvs.get_value(DEFAULT_BUDGET_POOL_KEY)
-        assert stored['limitUsd'] == '5'
+        # A restarted run reads the whole log back, and resumes the children it started.
+        reopened = await BudgetPool.open(dataset, owner_run_id='parent', client=cast('Any', client))
+        assert reopened.limit_usd == Decimal(5)
+        entries = await reopened.get_entries()
+        assert set(entries) == {'child', 'parent'}
+        assert [event.charged_usd for event in entries['parent'].events] == [Decimal('0.5'), Decimal(1)]
+        assert entries['child'].max_charge_usd == Decimal(2)
+        assert entries['child'].parent_run_id == 'parent'
+        assert await reopened.get_remaining_usd() == Decimal(4)
+
+        client.runs['child'] = make_run('child', usage_total_usd=7)
+        assert await reopened.enforce() == ['child']
+
+
+async def test_parallel_consumers_share_the_pool() -> None:
+    client_a, client_b = FakeClient(), FakeClient()
+
+    async with Actor:
+        dataset = await Actor.open_dataset(name='shared-budget-pool')
+        pool_a = await BudgetPool.open(dataset, limit_usd=Decimal(10), owner_run_id='a', client=cast('Any', client_a))
+        pool_b = await BudgetPool.open(dataset, owner_run_id='b', client=cast('Any', client_b))
+        assert pool_b.limit_usd == Decimal(10)
+
+        await start_child(pool_a, client_a, 'child-a')
+        await start_child(pool_b, client_b, 'child-b')
+
+        client_a.runs['child-a'] = make_run('child-a', usage_total_usd=3)
+        client_b.runs['child-b'] = make_run('child-b', usage_total_usd=4)
+        await asyncio.gather(pool_a.refresh(), pool_b.refresh())
+
+        # Both see each other's charges, and nothing written by either is lost.
+        assert await pool_a.get_charged_usd() == Decimal(7)
+        assert await pool_b.get_charged_usd() == Decimal(7)
+
+        # Each consumer aborts only the children it started.
+        client_b.runs['child-b'] = make_run('child-b', usage_total_usd=8)
+        assert await pool_b.enforce() == ['child-b']
+        assert await pool_a.enforce() == ['child-a']
 
 
 async def test_record_charges_updates_existing_child_entry() -> None:
@@ -236,21 +274,23 @@ async def test_record_charges_updates_existing_child_entry() -> None:
 
     async with Actor:
         pool = await open_pool(client, limit_usd=Decimal(10))
-        allocation_id = await start_child(pool, client, 'child', Decimal(4))
+        await start_child(pool, client, 'child', Decimal(4))
 
         # The child shares the pool and records its own charges - they must not be counted twice.
         await pool.record_charges('child', Decimal(3))
 
-        assert set(await pool.get_entries()) == {allocation_id}
+        assert set(await pool.get_entries()) == {'child'}
         assert await pool.get_remaining_usd(refresh=False) == Decimal(7)
 
 
-async def test_release_drops_allocation() -> None:
+async def test_allocation_writes_nothing_until_run_starts() -> None:
     async with Actor:
-        pool = await open_pool(limit_usd=Decimal(10))
+        dataset = await Actor.open_dataset(alias='pool')
+        pool = await BudgetPool.open(dataset)
         allocation = await pool.allocate(Decimal(4))
         await pool.release(allocation.id)
         assert await pool.get_entries() == {}
+        assert (await dataset.get_data()).items == []
 
 
 async def test_unlimited_pool_only_tracks() -> None:
@@ -323,7 +363,8 @@ async def test_start_without_limit_passes_max_charge_through(
     async with Actor:
         await Actor.start('child-actor')
         await Actor.start('child-actor', max_total_charge_usd=Decimal(7))
-        assert await (await Actor.open_key_value_store()).get_value(DEFAULT_BUDGET_POOL_KEY) is None
+        pool_dataset = await Actor.open_dataset(alias=DEFAULT_BUDGET_POOL_ALIAS)
+        assert (await pool_dataset.get_data()).items == []
 
     calls = apify_client_async_patcher.calls['actor']['start']
     assert [kwargs['max_total_charge_usd'] for _, kwargs in calls] == [None, Decimal(7)]
@@ -341,4 +382,4 @@ async def test_failed_start_releases_allocation(apify_client_async_patcher: Apif
             await Actor.start('child-actor', budget_pool='default')
 
         pool = await Actor.open_budget_pool()
-        assert all(not entry.is_child_run for entry in (await pool.get_entries()).values())
+        assert set(await pool.get_entries()) == {'local'}  # Only the parent's own charges.

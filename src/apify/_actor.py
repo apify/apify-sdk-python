@@ -28,9 +28,8 @@ from crawlee.events import (
 )
 
 from apify._budget_pool import (
-    BUDGET_POOL_OVERSHOOT_TOLERANCE,
     BUDGET_POOL_POLL_INTERVAL,
-    DEFAULT_BUDGET_POOL_KEY,
+    DEFAULT_BUDGET_POOL_ALIAS,
     BudgetPool,
 )
 from apify._charging import (
@@ -659,42 +658,38 @@ class _ActorType:
         id: str | None = None,
         alias: str | None = None,
         name: str | None = None,
-        key: str = DEFAULT_BUDGET_POOL_KEY,
         limit_usd: Decimal | None = None,
         default_child_budget_usd: Decimal | None = None,
-        overshoot_tolerance: Decimal = BUDGET_POOL_OVERSHOOT_TOLERANCE,
         poll_interval: timedelta | None = BUDGET_POOL_POLL_INTERVAL,
         force_cloud: bool = False,
     ) -> BudgetPool:
-        """Open a budget pool - a charge budget shared by child runs, persisted in a key-value store record.
+        """Open a budget pool - a charge budget shared by child runs, persisted as an append-only log in a dataset.
 
         Pass the pool to `Actor.start` or `Actor.call` as `budget_pool`, and every child run started that way
         charges against the pool while it runs: the pool polls the running children for their charges every
         `poll_interval` in the background. A child gets the budget remaining when it starts as its
-        `max_total_charge_usd`. When the charges in the pool exceed the limit by more than `overshoot_tolerance`,
-        the pool aborts all running children. A child that charges more than its own `max_total_charge_usd` beyond
-        the tolerance is aborted too - this covers Actors using another pricing model, or orchestrators that do not
-        limit their own children. The pool also records how much each run charged.
+        `max_total_charge_usd`. When the charges in the pool exceed the limit, the pool aborts all running children
+        it started. A child that charges more than its own `max_total_charge_usd` is aborted too - this covers
+        Actors using another pricing model, or orchestrators that do not limit their own children. Charges are only
+        known when polled, so the pool can overshoot its limit by what the children spend between two polls.
 
-        Without `id`, `name` or `alias`, the pool is kept in the run's default key-value store, so it survives
+        Without `id`, `name` or `alias`, the pool is kept in a dataset aliased to this run, so it survives
         migrations and restarts, and it is the same pool `Actor.start` and `Actor.call` use by default. Its limit
-        defaults to this run's `max_total_charge_usd`. A pool kept in a named key-value store can be shared by
-        unrelated Actor runs, on a best-effort basis, as the record is updated without cross-process locking.
+        defaults to this run's `max_total_charge_usd`. A pool kept in a named dataset can be shared by unrelated
+        Actor runs - the dataset is only ever appended to, so they never overwrite each other's data. The dataset
+        must not be used for anything else, and it must not be the run's default dataset.
 
         Args:
-            id: The ID of the key-value store holding the pool. Mutually exclusive with name and alias.
-            name: The name of the key-value store holding the pool (global scope, persists across runs).
+            id: The ID of the dataset holding the pool. Mutually exclusive with name and alias.
+            name: The name of the dataset holding the pool (global scope, persists across runs).
                 Mutually exclusive with id and alias.
-            alias: The alias of the key-value store holding the pool (run scope, creates unnamed storage).
+            alias: The alias of the dataset holding the pool (run scope, creates unnamed storage).
                 Mutually exclusive with id and name.
-            key: The record key under which the pool state is stored.
             limit_usd: The total budget of the pool. If not set, the limit stored in the pool is kept, and a new
                 pool is unlimited, except for the default pool, which is limited to this run's
                 `max_total_charge_usd`.
             default_child_budget_usd: The `max_total_charge_usd` of a child run started without one, capped at
                 the remaining budget. If not set, such a child gets the whole remaining budget.
-            overshoot_tolerance: By how much, as a fraction of the limit, the charges may exceed the limit before
-                the running children are aborted. Charges are polled, so some overshoot cannot be avoided.
             poll_interval: How often the running child runs are polled for their charges. `None` disables the
                 polling, and with it aborting children that exceed the budget.
             force_cloud: If set to `True` then the Apify cloud storage is always used.
@@ -702,32 +697,33 @@ class _ActorType:
         Returns:
             The opened budget pool.
         """
-        is_default = id is None and name is None and alias is None and key == DEFAULT_BUDGET_POOL_KEY
-        if is_default and not force_cloud:
+        is_default = id is None and name is None and alias is None
+        if is_default:
+            alias = DEFAULT_BUDGET_POOL_ALIAS
             if limit_usd is None:
                 limit_usd = self._get_own_charge_limit()
             if (
                 self._default_budget_pool is not None
+                and not force_cloud
                 and (limit_usd if limit_usd is not None else Decimal('inf')) == self._default_budget_pool.limit_usd
                 and default_child_budget_usd == self._default_budget_pool.default_child_budget_usd
             ):
                 return self._default_budget_pool
 
-        key_value_store = await self.open_key_value_store(id=id, name=name, alias=alias, force_cloud=force_cloud)
+        dataset = await self.open_dataset(id=id, name=name, alias=alias, force_cloud=force_cloud)
         pool = await BudgetPool.open(
-            key_value_store,
-            key=key,
+            dataset,
             limit_usd=limit_usd,
             default_child_budget_usd=default_child_budget_usd,
-            overshoot_tolerance=overshoot_tolerance,
             client=self.apify_client,
+            owner_run_id=self.configuration.actor_run_id or 'local',
             poll_interval=poll_interval,
         )
 
         if is_default and not force_cloud:
             self._default_budget_pool = pool
 
-        # Resume watching the child runs tracked in the pool, e.g. after a migration.
+        # Resume watching the child runs this run started, e.g. after a migration.
         self._watch_budget_pool(pool)
         return pool
 
@@ -1684,7 +1680,6 @@ class _ActorType:
             budget_pool.track_charges(
                 self.configuration.actor_run_id or 'local',
                 charging_manager.calculate_total_charged_amount,
-                label='own charges',
             )
 
         allocation = await budget_pool.allocate(max_total_charge_usd, actor_id=actor_id)
