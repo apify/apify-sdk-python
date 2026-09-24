@@ -220,6 +220,13 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    # Limit E2E tests to at most 2 concurrently running jobs across all workflow runs in the repository
+    # to avoid hitting the Apify API rate limits. A concurrency group allows only one running job, so each
+    # matrix entry gets its own group (one slot per Python version).
+    concurrency:
+      group: e2e-tests-${{ matrix.python-version }}
+      cancel-in-progress: false
+
     env:
       TESTS_CONCURRENCY: "16"
 
