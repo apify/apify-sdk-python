@@ -334,8 +334,9 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
-        # Keys expire after three minutes, the same as the platform's own idempotency records.
         self._idempotent_charges: TTLCache[str, IdempotentChargeItem] = TTLCache(maxsize=float('inf'), ttl=180)
+        """Charges made with an idempotency key, by key. Keys expire after three minutes, the same as the platform's
+        own idempotency records."""
 
         self._not_ppe_warning_printed = False
         self.active = False
