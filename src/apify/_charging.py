@@ -507,8 +507,8 @@ class ChargingManagerImplementation(ChargingManager):
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 
-            # Count the charge only after the API call returns, so a request the platform never received leaves
-            # no local trace.
+            # Count the charge only after the API call succeeds, so a failed call retried under the same key is
+            # counted once.
             self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
             self._charging_state[event_name].charge_count += charged_count
             self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
