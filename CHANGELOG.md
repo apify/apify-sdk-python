@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 <!-- git-cliff-unreleased-start -->
 ## 4.0.3 - **not yet released**
 
+### 🚀 Features
+
+- **charging:** Support the `idempotency_key` param in `Actor.charge()` ([#1123](https://github.com/apify/apify-sdk-python/pull/1123)) ([e7f1b75](https://github.com/apify/apify-sdk-python/commit/e7f1b757cd01e6b3a87a1c84c9bf418149a5f7b5)) by [@Mantisus](https://github.com/Mantisus), closes [#1122](https://github.com/apify/apify-sdk-python/issues/1122)
+
 ### 🐛 Bug Fixes
 
 - Do not use crawlee version 1.10.1 ([#1136](https://github.com/apify/apify-sdk-python/pull/1136)) ([19c3cba](https://github.com/apify/apify-sdk-python/commit/19c3cbad0c42fc6d51f478682fbc38a06ee9df5e)) by [@Pijukatel](https://github.com/Pijukatel)
