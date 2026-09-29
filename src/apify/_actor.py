@@ -151,7 +151,7 @@ class _ActorType:
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
 
-        self._child_run_registry: ChildRunRegistry | None = None
+        self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
 
         self._active = False
         """Whether the Actor instance is currently active (initialized and within context)."""
@@ -1174,9 +1174,6 @@ class _ActorType:
         memory_mbytes: int | None,
         run_timeout: timedelta | None,
     ) -> tuple[Run, bool]:
-        if self._child_run_registry is None:
-            self._child_run_registry = ChildRunRegistry(await self.open_key_value_store())
-
         return await self._child_run_registry.find_or_start(
             name,
             actor_id=actor_id,
