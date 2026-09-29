@@ -53,8 +53,8 @@ class ChildRunRegistry:
     starting the child and that write can still orphan the child, since nothing but the platform knows about it.
     """
 
-    def __init__(self, key_value_store: KeyValueStore) -> None:
-        self._key_value_store = key_value_store
+    def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
+        self._open_key_value_store = open_key_value_store
         self._records: dict[str, ChildRunRecord] | None = None
         self._load_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
@@ -131,14 +131,16 @@ class ChildRunRegistry:
     async def _load(self) -> dict[str, ChildRunRecord]:
         async with self._load_lock:
             if self._records is None:
-                stored = await self._key_value_store.get_value(CHILD_RUNS_KEY)
+                key_value_store = await self._open_key_value_store()
+                stored = await key_value_store.get_value(CHILD_RUNS_KEY)
                 self._records = _records_adapter.validate_python(stored or {})
             return self._records
 
     async def _save(self, name: str, record: ChildRunRecord) -> None:
         records = await self._load()
+        key_value_store = await self._open_key_value_store()
         async with self._write_lock:
             records[name] = record
-            await self._key_value_store.set_value(
+            await key_value_store.set_value(
                 CHILD_RUNS_KEY, _records_adapter.dump_python(records, by_alias=True, mode='json')
             )

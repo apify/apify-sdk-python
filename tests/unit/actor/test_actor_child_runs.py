@@ -9,10 +9,12 @@ import pytest
 from apify_client._models import Run
 
 from apify import Actor
+from apify._actor import _ActorType
 from apify._child_runs import CHILD_RUNS_KEY
 
 if TYPE_CHECKING:
     from ..conftest import ApifyClientAsyncPatcher
+    from apify.storages import KeyValueStore
 
 
 def make_run(run_id: str, status: str) -> Run:
@@ -193,6 +195,35 @@ async def test_concurrent_named_starts_start_one_run(apify_client_async_patcher:
 
     async with Actor:
         runs = await asyncio.gather(*(Actor.start('some-actor', name='scrape-eu') for _ in range(3)))
+
+    assert {run.id for run in runs} == {'new-run'}
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_concurrent_first_named_starts_share_one_registry(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Concurrent first named starts start a single run even when opening the default KVS yields to the event loop."""
+    started = make_run('new-run', 'RUNNING')
+
+    async def slow_start(*_args: Any, **_kwargs: Any) -> Run:
+        await asyncio.sleep(0.05)
+        return started
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=slow_start)
+    apify_client_async_patcher.patch('run', 'get', return_value=started)
+    open_key_value_store = _ActorType.open_key_value_store
+
+    async def yielding_open_key_value_store(self: _ActorType, *args: Any, **kwargs: Any) -> KeyValueStore:
+        # On the platform the default KVS is opened lazily through the API, so opening it suspends.
+        await asyncio.sleep(0.01)
+        return await open_key_value_store(self, *args, **kwargs)
+
+    monkeypatch.setattr(_ActorType, 'open_key_value_store', yielding_open_key_value_store)
+
+    # A fresh instance, since the registry binds the opener when the Actor is created.
+    async with _ActorType() as actor:
+        runs = await asyncio.gather(*(actor.start('some-actor', name='scrape-eu') for _ in range(3)))
 
     assert {run.id for run in runs} == {'new-run'}
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
