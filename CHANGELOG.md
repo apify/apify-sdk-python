@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - **charging:** Support the `idempotency_key` param in `Actor.charge()` ([#1123](https://github.com/apify/apify-sdk-python/pull/1123)) ([e7f1b75](https://github.com/apify/apify-sdk-python/commit/e7f1b757cd01e6b3a87a1c84c9bf418149a5f7b5)) by [@Mantisus](https://github.com/Mantisus), closes [#1122](https://github.com/apify/apify-sdk-python/issues/1122)
+- Read Actor input from the working directory when the store has none ([#1147](https://github.com/apify/apify-sdk-python/pull/1147)) ([34a12d5](https://github.com/apify/apify-sdk-python/commit/34a12d520dac1de77dc01b30e08371a0da5ee706)) by [@vdusek](https://github.com/vdusek), closes [#1140](https://github.com/apify/apify-sdk-python/issues/1140)
 
 ### 🐛 Bug Fixes
 
