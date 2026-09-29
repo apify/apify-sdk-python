@@ -219,6 +219,9 @@ async def test_get_input_reads_bare_file_from_working_directory(
         input_path.write_bytes(b'\xde\xad\xbe\xef')
         assert await actor.get_input() == b'\xde\xad\xbe\xef'
 
+        input_path.write_text('plain text')
+        assert await actor.get_input() == b'plain text'
+
 
 async def test_get_input_working_directory_file_follows_input_key(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -244,6 +247,18 @@ async def test_get_input_prefers_store_record_over_working_directory(
         assert await actor.get_input() == {'from': 'store'}
 
 
+async def test_get_input_null_store_record_skips_working_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An input record holding JSON `null` counts as present, so the working-directory file is not read."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
+
+    async with Actor as actor:
+        await actor.set_value('INPUT', None)
+        assert await actor.get_input() is None
+
+
 async def test_get_input_raises_on_multiple_working_directory_files(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -265,3 +280,25 @@ async def test_get_input_skips_working_directory_on_platform(monkeypatch: pytest
     async with Actor as actor:
         monkeypatch.setattr(actor, 'is_at_home', lambda: True)
         assert await actor.get_input() is None
+
+
+async def test_get_input_raises_on_malformed_json_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A malformed `INPUT.json` in the working directory raises an error naming the file."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_text('{not json')
+
+    async with Actor as actor:
+        with pytest.raises(ValueError, match=r'INPUT\.json" is not valid JSON'):
+            await actor.get_input()
+
+
+async def test_get_input_bare_file_with_json_suffix_in_input_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A bare file whose input key ends in `.json` is returned as bytes when it is not valid JSON."""
+    monkeypatch.setenv(ActorEnvVars.INPUT_KEY, 'INPUT.json')
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_bytes(b'\xde\xad\xbe\xef')
+
+    async with Actor as actor:
+        assert await actor.get_input() == b'\xde\xad\xbe\xef'

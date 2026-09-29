@@ -740,15 +740,16 @@ class _ActorType:
         a `dict` keyed by the fields declared in the Actor's input schema. Any secret input fields are decrypted to
         plaintext before being returned.
 
-        When running locally and the default key-value store holds no input record, the input is read from
-        a `<input_key>` or `<input_key>.json` file in the current working directory instead. The `.json` file is
-        parsed as JSON; the bare file is parsed as JSON when it is valid JSON, and returned as `bytes` otherwise.
+        When running locally and the default key-value store holds no input record, the input is read from a
+        `<input_key>` or `<input_key>.json` file in the current working directory instead. The `.json` file is parsed
+        as JSON; the bare file is parsed as JSON when it is valid JSON, and returned as `bytes` otherwise.
 
         Returns:
             The Actor input, usually a `dict` of input fields, or `None` if the Actor has no input.
 
         Raises:
             RuntimeError: If both `<input_key>` and `<input_key>.json` exist in the working directory.
+            ValueError: If the `<input_key>.json` file in the working directory is not valid JSON.
         """
         input_key = self.configuration.input_key
         key_value_store = await self.open_key_value_store()
@@ -766,29 +767,6 @@ class _ActorType:
             input_value = decrypt_input_secrets(private_key, input_value)
 
         return input_value
-
-    @staticmethod
-    async def _read_input_from_working_directory(input_key: str) -> Any:
-        """Read the Actor input from a `<input_key>` or `<input_key>.json` file in the current working directory."""
-        candidates = [Path.cwd() / input_key, Path.cwd() / f'{input_key}.json']
-        found = [path for path in candidates if await asyncio.to_thread(path.is_file)]
-
-        if len(found) > 1:
-            names = ', '.join(f'"{path.name}"' for path in found)
-            raise RuntimeError(f'Found multiple input files in the working directory: {names}. Keep only one of them.')
-
-        if not found:
-            return None
-
-        input_path = found[0]
-        content = await asyncio.to_thread(input_path.read_bytes)
-
-        try:
-            return json.loads(content)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            if input_path.suffix == '.json':
-                raise
-            return content
 
     @_ensure_context
     async def get_value(self, key: str, *, default_value: Any = None) -> Any:
@@ -1518,6 +1496,29 @@ class _ActorType:
             return False
 
         return True
+
+    @staticmethod
+    async def _read_input_from_working_directory(input_key: str) -> Any:
+        """Read the Actor input from a `<input_key>` or `<input_key>.json` file in the current working directory."""
+        candidates = [Path.cwd() / input_key, Path.cwd() / f'{input_key}.json']
+        found = [path for path in candidates if await asyncio.to_thread(path.is_file)]
+
+        if len(found) > 1:
+            names = ', '.join(f'"{path.name}"' for path in found)
+            raise RuntimeError(f'Found multiple input files in the working directory: {names}. Keep only one of them.')
+
+        if not found:
+            return None
+
+        input_path = found[0]
+        content = await asyncio.to_thread(input_path.read_bytes)
+
+        try:
+            return json.loads(content)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            if input_path.name == f'{input_key}.json':
+                raise ValueError(f'The input file "{input_path}" is not valid JSON.') from exc
+            return content
 
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout, rounded up to whole seconds with minimum value of 1 second.
