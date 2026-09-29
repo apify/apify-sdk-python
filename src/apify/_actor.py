@@ -961,8 +961,8 @@ class _ActorType:
             name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
-                resurrected, and a new run is started only when nothing is recorded under the name or the recorded
-                run `FAILED`.
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists.
 
         Returns:
             Info about the started Actor run
@@ -1095,8 +1095,8 @@ class _ActorType:
             name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
-                resurrected, and a new run is started only when nothing is recorded under the name or the recorded
-                run `FAILED`.
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists.
 
         Returns:
             Info about the started Actor run.
