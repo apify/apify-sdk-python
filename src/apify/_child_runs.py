@@ -30,6 +30,8 @@ _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
 
 _RESURRECTABLE_STATUSES = frozenset({'ABORTED', 'TIMED-OUT'})
 
+_ABORTABLE_STATUSES = frozenset({'READY', 'RUNNING'})
+
 
 class ChildRunRecord(BaseModel):
     """A child run tracked under a name in the child run registry."""
@@ -44,6 +46,9 @@ class ChildRunRecord(BaseModel):
 
     previous_run_ids: list[str] = Field(default_factory=list)
     """IDs of earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
+
+    abort_with_parent: bool = False
+    """Whether the current run is aborted when this Actor run is gracefully aborted."""
 
 
 @docs_group('Actor')
@@ -63,6 +68,9 @@ class ChildRunInfo:
     previous_run_ids: list[str]
     """IDs of earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
 
+    abort_with_parent: bool
+    """Whether the current run is aborted when this Actor run is gracefully aborted."""
+
 
 _records_adapter = TypeAdapter(dict[str, ChildRunRecord])
 
@@ -80,6 +88,8 @@ class ChildRunRegistry:
         self._load_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
         self._name_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._clients: dict[str, ApifyClientAsync] = {}
+        """Client each name was last started or reattached with in this process, used to abort its run."""
 
     async def find_or_start(
         self,
@@ -89,6 +99,7 @@ class ChildRunRegistry:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         resurrect_run: Callable[[RunClientAsync], Awaitable[Run]],
+        abort_with_parent: bool = False,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `name`, or start one when there is none to reuse.
 
@@ -102,6 +113,8 @@ class ChildRunRegistry:
             client: Client used to look up and resurrect the recorded run.
             start_run: Starts a new run of the Actor.
             resurrect_run: Resurrects the recorded run, given its run client.
+            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. It replaces
+                the value recorded under `name`.
 
         Returns:
             The run, and whether it was newly started.
@@ -109,9 +122,17 @@ class ChildRunRegistry:
         async with self._name_locks[name]:
             records = await self._load()
             record = records.get(name)
+            self._clients[name] = client
 
             if record is None:
-                return await self._start(name, actor_id=actor_id, start_run=start_run, previous_run_ids=[]), True
+                run = await self._start(
+                    name,
+                    actor_id=actor_id,
+                    start_run=start_run,
+                    previous_run_ids=[],
+                    abort_with_parent=abort_with_parent,
+                )
+                return run, True
 
             if record.actor_id != actor_id:
                 raise ValueError(
@@ -126,9 +147,17 @@ class ChildRunRegistry:
                 run = await run_client.wait_for_finish()
 
             if run is None or run.status == 'FAILED':
-                previous_run_ids = [*record.previous_run_ids, record.run_id]
-                run = await self._start(name, actor_id=actor_id, start_run=start_run, previous_run_ids=previous_run_ids)
+                run = await self._start(
+                    name,
+                    actor_id=actor_id,
+                    start_run=start_run,
+                    previous_run_ids=[*record.previous_run_ids, record.run_id],
+                    abort_with_parent=abort_with_parent,
+                )
                 return run, True
+
+            if record.abort_with_parent != abort_with_parent:
+                await self._save(name, record.model_copy(update={'abort_with_parent': abort_with_parent}))
 
             if run.status in _RESURRECTABLE_STATUSES:
                 logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
@@ -152,9 +181,39 @@ class ChildRunRegistry:
                 run_id=record.run_id,
                 run=run,
                 previous_run_ids=list(record.previous_run_ids),
+                abort_with_parent=record.abort_with_parent,
             )
             for (name, record), run in zip(records.items(), runs, strict=True)
         }
+
+    async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
+        """Gracefully abort every recorded run marked `abort_with_parent` that is still `READY` or `RUNNING`.
+
+        A failure to abort one run is logged and does not stop the others.
+
+        Args:
+            client: Client used for a name not started or reattached in this process, e.g. after a migration.
+        """
+        records = dict(await self._load())
+        await asyncio.gather(
+            *(
+                self._abort(name, record, self._clients.get(name, client))
+                for name, record in records.items()
+                if record.abort_with_parent
+            )
+        )
+
+    async def _abort(self, name: str, record: ChildRunRecord, client: ApifyClientAsync) -> None:
+        run_client = client.run(record.run_id)
+        try:
+            run = await run_client.get()
+            if run is None or run.status not in _ABORTABLE_STATUSES:
+                return
+            await run_client.abort(gracefully=True)
+        except Exception:
+            logger.exception(f'Failed to abort child run "{name}"', extra={'run_id': record.run_id})
+        else:
+            logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
 
     async def _start(
         self,
@@ -163,9 +222,16 @@ class ChildRunRegistry:
         actor_id: str,
         start_run: Callable[[], Awaitable[Run]],
         previous_run_ids: list[str],
+        abort_with_parent: bool,
     ) -> Run:
         run = await start_run()
-        await self._save(name, ChildRunRecord(actor_id=actor_id, run_id=run.id, previous_run_ids=previous_run_ids))
+        record = ChildRunRecord(
+            actor_id=actor_id,
+            run_id=run.id,
+            previous_run_ids=previous_run_ids,
+            abort_with_parent=abort_with_parent,
+        )
+        await self._save(name, record)
         return run
 
     async def _load(self) -> dict[str, ChildRunRecord]:
