@@ -12,6 +12,7 @@ import InteractingNamedCallExample from '!!raw-loader!roa-loader!./code/06_inter
 import InteractingChildRunsExample from '!!raw-loader!roa-loader!./code/06_interacting_child_runs.py';
 import InteractingAbortWithParentExample from '!!raw-loader!roa-loader!./code/06_interacting_abort_with_parent.py';
 import InteractingChildRunLimitExample from '!!raw-loader!roa-loader!./code/06_interacting_child_run_limit.py';
+import InteractingChildRunBudgetExample from '!!raw-loader!roa-loader!./code/06_interacting_child_run_budget.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
@@ -103,6 +104,24 @@ Note that:
 - `Actor.call` frees the slot as soon as its run finishes. The SDK doesn't learn right away about a child run that nothing waits for, so it fetches the run again before counting it, once its status is more than 10 seconds old.
 - The limit isn't persisted. After a migration or resurrection, call `Actor.set_child_run_limits` again before you start child runs.
 - Once your Actor run receives the `ABORTING` event, a call waiting for a slot raises a `RuntimeError` without starting its run.
+
+### Sharing the charge budget with child runs
+
+When your Actor run is started with a maximum total charge (`max_total_charge_usd`), its named child runs share that budget. Each named `Actor.start` or `Actor.call` reserves a charge limit for its child run from the part of the budget your Actor run hasn't charged yet and hasn't reserved for other child runs. Without `max_total_charge_usd`, the child run gets all of that part. A higher value is lowered to it. Your Actor run can't charge the reserved part itself, so the whole tree of runs stays within the budget, however many child runs start at once.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingChildRunBudgetExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- Pass `max_total_charge_usd` when several child runs run at once. Otherwise the first one reserves the whole budget, and the next named start raises a `RuntimeError`.
+- When a child run finishes, the SDK keeps only its charge (`usage_total_usd`) reserved and releases the rest. The platform can add to that charge for about 3 minutes after the run finishes, so the SDK fetches the run again until then.
+- The charges of a failed child run stay reserved after a new run replaces it under the same name.
+- A reattached child run keeps the limit it was started with. A resurrected one gets a new limit, which can include the part it reserved before.
+- The reservations are stored in the registry, so they survive a migration or resurrection of your Actor run.
+- Child runs started without `name` aren't tracked, so they don't reserve any part of the budget.
+- A limit that the platform sets by default, which it does for pay-per-event Actors, isn't shared. Only a limit set for the run counts.
 
 ## Actor call task
 
