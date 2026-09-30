@@ -606,3 +606,18 @@ async def test_aborting_waits_for_a_named_start_in_flight() -> None:
         await asyncio.gather(start_task, abort_task)
 
     client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
+
+
+async def test_exit_removes_the_aborting_listener(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """After the Actor exits, an `ABORTING` event on a still-active event manager aborts no child run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'abort', return_value=None)
+
+    async with Actor.event_manager:
+        async with Actor:
+            await Actor.start('some-actor', name='scrape-eu', abort_with_parent=True)
+        Actor.event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await Actor.event_manager.wait_for_all_listeners_to_complete()
+
+    assert apify_client_async_patcher.calls['run']['abort'] == []

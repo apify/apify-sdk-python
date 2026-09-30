@@ -214,6 +214,7 @@ class _ActorType:
             await self._charging_manager_implementation.__aenter__()
         except BaseException:
             # Exit the already-entered event manager so its recurring tasks do not leak.
+            self.event_manager.off(event=Event.ABORTING, listener=self._abort_child_runs)
             await self.event_manager.__aexit__(None, None, None)
             raise
         self.log.debug('Charging manager initialized')
@@ -305,6 +306,7 @@ class _ActorType:
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
+            self.event_manager.off(event=Event.ABORTING, listener=self._abort_child_runs)
             self._active = False
 
         if reraise_control_flow:
