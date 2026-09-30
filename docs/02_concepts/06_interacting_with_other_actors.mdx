@@ -8,6 +8,7 @@ import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacting_start.py';
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
+import InteractingNamedCallExample from '!!raw-loader!roa-loader!./code/06_interacting_named_call.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
@@ -33,6 +34,29 @@ The <ApiLink to="class/Actor#call">`Actor.call`</ApiLink> method starts another 
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingCallExample}
 </RunnableCodeBlock>
+
+## Named child runs
+
+When your Actor migrates to another server or is resurrected, it starts again from the beginning. An unnamed `Actor.start` or `Actor.call` then starts a second child run, and the first one keeps running with nobody waiting for it.
+
+To avoid the duplicate, pass a `name` to <ApiLink to="class/Actor#start">`Actor.start`</ApiLink> or <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>. The name must be unique within your Actor run. Right after the child run starts, the SDK records its name and run ID under the `APIFY_CHILD_RUNS` key in the default key-value store. After a restart, the same call looks up the recorded run and reuses it based on its status:
+
+- `READY` or `RUNNING`: the call reattaches to the run.
+- `SUCCEEDED`: the call returns the run as is.
+- `ABORTED` or `TIMED-OUT`: the call resurrects the run. A run that is still `ABORTING` or `TIMING-OUT` is waited for first.
+- `FAILED`, or the run no longer exists: the call starts a new run under the same name.
+
+A named `Actor.call` that reattaches to a run streams only the log lines the child writes from then on, so the parent log doesn't repeat what the previous attempt already printed.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingNamedCallExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- The name is bound to the `actor_id` you pass. Using the same name for a different Actor, or for the same Actor referenced by its ID instead of its name, raises a `ValueError`.
+- Concurrent calls under one name in the same Actor run share a single child run.
+- If your Actor is killed after the platform starts the child but before the SDK records it, the child run isn't recorded and the next attempt starts a new one.
 
 ## Actor call task
 
