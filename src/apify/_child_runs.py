@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from dataclasses import dataclass
 from logging import getLogger
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
+
+from apify._utils import docs_group
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -40,7 +43,25 @@ class ChildRunRecord(BaseModel):
     """ID of the current run under this name."""
 
     previous_run_ids: list[str] = Field(default_factory=list)
-    """IDs of earlier runs under this name that failed and were replaced by a new run, oldest first."""
+    """IDs of earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
+
+
+@docs_group('Actor')
+@dataclass(frozen=True)
+class ChildRunInfo:
+    """A named child run of this Actor run, as returned by `Actor.child_runs`."""
+
+    actor_id: str
+    """The Actor ID or name the child was started with, as the caller passed it."""
+
+    run_id: str
+    """ID of the current run under this name."""
+
+    run: Run | None
+    """The current run as the API returns it now, or `None` when the platform no longer knows it."""
+
+    previous_run_ids: list[str]
+    """IDs of earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
 
 
 _records_adapter = TypeAdapter(dict[str, ChildRunRecord])
@@ -115,6 +136,25 @@ class ChildRunRegistry:
 
             logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
             return run, False
+
+    async def list_runs(self, client: ApifyClientAsync) -> dict[str, ChildRunInfo]:
+        """Return every recorded child run by name, with its current state fetched from the API.
+
+        Args:
+            client: Client used to fetch the recorded runs.
+        """
+        # Copy the records, since a named start can add one while the runs are fetched.
+        records = dict(await self._load())
+        runs = await asyncio.gather(*(client.run(record.run_id).get() for record in records.values()))
+        return {
+            name: ChildRunInfo(
+                actor_id=record.actor_id,
+                run_id=record.run_id,
+                run=run,
+                previous_run_ids=list(record.previous_run_ids),
+            )
+            for (name, record), run in zip(records.items(), runs, strict=True)
+        }
 
     async def _start(
         self,
