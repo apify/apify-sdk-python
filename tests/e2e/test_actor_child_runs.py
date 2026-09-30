@@ -134,3 +134,36 @@ async def test_named_child_run_is_aborted_with_parent(
     child_run = await apify_client_async.run(child_run_id).wait_for_finish(wait_duration=timedelta(seconds=120))
     assert child_run is not None
     assert child_run.status == 'ABORTED'
+
+
+async def test_named_child_runs_respect_the_concurrency_limit(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Named child runs started concurrently under a limit of one run one after another."""
+
+    async def main() -> None:
+        async with Actor:
+            actor_input = (await Actor.get_input()) or {}
+            if actor_input.get('is_child') is True:
+                await asyncio.sleep(10)
+                return
+
+            actor_id = Actor.configuration.actor_id or ''
+            Actor.set_child_run_limits(max_concurrent_runs=1)
+            runs = await asyncio.gather(
+                *(
+                    Actor.call(actor_id=actor_id, run_input={'is_child': True}, name=f'child-{index}')
+                    for index in range(2)
+                )
+            )
+            first, second = sorted(runs, key=lambda run: run.started_at)
+            assert first.finished_at is not None, 'first.finished_at is None'
+            assert second.started_at >= first.finished_at, f'first={first}, second={second}'
+
+    actor = await make_actor(label='child-run-limit', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+    # The parent run and its two child runs.
+    assert (await actor.runs().list()).total == 3
