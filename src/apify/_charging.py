@@ -575,6 +575,7 @@ class ChargingManagerImplementation(ChargingManager):
         """Return the part of `max_total_charge_usd` not charged by this Actor run nor reserved for its child runs."""
         return self._max_total_charge_usd - self.calculate_total_charged_amount() - self.child_run_reservations()
 
+    @_ensure_context
     async def is_max_total_charge_usd_set_by_user(self) -> bool:
         """Return whether `max_total_charge_usd` was set for this Actor run, not defaulted by the platform.
 
