@@ -508,8 +508,8 @@ class ChildRunRegistry:
         async with charging_manager.charge_lock():
             available = charging_manager.calculate_remaining_budget()
             record = (await self._load()).get(name)
-            if replaces_current and record is not None:
-                available += self._current_charge(name, record)
+            current_charge = self._current_charge(name, record) if replaces_current and record is not None else 0
+            available += current_charge
             if available <= 0:
                 raise RuntimeError(
                     f'Child run "{name}" was not started, since the budget of this Actor run is spent or reserved for '
@@ -521,7 +521,8 @@ class ChildRunRegistry:
                     f'Lowering the charge limit of child run "{name}" to {limit} USD, the budget left for it',
                     extra={'requested_usd': str(max_total_charge_usd)},
                 )
-            self._reserving[name] = limit
+            # A resurrected run's current charge is reserved by its record already.
+            self._reserving[name] = max(limit - current_charge, Decimal(0))
 
         try:
             yield limit, limit

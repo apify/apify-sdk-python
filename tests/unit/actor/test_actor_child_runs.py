@@ -1303,6 +1303,34 @@ async def test_run_fetched_before_its_resurrection_keeps_the_reservation(
     assert charge_result.charged_count == 0
 
 
+async def test_resurrection_in_flight_reserves_its_limit_once(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """While a resurrection is in flight, its limit is reserved once, including the charge its run made before."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'ABORTED', 1, finished_ago=timedelta(minutes=5))
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def resurrect(run_client: Any, **_: Any) -> Run:
+        started.set()
+        await release.wait()
+        return parent_budget[run_client._resource_id].model_copy(update={'status': 'RUNNING', 'finished_at': None})
+
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    apify_client_async_patcher.patch('run', 'resurrect', replacement_method=resurrect, is_async=True)
+
+    async with _ActorType() as actor:
+        start_task = asyncio.create_task(actor.start('some-actor', name='child', max_total_charge_usd=Decimal(4)))
+        await started.wait()
+        charge_result = await actor.charge('some-event', count=10)
+        release.set()
+        await start_task
+
+    assert charge_result.charged_count == 6
+
+
 async def test_failed_resurrection_leaves_the_charge_of_its_run_to_settle(
     parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
 ) -> None:
