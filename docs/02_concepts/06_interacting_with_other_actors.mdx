@@ -10,6 +10,7 @@ import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacti
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
 import InteractingNamedCallExample from '!!raw-loader!roa-loader!./code/06_interacting_named_call.py';
 import InteractingChildRunsExample from '!!raw-loader!roa-loader!./code/06_interacting_child_runs.py';
+import InteractingAbortWithParentExample from '!!raw-loader!roa-loader!./code/06_interacting_abort_with_parent.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
@@ -66,6 +67,24 @@ The <ApiLink to="class/Actor#child_runs">`Actor.child_runs`</ApiLink> method ret
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingChildRunsExample}
 </RunnableCodeBlock>
+
+### Aborting child runs with the parent
+
+When your Actor run is aborted, its child runs keep running, and you pay for them until they finish on their own. To abort a named child run together with your Actor run, pass `abort_with_parent=True`. When your Actor run receives the `ABORTING` event of a graceful abort, the SDK gracefully aborts every child run marked this way that's still `READY` or `RUNNING`. The flag is recorded with the name, so it also covers child runs started before a migration or resurrection.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingAbortWithParentExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- The option is off by default, since aborting a child run throws away the work it hasn't finished.
+- It requires `name`. Without one, `Actor.start` and `Actor.call` raise a `ValueError`.
+- Each call under a name records its own value, so the latest call decides whether the run is aborted.
+- A child run aborted this way ends as `ABORTED`. If your Actor run is resurrected later, the same named call resurrects the child run too.
+- Only a graceful abort gives the SDK time to act. A hard abort, a timeout, or a crash of your Actor run leaves the child runs running.
+- Child runs started after your Actor run received `ABORTING` aren't aborted, so don't start new ones while it's shutting down.
+- A child run started with its own `token` is aborted with that token. After a migration or resurrection, the SDK uses your Actor's token for it until the same named call runs again. If that token can't access the child run, the abort fails and the error is logged.
 
 ## Actor call task
 

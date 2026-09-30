@@ -206,6 +206,9 @@ class _ActorType:
 
         # Initialize the event manager and register it in the service locator.
         await self.event_manager.__aenter__()
+        # Only the platform emits `ABORTING`, and it does so through `ApifyEventManager`.
+        if isinstance(self.event_manager, ApifyEventManager):
+            self.event_manager._on_internal(event=Event.ABORTING, listener=self._abort_child_runs)  # noqa: SLF001
         self.log.debug('Event manager initialized')
 
         # Initialize the charging manager.
@@ -213,6 +216,7 @@ class _ActorType:
             await self._charging_manager_implementation.__aenter__()
         except BaseException:
             # Exit the already-entered event manager so its recurring tasks do not leak.
+            self._remove_internal_listeners()
             await self.event_manager.__aexit__(None, None, None)
             raise
         self.log.debug('Charging manager initialized')
@@ -304,6 +308,7 @@ class _ActorType:
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
+            self._remove_internal_listeners()
             self._active = False
 
         if reraise_control_flow:
@@ -947,6 +952,7 @@ class _ActorType:
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -979,10 +985,16 @@ class _ActorType:
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
                 any other value raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `name`, and the value is recorded under it, replacing the one from an earlier
+                call. A hard abort, a timeout or a crash of this Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run
         """
+        if abort_with_parent and name is None:
+            raise ValueError('`abort_with_parent` requires `name`, since only named child runs are tracked.')
+
         client = self.new_client(token=token) if token else self.apify_client
 
         if timeout == 'inherit':
@@ -1021,6 +1033,7 @@ class _ActorType:
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             run_timeout=actor_start_timeout,
+            abort_with_parent=abort_with_parent,
         )
         return run
 
@@ -1079,6 +1092,7 @@ class _ActorType:
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
         name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1114,10 +1128,16 @@ class _ActorType:
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
                 any other value raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `name`, and the value is recorded under it, replacing the one from an earlier
+                call. A hard abort, a timeout or a crash of this Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run.
         """
+        if abort_with_parent and name is None:
+            raise ValueError('`abort_with_parent` requires `name`, since only named child runs are tracked.')
+
         client = self.new_client(token=token) if token else self.apify_client
 
         if timeout == 'inherit':
@@ -1167,6 +1187,7 @@ class _ActorType:
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
                 run_timeout=actor_call_timeout,
+                abort_with_parent=abort_with_parent,
             )
             # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
             run = await self._wait_for_child_run(
@@ -1190,6 +1211,7 @@ class _ActorType:
         restart_on_error: bool | None,
         memory_mbytes: int | None,
         run_timeout: timedelta | None,
+        abort_with_parent: bool,
     ) -> tuple[Run, bool]:
         return await self._child_run_registry.find_or_start(
             name,
@@ -1203,7 +1225,15 @@ class _ActorType:
                 memory_mbytes=memory_mbytes,
                 run_timeout=run_timeout,
             ),
+            abort_with_parent=abort_with_parent,
         )
+
+    def _remove_internal_listeners(self) -> None:
+        if isinstance(self.event_manager, ApifyEventManager):
+            self.event_manager._off_internal(event=Event.ABORTING, listener=self._abort_child_runs)  # noqa: SLF001
+
+    async def _abort_child_runs(self) -> None:
+        await self._child_run_registry.abort_runs_with_parent(self.apify_client)
 
     async def _wait_for_child_run(
         self,

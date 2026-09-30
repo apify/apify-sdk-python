@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from apify import Actor
+from apify._child_runs import CHILD_RUNS_KEY
 
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
     from .conftest import MakeActorFunction, RunActorFunction
 
 
@@ -91,3 +95,42 @@ async def test_named_aborted_child_run_is_resurrected_after_reboot(
     assert run_result.status == 'SUCCEEDED'
     # The parent run and the one child run it resurrected.
     assert (await actor.runs().list()).total == 2
+
+
+async def test_named_child_run_is_aborted_with_parent(
+    make_actor: MakeActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """A named child run started with `abort_with_parent` is aborted when the parent is gracefully aborted."""
+
+    async def main() -> None:
+        async with Actor:
+            actor_input = (await Actor.get_input()) or {}
+            if actor_input.get('is_child') is True:
+                await asyncio.sleep(300)
+                return
+
+            actor_id = Actor.configuration.actor_id or ''
+            await Actor.start(actor_id=actor_id, run_input={'is_child': True}, name='child', abort_with_parent=True)
+            await asyncio.sleep(300)
+
+    actor = await make_actor(label='child-run-abort-with-parent', main_func=main)
+    parent_run = await actor.start()
+    parent_kvs = apify_client_async.key_value_store(parent_run.default_key_value_store_id)
+
+    # Wait for the parent to record the child run.
+    for _ in range(60):
+        if record := await parent_kvs.get_record(CHILD_RUNS_KEY):
+            break
+        await asyncio.sleep(2)
+    else:
+        raise AssertionError('The parent run did not record the child run in time.')
+
+    child_run_id = record['value']['child']['runId']
+    parent_run_client = apify_client_async.run(parent_run.id)
+    await parent_run_client.abort(gracefully=True)
+    await parent_run_client.wait_for_finish(wait_duration=timedelta(seconds=120))
+
+    child_run = await apify_client_async.run(child_run_id).wait_for_finish(wait_duration=timedelta(seconds=120))
+    assert child_run is not None
+    assert child_run.status == 'ABORTED'
