@@ -4,9 +4,10 @@ import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from apify_client._models import Run
     from apify_client._resource_clients import RunClientAsync
 
+    from apify._charging import ChargingManagerImplementation
     from apify.storages import KeyValueStore
 
 logger = getLogger(__name__)
@@ -36,8 +38,25 @@ _ABORTABLE_STATUSES = frozenset({'READY', 'RUNNING'})
 
 _ACTIVE_STATUSES = frozenset({'READY', 'RUNNING', 'ABORTING', 'TIMING-OUT'})
 
+_TERMINAL_STATUSES = frozenset({'SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'})
+
 _STATUS_MAX_AGE = timedelta(seconds=10)
 """How long an observed active status counts toward the concurrency limit before the run is fetched again."""
+
+_CHARGE_SETTLE_TIME = timedelta(minutes=3)
+"""How long after a run finishes the platform may still add to its `usage_total_usd`."""
+
+
+class StartRun(Protocol):
+    """Starts a new run of the Actor with the given charge limit."""
+
+    def __call__(self, *, max_total_charge_usd: Decimal | None) -> Awaitable[Run]: ...
+
+
+class ResurrectRun(Protocol):
+    """Resurrects the recorded run, given its run client, with the given charge limit."""
+
+    def __call__(self, run_client: RunClientAsync, *, max_total_charge_usd: Decimal | None) -> Awaitable[Run]: ...
 
 
 class ChildRunRecord(BaseModel):
@@ -56,6 +75,15 @@ class ChildRunRecord(BaseModel):
 
     abort_with_parent: bool = False
     """Whether the current run is aborted when this Actor run is gracefully aborted."""
+
+    max_total_charge_usd: Decimal | None = None
+    """Charge limit of the current run reserved from this Actor run's budget, or `None` when nothing is reserved."""
+
+    charged_usd: Decimal | None = None
+    """Final charge of the current run, set once it finished and its `usage_total_usd` settled."""
+
+    previous_charged_usd: Decimal = Decimal(0)
+    """Charges of the earlier runs under this name, still counted against this Actor run's budget."""
 
 
 @docs_group('Actor')
@@ -78,6 +106,9 @@ class ChildRunInfo:
     abort_with_parent: bool
     """Whether the current run is aborted when this Actor run is gracefully aborted."""
 
+    max_total_charge_usd: Decimal | None
+    """Charge limit of the current run reserved from this Actor run's budget, or `None` when nothing is reserved."""
+
 
 _records_adapter = TypeAdapter(dict[str, ChildRunRecord])
 
@@ -89,8 +120,13 @@ class ChildRunRegistry:
     starting the child and that write can still orphan the child, since nothing but the platform knows about it.
     """
 
-    def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
+    def __init__(
+        self,
+        open_key_value_store: Callable[[], Awaitable[KeyValueStore]],
+        get_charging_manager: Callable[[], ChargingManagerImplementation] | None = None,
+    ) -> None:
         self._open_key_value_store = open_key_value_store
+        self._get_charging_manager = get_charging_manager
         self._records: dict[str, ChildRunRecord] | None = None
         self._load_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
@@ -104,6 +140,10 @@ class ChildRunRegistry:
         self._observed: dict[str, tuple[str, float]] = {}
         """Last observed status of the run recorded under each name, with the event loop time it was observed at."""
         self._parent_aborting = False
+        self._reserving: dict[str, Decimal] = {}
+        """Charge limits reserved for starts and resurrections in flight, not recorded yet."""
+        self._unsettled_charges: dict[str, Decimal] = {}
+        """Charge of each finished current run whose `usage_total_usd` may still grow, as last observed."""
 
     def set_max_concurrent_runs(self, max_concurrent_runs: int | None) -> None:
         """Set how many recorded runs may be active at once, or remove the limit with `None`."""
@@ -117,9 +157,10 @@ class ChildRunRegistry:
         *,
         actor_id: str,
         client: ApifyClientAsync,
-        start_run: Callable[[], Awaitable[Run]],
-        resurrect_run: Callable[[RunClientAsync], Awaitable[Run]],
+        start_run: StartRun,
+        resurrect_run: ResurrectRun,
         abort_with_parent: bool = False,
+        max_total_charge_usd: Decimal | None = None,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `name`, or start one when there is none to reuse.
 
@@ -129,6 +170,10 @@ class ChildRunRegistry:
 
         Starting or resurrecting a run waits while the concurrency limit is reached. Reattaching never waits.
 
+        When this Actor run has a `max_total_charge_usd` set by the user, a started or resurrected run gets at most
+        the part of it that is not charged yet nor reserved for other child runs, and that part stays reserved for the
+        run until it finishes. A reattached run keeps the limit it was started with.
+
         Args:
             name: Name of the child run, unique within the parent run.
             actor_id: The Actor to start. It must match the Actor already recorded under `name`.
@@ -137,6 +182,7 @@ class ChildRunRegistry:
             resurrect_run: Resurrects the recorded run, given its run client.
             abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. It replaces
                 the value recorded under `name`.
+            max_total_charge_usd: Charge limit for a started or resurrected run, lowered to the budget left.
 
         Returns:
             The run, and whether it was newly started.
@@ -154,13 +200,19 @@ class ChildRunRegistry:
             self._clients[name] = client
 
             if record is None:
-                async with self._slot(name, client):
+                async with (
+                    self._slot(name, client),
+                    self._budget(name, client, max_total_charge_usd) as (limit, reserved),
+                ):
                     run = await self._start(
                         name,
                         actor_id=actor_id,
                         start_run=start_run,
                         previous_run_ids=[],
                         abort_with_parent=abort_with_parent,
+                        max_total_charge_usd=limit,
+                        reserved_usd=reserved,
+                        previous_charged_usd=Decimal(0),
                     )
                 return run, True
 
@@ -170,14 +222,24 @@ class ChildRunRegistry:
             if run is not None and run.status in _SETTLING_STATUSES:
                 run = await run_client.wait_for_finish()
 
+            if run is not None:
+                await self._settle_charge(name, run)
+                record = records[name]
+
             if run is None or run.status == 'FAILED':
-                async with self._slot(name, client):
+                async with (
+                    self._slot(name, client),
+                    self._budget(name, client, max_total_charge_usd) as (limit, reserved),
+                ):
                     run = await self._start(
                         name,
                         actor_id=actor_id,
                         start_run=start_run,
                         previous_run_ids=[*record.previous_run_ids, record.run_id],
                         abort_with_parent=abort_with_parent,
+                        max_total_charge_usd=limit,
+                        reserved_usd=reserved,
+                        previous_charged_usd=record.previous_charged_usd + self._current_charge(name, record),
                     )
                 return run, True
 
@@ -187,9 +249,16 @@ class ChildRunRegistry:
                 await self._save(name, record.model_copy(update={'abort_with_parent': abort_with_parent}))
 
             if run.status in _RESURRECTABLE_STATUSES:
-                async with self._slot(name, client):
+                async with (
+                    self._slot(name, client),
+                    self._budget(name, client, max_total_charge_usd, replaces_current=True) as (limit, reserved),
+                ):
                     logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
-                    run = await resurrect_run(run_client)
+                    run = await resurrect_run(run_client, max_total_charge_usd=limit)
+                    self._unsettled_charges.pop(name, None)
+                    await self._save(
+                        name, records[name].model_copy(update={'max_total_charge_usd': reserved, 'charged_usd': None})
+                    )
                     self._observe(name, run)
                 return run, False
 
@@ -203,6 +272,7 @@ class ChildRunRegistry:
         if record is None or record.run_id != run.id:
             return
         self._observe(name, run)
+        await self._settle_charge(name, run)
         async with self._slots:
             self._slots.notify_all()
 
@@ -220,6 +290,7 @@ class ChildRunRegistry:
         for name, run in zip(records, runs, strict=True):
             if run is not None and name in current and current[name].run_id == run.id:
                 self._observe(name, run)
+                await self._settle_charge(name, run)
         return {
             name: ChildRunInfo(
                 actor_id=record.actor_id,
@@ -227,6 +298,7 @@ class ChildRunRegistry:
                 run=run,
                 previous_run_ids=list(record.previous_run_ids),
                 abort_with_parent=record.abort_with_parent,
+                max_total_charge_usd=record.max_total_charge_usd,
             )
             for (name, record), run in zip(records.items(), runs, strict=True)
         }
@@ -268,17 +340,23 @@ class ChildRunRegistry:
         name: str,
         *,
         actor_id: str,
-        start_run: Callable[[], Awaitable[Run]],
+        start_run: StartRun,
         previous_run_ids: list[str],
         abort_with_parent: bool,
+        max_total_charge_usd: Decimal | None,
+        reserved_usd: Decimal | None,
+        previous_charged_usd: Decimal,
     ) -> Run:
-        run = await start_run()
+        run = await start_run(max_total_charge_usd=max_total_charge_usd)
         record = ChildRunRecord(
             actor_id=actor_id,
             run_id=run.id,
             previous_run_ids=previous_run_ids,
             abort_with_parent=abort_with_parent,
+            max_total_charge_usd=reserved_usd,
+            previous_charged_usd=previous_charged_usd,
         )
+        self._unsettled_charges.pop(name, None)
         await self._save(name, record)
         self._observe(name, run)
         return run
@@ -349,6 +427,129 @@ class ChildRunRegistry:
     def _observe(self, name: str, run: Run) -> None:
         self._observed[name] = (run.status, asyncio.get_running_loop().time())
 
+    def reserved_usd(self) -> Decimal:
+        """Return the part of this Actor run's budget reserved for or charged by its named child runs."""
+        records = self._records or {}
+        return sum(
+            (record.previous_charged_usd + self._current_charge(name, record) for name, record in records.items()),
+            start=sum(self._reserving.values(), start=Decimal(0)),
+        )
+
+    async def load(self) -> None:
+        """Load the records persisted by an earlier attempt of this Actor run, so their reservations count."""
+        await self._load()
+
+    def _current_charge(self, name: str, record: ChildRunRecord) -> Decimal:
+        """Return the charge of the current run under `name`, or its whole limit while it may still grow."""
+        if record.charged_usd is not None:
+            return record.charged_usd
+        if name in self._unsettled_charges:
+            return self._unsettled_charges[name]
+        return record.max_total_charge_usd or Decimal(0)
+
+    async def _settle_charge(self, name: str, run: Run) -> None:
+        """Release the unused part of the limit of a finished current run, recording its charge once it settled."""
+        record = (await self._load()).get(name)
+        if (
+            record is None
+            or record.run_id != run.id
+            or record.max_total_charge_usd is None
+            or record.charged_usd is not None
+            or run.status not in _TERMINAL_STATUSES
+            or run.usage_total_usd is None
+        ):
+            return
+
+        charged_usd = Decimal(str(run.usage_total_usd))
+        if run.finished_at is not None and datetime.now(UTC) - run.finished_at >= _CHARGE_SETTLE_TIME:
+            await self._save(name, record.model_copy(update={'charged_usd': charged_usd}))
+            self._unsettled_charges.pop(name, None)
+        else:
+            self._unsettled_charges[name] = charged_usd
+
+    @asynccontextmanager
+    async def _budget(
+        self,
+        name: str,
+        client: ApifyClientAsync,
+        max_total_charge_usd: Decimal | None,
+        *,
+        replaces_current: bool = False,
+    ) -> AsyncIterator[tuple[Decimal | None, Decimal | None]]:
+        """Reserve a charge limit for starting or resurrecting the run under `name`, capped at the budget left.
+
+        Yields the limit to start the run with, and the part of it reserved from this Actor run's budget. Nothing is
+        reserved when this Actor run has no budget set by the user.
+
+        Args:
+            name: Name of the child run.
+            client: Client used to fetch recorded runs whose charge is not settled.
+            max_total_charge_usd: The requested limit, or `None` for all of the budget left.
+            replaces_current: Whether the new limit replaces the one of the current run under `name`, as a
+                resurrection does, so that one's reservation is available to it.
+        """
+        charging_manager = self._get_charging_manager() if self._get_charging_manager else None
+        if charging_manager is None or not await charging_manager.is_max_total_charge_usd_set_by_user():
+            yield max_total_charge_usd, None
+            return
+
+        await self._refresh_charges(client, exclude=name)
+        async with charging_manager.charge_lock():
+            available = charging_manager.calculate_remaining_budget()
+            record = (await self._load()).get(name)
+            if replaces_current and record is not None:
+                available += self._current_charge(name, record)
+            if available <= 0:
+                raise RuntimeError(
+                    f'Child run "{name}" was not started, since the budget of this Actor run is spent or reserved for '
+                    'other child runs.'
+                )
+            limit = available if max_total_charge_usd is None else min(max_total_charge_usd, available)
+            if max_total_charge_usd is not None and limit < max_total_charge_usd:
+                logger.info(
+                    f'Lowering the charge limit of child run "{name}" to {limit} USD, the budget left for it',
+                    extra={'requested_usd': str(max_total_charge_usd)},
+                )
+            self._reserving[name] = limit
+
+        try:
+            yield limit, limit
+        finally:
+            self._reserving.pop(name, None)
+
+    async def _refresh_charges(self, client: ApifyClientAsync, *, exclude: str) -> None:
+        """Fetch recorded runs whose charge is not settled, releasing the unused limit of those that finished."""
+        records = await self._load()
+        now = asyncio.get_running_loop().time()
+        names = [
+            name
+            for name, record in records.items()
+            if name != exclude
+            and name not in self._reserving
+            and record.max_total_charge_usd is not None
+            and record.charged_usd is None
+            # A run seen active a moment ago still holds its whole limit.
+            and not (
+                name in self._observed
+                and self._observed[name][0] in _ACTIVE_STATUSES
+                and now - self._observed[name][1] < _STATUS_MAX_AGE.total_seconds()
+            )
+        ]
+        runs = await asyncio.gather(
+            *(self._clients.get(name, client).run(records[name].run_id).get() for name in names),
+            return_exceptions=True,
+        )
+        for name, run in zip(names, runs, strict=True):
+            if isinstance(run, BaseException):
+                logger.warning(
+                    f'Failed to fetch child run "{name}" to release its unused budget',
+                    extra={'run_id': records[name].run_id},
+                    exc_info=run,
+                )
+            elif run is not None:
+                self._observe(name, run)
+                await self._settle_charge(name, run)
+
     async def _load(self) -> dict[str, ChildRunRecord]:
         async with self._load_lock:
             if self._records is None:
@@ -368,6 +569,8 @@ class ChildRunRegistry:
         key_value_store = await self._open_key_value_store()
         async with self._write_lock:
             records[name] = record
+            # The record carries the limit reserved for a start or resurrection in flight from here on.
+            self._reserving.pop(name, None)
             await key_value_store.set_value(
                 CHILD_RUNS_KEY, _records_adapter.dump_python(records, by_alias=True, mode='json')
             )

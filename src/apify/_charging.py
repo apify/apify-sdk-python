@@ -25,7 +25,7 @@ from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
     from types import TracebackType
 
     from apify_client import ApifyClientAsync
@@ -343,6 +343,10 @@ class ChargingManagerImplementation(ChargingManager):
 
         self.charge_lock = ReentrantLock()
 
+        self.child_run_reservations: Callable[[], Decimal] = Decimal
+        """Returns the part of `max_total_charge_usd` reserved for child runs of this Actor run."""
+        self._is_max_total_charge_usd_set_by_user: bool | None = None
+
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
         # Validate config
@@ -563,8 +567,31 @@ class ChargingManagerImplementation(ChargingManager):
         if not price:
             return None
 
-        result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / price
+        result = self.calculate_remaining_budget() / price
         return max(0, math.floor(result)) if result.is_finite() else None
+
+    @_ensure_context
+    def calculate_remaining_budget(self) -> Decimal:
+        """Return the part of `max_total_charge_usd` not charged by this Actor run nor reserved for its child runs."""
+        return self._max_total_charge_usd - self.calculate_total_charged_amount() - self.child_run_reservations()
+
+    async def is_max_total_charge_usd_set_by_user(self) -> bool:
+        """Return whether `max_total_charge_usd` was set for this Actor run, not defaulted by the platform.
+
+        The platform gives pay-per-event runs a limit even when nobody set one, and marks the run options when the
+        limit was set. A run that does not say so is treated as having a default limit.
+        """
+        if not self._max_total_charge_usd.is_finite():
+            return False
+        if not self._is_at_home:
+            return True
+        if self._is_max_total_charge_usd_set_by_user is None:
+            if self._actor_run_id is None:
+                raise RuntimeError('Actor run ID not configured')
+            run = await self._client.run(self._actor_run_id).get()
+            extra = (run.options.model_extra or {}) if run is not None else {}
+            self._is_max_total_charge_usd_set_by_user = extra.get('isMaxTotalChargeUsdSetByUser') is True
+        return self._is_max_total_charge_usd_set_by_user
 
     @_ensure_context
     def get_pricing_info(self) -> ActorPricingInfo:
@@ -603,7 +630,7 @@ class ChargingManagerImplementation(ChargingManager):
         if not combined_price:
             return items_count
 
-        result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / combined_price
+        result = self.calculate_remaining_budget() / combined_price
         max_count = max(0, math.floor(result)) if result.is_finite() else items_count
         return min(items_count, max_count)
 

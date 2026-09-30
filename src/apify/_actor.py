@@ -35,7 +35,7 @@ from apify._charging import (
     ChargingManagerImplementation,
     charge_lock_if_charging,
 )
-from apify._child_runs import ChildRunInfo, ChildRunRegistry
+from apify._child_runs import ChildRunInfo, ChildRunRegistry, StartRun
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -50,7 +50,7 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Awaitable, Callable, MutableMapping
+    from collections.abc import Callable, MutableMapping
     from decimal import Decimal
     from types import TracebackType
     from typing import Self
@@ -153,7 +153,9 @@ class _ActorType:
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
 
-        self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
+        self._child_run_registry = ChildRunRegistry(
+            self.open_key_value_store, lambda: self._charging_manager_implementation
+        )
 
         self._active = False
         """Whether the Actor instance is currently active (initialized and within context)."""
@@ -212,6 +214,7 @@ class _ActorType:
         self.log.debug('Event manager initialized')
 
         # Initialize the charging manager.
+        self._charging_manager_implementation.child_run_reservations = self._child_run_registry.reserved_usd
         try:
             await self._charging_manager_implementation.__aenter__()
         except BaseException:
@@ -223,6 +226,10 @@ class _ActorType:
 
         # Mark initialization as complete and update global state.
         self._active = True
+
+        # Child runs recorded by an earlier attempt of this run keep their part of the budget reserved.
+        if self._charging_manager_implementation.get_max_total_charge_usd().is_finite():
+            await self._child_run_registry.load()
 
         if not Actor.is_at_home():
             # Make sure that the input related KVS is initialized to ensure that the input aware client is used
@@ -966,7 +973,11 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors. When `name` is set
+                and this Actor run was started with a `max_total_charge_usd` set by the user, the limit defaults to
+                the part of that budget not charged by this Actor run nor reserved for its other named child runs,
+                and a higher value is lowered to it. The limit stays reserved until the child run finishes and its
+                charge is known.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1012,7 +1023,6 @@ class _ActorType:
             run_input=run_input,
             content_type=content_type,
             build=build,
-            max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             run_timeout=actor_start_timeout,
@@ -1021,7 +1031,7 @@ class _ActorType:
         )
 
         if name is None:
-            return await start_run()
+            return await start_run(max_total_charge_usd=max_total_charge_usd)
 
         run, _ = await self._find_or_start_child_run(
             name,
@@ -1105,7 +1115,11 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors. When `name` is set
+                and this Actor run was started with a `max_total_charge_usd` set by the user, the limit defaults to
+                the part of that budget not charged by this Actor run nor reserved for its other named child runs,
+                and a higher value is lowered to it. The limit stays reserved until the child run finishes and its
+                charge is known.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1175,7 +1189,6 @@ class _ActorType:
                     run_input=run_input,
                     content_type=content_type,
                     build=build,
-                    max_total_charge_usd=max_total_charge_usd,
                     restart_on_error=restart_on_error,
                     memory_mbytes=memory_mbytes,
                     run_timeout=actor_call_timeout,
@@ -1207,7 +1220,7 @@ class _ActorType:
         *,
         actor_id: str,
         client: ApifyClientAsync,
-        start_run: Callable[[], Awaitable[Run]],
+        start_run: StartRun,
         build: str | None,
         max_total_charge_usd: Decimal | None,
         restart_on_error: bool | None,
@@ -1220,7 +1233,7 @@ class _ActorType:
             actor_id=actor_id,
             client=client,
             start_run=start_run,
-            resurrect_run=lambda run_client: run_client.resurrect(
+            resurrect_run=lambda run_client, max_total_charge_usd: run_client.resurrect(
                 build=build,
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
@@ -1228,6 +1241,7 @@ class _ActorType:
                 run_timeout=run_timeout,
             ),
             abort_with_parent=abort_with_parent,
+            max_total_charge_usd=max_total_charge_usd,
         )
 
     def _remove_internal_listeners(self) -> None:
