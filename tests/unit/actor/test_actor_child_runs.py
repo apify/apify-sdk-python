@@ -571,3 +571,38 @@ async def test_rejected_named_start_keeps_the_client_used_to_abort() -> None:
 
     default_client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
     other_client.run.assert_not_called()
+
+
+async def test_aborting_waits_for_a_named_start_in_flight() -> None:
+    """A named start in flight when the parent is aborted has its run aborted once the run is recorded."""
+    client = Mock()
+    client.run.return_value.get = AsyncMock(return_value=make_run('new-run', 'RUNNING'))
+    client.run.return_value.abort = AsyncMock()
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def start_run() -> Run:
+        started.set()
+        await release.wait()
+        return make_run('new-run', 'READY')
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        start_task = asyncio.create_task(
+            registry.find_or_start(
+                'scrape-eu',
+                actor_id='some-actor',
+                client=client,
+                start_run=start_run,
+                resurrect_run=AsyncMock(),
+                abort_with_parent=True,
+            )
+        )
+        await started.wait()
+        abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
+        await asyncio.sleep(0)
+        assert not abort_task.done()
+        release.set()
+        await asyncio.gather(start_task, abort_task)
+
+    client.run.return_value.abort.assert_awaited_once_with(gracefully=True)

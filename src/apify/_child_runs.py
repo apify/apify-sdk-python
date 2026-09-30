@@ -195,26 +195,25 @@ class ChildRunRegistry:
         Args:
             client: Client used for a name not started or reattached in this process, e.g. after a migration.
         """
-        records = dict(await self._load())
-        await asyncio.gather(
-            *(
-                self._abort(name, record, self._clients.get(name, client))
-                for name, record in records.items()
-                if record.abort_with_parent
-            )
-        )
+        records = await self._load()
+        # Names with a start in flight are not recorded yet, so their locks are awaited too.
+        await asyncio.gather(*(self._abort(name, client) for name in {*records, *self._name_locks}))
 
-    async def _abort(self, name: str, record: ChildRunRecord, client: ApifyClientAsync) -> None:
-        run_client = client.run(record.run_id)
-        try:
-            run = await run_client.get()
-            if run is None or run.status not in _ABORTABLE_STATUSES:
+    async def _abort(self, name: str, default_client: ApifyClientAsync) -> None:
+        async with self._name_locks[name]:
+            record = (await self._load()).get(name)
+            if record is None or not record.abort_with_parent:
                 return
-            await run_client.abort(gracefully=True)
-        except Exception:
-            logger.exception(f'Failed to abort child run "{name}"', extra={'run_id': record.run_id})
-        else:
-            logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
+            run_client = self._clients.get(name, default_client).run(record.run_id)
+            try:
+                run = await run_client.get()
+                if run is None or run.status not in _ABORTABLE_STATUSES:
+                    return
+                await run_client.abort(gracefully=True)
+            except Exception:
+                logger.exception(f'Failed to abort child run "{name}"', extra={'run_id': record.run_id})
+            else:
+                logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
 
     async def _start(
         self,
