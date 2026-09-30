@@ -1264,3 +1264,62 @@ async def test_platform_default_charge_limit_is_not_shared_with_child_runs(
 
     assert started_limits(apify_client_async_patcher) == [None, Decimal(20)]
     assert charge_result.charged_count == 10
+
+
+async def test_run_fetched_before_its_resurrection_keeps_the_reservation(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """A snapshot of a run fetched before its resurrection does not release the limit of the resurrected run."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'ABORTED', 1, finished_ago=timedelta(minutes=5))
+    listing = asyncio.Event()
+    release = asyncio.Event()
+
+    async def get(run_client: Any) -> Run | None:
+        run = parent_budget.get(run_client._resource_id)
+        if not listing.is_set():
+            listing.set()
+            await release.wait()
+        return run
+
+    def resurrect(run_client: Any, **_: Any) -> Run:
+        run = parent_budget[run_client._resource_id].model_copy(update={'status': 'RUNNING', 'finished_at': None})
+        parent_budget[run.id] = run
+        return run
+
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get, is_async=True)
+    apify_client_async_patcher.patch('run', 'resurrect', replacement_method=resurrect, is_async=True)
+
+    async with _ActorType() as actor:
+        list_task = asyncio.create_task(actor.child_runs())
+        await listing.wait()
+        await actor.start('some-actor', name='child')
+        release.set()
+        await list_task
+        charge_result = await actor.charge('some-event', count=10)
+
+    assert charge_result.charged_count == 0
+
+
+async def test_failed_resurrection_leaves_the_charge_of_its_run_to_settle(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A resurrection that fails does not stop the charge of the finished run from being recorded later."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'ABORTED', 1)
+
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    apify_client_async_patcher.patch('run', 'resurrect', replacement_method=Mock(side_effect=RuntimeError('boom')))
+
+    async with _ActorType() as actor:
+        with pytest.raises(RuntimeError, match='boom'):
+            await actor.start('some-actor', name='child')
+        monkeypatch.setattr('apify._child_runs._CHARGE_SETTLE_TIME', timedelta(0))
+        await actor.child_runs()
+        kvs = await actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert stored['child']['chargedUsd'] == '1'

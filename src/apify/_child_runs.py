@@ -144,6 +144,8 @@ class ChildRunRegistry:
         """Charge limits reserved for starts and resurrections in flight, not recorded yet."""
         self._unsettled_charges: dict[str, Decimal] = {}
         """Charge of each finished current run whose `usage_total_usd` may still grow, as last observed."""
+        self._resurrected_after: dict[str, datetime] = {}
+        """When the current run under each name finished before it was resurrected, to ignore older snapshots of it."""
 
     def set_max_concurrent_runs(self, max_concurrent_runs: int | None) -> None:
         """Set how many recorded runs may be active at once, or remove the limit with `None`."""
@@ -254,7 +256,10 @@ class ChildRunRegistry:
                     self._budget(name, client, max_total_charge_usd, replaces_current=True) as (limit, reserved),
                 ):
                     logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
+                    finished_at = run.finished_at
                     run = await resurrect_run(run_client, max_total_charge_usd=limit)
+                    if finished_at is not None:
+                        self._resurrected_after[name] = finished_at
                     self._unsettled_charges.pop(name, None)
                     await self._save(
                         name, records[name].model_copy(update={'max_total_charge_usd': reserved, 'charged_usd': None})
@@ -457,6 +462,12 @@ class ChildRunRegistry:
             or record.charged_usd is not None
             or run.status not in _TERMINAL_STATUSES
             or run.usage_total_usd is None
+            # A snapshot fetched before a resurrection shows the run as it finished the previous time.
+            or (
+                name in self._resurrected_after
+                and run.finished_at is not None
+                and run.finished_at <= self._resurrected_after[name]
+            )
         ):
             return
 
