@@ -473,7 +473,7 @@ class ChildRunRegistry:
 
         charged_usd = Decimal(str(run.usage_total_usd))
         if run.finished_at is not None and datetime.now(UTC) - run.finished_at >= _CHARGE_SETTLE_TIME:
-            await self._save(name, record.model_copy(update={'charged_usd': charged_usd}))
+            await self._save(name, record.model_copy(update={'charged_usd': charged_usd}), if_unchanged=record)
             self._unsettled_charges.pop(name, None)
         else:
             self._unsettled_charges[name] = charged_usd
@@ -575,13 +575,22 @@ class ChildRunRegistry:
                     ) from exc
             return self._records
 
-    async def _save(self, name: str, record: ChildRunRecord) -> None:
+    async def _save(self, name: str, record: ChildRunRecord, *, if_unchanged: ChildRunRecord | None = None) -> None:
+        """Record `record` under `name`.
+
+        With `if_unchanged`, the write is skipped when `name` no longer holds that record, and a reservation of a start
+        or resurrection in flight is left alone.
+        """
         records = await self._load()
         key_value_store = await self._open_key_value_store()
         async with self._write_lock:
+            if if_unchanged is not None:
+                if records.get(name) is not if_unchanged:
+                    return
+            else:
+                # The record carries the limit reserved for a start or resurrection in flight from here on.
+                self._reserving.pop(name, None)
             records[name] = record
-            # The record carries the limit reserved for a start or resurrection in flight from here on.
-            self._reserving.pop(name, None)
             await key_value_store.set_value(
                 CHILD_RUNS_KEY, _records_adapter.dump_python(records, by_alias=True, mode='json')
             )
