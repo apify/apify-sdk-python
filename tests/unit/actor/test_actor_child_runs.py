@@ -652,3 +652,218 @@ async def test_removing_all_aborting_listeners_keeps_aborting_child_runs(
         await apify_event_manager.wait_for_all_listeners_to_complete()
 
     assert len(apify_client_async_patcher.calls['run']['abort']) == 1
+
+
+def make_client(statuses: dict[str, str]) -> Mock:
+    """A client whose `run(run_id).get()` returns the run with its current status in `statuses`."""
+    client = Mock()
+
+    def run(run_id: str) -> Mock:
+        run_client = Mock()
+        run_client.get = AsyncMock(side_effect=lambda: make_run(run_id, statuses[run_id]))
+        run_client.resurrect = AsyncMock(side_effect=lambda: make_run(run_id, 'RUNNING'))
+        run_client.abort = AsyncMock()
+        return run_client
+
+    client.run.side_effect = run
+    return client
+
+
+async def start_child(
+    registry: ChildRunRegistry, client: Mock, name: str, statuses: dict[str, str], *, run_id: str | None = None
+) -> Run:
+    """Start a named child run with the registry, adding its run to `statuses` as `RUNNING`."""
+
+    async def start_run() -> Run:
+        new_run_id = run_id or f'{name}-run'
+        statuses[new_run_id] = 'RUNNING'
+        return make_run(new_run_id, 'READY')
+
+    run, _ = await registry.find_or_start(
+        name,
+        actor_id='some-actor',
+        client=client,
+        start_run=start_run,
+        resurrect_run=lambda run_client: run_client.resurrect(),
+    )
+    return run
+
+
+async def assert_waiting(task: asyncio.Task) -> None:
+    await asyncio.sleep(0.05)
+    assert not task.done()
+
+
+@pytest.mark.parametrize(
+    'max_concurrent_runs',
+    [
+        pytest.param(0, id='zero'),
+        pytest.param(-1, id='negative'),
+    ],
+)
+async def test_set_child_run_limits_rejects_non_positive_limit(max_concurrent_runs: int) -> None:
+    """A concurrency limit below 1 is rejected."""
+    async with Actor:
+        with pytest.raises(ValueError, match='must be at least 1'):
+            Actor.set_child_run_limits(max_concurrent_runs=max_concurrent_runs)
+
+
+async def test_named_start_waits_while_the_limit_is_reached() -> None:
+    """A named start waits while the limit is reached and proceeds once an active child run finishes."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        await registry.run_finished('first', make_run(first.id, 'SUCCEEDED'))
+        second = await second_task
+
+    assert second.id == 'second-run'
+
+
+async def test_stale_active_status_is_refreshed_before_counting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A child run nobody awaited is fetched again once its status is stale, so a finished one frees its slot."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE', timedelta(0))
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        second = await asyncio.wait_for(second_task, timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit() -> None:
+    """An active child run recorded before a migration holds a slot, since it is fetched before it is counted."""
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+        second_task.cancel()
+
+
+async def test_reattach_does_not_wait_for_a_slot() -> None:
+    """Reattaching to an active recorded child run returns it even while the limit is reached."""
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        run = await asyncio.wait_for(start_child(registry, client, 'first', statuses), timeout=1)
+
+    assert run.id == 'old-run'
+
+
+async def test_resurrection_waits_for_a_slot() -> None:
+    """Resurrecting an aborted child run waits while the limit is reached."""
+    statuses = {'old-run': 'ABORTED'}
+    client = make_client(statuses)
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        second = await start_child(registry, client, 'second', statuses)
+        first_task = asyncio.create_task(start_child(registry, client, 'first', statuses))
+        await assert_waiting(first_task)
+
+        statuses[second.id] = 'SUCCEEDED'
+        await registry.run_finished('second', make_run(second.id, 'SUCCEEDED'))
+        first = await first_task
+
+    assert first.id == 'old-run'
+    assert first.status == 'RUNNING'
+
+
+async def test_concurrent_named_starts_respect_the_limit() -> None:
+    """Concurrent named starts under different names start no more runs than the limit."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(2)
+        tasks = [asyncio.create_task(start_child(registry, client, f'child-{i}', statuses)) for i in range(3)]
+        await asyncio.sleep(0.05)
+        for task in tasks:
+            task.cancel()
+
+    assert sum(task.cancelled() for task in tasks) == 1
+    assert len(statuses) == 2
+
+
+async def test_failed_start_releases_its_slot() -> None:
+    """A named start that raises frees its slot for the next one."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        with pytest.raises(RuntimeError, match='start failed'):
+            await registry.find_or_start(
+                'first',
+                actor_id='some-actor',
+                client=client,
+                start_run=AsyncMock(side_effect=RuntimeError('start failed')),
+                resurrect_run=AsyncMock(),
+            )
+        second = await asyncio.wait_for(start_child(registry, client, 'second', statuses), timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_parent_abort_stops_starts_waiting_for_a_slot() -> None:
+    """A named start waiting for a slot raises once the parent is aborted, without starting a run."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        await asyncio.wait_for(registry.abort_runs_with_parent(client), timeout=1)
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+    assert 'second-run' not in statuses
+
+
+async def test_named_call_frees_its_slot_when_the_run_finishes(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A child run awaited by a named call to its end frees its slot without being fetched again."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    # A fetch would report the run as still running, so only the awaited status can free the slot.
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor:
+        Actor.set_child_run_limits(max_concurrent_runs=1)
+        await Actor.call('some-actor', name='first', logger=None)
+        await asyncio.wait_for(Actor.start('some-actor', name='second'), timeout=1)
+
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 2

@@ -1193,6 +1193,8 @@ class _ActorType:
             run = await self._wait_for_child_run(
                 client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
             )
+            if run is not None:
+                await self._child_run_registry.run_finished(name, run)
 
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
@@ -1269,6 +1271,21 @@ class _ActorType:
             The child runs by name.
         """
         return await self._child_run_registry.list_runs(self.apify_client)
+
+    def set_child_run_limits(self, *, max_concurrent_runs: int | None) -> None:
+        """Limit the named child runs of this Actor run.
+
+        While `max_concurrent_runs` named child runs are `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`, a named
+        `Actor.start` or `Actor.call` that would start or resurrect a run waits until one of them finishes. Reattaching
+        to a recorded run never waits. Runs started without a `name` are not counted and never wait. A child run not
+        awaited by `Actor.call` is fetched again before it is counted, if its status is more than 10 seconds old.
+
+        The limit is kept in memory, so call this method again after a migration or resurrection of this Actor run.
+
+        Args:
+            max_concurrent_runs: How many named child runs may be active at once, or `None` for no limit.
+        """
+        self._child_run_registry.set_max_concurrent_runs(max_concurrent_runs)
 
     @_ensure_context
     async def call_task(
