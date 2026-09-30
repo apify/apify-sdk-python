@@ -494,12 +494,10 @@ async def test_failed_child_run_abort_does_not_stop_others(
     apify_client_async_patcher: ApifyClientAsyncPatcher, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A child run that fails to abort is logged, and the other marked child runs are still aborted."""
-    aborted: list[str] = []
 
     async def abort_run(run_client: Any, *_args: Any, **_kwargs: Any) -> None:
         if run_client.resource_id == 'broken-run':
             raise RuntimeError('abort failed')
-        aborted.append(run_client.resource_id)
 
     apify_client_async_patcher.patch(
         'run', 'get', replacement_method=lambda run_client: make_run(run_client.resource_id, 'RUNNING')
@@ -518,8 +516,10 @@ async def test_failed_child_run_abort_does_not_stop_others(
         Actor.event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
         await Actor.event_manager.wait_for_all_listeners_to_complete()
 
-    assert aborted == ['healthy-run']
+    aborts = apify_client_async_patcher.calls['run']['abort']
+    assert sorted(args[0].resource_id for args, _ in aborts) == ['broken-run', 'healthy-run']
     assert 'Failed to abort child run "broken"' in caplog.text
+    assert 'Aborted child run "healthy" with the parent' in caplog.text
 
 
 async def test_child_run_is_aborted_with_the_client_it_was_started_with() -> None:
