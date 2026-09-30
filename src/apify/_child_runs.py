@@ -110,7 +110,7 @@ class ChildRunRegistry:
         Args:
             name: Name of the child run, unique within the parent run.
             actor_id: The Actor to start. It must match the Actor already recorded under `name`.
-            client: Client used to look up and resurrect the recorded run.
+            client: Client used to look up, resurrect and abort the recorded run.
             start_run: Starts a new run of the Actor.
             resurrect_run: Resurrects the recorded run, given its run client.
             abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. It replaces
@@ -122,6 +122,13 @@ class ChildRunRegistry:
         async with self._name_locks[name]:
             records = await self._load()
             record = records.get(name)
+
+            if record is not None and record.actor_id != actor_id:
+                raise ValueError(
+                    f'Child run "{name}" is already recorded for Actor "{record.actor_id}", '
+                    f'it cannot be reused for Actor "{actor_id}".'
+                )
+
             self._clients[name] = client
 
             if record is None:
@@ -133,12 +140,6 @@ class ChildRunRegistry:
                     abort_with_parent=abort_with_parent,
                 )
                 return run, True
-
-            if record.actor_id != actor_id:
-                raise ValueError(
-                    f'Child run "{name}" is already recorded for Actor "{record.actor_id}", '
-                    f'it cannot be reused for Actor "{actor_id}".'
-                )
 
             run_client = client.run(record.run_id)
             run = await run_client.get()

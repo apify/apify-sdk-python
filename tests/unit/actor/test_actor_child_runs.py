@@ -543,3 +543,31 @@ async def test_child_run_is_aborted_with_the_client_it_was_started_with() -> Non
 
     child_client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
     default_client.run.assert_not_called()
+
+
+async def test_rejected_named_start_keeps_the_client_used_to_abort() -> None:
+    """A named start rejected for another Actor does not change the client its recorded run is aborted with."""
+    default_client = Mock()
+    default_client.run.return_value.get = AsyncMock(return_value=make_run('old-run', 'RUNNING'))
+    default_client.run.return_value.abort = AsyncMock()
+    other_client = Mock()
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(
+            CHILD_RUNS_KEY,
+            {'scrape-eu': {'actorId': 'some-actor', 'runId': 'old-run', 'previousRunIds': [], 'abortWithParent': True}},
+        )
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        with pytest.raises(ValueError, match='cannot be reused'):
+            await registry.find_or_start(
+                'scrape-eu',
+                actor_id='other-actor',
+                client=other_client,
+                start_run=AsyncMock(),
+                resurrect_run=AsyncMock(),
+            )
+        await registry.abort_runs_with_parent(default_client)
+
+    default_client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
+    other_client.run.assert_not_called()
