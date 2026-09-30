@@ -206,7 +206,9 @@ class _ActorType:
 
         # Initialize the event manager and register it in the service locator.
         await self.event_manager.__aenter__()
-        self.event_manager.on(event=Event.ABORTING, listener=self._abort_child_runs)
+        # Only the platform emits `ABORTING`, and it does so through `ApifyEventManager`.
+        if isinstance(self.event_manager, ApifyEventManager):
+            self.event_manager._on_internal(event=Event.ABORTING, listener=self._abort_child_runs)  # noqa: SLF001
         self.log.debug('Event manager initialized')
 
         # Initialize the charging manager.
@@ -214,7 +216,7 @@ class _ActorType:
             await self._charging_manager_implementation.__aenter__()
         except BaseException:
             # Exit the already-entered event manager so its recurring tasks do not leak.
-            self.event_manager.off(event=Event.ABORTING, listener=self._abort_child_runs)
+            self._remove_internal_listeners()
             await self.event_manager.__aexit__(None, None, None)
             raise
         self.log.debug('Charging manager initialized')
@@ -306,7 +308,7 @@ class _ActorType:
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
-            self.event_manager.off(event=Event.ABORTING, listener=self._abort_child_runs)
+            self._remove_internal_listeners()
             self._active = False
 
         if reraise_control_flow:
@@ -1225,6 +1227,10 @@ class _ActorType:
             ),
             abort_with_parent=abort_with_parent,
         )
+
+    def _remove_internal_listeners(self) -> None:
+        if isinstance(self.event_manager, ApifyEventManager):
+            self.event_manager._off_internal(event=Event.ABORTING, listener=self._abort_child_runs)  # noqa: SLF001
 
     async def _abort_child_runs(self) -> None:
         await self._child_run_registry.abort_runs_with_parent(self.apify_client)

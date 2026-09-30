@@ -8,11 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
 from apify_client._models import Run
+from crawlee import service_locator
 from crawlee.events import Event, EventAbortingData
 
-from apify import Actor
+from apify import Actor, Configuration
 from apify._actor import _ActorType
 from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry
+from apify.events import ApifyEventManager
 
 if TYPE_CHECKING:
     from ..conftest import ApifyClientAsyncPatcher
@@ -37,6 +39,14 @@ def make_run(run_id: str, status: str) -> Run:
             'options': {'build': '', 'timeoutSecs': 44, 'memoryMbytes': 4096, 'diskMbytes': 16384},
         }
     )
+
+
+@pytest.fixture
+def apify_event_manager() -> ApifyEventManager:
+    """Make the Actor use `ApifyEventManager`, which delivers `ABORTING` on the platform, without a websocket."""
+    event_manager = ApifyEventManager(Configuration.get_global_configuration())
+    service_locator.set_event_manager(event_manager)
+    return event_manager
 
 
 async def record_child_run(name: str, run_id: str, *, actor_id: str = 'some-actor') -> None:
@@ -452,7 +462,7 @@ async def test_reattach_replaces_recorded_abort_with_parent(
 
 
 async def test_aborting_event_aborts_marked_active_child_runs(
-    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
 ) -> None:
     """On `ABORTING`, only child runs marked `abort_with_parent` that are still active are gracefully aborted."""
     runs = {
@@ -482,8 +492,8 @@ async def test_aborting_event_aborts_marked_active_child_runs(
                 ]
             },
         )
-        Actor.event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
-        await Actor.event_manager.wait_for_all_listeners_to_complete()
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
 
     aborts = apify_client_async_patcher.calls['run']['abort']
     assert sorted(args[0].resource_id for args, _ in aborts) == ['ready-run', 'running-run']
@@ -491,7 +501,9 @@ async def test_aborting_event_aborts_marked_active_child_runs(
 
 
 async def test_failed_child_run_abort_does_not_stop_others(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, caplog: pytest.LogCaptureFixture
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+    apify_event_manager: ApifyEventManager,
 ) -> None:
     """A child run that fails to abort is logged, and the other marked child runs are still aborted."""
 
@@ -513,8 +525,8 @@ async def test_failed_child_run_abort_does_not_stop_others(
                 for name in ['broken', 'healthy']
             },
         )
-        Actor.event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
-        await Actor.event_manager.wait_for_all_listeners_to_complete()
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
 
     aborts = apify_client_async_patcher.calls['run']['abort']
     assert sorted(args[0].resource_id for args, _ in aborts) == ['broken-run', 'healthy-run']
@@ -608,16 +620,35 @@ async def test_aborting_waits_for_a_named_start_in_flight() -> None:
     client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
 
 
-async def test_exit_removes_the_aborting_listener(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+async def test_exit_removes_the_aborting_listener(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
     """After the Actor exits, an `ABORTING` event on a still-active event manager aborts no child run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
     apify_client_async_patcher.patch('run', 'abort', return_value=None)
 
-    async with Actor.event_manager:
+    async with apify_event_manager:
         async with Actor:
             await Actor.start('some-actor', name='scrape-eu', abort_with_parent=True)
-        Actor.event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
-        await Actor.event_manager.wait_for_all_listeners_to_complete()
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
 
     assert apify_client_async_patcher.calls['run']['abort'] == []
+
+
+async def test_removing_all_aborting_listeners_keeps_aborting_child_runs(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """Removing all `ABORTING` listeners from the event manager still aborts child runs marked `abort_with_parent`."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'abort', return_value=None)
+
+    async with Actor:
+        await Actor.start('some-actor', name='scrape-eu', abort_with_parent=True)
+        apify_event_manager.off(event=Event.ABORTING)
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+
+    assert len(apify_client_async_patcher.calls['run']['abort']) == 1
