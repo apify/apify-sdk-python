@@ -977,7 +977,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists.
+                run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
+                any other value raises a `ValueError`.
 
         Returns:
             Info about the started Actor run
@@ -1111,7 +1112,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists.
+                run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
+                any other value raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
