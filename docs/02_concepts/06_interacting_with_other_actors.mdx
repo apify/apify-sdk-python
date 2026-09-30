@@ -83,6 +83,8 @@ Note that:
 - Each call under a name records its own value, so the latest call decides whether the run is aborted.
 - A child run aborted this way ends as `ABORTED`. If your Actor run is resurrected later, the same named call resurrects the child run too.
 - Only a graceful abort gives the SDK time to act. A hard abort, a timeout, or a crash of your Actor run leaves the child runs running.
+- Child runs started after your Actor run received `ABORTING` aren't aborted, so don't start new ones while it's shutting down.
+- A child run started with its own `token` is aborted with that token. After a migration or resurrection, the SDK uses your Actor's token for it until the same named call runs again. If that token can't access the child run, the abort fails and the error is logged.
 
 ## Actor call task
 
