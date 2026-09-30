@@ -802,6 +802,38 @@ async def test_child_run_that_cannot_be_fetched_does_not_block_the_limit() -> No
     assert second.id == 'second-run'
 
 
+async def test_listing_keeps_the_status_of_a_run_that_replaced_the_listed_one() -> None:
+    """A run that replaces the listed one under a name keeps its slot after the listing observes the old run."""
+    statuses = {'old-run': 'FAILED'}
+    client = make_client(statuses)
+    fetch_started = asyncio.Event()
+    release_fetch = asyncio.Event()
+
+    async def get_old_run() -> Run:
+        fetch_started.set()
+        await release_fetch.wait()
+        return make_run('old-run', 'FAILED')
+
+    list_client = Mock()
+    list_client.run.return_value.get = AsyncMock(side_effect=get_old_run)
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        list_task = asyncio.create_task(registry.list_runs(list_client))
+        await fetch_started.wait()
+        await start_child(registry, client, 'first', statuses)
+        release_fetch.set()
+        await list_task
+
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+
 async def test_reattach_does_not_wait_for_a_slot() -> None:
     """Reattaching to an active recorded child run returns it even while the limit is reached."""
     statuses = {'old-run': 'RUNNING'}

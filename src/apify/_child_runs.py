@@ -215,8 +215,10 @@ class ChildRunRegistry:
         # Copy the records, since a named start can add one while the runs are fetched.
         records = dict(await self._load())
         runs = await asyncio.gather(*(client.run(record.run_id).get() for record in records.values()))
-        for (name, record), run in zip(records.items(), runs, strict=True):
-            if run is not None and run.id == record.run_id:
+        # A name whose run was replaced during the fetch keeps the status observed for its new run.
+        current = await self._load()
+        for name, run in zip(records, runs, strict=True):
+            if run is not None and name in current and current[name].run_id == run.id:
                 self._observe(name, run)
         return {
             name: ChildRunInfo(
