@@ -43,7 +43,7 @@ class ChildRunRecord(BaseModel):
     """ID of the current run under this name."""
 
     previous_run_ids: list[str] = Field(default_factory=list)
-    """IDs of earlier runs under this name that failed and were replaced by a new run, oldest first."""
+    """IDs of earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
 
 
 @docs_group('Actor')
@@ -61,7 +61,7 @@ class ChildRunInfo:
     """The current run as the API returns it now, or `None` when the platform no longer knows it."""
 
     previous_run_ids: list[str]
-    """IDs of earlier runs under this name that failed and were replaced by a new run, oldest first."""
+    """IDs of earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
 
 
 _records_adapter = TypeAdapter(dict[str, ChildRunRecord])
@@ -143,6 +143,7 @@ class ChildRunRegistry:
         Args:
             client: Client used to fetch the recorded runs.
         """
+        # Copy the records, since a named start can add one while the runs are fetched.
         records = dict(await self._load())
         runs = await asyncio.gather(*(client.run(record.run_id).get() for record in records.values()))
         return {
