@@ -35,7 +35,7 @@ from apify._charging import (
     ChargingManagerImplementation,
     charge_lock_if_charging,
 )
-from apify._child_runs import ChildRunRegistry
+from apify._child_runs import ChildRunInfo, ChildRunRegistry
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -1226,6 +1226,19 @@ class _ActorType:
 
         async with status_redirector, streamed_log:
             return await run_client.wait_for_finish(wait_duration=wait)
+
+    @_ensure_context
+    async def child_runs(self) -> dict[str, ChildRunInfo]:
+        """Get the named child runs of this Actor run, with their current state.
+
+        Every run started by `Actor.start` or `Actor.call` with a `name` is included, also across a migration or
+        resurrection of this Actor. Runs started without a `name` are not tracked. Each run is fetched from the API
+        when this method is called, so the result is a snapshot.
+
+        Returns:
+            The child runs by name.
+        """
+        return await self._child_run_registry.list_runs(self.apify_client)
 
     @_ensure_context
     async def call_task(

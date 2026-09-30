@@ -13,7 +13,7 @@ async def test_named_child_run_is_reattached_after_reboot(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """A named child run started before a reboot is reattached and awaited by a named call after it."""
+    """A named child run started before a reboot is reattached, awaited by a named call, and listed after it."""
 
     async def main() -> None:
         async with Actor:
@@ -35,6 +35,10 @@ async def test_named_child_run_is_reattached_after_reboot(
             assert run is not None, 'run is None'
             assert run.id == child_run_id, f'run.id={run.id}, child_run_id={child_run_id}'
             assert run.status == 'SUCCEEDED', f'run.status={run.status}'
+
+            child_runs = await Actor.child_runs()
+            assert child_runs.keys() == {'child'}, f'child_runs={child_runs}'
+            assert child_runs['child'].run_id == child_run_id, f'child_runs={child_runs}'
 
     actor = await make_actor(label='child-run-reattach', main_func=main)
     run_result = await run_actor(actor)
