@@ -330,3 +330,63 @@ async def test_named_start_rejects_malformed_registry(apify_client_async_patcher
             await Actor.start('some-actor', name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_child_runs_is_empty_without_named_runs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """`Actor.child_runs` returns an empty dict and calls no API when nothing is recorded."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await Actor.start('some-actor')
+        child_runs = await Actor.child_runs()
+
+    assert child_runs == {}
+    assert apify_client_async_patcher.calls['run']['get'] == []
+
+
+async def test_child_runs_returns_recorded_runs_with_current_state(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """`Actor.child_runs` returns each recorded run with its fetched state and history, `None` for a missing run."""
+    runs = {'eu-run': make_run('eu-run', 'RUNNING'), 'us-run': None}
+
+    async def get_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run | None:
+        return runs[run_client.resource_id]
+
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(
+            CHILD_RUNS_KEY,
+            {
+                'scrape-eu': {'actorId': 'some-actor', 'runId': 'eu-run', 'previousRunIds': ['failed-run']},
+                'scrape-us': {'actorId': 'other-actor', 'runId': 'us-run', 'previousRunIds': []},
+            },
+        )
+        child_runs = await Actor.child_runs()
+
+    assert child_runs.keys() == {'scrape-eu', 'scrape-us'}
+    assert child_runs['scrape-eu'].actor_id == 'some-actor'
+    assert child_runs['scrape-eu'].run_id == 'eu-run'
+    assert child_runs['scrape-eu'].run == runs['eu-run']
+    assert child_runs['scrape-eu'].previous_run_ids == ['failed-run']
+    assert child_runs['scrape-us'].actor_id == 'other-actor'
+    assert child_runs['scrape-us'].run is None
+
+
+async def test_child_runs_includes_run_started_in_this_attempt(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A run started by a named start in the same attempt shows up in `Actor.child_runs` right away."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor:
+        await Actor.start('some-actor', name='scrape-eu')
+        child_runs = await Actor.child_runs()
+
+    assert child_runs['scrape-eu'].run_id == 'new-run'
+    assert child_runs['scrape-eu'].run is not None
+    assert child_runs['scrape-eu'].run.status == 'RUNNING'

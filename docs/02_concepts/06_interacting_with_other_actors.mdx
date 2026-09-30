@@ -9,6 +9,7 @@ import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacting_start.py';
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
 import InteractingNamedCallExample from '!!raw-loader!roa-loader!./code/06_interacting_named_call.py';
+import InteractingChildRunsExample from '!!raw-loader!roa-loader!./code/06_interacting_child_runs.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
@@ -57,6 +58,14 @@ Note that:
 - The name is bound to the `actor_id` you pass. Using the same name for a different Actor, or for the same Actor referenced by its ID instead of its name, raises a `ValueError`.
 - Concurrent calls under one name in the same Actor run share a single child run.
 - If your Actor is killed after the platform starts the child but before the SDK records it, the child run isn't recorded and the next attempt starts a new one.
+
+### Listing child runs
+
+The <ApiLink to="class/Actor#child_runs">`Actor.child_runs`</ApiLink> method returns the named child runs of your Actor run by name, including those started before a migration or resurrection. Each entry has the run's current state as the API returns it, and the IDs of earlier runs under the same name that failed and were replaced. Runs started without a `name` aren't listed.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingChildRunsExample}
+</RunnableCodeBlock>
 
 ## Actor call task
 
