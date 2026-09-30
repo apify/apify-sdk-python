@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from crawlee._utils.file import json_dumps
 
 from ..._utils import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY, poll_until_condition
 from apify import Actor
-from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX, ApifyEnvVars
+from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX, ActorEnvVars, ApifyEnvVars
 from apify._crypto import public_encrypt
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 async def test_open_returns_same_references() -> None:
@@ -187,3 +192,113 @@ async def test_use_state_with_multiple_stores() -> None:
 
     saved_state_custom = await kvs_custom.get_value('APIFY_GLOBAL_STATE')
     assert saved_state_custom == {'value': 'custom_store'}
+
+
+async def test_get_input_reads_json_file_from_working_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Without an input record, the input is read from `INPUT.json` in the working directory."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
+
+    async with Actor as actor:
+        assert await actor.get_input() == {'from': 'file'}
+
+
+async def test_get_input_reads_bare_file_from_working_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A bare `INPUT` file is parsed as JSON when it is valid JSON and returned as bytes otherwise."""
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / 'INPUT'
+
+    async with Actor as actor:
+        input_path.write_text('{"from": "bare file"}')
+        assert await actor.get_input() == {'from': 'bare file'}
+
+        input_path.write_bytes(b'\xde\xad\xbe\xef')
+        assert await actor.get_input() == b'\xde\xad\xbe\xef'
+
+        input_path.write_text('plain text')
+        assert await actor.get_input() == b'plain text'
+
+
+async def test_get_input_working_directory_file_follows_input_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The working-directory file is named after the configured input key."""
+    monkeypatch.setenv(ActorEnvVars.INPUT_KEY, '__CLI_INPUT')
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / '__CLI_INPUT.json').write_text('{"from": "cli"}')
+
+    async with Actor as actor:
+        assert await actor.get_input() == {'from': 'cli'}
+
+
+async def test_get_input_prefers_store_record_over_working_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An input record in the default key-value store wins over a file in the working directory."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
+
+    async with Actor as actor:
+        await actor.set_value('INPUT', {'from': 'store'})
+        assert await actor.get_input() == {'from': 'store'}
+
+
+async def test_get_input_null_store_record_skips_working_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An input record holding JSON `null` counts as present, so the working-directory file is not read."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
+
+    async with Actor as actor:
+        await actor.set_value('INPUT', None)
+        assert await actor.get_input() is None
+
+
+async def test_get_input_raises_on_multiple_working_directory_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Both `INPUT` and `INPUT.json` in the working directory raise an error."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT').write_text('{}')
+    (tmp_path / 'INPUT.json').write_text('{}')
+
+    async with Actor as actor:
+        with pytest.raises(RuntimeError, match='multiple input files'):
+            await actor.get_input()
+
+
+async def test_get_input_skips_working_directory_on_platform(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """On the Apify platform, the working directory is never read."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
+
+    async with Actor as actor:
+        monkeypatch.setattr(actor, 'is_at_home', lambda: True)
+        assert await actor.get_input() is None
+
+
+async def test_get_input_raises_on_malformed_json_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A malformed `INPUT.json` in the working directory raises an error naming the file."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_text('{not json')
+
+    async with Actor as actor:
+        with pytest.raises(ValueError, match=r'INPUT\.json" is not valid JSON'):
+            await actor.get_input()
+
+
+async def test_get_input_bare_file_with_json_suffix_in_input_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A bare file whose input key ends in `.json` is returned as bytes when it is not valid JSON."""
+    monkeypatch.setenv(ActorEnvVars.INPUT_KEY, 'INPUT.json')
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'INPUT.json').write_bytes(b'\xde\xad\xbe\xef')
+
+    async with Actor as actor:
+        assert await actor.get_input() == b'\xde\xad\xbe\xef'

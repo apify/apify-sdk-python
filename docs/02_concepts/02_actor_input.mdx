@@ -20,6 +20,10 @@ For example, if an Actor received a JSON input with two fields, `{ "firstNumber"
     {InputExample}
 </RunnableCodeBlock>
 
+## Input file in the working directory
+
+When you run the Actor locally and its default key-value store holds no input record, `Actor.get_input` reads the input from an `INPUT.json` or a bare `INPUT` file in the current working directory. The file name follows the configured input key. The `.json` file is parsed as JSON. The bare file is parsed as JSON when it's valid JSON and returned as `bytes` otherwise. If both files exist, `Actor.get_input` raises an error. On the Apify platform, the working directory is never read.
+
 ## Validating input
 
 Reading values straight out of the raw input dictionary works for simple cases, but it gives you no type guarantees, no constraint checks, and no clear error when the input is malformed. For anything beyond a couple of fields, validate the input with [Pydantic](https://docs.pydantic.dev/). Your code then works with a typed, guaranteed-valid object instead. For the recommended approach, see [Validate Actor input with Pydantic](../guides/input-validation).
