@@ -11,6 +11,7 @@ import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interactin
 import InteractingNamedCallExample from '!!raw-loader!roa-loader!./code/06_interacting_named_call.py';
 import InteractingChildRunsExample from '!!raw-loader!roa-loader!./code/06_interacting_child_runs.py';
 import InteractingAbortWithParentExample from '!!raw-loader!roa-loader!./code/06_interacting_abort_with_parent.py';
+import InteractingChildRunLimitExample from '!!raw-loader!roa-loader!./code/06_interacting_child_run_limit.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
@@ -85,6 +86,23 @@ Note that:
 - Only a graceful abort gives the SDK time to act. A hard abort, a timeout, or a crash of your Actor run leaves the child runs running.
 - Child runs started after your Actor run received `ABORTING` aren't aborted, so don't start new ones while it's shutting down.
 - A child run started with its own `token` is aborted with that token. After a migration or resurrection, the SDK uses your Actor's token for it until the same named call runs again. If that token can't access the child run, the abort fails and the error is logged.
+
+### Limiting concurrent child runs
+
+An Actor that starts many child runs at once can hit the concurrency or memory limit of your account. To cap how many named child runs are active at once, call <ApiLink to="class/Actor#set_child_run_limits">`Actor.set_child_run_limits`</ApiLink>. While the limit is reached, a named `Actor.start` or `Actor.call` that would start or resurrect a run waits until one of the active child runs finishes. The SDK counts the child runs from the registry, so child runs started before a migration or resurrection count too.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingChildRunLimitExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- A child run counts as active while it's `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`.
+- Only named child runs count, and only named calls wait. A call without `name` starts its run right away.
+- Reattaching to an active child run never waits, since the run already holds a slot.
+- `Actor.call` frees the slot as soon as its run finishes. The SDK doesn't learn right away about a child run that nothing waits for, so it fetches the run again before counting it, once its status is more than 10 seconds old.
+- The limit isn't persisted. After a migration or resurrection, call `Actor.set_child_run_limits` again before you start child runs.
+- Once your Actor run receives the `ABORTING` event, a call waiting for a slot raises a `RuntimeError` without starting its run.
 
 ## Actor call task
 
