@@ -289,7 +289,10 @@ class ChildRunRegistry:
             return
 
         async with self._slots:
-            while await self._count_active(client, exclude=name) >= self._max_concurrent_runs:
+            while (
+                self._max_concurrent_runs is not None
+                and await self._count_active(client, exclude=name) >= self._max_concurrent_runs
+            ):
                 if self._parent_aborting:
                     raise RuntimeError(
                         f'Child run "{name}" was not started, since this Actor run is being aborted and the limit '
