@@ -760,6 +760,29 @@ async def test_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit(
         second_task.cancel()
 
 
+async def test_child_run_that_cannot_be_fetched_does_not_block_the_limit() -> None:
+    """A recorded child run whose fetch fails is not counted, so it does not fail or block a named start."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    run_client_factory = client.run.side_effect
+
+    def run(run_id: str) -> Mock:
+        run_client = run_client_factory(run_id)
+        if run_id == 'old-run':
+            run_client.get = AsyncMock(side_effect=RuntimeError('forbidden'))
+        return run_client
+
+    client.run.side_effect = run
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        second = await asyncio.wait_for(start_child(registry, client, 'second', statuses), timeout=1)
+
+    assert second.id == 'second-run'
+
+
 async def test_reattach_does_not_wait_for_a_slot() -> None:
     """Reattaching to an active recorded child run returns it even while the limit is reached."""
     statuses = {'old-run': 'RUNNING'}

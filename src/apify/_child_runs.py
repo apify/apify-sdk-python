@@ -322,15 +322,23 @@ class ChildRunRegistry:
             )
         ]
         runs = await asyncio.gather(
-            *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale)
+            *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale),
+            return_exceptions=True,
         )
         for name, run in zip(stale, runs, strict=True):
-            if run is None:
+            if isinstance(run, BaseException):
+                logger.warning(
+                    f'Failed to fetch child run "{name}" to count it toward the concurrency limit',
+                    extra={'run_id': records[name].run_id},
+                    exc_info=run,
+                )
+            elif run is None:
                 self._observed[name] = ('MISSING', now)
             else:
                 self._observe(name, run)
 
-        active = sum(1 for name in names if self._observed[name][0] in _ACTIVE_STATUSES)
+        # A run that could not be fetched counts only when an earlier observation saw it active.
+        active = sum(1 for name in names if name in self._observed and self._observed[name][0] in _ACTIVE_STATUSES)
         return active + len(self._starting)
 
     def _observe(self, name: str, run: Run) -> None:
