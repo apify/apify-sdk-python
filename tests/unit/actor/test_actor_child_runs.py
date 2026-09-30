@@ -777,6 +777,8 @@ async def test_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit(
         second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
         await assert_waiting(second_task)
         second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
 
 
 async def test_child_run_that_cannot_be_fetched_does_not_block_the_limit() -> None:
@@ -881,6 +883,7 @@ async def test_concurrent_named_starts_respect_the_limit() -> None:
         await asyncio.sleep(0.05)
         for task in tasks:
             task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     assert sum(task.cancelled() for task in tasks) == 1
     assert len(statuses) == 2
