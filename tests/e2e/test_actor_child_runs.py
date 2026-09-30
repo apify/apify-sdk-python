@@ -39,6 +39,9 @@ async def test_named_child_run_is_reattached_after_reboot(
             child_runs = await Actor.child_runs()
             assert child_runs.keys() == {'child'}, f'child_runs={child_runs}'
             assert child_runs['child'].run_id == child_run_id, f'child_runs={child_runs}'
+            child_run = child_runs['child'].run
+            assert child_run is not None, 'child_run is None'
+            assert child_run.status == 'SUCCEEDED', f'child_run.status={child_run.status}'
 
     actor = await make_actor(label='child-run-reattach', main_func=main)
     run_result = await run_actor(actor)
