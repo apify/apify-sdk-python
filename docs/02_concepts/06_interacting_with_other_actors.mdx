@@ -61,7 +61,7 @@ Note that:
 
 ### Listing child runs
 
-The <ApiLink to="class/Actor#child_runs">`Actor.child_runs`</ApiLink> method returns the named child runs of your Actor run by name, including those started before a migration or resurrection. Each entry has the run's current state as the API returns it, and the IDs of earlier runs under the same name that failed and were replaced. Runs started without a `name` aren't listed.
+The <ApiLink to="class/Actor#child_runs">`Actor.child_runs`</ApiLink> method returns the named child runs of your Actor run by name, including those started before a migration or resurrection. Each entry has the run's current state as the API returns it, and the IDs of earlier runs under the same name that failed or went missing and were replaced. Runs started without a `name` aren't listed.
 
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingChildRunsExample}

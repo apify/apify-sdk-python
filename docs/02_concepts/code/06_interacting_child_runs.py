@@ -21,10 +21,10 @@ async def main() -> None:
         )
         Actor.log.info(f'Child runs by status: {dict(statuses)}')
 
-        # Report the names whose earlier runs failed and were replaced.
+        # Report the names whose earlier runs were replaced.
         for name, child_run in child_runs.items():
-            if child_run.previous_run_ids:
-                Actor.log.info(f'{name} failed {len(child_run.previous_run_ids)} time(s)')
+            if replaced := len(child_run.previous_run_ids):
+                Actor.log.info(f'{name} was replaced {replaced} time(s)')
 
 
 if __name__ == '__main__':
