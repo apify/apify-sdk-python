@@ -5,7 +5,7 @@ from collections import defaultdict
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 
 if TYPE_CHECKING:
@@ -133,7 +133,13 @@ class ChildRunRegistry:
             if self._records is None:
                 key_value_store = await self._open_key_value_store()
                 stored = await key_value_store.get_value(CHILD_RUNS_KEY)
-                self._records = _records_adapter.validate_python(stored or {})
+                try:
+                    self._records = _records_adapter.validate_python(stored or {})
+                except ValidationError as exc:
+                    raise ValueError(
+                        f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
+                        'is malformed.'
+                    ) from exc
             return self._records
 
     async def _save(self, name: str, record: ChildRunRecord) -> None:

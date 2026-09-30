@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock
 
@@ -277,3 +278,55 @@ async def test_named_call_returns_succeeded_run_without_waiting(
 
     assert run.id == 'old-run'
     assert apify_client_async_patcher.calls['run']['wait_for_finish'] == []
+
+
+async def test_named_call_waits_for_resurrected_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named call resurrects an aborted run with its own timeout and streams only the new log lines."""
+    get_streamed_log = Mock(return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run')
+        run = await Actor.call('some-actor', name='scrape-eu', timeout=timedelta(minutes=5))
+
+    assert run.id == 'old-run'
+    assert run.status == 'SUCCEEDED'
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
+    assert kwargs['run_timeout'] == timedelta(minutes=5)
+    assert get_streamed_log.call_args.kwargs['from_start'] is False
+
+
+async def test_named_call_without_logger_only_waits(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named call with `logger=None` waits for the run without redirecting its log or status messages."""
+    get_streamed_log = Mock(return_value=MagicMock())
+    get_status_message_watcher = Mock(return_value=MagicMock())
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('run', 'get_status_message_watcher', replacement_method=get_status_message_watcher)
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
+
+    async with Actor:
+        run = await Actor.call('some-actor', name='scrape-eu', logger=None)
+
+    assert run.status == 'SUCCEEDED'
+    assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
+    get_streamed_log.assert_not_called()
+    get_status_message_watcher.assert_not_called()
+
+
+async def test_named_start_rejects_malformed_registry(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A malformed registry in the default KVS raises a `ValueError` naming the key, without starting a run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
+        with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
+            await Actor.start('some-actor', name='scrape-eu')
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []
