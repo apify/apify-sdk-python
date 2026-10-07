@@ -956,8 +956,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of results that will be returned by this run. If the Actor is charged per
-                result, you will not be charged for more results than the given limit.
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
@@ -1067,8 +1067,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of results that will be returned by this run. If the Actor is charged per
-                result, you will not be charged for more results than the given limit.
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
@@ -1150,8 +1150,8 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of results that will be returned by this run. If the Actor is charged per
-                result, you will not be charged for more results than the given limit.
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
