@@ -1115,6 +1115,68 @@ class _ActorType:
         return run
 
     @_ensure_context
+    async def start_task(
+        self,
+        task_id: str,
+        task_input: dict | None = None,
+        *,
+        build: str | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
+        webhooks: list[Webhook] | None = None,
+        token: str | None = None,
+    ) -> Run:
+        """Start an Actor task on the Apify Platform.
+
+        Unlike `Actor.call_task`, this method just starts the run without waiting for finish. To wait for the run to
+        finish, use `Actor.call_task` instead.
+
+        Note that an Actor task is a saved input configuration and options for an Actor. If you want to run an Actor
+        directly rather than an Actor task, please use the `Actor.start`
+
+        Args:
+            task_id: The ID of the Actor task to be run.
+            task_input: Overrides the input to pass to the Actor run.
+            token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
+            build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
+                the run uses the build specified in the default run configuration for the Actor (typically latest).
+            restart_on_error: If true, the Task run process will be restarted whenever it exits with
+                a non-zero status code.
+            memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
+                in the default run configuration for the Actor.
+            timeout: Optional timeout for the run. By default, the run uses timeout specified in
+                the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor to the
+                time remaining from this Actor timeout.
+            webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
+                be used to receive a notification, e.g. when the Actor finished or failed. If you already have
+                a webhook set up for the Actor, you do not have to add it again here.
+
+        Returns:
+            Info about the started Actor run.
+        """
+        client = self.new_client(token=token) if token else self.apify_client
+
+        if timeout == 'inherit':
+            task_start_timeout = self._get_remaining_time()
+        elif timeout is None:
+            task_start_timeout = None
+        elif isinstance(timeout, timedelta):
+            task_start_timeout = timeout
+        else:
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
+
+        task_client = client.task(task_id)
+        return await task_client.start(
+            task_input=task_input,
+            build=build,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            run_timeout=task_start_timeout,
+            webhooks=to_client_representations(webhooks),
+        )
+
+    @_ensure_context
     async def call_task(
         self,
         task_id: str,
