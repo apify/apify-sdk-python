@@ -946,7 +946,7 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
-        name: str | None = None,
+        run_name: str | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -973,7 +973,7 @@ class _ActorType:
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
-            name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
@@ -1008,11 +1008,11 @@ class _ActorType:
             webhooks=to_client_representations(webhooks),
         )
 
-        if name is None:
+        if run_name is None:
             return await start_run()
 
         run, _ = await self._find_or_start_child_run(
-            name,
+            run_name,
             actor_id=actor_id,
             client=client,
             start_run=start_run,
@@ -1078,7 +1078,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
-        name: str | None = None,
+        run_name: str | None = None,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1108,7 +1108,7 @@ class _ActorType:
             logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
                 default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
                 will redirect logs to the provided logger.
-            name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
@@ -1131,7 +1131,7 @@ class _ActorType:
 
         actor_client = client.actor(actor_id)
 
-        if name is None:
+        if run_name is None:
             run = await actor_client.call(
                 run_input=run_input,
                 content_type=content_type,
@@ -1147,7 +1147,7 @@ class _ActorType:
             )
         else:
             started_run, is_new = await self._find_or_start_child_run(
-                name,
+                run_name,
                 actor_id=actor_id,
                 client=client,
                 start_run=partial(

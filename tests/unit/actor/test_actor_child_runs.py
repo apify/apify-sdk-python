@@ -49,7 +49,7 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
-        run = await Actor.start('some-actor', name='scrape-eu')
+        run = await Actor.start('some-actor', run_name='scrape-eu')
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
@@ -86,7 +86,7 @@ async def test_named_start_reuses_recorded_run(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.start('some-actor', name='scrape-eu')
+        run = await Actor.start('some-actor', run_name='scrape-eu')
 
     assert run.id == 'old-run'
     assert run.status == status
@@ -110,7 +110,7 @@ async def test_named_start_resurrects_recorded_run(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.start('some-actor', name='scrape-eu', memory_mbytes=2048)
+        run = await Actor.start('some-actor', run_name='scrape-eu', memory_mbytes=2048)
 
     assert run.id == 'old-run'
     assert run.status == 'RUNNING'
@@ -138,7 +138,7 @@ async def test_named_start_resurrects_settling_run_after_it_finishes(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.start('some-actor', name='scrape-eu')
+        run = await Actor.start('some-actor', run_name='scrape-eu')
 
     assert run.status == 'RUNNING'
     assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
@@ -161,7 +161,7 @@ async def test_named_start_replaces_failed_or_missing_run(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.start('some-actor', name='scrape-eu')
+        run = await Actor.start('some-actor', run_name='scrape-eu')
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
@@ -178,7 +178,7 @@ async def test_named_start_rejects_name_recorded_for_another_actor(
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id='other-actor')
         with pytest.raises(ValueError, match='already recorded for Actor "other-actor"'):
-            await Actor.start('some-actor', name='scrape-eu')
+            await Actor.start('some-actor', run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
 
@@ -195,7 +195,7 @@ async def test_concurrent_named_starts_start_one_run(apify_client_async_patcher:
     apify_client_async_patcher.patch('run', 'get', return_value=started)
 
     async with Actor:
-        runs = await asyncio.gather(*(Actor.start('some-actor', name='scrape-eu') for _ in range(3)))
+        runs = await asyncio.gather(*(Actor.start('some-actor', run_name='scrape-eu') for _ in range(3)))
 
     assert {run.id for run in runs} == {'new-run'}
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
@@ -224,7 +224,7 @@ async def test_concurrent_first_named_starts_share_one_registry(
 
     # A fresh instance, since the registry binds the opener when the Actor is created.
     async with _ActorType() as actor:
-        runs = await asyncio.gather(*(actor.start('some-actor', name='scrape-eu') for _ in range(3)))
+        runs = await asyncio.gather(*(actor.start('some-actor', run_name='scrape-eu') for _ in range(3)))
 
     assert {run.id for run in runs} == {'new-run'}
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
@@ -241,7 +241,7 @@ async def test_named_call_waits_for_reattached_run(apify_client_async_patcher: A
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.call('some-actor', name='scrape-eu')
+        run = await Actor.call('some-actor', run_name='scrape-eu')
 
     assert run.status == 'SUCCEEDED'
     assert get_streamed_log.call_args.kwargs['from_start'] is False
@@ -257,7 +257,7 @@ async def test_named_call_streams_new_run_log_from_start(apify_client_async_patc
     apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
 
     async with Actor:
-        run = await Actor.call('some-actor', name='scrape-eu')
+        run = await Actor.call('some-actor', run_name='scrape-eu')
 
     assert run.id == 'new-run'
     assert run.status == 'SUCCEEDED'
@@ -274,7 +274,7 @@ async def test_named_call_returns_succeeded_run_without_waiting(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.call('some-actor', name='scrape-eu')
+        run = await Actor.call('some-actor', run_name='scrape-eu')
 
     assert run.id == 'old-run'
     assert apify_client_async_patcher.calls['run']['wait_for_finish'] == []
@@ -291,7 +291,7 @@ async def test_named_call_waits_for_resurrected_run(apify_client_async_patcher: 
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.call('some-actor', name='scrape-eu', timeout=timedelta(minutes=5))
+        run = await Actor.call('some-actor', run_name='scrape-eu', timeout=timedelta(minutes=5))
 
     assert run.id == 'old-run'
     assert run.status == 'SUCCEEDED'
@@ -311,7 +311,7 @@ async def test_named_call_without_logger_only_waits(apify_client_async_patcher: 
     apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
 
     async with Actor:
-        run = await Actor.call('some-actor', name='scrape-eu', logger=None)
+        run = await Actor.call('some-actor', run_name='scrape-eu', logger=None)
 
     assert run.status == 'SUCCEEDED'
     assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
@@ -327,6 +327,6 @@ async def test_named_start_rejects_malformed_registry(apify_client_async_patcher
         kvs = await Actor.open_key_value_store()
         await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
         with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
-            await Actor.start('some-actor', name='scrape-eu')
+            await Actor.start('some-actor', run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
