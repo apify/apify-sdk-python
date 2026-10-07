@@ -117,6 +117,30 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
     assert apify_client_async_patcher.calls['actor']['start'][0][0][0].resource_id == actor_id
 
 
+@pytest.mark.parametrize(
+    ('client_resource', 'client_method', 'sdk_method'),
+    [
+        pytest.param('actor', 'start', 'start', id='start'),
+        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
+    ],
+)
+async def test_max_items_forwarded_to_client(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    client_resource: str,
+    client_method: str,
+    sdk_method: str,
+) -> None:
+    """`max_items` passed to `Actor.start`, `Actor.call` or `Actor.call_task` reaches the API client."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
+
+    async with Actor:
+        await getattr(Actor, sdk_method)('some-id', max_items=42)
+
+    assert apify_client_async_patcher.calls[client_resource][client_method][0][1]['max_items'] == 42
+
+
 async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     apify_client_async_patcher.patch('run', 'abort', return_value=fake_actor_run)
     run_id = 'some-run-id'
