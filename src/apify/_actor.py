@@ -1198,16 +1198,6 @@ class _ActorType:
             Info about the started Actor run.
         """
         client = self.new_client(token=token) if token else self.apify_client
-
-        if timeout == 'inherit':
-            task_start_timeout = self._get_remaining_time()
-        elif timeout is None:
-            task_start_timeout = None
-        elif isinstance(timeout, timedelta):
-            task_start_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         task_client = client.task(task_id)
         return await task_client.start(
             task_input=task_input,
@@ -1215,7 +1205,7 @@ class _ActorType:
             max_items=max_items,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=task_start_timeout,
+            run_timeout=self._resolve_run_timeout(timeout),
             webhooks=to_client_representations(webhooks),
         )
 
