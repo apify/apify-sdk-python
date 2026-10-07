@@ -38,10 +38,14 @@ def make_run(run_id: str, status: str) -> Run:
     )
 
 
-async def record_child_run(name: str, run_id: str, *, actor_id: str = 'some-actor') -> None:
+async def record_child_run(
+    name: str, run_id: str, *, actor_id: str | None = 'some-actor', task_id: str | None = None
+) -> None:
     """Seed the registry the way an earlier attempt of this Actor run would have left it."""
     kvs = await Actor.open_key_value_store()
-    await kvs.set_value(CHILD_RUNS_KEY, {name: {'actorId': actor_id, 'runId': run_id, 'previousRunIds': []}})
+    await kvs.set_value(
+        CHILD_RUNS_KEY, {name: {'actorId': actor_id, 'taskId': task_id, 'runId': run_id, 'previousRunIds': []}}
+    )
 
 
 async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -54,7 +58,7 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.id == 'new-run'
-    assert stored == {'scrape-eu': {'actorId': 'some-actor', 'runId': 'new-run', 'previousRunIds': []}}
+    assert stored == {'scrape-eu': {'actorId': 'some-actor', 'taskId': None, 'runId': 'new-run', 'previousRunIds': []}}
 
 
 async def test_unnamed_start_is_not_recorded(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -166,7 +170,9 @@ async def test_named_start_replaces_failed_or_missing_run(
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.id == 'new-run'
-    assert stored == {'scrape-eu': {'actorId': 'some-actor', 'runId': 'new-run', 'previousRunIds': ['old-run']}}
+    assert stored == {
+        'scrape-eu': {'actorId': 'some-actor', 'taskId': None, 'runId': 'new-run', 'previousRunIds': ['old-run']}
+    }
 
 
 async def test_named_start_rejects_name_recorded_for_another_actor(
@@ -178,6 +184,20 @@ async def test_named_start_rejects_name_recorded_for_another_actor(
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id='other-actor')
         with pytest.raises(ValueError, match='already recorded for Actor "other-actor"'):
+            await Actor.start('some-actor', run_name='scrape-eu')
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_named_start_rejects_name_recorded_for_task(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Reusing a task run's name for an Actor raises instead of attaching to the task's run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
+        with pytest.raises(ValueError, match='already recorded for task "some-task"'):
             await Actor.start('some-actor', run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
@@ -326,6 +346,81 @@ async def test_named_start_rejects_malformed_registry(apify_client_async_patcher
     async with Actor:
         kvs = await Actor.open_key_value_store()
         await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
+        with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
+            await Actor.start('some-actor', run_name='scrape-eu')
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_named_call_task_records_run_in_kvs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named task call starts the task, records the run under the task ID, and waits for it."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor:
+        run = await Actor.call_task('some-task', run_name='scrape-eu')
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert run.status == 'SUCCEEDED'
+    assert stored == {'scrape-eu': {'actorId': None, 'taskId': 'some-task', 'runId': 'new-run', 'previousRunIds': []}}
+    assert apify_client_async_patcher.calls['task']['call'] == []
+
+
+async def test_named_call_task_waits_for_reattached_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named task call waits for the recorded running run without starting the task again."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', 'SUCCEEDED'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
+        run = await Actor.call_task('some-task', run_name='scrape-eu')
+
+    assert run.id == 'old-run'
+    assert run.status == 'SUCCEEDED'
+    assert apify_client_async_patcher.calls['task']['start'] == []
+
+
+async def test_named_call_task_resurrects_recorded_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named task call resurrects an aborted run with its own options."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', 'SUCCEEDED'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
+        run = await Actor.call_task('some-task', run_name='scrape-eu', memory_mbytes=2048)
+
+    assert run.id == 'old-run'
+    assert apify_client_async_patcher.calls['task']['start'] == []
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
+    assert kwargs['memory_mbytes'] == 2048
+
+
+async def test_named_call_task_rejects_name_recorded_for_actor(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Reusing an Actor run's name for a task raises instead of attaching to the Actor's run."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run')
+        with pytest.raises(ValueError, match='already recorded for Actor "some-actor", it cannot be reused for task'):
+            await Actor.call_task('some-task', run_name='scrape-eu')
+
+    assert apify_client_async_patcher.calls['task']['start'] == []
+
+
+async def test_registry_rejects_record_without_actor_or_task(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A recorded run with neither an Actor nor a task ID is treated as a malformed registry."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run', actor_id=None)
         with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
             await Actor.start('some-actor', run_name='scrape-eu')
 

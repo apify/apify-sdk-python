@@ -978,7 +978,7 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
-                any other value raises a `ValueError`.
+                any other value, or for a task, raises a `ValueError`.
 
         Returns:
             Info about the started Actor run
@@ -1113,7 +1113,7 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
-                any other value raises a `ValueError`.
+                any other value, or for a task, raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1182,7 +1182,8 @@ class _ActorType:
         self,
         name: str,
         *,
-        actor_id: str,
+        actor_id: str | None = None,
+        task_id: str | None = None,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         build: str | None,
@@ -1194,6 +1195,7 @@ class _ActorType:
         return await self._child_run_registry.find_or_start(
             name,
             actor_id=actor_id,
+            task_id=task_id,
             client=client,
             start_run=start_run,
             resurrect_run=lambda run_client: run_client.resurrect(
@@ -1240,6 +1242,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
+        run_name: str | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1265,6 +1268,12 @@ class _ActorType:
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
             wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. The name is bound to `task_id` exactly as passed, so reusing it with
+                any other value, or for an Actor, raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1281,15 +1290,40 @@ class _ActorType:
             raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
         task_client = client.task(task_id)
-        run = await task_client.call(
-            task_input=task_input,
-            build=build,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=task_call_timeout,
-            webhooks=to_client_representations(webhooks),
-            wait_duration=wait,
-        )
+
+        if run_name is None:
+            run = await task_client.call(
+                task_input=task_input,
+                build=build,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=task_call_timeout,
+                webhooks=to_client_representations(webhooks),
+                wait_duration=wait,
+            )
+        else:
+            started_run, _ = await self._find_or_start_child_run(
+                run_name,
+                task_id=task_id,
+                client=client,
+                start_run=partial(
+                    task_client.start,
+                    task_input=task_input,
+                    build=build,
+                    restart_on_error=restart_on_error,
+                    memory_mbytes=memory_mbytes,
+                    run_timeout=task_call_timeout,
+                    webhooks=to_client_representations(webhooks),
+                ),
+                build=build,
+                max_total_charge_usd=None,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=task_call_timeout,
+            )
+            run = await self._wait_for_child_run(
+                client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
+            )
 
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
