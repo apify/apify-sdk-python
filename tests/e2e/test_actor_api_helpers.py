@@ -207,6 +207,8 @@ async def test_actor_starts_task(
     run_actor: RunActorFunction,
     apify_client_async: ApifyClientAsync,
 ) -> None:
+    """`Actor.start_task` returns the run before it finishes, and the started task run completes with its output."""
+
     async def main_inner() -> None:
         async with Actor:
             await asyncio.sleep(5)
@@ -241,21 +243,22 @@ async def test_actor_starts_task(
         task_input={'test_value': test_value},
     )
 
-    run_result_outer = await run_actor(
-        outer_actor,
-        run_input={'inner_task_id': task.id},
-        force_permission_level='FULL_PERMISSIONS',
-    )
+    try:
+        run_result_outer = await run_actor(
+            outer_actor,
+            run_input={'inner_task_id': task.id},
+            force_permission_level='FULL_PERMISSIONS',
+        )
 
-    assert run_result_outer.status == 'SUCCEEDED'
+        assert run_result_outer.status == 'SUCCEEDED'
 
-    await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
+        await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
 
-    inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
-    assert inner_output_record is not None
-    assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
-
-    await apify_client_async.task(task.id).delete()
+        inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
+        assert inner_output_record is not None
+        assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
+    finally:
+        await apify_client_async.task(task.id).delete()
 
 
 async def test_actor_calls_task(

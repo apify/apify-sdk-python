@@ -375,19 +375,28 @@ async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
     assert apify_client_async_patcher.calls['actor'][method_name][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
-async def test_actor_call_task_skipped_when_no_inherited_time_remains(
+@pytest.mark.parametrize(
+    ('client_method', 'actor_method_name'),
+    [
+        pytest.param('start', 'start_task', id='start_task'),
+        pytest.param('call', 'call_task', id='call_task'),
+    ],
+)
+async def test_actor_task_methods_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
+    client_method: str,
+    actor_method_name: str,
 ) -> None:
-    """Test that Actor.call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
-    apify_client_async_patcher.patch('task', 'call', return_value=Mock())
+    """Test that start_task/call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
+    apify_client_async_patcher.patch('task', client_method, return_value=Mock())
 
     async with Actor:
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
-        await Actor.call_task('some-task-id', timeout='inherit')
+        await getattr(Actor, actor_method_name)('some-task-id', timeout='inherit')
 
-    assert len(apify_client_async_patcher.calls['task']['call']) == 1
-    assert apify_client_async_patcher.calls['task']['call'][0][1]['run_timeout'] == timedelta(seconds=1)
+    assert len(apify_client_async_patcher.calls['task'][client_method]) == 1
+    assert apify_client_async_patcher.calls['task'][client_method][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
 async def test_reboot_runs_all_listeners_even_when_one_fails(

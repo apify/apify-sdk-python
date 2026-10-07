@@ -1133,7 +1133,7 @@ class _ActorType:
         finish, use `Actor.call_task` instead.
 
         Note that an Actor task is a saved input configuration and options for an Actor. If you want to run an Actor
-        directly rather than an Actor task, please use the `Actor.start`
+        directly rather than an Actor task, use `Actor.start`.
 
         Args:
             task_id: The ID of the Actor task to be run.
