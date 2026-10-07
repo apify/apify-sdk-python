@@ -936,6 +936,7 @@ class _ActorType:
         token: str | None = None,
         content_type: str | None = None,
         build: str | None = None,
+        max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
@@ -955,6 +956,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of results that will be returned by this run. If the Actor is charged per
+                result, you will not be charged for more results than the given limit.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
@@ -988,6 +991,7 @@ class _ActorType:
             run_input=run_input,
             content_type=content_type,
             build=build,
+            max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
@@ -1042,6 +1046,7 @@ class _ActorType:
         token: str | None = None,
         content_type: str | None = None,
         build: str | None = None,
+        max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
@@ -1062,6 +1067,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of results that will be returned by this run. If the Actor is charged per
+                result, you will not be charged for more results than the given limit.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
@@ -1099,6 +1106,7 @@ class _ActorType:
             run_input=run_input,
             content_type=content_type,
             build=build,
+            max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
@@ -1121,6 +1129,7 @@ class _ActorType:
         task_input: dict | None = None,
         *,
         build: str | None = None,
+        max_items: int | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | Literal['inherit'] | None = None,
@@ -1141,6 +1150,8 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of results that will be returned by this run. If the Actor is charged per
+                result, you will not be charged for more results than the given limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1171,6 +1182,7 @@ class _ActorType:
         run = await task_client.call(
             task_input=task_input,
             build=build,
+            max_items=max_items,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             run_timeout=task_call_timeout,
