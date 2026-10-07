@@ -1034,6 +1034,64 @@ class _ActorType:
         return run
 
     @_ensure_context
+    async def resurrect(
+        self,
+        run_id: str,
+        *,
+        token: str | None = None,
+        build: str | None = None,
+        memory_mbytes: int | None = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
+        max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
+    ) -> Run:
+        """Resurrect a finished Actor run on the Apify platform.
+
+        Only finished runs, i.e. runs with status SUCCEEDED, FAILED, ABORTED and TIMED-OUT, can be resurrected. The run
+        status is set back to RUNNING and its container is restarted with the same default storages.
+
+        Args:
+            run_id: The ID of the Actor run to be resurrected.
+            token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
+            build: Which Actor build the resurrected run should use. It can be either a build tag or build number.
+                By default, the resurrected run uses the same build as before.
+            memory_mbytes: New memory limit for the resurrected run, in megabytes. By default, the resurrected run
+                uses the same memory limit as before.
+            timeout: New timeout for the resurrected run. By default, the resurrected run uses the same timeout
+                as before. Using `inherit` will set timeout of the resurrected run to the time remaining from this
+                Actor timeout.
+            max_items: Maximum number of items that the resurrected pay-per-result run will return. By default,
+                the resurrected run uses the same limit as before. The limit can only be increased.
+            max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default,
+                the resurrected run uses the same limit as before. The limit can only be increased.
+            restart_on_error: If true, the resurrected run process will be restarted whenever it exits with
+                a non-zero status code. By default, the resurrected run uses the same setting as before.
+
+        Returns:
+            Info about the resurrected Actor run.
+        """
+        client = self.new_client(token=token) if token else self.apify_client
+
+        if timeout == 'inherit':
+            run_timeout = self._get_remaining_time()
+        elif timeout is None:
+            run_timeout = None
+        elif isinstance(timeout, timedelta):
+            run_timeout = timeout
+        else:
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
+
+        return await client.run(run_id).resurrect(
+            build=build,
+            memory_mbytes=memory_mbytes,
+            run_timeout=run_timeout,
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+        )
+
+    @_ensure_context
     async def call(
         self,
         actor_id: str,
