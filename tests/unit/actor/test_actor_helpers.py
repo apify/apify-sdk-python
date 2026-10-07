@@ -160,7 +160,7 @@ async def test_resurrect_actor_run(apify_client_async_patcher: ApifyClientAsyncP
 
 
 async def test_resurrect_with_inherited_timeout(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """`Actor.resurrect` with `timeout='inherit'` passes the time remaining from this Actor timeout."""
+    """`Actor.resurrect` with `timeout='inherit'` passes the remaining Actor time, clamped to 1 second when overdue."""
     apify_client_async_patcher.patch('run', 'resurrect', return_value=Mock())
 
     async with Actor:

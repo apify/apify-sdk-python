@@ -974,15 +974,6 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if timeout == 'inherit':
-            actor_start_timeout = self._get_remaining_time()
-        elif timeout is None:
-            actor_start_timeout = None
-        elif isinstance(timeout, timedelta):
-            actor_start_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         actor_client = client.actor(actor_id)
         return await actor_client.start(
             run_input=run_input,
@@ -991,7 +982,7 @@ class _ActorType:
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=actor_start_timeout,
+            run_timeout=self._resolve_run_timeout(timeout),
             force_permission_level=force_permission_level,
             webhooks=to_client_representations(webhooks),
         )
@@ -1054,38 +1045,29 @@ class _ActorType:
         Args:
             run_id: The ID of the Actor run to be resurrected.
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
-            build: Which Actor build the resurrected run should use. It can be either a build tag or build number.
-                By default, the resurrected run uses the same build as before.
-            memory_mbytes: New memory limit for the resurrected run, in megabytes. By default, the resurrected run
-                uses the same memory limit as before.
-            timeout: New timeout for the resurrected run. By default, the resurrected run uses the same timeout
-                as before. Using `inherit` will set timeout of the resurrected run to the time remaining from this
-                Actor timeout.
-            max_items: Maximum number of items that the resurrected pay-per-result run will return. By default,
-                the resurrected run uses the same limit as before. The limit can only be increased.
-            max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default,
-                the resurrected run uses the same limit as before. The limit can only be increased.
-            restart_on_error: If true, the resurrected run process will be restarted whenever it exits with
-                a non-zero status code. By default, the resurrected run uses the same setting as before.
+            build: Which Actor build the resurrected run should use. It can be either a build tag or build number. By
+                default, the resurrected run uses the same build as before.
+            memory_mbytes: New memory limit for the resurrected run, in megabytes. By default, the resurrected run uses
+                the same memory limit as before.
+            timeout: New timeout for the resurrected run. By default, the resurrected run uses the same timeout as
+                before. Using `inherit` will set timeout of the resurrected run to the time remaining from this Actor
+                timeout.
+            max_items: Maximum number of items that the resurrected pay-per-result run will return. By default, the
+                resurrected run uses the same limit as before. The limit can only be increased.
+            max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default, the resurrected
+                run uses the same limit as before. The limit can only be increased.
+            restart_on_error: If true, the resurrected run process will be restarted whenever it exits with a non-zero
+                status code. By default, the resurrected run uses the same setting as before.
 
         Returns:
             Info about the resurrected Actor run.
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if timeout == 'inherit':
-            run_timeout = self._get_remaining_time()
-        elif timeout is None:
-            run_timeout = None
-        elif isinstance(timeout, timedelta):
-            run_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         return await client.run(run_id).resurrect(
             build=build,
             memory_mbytes=memory_mbytes,
-            run_timeout=run_timeout,
+            run_timeout=self._resolve_run_timeout(timeout),
             max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
@@ -1143,15 +1125,6 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if timeout == 'inherit':
-            actor_call_timeout = self._get_remaining_time()
-        elif timeout is None:
-            actor_call_timeout = None
-        elif isinstance(timeout, timedelta):
-            actor_call_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         actor_client = client.actor(actor_id)
         run = await actor_client.call(
             run_input=run_input,
@@ -1160,7 +1133,7 @@ class _ActorType:
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=actor_call_timeout,
+            run_timeout=self._resolve_run_timeout(timeout),
             force_permission_level=force_permission_level,
             webhooks=to_client_representations(webhooks),
             wait_duration=wait,
@@ -1216,22 +1189,13 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if timeout == 'inherit':
-            task_call_timeout = self._get_remaining_time()
-        elif timeout is None:
-            task_call_timeout = None
-        elif isinstance(timeout, timedelta):
-            task_call_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         task_client = client.task(task_id)
         run = await task_client.call(
             task_input=task_input,
             build=build,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=task_call_timeout,
+            run_timeout=self._resolve_run_timeout(timeout),
             webhooks=to_client_representations(webhooks),
             wait_duration=wait,
         )
@@ -1577,6 +1541,14 @@ class _ActorType:
             if input_path.name == f'{input_key}.json':
                 raise ValueError(f'The input file "{input_path}" is not valid JSON.') from exc
             return content
+
+    def _resolve_run_timeout(self, timeout: timedelta | Literal['inherit'] | None) -> timedelta | None:
+        """Resolve the `timeout` argument of the methods running other Actors into the run timeout for the API."""
+        if timeout == 'inherit':
+            return self._get_remaining_time()
+        if timeout is None or isinstance(timeout, timedelta):
+            return timeout
+        raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout, rounded up to whole seconds with minimum value of 1 second.
