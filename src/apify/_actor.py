@@ -1129,6 +1129,7 @@ class _ActorType:
         task_input: dict | None = None,
         *,
         build: str | None = None,
+        max_items: int | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | Literal['inherit'] | None = None,
@@ -1149,6 +1150,8 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1178,6 +1181,7 @@ class _ActorType:
         return await task_client.start(
             task_input=task_input,
             build=build,
+            max_items=max_items,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             run_timeout=task_start_timeout,

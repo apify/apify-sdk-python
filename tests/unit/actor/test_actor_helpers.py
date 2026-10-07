@@ -137,6 +137,7 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
     [
         pytest.param('actor', 'start', 'start', id='start'),
         pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('task', 'start', 'start_task', id='start_task'),
         pytest.param('task', 'call', 'call_task', id='call_task'),
     ],
 )
@@ -147,7 +148,7 @@ async def test_max_items_forwarded_to_client(
     client_method: str,
     sdk_method: str,
 ) -> None:
-    """`max_items` passed to `Actor.start`, `Actor.call` or `Actor.call_task` reaches the API client."""
+    """`max_items` passed to any of the run-starting helpers reaches the API client."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
