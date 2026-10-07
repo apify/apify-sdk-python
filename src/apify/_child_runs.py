@@ -4,9 +4,9 @@ import asyncio
 from collections import defaultdict
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 from pydantic.alias_generators import to_camel
 
 from apify._utils import docs_group
@@ -36,14 +36,27 @@ class ChildRunRecord(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
-    actor_id: str
-    """The Actor ID or name the child was started with, as the caller passed it."""
+    actor_id: str | None = None
+    """The Actor ID or name the child was started with, as the caller passed it, or `None` for a task run."""
+
+    task_id: str | None = None
+    """The task ID or name the child was started with, as the caller passed it, or `None` for an Actor run."""
 
     run_id: str
     """ID of the current run under this name."""
 
     previous_run_ids: list[str] = Field(default_factory=list)
     """IDs of earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
+
+    @model_validator(mode='after')
+    def _check_started_from(self) -> Self:
+        if (self.actor_id is None) == (self.task_id is None):
+            raise ValueError('Exactly one of `actor_id` and `task_id` must be set.')
+        return self
+
+
+def _describe_started_from(actor_id: str | None, task_id: str | None) -> str:
+    return f'Actor "{actor_id}"' if actor_id is not None else f'task "{task_id}"'
 
 
 @docs_group('Actor')
@@ -85,7 +98,8 @@ class ChildRunRegistry:
         self,
         name: str,
         *,
-        actor_id: str,
+        actor_id: str | None = None,
+        task_id: str | None = None,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         resurrect_run: Callable[[RunClientAsync], Awaitable[Run]],
@@ -99,8 +113,9 @@ class ChildRunRegistry:
         Args:
             name: Name of the child run, unique within the parent run.
             actor_id: The Actor to start. It must match the Actor already recorded under `name`.
+            task_id: The task to start, in place of `actor_id`. It must match the task already recorded under `name`.
             client: Client used to look up and resurrect the recorded run.
-            start_run: Starts a new run of the Actor.
+            start_run: Starts a new run of the Actor or task.
             resurrect_run: Resurrects the recorded run, given its run client.
 
         Returns:
@@ -111,12 +126,16 @@ class ChildRunRegistry:
             record = records.get(name)
 
             if record is None:
-                return await self._start(name, actor_id=actor_id, start_run=start_run, previous_run_ids=[]), True
+                run = await self._start(
+                    name, actor_id=actor_id, task_id=task_id, start_run=start_run, previous_run_ids=[]
+                )
+                return run, True
 
-            if record.actor_id != actor_id:
+            if (record.actor_id, record.task_id) != (actor_id, task_id):
                 raise ValueError(
-                    f'Child run "{name}" is already recorded for Actor "{record.actor_id}", '
-                    f'it cannot be reused for Actor "{actor_id}".'
+                    f'Child run "{name}" is already recorded for '
+                    f'{_describe_started_from(record.actor_id, record.task_id)}, '
+                    f'it cannot be reused for {_describe_started_from(actor_id, task_id)}.'
                 )
 
             run_client = client.run(record.run_id)
@@ -127,7 +146,9 @@ class ChildRunRegistry:
 
             if run is None or run.status == 'FAILED':
                 previous_run_ids = [*record.previous_run_ids, record.run_id]
-                run = await self._start(name, actor_id=actor_id, start_run=start_run, previous_run_ids=previous_run_ids)
+                run = await self._start(
+                    name, actor_id=actor_id, task_id=task_id, start_run=start_run, previous_run_ids=previous_run_ids
+                )
                 return run, True
 
             if run.status in _RESURRECTABLE_STATUSES:
@@ -160,12 +181,14 @@ class ChildRunRegistry:
         self,
         name: str,
         *,
-        actor_id: str,
+        actor_id: str | None,
+        task_id: str | None,
         start_run: Callable[[], Awaitable[Run]],
         previous_run_ids: list[str],
     ) -> Run:
         run = await start_run()
-        await self._save(name, ChildRunRecord(actor_id=actor_id, run_id=run.id, previous_run_ids=previous_run_ids))
+        record = ChildRunRecord(actor_id=actor_id, task_id=task_id, run_id=run.id, previous_run_ids=previous_run_ids)
+        await self._save(name, record)
         return run
 
     async def _load(self) -> dict[str, ChildRunRecord]:
