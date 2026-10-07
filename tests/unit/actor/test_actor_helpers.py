@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -166,6 +167,59 @@ async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatch
 
     assert len(apify_client_async_patcher.calls['run']['abort']) == 1
     assert apify_client_async_patcher.calls['run']['abort'][0][0][0].resource_id == run_id
+
+
+async def test_resurrect_actor_run(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
+    """`Actor.resurrect` forwards the run ID and all options to the run client's `resurrect`."""
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=fake_actor_run)
+    run_id = 'some-run-id'
+
+    async with Actor:
+        run = await Actor.resurrect(
+            run_id,
+            build='beta',
+            memory_mbytes=1024,
+            timeout=timedelta(seconds=120),
+            max_items=100,
+            max_total_charge_usd=Decimal('2.5'),
+            restart_on_error=True,
+        )
+
+    assert run is fake_actor_run
+    calls = apify_client_async_patcher.calls['run']['resurrect']
+    assert len(calls) == 1
+    assert calls[0][0][0].resource_id == run_id
+    assert calls[0][1] == {
+        'build': 'beta',
+        'memory_mbytes': 1024,
+        'run_timeout': timedelta(seconds=120),
+        'max_items': 100,
+        'max_total_charge_usd': Decimal('2.5'),
+        'restart_on_error': True,
+    }
+
+
+async def test_resurrect_with_inherited_timeout(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """`Actor.resurrect` with `timeout='inherit'` passes the remaining Actor time, clamped to 1 second when overdue."""
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=Mock())
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
+        await Actor.resurrect('some-run-id', timeout='inherit')
+
+    assert apify_client_async_patcher.calls['run']['resurrect'][0][1]['run_timeout'] == timedelta(seconds=1)
+
+
+async def test_resurrect_with_invalid_timeout(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """`Actor.resurrect` raises `ValueError` for an invalid timeout without calling the API."""
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=Mock())
+
+    async with Actor:
+        with pytest.raises(ValueError, match='Invalid timeout'):
+            await Actor.resurrect('some-run-id', timeout='invalid')  # ty: ignore[invalid-argument-type]
+
+    assert 'resurrect' not in apify_client_async_patcher.calls['run']
 
 
 # NOTE: The following methods are properly tested using integrations tests.
