@@ -64,8 +64,11 @@ def _describe_started_from(actor_id: str | None, task_id: str | None) -> str:
 class ChildRunInfo:
     """A named child run of this Actor run, as returned by `Actor.child_runs`."""
 
-    actor_id: str
-    """The Actor ID or name the child was started with, as the caller passed it."""
+    actor_id: str | None
+    """The Actor ID or name the child was started with, as the caller passed it, or `None` for a task run."""
+
+    task_id: str | None
+    """The task ID or name the child was started with, as the caller passed it, or `None` for an Actor run."""
 
     run_id: str
     """ID of the current run under this name."""
@@ -170,6 +173,7 @@ class ChildRunRegistry:
         return {
             name: ChildRunInfo(
                 actor_id=record.actor_id,
+                task_id=record.task_id,
                 run_id=record.run_id,
                 run=run,
                 previous_run_ids=list(record.previous_run_ids),

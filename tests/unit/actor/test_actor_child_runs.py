@@ -457,17 +457,19 @@ async def test_child_runs_returns_recorded_runs_with_current_state(
             CHILD_RUNS_KEY,
             {
                 'scrape-eu': {'actorId': 'some-actor', 'runId': 'eu-run', 'previousRunIds': ['failed-run']},
-                'scrape-us': {'actorId': 'other-actor', 'runId': 'us-run', 'previousRunIds': []},
+                'scrape-us': {'taskId': 'some-task', 'runId': 'us-run', 'previousRunIds': []},
             },
         )
         child_runs = await Actor.child_runs()
 
     assert child_runs.keys() == {'scrape-eu', 'scrape-us'}
     assert child_runs['scrape-eu'].actor_id == 'some-actor'
+    assert child_runs['scrape-eu'].task_id is None
     assert child_runs['scrape-eu'].run_id == 'eu-run'
     assert child_runs['scrape-eu'].run == runs['eu-run']
     assert child_runs['scrape-eu'].previous_run_ids == ['failed-run']
-    assert child_runs['scrape-us'].actor_id == 'other-actor'
+    assert child_runs['scrape-us'].actor_id is None
+    assert child_runs['scrape-us'].task_id == 'some-task'
     assert child_runs['scrape-us'].run is None
 
 
@@ -479,7 +481,7 @@ async def test_child_runs_includes_run_started_in_this_attempt(
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
 
     async with Actor:
-        await Actor.start('some-actor', name='scrape-eu')
+        await Actor.start('some-actor', run_name='scrape-eu')
         child_runs = await Actor.child_runs()
 
     assert child_runs['scrape-eu'].run_id == 'new-run'

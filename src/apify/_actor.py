@@ -1233,9 +1233,9 @@ class _ActorType:
     async def child_runs(self) -> dict[str, ChildRunInfo]:
         """Get the named child runs of this Actor run, with their current state.
 
-        Every run started by `Actor.start` or `Actor.call` with a `name` is included, even one started before a
-        migration or resurrection of this Actor run. Runs started without a `name` are not tracked. Each run is fetched
-        from the API when this method is called, so the result is a snapshot.
+        Every run started by `Actor.start`, `Actor.call` or `Actor.call_task` with a `run_name` is included, even one
+        started before a migration or resurrection of this Actor run. Runs started without a `run_name` are not
+        tracked. Each run is fetched from the API when this method is called, so the result is a snapshot.
 
         Returns:
             The child runs by name.
