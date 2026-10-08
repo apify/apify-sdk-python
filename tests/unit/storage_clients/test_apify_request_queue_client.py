@@ -12,16 +12,16 @@ import pytest
 from apify_client._models import (
     AddedRequest,
     BatchAddResult,
-    HeadRequest,
-    LockedHeadRequest,
     LockedRequestQueueHead,
-    RequestDraft,
+    LockedRequestQueueHeadItem,
     RequestLockInfo,
     RequestQueueHead,
+    RequestQueueHeadItem,
     RequestQueueStats,
     RequestRegistration,
+    UnprocessedRequest,
 )
-from apify_client._models import Request as ClientRequest
+from apify_client._models import RequestResource as ClientRequest
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from apify import Request
@@ -66,7 +66,7 @@ def _batch_result(
             for request in processed
         ],
         unprocessed_requests=[
-            RequestDraft.model_construct(
+            UnprocessedRequest.model_construct(
                 unique_key=request.unique_key,
                 url=request.url,
                 method=request.method,
@@ -589,9 +589,9 @@ async def test_shared_is_finished_does_not_refetch_requests_confirmed_in_an_unfi
     api_client.get_request.assert_awaited_once_with(straggler_id)
 
 
-def _locked_item(request: Request, *, lock_expires_at: datetime) -> LockedHeadRequest:
+def _locked_item(request: Request, *, lock_expires_at: datetime) -> LockedRequestQueueHeadItem:
     """Build a single locked head entry for `request` with the given lock expiry."""
-    return LockedHeadRequest(
+    return LockedRequestQueueHeadItem(
         id=unique_key_to_request_id(request.unique_key),
         unique_key=request.unique_key,
         url=request.url,
@@ -602,7 +602,7 @@ def _locked_item(request: Request, *, lock_expires_at: datetime) -> LockedHeadRe
 
 
 def _locked_head(
-    items: Sequence[LockedHeadRequest],
+    items: Sequence[LockedRequestQueueHeadItem],
     *,
     queue_has_locked_requests: bool = True,
 ) -> LockedRequestQueueHead:
@@ -850,9 +850,9 @@ async def test_reclaim_request_frees_in_progress() -> None:
     assert second.unique_key == request.unique_key
 
 
-def _head_item(request: Request) -> HeadRequest:
+def _head_item(request: Request) -> RequestQueueHeadItem:
     """Build a `list_head` item for the given request."""
-    return HeadRequest(
+    return RequestQueueHeadItem(
         id=unique_key_to_request_id(request.unique_key),
         unique_key=request.unique_key,
         url=request.url,
@@ -861,7 +861,7 @@ def _head_item(request: Request) -> HeadRequest:
     )
 
 
-def _head(*items: HeadRequest) -> RequestQueueHead:
+def _head(*items: RequestQueueHeadItem) -> RequestQueueHead:
     """Build a `list_head` response wrapping the given items."""
     return RequestQueueHead(
         limit=200,
