@@ -980,8 +980,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
-                any other value, or for a task, raises a `ValueError`.
+                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run
@@ -1009,6 +1009,7 @@ class _ActorType:
         run, _ = await self._find_or_start_child_run(
             run_name,
             actor_id=actor_id,
+            run_input=run_input,
             client=client,
             start_run=start_run,
             token=token,
@@ -1161,8 +1162,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to `actor_id` exactly as passed, so reusing it with
-                any other value, or for a task, raises a `ValueError`.
+                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1190,6 +1191,7 @@ class _ActorType:
             started_run, is_new = await self._find_or_start_child_run(
                 run_name,
                 actor_id=actor_id,
+                run_input=run_input,
                 client=client,
                 start_run=partial(
                     actor_client.start,
@@ -1214,7 +1216,7 @@ class _ActorType:
             )
             # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
             run = await self._wait_for_child_run(
-                client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
+                run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
             )
 
         if run is None:
@@ -1228,6 +1230,7 @@ class _ActorType:
         *,
         actor_id: str | None = None,
         task_id: str | None = None,
+        run_input: Any,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         token: str | None,
@@ -1242,6 +1245,7 @@ class _ActorType:
             name,
             actor_id=actor_id,
             task_id=task_id,
+            run_input=run_input,
             client=client,
             start_run=start_run,
             resurrect_run=partial(
@@ -1258,6 +1262,7 @@ class _ActorType:
 
     async def _wait_for_child_run(
         self,
+        name: str,
         run_client: RunClientAsync,
         run: Run,
         *,
@@ -1269,14 +1274,18 @@ class _ActorType:
             return run
 
         if not logger:
-            return await run_client.wait_for_finish(wait_duration=wait)
+            finished_run = await run_client.wait_for_finish(wait_duration=wait)
+        else:
+            to_logger = None if logger == 'default' else logger
+            status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
+            streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
 
-        to_logger = None if logger == 'default' else logger
-        status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
-        streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
+            async with status_redirector, streamed_log:
+                finished_run = await run_client.wait_for_finish(wait_duration=wait)
 
-        async with status_redirector, streamed_log:
-            return await run_client.wait_for_finish(wait_duration=wait)
+        if finished_run is not None:
+            await self._child_run_registry.update(name, finished_run)
+        return finished_run
 
     @_ensure_context
     async def start_task(
@@ -1323,8 +1332,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to `task_id` exactly as passed, so reusing it with
-                any other value, or for an Actor, raises a `ValueError`.
+                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1348,6 +1357,7 @@ class _ActorType:
         run, _ = await self._find_or_start_child_run(
             run_name,
             task_id=task_id,
+            run_input=task_input,
             client=client,
             start_run=start_run,
             token=token,
@@ -1406,8 +1416,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to `task_id` exactly as passed, so reusing it with
-                any other value, or for an Actor, raises a `ValueError`.
+                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1431,6 +1441,7 @@ class _ActorType:
             started_run, _ = await self._find_or_start_child_run(
                 run_name,
                 task_id=task_id,
+                run_input=task_input,
                 client=client,
                 start_run=partial(
                     task_client.start,
@@ -1451,7 +1462,7 @@ class _ActorType:
                 timeout=timeout,
             )
             run = await self._wait_for_child_run(
-                client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
+                run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
             )
 
         if run is None:

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+from datetime import datetime
 from logging import getLogger
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any
 from weakref import WeakValueDictionary
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 
 if TYPE_CHECKING:
@@ -33,32 +36,40 @@ _NOT_FOUND_GRACE_SECS = 3
 _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
 
 
-class ChildRunRecord(BaseModel):
-    """A child run tracked under a name in the child run registry."""
+class ChildRunSnapshot(BaseModel):
+    """A child run as last observed by this Actor run."""
 
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
-    actor_id: str | None = None
-    """The Actor ID or name the child was started with, as the caller passed it, or `None` for a task run."""
-
-    task_id: str | None = None
-    """The task ID or name the child was started with, as the caller passed it, or `None` for an Actor run."""
-
     run_id: str
-    """ID of the current run under this name."""
+    """ID of the run."""
 
-    previous_run_ids: list[str] = Field(default_factory=list)
-    """IDs of earlier runs under this name that failed and were replaced by a new run, oldest first."""
+    status: str
+    """Last status of the run observed by this Actor run, or `LOST` once the platform no longer returned it."""
 
-    @model_validator(mode='after')
-    def _check_started_from(self) -> Self:
-        if (self.actor_id is None) == (self.task_id is None):
-            raise ValueError('Exactly one of `actor_id` and `task_id` must be set.')
-        return self
+    started_at: datetime
+    """When the run started."""
 
 
-def _describe_started_from(actor_id: str | None, task_id: str | None) -> str:
-    return f'Actor "{actor_id}"' if actor_id is not None else f'task "{task_id}"'
+class ChildRunRecord(ChildRunSnapshot):
+    """The current run tracked under a name in the child run registry, with the runs it replaced."""
+
+    checksum: str
+    """Hash of the Actor or task and the input the name was first used with."""
+
+    history: list[ChildRunSnapshot] = Field(default_factory=list)
+    """Earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
+
+
+def checksum_request(*, actor_id: str | None, task_id: str | None, run_input: Any) -> str:
+    """Hash the Actor or task and the input of a named start, in the same JSON shape as the JS SDK."""
+    request: dict[str, Any] = (
+        {'type': 'actor', 'id': actor_id} if actor_id is not None else {'type': 'task', 'id': task_id}
+    )
+    if run_input is not None:
+        request['input'] = run_input
+    serialized = json.dumps(request, sort_keys=True, separators=(',', ':'), ensure_ascii=False, default=str)
+    return hashlib.sha256(serialized.encode()).hexdigest()
 
 
 async def _get_recorded_run(run_client: RunClientAsync) -> Run | None:
@@ -100,6 +111,7 @@ class ChildRunRegistry:
         *,
         actor_id: str | None = None,
         task_id: str | None = None,
+        run_input: Any,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         resurrect_run: Callable[[str], Awaitable[Run]],
@@ -112,8 +124,9 @@ class ChildRunRegistry:
 
         Args:
             name: Name of the child run, unique within the parent run.
-            actor_id: The Actor to start. It must match the Actor already recorded under `name`.
-            task_id: The task to start, in place of `actor_id`. It must match the task already recorded under `name`.
+            actor_id: The Actor to start.
+            task_id: The task to start, in place of `actor_id`.
+            run_input: Input of the run. With the Actor or task, it must match what `name` was first used with.
             client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
             resurrect_run: Resurrects the recorded run, given its ID.
@@ -121,21 +134,20 @@ class ChildRunRegistry:
         Returns:
             The run, and whether it was newly started.
         """
+        checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
+
         async with self._name_locks.setdefault(name, asyncio.Lock()):
             records = await self._load()
             record = records.get(name)
 
             if record is None:
-                run = await self._start(
-                    name, actor_id=actor_id, task_id=task_id, start_run=start_run, previous_run_ids=[]
-                )
+                run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
                 return run, True
 
-            if (record.actor_id, record.task_id) != (actor_id, task_id):
+            if record.checksum != checksum:
                 raise ValueError(
-                    f'Child run "{name}" is already recorded for '
-                    f'{_describe_started_from(record.actor_id, record.task_id)}, '
-                    f'it cannot be reused for {_describe_started_from(actor_id, task_id)}.'
+                    f'The run name "{name}" was already used for a different Actor, task or input. '
+                    'Use a unique `run_name` for each child run.'
                 )
 
             run_client = client.run(record.run_id)
@@ -145,30 +157,49 @@ class ChildRunRegistry:
                 run = await run_client.wait_for_finish()
 
             if run is None or run.status == 'FAILED':
-                previous_run_ids = [*record.previous_run_ids, record.run_id]
+                replaced = ChildRunSnapshot(
+                    run_id=record.run_id,
+                    status=run.status if run is not None else 'LOST',
+                    started_at=record.started_at,
+                )
                 run = await self._start(
-                    name, actor_id=actor_id, task_id=task_id, start_run=start_run, previous_run_ids=previous_run_ids
+                    name, checksum=checksum, start_run=start_run, history=[*record.history, replaced]
                 )
                 return run, True
 
             if run.status in _RESURRECTABLE_STATUSES:
                 logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
-                return await resurrect_run(run.id), False
+                run = await resurrect_run(run.id)
+            else:
+                logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
 
-            logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
+            await self.update(name, run)
             return run, False
+
+    async def update(self, name: str, run: Run) -> None:
+        """Record the latest observed status of the run recorded under `name`.
+
+        Args:
+            name: Name of the child run.
+            run: The run as just returned by the API. Nothing is recorded unless it is the current run under `name`.
+        """
+        record = (await self._load()).get(name)
+        if record is None or record.run_id != run.id or record.status == run.status:
+            return
+        await self._save(name, record.model_copy(update={'status': run.status}))
 
     async def _start(
         self,
         name: str,
         *,
-        actor_id: str | None,
-        task_id: str | None,
+        checksum: str,
         start_run: Callable[[], Awaitable[Run]],
-        previous_run_ids: list[str],
+        history: list[ChildRunSnapshot],
     ) -> Run:
         run = await start_run()
-        record = ChildRunRecord(actor_id=actor_id, task_id=task_id, run_id=run.id, previous_run_ids=previous_run_ids)
+        record = ChildRunRecord(
+            run_id=run.id, status=run.status, started_at=run.started_at, checksum=checksum, history=history
+        )
         await self._save(name, record)
         return run
 
