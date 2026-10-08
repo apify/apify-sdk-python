@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-CHILD_RUNS_KEY = 'APIFY_CHILD_RUNS'
+CHILD_RUNS_KEY = '__ACTOR_CHILD_RUNS'
 """Key in the default key-value store under which the child run registry is persisted."""
 
 _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
