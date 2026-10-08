@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
     from apify_client._models import Run
-    from apify_client._resource_clients import RunClientAsync
 
     from apify.storages import KeyValueStore
 
@@ -81,7 +80,7 @@ class ChildRunRegistry:
         task_id: str | None = None,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
-        resurrect_run: Callable[[RunClientAsync], Awaitable[Run]],
+        resurrect_run: Callable[[str], Awaitable[Run]],
     ) -> tuple[Run, bool]:
         """Return the run recorded under `name`, or start one when there is none to reuse.
 
@@ -93,9 +92,9 @@ class ChildRunRegistry:
             name: Name of the child run, unique within the parent run.
             actor_id: The Actor to start. It must match the Actor already recorded under `name`.
             task_id: The task to start, in place of `actor_id`. It must match the task already recorded under `name`.
-            client: Client used to look up and resurrect the recorded run.
+            client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
-            resurrect_run: Resurrects the recorded run, given its run client.
+            resurrect_run: Resurrects the recorded run, given its ID.
 
         Returns:
             The run, and whether it was newly started.
@@ -132,7 +131,7 @@ class ChildRunRegistry:
 
             if run.status in _RESURRECTABLE_STATUSES:
                 logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
-                return await resurrect_run(run_client), False
+                return await resurrect_run(run.id), False
 
             logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
             return run, False

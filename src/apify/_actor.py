@@ -1011,11 +1011,12 @@ class _ActorType:
             actor_id=actor_id,
             client=client,
             start_run=start_run,
+            token=token,
             build=build,
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
+            timeout=timeout,
         )
         return run
 
@@ -1201,11 +1202,12 @@ class _ActorType:
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
                 ),
+                token=token,
                 build=build,
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=self._resolve_run_timeout(timeout),
+                timeout=timeout,
             )
             # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
             run = await self._wait_for_child_run(
@@ -1225,11 +1227,12 @@ class _ActorType:
         task_id: str | None = None,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
+        token: str | None,
         build: str | None,
         max_total_charge_usd: Decimal | None,
         restart_on_error: bool | None,
         memory_mbytes: int | None,
-        run_timeout: timedelta | None,
+        timeout: timedelta | Literal['inherit'] | None,
     ) -> tuple[Run, bool]:
         return await self._child_run_registry.find_or_start(
             name,
@@ -1237,12 +1240,14 @@ class _ActorType:
             task_id=task_id,
             client=client,
             start_run=start_run,
-            resurrect_run=lambda run_client: run_client.resurrect(
+            resurrect_run=partial(
+                self.resurrect,
+                token=token,
                 build=build,
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=run_timeout,
+                timeout=timeout,
             ),
         )
 
@@ -1405,11 +1410,12 @@ class _ActorType:
                     run_timeout=self._resolve_run_timeout(timeout),
                     webhooks=to_client_representations(webhooks),
                 ),
+                token=token,
                 build=build,
                 max_total_charge_usd=None,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=self._resolve_run_timeout(timeout),
+                timeout=timeout,
             )
             run = await self._wait_for_child_run(
                 client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
