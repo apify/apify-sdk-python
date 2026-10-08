@@ -425,3 +425,34 @@ async def test_registry_rejects_record_without_actor_or_task(
             await Actor.start('some-actor', run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_named_runs_forward_max_items_to_start(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """Named `start`, `call` and `call_task` pass `max_items` to the started run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-task-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor:
+        await Actor.start('some-actor', run_name='started', max_items=10)
+        await Actor.call('some-actor', run_name='called', max_items=20, logger=None)
+        await Actor.call_task('some-task', run_name='task-called', max_items=30)
+
+    assert [kwargs['max_items'] for _, kwargs in apify_client_async_patcher.calls['actor']['start']] == [10, 20]
+    [(_, task_kwargs)] = apify_client_async_patcher.calls['task']['start']
+    assert task_kwargs['max_items'] == 30
+
+
+async def test_named_start_forwards_max_items_to_resurrect(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A named start that resurrects the recorded run passes `max_items` to the resurrection."""
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run')
+        await Actor.start('some-actor', run_name='scrape-eu', max_items=10)
+
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
+    assert kwargs['max_items'] == 10
