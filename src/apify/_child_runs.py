@@ -38,6 +38,9 @@ _NOT_FOUND_GRACE_SECS = 3
 
 _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
 
+_LIST_RUNS_CONCURRENCY = 10
+"""How many recorded runs `ChildRunRegistry.list_runs` fetches at once."""
+
 
 @docs_group('Actor')
 class ChildRunSnapshot(BaseModel):
@@ -209,9 +212,13 @@ class ChildRunRegistry:
         """
         # Copy the records, since a named start can add one while the runs are fetched.
         records = dict(await self._load())
-        runs = await asyncio.gather(
-            *(self._clients.get(name, default_client).run(record.run_id).get() for name, record in records.items())
-        )
+        semaphore = asyncio.Semaphore(_LIST_RUNS_CONCURRENCY)
+
+        async def fetch_run(name: str, run_id: str) -> Run | None:
+            async with semaphore:
+                return await self._clients.get(name, default_client).run(run_id).get()
+
+        runs = await asyncio.gather(*(fetch_run(name, record.run_id) for name, record in records.items()))
         return {
             name: ChildRunInfo(run_id=record.run_id, run=run, history=list(record.history))
             for (name, record), run in zip(records.items(), runs, strict=True)

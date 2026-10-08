@@ -705,3 +705,30 @@ async def test_child_runs_fetches_run_with_its_start_client(
     custom_http_client = clients_by_token['custom-token']._http_client
     assert custom_http_client is not default_http_client
     assert http_clients == {'custom-run': custom_http_client, 'recorded-run': default_http_client}
+
+
+async def test_child_runs_caps_concurrent_fetches(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Actor.child_runs` fetches at most the configured number of runs at once."""
+    monkeypatch.setattr(_child_runs, '_LIST_RUNS_CONCURRENCY', 2)
+    in_flight = 0
+    max_in_flight = 0
+
+    async def get_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run:
+        nonlocal in_flight, max_in_flight
+        in_flight += 1
+        max_in_flight = max(max_in_flight, in_flight)
+        await asyncio.sleep(0.01)
+        in_flight -= 1
+        return make_run(run_client.resource_id, 'RUNNING')
+
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {f'child-{i}': stored_record(f'run-{i}', 'RUNNING') for i in range(5)})
+        child_runs = await Actor.child_runs()
+
+    assert len(child_runs) == 5
+    assert max_in_flight == 2
