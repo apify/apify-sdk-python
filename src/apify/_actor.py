@@ -940,6 +940,7 @@ class _ActorType:
         token: str | None = None,
         content_type: str | None = None,
         build: str | None = None,
+        max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
@@ -960,6 +961,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
@@ -985,25 +988,17 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if timeout == 'inherit':
-            actor_start_timeout = self._get_remaining_time()
-        elif timeout is None:
-            actor_start_timeout = None
-        elif isinstance(timeout, timedelta):
-            actor_start_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         actor_client = client.actor(actor_id)
         start_run = partial(
             actor_client.start,
             run_input=run_input,
             content_type=content_type,
             build=build,
+            max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=actor_start_timeout,
+            run_timeout=self._resolve_run_timeout(timeout),
             force_permission_level=force_permission_level,
             webhooks=to_client_representations(webhooks),
         )
@@ -1020,7 +1015,7 @@ class _ActorType:
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=actor_start_timeout,
+            run_timeout=self._resolve_run_timeout(timeout),
         )
         return run
 
@@ -1062,6 +1057,55 @@ class _ActorType:
         return run
 
     @_ensure_context
+    async def resurrect(
+        self,
+        run_id: str,
+        *,
+        token: str | None = None,
+        build: str | None = None,
+        memory_mbytes: int | None = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
+        max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
+    ) -> Run:
+        """Resurrect a finished Actor run on the Apify platform.
+
+        Only finished runs, i.e. runs with status SUCCEEDED, FAILED, ABORTED and TIMED-OUT, can be resurrected. The run
+        status is set back to RUNNING and its container is restarted with the same default storages.
+
+        Args:
+            run_id: The ID of the Actor run to be resurrected.
+            token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
+            build: Which Actor build the resurrected run should use. It can be either a build tag or build number. By
+                default, the resurrected run uses the same build as before.
+            memory_mbytes: New memory limit for the resurrected run, in megabytes. By default, the resurrected run uses
+                the same memory limit as before.
+            timeout: New timeout for the resurrected run. By default, the resurrected run uses the same timeout as
+                before. Using `inherit` will set timeout of the resurrected run to the time remaining from this Actor
+                timeout.
+            max_items: Maximum number of items that the resurrected pay-per-result run will return. By default, the
+                resurrected run uses the same limit as before. The limit can only be increased.
+            max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default, the resurrected
+                run uses the same limit as before. The limit can only be increased.
+            restart_on_error: If true, the resurrected run process will be restarted whenever it exits with a non-zero
+                status code. By default, the resurrected run uses the same setting as before.
+
+        Returns:
+            Info about the resurrected Actor run.
+        """
+        client = self.new_client(token=token) if token else self.apify_client
+
+        return await client.run(run_id).resurrect(
+            build=build,
+            memory_mbytes=memory_mbytes,
+            run_timeout=self._resolve_run_timeout(timeout),
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+        )
+
+    @_ensure_context
     async def call(
         self,
         actor_id: str,
@@ -1070,6 +1114,7 @@ class _ActorType:
         token: str | None = None,
         content_type: str | None = None,
         build: str | None = None,
+        max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
@@ -1091,6 +1136,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
@@ -1120,15 +1167,6 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if timeout == 'inherit':
-            actor_call_timeout = self._get_remaining_time()
-        elif timeout is None:
-            actor_call_timeout = None
-        elif isinstance(timeout, timedelta):
-            actor_call_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         actor_client = client.actor(actor_id)
 
         if run_name is None:
@@ -1136,10 +1174,11 @@ class _ActorType:
                 run_input=run_input,
                 content_type=content_type,
                 build=build,
+                max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=actor_call_timeout,
+                run_timeout=self._resolve_run_timeout(timeout),
                 force_permission_level=force_permission_level,
                 webhooks=to_client_representations(webhooks),
                 wait_duration=wait,
@@ -1158,7 +1197,7 @@ class _ActorType:
                     max_total_charge_usd=max_total_charge_usd,
                     restart_on_error=restart_on_error,
                     memory_mbytes=memory_mbytes,
-                    run_timeout=actor_call_timeout,
+                    run_timeout=self._resolve_run_timeout(timeout),
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
                 ),
@@ -1166,7 +1205,7 @@ class _ActorType:
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=actor_call_timeout,
+                run_timeout=self._resolve_run_timeout(timeout),
             )
             # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
             run = await self._wait_for_child_run(
@@ -1230,12 +1269,69 @@ class _ActorType:
             return await run_client.wait_for_finish(wait_duration=wait)
 
     @_ensure_context
+    async def start_task(
+        self,
+        task_id: str,
+        task_input: dict | None = None,
+        *,
+        build: str | None = None,
+        max_items: int | None = None,
+        restart_on_error: bool | None = None,
+        memory_mbytes: int | None = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
+        webhooks: list[Webhook] | None = None,
+        token: str | None = None,
+    ) -> Run:
+        """Start an Actor task on the Apify Platform.
+
+        Unlike `Actor.call_task`, this method just starts the run without waiting for finish. To wait for the run to
+        finish, use `Actor.call_task` instead.
+
+        Note that an Actor task is a saved input configuration and options for an Actor. If you want to run an Actor
+        directly rather than an Actor task, use `Actor.start`.
+
+        Args:
+            task_id: The ID of the Actor task to be run.
+            task_input: Overrides the input to pass to the Actor run.
+            token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
+            build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
+                the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
+            restart_on_error: If true, the Task run process will be restarted whenever it exits with
+                a non-zero status code.
+            memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
+                in the default run configuration for the Actor.
+            timeout: Optional timeout for the run. By default, the run uses timeout specified in
+                the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor to the
+                time remaining from this Actor timeout.
+            webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
+                be used to receive a notification, e.g. when the Actor finished or failed. If you already have
+                a webhook set up for the Actor, you do not have to add it again here.
+
+        Returns:
+            Info about the started Actor run.
+        """
+        client = self.new_client(token=token) if token else self.apify_client
+        task_client = client.task(task_id)
+        return await task_client.start(
+            task_input=task_input,
+            build=build,
+            max_items=max_items,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            run_timeout=self._resolve_run_timeout(timeout),
+            webhooks=to_client_representations(webhooks),
+        )
+
+    @_ensure_context
     async def call_task(
         self,
         task_id: str,
         task_input: dict | None = None,
         *,
         build: str | None = None,
+        max_items: int | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | Literal['inherit'] | None = None,
@@ -1257,6 +1353,8 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
+            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
+                charge, not the output, so the run can return fewer or more items than this.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1280,24 +1378,16 @@ class _ActorType:
         """
         client = self.new_client(token=token) if token else self.apify_client
 
-        if timeout == 'inherit':
-            task_call_timeout = self._get_remaining_time()
-        elif timeout is None:
-            task_call_timeout = None
-        elif isinstance(timeout, timedelta):
-            task_call_timeout = timeout
-        else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
-
         task_client = client.task(task_id)
 
         if run_name is None:
             run = await task_client.call(
                 task_input=task_input,
                 build=build,
+                max_items=max_items,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=task_call_timeout,
+                run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
                 wait_duration=wait,
             )
@@ -1312,14 +1402,14 @@ class _ActorType:
                     build=build,
                     restart_on_error=restart_on_error,
                     memory_mbytes=memory_mbytes,
-                    run_timeout=task_call_timeout,
+                    run_timeout=self._resolve_run_timeout(timeout),
                     webhooks=to_client_representations(webhooks),
                 ),
                 build=build,
                 max_total_charge_usd=None,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=task_call_timeout,
+                run_timeout=self._resolve_run_timeout(timeout),
             )
             run = await self._wait_for_child_run(
                 client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
@@ -1666,6 +1756,14 @@ class _ActorType:
             if input_path.name == f'{input_key}.json':
                 raise ValueError(f'The input file "{input_path}" is not valid JSON.') from exc
             return content
+
+    def _resolve_run_timeout(self, timeout: timedelta | Literal['inherit'] | None) -> timedelta | None:
+        """Resolve the `timeout` argument of the methods running other Actors into the run timeout for the API."""
+        if timeout == 'inherit':
+            return self._get_remaining_time()
+        if timeout is None or isinstance(timeout, timedelta):
+            return timeout
+        raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
 
     def _get_remaining_time(self) -> timedelta | None:
         """Get time remaining from the Actor timeout, rounded up to whole seconds with minimum value of 1 second.
