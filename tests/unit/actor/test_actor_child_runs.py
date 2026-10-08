@@ -732,3 +732,29 @@ async def test_child_runs_caps_concurrent_fetches(
 
     assert len(child_runs) == 5
     assert max_in_flight == 2
+
+
+async def test_child_runs_reports_failed_fetch_as_missing_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A run that fails to fetch comes back with `run=None` and a warning, without failing the other runs."""
+
+    async def get_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run:
+        if run_client.resource_id == 'broken-run':
+            raise RuntimeError('API unavailable')
+        return make_run(run_client.resource_id, 'RUNNING')
+
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(
+            CHILD_RUNS_KEY,
+            {'ok': stored_record('ok-run', 'RUNNING'), 'broken': stored_record('broken-run', 'RUNNING')},
+        )
+        child_runs = await Actor.child_runs()
+
+    assert child_runs['ok'].run is not None
+    assert child_runs['broken'].run_id == 'broken-run'
+    assert child_runs['broken'].run is None
+    assert 'Failed to fetch child run "broken"' in caplog.text

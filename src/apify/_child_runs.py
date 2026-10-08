@@ -103,7 +103,8 @@ class ChildRunInfo:
     """ID of the current run under this name."""
 
     run: Run | None
-    """The current run as the API returns it now, or `None` when the platform no longer knows it."""
+    """The current run as the API returns it now, or `None` when the platform no longer knows it or fetching it
+    failed."""
 
     history: list[ChildRunSnapshot]
     """Earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
@@ -216,7 +217,11 @@ class ChildRunRegistry:
 
         async def fetch_run(name: str, run_id: str) -> Run | None:
             async with semaphore:
-                return await self._clients.get(name, default_client).run(run_id).get()
+                try:
+                    return await self._clients.get(name, default_client).run(run_id).get()
+                except Exception:
+                    logger.warning(f'Failed to fetch child run "{name}"', exc_info=True, extra={'run_id': run_id})
+                    return None
 
         runs = await asyncio.gather(*(fetch_run(name, record.run_id) for name, record in records.items()))
         return {

@@ -1377,8 +1377,9 @@ class _ActorType:
         Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
         included, even one started before a migration or resurrection of this Actor run. Runs started without
         a `run_name` are not tracked. Each run is fetched from the API when this method is called, so the result is
-        a snapshot. A run started with a custom `token` is fetched with that token, except after a migration or
-        resurrection of this Actor run, which loses the token, so the default client is used.
+        a snapshot. A run that fails to fetch is returned with `run=None` and a warning is logged. A run started with
+        a custom `token` is fetched with that token, except after a migration or resurrection of this Actor run, which
+        loses the token, so the default client is used.
 
         Returns:
             The child runs by name.
