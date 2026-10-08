@@ -1291,6 +1291,7 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None = None,
         webhooks: list[Webhook] | None = None,
         token: str | None = None,
+        run_name: str | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1318,13 +1319,20 @@ class _ActorType:
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. The name is bound to `task_id` exactly as passed, so reusing it with
+                any other value, or for an Actor, raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
         """
         client = self.new_client(token=token) if token else self.apify_client
         task_client = client.task(task_id)
-        return await task_client.start(
+        start_run = partial(
+            task_client.start,
             task_input=task_input,
             build=build,
             max_items=max_items,
@@ -1333,6 +1341,24 @@ class _ActorType:
             run_timeout=self._resolve_run_timeout(timeout),
             webhooks=to_client_representations(webhooks),
         )
+
+        if run_name is None:
+            return await start_run()
+
+        run, _ = await self._find_or_start_child_run(
+            run_name,
+            task_id=task_id,
+            client=client,
+            start_run=start_run,
+            token=token,
+            build=build,
+            max_items=max_items,
+            max_total_charge_usd=None,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            timeout=timeout,
+        )
+        return run
 
     @_ensure_context
     async def call_task(

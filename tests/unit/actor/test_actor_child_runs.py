@@ -456,3 +456,30 @@ async def test_named_start_forwards_max_items_to_resurrect(
 
     [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
     assert kwargs['max_items'] == 10
+
+
+async def test_named_start_task_records_run_in_kvs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named task start records the run under the task ID without waiting for it."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        run = await Actor.start_task('some-task', run_name='scrape-eu')
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert run.id == 'new-run'
+    assert stored == {'scrape-eu': {'actorId': None, 'taskId': 'some-task', 'runId': 'new-run', 'previousRunIds': []}}
+    assert apify_client_async_patcher.calls['run']['wait_for_finish'] == []
+
+
+async def test_named_start_task_reuses_recorded_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named task start returns the recorded running run without starting the task again."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
+        run = await Actor.start_task('some-task', run_name='scrape-eu')
+
+    assert run.id == 'old-run'
+    assert apify_client_async_patcher.calls['task']['start'] == []
