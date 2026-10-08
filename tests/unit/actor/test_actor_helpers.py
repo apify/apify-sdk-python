@@ -107,6 +107,21 @@ async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatch
     assert apify_client_async_patcher.calls['task']['call'][0][0][0].resource_id == task_id
 
 
+async def test_start_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
+    """`Actor.start_task` starts the task through the client's `task.start` and returns the run."""
+    apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
+    task_id = 'some-task-id'
+
+    async with Actor:
+        run = await Actor.start_task(task_id, {'foo': 'bar'})
+
+    assert run is fake_actor_run
+    calls = apify_client_async_patcher.calls['task']['start']
+    assert len(calls) == 1
+    assert calls[0][0][0].resource_id == task_id
+    assert calls[0][1]['task_input'] == {'foo': 'bar'}
+
+
 async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
     actor_id = 'some-id'
@@ -123,6 +138,7 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
     [
         pytest.param('actor', 'start', 'start', id='start'),
         pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('task', 'start', 'start_task', id='start_task'),
         pytest.param('task', 'call', 'call_task', id='call_task'),
     ],
 )
@@ -133,7 +149,7 @@ async def test_max_items_forwarded_to_client(
     client_method: str,
     sdk_method: str,
 ) -> None:
-    """`max_items` passed to `Actor.start`, `Actor.call` or `Actor.call_task` reaches the API client."""
+    """`max_items` passed to any of the run-starting helpers reaches the API client."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
@@ -300,6 +316,7 @@ async def test_off_removes_event_listener(monkeypatch: pytest.MonkeyPatch) -> No
 _ACTOR_REMOTE_METHODS = [
     pytest.param('actor', 'start', 'start', 'some-actor-id', id='start'),
     pytest.param('actor', 'call', 'call', 'some-actor-id', id='call'),
+    pytest.param('task', 'start', 'start_task', 'some-task-id', id='start_task'),
     pytest.param('task', 'call', 'call_task', 'some-task-id', id='call_task'),
 ]
 
@@ -314,7 +331,7 @@ async def test_remote_method_with_webhooks(
     actor_method_name: str,
     entity_id: str,
 ) -> None:
-    """Test that start/call/call_task correctly serialize webhooks."""
+    """Test that start/call/start_task/call_task correctly serialize webhooks."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
@@ -341,7 +358,7 @@ async def test_remote_method_with_timedelta_timeout(
     actor_method_name: str,
     entity_id: str,
 ) -> None:
-    """Test that start/call/call_task accept a timedelta timeout."""
+    """Test that start/call/start_task/call_task accept a timedelta timeout."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
@@ -364,7 +381,7 @@ async def test_remote_method_with_invalid_timeout(
     actor_method_name: str,
     entity_id: str,
 ) -> None:
-    """Test that start/call/call_task raise ValueError for invalid timeout."""
+    """Test that start/call/start_task/call_task raise ValueError for invalid timeout."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
@@ -437,19 +454,28 @@ async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
     assert apify_client_async_patcher.calls['actor'][method_name][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
-async def test_actor_call_task_skipped_when_no_inherited_time_remains(
+@pytest.mark.parametrize(
+    ('client_method', 'actor_method_name'),
+    [
+        pytest.param('start', 'start_task', id='start_task'),
+        pytest.param('call', 'call_task', id='call_task'),
+    ],
+)
+async def test_actor_task_methods_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
+    client_method: str,
+    actor_method_name: str,
 ) -> None:
-    """Test that Actor.call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
-    apify_client_async_patcher.patch('task', 'call', return_value=Mock())
+    """Test that start_task/call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
+    apify_client_async_patcher.patch('task', client_method, return_value=Mock())
 
     async with Actor:
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
-        await Actor.call_task('some-task-id', timeout='inherit')
+        await getattr(Actor, actor_method_name)('some-task-id', timeout='inherit')
 
-    assert len(apify_client_async_patcher.calls['task']['call']) == 1
-    assert apify_client_async_patcher.calls['task']['call'][0][1]['run_timeout'] == timedelta(seconds=1)
+    assert len(apify_client_async_patcher.calls['task'][client_method]) == 1
+    assert apify_client_async_patcher.calls['task'][client_method][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
 async def test_reboot_runs_all_listeners_even_when_one_fails(
