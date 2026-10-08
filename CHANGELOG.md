@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - **charging:** Support the `idempotency_key` param in `Actor.charge()` ([#1123](https://github.com/apify/apify-sdk-python/pull/1123)) ([e7f1b75](https://github.com/apify/apify-sdk-python/commit/e7f1b757cd01e6b3a87a1c84c9bf418149a5f7b5)) by [@Mantisus](https://github.com/Mantisus), closes [#1122](https://github.com/apify/apify-sdk-python/issues/1122)
 - Read Actor input from the working directory when the store has none ([#1147](https://github.com/apify/apify-sdk-python/pull/1147)) ([34a12d5](https://github.com/apify/apify-sdk-python/commit/34a12d520dac1de77dc01b30e08371a0da5ee706)) by [@vdusek](https://github.com/vdusek), closes [#1140](https://github.com/apify/apify-sdk-python/issues/1140)
 - Add Actor.resurrect to restart a finished Actor run with its original storages ([#1165](https://github.com/apify/apify-sdk-python/pull/1165)) ([b13c696](https://github.com/apify/apify-sdk-python/commit/b13c6960ee1456a6e2d2ed0e7a5719c97304ad8a)) by [@vdusek](https://github.com/vdusek), closes [#1162](https://github.com/apify/apify-sdk-python/issues/1162)
+- Add Actor.start_task to start task without waiting for it to finish ([#1164](https://github.com/apify/apify-sdk-python/pull/1164)) ([b90a8f4](https://github.com/apify/apify-sdk-python/commit/b90a8f44230a0d414b5ba6ca07d62c81da69cb48)) by [@vdusek](https://github.com/vdusek), closes [#1161](https://github.com/apify/apify-sdk-python/issues/1161)
 
 ### 🐛 Bug Fixes
 
