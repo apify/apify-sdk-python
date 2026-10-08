@@ -9,7 +9,7 @@ import pytest
 
 from apify_client._models import Run
 
-from apify import Actor
+from apify import Actor, _child_runs
 from apify._actor import _ActorType
 from apify._child_runs import CHILD_RUNS_KEY
 
@@ -157,9 +157,10 @@ async def test_named_start_resurrects_settling_run_after_it_finishes(
     ],
 )
 async def test_named_start_replaces_failed_or_missing_run(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, recorded_run: Run | None
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch, recorded_run: Run | None
 ) -> None:
     """A recorded run that failed or no longer exists is replaced by a new run and kept in the history."""
+    monkeypatch.setattr(_child_runs, '_NOT_FOUND_GRACE_SECS', 0)
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=recorded_run)
 
@@ -492,3 +493,20 @@ async def test_name_lock_is_dropped_after_named_start(apify_client_async_patcher
     async with _ActorType() as actor:
         await actor.start('some-actor', run_name='scrape-eu')
         assert len(actor._child_run_registry._name_locks) == 0
+
+
+async def test_named_start_retries_recorded_run_not_found_yet(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A recorded run the API briefly reports as missing is looked up again and reattached, not replaced."""
+    get_run = Mock(side_effect=[None, make_run('old-run', 'RUNNING')])
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run')
+        run = await Actor.start('some-actor', run_name='scrape-eu')
+
+    assert run.id == 'old-run'
+    assert get_run.call_count == 2
+    assert apify_client_async_patcher.calls['actor']['start'] == []

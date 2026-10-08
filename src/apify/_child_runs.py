@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
     from apify_client import ApifyClientAsync
     from apify_client._models import Run
+    from apify_client._resource_clients import RunClientAsync
 
     from apify.storages import KeyValueStore
 
@@ -25,6 +26,11 @@ _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
 """Statuses that end as `ABORTED` / `TIMED-OUT` shortly, and are resurrectable once they do."""
 
 _RESURRECTABLE_STATUSES = frozenset({'ABORTED', 'TIMED-OUT'})
+
+_NOT_FOUND_GRACE_SECS = 3
+"""How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
+
+_NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
 
 
 class ChildRunRecord(BaseModel):
@@ -53,6 +59,21 @@ class ChildRunRecord(BaseModel):
 
 def _describe_started_from(actor_id: str | None, task_id: str | None) -> str:
     return f'Actor "{actor_id}"' if actor_id is not None else f'task "{task_id}"'
+
+
+async def _get_recorded_run(run_client: RunClientAsync) -> Run | None:
+    """Fetch a recorded run, retrying a 404 for a few seconds.
+
+    A run started moments ago, e.g. by a concurrent call under the same name, may not be on every API replica yet,
+    and treating it as gone would start a duplicate.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _NOT_FOUND_GRACE_SECS
+    while True:
+        run = await run_client.get()
+        if run is not None or loop.time() >= deadline:
+            return run
+        await asyncio.sleep(_NOT_FOUND_RETRY_INTERVAL_SECS)
 
 
 _records_adapter = TypeAdapter(dict[str, ChildRunRecord])
@@ -118,7 +139,7 @@ class ChildRunRegistry:
                 )
 
             run_client = client.run(record.run_id)
-            run = await run_client.get()
+            run = await _get_recorded_run(run_client)
 
             if run is not None and run.status in _SETTLING_STATUSES:
                 run = await run_client.wait_for_finish()
