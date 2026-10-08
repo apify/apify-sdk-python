@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 4.0.3 - **not yet released**
+## [4.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.1.0) (2026-10-08)
 
 ### 🚀 Features
 
@@ -18,7 +17,6 @@ All notable changes to this project will be documented in this file.
 - Add missing max_items to Actor.start, Actor.call and Actor.call_task ([#1166](https://github.com/apify/apify-sdk-python/pull/1166)) ([f68385a](https://github.com/apify/apify-sdk-python/commit/f68385a6700069978550ffdd9bc9d34da5854996)) by [@vdusek](https://github.com/vdusek), closes [#1163](https://github.com/apify/apify-sdk-python/issues/1163)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.0.2](https://github.com/apify/apify-sdk-python/releases/tag/v4.0.2) (2026-09-03)
 
 ### 🐛 Bug Fixes
