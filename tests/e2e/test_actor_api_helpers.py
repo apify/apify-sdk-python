@@ -202,6 +202,65 @@ async def test_actor_calls_another_actor(
     assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
 
 
+async def test_actor_starts_task(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """`Actor.start_task` returns the run before it finishes, and the started task run completes with its output."""
+
+    async def main_inner() -> None:
+        async with Actor:
+            await asyncio.sleep(5)
+            actor_input = await Actor.get_input() or {}
+            test_value = actor_input.get('test_value')
+            await Actor.set_value('OUTPUT', f'{test_value}_XXX_{test_value}')
+
+    async def main_outer() -> None:
+        async with Actor:
+            actor_input = await Actor.get_input() or {}
+            inner_task_id = actor_input.get('inner_task_id')
+
+            assert inner_task_id is not None
+
+            inner_run = await Actor.start_task(inner_task_id)
+
+            assert inner_run.actor_task_id == inner_task_id
+            assert inner_run.status in {'READY', 'RUNNING'}
+
+    inner_actor = await make_actor(label='start-task-inner', main_func=main_inner)
+    outer_actor = await make_actor(label='start-task-outer', main_func=main_outer)
+
+    inner_actor_get_result = await inner_actor.get()
+    assert inner_actor_get_result is not None, 'Failed to get inner actor ID'
+
+    inner_actor_id = inner_actor_get_result.id
+    test_value = crypto_random_object_id()
+
+    task = await apify_client_async.tasks().create(
+        actor_id=inner_actor_id,
+        name=generate_unique_resource_name('actor-start-task'),
+        task_input={'test_value': test_value},
+    )
+
+    try:
+        run_result_outer = await run_actor(
+            outer_actor,
+            run_input={'inner_task_id': task.id},
+            force_permission_level='FULL_PERMISSIONS',
+        )
+
+        assert run_result_outer.status == 'SUCCEEDED'
+
+        await inner_actor.last_run().wait_for_finish(wait_duration=timedelta(seconds=600))
+
+        inner_output_record = await inner_actor.last_run().key_value_store().get_record('OUTPUT')
+        assert inner_output_record is not None
+        assert inner_output_record['value'] == f'{test_value}_XXX_{test_value}'
+    finally:
+        await apify_client_async.task(task.id).delete()
+
+
 async def test_actor_calls_task(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,

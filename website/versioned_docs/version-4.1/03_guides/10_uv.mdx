@@ -166,13 +166,13 @@ Day-to-day dependency management goes through uv as well:
 
 ```bash
 # Add a dependency (records it in pyproject.toml and updates uv.lock).
-uv add httpx
+uv add httpx2
 
 # Add a development-only dependency (skipped in the Docker build by --no-dev).
 uv add --dev ruff
 
 # Remove a dependency.
-uv remove httpx
+uv remove httpx2
 
 # Upgrade all dependencies to the latest versions allowed by pyproject.toml.
 uv lock --upgrade

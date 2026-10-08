@@ -13,7 +13,7 @@ from crawlee.events import (
 )
 
 from apify._actor import Actor
-from apify._child_runs import ChildRunInfo
+from apify._child_runs import ChildRunInfo, ChildRunSnapshot
 from apify._configuration import Configuration
 from apify._consts import ActorEnvVars, ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, ProxyInfo
@@ -28,6 +28,7 @@ __all__ = [
     'ActorEventTypes',
     'ApifyEnvVars',
     'ChildRunInfo',
+    'ChildRunSnapshot',
     'Configuration',
     'Event',
     'EventAbortingData',
