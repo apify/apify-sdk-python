@@ -483,3 +483,12 @@ async def test_named_start_task_reuses_recorded_run(apify_client_async_patcher: 
 
     assert run.id == 'old-run'
     assert apify_client_async_patcher.calls['task']['start'] == []
+
+
+async def test_name_lock_is_dropped_after_named_start(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """The per-name lock is released from the registry once no named start holds it."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with _ActorType() as actor:
+        await actor.start('some-actor', run_name='scrape-eu')
+        assert len(actor._child_run_registry._name_locks) == 0

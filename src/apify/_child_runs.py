@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from collections import defaultdict
 from logging import getLogger
 from typing import TYPE_CHECKING, Self
+from weakref import WeakValueDictionary
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 from pydantic.alias_generators import to_camel
@@ -68,9 +68,10 @@ class ChildRunRegistry:
     def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
         self._open_key_value_store = open_key_value_store
         self._records: dict[str, ChildRunRecord] | None = None
-        self._load_lock = asyncio.Lock()
-        self._write_lock = asyncio.Lock()
-        self._name_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._lock = asyncio.Lock()
+        """Guards loading the records and writing them back to the key-value store."""
+        self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
+        """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
 
     async def find_or_start(
         self,
@@ -99,7 +100,7 @@ class ChildRunRegistry:
         Returns:
             The run, and whether it was newly started.
         """
-        async with self._name_locks[name]:
+        async with self._name_locks.setdefault(name, asyncio.Lock()):
             records = await self._load()
             record = records.get(name)
 
@@ -151,7 +152,7 @@ class ChildRunRegistry:
         return run
 
     async def _load(self) -> dict[str, ChildRunRecord]:
-        async with self._load_lock:
+        async with self._lock:
             if self._records is None:
                 key_value_store = await self._open_key_value_store()
                 stored = await key_value_store.get_value(CHILD_RUNS_KEY)
@@ -167,7 +168,7 @@ class ChildRunRegistry:
     async def _save(self, name: str, record: ChildRunRecord) -> None:
         records = await self._load()
         key_value_store = await self._open_key_value_store()
-        async with self._write_lock:
+        async with self._lock:
             records[name] = record
             await key_value_store.set_value(
                 CHILD_RUNS_KEY, _records_adapter.dump_python(records, by_alias=True, mode='json')
