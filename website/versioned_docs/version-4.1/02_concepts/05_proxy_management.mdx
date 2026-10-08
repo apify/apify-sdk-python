@@ -12,7 +12,7 @@ import ProxyRotationExample from '!!raw-loader!roa-loader!./code/05_proxy_rotati
 import ApifyProxyConfig from '!!raw-loader!roa-loader!./code/05_apify_proxy_config.py';
 import CustomProxyFunctionExample from '!!raw-loader!roa-loader!./code/05_custom_proxy_function.py';
 import ProxyActorInputExample from '!!raw-loader!roa-loader!./code/05_proxy_actor_input.py';
-import ProxyHttpxExample from '!!raw-loader!roa-loader!./code/05_proxy_httpx.py';
+import ProxyHttpx2Example from '!!raw-loader!roa-loader!./code/05_proxy_httpx2.py';
 import TieredProxyExample from '!!raw-loader!roa-loader!./code/05_tiered_proxy.py';
 import ApiLink from '@theme/ApiLink';
 
@@ -108,16 +108,16 @@ You can then use that input to create the proxy configuration:
 
 `ProxyConfiguration` only generates proxy URLs. It doesn't make requests. To route requests through the proxy, pass a generated URL to the HTTP client your Actor uses.
 
-### HTTPX
+### HTTPX2
 
-To use the generated proxy URLs with the `httpx` library, use the [`proxy`](https://www.python-httpx.org/advanced/proxies/) argument:
+To use the generated proxy URLs with the `httpx2` library, use the [`proxy`](https://pydantic.dev/docs/httpx2/advanced/proxies/) argument:
 
 <RunnableCodeBlock className="language-python" language="python">
-    {ProxyHttpxExample}
+    {ProxyHttpx2Example}
 </RunnableCodeBlock>
 
-Make sure you have the `httpx` library installed:
+Make sure you have the `httpx2` library installed:
 
 ```bash
-pip install httpx
+pip install httpx2
 ```

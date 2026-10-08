@@ -8,6 +8,7 @@ import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacting_start.py';
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
+import InteractingStartTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_start_task.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
@@ -32,6 +33,14 @@ The <ApiLink to="class/Actor#call">`Actor.call`</ApiLink> method starts another 
 
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingCallExample}
+</RunnableCodeBlock>
+
+## Actor start task
+
+The <ApiLink to="class/Actor#start_task">`Actor.start_task`</ApiLink> method starts an [Actor task](https://docs.apify.com/platform/actors/tasks) on the Apify platform, and immediately returns the details of the started Actor run.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingStartTaskExample}
 </RunnableCodeBlock>
 
 ## Actor call task
