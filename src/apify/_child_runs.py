@@ -123,6 +123,8 @@ class ChildRunRegistry:
         """Guards loading the records and writing them back to the key-value store."""
         self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
+        self._clients: dict[str, ApifyClientAsync] = {}
+        """Client of the latest `find_or_start` call under each name. Lost on a migration, like any in-memory state."""
 
     async def find_or_start(
         self,
@@ -156,6 +158,7 @@ class ChildRunRegistry:
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
 
         async with self._name_locks.setdefault(name, asyncio.Lock()):
+            self._clients[name] = client
             records = await self._load()
             record = records.get(name)
 
@@ -195,15 +198,20 @@ class ChildRunRegistry:
             await self.update(name, run)
             return run, False
 
-    async def list_runs(self, client: ApifyClientAsync) -> dict[str, ChildRunInfo]:
+    async def list_runs(self, default_client: ApifyClientAsync) -> dict[str, ChildRunInfo]:
         """Return every recorded child run by name, with its current state fetched from the API.
 
+        Each run is fetched with the client its name was last started or reattached with in this process, so a run
+        started with a custom token is fetched with that token.
+
         Args:
-            client: Client used to fetch the recorded runs.
+            default_client: Client used for a name not started in this process, e.g. one recorded before a migration.
         """
         # Copy the records, since a named start can add one while the runs are fetched.
         records = dict(await self._load())
-        runs = await asyncio.gather(*(client.run(record.run_id).get() for record in records.values()))
+        runs = await asyncio.gather(
+            *(self._clients.get(name, default_client).run(record.run_id).get() for name, record in records.items())
+        )
         return {
             name: ChildRunInfo(run_id=record.run_id, run=run, history=list(record.history))
             for (name, record), run in zip(records.items(), runs, strict=True)

@@ -14,6 +14,8 @@ from apify._actor import _ActorType
 from apify._child_runs import CHILD_RUNS_KEY, checksum_request
 
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
     from ..conftest import ApifyClientAsyncPatcher
     from apify.storages import KeyValueStore
 
@@ -669,3 +671,37 @@ async def test_named_call_records_finished_status(apify_client_async_patcher: Ap
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert stored == {'scrape-eu': stored_record('new-run', 'FAILED')}
+
+
+async def test_child_runs_fetches_run_with_its_start_client(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Actor.child_runs` fetches a run started with a custom token using that client, others with the default one."""
+    http_clients: dict[str, Any] = {}
+
+    async def get_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run:
+        http_clients[run_client.resource_id] = run_client._http_client
+        return make_run(run_client.resource_id, 'RUNNING')
+
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('custom-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
+    new_client = _ActorType.new_client
+    clients_by_token: dict[str | None, ApifyClientAsync] = {}
+
+    def recording_new_client(self: _ActorType, **kwargs: Any) -> ApifyClientAsync:
+        client = new_client(self, **kwargs)
+        clients_by_token[kwargs.get('token')] = client
+        return client
+
+    monkeypatch.setattr(_ActorType, 'new_client', recording_new_client)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'recorded': stored_record('recorded-run', 'RUNNING')})
+        await Actor.start('some-actor', run_name='custom', token='custom-token')
+        await Actor.child_runs()
+        default_http_client = Actor.apify_client._http_client
+
+    custom_http_client = clients_by_token['custom-token']._http_client
+    assert custom_http_client is not default_http_client
+    assert http_clients == {'custom-run': custom_http_client, 'recorded-run': default_http_client}
