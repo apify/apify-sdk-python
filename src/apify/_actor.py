@@ -182,6 +182,7 @@ class _ActorType:
         - Sets up local or cloud storage clients depending on whether the Actor runs locally or on the Apify platform.
         - Configures the event manager and starts periodic state persistence.
         - Initializes the charging manager for handling charging events.
+        - Loads the named child runs recorded by an earlier attempt of this Actor run.
         - Configures logging after all core services are registered.
 
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple

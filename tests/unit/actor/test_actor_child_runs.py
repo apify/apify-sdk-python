@@ -623,7 +623,7 @@ async def test_child_runs_is_empty_without_named_runs(apify_client_async_patcher
         assert Actor.child_runs == {}
 
 
-async def test_child_runs_requires_initialized_actor() -> None:
+def test_child_runs_requires_initialized_actor() -> None:
     """`Actor.child_runs` raises outside of the Actor context."""
     with pytest.raises(RuntimeError, match='not active'):
         _ = Actor.child_runs
