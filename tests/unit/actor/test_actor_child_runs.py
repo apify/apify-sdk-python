@@ -375,13 +375,16 @@ async def test_named_call_without_logger_only_waits(apify_client_async_patcher: 
 
 
 async def test_init_rejects_malformed_registry() -> None:
-    """Init raises a `ValueError` naming the key when the registry in the default KVS is malformed."""
+    """Init raises a `ValueError` naming the key when the registry in the default KVS is malformed, and tears down."""
     async with Actor:
         kvs = await Actor.open_key_value_store()
         await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
 
     with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
         await Actor.init()
+
+    assert not Actor._active
+    assert not Actor.event_manager.active
 
 
 async def test_named_call_task_records_run_in_kvs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:

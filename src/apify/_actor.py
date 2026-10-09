@@ -230,11 +230,20 @@ class _ActorType:
         # Mark initialization as complete and update global state.
         self._active = True
 
-        if not Actor.is_at_home():
-            # Make sure that the input related KVS is initialized to ensure that the input aware client is used
-            await self.open_key_value_store()
+        try:
+            if not Actor.is_at_home():
+                # Make sure that the input related KVS is initialized to ensure that the input aware client is used
+                await self.open_key_value_store()
 
-        await self._child_run_registry.load()
+            await self._child_run_registry.load()
+        except BaseException:
+            # Undo the initialization, since a failed `__aenter__` gets no `__aexit__`.
+            self._active = False
+            try:
+                await self._charging_manager_implementation.__aexit__(None, None, None)
+            finally:
+                await self.event_manager.__aexit__(None, None, None)
+            raise
         return self
 
     async def __aexit__(
