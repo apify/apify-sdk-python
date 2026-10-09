@@ -35,7 +35,7 @@ from apify._charging import (
     ChargingManagerImplementation,
     charge_lock_if_charging,
 )
-from apify._child_runs import ChildRunInfo, ChildRunRegistry
+from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -233,6 +233,8 @@ class _ActorType:
         if not Actor.is_at_home():
             # Make sure that the input related KVS is initialized to ensure that the input aware client is used
             await self.open_key_value_store()
+
+        await self._child_run_registry.load()
         return self
 
     async def __aexit__(
@@ -383,6 +385,24 @@ class _ActorType:
         if not self._apify_client:
             self._apify_client = self.new_client()
         return self._apify_client
+
+    @property
+    @_ensure_context
+    def child_runs(self) -> dict[str, RunClientAsync]:
+        """Clients for the named child runs of this Actor run, keyed by the run name.
+
+        Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
+        included, even one started before a migration or resurrection of this Actor run. Runs started without
+        a `run_name` are not tracked. Each client points to the current run under its name:
+
+        ```python
+        run = await Actor.child_runs['my-child'].wait_for_finish()
+        ```
+
+        A run started with a custom `token` uses that token, except for a run started before a migration or
+        resurrection of this Actor run, which uses the default client.
+        """
+        return self._child_run_registry.run_clients(self.apify_client)
 
     @cached_property
     def configuration(self) -> Configuration:
@@ -1400,22 +1420,6 @@ class _ActorType:
             timeout=timeout,
         )
         return run
-
-    @_ensure_context
-    async def child_runs(self) -> dict[str, ChildRunInfo]:
-        """Get the named child runs of this Actor run, with their current state.
-
-        Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
-        included, even one started before a migration or resurrection of this Actor run. Runs started without
-        a `run_name` are not tracked. Each run is fetched from the API when this method is called, so the result is
-        a snapshot. A run that fails to fetch is returned with `run=None` and a warning is logged. A run started with
-        a custom `token` is fetched with that token, except after a migration or resurrection of this Actor run, which
-        loses the token, so the default client is used.
-
-        Returns:
-            The child runs by name.
-        """
-        return await self._child_run_registry.list_runs(self.apify_client)
 
     @_ensure_context
     async def call_task(

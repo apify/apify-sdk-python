@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from dataclasses import dataclass
 from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
@@ -11,8 +10,6 @@ from weakref import WeakValueDictionary
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
-
-from apify._utils import docs_group
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -38,11 +35,7 @@ _NOT_FOUND_GRACE_SECS = 3
 
 _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
 
-_LIST_RUNS_CONCURRENCY = 10
-"""How many recorded runs `ChildRunRegistry.list_runs` fetches at once."""
 
-
-@docs_group('Actor')
 class ChildRunSnapshot(BaseModel):
     """A child run as last observed by this Actor run."""
 
@@ -92,22 +85,6 @@ async def _get_recorded_run(run_client: RunClientAsync) -> Run | None:
         if run is not None or loop.time() >= deadline:
             return run
         await asyncio.sleep(_NOT_FOUND_RETRY_INTERVAL_SECS)
-
-
-@docs_group('Actor')
-@dataclass(frozen=True)
-class ChildRunInfo:
-    """A named child run of this Actor run, as returned by `Actor.child_runs`."""
-
-    run_id: str
-    """ID of the current run under this name."""
-
-    run: Run | None
-    """The current run as the API returns it now, or `None` when the platform no longer knows it or fetching it
-    failed."""
-
-    history: list[ChildRunSnapshot]
-    """Earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
 
 
 _records_adapter = TypeAdapter(dict[str, ChildRunRecord])
@@ -203,31 +180,18 @@ class ChildRunRegistry:
             await self.update(name, run)
             return run, False
 
-    async def list_runs(self, default_client: ApifyClientAsync) -> dict[str, ChildRunInfo]:
-        """Return every recorded child run by name, with its current state fetched from the API.
+    def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
+        """Return a client for the current run under each recorded name.
 
-        Each run is fetched with the client its name was last started or reattached with in this process, so a run
-        started with a custom token is fetched with that token.
+        Each client comes from the client its name was last started or reattached with in this process, so a run
+        started with a custom token uses that token.
 
         Args:
             default_client: Client used for a name not started in this process, e.g. one recorded before a migration.
         """
-        # Copy the records, since a named start can add one while the runs are fetched.
-        records = dict(await self._load())
-        semaphore = asyncio.Semaphore(_LIST_RUNS_CONCURRENCY)
-
-        async def fetch_run(name: str, run_id: str) -> Run | None:
-            async with semaphore:
-                try:
-                    return await self._clients.get(name, default_client).run(run_id).get()
-                except Exception:
-                    logger.warning(f'Failed to fetch child run "{name}"', exc_info=True, extra={'run_id': run_id})
-                    return None
-
-        runs = await asyncio.gather(*(fetch_run(name, record.run_id) for name, record in records.items()))
         return {
-            name: ChildRunInfo(run_id=record.run_id, run=run, history=list(record.history))
-            for (name, record), run in zip(records.items(), runs, strict=True)
+            name: self._clients.get(name, default_client).run(record.run_id)
+            for name, record in (self._records or {}).items()
         }
 
     async def update(self, name: str, run: Run) -> None:
@@ -257,19 +221,22 @@ class ChildRunRegistry:
         await self._save(name, record)
         return run
 
-    async def _load(self) -> dict[str, ChildRunRecord]:
+    async def load(self) -> dict[str, ChildRunRecord]:
+        """Read the records from the default key-value store, replacing any read before."""
         async with self._lock:
-            if self._records is None:
-                key_value_store = await self._open_key_value_store()
-                stored = await key_value_store.get_value(CHILD_RUNS_KEY)
-                try:
-                    self._records = _records_adapter.validate_python(stored or {})
-                except ValidationError as exc:
-                    raise ValueError(
-                        f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
-                        'is malformed.'
-                    ) from exc
+            key_value_store = await self._open_key_value_store()
+            stored = await key_value_store.get_value(CHILD_RUNS_KEY)
+            try:
+                self._records = _records_adapter.validate_python(stored or {})
+            except ValidationError as exc:
+                raise ValueError(
+                    f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
+                    'is malformed.'
+                ) from exc
             return self._records
+
+    async def _load(self) -> dict[str, ChildRunRecord]:
+        return self._records if self._records is not None else await self.load()
 
     async def _save(self, name: str, record: ChildRunRecord) -> None:
         records = await self._load()
