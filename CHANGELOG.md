@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 
 - Add `max_total_charge_usd` to `Actor.start_task` and `Actor.call_task` ([#1167](https://github.com/apify/apify-sdk-python/pull/1167)) ([e3d36b9](https://github.com/apify/apify-sdk-python/commit/e3d36b97226117f0c8c84b8333bc59046a693dde)) by [@vdusek](https://github.com/vdusek)
 
+### 🐛 Bug Fixes
+
+- Deprecate max_items in favor of max_total_charge_usd ([#1168](https://github.com/apify/apify-sdk-python/pull/1168)) ([c9991fa](https://github.com/apify/apify-sdk-python/commit/c9991fa3bb7ff12d86dd9855ae15812d1142ba52)) by [@vdusek](https://github.com/vdusek)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [4.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.1.0) (2026-10-08)
