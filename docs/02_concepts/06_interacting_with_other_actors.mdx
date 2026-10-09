@@ -9,6 +9,11 @@ import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 import InteractingStartExample from '!!raw-loader!roa-loader!./code/06_interacting_start.py';
 import InteractingCallExample from '!!raw-loader!roa-loader!./code/06_interacting_call.py';
 import InteractingStartTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_start_task.py';
+import InteractingNamedCallExample from '!!raw-loader!roa-loader!./code/06_interacting_named_call.py';
+import InteractingChildRunsExample from '!!raw-loader!roa-loader!./code/06_interacting_child_runs.py';
+import InteractingAbortWithParentExample from '!!raw-loader!roa-loader!./code/06_interacting_abort_with_parent.py';
+import InteractingChildRunLimitExample from '!!raw-loader!roa-loader!./code/06_interacting_child_run_limit.py';
+import InteractingChildRunBudgetExample from '!!raw-loader!roa-loader!./code/06_interacting_child_run_budget.py';
 import InteractingCallTaskExample from '!!raw-loader!roa-loader!./code/06_interacting_call_task.py';
 import InteractingMetamorphExample from '!!raw-loader!roa-loader!./code/06_interacting_metamorph.py';
 import InteractingAbortExample from '!!raw-loader!roa-loader!./code/06_interacting_abort.py';
@@ -50,6 +55,90 @@ The <ApiLink to="class/Actor#call_task">`Actor.call_task`</ApiLink> method start
 <RunnableCodeBlock className="language-python" language="python">
     {InteractingCallTaskExample}
 </RunnableCodeBlock>
+
+## Named child runs
+
+When your Actor migrates to another server or is resurrected, it starts again from the beginning. An unnamed `Actor.start` or `Actor.call` then starts a second child run, and the first one keeps running with nobody waiting for it.
+
+To avoid the duplicate, pass a `run_name` to <ApiLink to="class/Actor#start">`Actor.start`</ApiLink>, <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>, <ApiLink to="class/Actor#start_task">`Actor.start_task`</ApiLink> or <ApiLink to="class/Actor#call_task">`Actor.call_task`</ApiLink>. The name must be unique within your Actor run. Right after the child run starts, the SDK records its name and run ID under the `__ACTOR_CHILD_RUNS` key in the default key-value store. After a restart, the same call looks up the recorded run and reuses it based on its status:
+
+- `READY` or `RUNNING`: the call reattaches to the run.
+- `SUCCEEDED`: the call returns the run as is.
+- `ABORTED` or `TIMED-OUT`: the call resurrects the run. A run that is still `ABORTING` or `TIMING-OUT` is waited for first.
+- `FAILED`, or the run no longer exists: the call starts a new run under the same name.
+
+A named `Actor.call` that reattaches to a run streams only the log lines the child writes from then on, so the parent log doesn't repeat what the previous attempt already printed.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingNamedCallExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- The name is bound to the `actor_id` or `task_id` you pass and to the run input. Using the same name for a different Actor, task or input, or for the same Actor referenced by its ID instead of its name, raises a `ValueError`.
+- Concurrent calls under one name in the same Actor run share a single child run.
+- If your Actor is killed after the platform starts the child but before the SDK records it, the child run isn't recorded and the next attempt starts a new one.
+
+### Accessing child runs
+
+The <ApiLink to="class/Actor#child_runs">`Actor.child_runs`</ApiLink> property returns a run client for each named child run of your Actor run, keyed by its name. It includes child runs started before a migration or resurrection, and each client points to the current run under its name. Runs started without a `run_name` aren't included.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingChildRunsExample}
+</RunnableCodeBlock>
+
+### Aborting child runs with the parent
+
+When your Actor run is aborted, its child runs keep running, and you pay for them until they finish on their own. To abort a named child run together with your Actor run, pass `abort_with_parent=True`. When your Actor run receives the `ABORTING` event of a graceful abort, the SDK gracefully aborts every child run marked this way that's still `READY` or `RUNNING`. The flag is recorded with the name, so it also covers child runs started before a migration or resurrection.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingAbortWithParentExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- The option is off by default, since aborting a child run throws away the work it hasn't finished.
+- It requires `run_name`. Without one, `Actor.start`, `Actor.call`, `Actor.start_task` and `Actor.call_task` raise a `ValueError`.
+- Each call under a name records its own value, so the latest call decides whether the run is aborted.
+- A child run aborted this way ends as `ABORTED`. If your Actor run is resurrected later, the same named call resurrects the child run too.
+- Only a graceful abort gives the SDK time to act. A hard abort, a timeout, or a crash of your Actor run leaves the child runs running.
+- Child runs started after your Actor run received `ABORTING` aren't aborted, so don't start new ones while it's shutting down.
+- A child run started with its own `token` is aborted with that token. After a migration or resurrection, the SDK uses your Actor's token for it until the same named call runs again. If that token can't access the child run, the abort fails and the error is logged.
+
+### Limiting concurrent child runs
+
+An Actor that starts many child runs at once can hit the concurrency or memory limit of your account. To cap how many named child runs are active at once, call <ApiLink to="class/Actor#set_child_run_limits">`Actor.set_child_run_limits`</ApiLink>. While the limit is reached, a named `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` that would start or resurrect a run waits until one of the active child runs finishes. The SDK counts the child runs from the registry, so child runs started before a migration or resurrection count too.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingChildRunLimitExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- A child run counts as active while it's `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`.
+- Only named child runs count, and only named calls wait. A call without `run_name` starts its run right away.
+- Reattaching to an active child run never waits, since the run already holds a slot.
+- `Actor.call` and `Actor.call_task` free the slot as soon as their run finishes. The SDK doesn't learn right away about a child run that nothing waits for, so it fetches the run again before counting it, once its status is more than 10 seconds old.
+- The limit isn't persisted. After a migration or resurrection, call `Actor.set_child_run_limits` again before you start child runs.
+- Once your Actor run receives the `ABORTING` event, a call waiting for a slot raises a `RuntimeError` without starting its run.
+
+### Sharing the charge budget with child runs
+
+When your Actor run is started with a maximum total charge (`max_total_charge_usd`), its named child runs share that budget. Each named start or call reserves a charge limit for its child run from the part of the budget your Actor run hasn't charged yet and hasn't reserved for other child runs. Without `max_total_charge_usd`, the child run gets all of that part. A higher value is lowered to it. Your Actor run can't charge the reserved part itself, so the whole tree of runs stays within the budget, however many child runs start at once.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {InteractingChildRunBudgetExample}
+</RunnableCodeBlock>
+
+Note that:
+
+- Pass `max_total_charge_usd` when several child runs run at once. Otherwise the first one reserves the whole budget, and the next named start raises a `RuntimeError`.
+- When a child run finishes, the SDK keeps only its charge (`usage_total_usd`) reserved and releases the rest. The platform can add to that charge for about 3 minutes after the run finishes, so the SDK fetches the run again until then.
+- The charges of a failed child run stay reserved after a new run replaces it under the same name.
+- A reattached child run keeps the limit it was started with. A resurrected one gets a new limit, which can include the part it reserved before.
+- The reservations are stored in the registry, so they survive a migration or resurrection of your Actor run.
+- Child runs started without `run_name` aren't tracked, so they don't reserve any part of the budget.
+- A limit that the platform sets by default, which it does for pay-per-event Actors, isn't shared. Only a limit set for the run counts.
 
 ## Actor metamorph
 
