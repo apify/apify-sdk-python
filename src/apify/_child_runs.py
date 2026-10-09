@@ -148,14 +148,14 @@ class ChildRunRegistry:
                     'Use a unique `run_name` for each child run.'
                 )
 
-            self._clients[name] = client
-
             if record is None:
                 run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
+                self._clients[name] = client
                 return run, True
 
             run_client = client.run(record.run_id)
             run = await _get_recorded_run(run_client)
+            self._clients[name] = client
 
             if run is not None and run.status in _SETTLING_STATUSES:
                 run = await run_client.wait_for_finish()

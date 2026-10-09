@@ -705,3 +705,20 @@ async def test_child_runs_keeps_client_of_name_after_rejected_reuse(
         default_http_client = Actor.apify_client._http_client
 
     assert child_runs['scrape-eu']._http_client is default_http_client
+
+
+async def test_child_runs_keeps_client_of_name_after_failed_lookup(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A named start whose lookup of the recorded run fails leaves `Actor.child_runs` with the original client."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', replacement_method=Mock(side_effect=RuntimeError('forbidden')))
+
+    async with Actor:
+        await Actor.start('some-actor', run_name='scrape-eu')
+        with pytest.raises(RuntimeError, match='forbidden'):
+            await Actor.start('some-actor', run_name='scrape-eu', token='other-token')
+        child_runs = Actor.child_runs
+        default_http_client = Actor.apify_client._http_client
+
+    assert child_runs['scrape-eu']._http_client is default_http_client
