@@ -1055,7 +1055,6 @@ class _ActorType:
             run_input=run_input,
             client=client,
             start_run=start_run,
-            token=token,
             build=build,
             max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
@@ -1146,29 +1145,6 @@ class _ActorType:
         if max_items is not None:
             _warn_max_items_deprecated()
 
-        return await self._resurrect(
-            run_id,
-            token=token,
-            build=build,
-            memory_mbytes=memory_mbytes,
-            timeout=timeout,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-        )
-
-    async def _resurrect(
-        self,
-        run_id: str,
-        *,
-        token: str | None,
-        build: str | None,
-        memory_mbytes: int | None,
-        timeout: timedelta | Literal['inherit'] | None,
-        max_items: int | None,
-        max_total_charge_usd: Decimal | None,
-        restart_on_error: bool | None,
-    ) -> Run:
         client = self.new_client(token=token) if token else self.apify_client
 
         return await client.run(run_id).resurrect(
@@ -1282,7 +1258,6 @@ class _ActorType:
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
                 ),
-                token=token,
                 build=build,
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
@@ -1309,7 +1284,6 @@ class _ActorType:
         run_input: Any,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
-        token: str | None,
         build: str | None,
         max_items: int | None,
         max_total_charge_usd: Decimal | None,
@@ -1324,16 +1298,13 @@ class _ActorType:
             run_input=run_input,
             client=client,
             start_run=start_run,
-            # The caller of the named start was already warned about a deprecated `max_items`.
-            resurrect_run=partial(
-                self._resurrect,
-                token=token,
+            resurrect_run=lambda run_id: client.run(run_id).resurrect(
                 build=build,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                timeout=timeout,
             ),
         )
 
@@ -1444,7 +1415,6 @@ class _ActorType:
             run_input=task_input,
             client=client,
             start_run=start_run,
-            token=token,
             build=build,
             max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
@@ -1545,7 +1515,6 @@ class _ActorType:
                     run_timeout=self._resolve_run_timeout(timeout),
                     webhooks=to_client_representations(webhooks),
                 ),
-                token=token,
                 build=build,
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
