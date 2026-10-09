@@ -179,7 +179,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "4.1.0"
+version = "4.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client", extra = ["brotli"] },
@@ -225,7 +225,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apify-client", extras = ["brotli"], specifier = ">=3.1.0,<4.0.0" },
+    { name = "apify-client", extras = ["brotli"], specifier = ">=3.3.0,<4.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", specifier = ">=1.8.0,!=1.10.1,<2.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
@@ -265,7 +265,7 @@ dev = [
 
 [[package]]
 name = "apify-client"
-version = "3.2.1"
+version = "3.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
@@ -274,9 +274,9 @@ dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/37/0e7374e97e7cdb0749f8a0b1e9d84b1036b0e08b1ff636fb140463246084/apify_client-3.2.1.tar.gz", hash = "sha256:604561af6eada8ca2ed4f3b6afb62f22e5bf6e00f8f4c46f6f51636301412215", size = 144669, upload-time = "2026-09-25T12:55:14.751Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/eb/e99684fd036fd63f9b3f95ebeafa0e706e02b7c7066ac091444683cb0471/apify_client-3.3.0.tar.gz", hash = "sha256:4adb1d2d424ceb72f7382bd51b9372a687e5cc1ea54f1bc252228e0eb9316687", size = 158619, upload-time = "2026-10-08T11:22:35.225Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/05/9dff8e2767335f159fb9506926888a990b3f3855dfbef34dada70be96762/apify_client-3.2.1-py3-none-any.whl", hash = "sha256:b464064ae14e1f96b0fc253529a093bcf4ccb8ff3112647c326d11011b2454ea", size = 160238, upload-time = "2026-09-25T12:55:12.808Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/30/0ef4c0a26ef68c491f502dbe149478f97ec68d56bcc097d3505ee6cd660d/apify_client-3.3.0-py3-none-any.whl", hash = "sha256:57edb1382e44b54a58f0ca2f62fe884c09994fcfad94ff327bcbed490022d708", size = 174351, upload-time = "2026-10-08T11:22:33.826Z" },
 ]
 
 [package.optional-dependencies]

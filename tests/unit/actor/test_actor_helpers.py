@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import warnings
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -153,9 +154,90 @@ async def test_max_items_forwarded_to_client(
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
 
     async with Actor:
-        await getattr(Actor, sdk_method)('some-id', max_items=42)
+        with pytest.warns(FutureWarning):
+            await getattr(Actor, sdk_method)('some-id', max_items=42)
 
     assert apify_client_async_patcher.calls[client_resource][client_method][0][1]['max_items'] == 42
+
+
+@pytest.mark.parametrize(
+    ('client_resource', 'client_method', 'sdk_method'),
+    [
+        pytest.param('actor', 'start', 'start', id='start'),
+        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('task', 'start', 'start_task', id='start_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
+        pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
+    ],
+)
+async def test_max_items_warns_deprecated(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    client_resource: str,
+    client_method: str,
+    sdk_method: str,
+) -> None:
+    """Passing `max_items` emits a `FutureWarning` that recommends `max_total_charge_usd` and points at the caller."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
+
+    async with Actor:
+        with pytest.warns(FutureWarning, match='`max_total_charge_usd`') as record:
+            await getattr(Actor, sdk_method)('some-id', max_items=42)
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+
+
+@pytest.mark.parametrize(
+    ('client_resource', 'client_method', 'sdk_method'),
+    [
+        pytest.param('actor', 'start', 'start', id='start'),
+        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('task', 'start', 'start_task', id='start_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
+        pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
+    ],
+)
+async def test_no_max_items_warning_without_max_items(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    client_resource: str,
+    client_method: str,
+    sdk_method: str,
+) -> None:
+    """The `max_items` deprecation warning is not emitted when `max_items` is not passed."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
+
+    async with Actor:
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', FutureWarning)
+            await getattr(Actor, sdk_method)('some-id')
+
+
+@pytest.mark.parametrize(
+    ('client_resource', 'client_method', 'sdk_method'),
+    [
+        pytest.param('actor', 'start', 'start', id='start'),
+        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('task', 'start', 'start_task', id='start_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
+    ],
+)
+async def test_max_total_charge_usd_forwarded_to_client(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    client_resource: str,
+    client_method: str,
+    sdk_method: str,
+) -> None:
+    """`max_total_charge_usd` passed to any of the run-starting helpers reaches the API client."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
+
+    async with Actor:
+        await getattr(Actor, sdk_method)('some-id', max_total_charge_usd=Decimal('2.5'))
+
+    kwargs = apify_client_async_patcher.calls[client_resource][client_method][0][1]
+    assert kwargs['max_total_charge_usd'] == Decimal('2.5')
 
 
 async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
@@ -175,15 +257,16 @@ async def test_resurrect_actor_run(apify_client_async_patcher: ApifyClientAsyncP
     run_id = 'some-run-id'
 
     async with Actor:
-        run = await Actor.resurrect(
-            run_id,
-            build='beta',
-            memory_mbytes=1024,
-            timeout=timedelta(seconds=120),
-            max_items=100,
-            max_total_charge_usd=Decimal('2.5'),
-            restart_on_error=True,
-        )
+        with pytest.warns(FutureWarning):
+            run = await Actor.resurrect(
+                run_id,
+                build='beta',
+                memory_mbytes=1024,
+                timeout=timedelta(seconds=120),
+                max_items=100,
+                max_total_charge_usd=Decimal('2.5'),
+                restart_on_error=True,
+            )
 
     assert run is fake_actor_run
     calls = apify_client_async_patcher.calls['run']['resurrect']

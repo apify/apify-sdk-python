@@ -9,7 +9,7 @@ from unittest import mock
 
 import pytest
 
-from apify_client._models import BatchAddResult, RequestDraft
+from apify_client._models import BatchAddResult, UnprocessedRequest
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 
@@ -1290,7 +1290,7 @@ async def test_request_queue_deduplication_unprocessed_requests(
     def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> BatchAddResult:
         """Simulate API returning unprocessed requests."""
         unprocessed_requests = [
-            RequestDraft.model_construct(
+            UnprocessedRequest.model_construct(
                 url=request['url'],
                 unique_key=request['uniqueKey'],
                 method=request['method'],
