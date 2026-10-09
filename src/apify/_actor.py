@@ -401,15 +401,15 @@ class _ActorType:
         """Clients for the named child runs of this Actor run, keyed by the run name.
 
         Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
-        included, even one started before a migration or resurrection of this Actor run. Runs started without
-        a `run_name` are not tracked. Each client points to the current run under its name:
+        included, even one started before a migration or resurrection of this Actor run. Runs started without a
+        `run_name` are not tracked. Each client points to the current run under its name:
 
         ```python
         run = await Actor.child_runs['my-child'].wait_for_finish()
         ```
 
-        A run started with a custom `token` uses that token, except for a run started before a migration or
-        resurrection of this Actor run, which uses the default client.
+        A run started with a custom `token` uses that token, except for a run started before a migration or resurrection
+        of this Actor run, which uses the default client.
         """
         return self._child_run_registry.run_clients(self.apify_client)
 

@@ -105,7 +105,7 @@ class ChildRunRegistry:
         self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
         self._clients: dict[str, ApifyClientAsync] = {}
-        """Client of the latest `find_or_start` call under each name. Lost on a migration, like any in-memory state."""
+        """Client of the latest `find_or_start` call under each name. Lost on a migration."""
 
     async def find_or_start(
         self,
@@ -183,8 +183,8 @@ class ChildRunRegistry:
     def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
         """Return a client for the current run under each recorded name.
 
-        Each client comes from the client its name was last started or reattached with in this process, so a run
-        started with a custom token uses that token.
+        Each client comes from the client its name was last started or reattached with in this process, so a run started
+        with a custom token uses that token.
 
         Args:
             default_client: Client used for a name not started in this process, e.g. one recorded before a migration.
