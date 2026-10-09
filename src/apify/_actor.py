@@ -7,7 +7,7 @@ import sys
 import warnings
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
@@ -35,6 +35,7 @@ from apify._charging import (
     ChargingManagerImplementation,
     charge_lock_if_charging,
 )
+from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -49,13 +50,14 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Callable, MutableMapping
+    from collections.abc import Awaitable, Callable, MutableMapping
     from decimal import Decimal
     from types import TracebackType
     from typing import Self
 
     from apify_client._literals import ActorPermissionLevel
     from apify_client._models import Run
+    from apify_client._resource_clients import RunClientAsync
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
@@ -160,6 +162,8 @@ class _ActorType:
 
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
+
+        self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
 
         self._active = False
         """Whether the Actor instance is currently active (initialized and within context)."""
@@ -953,6 +957,7 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
+        run_name: str | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -982,6 +987,12 @@ class _ActorType:
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run
@@ -992,7 +1003,8 @@ class _ActorType:
         client = self.new_client(token=token) if token else self.apify_client
 
         actor_client = client.actor(actor_id)
-        return await actor_client.start(
+        start_run = partial(
+            actor_client.start,
             run_input=run_input,
             content_type=content_type,
             build=build,
@@ -1004,6 +1016,25 @@ class _ActorType:
             force_permission_level=force_permission_level,
             webhooks=to_client_representations(webhooks),
         )
+
+        if run_name is None:
+            return await start_run()
+
+        run, _ = await self._find_or_start_child_run(
+            run_name,
+            actor_id=actor_id,
+            run_input=run_input,
+            client=client,
+            start_run=start_run,
+            token=token,
+            build=build,
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            timeout=timeout,
+        )
+        return run
 
     @_ensure_context
     async def abort(
@@ -1115,6 +1146,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
+        run_name: str | None = None,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1147,6 +1179,12 @@ class _ActorType:
             logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
                 default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
                 will redirect logs to the provided logger.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1157,25 +1195,121 @@ class _ActorType:
         client = self.new_client(token=token) if token else self.apify_client
 
         actor_client = client.actor(actor_id)
-        run = await actor_client.call(
-            run_input=run_input,
-            content_type=content_type,
-            build=build,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
-            force_permission_level=force_permission_level,
-            webhooks=to_client_representations(webhooks),
-            wait_duration=wait,
-            logger=logger,
-        )
+
+        if run_name is None:
+            run = await actor_client.call(
+                run_input=run_input,
+                content_type=content_type,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
+                force_permission_level=force_permission_level,
+                webhooks=to_client_representations(webhooks),
+                wait_duration=wait,
+                logger=logger,
+            )
+        else:
+            started_run, is_new = await self._find_or_start_child_run(
+                run_name,
+                actor_id=actor_id,
+                run_input=run_input,
+                client=client,
+                start_run=partial(
+                    actor_client.start,
+                    run_input=run_input,
+                    content_type=content_type,
+                    build=build,
+                    max_items=max_items,
+                    max_total_charge_usd=max_total_charge_usd,
+                    restart_on_error=restart_on_error,
+                    memory_mbytes=memory_mbytes,
+                    run_timeout=self._resolve_run_timeout(timeout),
+                    force_permission_level=force_permission_level,
+                    webhooks=to_client_representations(webhooks),
+                ),
+                token=token,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                timeout=timeout,
+            )
+            # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
+            run = await self._wait_for_child_run(
+                run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
+            )
 
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
 
         return run
+
+    async def _find_or_start_child_run(
+        self,
+        name: str,
+        *,
+        actor_id: str | None = None,
+        task_id: str | None = None,
+        run_input: Any,
+        client: ApifyClientAsync,
+        start_run: Callable[[], Awaitable[Run]],
+        token: str | None,
+        build: str | None,
+        max_items: int | None,
+        max_total_charge_usd: Decimal | None,
+        restart_on_error: bool | None,
+        memory_mbytes: int | None,
+        timeout: timedelta | Literal['inherit'] | None,
+    ) -> tuple[Run, bool]:
+        return await self._child_run_registry.find_or_start(
+            name,
+            actor_id=actor_id,
+            task_id=task_id,
+            run_input=run_input,
+            client=client,
+            start_run=start_run,
+            resurrect_run=partial(
+                self.resurrect,
+                token=token,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                timeout=timeout,
+            ),
+        )
+
+    async def _wait_for_child_run(
+        self,
+        name: str,
+        run_client: RunClientAsync,
+        run: Run,
+        *,
+        wait: timedelta | None,
+        logger: logging.Logger | Literal['default'] | None,
+        from_start: bool,
+    ) -> Run | None:
+        if run.status == 'SUCCEEDED':
+            return run
+
+        if not logger:
+            finished_run = await run_client.wait_for_finish(wait_duration=wait)
+        else:
+            to_logger = None if logger == 'default' else logger
+            status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
+            streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
+
+            async with status_redirector, streamed_log:
+                finished_run = await run_client.wait_for_finish(wait_duration=wait)
+
+        if finished_run is not None:
+            await self._child_run_registry.update(name, finished_run)
+        return finished_run
 
     @_ensure_context
     async def start_task(
@@ -1191,6 +1325,7 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None = None,
         webhooks: list[Webhook] | None = None,
         token: str | None = None,
+        run_name: str | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1220,6 +1355,12 @@ class _ActorType:
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1229,7 +1370,8 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self.apify_client
         task_client = client.task(task_id)
-        return await task_client.start(
+        start_run = partial(
+            task_client.start,
             task_input=task_input,
             build=build,
             max_items=max_items,
@@ -1239,6 +1381,25 @@ class _ActorType:
             run_timeout=self._resolve_run_timeout(timeout),
             webhooks=to_client_representations(webhooks),
         )
+
+        if run_name is None:
+            return await start_run()
+
+        run, _ = await self._find_or_start_child_run(
+            run_name,
+            task_id=task_id,
+            run_input=task_input,
+            client=client,
+            start_run=start_run,
+            token=token,
+            build=build,
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            timeout=timeout,
+        )
+        return run
 
     @_ensure_context
     async def call_task(
@@ -1255,6 +1416,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
+        run_name: str | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1284,6 +1446,12 @@ class _ActorType:
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
             wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
+                so reusing it for a different Actor, task or input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1294,17 +1462,47 @@ class _ActorType:
         client = self.new_client(token=token) if token else self.apify_client
 
         task_client = client.task(task_id)
-        run = await task_client.call(
-            task_input=task_input,
-            build=build,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
-            webhooks=to_client_representations(webhooks),
-            wait_duration=wait,
-        )
+
+        if run_name is None:
+            run = await task_client.call(
+                task_input=task_input,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
+                webhooks=to_client_representations(webhooks),
+                wait_duration=wait,
+            )
+        else:
+            started_run, _ = await self._find_or_start_child_run(
+                run_name,
+                task_id=task_id,
+                run_input=task_input,
+                client=client,
+                start_run=partial(
+                    task_client.start,
+                    task_input=task_input,
+                    build=build,
+                    max_items=max_items,
+                    max_total_charge_usd=max_total_charge_usd,
+                    restart_on_error=restart_on_error,
+                    memory_mbytes=memory_mbytes,
+                    run_timeout=self._resolve_run_timeout(timeout),
+                    webhooks=to_client_representations(webhooks),
+                ),
+                token=token,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                timeout=timeout,
+            )
+            run = await self._wait_for_child_run(
+                run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
+            )
 
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
