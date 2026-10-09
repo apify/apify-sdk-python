@@ -14,8 +14,8 @@ from apify import Request
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from apify_client._models import HeadRequest, LockedHeadRequest
-    from apify_client._models import Request as ClientRequest
+    from apify_client._models import LockedRequestQueueHeadItem, RequestQueueHeadItem
+    from apify_client._models import RequestResource as ClientRequest
     from crawlee.storage_clients.models import AddRequestsResponse
 
     from apify import Configuration
@@ -51,7 +51,7 @@ def hash_api_public_base_url_and_token(configuration: Configuration) -> str:
     return compute_short_hash(f'{configuration.api_public_base_url}{configuration.token}'.encode())
 
 
-def to_crawlee_request(client_request: ClientRequest | HeadRequest | LockedHeadRequest) -> Request:
+def to_crawlee_request(client_request: ClientRequest | RequestQueueHeadItem | LockedRequestQueueHeadItem) -> Request:
     """Convert an Apify API client's `Request` model to a Crawlee's `Request` model.
 
     Args:

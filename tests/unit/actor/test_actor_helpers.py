@@ -158,6 +158,32 @@ async def test_max_items_forwarded_to_client(
     assert apify_client_async_patcher.calls[client_resource][client_method][0][1]['max_items'] == 42
 
 
+@pytest.mark.parametrize(
+    ('client_resource', 'client_method', 'sdk_method'),
+    [
+        pytest.param('actor', 'start', 'start', id='start'),
+        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('task', 'start', 'start_task', id='start_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
+    ],
+)
+async def test_max_total_charge_usd_forwarded_to_client(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    client_resource: str,
+    client_method: str,
+    sdk_method: str,
+) -> None:
+    """`max_total_charge_usd` passed to any of the run-starting helpers reaches the API client."""
+    apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
+
+    async with Actor:
+        await getattr(Actor, sdk_method)('some-id', max_total_charge_usd=Decimal('2.5'))
+
+    kwargs = apify_client_async_patcher.calls[client_resource][client_method][0][1]
+    assert kwargs['max_total_charge_usd'] == Decimal('2.5')
+
+
 async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     apify_client_async_patcher.patch('run', 'abort', return_value=fake_actor_run)
     run_id = 'some-run-id'

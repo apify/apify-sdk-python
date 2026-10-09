@@ -958,7 +958,8 @@ class _ActorType:
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
             max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
                 charge, not the output, so the run can return fewer or more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1058,8 +1059,10 @@ class _ActorType:
                 timeout.
             max_items: Maximum number of items that the resurrected pay-per-result run will return. By default, the
                 resurrected run uses the same limit as before. The limit can only be increased.
-            max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default, the resurrected
-                run uses the same limit as before. The limit can only be increased.
+            max_total_charge_usd: A limit on the total charged amount of the resurrected run, in USD. Once the run
+                exceeds it, the platform aborts the run, which takes a few seconds, so the final charge can slightly
+                overshoot the limit. By default, the resurrected run uses the same limit as before. The limit can only
+                be increased.
             restart_on_error: If true, the resurrected run process will be restarted whenever it exits with a non-zero
                 status code. By default, the resurrected run uses the same setting as before.
 
@@ -1109,7 +1112,8 @@ class _ActorType:
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
             max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
                 charge, not the output, so the run can return fewer or more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1161,6 +1165,7 @@ class _ActorType:
         *,
         build: str | None = None,
         max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | Literal['inherit'] | None = None,
@@ -1183,6 +1188,8 @@ class _ActorType:
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
             max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
                 charge, not the output, so the run can return fewer or more items than this.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1203,6 +1210,7 @@ class _ActorType:
             task_input=task_input,
             build=build,
             max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             run_timeout=self._resolve_run_timeout(timeout),
@@ -1217,6 +1225,7 @@ class _ActorType:
         *,
         build: str | None = None,
         max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | Literal['inherit'] | None = None,
@@ -1239,6 +1248,8 @@ class _ActorType:
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
             max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
                 charge, not the output, so the run can return fewer or more items than this.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1261,6 +1272,7 @@ class _ActorType:
             task_input=task_input,
             build=build,
             max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             run_timeout=self._resolve_run_timeout(timeout),
