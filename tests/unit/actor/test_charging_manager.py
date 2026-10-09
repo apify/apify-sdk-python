@@ -689,3 +689,51 @@ async def test_charge_registers_the_count_capped_by_the_budget(mock_client: Magi
         assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 2
         assert cm.get_charged_event_count('search') == 2
         assert mock_client.run.return_value.charge.await_count == 1
+
+
+@pytest.mark.parametrize(
+    ('options_extra', 'expected'),
+    [
+        pytest.param({'isMaxTotalChargeUsdSetByUser': True}, True, id='set by user'),
+        pytest.param({'isMaxTotalChargeUsdSetByUser': False}, False, id='platform default'),
+        pytest.param({}, False, id='not reported'),
+    ],
+)
+async def test_max_total_charge_usd_set_by_user_is_read_from_the_run_options(
+    mock_client: MagicMock, *, options_extra: dict[str, Any], expected: bool
+) -> None:
+    """On the platform, whether the limit was set by the user comes from the run options, fetched once."""
+    run = MagicMock()
+    run.options.model_extra = options_extra
+    mock_client.run.return_value.get = AsyncMock(return_value=run)
+    config = _make_config(
+        is_at_home=True,
+        actor_run_id='run-id',
+        actor_pricing_info=_make_ppe_pricing_info(),
+        charged_event_counts={},
+        max_total_charge_usd=Decimal(10),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        assert await cm.is_max_total_charge_usd_set_by_user() is expected
+        assert await cm.is_max_total_charge_usd_set_by_user() is expected
+
+    mock_client.run.return_value.get.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ('max_total_charge_usd', 'expected'),
+    [
+        pytest.param(Decimal(10), True, id='limited'),
+        pytest.param(None, False, id='unlimited'),
+    ],
+)
+async def test_max_total_charge_usd_set_by_user_locally(
+    mock_client: MagicMock, *, max_total_charge_usd: Decimal | None, expected: bool
+) -> None:
+    """Locally, any limit counts as set by the user, and no run is fetched."""
+    cm = ChargingManagerImplementation(_make_config(max_total_charge_usd=max_total_charge_usd), mock_client)
+    async with cm:
+        assert await cm.is_max_total_charge_usd_set_by_user() is expected
+
+    mock_client.run.return_value.get.assert_not_awaited()

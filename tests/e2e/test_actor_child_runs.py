@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from apify import Actor
@@ -164,3 +165,40 @@ async def test_named_child_runs_respect_the_concurrency_limit(
     assert run_result.status == 'SUCCEEDED'
     # The parent run and its two child runs.
     assert (await actor.runs().list()).total == 3
+
+
+async def test_named_child_runs_share_the_parent_budget(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """Named child runs of a parent started with `max_total_charge_usd` get charge limits within its budget."""
+
+    async def main() -> None:
+        from decimal import Decimal
+
+        async with Actor:
+            actor_input = (await Actor.get_input()) or {}
+            if actor_input.get('is_child') is True:
+                await asyncio.sleep(300)
+                return
+
+            actor_id = Actor.configuration.actor_id or ''
+            first = await Actor.start(
+                actor_id=actor_id, run_input={'is_child': True}, run_name='first', max_total_charge_usd=Decimal('0.25')
+            )
+            second = await Actor.start(actor_id=actor_id, run_input={'is_child': True}, run_name='second')
+            try:
+                limits = []
+                for run in (first, second):
+                    fetched = await Actor.apify_client.run(run.id).get()
+                    assert fetched is not None, 'fetched is None'
+                    limits.append(fetched.options.max_total_charge_usd)
+                assert limits == [0.25, 0.75], f'limits={limits}'
+            finally:
+                for run in (first, second):
+                    await Actor.apify_client.run(run.id).abort()
+
+    actor = await make_actor(label='child-run-budget', main_func=main)
+    run_result = await run_actor(actor, max_total_charge_usd=Decimal(1))
+
+    assert run_result.status == 'SUCCEEDED'
