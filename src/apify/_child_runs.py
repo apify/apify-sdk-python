@@ -104,6 +104,8 @@ class ChildRunRegistry:
         """Guards loading the records and writing them back to the key-value store."""
         self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
+        self._clients: dict[str, ApifyClientAsync] = {}
+        """Client the run under each name was last started or looked up with. Lost on a migration."""
 
     async def find_or_start(
         self,
@@ -140,18 +142,20 @@ class ChildRunRegistry:
             records = await self._load()
             record = records.get(name)
 
-            if record is None:
-                run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
-                return run, True
-
-            if record.checksum != checksum:
+            if record is not None and record.checksum != checksum:
                 raise ValueError(
                     f'The run name "{name}" was already used for a different Actor, task or input. '
                     'Use a unique `run_name` for each child run.'
                 )
 
+            if record is None:
+                run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
+                self._clients[name] = client
+                return run, True
+
             run_client = client.run(record.run_id)
             run = await _get_recorded_run(run_client)
+            self._clients[name] = client
 
             if run is not None and run.status in _SETTLING_STATUSES:
                 run = await run_client.wait_for_finish()
@@ -175,6 +179,21 @@ class ChildRunRegistry:
 
             await self.update(name, run)
             return run, False
+
+    def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
+        """Return a client for the current run under each recorded name.
+
+        Each client comes from the client its name was last started or looked up with in this process, so a run started
+        with a custom token uses that token.
+
+        Args:
+            default_client: Client used for a name not started or looked up in this process, e.g. one recorded before a
+                migration.
+        """
+        return {
+            name: self._clients.get(name, default_client).run(record.run_id)
+            for name, record in (self._records or {}).items()
+        }
 
     async def update(self, name: str, run: Run) -> None:
         """Record the latest observed status of the run recorded under `name`.
@@ -203,19 +222,22 @@ class ChildRunRegistry:
         await self._save(name, record)
         return run
 
-    async def _load(self) -> dict[str, ChildRunRecord]:
+    async def load(self) -> dict[str, ChildRunRecord]:
+        """Read the records from the default key-value store, replacing any read before."""
         async with self._lock:
-            if self._records is None:
-                key_value_store = await self._open_key_value_store()
-                stored = await key_value_store.get_value(CHILD_RUNS_KEY)
-                try:
-                    self._records = _records_adapter.validate_python(stored or {})
-                except ValidationError as exc:
-                    raise ValueError(
-                        f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
-                        'is malformed.'
-                    ) from exc
+            key_value_store = await self._open_key_value_store()
+            stored = await key_value_store.get_value(CHILD_RUNS_KEY)
+            try:
+                self._records = _records_adapter.validate_python(stored or {})
+            except ValidationError as exc:
+                raise ValueError(
+                    f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
+                    'is malformed.'
+                ) from exc
             return self._records
+
+    async def _load(self) -> dict[str, ChildRunRecord]:
+        return self._records if self._records is not None else await self.load()
 
     async def _save(self, name: str, record: ChildRunRecord) -> None:
         records = await self._load()

@@ -182,6 +182,7 @@ class _ActorType:
         - Sets up local or cloud storage clients depending on whether the Actor runs locally or on the Apify platform.
         - Configures the event manager and starts periodic state persistence.
         - Initializes the charging manager for handling charging events.
+        - Loads the named child runs recorded by an earlier attempt of this Actor run.
         - Configures logging after all core services are registered.
 
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
@@ -230,9 +231,20 @@ class _ActorType:
         # Mark initialization as complete and update global state.
         self._active = True
 
-        if not Actor.is_at_home():
-            # Make sure that the input related KVS is initialized to ensure that the input aware client is used
-            await self.open_key_value_store()
+        try:
+            if not Actor.is_at_home():
+                # Make sure that the input related KVS is initialized to ensure that the input aware client is used
+                await self.open_key_value_store()
+
+            await self._child_run_registry.load()
+        except BaseException:
+            # Undo the initialization, since a failed `__aenter__` gets no `__aexit__`.
+            self._active = False
+            try:
+                await self._charging_manager_implementation.__aexit__(None, None, None)
+            finally:
+                await self.event_manager.__aexit__(None, None, None)
+            raise
         return self
 
     async def __aexit__(
@@ -383,6 +395,24 @@ class _ActorType:
         if not self._apify_client:
             self._apify_client = self.new_client()
         return self._apify_client
+
+    @property
+    @_ensure_context
+    def child_runs(self) -> dict[str, RunClientAsync]:
+        """Clients for the named child runs of this Actor run, keyed by the run name.
+
+        Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
+        included, even one started before a migration or resurrection of this Actor run. Runs started without a
+        `run_name` are not tracked. Each client points to the current run under its name:
+
+        ```python
+        run = await Actor.child_runs['my-child'].wait_for_finish()
+        ```
+
+        A run started or reattached with a custom `token` since the last migration or resurrection of this Actor run
+        uses that token. Any other run uses the default client.
+        """
+        return self._child_run_registry.run_clients(self.apify_client)
 
     @cached_property
     def configuration(self) -> Configuration:
@@ -1026,7 +1056,6 @@ class _ActorType:
             run_input=run_input,
             client=client,
             start_run=start_run,
-            token=token,
             build=build,
             max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
@@ -1230,7 +1259,6 @@ class _ActorType:
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
                 ),
-                token=token,
                 build=build,
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
@@ -1257,7 +1285,6 @@ class _ActorType:
         run_input: Any,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
-        token: str | None,
         build: str | None,
         max_items: int | None,
         max_total_charge_usd: Decimal | None,
@@ -1272,15 +1299,13 @@ class _ActorType:
             run_input=run_input,
             client=client,
             start_run=start_run,
-            resurrect_run=partial(
-                self.resurrect,
-                token=token,
+            resurrect_run=lambda run_id: client.run(run_id).resurrect(
                 build=build,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                timeout=timeout,
             ),
         )
 
@@ -1391,7 +1416,6 @@ class _ActorType:
             run_input=task_input,
             client=client,
             start_run=start_run,
-            token=token,
             build=build,
             max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
@@ -1492,7 +1516,6 @@ class _ActorType:
                     run_timeout=self._resolve_run_timeout(timeout),
                     webhooks=to_client_representations(webhooks),
                 ),
-                token=token,
                 build=build,
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,

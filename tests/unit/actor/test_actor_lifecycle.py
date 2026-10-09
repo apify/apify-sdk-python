@@ -21,6 +21,7 @@ from ..._utils import poll_until_condition
 from apify import Actor
 from apify._actor import _ActorType
 from apify._charging import ChargingManagerImplementation
+from apify._child_runs import ChildRunRegistry
 from apify._consts import EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 
 if TYPE_CHECKING:
@@ -339,6 +340,8 @@ async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.Monke
     # the Actor automatically emits the PERSIST_STATE event with data `{'isMigrating': True}`
     monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, '1')
     monkeypatch.setenv(ActorEnvVars.RUN_ID, 'asdf')
+    # Init reads the child run registry from the default KVS, which on the platform needs a token.
+    monkeypatch.setattr(ChildRunRegistry, 'load', AsyncMock(return_value={}))
 
     persist_state_events_data = []
 
