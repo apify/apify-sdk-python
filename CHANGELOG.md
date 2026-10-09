@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 - Add `max_total_charge_usd` to `Actor.start_task` and `Actor.call_task` ([#1167](https://github.com/apify/apify-sdk-python/pull/1167)) ([e3d36b9](https://github.com/apify/apify-sdk-python/commit/e3d36b97226117f0c8c84b8333bc59046a693dde)) by [@vdusek](https://github.com/vdusek)
 - Reattach named child runs after migration or resurrection ([#1149](https://github.com/apify/apify-sdk-python/pull/1149)) ([95dbc7c](https://github.com/apify/apify-sdk-python/commit/95dbc7c3d02d7b1f982b217e8ef2a74b32f3e1d3)) by [@vdusek](https://github.com/vdusek), closes [#1127](https://github.com/apify/apify-sdk-python/issues/1127)
+- Add `Actor.child_runs` with clients for named child runs ([#1151](https://github.com/apify/apify-sdk-python/pull/1151)) ([d382995](https://github.com/apify/apify-sdk-python/commit/d38299582c3474fb533cefa99c5eae70f7ff995a)) by [@vdusek](https://github.com/vdusek), closes [#1129](https://github.com/apify/apify-sdk-python/issues/1129)
 
 ### 🐛 Bug Fixes
 
