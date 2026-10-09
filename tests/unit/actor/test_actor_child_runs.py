@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -13,6 +14,7 @@ from crawlee.events import Event, EventAbortingData
 
 from apify import Actor, Configuration, _child_runs
 from apify._actor import _ActorType
+from apify._charging import ChargingManagerImplementation
 from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
 from apify.events import ApifyEventManager
 
@@ -64,6 +66,9 @@ def stored_record(
         'checksum': checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input),
         'history': history or [],
         'abortWithParent': abort_with_parent,
+        'maxTotalChargeUsd': None,
+        'chargedUsd': None,
+        'previousChargedUsd': '0',
     }
 
 
@@ -936,7 +941,7 @@ async def test_aborting_waits_for_a_named_start_in_flight() -> None:
     started = asyncio.Event()
     release = asyncio.Event()
 
-    async def start_run() -> Run:
+    async def start_run(*, max_total_charge_usd: Decimal | None) -> Run:  # noqa: ARG001
         started.set()
         await release.wait()
         return make_run('new-run', 'READY')
@@ -1005,7 +1010,7 @@ def make_client(statuses: dict[str, str]) -> Mock:
     def run(run_id: str) -> Mock:
         run_client = Mock()
         run_client.get = AsyncMock(side_effect=lambda: make_run(run_id, statuses[run_id]))
-        run_client.resurrect = AsyncMock(side_effect=lambda: make_run(run_id, 'RUNNING'))
+        run_client.resurrect = AsyncMock(side_effect=lambda **_: make_run(run_id, 'RUNNING'))
         run_client.abort = AsyncMock()
         return run_client
 
@@ -1018,7 +1023,7 @@ async def start_child(
 ) -> Run:
     """Start a named child run with the registry, adding its run to `statuses` as `RUNNING`."""
 
-    async def start_run() -> Run:
+    async def start_run(*, max_total_charge_usd: Decimal | None) -> Run:  # noqa: ARG001
         new_run_id = run_id or f'{name}-run'
         statuses[new_run_id] = 'RUNNING'
         return make_run(new_run_id, 'READY')
@@ -1029,7 +1034,9 @@ async def start_child(
         run_input=None,
         client=client,
         start_run=start_run,
-        resurrect_run=lambda run_id: client.run(run_id).resurrect(),
+        resurrect_run=lambda run_id, *, max_total_charge_usd: client.run(run_id).resurrect(
+            max_total_charge_usd=max_total_charge_usd
+        ),
     )
     return run
 
@@ -1277,3 +1284,400 @@ async def test_named_call_task_frees_its_slot_when_the_run_finishes(
         await asyncio.wait_for(Actor.start('some-actor', run_name='second'), timeout=1)
 
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+@pytest.fixture
+def parent_budget(
+    monkeypatch: pytest.MonkeyPatch, apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> dict[str, Run]:
+    """Give the Actor run a budget of 10 USD, with each local charge costing 1 USD, and a client serving `runs`."""
+    monkeypatch.setenv('ACTOR_MAX_TOTAL_CHARGE_USD', '10')
+    monkeypatch.setenv('ACTOR_TEST_PAY_PER_EVENT', 'true')
+    runs: dict[str, Run] = {}
+
+    def start(*_args: Any, **_kwargs: Any) -> Run:
+        run = make_run(f'run-{len(runs) + 1}', 'READY')
+        runs[run.id] = run.model_copy(update={'status': 'RUNNING'})
+        return run
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start)
+    apify_client_async_patcher.patch(
+        'run', 'get', replacement_method=lambda run_client: runs.get(run_client._resource_id)
+    )
+    apify_client_async_patcher.patch(
+        'run', 'resurrect', replacement_method=lambda run_client, **_: runs[run_client._resource_id]
+    )
+    return runs
+
+
+def finish(run: Run, status: str, usage_total_usd: float, *, finished_ago: timedelta = timedelta(0)) -> Run:
+    return run.model_copy(
+        update={
+            'status': status,
+            'usage_total_usd': usage_total_usd,
+            'finished_at': datetime.now(UTC) - finished_ago,
+        }
+    )
+
+
+def started_limits(apify_client_async_patcher: ApifyClientAsyncPatcher) -> list[Decimal | None]:
+    return [kwargs['max_total_charge_usd'] for _, kwargs in apify_client_async_patcher.calls['actor']['start']]
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_named_start_gets_the_budget_left(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named start without a charge limit gets the part of the parent's budget it has not charged itself."""
+    async with Actor:
+        await Actor.charge('some-event', count=3)
+        await Actor.start('some-actor', run_name='child')
+
+    assert started_limits(apify_client_async_patcher) == [Decimal(7)]
+
+
+@pytest.mark.parametrize(
+    ('requested', 'expected'),
+    [
+        pytest.param(Decimal(4), Decimal(4), id='within budget'),
+        pytest.param(Decimal(20), Decimal(10), id='above budget'),
+    ],
+)
+@pytest.mark.usefixtures('parent_budget')
+async def test_named_start_charge_limit_is_capped_at_the_budget_left(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    requested: Decimal,
+    expected: Decimal,
+) -> None:
+    """An explicit charge limit of a named start is kept within the budget left and lowered above it."""
+    async with Actor:
+        await Actor.start('some-actor', run_name='child', max_total_charge_usd=requested)
+
+    assert started_limits(apify_client_async_patcher) == [expected]
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_unnamed_start_charge_limit_is_passed_through(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A start without a name is not tracked, so its charge limit is neither capped nor reserved."""
+    async with Actor:
+        await Actor.start('some-actor', max_total_charge_usd=Decimal(20))
+        await Actor.start('some-actor', run_name='child')
+
+    assert started_limits(apify_client_async_patcher) == [Decimal(20), Decimal(10)]
+
+
+async def test_named_start_charge_limit_is_passed_through_without_a_parent_budget(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Without a parent budget, a named start gets the charge limit it asked for."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await Actor.start('some-actor', run_name='first', max_total_charge_usd=Decimal(20))
+        await Actor.start('some-actor', run_name='second')
+
+    assert started_limits(apify_client_async_patcher) == [Decimal(20), None]
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_running_child_run_reserves_its_charge_limit(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """The limit of a running child run is reserved, both from later child runs and from the parent's own charges."""
+    async with Actor:
+        await Actor.start('some-actor', run_name='first', max_total_charge_usd=Decimal(6))
+        charge_result = await Actor.charge('some-event', count=3)
+        await Actor.start('some-actor', run_name='second')
+
+    assert charge_result.charged_count == 3
+    assert started_limits(apify_client_async_patcher) == [Decimal(6), Decimal(1)]
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_named_call_task_gets_the_budget_left(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named task call gets the part of the parent's budget it has not charged itself, as an Actor call does."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('task-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('task-run', 'SUCCEEDED'))
+
+    async with Actor:
+        await Actor.charge('some-event', count=3)
+        await Actor.call_task('some-task', run_name='child')
+
+    [(_, kwargs)] = apify_client_async_patcher.calls['task']['start']
+    assert kwargs['max_total_charge_usd'] == Decimal(7)
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_reserved_budget_limits_the_parent_charges() -> None:
+    """The parent charges only the part of its budget not reserved for child runs."""
+    async with Actor:
+        await Actor.start('some-actor', run_name='child', max_total_charge_usd=Decimal(6))
+        charge_result = await Actor.charge('some-event', count=10)
+
+    assert charge_result.charged_count == 4
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_exhausted_budget_rejects_a_named_start() -> None:
+    """A named start raises when the whole parent budget is charged or reserved."""
+    async with Actor:
+        await Actor.start('some-actor', run_name='first')
+        with pytest.raises(RuntimeError, match='budget of this Actor run is spent or reserved'):
+            await Actor.start('some-actor', run_name='second')
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_concurrent_named_starts_share_the_budget() -> None:
+    """Concurrent named starts reserve their limits one at a time, so together they stay within the budget."""
+    async with Actor:
+        results = await asyncio.gather(
+            *(Actor.start('some-actor', run_name=name, max_total_charge_usd=Decimal(6)) for name in ('a', 'b')),
+            return_exceptions=True,
+        )
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert not any(isinstance(result, BaseException) for result in results)
+    assert sorted(Decimal(record['maxTotalChargeUsd']) for record in stored.values()) == [Decimal(4), Decimal(6)]
+
+
+async def test_finished_child_run_releases_its_unused_budget(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A finished child run keeps only its charge reserved, and records it once it can no longer change."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE', timedelta(0))
+    async with Actor:
+        first = await Actor.start('some-actor', run_name='first', max_total_charge_usd=Decimal(6))
+        parent_budget[first.id] = finish(parent_budget[first.id], 'SUCCEEDED', 2)
+        await Actor.start('some-actor', run_name='second', max_total_charge_usd=Decimal(3))
+        parent_budget['run-2'] = finish(parent_budget['run-2'], 'SUCCEEDED', 1, finished_ago=timedelta(minutes=5))
+        await Actor.start('some-actor', run_name='third')
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert started_limits(apify_client_async_patcher) == [Decimal(6), Decimal(3), Decimal(7)]
+    # The first run finished just now, so the platform may still add to its charge.
+    assert stored['first']['chargedUsd'] is None
+    assert stored['second']['chargedUsd'] == '1'
+
+
+async def seed_budget_record(name: str, run_id: str, **fields: Any) -> None:
+    """Seed the registry with a record carrying budget fields, as an earlier attempt of this Actor run would."""
+    kvs = await Actor.open_key_value_store()
+    await kvs.set_value(CHILD_RUNS_KEY, {name: {**stored_record(run_id, 'RUNNING'), **fields}})
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_reservations_of_an_earlier_attempt_limit_the_parent_charges() -> None:
+    """A child run recorded by an earlier attempt of the parent keeps its limit reserved from the parent's charges."""
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    # A fresh instance, as the parent is after a migration or resurrection.
+    async with _ActorType() as actor:
+        charge_result = await actor.charge('some-event', count=10)
+
+    assert charge_result.charged_count == 4
+
+
+async def test_resurrection_reuses_the_reservation_of_its_run(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """A resurrected run gets the budget left plus its own reservation, since its limit covers its earlier charges."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'ABORTED', 1)
+    parent_budget['other-run'] = make_run('other-run', 'RUNNING')
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(
+            CHILD_RUNS_KEY,
+            {
+                'child': {**stored_record('old-run', 'RUNNING'), 'maxTotalChargeUsd': '6'},
+                'other': {**stored_record('other-run', 'RUNNING'), 'maxTotalChargeUsd': '3'},
+            },
+        )
+
+    async with _ActorType() as actor:
+        await actor.start('some-actor', run_name='child')
+
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
+    assert kwargs['max_total_charge_usd'] == Decimal(7)
+
+
+async def test_replaced_failed_run_keeps_its_charge_reserved(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """A failed run replaced by a new one under the same name keeps its charge counted against the budget."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'FAILED', 3, finished_ago=timedelta(minutes=5))
+
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    async with _ActorType() as actor:
+        await actor.start('some-actor', run_name='child')
+        kvs = await actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert started_limits(apify_client_async_patcher) == [Decimal(7)]
+    assert stored['child']['previousChargedUsd'] == '3'
+    assert stored['child']['maxTotalChargeUsd'] == '7'
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_failed_named_start_releases_its_reservation(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named start that fails leaves no part of the budget reserved."""
+    async with Actor:
+        apify_client_async_patcher.patch('actor', 'start', replacement_method=Mock(side_effect=RuntimeError('boom')))
+        with pytest.raises(RuntimeError, match='boom'):
+            await Actor.start('some-actor', run_name='child')
+        charge_result = await Actor.charge('some-event', count=10)
+
+    assert charge_result.charged_count == 10
+
+
+async def test_named_start_in_flight_reserves_its_limit(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """The limit of a named start in flight is reserved before the platform returns its run."""
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def start(*_args: Any, **_kwargs: Any) -> Run:
+        started.set()
+        await release.wait()
+        run = make_run('slow-run', 'READY')
+        parent_budget[run.id] = run
+        return run
+
+    async with Actor:
+        apify_client_async_patcher.patch('actor', 'start', replacement_method=start)
+        start_task = asyncio.create_task(Actor.start('some-actor', run_name='first'))
+        await started.wait()
+        charge_result = await Actor.charge('some-event', count=1)
+        release.set()
+        await start_task
+
+    assert charge_result.charged_count == 0
+
+
+async def test_named_call_releases_the_unused_budget_when_the_run_finishes(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """A named call releases the unused limit of its run once the run finishes."""
+    apify_client_async_patcher.patch(
+        'run',
+        'wait_for_finish',
+        replacement_method=lambda run_client, **_: finish(parent_budget[run_client._resource_id], 'SUCCEEDED', 2),
+    )
+
+    async with Actor:
+        await Actor.call('some-actor', run_name='child', max_total_charge_usd=Decimal(6), logger=None)
+        charge_result = await Actor.charge('some-event', count=10)
+
+    assert charge_result.charged_count == 8
+
+
+@pytest.mark.usefixtures('parent_budget')
+async def test_platform_default_charge_limit_is_not_shared_with_child_runs(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A limit the platform gave the parent by default is not split among its child runs."""
+    monkeypatch.setattr(
+        ChargingManagerImplementation, 'is_max_total_charge_usd_set_by_user', AsyncMock(return_value=False)
+    )
+
+    async with Actor:
+        await Actor.start('some-actor', run_name='first')
+        await Actor.start('some-actor', run_name='second', max_total_charge_usd=Decimal(20))
+        charge_result = await Actor.charge('some-event', count=10)
+
+    assert started_limits(apify_client_async_patcher) == [None, Decimal(20)]
+    assert charge_result.charged_count == 10
+
+
+async def test_run_fetched_before_its_resurrection_keeps_the_reservation(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """A snapshot of a run fetched before its resurrection does not release the limit of the resurrected run."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'ABORTED', 1, finished_ago=timedelta(minutes=5))
+    listing = asyncio.Event()
+    release = asyncio.Event()
+
+    async def get(run_client: Any) -> Run | None:
+        run = parent_budget.get(run_client._resource_id)
+        if not listing.is_set():
+            listing.set()
+            await release.wait()
+        return run
+
+    def resurrect(run_client: Any, **_: Any) -> Run:
+        run = parent_budget[run_client._resource_id].model_copy(update={'status': 'RUNNING', 'finished_at': None})
+        parent_budget[run.id] = run
+        return run
+
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get, is_async=True)
+    apify_client_async_patcher.patch('run', 'resurrect', replacement_method=resurrect, is_async=True)
+
+    async with _ActorType() as actor:
+        # Another named start fetches the run under `child` to release its unused budget, and is held mid-fetch.
+        other_task = asyncio.create_task(actor.start('some-actor', run_name='other'))
+        await listing.wait()
+        await actor.start('some-actor', run_name='child')
+        release.set()
+        with pytest.raises(RuntimeError, match='spent or reserved'):
+            await other_task
+        charge_result = await actor.charge('some-event', count=10)
+
+    assert charge_result.charged_count == 0
+
+
+async def test_resurrection_in_flight_reserves_its_limit_once(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """While a resurrection is in flight, its limit is reserved once, including the charge its run made before."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'ABORTED', 1, finished_ago=timedelta(minutes=5))
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def resurrect(run_client: Any, **_: Any) -> Run:
+        started.set()
+        await release.wait()
+        return parent_budget[run_client._resource_id].model_copy(update={'status': 'RUNNING', 'finished_at': None})
+
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    apify_client_async_patcher.patch('run', 'resurrect', replacement_method=resurrect, is_async=True)
+
+    async with _ActorType() as actor:
+        start_task = asyncio.create_task(actor.start('some-actor', run_name='child', max_total_charge_usd=Decimal(4)))
+        await started.wait()
+        charge_result = await actor.charge('some-event', count=10)
+        release.set()
+        await start_task
+
+    assert charge_result.charged_count == 6
+
+
+async def test_failed_resurrection_leaves_the_charge_of_its_run_to_settle(
+    parent_budget: dict[str, Run], apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A resurrection that fails does not stop the charge of the finished run from being recorded later."""
+    parent_budget['old-run'] = finish(make_run('old-run', 'RUNNING'), 'ABORTED', 1)
+
+    async with Actor:
+        await seed_budget_record('child', 'old-run', maxTotalChargeUsd='6')
+
+    apify_client_async_patcher.patch('run', 'resurrect', replacement_method=Mock(side_effect=RuntimeError('boom')))
+
+    async with _ActorType() as actor:
+        with pytest.raises(RuntimeError, match='boom'):
+            await actor.start('some-actor', run_name='child')
+        monkeypatch.setattr('apify._child_runs._CHARGE_SETTLE_TIME', timedelta(0))
+        # Another named start fetches the finished run under `child` to release its unused budget.
+        await actor.start('some-actor', run_name='other')
+        kvs = await actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert stored['child']['chargedUsd'] == '1'
