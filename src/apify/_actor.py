@@ -408,8 +408,8 @@ class _ActorType:
         run = await Actor.child_runs['my-child'].wait_for_finish()
         ```
 
-        A run started with a custom `token` uses that token, except for a run started before a migration or resurrection
-        of this Actor run, which uses the default client.
+        A run started or reattached with a custom `token` since the last migration or resurrection of this Actor run
+        uses that token. Any other run uses the default client.
         """
         return self._child_run_registry.run_clients(self.apify_client)
 
