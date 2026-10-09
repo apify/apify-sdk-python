@@ -464,14 +464,16 @@ async def test_named_runs_forward_max_items_to_start(apify_client_async_patcher:
 async def test_named_start_forwards_max_items_to_resurrect(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A named start that resurrects the recorded run passes `max_items` to the resurrection."""
+    """A named start that resurrects the recorded run passes `max_items` to it and warns about it only once."""
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
     apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        await Actor.start('some-actor', run_name='scrape-eu', max_items=10)
+        with pytest.warns(FutureWarning, match='max_items') as warnings:
+            await Actor.start('some-actor', run_name='scrape-eu', max_items=10)
 
+    assert [warning.filename for warning in warnings] == [__file__]
     [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
     assert kwargs['max_items'] == 10
 
