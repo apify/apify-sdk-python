@@ -236,9 +236,8 @@ async def test_max_total_charge_usd_forwarded_to_client(
     async with Actor:
         await getattr(Actor, sdk_method)('some-id', max_total_charge_usd=Decimal('2.5'))
 
-    assert apify_client_async_patcher.calls[client_resource][client_method][0][1]['max_total_charge_usd'] == Decimal(
-        '2.5'
-    )
+    kwargs = apify_client_async_patcher.calls[client_resource][client_method][0][1]
+    assert kwargs['max_total_charge_usd'] == Decimal('2.5')
 
 
 async def test_abort_actor_run(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:

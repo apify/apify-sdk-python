@@ -68,9 +68,8 @@ _ensure_context = ensure_context('_active')
 
 def _warn_max_items_deprecated() -> None:
     warnings.warn(
-        '`max_items` is deprecated and will be removed in version 5.0.0. It only limits the charge of Actors that '
-        'charge per dataset item and has no effect on other Actors. To cap the cost of a run, use '
-        '`max_total_charge_usd`, which works for every pay-per-event Actor.',
+        '`max_items` is deprecated and will be removed in version 5.0.0. It works only with legacy pay-per-result '
+        'Actors. Use `max_total_charge_usd` instead.',
         FutureWarning,
         # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
         stacklevel=4,
@@ -967,12 +966,10 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Caps the charge
-                of a pay-per-result Actor at this many dataset items. For a pay-per-event Actor without
-                `max_total_charge_usd`, the platform turns it into a charge limit, priced by the Actor's
-                `apify-default-dataset-item` event or, failing that, by its last pay-per-result price. Otherwise it has
-                no effect. It caps the charge, not the output, so the run can return more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1073,14 +1070,13 @@ class _ActorType:
             timeout: New timeout for the resurrected run. By default, the resurrected run uses the same timeout as
                 before. Using `inherit` will set timeout of the resurrected run to the time remaining from this Actor
                 timeout.
-            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Caps the charge
-                of a pay-per-result Actor at this many dataset items. For a pay-per-event Actor without
-                `max_total_charge_usd`, the platform turns it into a charge limit, priced by the Actor's
-                `apify-default-dataset-item` event or, failing that, by its last pay-per-result price. Otherwise it has
-                no effect. It caps the charge, not the output, so the run can return more items than this. By default,
-                the resurrected run uses the same limit as before. The limit can only be increased.
-            max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default, the resurrected
-                run uses the same limit as before. The limit can only be increased.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors. By default, the resurrected run uses the same limit as before. The limit
+                can only be increased.
+            max_total_charge_usd: A limit on the total charged amount of the resurrected run, in USD. Once the run
+                exceeds it, the platform aborts the run, which takes a few seconds, so the final charge can slightly
+                overshoot the limit. By default, the resurrected run uses the same limit as before. The limit can only
+                be increased.
             restart_on_error: If true, the resurrected run process will be restarted whenever it exits with a non-zero
                 status code. By default, the resurrected run uses the same setting as before.
 
@@ -1131,12 +1127,10 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Caps the charge
-                of a pay-per-result Actor at this many dataset items. For a pay-per-event Actor without
-                `max_total_charge_usd`, the platform turns it into a charge limit, priced by the Actor's
-                `apify-default-dataset-item` event or, failing that, by its last pay-per-result price. Otherwise it has
-                no effect. It caps the charge, not the output, so the run can return more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1212,12 +1206,10 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Caps the charge
-                of a pay-per-result Actor at this many dataset items. For a pay-per-event Actor without
-                `max_total_charge_usd`, the platform turns it into a charge limit, priced by the Actor's
-                `apify-default-dataset-item` event or, failing that, by its last pay-per-result price. Otherwise it has
-                no effect. It caps the charge, not the output, so the run can return more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1277,12 +1269,10 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Caps the charge
-                of a pay-per-result Actor at this many dataset items. For a pay-per-event Actor without
-                `max_total_charge_usd`, the platform turns it into a charge limit, priced by the Actor's
-                `apify-default-dataset-item` event or, failing that, by its last pay-per-result price. Otherwise it has
-                no effect. It caps the charge, not the output, so the run can return more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
