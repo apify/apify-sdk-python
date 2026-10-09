@@ -30,6 +30,8 @@ _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
 
 _RESURRECTABLE_STATUSES = frozenset({'ABORTED', 'TIMED-OUT'})
 
+_ABORTABLE_STATUSES = frozenset({'READY', 'RUNNING'})
+
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
 
@@ -59,6 +61,9 @@ class ChildRunRecord(ChildRunSnapshot):
 
     history: list[ChildRunSnapshot] = Field(default_factory=list)
     """Earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
+
+    abort_with_parent: bool = False
+    """Whether the current run is aborted when this Actor run is gracefully aborted."""
 
 
 def checksum_request(*, actor_id: str | None, task_id: str | None, run_input: Any) -> str:
@@ -117,6 +122,7 @@ class ChildRunRegistry:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         resurrect_run: Callable[[str], Awaitable[Run]],
+        abort_with_parent: bool = False,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `name`, or start one when there is none to reuse.
 
@@ -132,6 +138,8 @@ class ChildRunRegistry:
             client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
             resurrect_run: Resurrects the recorded run, given its ID.
+            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. It replaces the value
+                recorded under `name`.
 
         Returns:
             The run, and whether it was newly started.
@@ -149,7 +157,9 @@ class ChildRunRegistry:
                 )
 
             if record is None:
-                run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
+                run = await self._start(
+                    name, checksum=checksum, start_run=start_run, history=[], abort_with_parent=abort_with_parent
+                )
                 self._clients[name] = client
                 return run, True
 
@@ -167,9 +177,16 @@ class ChildRunRegistry:
                     started_at=record.started_at,
                 )
                 run = await self._start(
-                    name, checksum=checksum, start_run=start_run, history=[*record.history, replaced]
+                    name,
+                    checksum=checksum,
+                    start_run=start_run,
+                    history=[*record.history, replaced],
+                    abort_with_parent=abort_with_parent,
                 )
                 return run, True
+
+            if record.abort_with_parent != abort_with_parent:
+                await self._save(name, record.model_copy(update={'abort_with_parent': abort_with_parent}))
 
             if run.status in _RESURRECTABLE_STATUSES:
                 logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
@@ -207,6 +224,34 @@ class ChildRunRegistry:
             return
         await self._save(name, record.model_copy(update={'status': run.status}))
 
+    async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
+        """Gracefully abort every recorded run marked `abort_with_parent` that is still `READY` or `RUNNING`.
+
+        A failure to abort one run is logged and does not stop the others.
+
+        Args:
+            client: Client used for a name not started or looked up in this process, e.g. after a migration.
+        """
+        records = await self._load()
+        # Names with a start in flight are not recorded yet, so their locks are awaited too.
+        await asyncio.gather(*(self._abort(name, client) for name in {*records, *self._name_locks}))
+
+    async def _abort(self, name: str, default_client: ApifyClientAsync) -> None:
+        async with self._name_locks.setdefault(name, asyncio.Lock()):
+            record = (await self._load()).get(name)
+            if record is None or not record.abort_with_parent:
+                return
+            run_client = self._clients.get(name, default_client).run(record.run_id)
+            try:
+                run = await run_client.get()
+                if run is None or run.status not in _ABORTABLE_STATUSES:
+                    return
+                await run_client.abort(gracefully=True)
+            except Exception:
+                logger.exception(f'Failed to abort child run "{name}"', extra={'run_id': record.run_id})
+            else:
+                logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
+
     async def _start(
         self,
         name: str,
@@ -214,10 +259,16 @@ class ChildRunRegistry:
         checksum: str,
         start_run: Callable[[], Awaitable[Run]],
         history: list[ChildRunSnapshot],
+        abort_with_parent: bool,
     ) -> Run:
         run = await start_run()
         record = ChildRunRecord(
-            run_id=run.id, status=run.status, started_at=run.started_at, checksum=checksum, history=history
+            run_id=run.id,
+            status=run.status,
+            started_at=run.started_at,
+            checksum=checksum,
+            history=history,
+            abort_with_parent=abort_with_parent,
         )
         await self._save(name, record)
         return run
