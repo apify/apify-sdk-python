@@ -420,6 +420,22 @@ class _ActorType:
         """
         return self._child_run_registry.run_clients(self.apify_client)
 
+    def set_child_run_limits(self, *, max_concurrent_runs: int | None) -> None:
+        """Limit the named child runs of this Actor run.
+
+        While `max_concurrent_runs` named child runs are `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`, a named
+        `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` that would start or resurrect a run waits
+        until one of them finishes. Reattaching to a recorded run never waits. Runs started without a `run_name` are not
+        counted and never wait. A child run not awaited by `Actor.call` or `Actor.call_task` is fetched again before it
+        is counted, if its status is more than 10 seconds old.
+
+        The limit is kept in memory, so call this method again after a migration or resurrection of this Actor run.
+
+        Args:
+            max_concurrent_runs: How many named child runs may be active at once, or `None` for no limit.
+        """
+        self._child_run_registry.set_max_concurrent_runs(max_concurrent_runs)
+
     @cached_property
     def configuration(self) -> Configuration:
         """Actor configuration, uses the default instance if not explicitly set."""
