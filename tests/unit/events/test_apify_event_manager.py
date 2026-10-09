@@ -9,14 +9,14 @@ import types
 from collections import defaultdict
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import websockets
 import websockets.asyncio.client
 import websockets.asyncio.server
 
-from crawlee.events._types import Event
+from crawlee.events._types import Event, EventAbortingData
 
 from ..._utils import poll_until_condition
 from apify import Configuration
@@ -487,6 +487,32 @@ async def test_event_listener_removal_stops_counting() -> None:
         persist_state_counter = 0
         await asyncio.sleep(1.5)
         assert persist_state_counter == 0
+
+
+async def test_internal_listener_is_kept_by_off() -> None:
+    """A listener registered by `_on_internal` still runs after `off` removes all listeners of its event."""
+    listener = AsyncMock()
+
+    async with ApifyEventManager(Configuration.get_global_configuration()) as event_manager:
+        event_manager._on_internal(event=Event.ABORTING, listener=listener)
+        event_manager.off(event=Event.ABORTING)
+        event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await event_manager.wait_for_all_listeners_to_complete()
+
+    listener.assert_awaited_once()
+
+
+async def test_off_internal_removes_the_listener() -> None:
+    """A listener removed by `_off_internal` no longer runs on its event."""
+    listener = AsyncMock()
+
+    async with ApifyEventManager(Configuration.get_global_configuration()) as event_manager:
+        event_manager._on_internal(event=Event.ABORTING, listener=listener)
+        event_manager._off_internal(event=Event.ABORTING, listener=listener)
+        event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await event_manager.wait_for_all_listeners_to_complete()
+
+    listener.assert_not_awaited()
 
 
 async def test_deprecated_event_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
