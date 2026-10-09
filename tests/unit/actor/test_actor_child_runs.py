@@ -707,6 +707,29 @@ async def test_child_runs_fetches_run_with_its_start_client(
     assert http_clients == {'custom-run': custom_http_client, 'recorded-run': default_http_client}
 
 
+async def test_child_runs_keeps_client_of_name_after_rejected_reuse(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A name reuse rejected for a different input leaves `Actor.child_runs` fetching with the original client."""
+    http_clients: dict[str, Any] = {}
+
+    async def get_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run:
+        http_clients[run_client.resource_id] = run_client._http_client
+        return make_run(run_client.resource_id, 'RUNNING')
+
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
+
+    async with Actor:
+        await Actor.start('some-actor', {'since': '2025-01-01'}, run_name='scrape-eu')
+        with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
+            await Actor.start('some-actor', {'since': '2026-01-01'}, run_name='scrape-eu', token='other-token')
+        await Actor.child_runs()
+        default_http_client = Actor.apify_client._http_client
+
+    assert http_clients == {'new-run': default_http_client}
+
+
 async def test_child_runs_caps_concurrent_fetches(
     apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -162,19 +162,20 @@ class ChildRunRegistry:
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
 
         async with self._name_locks.setdefault(name, asyncio.Lock()):
-            self._clients[name] = client
             records = await self._load()
             record = records.get(name)
 
-            if record is None:
-                run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
-                return run, True
-
-            if record.checksum != checksum:
+            if record is not None and record.checksum != checksum:
                 raise ValueError(
                     f'The run name "{name}" was already used for a different Actor, task or input. '
                     'Use a unique `run_name` for each child run.'
                 )
+
+            self._clients[name] = client
+
+            if record is None:
+                run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
+                return run, True
 
             run_client = client.run(record.run_id)
             run = await _get_recorded_run(run_client)
