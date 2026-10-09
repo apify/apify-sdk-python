@@ -66,6 +66,16 @@ MainReturnType = TypeVar('MainReturnType')
 _ensure_context = ensure_context('_active')
 
 
+def _warn_max_items_deprecated() -> None:
+    warnings.warn(
+        '`max_items` is deprecated and will be removed in version 5.0.0. It works only with legacy pay-per-result '
+        'Actors. Use `max_total_charge_usd` instead.',
+        FutureWarning,
+        # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
+        stacklevel=4,
+    )
+
+
 @docs_name('Actor')
 @docs_group('Actor')
 class _ActorType:
@@ -956,8 +966,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
             max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
                 aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
@@ -976,6 +986,9 @@ class _ActorType:
         Returns:
             Info about the started Actor run
         """
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         actor_client = client.actor(actor_id)
@@ -1057,8 +1070,9 @@ class _ActorType:
             timeout: New timeout for the resurrected run. By default, the resurrected run uses the same timeout as
                 before. Using `inherit` will set timeout of the resurrected run to the time remaining from this Actor
                 timeout.
-            max_items: Maximum number of items that the resurrected pay-per-result run will return. By default, the
-                resurrected run uses the same limit as before. The limit can only be increased.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors. By default, the resurrected run uses the same limit as before. The limit
+                can only be increased.
             max_total_charge_usd: A limit on the total charged amount of the resurrected run, in USD. Once the run
                 exceeds it, the platform aborts the run, which takes a few seconds, so the final charge can slightly
                 overshoot the limit. By default, the resurrected run uses the same limit as before. The limit can only
@@ -1069,6 +1083,9 @@ class _ActorType:
         Returns:
             Info about the resurrected Actor run.
         """
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         return await client.run(run_id).resurrect(
@@ -1110,8 +1127,8 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
             max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
                 aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
@@ -1134,6 +1151,9 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         actor_client = client.actor(actor_id)
@@ -1186,8 +1206,8 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
             max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
                 aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
@@ -1204,6 +1224,9 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
         task_client = client.task(task_id)
         return await task_client.start(
@@ -1246,8 +1269,8 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
             max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
                 aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
@@ -1265,6 +1288,9 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         task_client = client.task(task_id)
