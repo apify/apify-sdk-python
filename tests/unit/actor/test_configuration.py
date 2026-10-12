@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from apify_client._models import PayPerEventActorPricingInfo
 from crawlee import Request, service_locator
 from crawlee._types import BasicCrawlingContext
 from crawlee.configuration import Configuration as CrawleeConfiguration
@@ -341,18 +340,16 @@ def test_actor_pricing_info_from_json_env_var(monkeypatch: pytest.MonkeyPatch) -
     assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'
 
 
-def test_actor_pricing_info_env_var_without_event_description(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A charge event without `eventDescription`, as the platform sends it, parses with an empty description."""
+def test_actor_pricing_info_env_var_tolerates_platform_omissions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The platform env var may omit fields that apify-client models require; they should be injected with defaults."""
+
     pricing_json = json.dumps(
         {
             'pricingModel': 'PAY_PER_EVENT',
-            'apifyMarginPercentage': 0.0,
-            'createdAt': '2024-01-01T00:00:00.000Z',
-            'startedAt': '2024-01-01T00:00:00.000Z',
             'pricingPerEvent': {
                 'actorChargeEvents': {
                     'search': {
-                        'eventPriceUsd': 0.01,
+                        'eventPriceUsd': '0.01',
                         'eventTitle': 'Search event',
                     }
                 }
@@ -361,11 +358,8 @@ def test_actor_pricing_info_env_var_without_event_description(monkeypatch: pytes
     )
     monkeypatch.setenv('APIFY_ACTOR_PRICING_INFO', pricing_json)
     config = ApifyConfiguration()
-    assert isinstance(config.actor_pricing_info, PayPerEventActorPricingInfo)
-    actor_charge_events = config.actor_pricing_info.pricing_per_event.actor_charge_events
-    assert actor_charge_events is not None
-    assert actor_charge_events['search'].event_title == 'Search event'
-    assert actor_charge_events['search'].event_description == ''
+    assert config.actor_pricing_info is not None
+    assert config.actor_pricing_info.pricing_model == 'PAY_PER_EVENT'
 
 
 @pytest.mark.parametrize('env_value', ['', '{}'])

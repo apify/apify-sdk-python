@@ -25,7 +25,7 @@ from apify.events import ApifyEventManager
 from apify.events._types import SystemInfoEventData
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Generator
+    from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 
 
 DUMMY_SYSTEM_INFO = {
@@ -179,7 +179,7 @@ async def _unresponsive_ws_server(monkeypatch: pytest.MonkeyPatch) -> AsyncGener
 
 
 @contextlib.contextmanager
-def _unreachable_ws_url(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
+def _unreachable_ws_url(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Point the events WebSocket URL at a `127.0.0.1` port that is guaranteed to refuse connections.
 
     A hard-coded port number cannot be assumed dead: every port in the OS ephemeral range is fair game for any

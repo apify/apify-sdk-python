@@ -7,22 +7,21 @@ from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Self
 
-from pydantic import AliasChoices, AliasGenerator, BeforeValidator, Field, model_validator
+from pydantic import AliasChoices, AliasGenerator, BeforeValidator, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
-from pydantic_settings import SettingsConfigDict
 from typing_extensions import TypedDict
 
-from apify_client._models import (
-    FlatPricePerMonthActorPricingInfo,
-    FreeActorPricingInfo,
-    PayPerEventActorPricingInfo,
-    PricePerDatasetItemActorPricingInfo,
-)
 from crawlee import service_locator
 from crawlee._utils.models import timedelta_ms
 from crawlee._utils.urls import validate_http_url
 from crawlee.configuration import Configuration as CrawleeConfiguration
 
+from apify._charging import (
+    FlatPricePerMonthActorPricingInfo,
+    FreeActorPricingInfo,
+    PayPerEventActorPricingInfo,
+    PricePerDatasetItemActorPricingInfo,
+)
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
@@ -96,22 +95,12 @@ def _parse_actor_pricing_info(data: Any) -> Any:
     Deserializes a JSON string when needed. Treats `None`, an empty string, and an empty/
     discriminator-less JSON object (`{}` - the value the platform sets for Actors without a configured
     pricing model) as "no pricing info" so the union validator doesn't fail on a missing discriminator.
-
-    The platform strips `eventDescription` from each charge event in the env var, while `apify-client` requires
-    it, so a missing description is filled in as an empty string.
     """
     if data is None or data == '':
         return None
     pricing_info = json.loads(data) if isinstance(data, str) else data
-    if not isinstance(pricing_info, dict):
-        return pricing_info
-    if not (pricing_info.get('pricingModel') or pricing_info.get('pricing_model')):
+    if isinstance(pricing_info, dict) and not (pricing_info.get('pricingModel') or pricing_info.get('pricing_model')):
         return None
-    pricing_per_event = pricing_info.get('pricingPerEvent') or pricing_info.get('pricing_per_event') or {}
-    charge_events = pricing_per_event.get('actorChargeEvents') or pricing_per_event.get('actor_charge_events') or {}
-    for event in charge_events.values():
-        if 'eventDescription' not in event and 'event_description' not in event:
-            event['eventDescription'] = ''
     return pricing_info
 
 
@@ -126,7 +115,7 @@ class Configuration(CrawleeConfiguration):
     # Fields are validated from environment variables via their `validation_alias`, but serialized under a
     # camelCase name derived from the Python field name. This keeps `model_dump(by_alias=True)` consistent
     # (e.g. `is_at_home` -> `isAtHome`) instead of leaking the raw env-var names.
-    model_config = SettingsConfigDict(alias_generator=AliasGenerator(serialization_alias=to_camel))
+    model_config = ConfigDict(alias_generator=AliasGenerator(serialization_alias=to_camel))
 
     actor_id: Annotated[
         str | None,
