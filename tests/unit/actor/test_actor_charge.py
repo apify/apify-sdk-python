@@ -6,8 +6,10 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
 
+from apify_client._models import PayPerEventActorPricingInfo
+
 from apify import Actor, Configuration
-from apify._charging import ChargingManagerImplementation, PayPerEventActorPricingInfo, PricingInfoItem
+from apify._charging import ChargingManagerImplementation, PricingInfoItem
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
