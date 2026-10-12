@@ -1291,13 +1291,13 @@ async def test_request_queue_deduplication_unprocessed_requests(
     assert stats_before is not None
     assert stats_before.write_count is not None
 
-    def return_unprocessed_requests(requests: list[dict], *_: Any, **__: Any) -> BatchAddResult:
+    def return_unprocessed_requests(requests: list[RequestWithoutId], *_: Any, **__: Any) -> BatchAddResult:
         """Simulate API returning unprocessed requests."""
         unprocessed_requests = [
             UnprocessedRequest.model_construct(
-                url=request['url'],
-                unique_key=request['uniqueKey'],
-                method=request['method'],
+                url=request.url,
+                unique_key=request.unique_key,
+                method=request.method,
             )
             for request in requests
         ]
