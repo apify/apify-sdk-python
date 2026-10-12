@@ -7,7 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from apify._charging import ActorChargeEvent, ChargingManagerImplementation, PayPerEventActorPricingInfo
+from apify_client._models import ActorChargeEvent, PayPerEventActorPricingInfo
+
+from apify._charging import ChargingManagerImplementation
 from apify._configuration import Configuration
 
 
@@ -190,10 +192,21 @@ async def test_tier_priced_event_is_skipped(mock_client: MagicMock) -> None:
     pricing_info = PayPerEventActorPricingInfo.model_validate(
         {
             'pricingModel': 'PAY_PER_EVENT',
+            'apifyMarginPercentage': 0.0,
+            'createdAt': '2024-01-01T00:00:00.000Z',
+            'startedAt': '2024-01-01T00:00:00.000Z',
             'pricingPerEvent': {
                 'actorChargeEvents': {
-                    'flat': {'eventPriceUsd': 0.02, 'eventTitle': 'Flat event'},
-                    'tiered': {'eventTitle': 'Tiered event', 'eventTieredPricingUsd': {}},
+                    'flat': {
+                        'eventPriceUsd': 0.02,
+                        'eventTitle': 'Flat event',
+                        'eventDescription': '',
+                    },
+                    'tiered': {
+                        'eventTitle': 'Tiered event',
+                        'eventDescription': '',
+                        'eventTieredPricingUsd': {},
+                    },
                 }
             },
         }
@@ -531,11 +544,26 @@ async def test_charge_deduplicates_events_the_api_never_receives(mock_client: Ma
     pricing_info = PayPerEventActorPricingInfo.model_validate(
         {
             'pricingModel': 'PAY_PER_EVENT',
+            'apifyMarginPercentage': 0.0,
+            'createdAt': '2024-01-01T00:00:00.000Z',
+            'startedAt': '2024-01-01T00:00:00.000Z',
             'pricingPerEvent': {
                 'actorChargeEvents': {
-                    'apify-default-dataset-item': {'eventPriceUsd': 0.50, 'eventTitle': 'Dataset item'},
-                    'search': {'eventPriceUsd': 1.00, 'eventTitle': 'Search event'},
-                    'tiered': {'eventTieredPricingUsd': {}, 'eventTitle': 'Tiered event'},
+                    'apify-default-dataset-item': {
+                        'eventPriceUsd': 0.50,
+                        'eventTitle': 'Dataset item',
+                        'eventDescription': '',
+                    },
+                    'search': {
+                        'eventPriceUsd': 1.00,
+                        'eventTitle': 'Search event',
+                        'eventDescription': '',
+                    },
+                    'tiered': {
+                        'eventTieredPricingUsd': {},
+                        'eventTitle': 'Tiered event',
+                        'eventDescription': '',
+                    },
                 }
             },
         }
