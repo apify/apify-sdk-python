@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Deprecate max_items in favor of max_total_charge_usd ([#1168](https://github.com/apify/apify-sdk-python/pull/1168)) ([c9991fa](https://github.com/apify/apify-sdk-python/commit/c9991fa3bb7ff12d86dd9855ae15812d1142ba52)) by [@vdusek](https://github.com/vdusek)
+- Parse `actor_pricing_info` into Apify API client pricing models ([#1172](https://github.com/apify/apify-sdk-python/pull/1172)) ([31c351a](https://github.com/apify/apify-sdk-python/commit/31c351afbd408f0a572117a640e0ee0821a19108)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
