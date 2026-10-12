@@ -368,6 +368,21 @@ def test_actor_pricing_info_env_var_without_event_description(monkeypatch: pytes
     assert actor_charge_events['search'].event_description == ''
 
 
+def test_actor_pricing_info_dict_without_event_description_is_not_mutated() -> None:
+    """Filling in a missing `eventDescription` leaves the caller's pricing-info dict untouched."""
+    search_event = {'eventPriceUsd': 0.01, 'eventTitle': 'Search event'}
+    pricing_info = {
+        'pricingModel': 'PAY_PER_EVENT',
+        'apifyMarginPercentage': 0.0,
+        'createdAt': '2024-01-01T00:00:00.000Z',
+        'startedAt': '2024-01-01T00:00:00.000Z',
+        'pricingPerEvent': {'actorChargeEvents': {'search': search_event}},
+    }
+    config = ApifyConfiguration(actor_pricing_info=pricing_info)
+    assert isinstance(config.actor_pricing_info, PayPerEventActorPricingInfo)
+    assert 'eventDescription' not in search_event
+
+
 @pytest.mark.parametrize('env_value', ['', '{}'])
 def test_actor_pricing_info_env_var_empty_becomes_none(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
     """Platform sends `APIFY_ACTOR_PRICING_INFO={}` for Actors without a pricing model.

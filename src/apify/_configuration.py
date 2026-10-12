@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -105,12 +106,18 @@ def _parse_actor_pricing_info(data: Any) -> Any:
     pricing_info = json.loads(data) if isinstance(data, str) else data
     if not isinstance(pricing_info, dict):
         return pricing_info
+    if pricing_info is data:
+        pricing_info = copy.deepcopy(data)
     if not (pricing_info.get('pricingModel') or pricing_info.get('pricing_model')):
         return None
-    pricing_per_event = pricing_info.get('pricingPerEvent') or pricing_info.get('pricing_per_event') or {}
-    charge_events = pricing_per_event.get('actorChargeEvents') or pricing_per_event.get('actor_charge_events') or {}
+    pricing_per_event = pricing_info.get('pricingPerEvent') or pricing_info.get('pricing_per_event')
+    if not isinstance(pricing_per_event, dict):
+        return pricing_info
+    charge_events = pricing_per_event.get('actorChargeEvents') or pricing_per_event.get('actor_charge_events')
+    if not isinstance(charge_events, dict):
+        return pricing_info
     for event in charge_events.values():
-        if 'eventDescription' not in event and 'event_description' not in event:
+        if isinstance(event, dict) and 'eventDescription' not in event and 'event_description' not in event:
             event['eventDescription'] = ''
     return pricing_info
 
