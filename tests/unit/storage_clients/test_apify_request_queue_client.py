@@ -379,7 +379,7 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     api_client.batch_add_requests.assert_awaited_once()
     assert api_client.batch_add_requests.await_args is not None
     resent = api_client.batch_add_requests.await_args.kwargs['requests']
-    assert [request['uniqueKey'] for request in resent] == [rejected.unique_key]
+    assert [request.unique_key for request in resent] == [rejected.unique_key]
 
 
 @pytest.mark.parametrize(

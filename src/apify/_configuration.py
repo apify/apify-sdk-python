@@ -7,8 +7,9 @@ from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Self
 
-from pydantic import AliasChoices, AliasGenerator, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, AliasGenerator, BeforeValidator, Field, model_validator
 from pydantic.alias_generators import to_camel
+from pydantic_settings import SettingsConfigDict
 from typing_extensions import TypedDict
 
 from crawlee import service_locator
@@ -115,7 +116,7 @@ class Configuration(CrawleeConfiguration):
     # Fields are validated from environment variables via their `validation_alias`, but serialized under a
     # camelCase name derived from the Python field name. This keeps `model_dump(by_alias=True)` consistent
     # (e.g. `is_at_home` -> `isAtHome`) instead of leaking the raw env-var names.
-    model_config = ConfigDict(alias_generator=AliasGenerator(serialization_alias=to_camel))
+    model_config = SettingsConfigDict(alias_generator=AliasGenerator(serialization_alias=to_camel))
 
     actor_id: Annotated[
         str | None,

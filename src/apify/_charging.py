@@ -25,7 +25,7 @@ from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
     from types import TracebackType
 
     from apify_client import ApifyClientAsync
@@ -50,7 +50,7 @@ _ensure_context = ensure_context('active')
 
 
 @asynccontextmanager
-async def charge_lock_if_charging() -> AsyncIterator[None]:
+async def charge_lock_if_charging() -> AsyncGenerator[None]:
     """Acquire the charge lock if a charging manager is active, otherwise proceed without locking.
 
     The lock keeps a limit reservation and the charge that follows it atomic. Only pay-per-event runs charge

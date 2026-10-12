@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Final
 
 from cachetools import LRUCache
 
+from apify_client._models import RequestResource, RequestWithoutId
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._utils import (
@@ -173,13 +174,15 @@ class ApifyRequestQueueSingleClient:
                 self._requests_being_added[request_id] = loop.create_future()
 
         if new_requests:
-            # Prepare requests for API by converting to dictionaries.
-            requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
+            # Prepare requests for API by converting to the client model.
+            api_requests = [
+                RequestWithoutId.model_validate(request.model_dump(by_alias=True)) for request in new_requests
+            ]
 
             committed_request_ids: set[str] = set()
             try:
                 # Send requests to API.
-                batch_response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+                batch_response = await self._api_client.batch_add_requests(requests=api_requests, forefront=forefront)
                 batch_response_dict = batch_response.model_dump(by_alias=True)
                 api_response = AddRequestsResponse.model_validate(batch_response_dict)
 
@@ -424,10 +427,11 @@ class ApifyRequestQueueSingleClient:
         Returns:
             The updated request
         """
-        request_dict = request.model_dump(by_alias=True)
-        request_dict['id'] = unique_key_to_request_id(request.unique_key)
+        api_request = RequestResource.model_validate(
+            {**request.model_dump(by_alias=True), 'id': unique_key_to_request_id(request.unique_key)}
+        )
         response = await self._api_client.update_request(
-            request=request_dict,
+            request=api_request,
             forefront=forefront,
         )
 

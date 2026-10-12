@@ -9,7 +9,7 @@ from unittest import mock
 
 import pytest
 
-from apify_client._models import BatchAddResult, UnprocessedRequest
+from apify_client._models import BatchAddResult, RequestWithoutId, UnprocessedRequest
 from crawlee import service_locator
 from crawlee.crawlers import BasicCrawler
 
@@ -963,7 +963,11 @@ async def test_request_queue_metadata_another_client(
     """Test metadata tracking. The delayed metadata should be reliable even when changed by another client."""
     rq = request_queue_apify
     api_client = apify_client_async.request_queue(request_queue_id=rq.id, client_key=None)
-    await api_client.add_request(Request.from_url('http://example.com/1').model_dump(by_alias=True, exclude={'id'}))
+    await api_client.add_request(
+        RequestWithoutId.model_validate(
+            Request.from_url('http://example.com/1').model_dump(by_alias=True, exclude={'id'})
+        )
+    )
 
     # Poll until the API has propagated the metadata change.
     metadata = await poll_until_condition(
@@ -1201,7 +1205,7 @@ async def test_pre_existing_request_with_user_data(
 
     # Add request by a different producer
     rq_client = apify_client_async.request_queue(request_queue_id=rq.id)
-    await rq_client.add_request(req.model_dump(by_alias=True))
+    await rq_client.add_request(RequestWithoutId.model_validate(req.model_dump(by_alias=True)))
 
     # Fetch the request by the client under test. It was added by a different producer, so single-mode immediate
     # consistency (which only covers the client's own writes) does not apply: poll until the write propagates,

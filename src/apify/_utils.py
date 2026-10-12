@@ -4,14 +4,11 @@ import asyncio
 import builtins
 import inspect
 import sys
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from functools import wraps
 from importlib import metadata
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+from typing import Any, Literal, TypeVar, cast
 
 T = TypeVar('T', bound=Callable[..., Any])
 
@@ -131,7 +128,7 @@ class ReentrantLock:
         self._owner: asyncio.Task | None = None
 
     @asynccontextmanager
-    async def __call__(self) -> AsyncIterator[None]:
+    async def __call__(self) -> AsyncGenerator[None]:
         """Acquire the lock if it's not already owned by the current task, otherwise proceed without acquiring."""
         me = asyncio.current_task()
         if me is None:
