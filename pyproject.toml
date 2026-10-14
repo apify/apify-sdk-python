@@ -241,36 +241,42 @@ crawlee = false
 
 # Run tasks with: uv run poe <task>
 [tool.poe.tasks]
-clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
-install-sync = "uv sync --all-extras"
-build = "uv build"
-publish-to-pypi = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
-type-check = "uv run ty check"
-unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit"
-unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-unit.xml tests/unit"
-integration-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
-integration-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-integration.xml tests/integration"
-e2e-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/e2e"
-e2e-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-e2e.xml tests/e2e"
-check-code = ["lint", "type-check", "unit-tests"]
+clean = { cmd = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov", help = "Remove build artifacts and clean caches" }
+install-sync = { cmd = "uv sync --all-extras", help = "Sync dependencies with all extras" }
+build = { cmd = "uv build", help = "Build the package" }
+publish-to-pypi = { cmd = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}", help = "Publish the package to PyPI" }
+type-check = { cmd = "uv run ty check", help = "Run the type checker" }
+unit-tests = { cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit", help = "Run unit tests" }
+unit-tests-cov = { cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-unit.xml tests/unit", help = "Run unit tests with an XML coverage report" }
+integration-tests = { cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration", help = "Run integration tests" }
+integration-tests-cov = { cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-integration.xml tests/integration", help = "Run integration tests with an XML coverage report" }
+e2e-tests = { cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/e2e", help = "Run E2E tests" }
+e2e-tests-cov = { cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-e2e.xml tests/e2e", help = "Run E2E tests with an XML coverage report" }
+check-code = { sequence = ["lint", "type-check", "unit-tests"], help = "Run lint, type check, and unit tests" }
 
 [tool.poe.tasks.install-dev]
 shell = "uv sync --all-extras && uv run pre-commit install"
+help = "Install development dependencies and pre-commit hooks"
 
 [tool.poe.tasks.lint]
 shell = "uv run ruff format --check && uv run ruff check"
+help = "Run the linter and check formatting"
 
 [tool.poe.tasks.format]
 shell = "uv run ruff check --fix && uv run ruff format"
+help = "Fix lint issues and format code"
 
 [tool.poe.tasks.update-docs-theme]
 shell = "pnpm update @apify/docs-theme"
 cwd = "website"
+help = "Update the documentation website theme"
 
 [tool.poe.tasks.build-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm build"
 cwd = "website"
+help = "Build the documentation website"
 
 [tool.poe.tasks.run-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm start"
 cwd = "website"
+help = "Run the documentation website locally"
