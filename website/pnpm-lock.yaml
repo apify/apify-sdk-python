@@ -181,9 +181,6 @@ importers:
       '@docusaurus/faster':
         specifier: ^3.10.2
         version: 3.10.2(@docusaurus/types@3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(postcss@8.5.29)(svgo@3.3.5)
-      '@docusaurus/plugin-client-redirects':
-        specifier: ^3.10.2
-        version: 3.10.2(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(postcss@8.5.29)(svgo@3.3.5))(@mdx-js/react@3.1.1(@types/react@19.3.0)(react@19.3.0))(@rspack/core@1.7.12)(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(debug@4.4.3(supports-color@5.5.0))(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)(typescript@6.0.3)
       '@docusaurus/preset-classic':
         specifier: ^3.10.2
         version: 3.10.2(@algolia/client-search@5.59.0)(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(postcss@8.5.29)(svgo@3.3.5))(@mdx-js/react@3.1.1(@types/react@19.3.0)(react@19.3.0))(@rspack/core@1.7.12)(@swc/core@1.16.13)(@swc/html@1.16.13)(@types/react@19.3.0)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(debug@4.4.3(supports-color@5.5.0))(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(search-insights@2.17.3)(supports-color@5.5.0)(svgo@3.3.5)(typescript@6.0.3)
@@ -193,9 +190,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      docusaurus-gtm-plugin:
-        specifier: ^0.0.2
-        version: 0.0.2
       prop-types:
         specifier: ^15.8.1
         version: 15.8.1
@@ -203,10 +197,10 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2(webpack@5.111.1(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(svgo@3.3.5))
       react:
-        specifier: ^19.2.8
+        specifier: ^19.3.0
         version: 19.3.0
       react-dom:
-        specifier: ^19.2.8
+        specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
       unist-util-visit:
         specifier: ^5.1.0
@@ -214,12 +208,15 @@ importers:
     devDependencies:
       '@apify/oxlint-config':
         specifier: ^0.3.0
-        version: 0.3.0(oxlint@1.87.0)
+        version: 0.3.0(oxlint@1.87.0(oxlint-tsgolint@7.0.2004))
       '@apify/tsconfig':
         specifier: ^0.2.0
         version: 0.2.0
+      '@docusaurus/module-type-aliases':
+        specifier: ^3.10.2
+        version: 3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)
       '@types/react':
-        specifier: ^19.2.18
+        specifier: ^19.3.0
         version: 19.3.0
       markdownlint:
         specifier: ^0.41.1
@@ -231,11 +228,11 @@ importers:
         specifier: ^0.72.0
         version: 0.72.0
       oxlint:
-        specifier: ^1.80.0
-        version: 1.87.0
-      path-browserify:
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.87.0
+        version: 1.87.0(oxlint-tsgolint@7.0.2004)
+      oxlint-tsgolint:
+        specifier: ^7.0.2004
+        version: 7.0.2004
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -1768,13 +1765,6 @@ packages:
       react: '*'
       react-dom: '*'
 
-  '@docusaurus/plugin-client-redirects@3.10.2':
-    resolution: {integrity: sha512-z5I5ttCXw+8y2gHVZvqAMmUw4Rb0ZzKA5eCPk87SfM/jCKOTvE24yDpPAwwipvug96ij7mOwEHXWw8G4LlWdGA==}
-    engines: {node: '>=20.0'}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
-
   '@docusaurus/plugin-content-blog@3.10.2':
     resolution: {integrity: sha512-0cbEnNKf0InmLkhj/+nVRmqEnWEoOE8Mh+2x1qOXI0qYpCnphq4RXknVJ8BvybKRXqYVvbmdMfiJSup+k4tm5w==}
     engines: {node: '>=20.0'}
@@ -2300,6 +2290,36 @@ packages:
   '@oxfmt/binding-win32-x64-msvc@0.72.0':
     resolution: {integrity: sha512-uhooIN+DCzWX5uH7mQkSVCsODqsGluGJ4n3ch4+mITtWKpESMDjUJUSDBAVFuYQDwqY2McPDKdKJbM0oZVW/Qw==}
     engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [win32]
+
+  '@oxlint-tsgolint/darwin-arm64@7.0.2004':
+    resolution: {integrity: sha512-uJk3ttju7Lz+Nv8WG4CsLyewoL1qf/Ny8S8OksJ7Bm/F14Tc9gMfW6arM1PCc57IzH/X/I79YsCWTgxX1FKibQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@oxlint-tsgolint/darwin-x64@7.0.2004':
+    resolution: {integrity: sha512-0BFfHTzDxNDFPcu0UZAXT6CyCJHAXM0dZveyDb4KEHa2qF/DSnOKOrmvK/wFuFol9kvijbGM9JfuOsor+zWXRw==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@oxlint-tsgolint/linux-arm64@7.0.2004':
+    resolution: {integrity: sha512-TAehQc+qdRXyDN3nl/r/3/oPrBVrbtrDeGMkFyG6mf+XphpoJ2lAMVFLclyvrVZCw02RbKROjyw8h72XwQQHcw==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@oxlint-tsgolint/linux-x64@7.0.2004':
+    resolution: {integrity: sha512-LPunZvm6ZbWPfHMAyfZf9ci3HHvNEzLejO8zdqO3GoVGoSEHqqufHUD7+OgeatVSaJP7uXDJ2HaNOHIoH7go4Q==}
+    cpu: [x64]
+    os: [linux]
+
+  '@oxlint-tsgolint/win32-arm64@7.0.2004':
+    resolution: {integrity: sha512-FVWplzDImWhiuawnIZVETaQecv4GWom6Jv4Fx2xj7hhXXDZ5okEgiw1gTCImHTIQsi2ycC5oSxVwrn69bMh7iw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@oxlint-tsgolint/win32-x64@7.0.2004':
+    resolution: {integrity: sha512-7PsxuUx11Ry9DYTWcljTzRbmZY9B6O9fFFfZV+aodQEMy6pfRT3fhoQRv9PtGN/89z1pPz3nFKrsFm6WqNtX7w==}
     cpu: [x64]
     os: [win32]
 
@@ -5736,6 +5756,10 @@ packages:
       vite-plus:
         optional: true
 
+  oxlint-tsgolint@7.0.2004:
+    resolution: {integrity: sha512-vQ9WDF3fiZJvRdSDosNOflerOCOpwol6vWzVDxW76RcU19cjTh7engvkHLvmv+tzedR8fAiJUVUGr6IVZdkzXQ==}
+    hasBin: true
+
   oxlint@1.87.0:
     resolution: {integrity: sha512-drxVlaW7Oqq7wSy1CN25znRu00aRq8n57Q2wniJRxCmtYVz07ufCm7EVDPQFZURrTgQIjzKrVEHAD/HcvJXObg==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -5832,9 +5856,6 @@ packages:
 
   pascal-case@3.1.2:
     resolution: {integrity: sha512-uWlGT3YSnK9x3BQJaOdcZwrnV6hPpd8jFH1/ucpiLRPh/2zCVJKS19E4GvYHvaCcACn3foXZ0cLB9Wrx1KGe5g==}
-
-  path-browserify@1.0.1:
-    resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
 
   path-exists@4.0.0:
     resolution: {integrity: sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==}
@@ -7953,9 +7974,9 @@ snapshots:
       typescript: 6.0.3
       zx: 8.8.5
 
-  '@apify/oxlint-config@0.3.0(oxlint@1.87.0)':
+  '@apify/oxlint-config@0.3.0(oxlint@1.87.0(oxlint-tsgolint@7.0.2004))':
     dependencies:
-      oxlint: 1.87.0
+      oxlint: 1.87.0(oxlint-tsgolint@7.0.2004)
 
   '@apify/tsconfig@0.2.0': {}
 
@@ -9776,47 +9797,6 @@ snapshots:
       - uglify-js
       - webpack-cli
 
-  '@docusaurus/plugin-client-redirects@3.10.2(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(postcss@8.5.29)(svgo@3.3.5))(@mdx-js/react@3.1.1(@types/react@19.3.0)(react@19.3.0))(@rspack/core@1.7.12)(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(debug@4.4.3(supports-color@5.5.0))(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)(typescript@6.0.3)':
-    dependencies:
-      '@docusaurus/core': 3.10.2(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(postcss@8.5.29)(svgo@3.3.5))(@mdx-js/react@3.1.1(@types/react@19.3.0)(react@19.3.0))(@rspack/core@1.7.12)(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(debug@4.4.3(supports-color@5.5.0))(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)(typescript@6.0.3)
-      '@docusaurus/logger': 3.10.2
-      '@docusaurus/utils': 3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)
-      '@docusaurus/utils-common': 3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)
-      '@docusaurus/utils-validation': 3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)
-      eta: 2.2.0
-      fs-extra: 11.4.1
-      lodash: 4.18.1
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - '@docusaurus/faster'
-      - '@mdx-js/react'
-      - '@minify-html/node'
-      - '@napi-rs/image'
-      - '@parcel/css'
-      - '@rspack/core'
-      - '@swc/core'
-      - '@swc/css'
-      - '@swc/html'
-      - bufferutil
-      - clean-css
-      - cssnano
-      - csso
-      - debug
-      - esbuild
-      - html-minifier-terser
-      - imagemin
-      - lightningcss
-      - postcss
-      - sharp
-      - supports-color
-      - svgo
-      - typescript
-      - uglify-js
-      - utf-8-validate
-      - webpack-cli
-
   '@docusaurus/plugin-content-blog@3.10.2(606eb685b7aef6d421472852beeece8b)':
     dependencies:
       '@docusaurus/core': 3.10.2(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(html-minifier-terser@7.2.0)(postcss@8.5.29)(svgo@3.3.5))(@mdx-js/react@3.1.1(@types/react@19.3.0)(react@19.3.0))(@rspack/core@1.7.12)(@swc/core@1.16.13)(@swc/html@1.16.13)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.29))(csso@5.0.5)(debug@4.4.3(supports-color@5.5.0))(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.29)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@5.5.0)(svgo@3.3.5)(typescript@6.0.3)
@@ -10989,6 +10969,24 @@ snapshots:
     optional: true
 
   '@oxfmt/binding-win32-x64-msvc@0.72.0':
+    optional: true
+
+  '@oxlint-tsgolint/darwin-arm64@7.0.2004':
+    optional: true
+
+  '@oxlint-tsgolint/darwin-x64@7.0.2004':
+    optional: true
+
+  '@oxlint-tsgolint/linux-arm64@7.0.2004':
+    optional: true
+
+  '@oxlint-tsgolint/linux-x64@7.0.2004':
+    optional: true
+
+  '@oxlint-tsgolint/win32-arm64@7.0.2004':
+    optional: true
+
+  '@oxlint-tsgolint/win32-x64@7.0.2004':
     optional: true
 
   '@oxlint/binding-android-arm-eabi@1.87.0':
@@ -14883,7 +14881,16 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.72.0
       '@oxfmt/binding-win32-x64-msvc': 0.72.0
 
-  oxlint@1.87.0:
+  oxlint-tsgolint@7.0.2004:
+    optionalDependencies:
+      '@oxlint-tsgolint/darwin-arm64': 7.0.2004
+      '@oxlint-tsgolint/darwin-x64': 7.0.2004
+      '@oxlint-tsgolint/linux-arm64': 7.0.2004
+      '@oxlint-tsgolint/linux-x64': 7.0.2004
+      '@oxlint-tsgolint/win32-arm64': 7.0.2004
+      '@oxlint-tsgolint/win32-x64': 7.0.2004
+
+  oxlint@1.87.0(oxlint-tsgolint@7.0.2004):
     optionalDependencies:
       '@oxlint/binding-android-arm-eabi': 1.87.0
       '@oxlint/binding-android-arm64': 1.87.0
@@ -14904,6 +14911,7 @@ snapshots:
       '@oxlint/binding-win32-arm64-msvc': 1.87.0
       '@oxlint/binding-win32-ia32-msvc': 1.87.0
       '@oxlint/binding-win32-x64-msvc': 1.87.0
+      oxlint-tsgolint: 7.0.2004
 
   p-cancelable@3.0.0: {}
 
@@ -15002,8 +15010,6 @@ snapshots:
     dependencies:
       no-case: 3.0.4
       tslib: 2.8.1
-
-  path-browserify@1.0.1: {}
 
   path-exists@4.0.0: {}
 
