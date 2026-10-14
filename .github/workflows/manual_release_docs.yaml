@@ -46,7 +46,7 @@ jobs:
         uses: apify/actions/wait-for-checks@v1.6.2
         with:
           ref: ${{ github.sha }}
-          check-regexp: "^Checks"
+          check-regexp: ^Checks
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,8 +84,8 @@ jobs:
         uses: apify/actions/signed-commit@v1.6.2
         with:
           message: "chore: Automatic docs theme update [skip ci]"
-          add: "website/package.json website/pnpm-lock.yaml"
-          pull: "--rebase --autostash"
+          add: website/package.json website/pnpm-lock.yaml
+          pull: --rebase --autostash
           github-token: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
 
       - name: Build docs
