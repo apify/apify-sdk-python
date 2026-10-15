@@ -75,7 +75,7 @@ A named `Actor.call` that reattaches to a run streams only the log lines the chi
 
 Note that:
 
-- The name is bound to the `actor_id` or `task_id` you pass and to the run input. Using the same name for a different Actor, task or input, or for the same Actor referenced by its ID instead of its name, raises a `ValueError`.
+- Using a name to reattach to, return or resurrect a run of a different Actor, task or input raises a `ValueError`. So does referencing the same Actor by its ID where the recorded run used its name. When the recorded run `FAILED` or no longer exists, the call starts a new run with whatever you pass.
 - Concurrent calls under one name in the same Actor run share a single child run.
 - If your Actor is killed after the platform starts the child but before the SDK records it, the child run isn't recorded and the next attempt starts a new one.
 
