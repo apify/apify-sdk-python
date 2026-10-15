@@ -55,7 +55,7 @@ class ChildRunRecord(ChildRunSnapshot):
     """The current run tracked under a name in the child run registry, with the runs it replaced."""
 
     checksum: str
-    """Hash of the Actor or task and the input the name was first used with."""
+    """Hash of the Actor or task and the input the current run was started with."""
 
     history: list[ChildRunSnapshot] = Field(default_factory=list)
     """Earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
@@ -122,31 +122,30 @@ class ChildRunRegistry:
 
         A recorded run that is `READY` or `RUNNING` is reattached and one that `SUCCEEDED` is returned as is.
         An `ABORTED` or `TIMED-OUT` run is resurrected, since Actors are expected to resume from their state.
-        A `FAILED` run, or one the API no longer knows, is replaced by a new run under the same name.
+        A `FAILED` run, or one the API no longer knows, is replaced by a new run under the same name, for any Actor,
+        task or input.
 
         Args:
             name: Name of the child run, unique within the parent run.
             actor_id: The Actor to start.
             task_id: The task to start, in place of `actor_id`.
-            run_input: Input of the run. With the Actor or task, it must match what `name` was first used with.
+            run_input: Input of the run. The recorded run is reused only if it was started with the same Actor or task
+                and input.
             client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
             resurrect_run: Resurrects the recorded run, given its ID.
 
         Returns:
             The run, and whether it was newly started.
+
+        Raises:
+            ValueError: If the recorded run would be reused, but was started for a different Actor, task or input.
         """
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
 
         async with self._name_locks.setdefault(name, asyncio.Lock()):
             records = await self._load()
             record = records.get(name)
-
-            if record is not None and record.checksum != checksum:
-                raise ValueError(
-                    f'The run name "{name}" was already used for a different Actor, task or input. '
-                    'Use a unique `run_name` for each child run.'
-                )
 
             if record is None:
                 run = await self._start(name, checksum=checksum, start_run=start_run, history=[])
@@ -155,7 +154,6 @@ class ChildRunRegistry:
 
             run_client = client.run(record.run_id)
             run = await _get_recorded_run(run_client)
-            self._clients[name] = client
 
             if run is not None and run.status in _SETTLING_STATUSES:
                 run = await run_client.wait_for_finish()
@@ -169,7 +167,14 @@ class ChildRunRegistry:
                 run = await self._start(
                     name, checksum=checksum, start_run=start_run, history=[*record.history, replaced]
                 )
+                self._clients[name] = client
                 return run, True
+
+            if record.checksum != checksum:
+                raise ValueError(
+                    f'The run name "{name}" was already used for a different Actor, task or input. '
+                    'Use a unique `run_name` for each child run.'
+                )
 
             if run.status in _RESURRECTABLE_STATUSES:
                 logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
@@ -178,6 +183,7 @@ class ChildRunRegistry:
                 logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
 
             await self.update(name, run)
+            self._clients[name] = client
             return run, False
 
     def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:

@@ -215,6 +215,7 @@ async def test_named_start_rejects_name_recorded_for_another_actor(
 ) -> None:
     """Reusing a name for a different Actor raises instead of attaching to the other Actor's run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id='other-actor')
@@ -229,6 +230,7 @@ async def test_named_start_rejects_name_recorded_for_task(
 ) -> None:
     """Reusing a task run's name for an Actor raises instead of attaching to the task's run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
@@ -439,6 +441,7 @@ async def test_named_call_task_rejects_name_recorded_for_actor(
 ) -> None:
     """Reusing an Actor run's name for a task raises instead of attaching to the Actor's run."""
     apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
@@ -539,6 +542,7 @@ async def test_named_start_rejects_name_recorded_with_other_input(
 ) -> None:
     """Reusing a name for the same Actor with a different input raises instead of attaching to the earlier run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', run_input={'since': '2025-01-01'})
@@ -546,6 +550,39 @@ async def test_named_start_rejects_name_recorded_with_other_input(
             await Actor.start('some-actor', {'since': '2026-01-01'}, run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+@pytest.mark.parametrize(
+    ('recorded_actor_id', 'recorded_input'),
+    [
+        pytest.param('other-actor', None, id='other actor'),
+        pytest.param('some-actor', {'since': '2025-01-01'}, id='other input'),
+    ],
+)
+async def test_named_start_replaces_run_recorded_for_other_request(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    recorded_actor_id: str,
+    recorded_input: Any,
+) -> None:
+    """A failed run recorded for another Actor or input is replaced, and the name takes the new run's checksum."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'FAILED'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run', actor_id=recorded_actor_id, run_input=recorded_input)
+        run = await Actor.start('some-actor', {'since': '2026-01-01'}, run_name='scrape-eu')
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert run.id == 'new-run'
+    assert stored == {
+        'scrape-eu': stored_record(
+            'new-run',
+            'READY',
+            run_input={'since': '2026-01-01'},
+            history=[{'runId': 'old-run', 'status': 'FAILED', 'startedAt': STARTED_AT}],
+        )
+    }
 
 
 async def test_named_start_ignores_input_key_order(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -696,6 +733,7 @@ async def test_child_runs_keeps_client_of_name_after_rejected_reuse(
 ) -> None:
     """A name reuse rejected for a different input leaves `Actor.child_runs` with the original client."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
 
     async with Actor:
         await Actor.start('some-actor', {'since': '2025-01-01'}, run_name='scrape-eu')

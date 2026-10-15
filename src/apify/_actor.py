@@ -1021,8 +1021,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Reusing the name for a different Actor, task or input raises
+                a `ValueError`, unless the recorded run is replaced.
 
         Returns:
             Info about the started Actor run
@@ -1212,8 +1212,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Reusing the name for a different Actor, task or input raises
+                a `ValueError`, unless the recorded run is replaced.
 
         Returns:
             Info about the started Actor run.
@@ -1384,8 +1384,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Reusing the name for a different Actor, task or input raises
+                a `ValueError`, unless the recorded run is replaced.
 
         Returns:
             Info about the started Actor run.
@@ -1474,8 +1474,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Reusing the name for a different Actor, task or input raises
+                a `ValueError`, unless the recorded run is replaced.
 
         Returns:
             Info about the started Actor run.
