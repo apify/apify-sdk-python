@@ -537,12 +537,22 @@ async def test_named_start_retries_recorded_run_not_found_yet(
     assert apify_client_async_patcher.calls['actor']['start'] == []
 
 
+@pytest.mark.parametrize(
+    'status',
+    [
+        pytest.param('RUNNING', id='running'),
+        pytest.param('SUCCEEDED', id='succeeded'),
+        pytest.param('ABORTED', id='aborted'),
+    ],
+)
 async def test_named_start_rejects_name_recorded_with_other_input(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
+    status: str,
 ) -> None:
-    """Reusing a name for the same Actor with a different input raises instead of attaching to the earlier run."""
+    """Reusing a name with a different input raises instead of reattaching to, or resurrecting, the earlier run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', status))
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', run_input={'since': '2025-01-01'})
@@ -550,6 +560,7 @@ async def test_named_start_rejects_name_recorded_with_other_input(
             await Actor.start('some-actor', {'since': '2026-01-01'}, run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
+    assert apify_client_async_patcher.calls['run']['resurrect'] == []
 
 
 @pytest.mark.parametrize(
