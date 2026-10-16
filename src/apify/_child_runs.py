@@ -113,6 +113,8 @@ class ChildRunRegistry:
         """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
         self._clients: dict[str, ApifyClientAsync] = {}
         """Client the run under each name was last started or looked up with. Lost on a migration."""
+        self._parent_aborting = False
+        """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
 
     async def find_or_start(
         self,
@@ -150,10 +152,18 @@ class ChildRunRegistry:
 
         Raises:
             ValueError: If the recorded run would be reused, but was started for a different Actor, task or input.
+            RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
+                started, resurrected or reattached.
         """
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
 
         async with self._name_locks.setdefault(name, asyncio.Lock()):
+            if abort_with_parent and self._parent_aborting:
+                raise RuntimeError(
+                    f'Child run "{name}" with `abort_with_parent` was not started, since this Actor run is being '
+                    'aborted.'
+                )
+
             records = await self._load()
             record = records.get(name)
 
@@ -233,14 +243,16 @@ class ChildRunRegistry:
         await self._save(name, record.model_copy(update={'status': run.status}))
 
     async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
-        """Gracefully abort every recorded run marked `abort_with_parent`.
+        """Gracefully abort every recorded run marked `abort_with_parent`, and refuse to start any more of them.
 
         Each run gets one abort request, all in parallel. The platform leaves a run that already finished as it is. A
-        failure to abort one run is logged and does not stop the others.
+        failure to abort one run is logged and does not stop the others. A run whose start is in flight is aborted once
+        the start records it.
 
         Args:
             client: Client used for a name not started or looked up in this process, e.g. after a migration.
         """
+        self._parent_aborting = True
         records = await self._load()
         # Names with a start in flight are not recorded yet, so their locks are awaited too.
         await asyncio.gather(*(self._abort(name, client) for name in {*records, *self._name_locks}))

@@ -1032,7 +1032,9 @@ class _ActorType:
                 with a different input raises a `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run
@@ -1231,7 +1233,9 @@ class _ActorType:
                 with a different input raises a `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
@@ -1420,7 +1424,9 @@ class _ActorType:
                 with a different input raises a `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
@@ -1518,7 +1524,9 @@ class _ActorType:
                 with a different input raises a `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
