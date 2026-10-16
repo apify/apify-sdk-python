@@ -329,6 +329,15 @@ async def test_compute_push_data_limit_no_ppe(mock_client: MagicMock) -> None:
         assert result == 10
 
 
+async def test_compute_push_data_limit_ignores_budget_without_ppe(mock_client: MagicMock) -> None:
+    """Returns items_count for a run that is not pay-per-event, even with a zero budget set locally."""
+    config = _make_config(actor_pricing_info=None, charged_event_counts={}, max_total_charge_usd=Decimal(0))
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        result = cm.compute_push_data_limit(10, 'some-event', is_default_dataset=True)
+        assert result == 10
+
+
 async def test_compute_push_data_limit_within_budget(mock_client: MagicMock) -> None:
     """Returns full items_count when combined budget is sufficient for all items."""
     pricing_info = _make_ppe_pricing_info({'click': Decimal('0.01'), 'apify-default-dataset-item': Decimal('0.01')})

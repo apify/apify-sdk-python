@@ -476,6 +476,9 @@ class ChargingManagerImplementation(ChargingManager):
         *,
         is_default_dataset: bool,
     ) -> int:
+        if self._pricing_model != 'PAY_PER_EVENT' or items_count == 0:
+            return items_count
+
         explicit_price = self._get_event_price(event_name)
         synthetic_price = self._get_event_price(DEFAULT_DATASET_ITEM_EVENT) if is_default_dataset else Decimal(0)
         combined_price = explicit_price + synthetic_price
