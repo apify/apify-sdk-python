@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
 from apify_client._models import Run
+from apify_client.errors import NotFoundError
 from crawlee import service_locator
 from crawlee.events import Event, EventAbortingData
 
@@ -855,22 +856,24 @@ async def test_reattach_replaces_recorded_abort_with_parent(
     assert stored['scrape-eu']['abortWithParent'] is True
 
 
-async def test_aborting_event_aborts_marked_active_child_runs(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+async def test_aborting_event_aborts_marked_child_runs(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+    apify_event_manager: ApifyEventManager,
 ) -> None:
-    """On `ABORTING`, only child runs marked `abort_with_parent` that are still active are gracefully aborted."""
-    runs = {
-        'running-run': make_run('running-run', 'RUNNING'),
-        'ready-run': make_run('ready-run', 'READY'),
+    """On `ABORTING`, each child run marked `abort_with_parent` gets one graceful abort request and no status lookup."""
+    aborted_runs = {
+        'running-run': make_run('running-run', 'ABORTING'),
+        'ready-run': make_run('ready-run', 'ABORTED'),
         'finished-run': make_run('finished-run', 'SUCCEEDED'),
-        'unmarked-run': make_run('unmarked-run', 'RUNNING'),
     }
 
-    async def get_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run | None:
-        return runs[run_client.resource_id]
+    async def abort_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run:
+        return aborted_runs[run_client.resource_id]
 
-    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
-    apify_client_async_patcher.patch('run', 'abort', return_value=None)
+    apify_client_async_patcher.patch('run', 'get', return_value=None)
+    apify_client_async_patcher.patch('run', 'abort', replacement_method=abort_run)
+    caplog.set_level('INFO')
 
     async with Actor:
         kvs = await Actor.open_key_value_store()
@@ -891,8 +894,32 @@ async def test_aborting_event_aborts_marked_active_child_runs(
         await apify_event_manager.wait_for_all_listeners_to_complete()
 
     aborts = apify_client_async_patcher.calls['run']['abort']
-    assert sorted(args[0].resource_id for args, _ in aborts) == ['ready-run', 'running-run']
+    assert sorted(args[0].resource_id for args, _ in aborts) == ['finished-run', 'ready-run', 'running-run']
     assert all(kwargs == {'gracefully': True} for _, kwargs in aborts)
+    assert apify_client_async_patcher.calls['run']['get'] == []
+    assert 'Aborted child run "running" with the parent' in caplog.text
+    assert 'Aborted child run "ready" with the parent' in caplog.text
+    assert 'Aborted child run "finished"' not in caplog.text
+
+
+async def test_aborting_event_skips_a_child_run_that_no_longer_exists(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+    apify_event_manager: ApifyEventManager,
+) -> None:
+    """A marked child run the API no longer knows is not reported as a failed abort."""
+    not_found = NotFoundError(Mock(status_code=404, json=Mock(return_value={})), 1, method='POST')
+    apify_client_async_patcher.patch('run', 'abort', replacement_method=Mock(side_effect=not_found))
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'gone': stored_record('gone-run', 'RUNNING', abort_with_parent=True)})
+        await Actor._child_run_registry.load()
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+
+    assert len(apify_client_async_patcher.calls['run']['abort']) == 1
+    assert 'Failed to abort child run' not in caplog.text
 
 
 async def test_failed_child_run_abort_does_not_stop_others(
@@ -902,13 +929,11 @@ async def test_failed_child_run_abort_does_not_stop_others(
 ) -> None:
     """A child run that fails to abort is logged, and the other marked child runs are still aborted."""
 
-    async def abort_run(run_client: Any, *_args: Any, **_kwargs: Any) -> None:
+    async def abort_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run:
         if run_client.resource_id == 'broken-run':
             raise RuntimeError('abort failed')
+        return make_run(run_client.resource_id, 'ABORTING')
 
-    apify_client_async_patcher.patch(
-        'run', 'get', replacement_method=lambda run_client: make_run(run_client.resource_id, 'RUNNING')
-    )
     apify_client_async_patcher.patch('run', 'abort', replacement_method=abort_run)
 
     async with Actor:
@@ -931,8 +956,7 @@ async def test_child_run_is_aborted_with_the_client_it_was_started_with() -> Non
     """A child run started with its own client is aborted with that client, not the default one."""
     default_client = Mock()
     child_client = Mock()
-    child_client.run.return_value.get = AsyncMock(return_value=make_run('new-run', 'RUNNING'))
-    child_client.run.return_value.abort = AsyncMock()
+    child_client.run.return_value.abort = AsyncMock(return_value=make_run('new-run', 'ABORTING'))
 
     async with Actor:
         registry = ChildRunRegistry(Actor.open_key_value_store)
@@ -954,8 +978,7 @@ async def test_child_run_is_aborted_with_the_client_it_was_started_with() -> Non
 async def test_rejected_named_start_keeps_the_client_used_to_abort() -> None:
     """A named start rejected for another Actor does not change the client its recorded run is aborted with."""
     default_client = Mock()
-    default_client.run.return_value.get = AsyncMock(return_value=make_run('old-run', 'RUNNING'))
-    default_client.run.return_value.abort = AsyncMock()
+    default_client.run.return_value.abort = AsyncMock(return_value=make_run('old-run', 'ABORTING'))
     other_client = Mock()
     other_client.run.return_value.get = AsyncMock(return_value=make_run('old-run', 'RUNNING'))
     other_client.run.return_value.abort = AsyncMock()
@@ -982,8 +1005,7 @@ async def test_rejected_named_start_keeps_the_client_used_to_abort() -> None:
 async def test_aborting_waits_for_a_named_start_in_flight() -> None:
     """A named start in flight when the parent is aborted has its run aborted once the run is recorded."""
     client = Mock()
-    client.run.return_value.get = AsyncMock(return_value=make_run('new-run', 'RUNNING'))
-    client.run.return_value.abort = AsyncMock()
+    client.run.return_value.abort = AsyncMock(return_value=make_run('new-run', 'ABORTING'))
     started = asyncio.Event()
     release = asyncio.Event()
 
@@ -1020,8 +1042,7 @@ async def test_exit_removes_the_aborting_listener(
 ) -> None:
     """After the Actor exits, an `ABORTING` event on a still-active event manager aborts no child run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
-    apify_client_async_patcher.patch('run', 'abort', return_value=None)
+    apify_client_async_patcher.patch('run', 'abort', return_value=make_run('new-run', 'ABORTING'))
 
     async with apify_event_manager:
         async with Actor:
@@ -1037,8 +1058,7 @@ async def test_removing_all_aborting_listeners_keeps_aborting_child_runs(
 ) -> None:
     """Removing all `ABORTING` listeners from the event manager still aborts child runs marked `abort_with_parent`."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
-    apify_client_async_patcher.patch('run', 'abort', return_value=None)
+    apify_client_async_patcher.patch('run', 'abort', return_value=make_run('new-run', 'ABORTING'))
 
     async with Actor:
         await Actor.start('some-actor', run_name='scrape-eu', abort_with_parent=True)

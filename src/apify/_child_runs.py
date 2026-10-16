@@ -11,6 +11,8 @@ from weakref import WeakValueDictionary
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 
+from apify_client.errors import NotFoundError
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
@@ -30,7 +32,7 @@ _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
 
 _RESURRECTABLE_STATUSES = frozenset({'ABORTED', 'TIMED-OUT'})
 
-_ABORTABLE_STATUSES = frozenset({'READY', 'RUNNING'})
+_ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
@@ -231,9 +233,10 @@ class ChildRunRegistry:
         await self._save(name, record.model_copy(update={'status': run.status}))
 
     async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
-        """Gracefully abort every recorded run marked `abort_with_parent` that is still `READY` or `RUNNING`.
+        """Gracefully abort every recorded run marked `abort_with_parent`.
 
-        A failure to abort one run is logged and does not stop the others.
+        Each run gets one abort request, all in parallel. The platform leaves a run that already finished as it is. A
+        failure to abort one run is logged and does not stop the others.
 
         Args:
             client: Client used for a name not started or looked up in this process, e.g. after a migration.
@@ -249,14 +252,14 @@ class ChildRunRegistry:
                 return
             run_client = self._clients.get(name, default_client).run(record.run_id)
             try:
-                run = await run_client.get()
-                if run is None or run.status not in _ABORTABLE_STATUSES:
-                    return
-                await run_client.abort(gracefully=True)
+                run = await run_client.abort(gracefully=True)
+            except NotFoundError:
+                logger.debug(f'Child run "{name}" no longer exists', extra={'run_id': record.run_id})
             except Exception:
                 logger.exception(f'Failed to abort child run "{name}"', extra={'run_id': record.run_id})
             else:
-                logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
+                if run.status in _ABORTED_STATUSES:
+                    logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
 
     async def _start(
         self,
