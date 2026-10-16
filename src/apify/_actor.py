@@ -7,7 +7,6 @@ import sys
 import warnings
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
-from enum import Enum
 from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
@@ -41,7 +40,7 @@ from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
-from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
+from apify._utils import UNSET, Unset, docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
 from apify._webhook import to_client_representations
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
@@ -67,15 +66,6 @@ if TYPE_CHECKING:
 MainReturnType = TypeVar('MainReturnType')
 
 _ensure_context = ensure_context('_active')
-
-
-class _Unset(Enum):
-    """Default of `exit()` and `fail()` arguments, marking an argument the caller didn't pass."""
-
-    UNSET = 'UNSET'
-
-
-_UNSET = _Unset.UNSET
 
 
 def _warn_max_items_deprecated() -> None:
@@ -521,10 +511,10 @@ class _ActorType:
     async def exit(
         self,
         *,
-        exit_code: int | _Unset = _UNSET,
-        status_message: str | _Unset | None = _UNSET,
-        event_listeners_timeout: timedelta | _Unset | None = _UNSET,
-        cleanup_timeout: timedelta | _Unset = _UNSET,
+        exit_code: int | Unset = UNSET,
+        status_message: str | Unset | None = UNSET,
+        event_listeners_timeout: timedelta | Unset | None = UNSET,
+        cleanup_timeout: timedelta | Unset = UNSET,
     ) -> None:
         """Exit the Actor without using context-manager syntax.
 
@@ -538,22 +528,22 @@ class _ActorType:
                 `None` means not waiting for them.
             cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
         """
-        if not isinstance(exit_code, _Unset):
+        if not isinstance(exit_code, Unset):
             self.exit_code = exit_code
-        if not isinstance(status_message, _Unset):
+        if not isinstance(status_message, Unset):
             self.status_message = status_message
-        if not isinstance(event_listeners_timeout, _Unset):
+        if not isinstance(event_listeners_timeout, Unset):
             self._event_listeners_timeout = event_listeners_timeout
-        if not isinstance(cleanup_timeout, _Unset):
+        if not isinstance(cleanup_timeout, Unset):
             self._cleanup_timeout = cleanup_timeout
         await self.__aexit__(None, None, None)
 
     async def fail(
         self,
         *,
-        exit_code: int | _Unset = _UNSET,
+        exit_code: int | Unset = UNSET,
         exception: BaseException | None = None,
-        status_message: str | _Unset | None = _UNSET,
+        status_message: str | Unset | None = UNSET,
     ) -> None:
         """Fail the Actor instance without using context-manager syntax.
 
@@ -567,11 +557,11 @@ class _ActorType:
             exception: The exception with which the Actor failed.
             status_message: The final status message that the Actor should display.
         """
-        if not isinstance(exit_code, _Unset):
+        if not isinstance(exit_code, Unset):
             self.exit_code = exit_code
         elif self.exit_code == 0:
             self.exit_code = 1
-        if not isinstance(status_message, _Unset):
+        if not isinstance(status_message, Unset):
             self.status_message = status_message
 
         await self.__aexit__(

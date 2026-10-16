@@ -6,6 +6,7 @@ import inspect
 import sys
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
+from enum import Enum
 from functools import wraps
 from importlib import metadata
 from typing import Any, Literal, TypeVar, cast
@@ -142,3 +143,19 @@ class ReentrantLock:
                 yield
             finally:
                 self._owner = None
+
+
+class Unset(Enum):
+    """Marker for an argument the caller didn't pass, used as its default value.
+
+    It tells "not passed" apart from every value a caller can pass. `None` can't be the marker where `None` is itself
+    a meaningful argument, such as `event_listeners_timeout=None` meaning "don't wait for listeners". A string such as
+    `'UNSET'` can't be either, since a caller could pass that same string for a `str` argument. A single-member enum
+    compares equal to nothing else, and type checkers narrow `isinstance(value, Unset)`, so the rest of the function
+    sees the argument's real type.
+    """
+
+    UNSET = 'UNSET'
+
+
+UNSET = Unset.UNSET
