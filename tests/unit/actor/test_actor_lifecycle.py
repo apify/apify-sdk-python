@@ -528,6 +528,33 @@ async def test_failed_crawler_status_forwarding_logs_warning(
     assert records[0].levelno == logging.WARNING
 
 
+async def test_slow_crawler_status_forwarding_times_out(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A forwarded crawler status update that exceeds the timeout is abandoned with a warning."""
+    set_up_platform_env(monkeypatch)
+    monkeypatch.setattr('apify._actor.CRAWLER_STATUS_FORWARDING_TIMEOUT', timedelta(milliseconds=10))
+
+    async def set_status_message(_self: Any, _status_message: str, *, is_terminal: bool | None = None) -> None:
+        if not is_terminal:
+            await asyncio.sleep(60)
+
+    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+
+    async with Actor() as actor:
+        actor.event_manager.emit(
+            event=Event.CRAWLER_STATUS,
+            event_data=EventCrawlerStatusData(message='Crawled 1/2 pages', crawler_id=1),
+        )
+        await asyncio.wait_for(actor.event_manager.wait_for_all_listeners_to_complete(), timeout=5)
+
+    records = [r for r in caplog.records if r.msg == 'Failed to forward the crawler status message to the Actor run']
+    assert len(records) == 1
+    assert records[0].exc_info is not None
+    assert isinstance(records[0].exc_info[1], TimeoutError)
+
+
 async def test_crawler_status_does_not_follow_terminal_status_message(monkeypatch: pytest.MonkeyPatch) -> None:
     """A crawler status message emitted right before exit does not overwrite the terminal status message."""
     set_up_platform_env(monkeypatch)

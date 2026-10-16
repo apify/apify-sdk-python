@@ -38,7 +38,13 @@ from apify._charging import (
 )
 from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
-from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
+from apify._consts import (
+    CRAWLER_STATUS_FORWARDING_TIMEOUT,
+    EVENT_LISTENERS_TIMEOUT,
+    EXIT_CODE_ERROR_USER_FUNCTION_THREW,
+    ActorEnvVars,
+    ApifyEnvVars,
+)
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
@@ -1837,13 +1843,17 @@ class _ActorType:
         """Set a crawler status message as the run status message on the Apify platform.
 
         Messages that arrive once the Actor is exiting are dropped, and the terminal message waits for an update that
-        is already in flight, so no forwarded message can overwrite the terminal one.
+        is already in flight, so no forwarded message can overwrite the terminal one. Each update is bounded by
+        `CRAWLER_STATUS_FORWARDING_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
         """
         try:
             async with self._status_message_lock:
                 if self._is_exiting:
                     return
-                await self.set_status_message(event_data.message)
+                await asyncio.wait_for(
+                    self.set_status_message(event_data.message),
+                    timeout=CRAWLER_STATUS_FORWARDING_TIMEOUT.total_seconds(),
+                )
         except Exception:
             self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 
