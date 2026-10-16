@@ -155,18 +155,19 @@ async def test_actor_charge_limit(
 ) -> None:
     run = await run_actor(ppe_actor, max_total_charge_usd=Decimal('0.2'))
 
-    # Reaching `max_total_charge_usd` makes the platform auto-abort the run. The Actor blocks after hitting the
-    # limit (see `ppe_actor_build`) so the abort always wins the race against its clean exit, hence ABORTED.
-    # Refetch until the charged event counts propagate on the platform.
+    # The Actor charges 4 events and the budget covers 2, so the SDK charges 3 - one over the budget, which makes
+    # the platform auto-abort the run. The Actor blocks after hitting the limit (see `ppe_actor_build`) so the abort
+    # always wins the race against its clean exit, hence ABORTED. Refetch until the charged event counts propagate
+    # on the platform.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'ABORTED' and r.charged_event_counts == {'foobar': 2},
+        lambda r: r.status == 'ABORTED' and r.charged_event_counts == {'foobar': 3},
         timeout=30,
         poll_interval=1,
     )
 
     assert run.status == 'ABORTED'
-    assert run.charged_event_counts == {'foobar': 2}
+    assert run.charged_event_counts == {'foobar': 3}
 
 
 async def test_actor_push_data_charges_both_events(
