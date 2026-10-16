@@ -71,11 +71,8 @@ async def setup_mocked_charging(
             yield setup
 
 
-async def test_actor_charge_push_data_with_no_remaining_budget() -> None:
-    """Test that the API client is NOT called when budget is exhausted during push_data.
-
-    When push_data can't afford to charge for any items, it correctly avoids calling the API.
-    """
+async def test_actor_push_data_overcharges_one_item_when_budget_cannot_cover_one() -> None:
+    """Test that push_data pushes and charges exactly one item when the budget cannot cover a single one."""
     async with setup_mocked_charging(
         Configuration(max_total_charge_usd=Decimal('1.5'), test_pay_per_event=True),
         {'some-event': Decimal('1.0'), 'another-event': Decimal('1.0')},
@@ -89,22 +86,15 @@ async def test_actor_charge_push_data_with_no_remaining_budget() -> None:
 
         assert result1.charged_count == 1
 
-        # Now try to push data - we can't afford even 1 more event
-        # This will call charge(event_name, count=0) because max_charged_count=0
         result = await Actor.push_data([{'hello': 'world'} for _ in range(10)], charged_event_name='another-event')
 
-        # The API should NOT be called when count=0
-        setup.mock_charge.assert_not_called()
-
-        # Correctly returns result with charged_count=0
-        assert result is not None
-        assert result.charged_count == 0
+        setup.mock_charge.assert_called_once_with('another-event', count=1, idempotency_key=None)
+        assert result.charged_count == 1
         assert result.event_charge_limit_reached is True
 
-        # Verify no items were pushed
         dataset = await Actor.open_dataset()
         items = await dataset.get_data()
-        assert len(items.items) == 0
+        assert len(items.items) == 1
 
 
 async def test_actor_charge_api_call_verification() -> None:
@@ -245,37 +235,36 @@ async def test_charge_lock_concurrent_with_limited_budget() -> None:
     ) as setup:
         dataset = await Actor.open_dataset()
 
-        # Both try to push 5 items, but budget only allows 5 total
+        # Both try to push 5 items. The budget covers 5 in total, plus one overcharge item.
         await asyncio.gather(
             dataset.push_data([{'source': 'a', 'id': i} for i in range(5)]),
             dataset.push_data([{'source': 'b', 'id': i} for i in range(5)]),
         )
 
-        # Verify total items pushed does not exceed budget limit
         items = await dataset.get_data()
-        assert len(items.items) == 5  # Budget allows max 5 items at $0.10 each
+        assert len(items.items) == 6
 
         # Verify total charged events matches items pushed
-        assert setup.charging_mgr.get_charged_event_count('apify-default-dataset-item') == 5
+        assert setup.charging_mgr.get_charged_event_count('apify-default-dataset-item') == 6
 
 
 async def test_concurrent_actor_push_data_stays_within_budget() -> None:
-    """Concurrent `Actor.push_data` calls do not overdraw the budget - the reservation and the charge stay atomic."""
+    """Concurrent `Actor.push_data` calls overdraw the budget by at most one item, since the charge stays atomic."""
     async with setup_mocked_charging(
         Configuration(max_total_charge_usd=Decimal('0.50'), test_pay_per_event=True),
         {'scrape': Decimal('0.10')},
     ) as setup:
-        # Both try to push 5 items, but the budget only allows 5 in total.
+        # Both try to push 5 items. The budget covers 5 in total, plus one overcharge item.
         await asyncio.gather(
             Actor.push_data([{'source': 'a', 'id': i} for i in range(5)], charged_event_name='scrape'),
             Actor.push_data([{'source': 'b', 'id': i} for i in range(5)], charged_event_name='scrape'),
         )
 
-        assert setup.charging_mgr.get_charged_event_count('scrape') == 5
+        assert setup.charging_mgr.get_charged_event_count('scrape') == 6
 
         dataset = await Actor.open_dataset()
         items = await dataset.get_data()
-        assert len(items.items) == 5
+        assert len(items.items) == 6
 
 
 async def test_push_data_does_not_take_charge_lock_without_pay_per_event(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -320,10 +309,37 @@ async def test_charge_with_overdrawn_budget() -> None:
     )
 
     async with setup_mocked_charging(configuration, {}) as setup:
+        # The budget doesn't cover another event, so the charge overcharges by one.
         charge_result = await Actor.charge('event', count=1)
-        assert charge_result.charged_count == 0  # The budget doesn't allow another event
+        assert charge_result.charged_count == 1
+        assert charge_result.event_charge_limit_reached is True
+        setup.mock_charge.assert_called_once_with('event', count=1, idempotency_key=None)
+        setup.mock_charge.reset_mock()
 
+        # The run is now strictly over budget, so nothing else is charged.
         push_result = await Actor.push_data([{'hello': 'world'}], charged_event_name='event')
-        assert push_result.charged_count == 0  # Nor does the budget allow this
+        assert push_result.charged_count == 0
+        assert push_result.event_charge_limit_reached is True
 
         setup.mock_charge.assert_not_called()
+
+
+async def test_actor_push_data_overcharges_one_item_locally() -> None:
+    """Test that a local pay-per-event run lets one item through when the budget cannot cover a single one."""
+    # Locally, every event without pricing info costs $1, so one item costs $2 (explicit + synthetic event).
+    async with Actor(Configuration(max_total_charge_usd=Decimal('1.00'), test_pay_per_event=True)):
+        result = await Actor.push_data([{'id': i} for i in range(3)], charged_event_name='scrape')
+
+        charging_manager = Actor.get_charging_manager()
+        assert charging_manager.get_charged_event_count('apify-default-dataset-item') == 1
+        assert result.event_charge_limit_reached is True
+
+        dataset = await Actor.open_dataset()
+        items = await dataset.get_data()
+        assert len(items.items) == 1
+
+        result = await Actor.push_data([{'id': 3}], charged_event_name='scrape')
+        assert result.charged_count == 0
+
+        items = await dataset.get_data()
+        assert len(items.items) == 1
