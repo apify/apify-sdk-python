@@ -852,6 +852,9 @@ class _ActorType:
 
         This is relevant only for the pay-per-event pricing model.
 
+        When `count` exceeds the remaining budget, the events that fit are charged plus one more, so that the platform
+        detects the exhausted budget and terminates the run. A run already strictly over budget charges nothing.
+
         Args:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
