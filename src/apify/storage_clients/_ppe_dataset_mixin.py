@@ -11,6 +11,7 @@ class DatasetClientPpeMixin:
 
     def _compute_limit_for_push(self, items_count: int) -> int:
         if self.is_default_dataset and (charging_manager := charging_manager_ctx.get()):
+            # The synthetic event is the only one charged per item, so it is priced as the explicit event.
             return charging_manager.compute_push_data_limit(
                 items_count,
                 DEFAULT_DATASET_ITEM_EVENT,
