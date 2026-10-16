@@ -382,6 +382,38 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     assert [request.unique_key for request in resent] == [rejected.unique_key]
 
 
+async def test_single_skips_request_batch_add_reports_already_handled() -> None:
+    """A request the platform reports as already handled is not cached, and `fetch_next_request()` returns `None`."""
+    client, api_client = _make_single_client()
+    api_client.list_requests = AsyncMock(return_value=SimpleNamespace(items=[]))
+    api_client.list_head = AsyncMock(
+        return_value=RequestQueueHead(
+            limit=1, queue_modified_at=datetime.now(tz=UTC), had_multiple_clients=False, items=[]
+        )
+    )
+    request = Request.from_url('https://example.com/handled')
+    request_id = unique_key_to_request_id(request.unique_key)
+    api_client.batch_add_requests = AsyncMock(
+        return_value=BatchAddResult.model_construct(
+            processed_requests=[
+                AddedRequest.model_construct(
+                    request_id=request_id,
+                    unique_key=request.unique_key,
+                    was_already_present=True,
+                    was_already_handled=True,
+                )
+            ],
+            unprocessed_requests=[],
+        )
+    )
+
+    await client.add_batch_of_requests([request])
+
+    assert request_id not in client._requests_cache
+    assert request_id in client._requests_already_handled
+    assert await client.fetch_next_request() is None
+
+
 @pytest.mark.parametrize(
     'platform_request_visible',
     [
