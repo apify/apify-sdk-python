@@ -117,7 +117,7 @@ async def test_charge_known_event_locally(mock_client: MagicMock) -> None:
         assert cm.get_charged_event_count('search') == 5
 
 
-async def test_charge_partial_count_within_budget(mock_client: MagicMock) -> None:
+async def test_charge_partial_count_over_budget(mock_client: MagicMock) -> None:
     """Test that a count exceeding the budget charges what fits plus one overcharge event."""
     pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
     config = _make_config(
