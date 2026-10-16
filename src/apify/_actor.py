@@ -21,6 +21,7 @@ from crawlee.errors import ServiceConflictError
 from crawlee.events import (
     Event,
     EventAbortingData,
+    EventCrawlerStatusData,
     EventExitData,
     EventListener,
     EventMigratingData,
@@ -183,6 +184,7 @@ class _ActorType:
         - Configures the event manager and starts periodic state persistence.
         - Initializes the charging manager for handling charging events.
         - Loads the named child runs recorded by an earlier attempt of this Actor run.
+        - On the Apify platform, forwards the status messages of Crawlee crawlers to the run status message.
         - Configures logging after all core services are registered.
 
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
@@ -245,6 +247,10 @@ class _ActorType:
             finally:
                 await self.event_manager.__aexit__(None, None, None)
             raise
+
+        if self.is_at_home():
+            self.event_manager.on(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
+
         return self
 
     async def __aexit__(
@@ -261,6 +267,7 @@ class _ActorType:
         so interrupt and cancellation semantics are preserved. Otherwise, the Actor exits cleanly. In every
         case the Actor:
 
+        - Stops forwarding crawler status messages to the run status message.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
         - Waits for all event listeners to finish.
@@ -291,6 +298,9 @@ class _ActorType:
 
         self._is_exiting = True
         self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
+
+        # Stop forwarding crawler status messages, so that none of them overwrites the terminal one.
+        self.event_manager.off(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
 
         async def finalize() -> None:
             if self.status_message is not None:
@@ -1817,6 +1827,19 @@ class _ActorType:
         self._use_state_stores.add(kvs_name)
         kvs = await self.open_key_value_store(name=kvs_name)
         return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
+
+    async def _forward_crawler_status(self, event_data: EventCrawlerStatusData) -> None:
+        """Set a crawler status message as the run status message on the Apify platform.
+
+        Messages that arrive once the Actor is exiting are dropped, so they cannot overwrite the terminal one.
+        """
+        if self._is_exiting:
+            return
+
+        try:
+            await self.set_status_message(event_data.message)
+        except Exception:
+            self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 
     async def _save_actor_state(self) -> None:
         async def safe_persist(kvs_name: str | None) -> None:
