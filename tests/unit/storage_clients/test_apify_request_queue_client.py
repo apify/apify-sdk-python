@@ -392,7 +392,7 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     assert [request.unique_key for request in resent] == [rejected.unique_key]
 
 
-async def test_single_skips_request_batch_add_reports_already_handled() -> None:
+async def test_single_skips_request_batch_add_reported_already_handled() -> None:
     """A request the platform reports as already handled is not cached, and `fetch_next_request()` returns `None`."""
     client, api_client = _make_single_client()
     api_client.list_requests = AsyncMock(return_value=SimpleNamespace(items=[]))
