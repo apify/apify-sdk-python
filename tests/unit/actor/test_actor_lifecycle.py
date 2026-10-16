@@ -15,7 +15,7 @@ import websockets
 import websockets.asyncio.server
 
 from apify_client._models import Run
-from crawlee.events._types import Event, EventAbortingData, EventPersistStateData
+from crawlee.events._types import Event, EventAbortingData, EventCrawlerStatusData, EventPersistStateData
 
 from ..._utils import poll_until_condition
 from apify import Actor
@@ -469,6 +469,141 @@ async def test_failing_terminal_status_message_does_not_abort_exit(
     assert actor.event_manager.active is False
     charging_manager_exit.assert_called_once()
     save_actor_state.assert_called_once()
+
+
+def set_up_platform_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME, '1')
+    monkeypatch.setenv(ActorEnvVars.RUN_ID, 'test-run-id')
+    # On the platform, init fetches the run for the charging manager and reads the child run registry from the API.
+    monkeypatch.setattr(ChargingManagerImplementation, '__aenter__', AsyncMock())
+    monkeypatch.setattr(ChargingManagerImplementation, '__aexit__', AsyncMock())
+    monkeypatch.setattr(ChildRunRegistry, 'load', AsyncMock(return_value={}))
+
+
+@pytest.mark.parametrize(
+    ('is_at_home', 'expected_calls'),
+    [
+        pytest.param(True, [mock.call('Crawled 1/2 pages')], id='on platform'),
+        pytest.param(False, [], id='locally'),
+    ],
+)
+async def test_crawler_status_is_forwarded_to_run_status_message(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    is_at_home: bool,
+    expected_calls: list[Any],
+) -> None:
+    """A `CRAWLER_STATUS` event sets the run status message on the platform and does nothing locally."""
+    if is_at_home:
+        set_up_platform_env(monkeypatch)
+    set_status_message = AsyncMock()
+    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+
+    async with Actor() as actor:
+        actor.event_manager.emit(
+            event=Event.CRAWLER_STATUS,
+            event_data=EventCrawlerStatusData(message='Crawled 1/2 pages', crawler_id=1),
+        )
+        await actor.event_manager.wait_for_all_listeners_to_complete()
+        assert set_status_message.call_args_list == expected_calls
+
+
+async def test_failed_crawler_status_forwarding_logs_warning(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failure to set a forwarded crawler status message is logged as a warning and does not propagate."""
+    set_up_platform_env(monkeypatch)
+    monkeypatch.setattr(_ActorType, 'set_status_message', AsyncMock(side_effect=RuntimeError('Update failed')))
+
+    async with Actor() as actor:
+        actor.event_manager.emit(
+            event=Event.CRAWLER_STATUS,
+            event_data=EventCrawlerStatusData(message='Crawled 1/2 pages', crawler_id=1),
+        )
+        await actor.event_manager.wait_for_all_listeners_to_complete()
+
+    records = [r for r in caplog.records if r.msg == 'Failed to forward the crawler status message to the Actor run']
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+
+
+async def test_slow_crawler_status_forwarding_times_out(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A forwarded crawler status update that exceeds the timeout is abandoned with a warning."""
+    set_up_platform_env(monkeypatch)
+    monkeypatch.setattr('apify._actor.CRAWLER_STATUS_FORWARDING_TIMEOUT', timedelta(milliseconds=10))
+
+    async def set_status_message(_self: Any, _status_message: str, *, is_terminal: bool | None = None) -> None:
+        if not is_terminal:
+            await asyncio.sleep(60)
+
+    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+
+    async with Actor() as actor:
+        actor.event_manager.emit(
+            event=Event.CRAWLER_STATUS,
+            event_data=EventCrawlerStatusData(message='Crawled 1/2 pages', crawler_id=1),
+        )
+        await asyncio.wait_for(actor.event_manager.wait_for_all_listeners_to_complete(), timeout=5)
+
+    records = [r for r in caplog.records if r.msg == 'Failed to forward the crawler status message to the Actor run']
+    assert len(records) == 1
+    assert records[0].exc_info is not None
+    assert isinstance(records[0].exc_info[1], TimeoutError)
+
+
+async def test_crawler_status_does_not_follow_terminal_status_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A crawler status message emitted right before exit does not overwrite the terminal status message."""
+    set_up_platform_env(monkeypatch)
+    set_status_message = AsyncMock()
+    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+
+    actor = Actor()
+    await actor.init()
+
+    # The listener task only starts at the first `await` inside `exit()`, after the Actor began exiting.
+    actor.event_manager.emit(
+        event=Event.CRAWLER_STATUS,
+        event_data=EventCrawlerStatusData(message='Crawled 1/2 pages', crawler_id=1),
+    )
+    await actor.exit(status_message='Done')
+
+    assert set_status_message.call_args_list == [mock.call('Done', is_terminal=True)]
+
+
+async def test_terminal_status_message_waits_for_in_flight_crawler_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The terminal status message is sent only after a crawler status update already in flight completes."""
+    set_up_platform_env(monkeypatch)
+    updates = Mock()
+    forwarding_started = asyncio.Event()
+
+    async def set_status_message(_self: Any, status_message: str, *, is_terminal: bool | None = None) -> None:
+        updates.start(status_message)
+        if not is_terminal:
+            forwarding_started.set()
+            await asyncio.sleep(0.05)
+        updates.end(status_message)
+
+    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+
+    actor = Actor()
+    await actor.init()
+    actor.event_manager.emit(
+        event=Event.CRAWLER_STATUS,
+        event_data=EventCrawlerStatusData(message='Crawled 1/2 pages', crawler_id=1),
+    )
+    await forwarding_started.wait()
+    await actor.exit(status_message='Done')
+
+    assert updates.mock_calls == [
+        mock.call.start('Crawled 1/2 pages'),
+        mock.call.end('Crawled 1/2 pages'),
+        mock.call.start('Done'),
+        mock.call.end('Done'),
+    ]
 
 
 @pytest.mark.parametrize(
