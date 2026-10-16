@@ -190,16 +190,23 @@ class ApifyRequestQueueSingleClient:
                 # call succeeds (not before) keeps a failed call from poisoning the cache and silently
                 # deduplicating a later retry of the same request.
                 unprocessed_unique_keys = {request.unique_key for request in api_response.unprocessed_requests}
+                processed_by_unique_key = {request.unique_key: request for request in api_response.processed_requests}
                 for request in new_requests:
                     if request.unique_key in unprocessed_unique_keys:
                         continue
                     request_id = unique_key_to_request_id(request.unique_key)
+                    committed_request_ids.add(request_id)
+                    # A request handled on the platform (e.g. by an earlier client of this RQ) stays out of the
+                    # cache and the head, so it is never fetched again.
+                    processed = processed_by_unique_key.get(request.unique_key)
+                    if processed is not None and processed.was_already_handled:
+                        self._requests_already_handled.add(request_id)
+                        continue
                     self._requests_cache[request_id] = request
                     if forefront:
                         self._head_requests.append(request_id)
                     else:
                         self._head_requests.appendleft(request_id)
-                    committed_request_ids.add(request_id)
 
                 # Add the locally known already present processed requests based on the local cache.
                 api_response.processed_requests.extend(already_present_requests)
