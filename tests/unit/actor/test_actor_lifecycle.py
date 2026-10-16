@@ -219,6 +219,68 @@ async def test_fail_sets_custom_exit_code_and_status_message(actor: _ActorType) 
     assert actor.status_message == 'Failing with code 99'
 
 
+async def test_exit_keeps_values_from_constructor() -> None:
+    """A bare `exit()` keeps the exit code, status message and timeouts passed to the constructor."""
+    actor = Actor(
+        exit_process=False,
+        exit_code=3,
+        status_message='Set in constructor',
+        event_listeners_timeout=None,
+        cleanup_timeout=timedelta(seconds=5),
+    )
+    await actor.init()
+    await actor.exit()
+    assert actor.exit_code == 3
+    assert actor.status_message == 'Set in constructor'
+    assert actor._event_listeners_timeout is None
+    assert actor._cleanup_timeout == timedelta(seconds=5)
+
+
+async def test_exit_keeps_values_set_through_properties() -> None:
+    """A bare `exit()` keeps the exit code and status message set through the properties."""
+    actor = Actor(exit_process=False)
+    await actor.init()
+    actor.exit_code = 3
+    actor.status_message = 'Scraped 120 items'
+    await actor.exit()
+    assert actor.exit_code == 3
+    assert actor.status_message == 'Scraped 120 items'
+
+
+async def test_exit_arguments_override_earlier_values() -> None:
+    """Arguments passed to `exit()` replace the values set earlier."""
+    actor = Actor(exit_process=False, exit_code=3, status_message='Set in constructor')
+    await actor.init()
+    await actor.exit(
+        exit_code=0,
+        status_message=None,
+        event_listeners_timeout=None,
+        cleanup_timeout=timedelta(seconds=5),
+    )
+    assert actor.exit_code == 0
+    assert actor.status_message is None
+    assert actor._event_listeners_timeout is None
+    assert actor._cleanup_timeout == timedelta(seconds=5)
+
+
+@pytest.mark.parametrize(
+    ('earlier_exit_code', 'expected_exit_code'),
+    [
+        pytest.param(0, 1, id='zero becomes 1'),
+        pytest.param(5, 5, id='non-zero is kept'),
+    ],
+)
+async def test_fail_without_arguments_exit_code(earlier_exit_code: int, expected_exit_code: int) -> None:
+    """A bare `fail()` exits with 1 unless a non-zero exit code was set earlier."""
+    actor = Actor(exit_process=False)
+    await actor.init()
+    actor.exit_code = earlier_exit_code
+    actor.status_message = 'Set earlier'
+    await actor.fail()
+    assert actor.exit_code == expected_exit_code
+    assert actor.status_message == 'Set earlier'
+
+
 async def test_unhandled_exception_sets_error_exit_code() -> None:
     """Test that unhandled exceptions in context manager set the error exit code."""
     actor = Actor(exit_process=False)

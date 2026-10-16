@@ -7,6 +7,7 @@ import sys
 import warnings
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
@@ -66,6 +67,15 @@ if TYPE_CHECKING:
 MainReturnType = TypeVar('MainReturnType')
 
 _ensure_context = ensure_context('_active')
+
+
+class _Unset(Enum):
+    """Default of `exit()` and `fail()` arguments, marking an argument the caller didn't pass."""
+
+    UNSET = 'UNSET'
+
+
+_UNSET = _Unset.UNSET
 
 
 def _warn_max_items_deprecated() -> None:
@@ -511,46 +521,58 @@ class _ActorType:
     async def exit(
         self,
         *,
-        exit_code: int = 0,
-        status_message: str | None = None,
-        event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
-        cleanup_timeout: timedelta = timedelta(seconds=30),
+        exit_code: int | _Unset = _UNSET,
+        status_message: str | _Unset | None = _UNSET,
+        event_listeners_timeout: timedelta | _Unset | None = _UNSET,
+        cleanup_timeout: timedelta | _Unset = _UNSET,
     ) -> None:
         """Exit the Actor without using context-manager syntax.
 
-        Equivalent to `await Actor.__aexit__()`.
+        Equivalent to `await Actor.__aexit__()`. Omitted arguments keep their current values, set through the
+        constructor or the `exit_code` and `status_message` properties.
 
         Args:
             exit_code: The exit code the Actor should use when exiting.
             status_message: Final status message to display upon Actor termination.
             event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
+                `None` means not waiting for them.
             cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
         """
-        self.exit_code = exit_code
-        self.status_message = status_message
-        self._event_listeners_timeout = event_listeners_timeout
-        self._cleanup_timeout = cleanup_timeout
+        if not isinstance(exit_code, _Unset):
+            self.exit_code = exit_code
+        if not isinstance(status_message, _Unset):
+            self.status_message = status_message
+        if not isinstance(event_listeners_timeout, _Unset):
+            self._event_listeners_timeout = event_listeners_timeout
+        if not isinstance(cleanup_timeout, _Unset):
+            self._cleanup_timeout = cleanup_timeout
         await self.__aexit__(None, None, None)
 
     async def fail(
         self,
         *,
-        exit_code: int = 1,
+        exit_code: int | _Unset = _UNSET,
         exception: BaseException | None = None,
-        status_message: str | None = None,
+        status_message: str | _Unset | None = _UNSET,
     ) -> None:
         """Fail the Actor instance without using context-manager syntax.
 
         Equivalent to setting the `self.exit_code` and `self.status_message` properties and using
-        `await Actor.__aexit__()`.
+        `await Actor.__aexit__()`. Omitted arguments keep their current values, except that an exit code of `0`
+        becomes `1`.
 
         Args:
-            exit_code: The exit code with which the Actor should fail (defaults to `1`).
+            exit_code: The exit code with which the Actor should fail. Defaults to the current exit code if it is
+                non-zero, or `1` otherwise.
             exception: The exception with which the Actor failed.
             status_message: The final status message that the Actor should display.
         """
-        self.exit_code = exit_code
-        self.status_message = status_message
+        if not isinstance(exit_code, _Unset):
+            self.exit_code = exit_code
+        elif self.exit_code == 0:
+            self.exit_code = 1
+        if not isinstance(status_message, _Unset):
+            self.status_message = status_message
 
         await self.__aexit__(
             exc_type=type(exception) if exception else None,
