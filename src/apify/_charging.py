@@ -150,7 +150,7 @@ class ChargingManager(Protocol):
                 If True, the synthetic event cost is included in the combined price.
 
         Returns:
-            Max number of items that can be pushed within the budget.
+            Max number of items to push.
         """
 
     def is_event_charge_limit_reached(self, event_name: str) -> bool:
@@ -546,7 +546,7 @@ class ChargingManagerImplementation(ChargingManager):
         )
 
     def _compute_charged_count(self, event_name: str, count: int) -> int:
-        """Compute how many of `count` events to charge within the remaining budget."""
+        """Compute how many of `count` events to charge, given the remaining budget."""
         max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
         if max_chargeable is None or count <= max_chargeable:
             return count

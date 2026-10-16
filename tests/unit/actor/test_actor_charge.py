@@ -248,7 +248,7 @@ async def test_charge_lock_concurrent_with_limited_budget() -> None:
         assert setup.charging_mgr.get_charged_event_count('apify-default-dataset-item') == 6
 
 
-async def test_concurrent_actor_push_data_stays_within_budget() -> None:
+async def test_concurrent_actor_push_data_overdraws_budget_by_at_most_one_item() -> None:
     """Concurrent `Actor.push_data` calls overdraw the budget by at most one item, since the charge stays atomic."""
     async with setup_mocked_charging(
         Configuration(max_total_charge_usd=Decimal('0.50'), test_pay_per_event=True),
