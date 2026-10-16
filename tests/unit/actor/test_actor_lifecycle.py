@@ -547,6 +547,38 @@ async def test_crawler_status_does_not_follow_terminal_status_message(monkeypatc
     assert set_status_message.call_args_list == [mock.call('Done', is_terminal=True)]
 
 
+async def test_terminal_status_message_waits_for_in_flight_crawler_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The terminal status message is sent only after a crawler status update already in flight completes."""
+    set_up_platform_env(monkeypatch)
+    updates = Mock()
+    forwarding_started = asyncio.Event()
+
+    async def set_status_message(_self: Any, status_message: str, *, is_terminal: bool | None = None) -> None:
+        updates.start(status_message)
+        if not is_terminal:
+            forwarding_started.set()
+            await asyncio.sleep(0.05)
+        updates.end(status_message)
+
+    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+
+    actor = Actor()
+    await actor.init()
+    actor.event_manager.emit(
+        event=Event.CRAWLER_STATUS,
+        event_data=EventCrawlerStatusData(message='Crawled 1/2 pages', crawler_id=1),
+    )
+    await forwarding_started.wait()
+    await actor.exit(status_message='Done')
+
+    assert updates.mock_calls == [
+        mock.call.start('Crawled 1/2 pages'),
+        mock.call.end('Crawled 1/2 pages'),
+        mock.call.start('Done'),
+        mock.call.end('Done'),
+    ]
+
+
 @pytest.mark.parametrize(
     ('first_with_call', 'second_with_call'),
     [

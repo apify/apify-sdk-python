@@ -175,6 +175,9 @@ class _ActorType:
         self._is_exiting = False
         """Whether the Actor is currently exiting."""
 
+        self._status_message_lock = asyncio.Lock()
+        """Serializes forwarded crawler status messages with the terminal status message."""
+
     async def __aenter__(self) -> Self:
         """Enter the Actor context.
 
@@ -212,6 +215,7 @@ class _ActorType:
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
+        self._status_message_lock = asyncio.Lock()
 
         # Initialize the storage client and register it in the service locator.
         _ = self._storage_client
@@ -305,7 +309,8 @@ class _ActorType:
         async def finalize() -> None:
             if self.status_message is not None:
                 try:
-                    await self.set_status_message(self.status_message, is_terminal=True)
+                    async with self._status_message_lock:
+                        await self.set_status_message(self.status_message, is_terminal=True)
                 except Exception:
                     self.log.exception('Failed to set terminal status message')
 
@@ -1831,13 +1836,14 @@ class _ActorType:
     async def _forward_crawler_status(self, event_data: EventCrawlerStatusData) -> None:
         """Set a crawler status message as the run status message on the Apify platform.
 
-        Messages that arrive once the Actor is exiting are dropped, so they cannot overwrite the terminal one.
+        Messages that arrive once the Actor is exiting are dropped, and the terminal message waits for an update that
+        is already in flight, so no forwarded message can overwrite the terminal one.
         """
-        if self._is_exiting:
-            return
-
         try:
-            await self.set_status_message(event_data.message)
+            async with self._status_message_lock:
+                if self._is_exiting:
+                    return
+                await self.set_status_message(event_data.message)
         except Exception:
             self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 
