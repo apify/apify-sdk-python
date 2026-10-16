@@ -541,26 +541,21 @@ class _ActorType:
     async def fail(
         self,
         *,
-        exit_code: int | Unset = Unset.UNSET,
+        exit_code: int = 1,
         exception: BaseException | None = None,
         status_message: str | Unset | None = Unset.UNSET,
     ) -> None:
         """Fail the Actor instance without using context-manager syntax.
 
         Equivalent to setting the `self.exit_code` and `self.status_message` properties and using
-        `await Actor.__aexit__()`. Omitted arguments keep their current values, except that an exit code of `0`
-        becomes `1`.
+        `await Actor.__aexit__()`. An omitted `status_message` keeps its current value.
 
         Args:
-            exit_code: The exit code with which the Actor should fail. Defaults to the current exit code if it is
-                non-zero, or `1` otherwise.
+            exit_code: The exit code with which the Actor should fail (defaults to `1`).
             exception: The exception with which the Actor failed.
             status_message: The final status message that the Actor should display.
         """
-        if not isinstance(exit_code, Unset):
-            self.exit_code = exit_code
-        elif self.exit_code == 0:
-            self.exit_code = 1
+        self.exit_code = exit_code
         if not isinstance(status_message, Unset):
             self.status_message = status_message
 

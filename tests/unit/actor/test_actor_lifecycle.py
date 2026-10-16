@@ -263,21 +263,14 @@ async def test_exit_arguments_override_earlier_values() -> None:
     assert actor._cleanup_timeout == timedelta(seconds=5)
 
 
-@pytest.mark.parametrize(
-    ('earlier_exit_code', 'expected_exit_code'),
-    [
-        pytest.param(0, 1, id='zero becomes 1'),
-        pytest.param(5, 5, id='non-zero is kept'),
-    ],
-)
-async def test_fail_without_arguments_exit_code(earlier_exit_code: int, expected_exit_code: int) -> None:
-    """A bare `fail()` exits with 1 unless a non-zero exit code was set earlier."""
+async def test_fail_without_arguments_keeps_status_message() -> None:
+    """A bare `fail()` exits with 1 and keeps the status message set earlier."""
     actor = Actor(exit_process=False)
     await actor.init()
-    actor.exit_code = earlier_exit_code
+    actor.exit_code = 5
     actor.status_message = 'Set earlier'
     await actor.fail()
-    assert actor.exit_code == expected_exit_code
+    assert actor.exit_code == 1
     assert actor.status_message == 'Set earlier'
 
 
