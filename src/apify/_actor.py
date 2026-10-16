@@ -40,7 +40,7 @@ from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
-from apify._utils import UNSET, Unset, docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
+from apify._utils import Unset, docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
 from apify._webhook import to_client_representations
 from apify.events import ApifyEventManager, EventManager, LocalEventManager
 from apify.log import _configure_logging, logger
@@ -511,10 +511,10 @@ class _ActorType:
     async def exit(
         self,
         *,
-        exit_code: int | Unset = UNSET,
-        status_message: str | Unset | None = UNSET,
-        event_listeners_timeout: timedelta | Unset | None = UNSET,
-        cleanup_timeout: timedelta | Unset = UNSET,
+        exit_code: int | Unset = Unset.UNSET,
+        status_message: str | Unset | None = Unset.UNSET,
+        event_listeners_timeout: timedelta | Unset | None = Unset.UNSET,
+        cleanup_timeout: timedelta | Unset = Unset.UNSET,
     ) -> None:
         """Exit the Actor without using context-manager syntax.
 
@@ -541,9 +541,9 @@ class _ActorType:
     async def fail(
         self,
         *,
-        exit_code: int | Unset = UNSET,
+        exit_code: int | Unset = Unset.UNSET,
         exception: BaseException | None = None,
-        status_message: str | Unset | None = UNSET,
+        status_message: str | Unset | None = Unset.UNSET,
     ) -> None:
         """Fail the Actor instance without using context-manager syntax.
 

@@ -156,6 +156,3 @@ class Unset(Enum):
     """
 
     UNSET = 'UNSET'
-
-
-UNSET = Unset.UNSET
