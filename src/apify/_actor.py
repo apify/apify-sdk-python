@@ -128,7 +128,7 @@ class _ActorType:
         *,
         configure_logging: bool = True,
         exit_process: bool | None = None,
-        exit_code: int = 0,
+        exit_code: int | None = None,
         status_message: str | None = None,
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         cleanup_timeout: timedelta = timedelta(seconds=30),
@@ -140,15 +140,35 @@ class _ActorType:
             configure_logging: Whether to set up the default logging configuration.
             exit_process: Whether the Actor should call `sys.exit` when the context manager exits.
                 Defaults to True, except in IPython and Scrapy environments.
-            exit_code: The exit code the Actor should use when exiting.
-            status_message: Final status message to display upon Actor termination.
+            exit_code: Deprecated. Pass `exit_code` to `Actor.exit()` or `Actor.fail()`, or set `Actor.exit_code`
+                inside the context manager instead. Will be removed in version 5.0.0.
+            status_message: Deprecated. Pass `status_message` to `Actor.exit()` or `Actor.fail()`, or set
+                `Actor.status_message` inside the context manager instead. Will be removed in version 5.0.0.
             event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
             cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
         """
+        if exit_code is not None:
+            warnings.warn(
+                'Passing `exit_code` to `Actor()` is deprecated and will be removed in version 5.0.0. '
+                'Pass it to `Actor.exit()` or `Actor.fail()`, or set `Actor.exit_code` inside the context manager '
+                'instead.',
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
+        if status_message is not None:
+            warnings.warn(
+                'Passing `status_message` to `Actor()` is deprecated and will be removed in version 5.0.0. '
+                'Pass it to `Actor.exit()` or `Actor.fail()`, or set `Actor.status_message` inside the context '
+                'manager instead.',
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
         self._configuration = configuration
         self._configure_logging = configure_logging
         self._exit_process = self._get_default_exit_process() if exit_process is None else exit_process
-        self._exit_code = exit_code
+        self._exit_code = 0 if exit_code is None else exit_code
         self._status_message = status_message
         self._event_listeners_timeout = event_listeners_timeout
         self._cleanup_timeout = cleanup_timeout
@@ -347,7 +367,7 @@ class _ActorType:
         *,
         configure_logging: bool = True,
         exit_process: bool | None = None,
-        exit_code: int = 0,
+        exit_code: int | None = None,
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
