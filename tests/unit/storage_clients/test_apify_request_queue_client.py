@@ -53,8 +53,9 @@ def _batch_result(
     *,
     processed: Sequence[Request] = (),
     unprocessed: Sequence[Request] = (),
+    already_handled: Sequence[Request] = (),
 ) -> BatchAddResult:
-    """Build a `batch_add_requests` response with explicit processed / unprocessed splits."""
+    """Build a `batch_add_requests` response with explicit processed / unprocessed / already handled splits."""
     return BatchAddResult.model_construct(
         processed_requests=[
             AddedRequest.model_construct(
@@ -64,6 +65,15 @@ def _batch_result(
                 was_already_handled=False,
             )
             for request in processed
+        ]
+        + [
+            AddedRequest.model_construct(
+                request_id=unique_key_to_request_id(request.unique_key),
+                unique_key=request.unique_key,
+                was_already_present=True,
+                was_already_handled=True,
+            )
+            for request in already_handled
         ],
         unprocessed_requests=[
             UnprocessedRequest.model_construct(
@@ -380,6 +390,42 @@ async def test_partial_unprocessed_commits_only_accepted_requests(access: str) -
     assert api_client.batch_add_requests.await_args is not None
     resent = api_client.batch_add_requests.await_args.kwargs['requests']
     assert [request.unique_key for request in resent] == [rejected.unique_key]
+
+
+async def test_single_skips_request_batch_add_reported_already_handled() -> None:
+    """A request the platform reports as already handled is not cached, and `fetch_next_request()` returns `None`."""
+    client, api_client = _make_single_client()
+    api_client.list_requests = AsyncMock(return_value=SimpleNamespace(items=[]))
+    api_client.list_head = AsyncMock(
+        return_value=RequestQueueHead(
+            limit=1, queue_modified_at=datetime.now(tz=UTC), had_multiple_clients=False, items=[]
+        )
+    )
+    request = Request.from_url('https://example.com/handled')
+    request_id = unique_key_to_request_id(request.unique_key)
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result(already_handled=[request]))
+
+    await client.add_batch_of_requests([request])
+
+    assert request_id not in client._requests_cache
+    assert request_id in client._requests_already_handled
+    assert await client.fetch_next_request() is None
+
+
+async def test_shared_batch_add_reported_already_handled_needs_no_confirmation() -> None:
+    """A request the platform reports as already handled is cached as handled; `is_finished()` does not re-fetch it."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/handled')
+    request_id = unique_key_to_request_id(request.unique_key)
+    api_client.batch_add_requests = AsyncMock(return_value=_batch_result(already_handled=[request]))
+
+    await client.add_batch_of_requests([request])
+
+    assert request_id not in client._unhandled_request_ids
+    api_client.list_and_lock_head = AsyncMock(return_value=_empty_locked_head())
+    api_client.get_request = AsyncMock()
+    assert await client.is_finished() is True
+    api_client.get_request.assert_not_awaited()
 
 
 @pytest.mark.parametrize(
