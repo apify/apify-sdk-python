@@ -5,6 +5,7 @@ import contextlib
 import json
 import logging
 import sys
+import warnings
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from unittest import mock
@@ -494,3 +495,40 @@ async def test_actor_sequential_contexts(*, first_with_call: bool, second_with_c
 
     # The mock should have been called twice, once in each context.
     assert mock.call_count == 2
+
+
+@pytest.mark.parametrize(
+    'exit_code',
+    [
+        pytest.param(0, id='zero'),
+        pytest.param(42, id='non_zero'),
+    ],
+)
+def test_actor_constructor_exit_code_warns_deprecated(exit_code: int) -> None:
+    """Passing `exit_code` to `Actor()` emits a `DeprecationWarning` and points at the caller."""
+    with pytest.warns(DeprecationWarning, match='Passing `exit_code` to `Actor\\(\\)` is deprecated') as record:
+        actor = Actor(exit_code=exit_code)
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert actor.exit_code == exit_code
+
+
+def test_actor_constructor_status_message_warns_deprecated() -> None:
+    """Passing `status_message` to `Actor()` emits a `DeprecationWarning` and points at the caller."""
+    with pytest.warns(DeprecationWarning, match='Passing `status_message` to `Actor\\(\\)` is deprecated') as record:
+        actor = Actor(status_message='Done')
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert actor.status_message == 'Done'
+
+
+def test_actor_constructor_no_warning_without_deprecated_args() -> None:
+    """No deprecation warning is emitted when `exit_code` and `status_message` are omitted from `Actor()`."""
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        actor = Actor()
+
+    assert actor.exit_code == 0
+    assert actor.status_message is None
