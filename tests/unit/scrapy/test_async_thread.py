@@ -223,7 +223,7 @@ def test_submit_coro_logs_a_failing_coroutine(caplog: pytest.LogCaptureFixture) 
 
     errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
     assert len(errors) == 1
-    assert errors[0].exc_info is not None
+    assert errors[0].exc_info
     assert str(errors[0].exc_info[1]) == 'boom'
 
 
