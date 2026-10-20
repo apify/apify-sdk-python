@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
@@ -10,9 +10,6 @@ from ..._utils import PRIVATE_KEY_PASSWORD, PRIVATE_KEY_PEM_BASE64, PUBLIC_KEY, 
 from apify import Actor
 from apify._consts import ENCRYPTED_JSON_VALUE_PREFIX, ENCRYPTED_STRING_VALUE_PREFIX, ActorEnvVars, ApifyEnvVars
 from apify._crypto import public_encrypt
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 async def test_open_returns_same_references() -> None:
@@ -268,16 +265,62 @@ async def test_get_input_raises_on_multiple_working_directory_files(
     (tmp_path / 'INPUT.json').write_text('{}')
 
     async with Actor as actor:
-        with pytest.raises(RuntimeError, match='multiple input files'):
+        with pytest.raises(RuntimeError, match='multiple input files in the working directory'):
             await actor.get_input()
 
 
-async def test_get_input_skips_working_directory_on_platform(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """On the Apify platform, the working directory is never read."""
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
+async def test_get_input_falls_back_to_storage_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Without an input record, `INPUT.json` in the storage directory is read after the working directory."""
+    working_dir = tmp_path / 'working_dir'
+    working_dir.mkdir()
+    monkeypatch.chdir(working_dir)
+    (tmp_path / 'INPUT.json').write_text('{"from": "storage"}')
 
     async with Actor as actor:
+        assert await actor.get_input() == {'from': 'storage'}
+
+        (working_dir / 'INPUT.json').write_text('{"from": "cwd"}')
+        assert await actor.get_input() == {'from': 'cwd'}
+
+
+async def test_get_input_null_working_directory_file_skips_storage_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A working-directory file holding JSON `null` counts as present, so the storage directory is not read."""
+    working_dir = tmp_path / 'working_dir'
+    working_dir.mkdir()
+    monkeypatch.chdir(working_dir)
+    (working_dir / 'INPUT.json').write_text('null')
+    (tmp_path / 'INPUT.json').write_text('{"from": "storage"}')
+
+    async with Actor as actor:
+        assert await actor.get_input() is None
+
+
+async def test_get_input_raises_on_multiple_storage_directory_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Both `INPUT` and `INPUT.json` in the storage directory raise an error naming the storage directory."""
+    working_dir = tmp_path / 'working_dir'
+    working_dir.mkdir()
+    monkeypatch.chdir(working_dir)
+    (tmp_path / 'INPUT').write_text('{}')
+    (tmp_path / 'INPUT.json').write_text('{}')
+
+    async with Actor as actor:
+        with pytest.raises(RuntimeError, match='multiple input files in the storage directory'):
+            await actor.get_input()
+
+
+async def test_get_input_skips_input_files_on_platform(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """On the Apify platform, neither the working directory nor the storage directory is read."""
+    working_dir = tmp_path / 'working_dir'
+    working_dir.mkdir()
+    monkeypatch.chdir(working_dir)
+    (working_dir / 'INPUT.json').write_text('{"from": "cwd"}')
+
+    async with Actor as actor:
+        (Path(actor.configuration.storage_dir) / 'INPUT.json').write_text('{"from": "storage"}')
         monkeypatch.setattr(actor, 'is_at_home', lambda: True)
         assert await actor.get_input() is None
 
