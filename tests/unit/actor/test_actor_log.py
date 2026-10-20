@@ -62,7 +62,7 @@ async def test_actor_logs_messages_correctly(caplog: pytest.LogCaptureFixture) -
         assert record.levelno == level
         assert record.message == message
         if exception:
-            assert record.exc_info
+            assert record.exc_info is not None
             assert record.exc_info[0] is type(exception[0])
             assert isinstance(record.exc_info[1], type(exception[0]))
             assert str(record.exc_info[1]) == str(exception[0])

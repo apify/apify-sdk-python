@@ -250,7 +250,7 @@ def test_next_request_logs_exception_before_propagating(
     errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
     assert len(errors) == 1
     (error,) = errors
-    assert error.exc_info
+    assert error.exc_info is not None
     assert isinstance(error.exc_info[1], RuntimeError)
     assert str(error.exc_info[1]) == 'boom'
 
