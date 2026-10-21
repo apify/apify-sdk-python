@@ -30,7 +30,7 @@
             "minimumReleaseAgeBehaviour": "timestamp-optional"
         }
     ],
-    "minimumReleaseAge": "1 day",
+    "minimumReleaseAge": "7 days",
     "internalChecksFilter": "strict",
     "schedule": ["* 0-5 * * 2"],
     "ignoreDeps": ["apify", "docusaurus-plugin-typedoc-api"]
