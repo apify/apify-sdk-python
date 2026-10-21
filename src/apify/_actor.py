@@ -785,9 +785,9 @@ class _ActorType:
         plaintext before being returned.
 
         When running locally and the default key-value store holds no input record, the input is read from a
-        `<input_key>` or `<input_key>.json` file in the current working directory, then in the storage directory
-        (`Configuration.storage_dir`), instead. The `.json` file is parsed as JSON; the bare file is parsed as JSON
-        when it is valid JSON, and returned as `bytes` otherwise.
+        `<input_key>` or `<input_key>.json` file, looked up first in the current working directory and then in the
+        storage directory (`Configuration.storage_dir`). The `.json` file is parsed as JSON; the bare file is parsed as
+        JSON when it is valid JSON, and returned as `bytes` otherwise.
 
         Returns:
             The Actor input, usually a `dict` of input fields, or `None` if the Actor has no input.
@@ -1870,7 +1870,7 @@ class _ActorType:
 
     @staticmethod
     async def _read_input_file(input_path: Path, input_key: str) -> Any:
-        """Read the Actor input from an input file found by `_find_input_file`."""
+        """Read the Actor input from the given `<input_key>` or `<input_key>.json` input file."""
         content = await asyncio.to_thread(input_path.read_bytes)
 
         try:
