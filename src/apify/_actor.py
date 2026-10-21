@@ -37,7 +37,13 @@ from apify._charging import (
 )
 from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
-from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
+from apify._consts import (
+    EVENT_LISTENERS_TIMEOUT,
+    EXIT_CODE_ERROR_USER_FUNCTION_THREW,
+    STATUS_MESSAGE_UPDATE_TIMEOUT,
+    ActorEnvVars,
+    ApifyEnvVars,
+)
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
@@ -1705,12 +1711,15 @@ class _ActorType:
     ) -> Run | None:
         """Set the status message for the current Actor run.
 
+        The status message is cosmetic, so a failed or timed-out update is logged as a warning and never raises.
+
         Args:
             status_message: The status message to set to the run.
             is_terminal: Set this flag to True if this is the final status message of the Actor run.
 
         Returns:
-            The updated Actor run object.
+            The updated Actor run object, or `None` when no run was updated: when running locally, or when the
+            update failed or timed out.
         """
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
@@ -1718,21 +1727,24 @@ class _ActorType:
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        if not self.configuration.actor_run_id:
+        run_id = self.configuration.actor_run_id
+        if not run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        run_client = self.apify_client.run(self.configuration.actor_run_id)
-        run = await run_client.update(
-            status_message=status_message,
-            is_status_message_terminal=is_terminal,
-        )
+        run_client = self.apify_client.run(run_id)
+        update = run_client.update(status_message=status_message, is_status_message_terminal=is_terminal)
 
-        if run is None:
-            raise RuntimeError(
-                f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
+        try:
+            return await asyncio.wait_for(update, STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds())
+        except TimeoutError:
+            self.log.warning(
+                f'Failed to set status message for Actor run with ID "{run_id}": '
+                f'the update timed out after {STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds():g}s.'
             )
+        except Exception as exc:
+            self.log.warning(f'Failed to set status message for Actor run with ID "{run_id}": {exc}')
 
-        return run
+        return None
 
     @_ensure_context
     async def create_proxy_configuration(
