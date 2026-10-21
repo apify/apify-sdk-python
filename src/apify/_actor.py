@@ -786,15 +786,16 @@ class _ActorType:
 
         When running locally and the default key-value store holds no input record, the input is read from a
         `<input_key>` or `<input_key>.json` file, looked up first in the current working directory and then in the
-        storage directory (`Configuration.storage_dir`). The `.json` file is parsed as JSON; the bare file is parsed as
-        JSON when it is valid JSON, and returned as `bytes` otherwise.
+        default key-value store's directory under the storage directory, where `apify run` writes it. The latter only
+        matters for storage clients that don't read that directory themselves. The `.json` file is parsed as JSON; the
+        bare file is parsed as JSON when it is valid JSON, and returned as `bytes` otherwise.
 
         Returns:
             The Actor input, usually a `dict` of input fields, or `None` if the Actor has no input.
 
         Raises:
-            RuntimeError: If both `<input_key>` and `<input_key>.json` exist in the working or storage directory.
-            ValueError: If the `<input_key>.json` file in the working or storage directory is not valid JSON.
+            RuntimeError: If both `<input_key>` and `<input_key>.json` exist in the same directory.
+            ValueError: If the `<input_key>.json` file is not valid JSON.
         """
         input_key = self.configuration.input_key
         key_value_store = await self.open_key_value_store()
@@ -802,8 +803,14 @@ class _ActorType:
         if input_value is None and not self.is_at_home() and not await key_value_store.record_exists(input_key):
             input_path = await self._find_input_file(input_key, Path.cwd(), 'working directory')
             if input_path is None:
+                # Mirrors apify-cli's `getLocalKeyValueStorePath`, which is where `apify run` writes the input.
+                default_kvs_dir = (
+                    Path(self.configuration.storage_dir)
+                    / 'key_value_stores'
+                    / (self.configuration.default_key_value_store_id or 'default')
+                )
                 input_path = await self._find_input_file(
-                    input_key, Path(self.configuration.storage_dir), 'storage directory'
+                    input_key, default_kvs_dir, 'default key-value store directory'
                 )
             if input_path is not None:
                 input_value = await self._read_input_file(input_path, input_key)
