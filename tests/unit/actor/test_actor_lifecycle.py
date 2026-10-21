@@ -551,7 +551,7 @@ async def test_slow_crawler_status_forwarding_times_out(
 
     records = [r for r in caplog.records if r.msg == 'Failed to forward the crawler status message to the Actor run']
     assert len(records) == 1
-    assert records[0].exc_info is not None
+    assert isinstance(records[0].exc_info, tuple)
     assert isinstance(records[0].exc_info[1], TimeoutError)
 
 
