@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from collections import defaultdict
 from logging import getLogger
-from typing import TYPE_CHECKING, Annotated, Self, cast
+from typing import TYPE_CHECKING, Annotated, Any, Self, cast
 
 import websockets.asyncio.client
 import websockets.client
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from crawlee.events._event_manager import EventManagerOptions
+    from crawlee.events._types import EventData, EventListener, WrappedListener
 
     from apify._configuration import Configuration
 
@@ -94,6 +96,11 @@ class ApifyEventManager(EventManager):
         connection, so that `__aenter__` can report it.
         """
 
+        self._internal_listeners: defaultdict[Event, dict[EventListener[Any], WrappedListener]] = defaultdict(dict)
+        """Listeners of the SDK itself, mapped as `event -> listener -> wrapper`. `off` doesn't remove them, so user
+        code removing all listeners of an event keeps the SDK's own handling of it.
+        """
+
     @override
     async def __aenter__(self) -> Self:
         """Initialize the event manager upon entering the async context.
@@ -148,6 +155,24 @@ class ApifyEventManager(EventManager):
             # The parent context has to be left even if the shutdown above fails. Staying active would mean never
             # emitting `PersistState` again, as re-entering the context would be a no-op.
             await super().__aexit__(exc_type, exc_value, exc_traceback)
+
+    @override
+    def emit(self, *, event: Event, event_data: EventData) -> None:
+        super().emit(event=event, event_data=event_data)
+
+        for listener, listener_wrapper in self._internal_listeners.get(event, {}).items():
+            task_name = f'Task-{event.value}-{self._get_listener_name(listener)}'
+            listener_task = asyncio.create_task(listener_wrapper(event_data), name=task_name)
+            self._listener_tasks.add(listener_task)
+            listener_task.add_done_callback(self._listener_tasks.discard)
+
+    def _on_internal(self, *, event: Event, listener: EventListener[Any]) -> None:
+        """Register a listener of the SDK itself, which `off` doesn't remove."""
+        self._internal_listeners[event][listener] = self._wrap_listener(event, listener)
+
+    def _off_internal(self, *, event: Event, listener: EventListener[Any]) -> None:
+        """Remove a listener registered by `_on_internal`."""
+        self._internal_listeners.get(event, {}).pop(listener, None)
 
     async def _teardown_platform_websocket(self) -> None:
         """Stop consuming the platform messages and close the websocket connection to the platform events."""
