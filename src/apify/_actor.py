@@ -784,25 +784,28 @@ class _ActorType:
         a `dict` keyed by the fields declared in the Actor's input schema. Any secret input fields are decrypted to
         plaintext before being returned.
 
-        When running locally and the default key-value store holds no input record, the input is read from a
-        `<input_key>` or `<input_key>.json` file, looked up first in the current working directory and then in the
-        default key-value store's directory under the storage directory, where `apify run` writes it. The latter only
-        matters for storage clients that don't read that directory themselves. The `.json` file is parsed as JSON; the
-        bare file is parsed as JSON when it is valid JSON, and returned as `bytes` otherwise.
+        When running locally, the input may instead be a `<input_key>` or `<input_key>.json` file in the current
+        working directory. A storage client that doesn't read the default key-value store's directory under the
+        storage directory (e.g. in-memory storage) also gets the file `apify run` writes there. The input must be in
+        exactly one place. The `.json` file is parsed as JSON; the bare file is parsed as JSON when it is valid JSON,
+        and returned as `bytes` otherwise.
 
         Returns:
             The Actor input, usually a `dict` of input fields, or `None` if the Actor has no input.
 
         Raises:
-            RuntimeError: If both `<input_key>` and `<input_key>.json` exist in the same directory.
+            RuntimeError: If the input is found in more than one place: both `<input_key>` and `<input_key>.json` in
+                one directory, or in the default key-value store and in the working directory.
             ValueError: If the `<input_key>.json` file is not valid JSON.
         """
         input_key = self.configuration.input_key
         key_value_store = await self.open_key_value_store()
         input_value = await key_value_store.get_value(input_key)
-        if input_value is None and not self.is_at_home() and not await key_value_store.record_exists(input_key):
-            input_path = await self._find_input_file(input_key, Path.cwd(), 'working directory')
-            if input_path is None:
+        if not self.is_at_home():
+            # Not a conflict check: under the file-system storage client the record *is* the store directory's file.
+            store_has_input = input_value is not None or await key_value_store.record_exists(input_key)
+            input_path = None
+            if not store_has_input:
                 # Mirrors apify-cli's `getLocalKeyValueStorePath`, which is where `apify run` writes the input.
                 default_kvs_dir = (
                     Path(self.configuration.storage_dir)
@@ -812,6 +815,16 @@ class _ActorType:
                 input_path = await self._find_input_file(
                     input_key, default_kvs_dir, 'default key-value store directory'
                 )
+
+            cwd_input_path = await self._find_input_file(input_key, Path.cwd(), 'working directory')
+            if cwd_input_path is not None:
+                if store_has_input or input_path is not None:
+                    raise RuntimeError(
+                        f'Found the input both in the default key-value store and in a "{input_key}" or '
+                        f'"{input_key}.json" file in the working directory. Keep only one of them.'
+                    )
+                input_path = cwd_input_path
+
             if input_path is not None:
                 input_value = await self._read_input_file(input_path, input_key)
 

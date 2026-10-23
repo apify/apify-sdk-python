@@ -235,28 +235,30 @@ async def test_get_input_working_directory_file_follows_input_key(
         assert await actor.get_input() == {'from': 'cli'}
 
 
-async def test_get_input_prefers_store_record_over_working_directory(
+async def test_get_input_raises_on_store_record_and_working_directory_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """An input record in the default key-value store wins over a file in the working directory."""
+    """An input record in the default key-value store next to a file in the working directory raises an error."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
 
     async with Actor as actor:
         await actor.set_value('INPUT', {'from': 'store'})
-        assert await actor.get_input() == {'from': 'store'}
+        with pytest.raises(RuntimeError, match='both in the default key-value store and in'):
+            await actor.get_input()
 
 
-async def test_get_input_null_store_record_skips_working_directory(
+async def test_get_input_null_store_record_conflicts_with_working_directory_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """An input record holding JSON `null` counts as present, so the working-directory file is not read."""
+    """An input record holding JSON `null` counts as present, so a working-directory file next to it raises."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'INPUT.json').write_text('{"from": "file"}')
 
     async with Actor as actor:
         await actor.set_value('INPUT', None)
-        assert await actor.get_input() is None
+        with pytest.raises(RuntimeError, match='both in the default key-value store and in'):
+            await actor.get_input()
 
 
 async def test_get_input_raises_on_multiple_working_directory_files(
@@ -280,8 +282,10 @@ def _use_memory_storage(store_id: str = 'default') -> Path:
     return default_kvs_dir
 
 
-async def test_get_input_falls_back_to_default_kvs_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Without an input record, `INPUT.json` in the default store directory is read after the working directory."""
+async def test_get_input_reads_default_kvs_directory_and_rejects_working_directory_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Without an input record, the default store directory is read; a working-directory file next to it raises."""
     monkeypatch.chdir(tmp_path)
     (_use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
 
@@ -289,7 +293,8 @@ async def test_get_input_falls_back_to_default_kvs_directory(monkeypatch: pytest
         assert await actor.get_input() == {'from': 'storage'}
 
         (tmp_path / 'INPUT.json').write_text('{"from": "cwd"}')
-        assert await actor.get_input() == {'from': 'cwd'}
+        with pytest.raises(RuntimeError, match='both in the default key-value store and in'):
+            await actor.get_input()
 
 
 async def test_get_input_skips_storage_directory_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -316,16 +321,17 @@ async def test_get_input_default_kvs_directory_follows_store_id(
         assert await actor.get_input() == {'from': 'custom store'}
 
 
-async def test_get_input_null_working_directory_file_skips_default_kvs_directory(
+async def test_get_input_null_working_directory_file_conflicts_with_default_kvs_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A working-directory file holding JSON `null` counts as present, so the default store directory is not read."""
+    """A working-directory file holding JSON `null` counts as present, so a default store directory file raises."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'INPUT.json').write_text('null')
     (_use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
 
     async with Actor as actor:
-        assert await actor.get_input() is None
+        with pytest.raises(RuntimeError, match='both in the default key-value store and in'):
+            await actor.get_input()
 
 
 async def test_get_input_raises_on_multiple_default_kvs_directory_files(
