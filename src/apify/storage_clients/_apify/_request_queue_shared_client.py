@@ -293,6 +293,7 @@ class ApifyRequestQueueSharedClient:
                 extra={'next_request_id': next_request_id},
             )
             self._requests_in_progress.discard(next_request_id)
+            # This client still holds the lock, so no head listing returns the request; requeue it locally.
             self._queue_head.append(next_request_id)
             return None
 
@@ -315,7 +316,6 @@ class ApifyRequestQueueSharedClient:
                 extra={'next_request_id': next_request_id},
             )
             self._requests_in_progress.discard(next_request_id)
-            # This client still holds the lock, so no head listing returns the request; requeue it locally.
             self._queue_head.append(next_request_id)
             return None
 

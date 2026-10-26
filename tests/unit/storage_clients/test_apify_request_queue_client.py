@@ -821,7 +821,7 @@ async def test_fetch_next_request_skips_when_lock_not_reacquired() -> None:
 
 
 async def test_fetch_next_request_retries_locked_request_not_found_yet() -> None:
-    """A locked request that `get_request` cannot find yet is retried by the next fetch, not after its lock lapses."""
+    """A locked request that `get_request` cannot find yet is returned by the next fetch."""
     client, api_client = _make_shared_client()
     request = Request.from_url('https://example.com/1')
     future = datetime.now(tz=UTC) + timedelta(seconds=180)
