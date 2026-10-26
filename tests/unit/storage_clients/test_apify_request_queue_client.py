@@ -820,6 +820,74 @@ async def test_fetch_next_request_skips_when_lock_not_reacquired() -> None:
     assert second.unique_key == request.unique_key
 
 
+async def test_fetch_next_request_retries_locked_request_not_found_yet() -> None:
+    """A locked request that `get_request` cannot find yet is retried by the next fetch, not after its lock lapses."""
+    client, api_client = _make_shared_client()
+    request = Request.from_url('https://example.com/1')
+    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+
+    # Like the platform, the head lists the request once; later listings skip it while this client holds the lock.
+    api_client.list_and_lock_head = AsyncMock(
+        side_effect=chain(
+            [_locked_head([_locked_item(request, lock_expires_at=future)])],
+            repeat(_empty_locked_head(queue_has_locked_requests=True)),
+        )
+    )
+    api_client.get_request = AsyncMock(side_effect=[None, _client_request(request, handled_at=None)])
+
+    first = await client.fetch_next_request()
+    second = await client.fetch_next_request()
+
+    assert first is None
+    assert second is not None
+    assert second.unique_key == request.unique_key
+
+
+async def test_fetch_next_request_retries_uncached_request_not_found_yet() -> None:
+    """A locked request evicted from the cache that `get_request` cannot find yet is retried by a later fetch."""
+    api_client = AsyncMock()
+    metadata = _make_metadata()
+    # A single-entry cache makes listing the second request evict the first.
+    client = ApifyRequestQueueSharedClient(
+        api_client=api_client,
+        metadata=metadata,
+        cache_size=1,
+        metadata_getter=AsyncMock(return_value=metadata),
+    )
+    evicted = Request.from_url('https://example.com/1')
+    cached = Request.from_url('https://example.com/2')
+    evicted_id = unique_key_to_request_id(evicted.unique_key)
+    future = datetime.now(tz=UTC) + timedelta(seconds=180)
+
+    api_client.list_and_lock_head = AsyncMock(
+        side_effect=chain(
+            [
+                _locked_head(
+                    [_locked_item(evicted, lock_expires_at=future), _locked_item(cached, lock_expires_at=future)]
+                )
+            ],
+            repeat(_empty_locked_head(queue_has_locked_requests=True)),
+        )
+    )
+    api_client.prolong_request_lock = AsyncMock(return_value=RequestLockInfo(lock_expires_at=future))
+    evicted_lookups = iter([None, _client_request(evicted, handled_at=None), _client_request(evicted, handled_at=None)])
+    api_client.get_request = AsyncMock(
+        side_effect=lambda request_id: (
+            next(evicted_lookups) if request_id == evicted_id else _client_request(cached, handled_at=None)
+        )
+    )
+
+    first = await client.fetch_next_request()
+    second = await client.fetch_next_request()
+    third = await client.fetch_next_request()
+
+    assert first is None
+    assert second is not None
+    assert second.unique_key == cached.unique_key
+    assert third is not None
+    assert third.unique_key == evicted.unique_key
+
+
 async def test_is_finished_false_while_request_in_progress() -> None:
     """`is_finished` stays False while a fetched request is still in progress, even if the head lists empty."""
     client, api_client = _make_shared_client()
