@@ -468,7 +468,8 @@ class ApifyRequestQueueSharedClient:
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
         head = await self._list_head(limit=1)
-        return len(head.items) == 0
+        # The cached head lists only hydrated requests, but `fetch_next_request` also hydrates an evicted ID on demand.
+        return len(head.items) == 0 and not self._queue_head
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.

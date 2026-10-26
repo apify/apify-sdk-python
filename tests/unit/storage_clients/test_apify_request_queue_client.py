@@ -879,11 +879,14 @@ async def test_fetch_next_request_retries_uncached_request_not_found_yet() -> No
 
     first = await client.fetch_next_request()
     second = await client.fetch_next_request()
+    # Only the evicted ID is left in the local head; the crawler fetches again only while the RQ reports non-empty.
+    empty_before_third = await client.is_empty()
     third = await client.fetch_next_request()
 
     assert first is None
     assert second is not None
     assert second.unique_key == cached.unique_key
+    assert empty_before_third is False
     assert third is not None
     assert third.unique_key == evicted.unique_key
 
