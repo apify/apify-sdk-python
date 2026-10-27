@@ -268,7 +268,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apify-client", extras = ["brotli"], specifier = ">=3.4.0,<4.0.0" },
+    { name = "apify-client", extras = ["brotli"], specifier = ">=3.3.0,<4.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", specifier = ">=1.8.0,!=1.10.1,<2.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
