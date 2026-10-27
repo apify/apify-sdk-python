@@ -21,6 +21,7 @@ from crawlee.errors import ServiceConflictError
 from crawlee.events import (
     Event,
     EventAbortingData,
+    EventCrawlerStatusData,
     EventExitData,
     EventListener,
     EventMigratingData,
@@ -37,7 +38,13 @@ from apify._charging import (
 )
 from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
-from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
+from apify._consts import (
+    CRAWLER_STATUS_FORWARDING_TIMEOUT,
+    EVENT_LISTENERS_TIMEOUT,
+    EXIT_CODE_ERROR_USER_FUNCTION_THREW,
+    ActorEnvVars,
+    ApifyEnvVars,
+)
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
@@ -174,6 +181,9 @@ class _ActorType:
         self._is_exiting = False
         """Whether the Actor is currently exiting."""
 
+        self._status_message_lock = asyncio.Lock()
+        """Serializes forwarded crawler status messages with the terminal status message."""
+
     async def __aenter__(self) -> Self:
         """Enter the Actor context.
 
@@ -183,6 +193,7 @@ class _ActorType:
         - Configures the event manager and starts periodic state persistence.
         - Initializes the charging manager for handling charging events.
         - Loads the named child runs recorded by an earlier attempt of this Actor run.
+        - On the Apify platform, forwards the status messages of Crawlee crawlers to the run status message.
         - Configures logging after all core services are registered.
 
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
@@ -210,6 +221,7 @@ class _ActorType:
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
+        self._status_message_lock = asyncio.Lock()
 
         # Initialize the storage client and register it in the service locator.
         _ = self._storage_client
@@ -245,6 +257,10 @@ class _ActorType:
             finally:
                 await self.event_manager.__aexit__(None, None, None)
             raise
+
+        if self.is_at_home():
+            self.event_manager.on(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
+
         return self
 
     async def __aexit__(
@@ -261,6 +277,7 @@ class _ActorType:
         so interrupt and cancellation semantics are preserved. Otherwise, the Actor exits cleanly. In every
         case the Actor:
 
+        - Stops forwarding crawler status messages to the run status message.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
         - Waits for all event listeners to finish.
@@ -292,10 +309,14 @@ class _ActorType:
         self._is_exiting = True
         self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
 
+        # Stop forwarding crawler status messages, so that none of them overwrites the terminal one.
+        self.event_manager.off(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
+
         async def finalize() -> None:
             if self.status_message is not None:
                 try:
-                    await self.set_status_message(self.status_message, is_terminal=True)
+                    async with self._status_message_lock:
+                        await self.set_status_message(self.status_message, is_terminal=True)
                 except Exception:
                     self.log.exception('Failed to set terminal status message')
 
@@ -852,6 +873,9 @@ class _ActorType:
 
         This is relevant only for the pay-per-event pricing model.
 
+        When `count` exceeds the remaining budget, the events that fit are charged plus one more, so that the platform
+        detects the exhausted budget and terminates the run. A run already strictly over budget charges nothing.
+
         Args:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
@@ -1021,8 +1045,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run
@@ -1212,8 +1236,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the Actor and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1384,8 +1408,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1474,8 +1498,8 @@ class _ActorType:
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. The name is bound to the task and input it was first used with,
-                so reusing it for a different Actor, task or input raises a `ValueError`.
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
 
         Returns:
             Info about the started Actor run.
@@ -1817,6 +1841,24 @@ class _ActorType:
         self._use_state_stores.add(kvs_name)
         kvs = await self.open_key_value_store(name=kvs_name)
         return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
+
+    async def _forward_crawler_status(self, event_data: EventCrawlerStatusData) -> None:
+        """Set a crawler status message as the run status message on the Apify platform.
+
+        Messages that arrive once the Actor is exiting are dropped, and the terminal message waits for an update that
+        is already in flight, so no forwarded message can overwrite the terminal one. Each update is bounded by
+        `CRAWLER_STATUS_FORWARDING_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
+        """
+        try:
+            async with self._status_message_lock:
+                if self._is_exiting:
+                    return
+                await asyncio.wait_for(
+                    self.set_status_message(event_data.message),
+                    timeout=CRAWLER_STATUS_FORWARDING_TIMEOUT.total_seconds(),
+                )
+        except Exception:
+            self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 
     async def _save_actor_state(self) -> None:
         async def safe_persist(kvs_name: str | None) -> None:

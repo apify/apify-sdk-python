@@ -12,12 +12,12 @@ if TYPE_CHECKING:
     from ..conftest import MakeActorFunction, RunActorFunction
 
 
-async def test_ppe_spider_charges_pushed_items_within_budget(
+async def test_ppe_spider_stops_pushing_once_over_budget(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
     apify_client_async: ApifyClientAsync,
 ) -> None:
-    """A pay-per-event Scrapy Actor charges the synthetic dataset-item event and stops pushing at the budget cap."""
+    """A pay-per-event Scrapy Actor charges the synthetic dataset-item event and stops pushing once over budget."""
     actor = await make_actor(
         label='scrapy-ppe',
         source_files=get_scrapy_source_files('spider_basic.py', 'BasicSpider'),
@@ -44,12 +44,12 @@ async def test_ppe_spider_charges_pushed_items_within_budget(
         ]
     )
 
-    # The spider scrapes three products. At $0.05 an item, a $0.125 budget covers only two of them, so the
-    # third push has to be dropped and never charged. The budget deliberately does not divide evenly into the
-    # item price - hitting the cap exactly would let the platform auto-abort the run and race the clean exit.
-    run = await run_actor(actor, max_total_charge_usd=Decimal('0.125'))
+    # The spider scrapes three products. At $0.05 an item, a $0.075 budget covers one of them. The second push
+    # overcharges by one item, so the run is over budget and the third push is dropped and never charged.
+    run = await run_actor(actor, max_total_charge_usd=Decimal('0.075'))
 
-    assert run.status == 'SUCCEEDED'
+    # The overcharge makes the platform auto-abort the run, which races the Actor's clean exit.
+    assert run.status in ('SUCCEEDED', 'ABORTED')
 
     expected_charges = {'apify-default-dataset-item': 2}
 

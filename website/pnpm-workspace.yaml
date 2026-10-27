@@ -7,11 +7,11 @@ nodeLinker: hoisted
 linkWorkspacePackages: true
 preferWorkspacePackages: true
 publicHoistPattern:
-    - "*"
+  - "*"
 allowBuilds:
-  '@apify/ui-icons': true
-  '@swc/core': true
+  "@apify/ui-icons": true
+  "@swc/core": true
   core-js: false
   unrs-resolver: true
 patchedDependencies:
-  '@signalwire/docusaurus-plugin-llms-txt@1.2.2': patches/@signalwire__docusaurus-plugin-llms-txt@1.2.2.patch
+  "@signalwire/docusaurus-plugin-llms-txt@1.2.2": patches/@signalwire__docusaurus-plugin-llms-txt@1.2.2.patch

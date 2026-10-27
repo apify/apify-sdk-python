@@ -93,6 +93,9 @@ class ChargingManager(Protocol):
 
         This is relevant only for the pay-per-event pricing model.
 
+        When `count` exceeds the remaining budget, the events that fit are charged plus one more, so that the platform
+        detects the exhausted budget and terminates the run. A run already strictly over budget charges nothing.
+
         Args:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
@@ -140,6 +143,9 @@ class ChargingManager(Protocol):
         Accounts for both the explicit event and the synthetic `DEFAULT_DATASET_ITEM_EVENT` event,
         so that the combined cost per item does not exceed the remaining budget.
 
+        When the budget cannot cover a single item, one item is still allowed through, so that the resulting overcharge
+        makes the platform terminate the run. A run that is already strictly over budget gets no items through.
+
         Args:
             items_count: The number of items to be pushed.
             event_name: The explicit event name to charge for each item.
@@ -147,7 +153,7 @@ class ChargingManager(Protocol):
                 If True, the synthetic event cost is included in the combined price.
 
         Returns:
-            Max number of items that can be pushed within the budget.
+            Max number of items to push.
         """
 
     def is_event_charge_limit_reached(self, event_name: str) -> bool:
@@ -341,9 +347,7 @@ class ChargingManagerImplementation(ChargingManager):
                     chargeable_within_limit=self.compute_chargeable(),
                 )
 
-            # Determine the maximum amount of events that can be charged within the budget
-            max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
-            charged_count = min(count, max_chargeable if max_chargeable is not None else count)
+            charged_count = self._compute_charged_count(event_name, count)
 
             if charged_count == 0:
                 return ChargeResult(
@@ -472,6 +476,9 @@ class ChargingManagerImplementation(ChargingManager):
         *,
         is_default_dataset: bool,
     ) -> int:
+        if self._pricing_model != 'PAY_PER_EVENT' or items_count == 0:
+            return items_count
+
         explicit_price = self._get_event_price(event_name)
         synthetic_price = self._get_event_price(DEFAULT_DATASET_ITEM_EVENT) if is_default_dataset else Decimal(0)
         combined_price = explicit_price + synthetic_price
@@ -481,7 +488,14 @@ class ChargingManagerImplementation(ChargingManager):
 
         result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / combined_price
         max_count = max(0, math.floor(result)) if result.is_finite() else items_count
-        return min(items_count, max_count)
+
+        if max_count >= items_count:
+            return items_count
+
+        if max_count > 0:
+            return max_count
+
+        return 1 if self.calculate_total_charged_amount() <= self._max_total_charge_usd else 0
 
     @_ensure_context
     def is_event_charge_limit_reached(self, event_name: str) -> bool:
@@ -536,6 +550,19 @@ class ChargingManagerImplementation(ChargingManager):
                 else Decimal('inf')
             ),
         )
+
+    def _compute_charged_count(self, event_name: str, count: int) -> int:
+        """Compute how many of `count` events to charge, given the remaining budget."""
+        max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
+        if max_chargeable is None or count <= max_chargeable:
+            return count
+
+        # Overcharge by one event, so that the platform detects the exhausted budget and terminates the run. A run
+        # already strictly over budget gets no further charges.
+        if self.calculate_total_charged_amount() <= self._max_total_charge_usd:
+            return max_chargeable + 1
+
+        return 0
 
     def _get_event_price(self, event_name: str) -> Decimal:
         pricing_info = self._pricing_info.get(event_name)

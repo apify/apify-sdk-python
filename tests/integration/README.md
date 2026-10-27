@@ -27,3 +27,9 @@ To run against a different environment, also set `APIFY_INTEGRATION_TESTS_API_UR
 - **`apify_client_async`** — A session-scoped `ApifyClientAsync` instance configured with the test token and API URL.
 - **`request_queue_apify`** — Creates a parametrized (`single`/`shared` access mode) Apify request queue on the platform, yields it, and drops it after the test. Defined in `conftest.py`.
 - **`prepare_test_env`** / **`_isolate_test_environment`** (autouse) — Resets global state and sets `APIFY_LOCAL_STORAGE_DIR` to a temporary directory before each test.
+
+## Platform behavior to account for
+
+- Right after a request is added to a shared RQ, the head can still come back empty. Poll negative assertions (such as `is_finished()`) as well as positive ones.
+- In the response of `update_request`, `wasAlreadyHandled` reflects the request's state before the update.
+- RQ metadata counts (`handledRequestCount`, `pendingRequestCount`) lag a few seconds behind the operations that change them.

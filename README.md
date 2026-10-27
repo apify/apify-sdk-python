@@ -227,12 +227,7 @@ The full SDK documentation lives at **[docs.apify.com/sdk/python](https://docs.a
 
 ## Contributing
 
-Bug reports, fixes, and improvements are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup, coding standards, testing, and release process. The project uses [uv](https://docs.astral.sh/uv/) for project management and [Poe the Poet](https://poethepoet.natn.io/) as a task runner; the typical loop is:
-
-```bash
-uv run poe install-dev   # install dev dependencies and git hooks
-uv run poe check-code    # lint, type-check, and unit tests
-```
+Bug reports, fixes, and improvements are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup, coding standards, testing, and release process.
 
 ## License
 

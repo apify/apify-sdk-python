@@ -13,3 +13,7 @@ uv run poe unit-tests
 - **`prepare_test_env`** / **`_isolate_test_environment`** (autouse) — Resets global state (Actor initialization, service locator, storage) and sets `APIFY_LOCAL_STORAGE_DIR` to a temporary directory before each test.
 - **`apify_client_async_patcher`** — Helper for patching `ApifyClientAsync` methods to return fixed values or replacement functions, with automatic call tracking.
 - **`httpserver`** — Local HTTP server (via `pytest-httpserver`) for testing HTTP interactions without real network calls.
+
+## Troubleshooting
+
+If tests fail with `SystemExit: 0` raised from `_actor.py` when `async with Actor:` exits, the virtual environment lacks the optional extras. Without Scrapy installed, the Actor exits the process on teardown. Run `uv sync --all-extras` (or `uv run poe install-dev`).

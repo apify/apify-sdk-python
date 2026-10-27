@@ -117,8 +117,8 @@ async def test_charge_known_event_locally(mock_client: MagicMock) -> None:
         assert cm.get_charged_event_count('search') == 5
 
 
-async def test_charge_partial_count_within_budget(mock_client: MagicMock) -> None:
-    """Test that charging is capped when budget is insufficient for the full count."""
+async def test_charge_partial_count_over_budget(mock_client: MagicMock) -> None:
+    """Test that a count exceeding the budget charges what fits plus one overcharge event."""
     pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
     config = _make_config(
         test_pay_per_event=True,
@@ -129,8 +129,7 @@ async def test_charge_partial_count_within_budget(mock_client: MagicMock) -> Non
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
         result = await cm.charge('search', count=5)
-        assert result.charged_count == 3
-        # Budget is fully exhausted ($3.00 spent of $3.00), so limit is reached
+        assert result.charged_count == 4
         assert result.event_charge_limit_reached is True
 
 
@@ -288,8 +287,8 @@ async def test_get_max_total_charge_usd(mock_client: MagicMock) -> None:
         assert cm.get_max_total_charge_usd() == Decimal('42.50')
 
 
-async def test_max_total_charge_usd_zero_blocks_charging(mock_client: MagicMock) -> None:
-    """Test max_total_charge_usd=0 is preserved and blocks all charging (not silently converted to inf)."""
+async def test_max_total_charge_usd_zero_allows_only_the_overcharge_event(mock_client: MagicMock) -> None:
+    """Test max_total_charge_usd=0 is preserved (not converted to inf) and lets only one overcharge event through."""
     pricing_info = _make_ppe_pricing_info({'search': Decimal('0.01')})
     config = _make_config(
         test_pay_per_event=True,
@@ -302,8 +301,11 @@ async def test_max_total_charge_usd_zero_blocks_charging(mock_client: MagicMock)
         assert cm.get_max_total_charge_usd() == Decimal(0)
         assert cm.is_event_charge_limit_reached('search') is True
         result = await cm.charge('search', count=5)
-        assert result.charged_count == 0
+        assert result.charged_count == 1
         assert result.event_charge_limit_reached is True
+
+        result = await cm.charge('search', count=5)
+        assert result.charged_count == 0
 
 
 async def test_max_total_charge_usd_zero_preserved_without_pricing(mock_client: MagicMock) -> None:
@@ -321,6 +323,15 @@ async def test_max_total_charge_usd_zero_preserved_without_pricing(mock_client: 
 async def test_compute_push_data_limit_no_ppe(mock_client: MagicMock) -> None:
     """Returns items_count when no PPE pricing is configured (prices are zero)."""
     config = _make_config(actor_pricing_info=None, charged_event_counts={})
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        result = cm.compute_push_data_limit(10, 'some-event', is_default_dataset=True)
+        assert result == 10
+
+
+async def test_compute_push_data_limit_ignores_budget_without_ppe(mock_client: MagicMock) -> None:
+    """Returns items_count for a run that is not pay-per-event, even with a zero budget set locally."""
+    config = _make_config(actor_pricing_info=None, charged_event_counts={}, max_total_charge_usd=Decimal(0))
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
         result = cm.compute_push_data_limit(10, 'some-event', is_default_dataset=True)
@@ -375,19 +386,28 @@ async def test_compute_push_data_limit_without_default_dataset(mock_client: Magi
         assert result == 3
 
 
-async def test_compute_push_data_limit_exhausted_budget(mock_client: MagicMock) -> None:
-    """Returns 0 when the budget is fully exhausted before the push."""
+@pytest.mark.parametrize(
+    ('charged_count', 'expected_limit'),
+    [
+        pytest.param(3, 1, id='exhausted budget lets one item through'),
+        pytest.param(4, 0, id='strictly over budget lets nothing through'),
+    ],
+)
+async def test_compute_push_data_limit_exhausted_budget(
+    mock_client: MagicMock, charged_count: int, expected_limit: int
+) -> None:
+    """Returns one item for the overcharge when the budget is exhausted, and none once the run is over budget."""
     pricing_info = _make_ppe_pricing_info({'scrape': Decimal('1.00')})
     config = _make_config(
         test_pay_per_event=True,
         actor_pricing_info=pricing_info,
-        charged_event_counts={'scrape': 3},
+        charged_event_counts={'scrape': charged_count},
         max_total_charge_usd=Decimal('3.00'),
     )
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
         result = cm.compute_push_data_limit(5, 'scrape', is_default_dataset=False)
-        assert result == 0
+        assert result == expected_limit
 
 
 async def test_charge_limit_reached(mock_client: MagicMock) -> None:
@@ -406,8 +426,12 @@ async def test_charge_limit_reached(mock_client: MagicMock) -> None:
         assert result1.event_charge_limit_reached is True
 
         result2 = await cm.charge('search', count=1)
-        assert result2.charged_count == 0
+        assert result2.charged_count == 1
         assert result2.event_charge_limit_reached is True
+
+        result3 = await cm.charge('search', count=1)
+        assert result3.charged_count == 0
+        assert result3.event_charge_limit_reached is True
 
 
 async def test_is_event_charge_limit_reached_within_budget(mock_client: MagicMock) -> None:
@@ -699,8 +723,8 @@ async def test_charge_deduplicates_idempotency_key_off_platform(mock_client: Mag
         mock_client.run.return_value.charge.assert_not_awaited()
 
 
-async def test_charge_registers_the_count_capped_by_the_budget(mock_client: MagicMock) -> None:
-    """Test that a charge capped by the remaining budget registers the capped count, not the requested one."""
+async def test_charge_registers_the_count_limited_by_the_budget(mock_client: MagicMock) -> None:
+    """Test that a charge limited by the remaining budget registers the charged count, not the requested one."""
     pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
     config = _make_config(
         is_at_home=True,
@@ -711,9 +735,49 @@ async def test_charge_registers_the_count_capped_by_the_budget(mock_client: Magi
     )
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
-        assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 2
-        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=2, idempotency_key='key-1')
+        assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 3
+        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=3, idempotency_key='key-1')
 
-        assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 2
-        assert cm.get_charged_event_count('search') == 2
+        assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 3
+        assert cm.get_charged_event_count('search') == 3
         assert mock_client.run.return_value.charge.await_count == 1
+
+
+@pytest.mark.parametrize(
+    'is_at_home',
+    [
+        pytest.param(True, id='on platform'),
+        pytest.param(False, id='local'),
+    ],
+)
+async def test_charge_overcharges_by_one_event_when_budget_exceeded(
+    mock_client: MagicMock,
+    *,
+    is_at_home: bool,
+) -> None:
+    """A charge over the budget gets the chargeable count plus one, and a run strictly over budget gets nothing."""
+    pricing_info = _make_ppe_pricing_info({'search': Decimal('1.00')})
+    config = _make_config(
+        is_at_home=is_at_home,
+        actor_run_id='test-run-id' if is_at_home else None,
+        test_pay_per_event=not is_at_home,
+        actor_pricing_info=pricing_info,
+        charged_event_counts={'search': 2},
+        max_total_charge_usd=Decimal('3.00'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        result = await cm.charge('search', count=5)
+        assert result.charged_count == 2
+        assert result.event_charge_limit_reached is True
+        assert cm.get_charged_event_count('search') == 4
+
+        result = await cm.charge('search', count=1)
+        assert result.charged_count == 0
+        assert result.event_charge_limit_reached is True
+        assert cm.get_charged_event_count('search') == 4
+
+    if is_at_home:
+        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=2, idempotency_key=None)
+    else:
+        mock_client.run.return_value.charge.assert_not_called()
