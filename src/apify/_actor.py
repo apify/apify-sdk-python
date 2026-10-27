@@ -802,9 +802,9 @@ class _ActorType:
         key_value_store = await self.open_key_value_store()
         input_value = await key_value_store.get_value(input_key)
         if not self.is_at_home():
-            # Not a conflict check: under the file-system storage client the record *is* the store directory's file.
             store_has_input = input_value is not None or await key_value_store.record_exists(input_key)
             input_path = None
+            # Under the file-system storage client the record *is* the store directory's file, so don't read it twice.
             if not store_has_input:
                 # Mirrors apify-cli's `getLocalKeyValueStorePath`, which is where `apify run` writes the input.
                 default_kvs_dir = (

@@ -274,7 +274,7 @@ async def test_get_input_raises_on_multiple_working_directory_files(
             await actor.get_input()
 
 
-def _use_memory_storage(store_id: str = 'default') -> Path:
+def use_memory_storage(store_id: str = 'default') -> Path:
     """Switch to in-memory storage, which never reads the storage directory, and create the default store dir."""
     service_locator.set_storage_client(SmartApifyStorageClient(local_storage_client=MemoryStorageClient()))
     default_kvs_dir = Path(Configuration.get_global_configuration().storage_dir) / 'key_value_stores' / store_id
@@ -287,7 +287,7 @@ async def test_get_input_reads_default_kvs_directory_and_rejects_working_directo
 ) -> None:
     """Without an input record, the default store directory is read; a working-directory file next to it raises."""
     monkeypatch.chdir(tmp_path)
-    (_use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
+    (use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
 
     async with Actor as actor:
         assert await actor.get_input() == {'from': 'storage'}
@@ -302,7 +302,7 @@ async def test_get_input_skips_storage_directory_root(monkeypatch: pytest.Monkey
     working_dir = tmp_path / 'working_dir'
     working_dir.mkdir()
     monkeypatch.chdir(working_dir)
-    _use_memory_storage()
+    use_memory_storage()
     (tmp_path / 'INPUT.json').write_text('{"from": "storage root"}')
 
     async with Actor as actor:
@@ -315,7 +315,7 @@ async def test_get_input_default_kvs_directory_follows_store_id(
     """The default store directory is named after the configured default key-value store ID."""
     monkeypatch.setenv(ActorEnvVars.DEFAULT_KEY_VALUE_STORE_ID, 'custom')
     monkeypatch.chdir(tmp_path)
-    (_use_memory_storage('custom') / 'INPUT.json').write_text('{"from": "custom store"}')
+    (use_memory_storage('custom') / 'INPUT.json').write_text('{"from": "custom store"}')
 
     async with Actor as actor:
         assert await actor.get_input() == {'from': 'custom store'}
@@ -327,7 +327,7 @@ async def test_get_input_null_working_directory_file_conflicts_with_default_kvs_
     """A working-directory file holding JSON `null` counts as present, so a default store directory file raises."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'INPUT.json').write_text('null')
-    (_use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
+    (use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
 
     async with Actor as actor:
         with pytest.raises(RuntimeError, match='both in the default key-value store and in'):
@@ -339,7 +339,7 @@ async def test_get_input_raises_on_multiple_default_kvs_directory_files(
 ) -> None:
     """Both `INPUT` and `INPUT.json` in the default store directory raise an error naming that directory."""
     monkeypatch.chdir(tmp_path)
-    default_kvs_dir = _use_memory_storage()
+    default_kvs_dir = use_memory_storage()
     (default_kvs_dir / 'INPUT').write_text('{}')
     (default_kvs_dir / 'INPUT.json').write_text('{}')
 
@@ -352,7 +352,7 @@ async def test_get_input_skips_input_files_on_platform(monkeypatch: pytest.Monke
     """On the Apify platform, neither the working directory nor the default store directory is read."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'INPUT.json').write_text('{"from": "cwd"}')
-    (_use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
+    (use_memory_storage() / 'INPUT.json').write_text('{"from": "storage"}')
 
     async with Actor as actor:
         monkeypatch.setattr(actor, 'is_at_home', lambda: True)
