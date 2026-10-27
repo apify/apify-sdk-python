@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - Reattach named child runs after migration or resurrection ([#1149](https://github.com/apify/apify-sdk-python/pull/1149)) ([95dbc7c](https://github.com/apify/apify-sdk-python/commit/95dbc7c3d02d7b1f982b217e8ef2a74b32f3e1d3)) by [@vdusek](https://github.com/vdusek), closes [#1127](https://github.com/apify/apify-sdk-python/issues/1127)
 - Add `Actor.child_runs` with clients for named child runs ([#1151](https://github.com/apify/apify-sdk-python/pull/1151)) ([d382995](https://github.com/apify/apify-sdk-python/commit/d38299582c3474fb533cefa99c5eae70f7ff995a)) by [@vdusek](https://github.com/vdusek), closes [#1129](https://github.com/apify/apify-sdk-python/issues/1129)
 - Overcharge by one event when the PPE budget is exhausted ([#1191](https://github.com/apify/apify-sdk-python/pull/1191)) ([95513ba](https://github.com/apify/apify-sdk-python/commit/95513bab2dfa27a8a8fc4ef3bbd149b28b955466)) by [@vdusek](https://github.com/vdusek), closes [#1187](https://github.com/apify/apify-sdk-python/issues/1187)
+- Forward crawler status messages to the run status message ([#1192](https://github.com/apify/apify-sdk-python/pull/1192)) ([c30fdcd](https://github.com/apify/apify-sdk-python/commit/c30fdcd62397b2cacfeb0969ea9fe6b690e5d16f)) by [@vdusek](https://github.com/vdusek), closes [#1188](https://github.com/apify/apify-sdk-python/issues/1188)
+- Add support for Python 3.15 ([#1179](https://github.com/apify/apify-sdk-python/pull/1179)) ([ce98c84](https://github.com/apify/apify-sdk-python/commit/ce98c84a55b3e240520de1e54e681ee463cdfddf)) by [@vdusek](https://github.com/vdusek)
 
 ### 🐛 Bug Fixes
 
