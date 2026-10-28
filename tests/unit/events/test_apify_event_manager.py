@@ -502,13 +502,13 @@ async def test_internal_listener_is_kept_by_off() -> None:
     listener.assert_awaited_once()
 
 
-async def test_off_internal_removes_the_listener() -> None:
-    """A listener removed by `_off_internal` no longer runs on its event."""
+async def test_internal_listener_remover_removes_the_listener() -> None:
+    """A listener removed by the function `_on_internal` returns no longer runs on its event."""
     listener = AsyncMock()
 
     async with ApifyEventManager(Configuration.get_global_configuration()) as event_manager:
-        event_manager._on_internal(event=Event.ABORTING, listener=listener)
-        event_manager._off_internal(event=Event.ABORTING, listener=listener)
+        remove_listener = event_manager._on_internal(event=Event.ABORTING, listener=listener)
+        remove_listener()
         event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
         await event_manager.wait_for_all_listeners_to_complete()
 

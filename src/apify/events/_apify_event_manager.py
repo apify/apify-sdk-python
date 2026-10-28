@@ -21,7 +21,7 @@ from apify._utils import docs_group
 from apify.events._types import DeprecatedEvent, EventMessage, SystemInfoEventData, UnknownEvent
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Generator
+    from collections.abc import AsyncGenerator, Callable, Generator
     from types import TracebackType
 
     from crawlee.events._event_manager import EventManagerOptions
@@ -166,13 +166,18 @@ class ApifyEventManager(EventManager):
             self._listener_tasks.add(listener_task)
             listener_task.add_done_callback(self._listener_tasks.discard)
 
-    def _on_internal(self, *, event: Event, listener: EventListener[Any]) -> None:
-        """Register a listener of the SDK itself, which `off` doesn't remove."""
+    def _on_internal(self, *, event: Event, listener: EventListener[Any]) -> Callable[[], None]:
+        """Register a listener of the SDK itself, which `off` doesn't remove.
+
+        Returns:
+            A function that removes the listener.
+        """
         self._internal_listeners[event][listener] = self._wrap_listener(event, listener)
 
-    def _off_internal(self, *, event: Event, listener: EventListener[Any]) -> None:
-        """Remove a listener registered by `_on_internal`."""
-        self._internal_listeners.get(event, {}).pop(listener, None)
+        def remove() -> None:
+            self._internal_listeners[event].pop(listener, None)
+
+        return remove
 
     async def _teardown_platform_websocket(self) -> None:
         """Stop consuming the platform messages and close the websocket connection to the platform events."""

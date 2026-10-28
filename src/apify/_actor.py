@@ -5,6 +5,7 @@ import json
 import math
 import sys
 import warnings
+from contextlib import AsyncExitStack, ExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property, partial
@@ -165,6 +166,9 @@ class _ActorType:
 
         self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
 
+        self._internal_listeners = ExitStack()
+        """Removes the listeners the Actor registered on the event manager, when the Actor leaves its context."""
+
         self._active = False
         """Whether the Actor instance is currently active (initialized and within context)."""
 
@@ -215,41 +219,41 @@ class _ActorType:
         _ = self._storage_client
         self.log.debug('Storage client initialized')
 
-        # Initialize the event manager and register it in the service locator.
-        await self.event_manager.__aenter__()
-        # Only the platform emits `ABORTING`, and it does so through `ApifyEventManager`.
-        if isinstance(self.event_manager, ApifyEventManager):
-            self.event_manager._on_internal(event=Event.ABORTING, listener=self._abort_child_runs)  # noqa: SLF001
-        self.log.debug('Event manager initialized')
+        # Undoes the initialization if it fails, since a failed `__aenter__` gets no `__aexit__`.
+        async with AsyncExitStack() as rollback:
+            # Initialize the event manager and register it in the service locator.
+            await self.event_manager.__aenter__()
+            rollback.push_async_callback(self.event_manager.__aexit__, None, None, None)
+            # Only the platform emits `ABORTING`, and it does so through `ApifyEventManager`.
+            if isinstance(self.event_manager, ApifyEventManager):
+                remove_listener = self.event_manager._on_internal(  # noqa: SLF001
+                    event=Event.ABORTING, listener=self._abort_child_runs
+                )
+                self._internal_listeners.callback(remove_listener)
+            rollback.callback(self._internal_listeners.close)
+            self.log.debug('Event manager initialized')
 
-        # Initialize the charging manager.
-        try:
+            # Initialize the charging manager.
             await self._charging_manager_implementation.__aenter__()
-        except BaseException:
-            # Exit the already-entered event manager so its recurring tasks do not leak.
-            self._remove_internal_listeners()
-            await self.event_manager.__aexit__(None, None, None)
-            raise
-        self.log.debug('Charging manager initialized')
+            rollback.push_async_callback(self._charging_manager_implementation.__aexit__, None, None, None)
+            self.log.debug('Charging manager initialized')
 
-        # Mark initialization as complete and update global state.
-        self._active = True
+            # Mark initialization as complete and update global state.
+            self._active = True
 
-        try:
+            def deactivate() -> None:
+                self._active = False
+
+            rollback.callback(deactivate)
+
             if not Actor.is_at_home():
                 # Make sure that the input related KVS is initialized to ensure that the input aware client is used
                 await self.open_key_value_store()
 
             await self._child_run_registry.load()
-        except BaseException:
-            # Undo the initialization, since a failed `__aenter__` gets no `__aexit__`.
-            self._active = False
-            self._remove_internal_listeners()
-            try:
-                await self._charging_manager_implementation.__aexit__(None, None, None)
-            finally:
-                await self.event_manager.__aexit__(None, None, None)
-            raise
+
+            # The Actor context now owns everything entered above, and `__aexit__` leaves it.
+            rollback.pop_all()
         return self
 
     async def __aexit__(
@@ -331,7 +335,7 @@ class _ActorType:
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
-            self._remove_internal_listeners()
+            self._internal_listeners.close()
             self._active = False
 
         if reraise_control_flow:
@@ -1336,10 +1340,6 @@ class _ActorType:
             ),
             abort_with_parent=abort_with_parent,
         )
-
-    def _remove_internal_listeners(self) -> None:
-        if isinstance(self.event_manager, ApifyEventManager):
-            self.event_manager._off_internal(event=Event.ABORTING, listener=self._abort_child_runs)  # noqa: SLF001
 
     async def _abort_child_runs(self) -> None:
         await self._child_run_registry.abort_runs_with_parent(self.apify_client)
