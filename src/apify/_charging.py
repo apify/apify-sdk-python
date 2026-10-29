@@ -22,7 +22,7 @@ from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Callable
     from types import TracebackType
 
     from apify_client import ApifyClientAsync
@@ -94,7 +94,8 @@ class ChargingManager(Protocol):
         This is relevant only for the pay-per-event pricing model.
 
         When `count` exceeds the remaining budget, the events that fit are charged plus one more, so that the platform
-        detects the exhausted budget and terminates the run. A run already strictly over budget charges nothing.
+        detects the exhausted budget and terminates the run. A run already strictly over budget charges nothing, and a
+        run whose child runs hold a part of the budget charges only the events that fit.
 
         Args:
             event_name: Name of the event to be charged for.
@@ -144,7 +145,8 @@ class ChargingManager(Protocol):
         so that the combined cost per item does not exceed the remaining budget.
 
         When the budget cannot cover a single item, one item is still allowed through, so that the resulting overcharge
-        makes the platform terminate the run. A run that is already strictly over budget gets no items through.
+        makes the platform terminate the run. A run that is already strictly over budget, or whose child runs hold a
+        part of the budget, gets no items through.
 
         Args:
             items_count: The number of items to be pushed.
@@ -225,6 +227,10 @@ class ChargingManagerImplementation(ChargingManager):
         self.active = False
 
         self.charge_lock = ReentrantLock()
+
+        self.child_run_reservations: Callable[[], Decimal] = Decimal
+        """Returns the part of `max_total_charge_usd` reserved for child runs of this Actor run."""
+        self._is_max_total_charge_usd_set_by_user: bool | None = None
 
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
@@ -443,8 +449,32 @@ class ChargingManagerImplementation(ChargingManager):
         if not price:
             return None
 
-        result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / price
+        result = self.calculate_remaining_budget() / price
         return max(0, math.floor(result)) if result.is_finite() else None
+
+    @_ensure_context
+    def calculate_remaining_budget(self) -> Decimal:
+        """Return the part of `max_total_charge_usd` not charged by this Actor run nor reserved for its child runs."""
+        return self._max_total_charge_usd - self.calculate_total_charged_amount() - self.child_run_reservations()
+
+    @_ensure_context
+    async def is_max_total_charge_usd_set_by_user(self) -> bool:
+        """Return whether `max_total_charge_usd` was set for this Actor run, not defaulted by the platform.
+
+        The platform gives pay-per-event runs a limit even when nobody set one, and marks the run options when the
+        limit was set. A run that does not say so is treated as having a default limit.
+        """
+        if not self._max_total_charge_usd.is_finite():
+            return False
+        if not self._is_at_home:
+            return True
+        if self._is_max_total_charge_usd_set_by_user is None:
+            if self._actor_run_id is None:
+                raise RuntimeError('Actor run ID not configured')
+            run = await self._client.run(self._actor_run_id).get()
+            extra = (run.options.model_extra or {}) if run is not None else {}
+            self._is_max_total_charge_usd_set_by_user = extra.get('isMaxTotalChargeUsdSetByUser') is True
+        return self._is_max_total_charge_usd_set_by_user
 
     @_ensure_context
     def get_pricing_info(self) -> ActorPricingInfo:
@@ -486,7 +516,7 @@ class ChargingManagerImplementation(ChargingManager):
         if not combined_price:
             return items_count
 
-        result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / combined_price
+        result = self.calculate_remaining_budget() / combined_price
         max_count = max(0, math.floor(result)) if result.is_finite() else items_count
 
         if max_count >= items_count:
@@ -495,7 +525,7 @@ class ChargingManagerImplementation(ChargingManager):
         if max_count > 0:
             return max_count
 
-        return 1 if self.calculate_total_charged_amount() <= self._max_total_charge_usd else 0
+        return 1 if self._may_overcharge() else 0
 
     @_ensure_context
     def is_event_charge_limit_reached(self, event_name: str) -> bool:
@@ -557,12 +587,21 @@ class ChargingManagerImplementation(ChargingManager):
         if max_chargeable is None or count <= max_chargeable:
             return count
 
-        # Overcharge by one event, so that the platform detects the exhausted budget and terminates the run. A run
-        # already strictly over budget gets no further charges.
-        if self.calculate_total_charged_amount() <= self._max_total_charge_usd:
+        # Overcharge by one event, so that the platform detects the exhausted budget and terminates the run.
+        if self._may_overcharge():
             return max_chargeable + 1
 
-        return 0
+        return max_chargeable
+
+    def _may_overcharge(self) -> bool:
+        """Whether a charge may go one event over the remaining budget.
+
+        A run already strictly over budget may not. Neither may a run whose child runs hold a part of the budget, since
+        the extra event would come out of their share and stay under the limit the platform enforces.
+        """
+        if self.child_run_reservations():
+            return False
+        return self.calculate_total_charged_amount() <= self._max_total_charge_usd
 
     def _get_event_price(self, event_name: str) -> Decimal:
         pricing_info = self._pricing_info.get(event_name)
