@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
@@ -36,7 +37,7 @@ keywords = [
 ]
 dependencies = [
     "apify-client[brotli]>=3.3.0,<4.0.0",
-    "crawlee>=1.8.0,<2.0.0,!=1.10.1",
+    "crawlee>=1.9.1,<2.0.0,!=1.10.1",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
     "impit>=0.8.0",

@@ -5,6 +5,7 @@ import json
 import math
 import sys
 import warnings
+from contextlib import AsyncExitStack, ExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import cached_property, partial
@@ -21,6 +22,7 @@ from crawlee.errors import ServiceConflictError
 from crawlee.events import (
     Event,
     EventAbortingData,
+    EventCrawlerStatusData,
     EventExitData,
     EventListener,
     EventMigratingData,
@@ -38,6 +40,7 @@ from apify._charging import (
 from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
 from apify._consts import (
+    CRAWLER_STATUS_FORWARDING_TIMEOUT,
     EVENT_LISTENERS_TIMEOUT,
     EXIT_CODE_ERROR_USER_FUNCTION_THREW,
     STATUS_MESSAGE_UPDATE_TIMEOUT,
@@ -171,6 +174,9 @@ class _ActorType:
 
         self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
 
+        self._internal_listeners = ExitStack()
+        """Removes the listeners the Actor registered on the event manager, when the Actor leaves its context."""
+
         self._active = False
         """Whether the Actor instance is currently active (initialized and within context)."""
 
@@ -179,6 +185,9 @@ class _ActorType:
 
         self._is_exiting = False
         """Whether the Actor is currently exiting."""
+
+        self._status_message_lock = asyncio.Lock()
+        """Serializes forwarded crawler status messages with the terminal status message."""
 
     async def __aenter__(self) -> Self:
         """Enter the Actor context.
@@ -189,6 +198,7 @@ class _ActorType:
         - Configures the event manager and starts periodic state persistence.
         - Initializes the charging manager for handling charging events.
         - Loads the named child runs recorded by an earlier attempt of this Actor run.
+        - On the Apify platform, forwards the status messages of Crawlee crawlers to the run status message.
         - Configures logging after all core services are registered.
 
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
@@ -216,41 +226,51 @@ class _ActorType:
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
+        self._status_message_lock = asyncio.Lock()
 
         # Initialize the storage client and register it in the service locator.
         _ = self._storage_client
         self.log.debug('Storage client initialized')
 
-        # Initialize the event manager and register it in the service locator.
-        await self.event_manager.__aenter__()
-        self.log.debug('Event manager initialized')
+        # Undoes the initialization if it fails, since a failed `__aenter__` gets no `__aexit__`.
+        async with AsyncExitStack() as rollback:
+            # Initialize the event manager and register it in the service locator.
+            await self.event_manager.__aenter__()
+            rollback.push_async_callback(self.event_manager.__aexit__, None, None, None)
+            # Only the platform emits `ABORTING`, and it does so through `ApifyEventManager`.
+            if isinstance(self.event_manager, ApifyEventManager):
+                remove_listener = self.event_manager._on_internal(  # noqa: SLF001
+                    event=Event.ABORTING, listener=self._abort_child_runs
+                )
+                self._internal_listeners.callback(remove_listener)
+            rollback.callback(self._internal_listeners.close)
+            self.log.debug('Event manager initialized')
 
-        # Initialize the charging manager.
-        try:
+            # Initialize the charging manager.
             await self._charging_manager_implementation.__aenter__()
-        except BaseException:
-            # Exit the already-entered event manager so its recurring tasks do not leak.
-            await self.event_manager.__aexit__(None, None, None)
-            raise
-        self.log.debug('Charging manager initialized')
+            rollback.push_async_callback(self._charging_manager_implementation.__aexit__, None, None, None)
+            self.log.debug('Charging manager initialized')
 
-        # Mark initialization as complete and update global state.
-        self._active = True
+            # Mark initialization as complete and update global state.
+            self._active = True
 
-        try:
+            def deactivate() -> None:
+                self._active = False
+
+            rollback.callback(deactivate)
+
             if not Actor.is_at_home():
                 # Make sure that the input related KVS is initialized to ensure that the input aware client is used
                 await self.open_key_value_store()
 
             await self._child_run_registry.load()
-        except BaseException:
-            # Undo the initialization, since a failed `__aenter__` gets no `__aexit__`.
-            self._active = False
-            try:
-                await self._charging_manager_implementation.__aexit__(None, None, None)
-            finally:
-                await self.event_manager.__aexit__(None, None, None)
-            raise
+
+            # The Actor context now owns everything entered above, and `__aexit__` leaves it.
+            rollback.pop_all()
+
+        if self.is_at_home():
+            self.event_manager.on(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
+
         return self
 
     async def __aexit__(
@@ -267,6 +287,7 @@ class _ActorType:
         so interrupt and cancellation semantics are preserved. Otherwise, the Actor exits cleanly. In every
         case the Actor:
 
+        - Stops forwarding crawler status messages to the run status message.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
         - Waits for all event listeners to finish.
@@ -298,10 +319,14 @@ class _ActorType:
         self._is_exiting = True
         self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
 
+        # Stop forwarding crawler status messages, so that none of them overwrites the terminal one.
+        self.event_manager.off(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
+
         async def finalize() -> None:
             if self.status_message is not None:
                 try:
-                    await self.set_status_message(self.status_message, is_terminal=True)
+                    async with self._status_message_lock:
+                        await self.set_status_message(self.status_message, is_terminal=True)
                 except Exception:
                     self.log.exception('Failed to set terminal status message')
 
@@ -332,6 +357,7 @@ class _ActorType:
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
+            self._internal_listeners.close()
             self._active = False
 
         if reraise_control_flow:
@@ -997,6 +1023,7 @@ class _ActorType:
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -1032,10 +1059,18 @@ class _ActorType:
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
                 with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1071,6 +1106,7 @@ class _ActorType:
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             timeout=timeout,
+            abort_with_parent=abort_with_parent,
         )
         return run
 
@@ -1185,6 +1221,7 @@ class _ActorType:
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
         run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1223,10 +1260,18 @@ class _ActorType:
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
                 with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1274,6 +1319,7 @@ class _ActorType:
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
                 timeout=timeout,
+                abort_with_parent=abort_with_parent,
             )
             # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
             run = await self._wait_for_child_run(
@@ -1300,6 +1346,7 @@ class _ActorType:
         restart_on_error: bool | None,
         memory_mbytes: int | None,
         timeout: timedelta | Literal['inherit'] | None,
+        abort_with_parent: bool,
     ) -> tuple[Run, bool]:
         return await self._child_run_registry.find_or_start(
             name,
@@ -1316,7 +1363,11 @@ class _ActorType:
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
             ),
+            abort_with_parent=abort_with_parent,
         )
+
+    async def _abort_child_runs(self) -> None:
+        await self._child_run_registry.abort_runs_with_parent(self.apify_client)
 
     async def _wait_for_child_run(
         self,
@@ -1360,6 +1411,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         token: str | None = None,
         run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1395,10 +1447,18 @@ class _ActorType:
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
                 with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1431,6 +1491,7 @@ class _ActorType:
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             timeout=timeout,
+            abort_with_parent=abort_with_parent,
         )
         return run
 
@@ -1450,6 +1511,7 @@ class _ActorType:
         wait: timedelta | None = None,
         token: str | None = None,
         run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1485,10 +1547,18 @@ class _ActorType:
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
                 with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1531,6 +1601,7 @@ class _ActorType:
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
                 timeout=timeout,
+                abort_with_parent=abort_with_parent,
             )
             run = await self._wait_for_child_run(
                 run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
@@ -1832,6 +1903,24 @@ class _ActorType:
         self._use_state_stores.add(kvs_name)
         kvs = await self.open_key_value_store(name=kvs_name)
         return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
+
+    async def _forward_crawler_status(self, event_data: EventCrawlerStatusData) -> None:
+        """Set a crawler status message as the run status message on the Apify platform.
+
+        Messages that arrive once the Actor is exiting are dropped, and the terminal message waits for an update that
+        is already in flight, so no forwarded message can overwrite the terminal one. Each update is bounded by
+        `CRAWLER_STATUS_FORWARDING_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
+        """
+        try:
+            async with self._status_message_lock:
+                if self._is_exiting:
+                    return
+                await asyncio.wait_for(
+                    self.set_status_message(event_data.message),
+                    timeout=CRAWLER_STATUS_FORWARDING_TIMEOUT.total_seconds(),
+                )
+        except Exception:
+            self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 
     async def _save_actor_state(self) -> None:
         async def safe_persist(kvs_name: str | None) -> None:

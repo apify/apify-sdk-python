@@ -41,13 +41,13 @@ jobs:
     name: Lint check
     uses: apify/workflows/.github/workflows/python_lint_check.yaml@main
     with:
-      python_versions: '["3.11", "3.12", "3.13", "3.14"]'
+      python_versions: '["3.11", "3.12", "3.13", "3.14", "3.15"]'
 
   type_check:
     name: Type check
     uses: apify/workflows/.github/workflows/python_type_check.yaml@main
     with:
-      python_versions: '["3.11", "3.12", "3.13", "3.14"]'
+      python_versions: '["3.11", "3.12", "3.13", "3.14", "3.15"]'
 
   markdown_lint_check:
     name: Markdown lint check
@@ -135,9 +135,9 @@ jobs:
     uses: apify/workflows/.github/workflows/python_unit_tests.yaml@main
     secrets: inherit
     with:
-      python_versions: '["3.11", "3.12", "3.13", "3.14"]'
+      python_versions: '["3.11", "3.12", "3.13", "3.14", "3.15"]'
       operating_systems: '["ubuntu-latest", "windows-latest"]'
-      python_version_for_codecov: "3.14"
+      python_version_for_codecov: "3.15"
       operating_system_for_codecov: ubuntu-latest
       tests_concurrency: "4"
 
@@ -156,7 +156,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.11", "3.14"]
+        python-version: ["3.11", "3.15"]
 
     runs-on: ${{ matrix.os }}
 
@@ -168,12 +168,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv package manager
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -190,7 +190,7 @@ jobs:
         if: >-
           ${{
             matrix.os == 'ubuntu-latest' &&
-            matrix.python-version == '3.14' &&
+            matrix.python-version == '3.15' &&
             env.CODECOV_TOKEN != ''
           }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
@@ -235,12 +235,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv package manager
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -276,7 +276,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up uv package manager
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: "3.14"
 
