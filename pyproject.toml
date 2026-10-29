@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
@@ -222,6 +223,16 @@ include = [
 
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"
+
+# Scrapy declares `Spider.parse` as a `CallbackT` attribute for type checkers, so every `def parse` override narrows it.
+[[tool.ty.overrides]]
+include = [
+    "docs/**/scrapy_project/src/spiders/*.py",
+    "tests/e2e/test_scrapy/actor_source/spider_*.py",
+]
+
+[tool.ty.overrides.rules]
+invalid-mutable-override = "ignore"
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]

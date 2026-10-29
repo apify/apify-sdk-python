@@ -9,6 +9,7 @@ extend-ignore-re = [
 
 [default.extend-words]
 consts = "consts"  # Common abbreviation for "constants" used in apify_shared.consts
+certifi = "certifi"  # Python package name
 
 [files]
 # Extend the default exclude list

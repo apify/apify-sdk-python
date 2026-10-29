@@ -36,10 +36,13 @@ def test_gzip() -> None:
 
 
 def test_to_gzip() -> None:
-    """`to_gzip` produces the expected gzip-compressed JSON bytes for a fixed mtime."""
+    """`to_gzip` produces gzip-compressed JSON with the given mtime in its header."""
     data_bytes = to_gzip(FIXTURE_DICT, mtime=0)
 
-    assert data_bytes == FIXTURE_BYTES
+    # The header's extra-flags byte and the deflate stream differ across CPython and zlib versions, so
+    # compare the decompressed payload and the mtime.
+    assert gzip.decompress(data_bytes) == gzip.decompress(FIXTURE_BYTES)
+    assert read_gzip_time(data_bytes) == 0
 
 
 def test_from_gzip() -> None:
