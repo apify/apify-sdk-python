@@ -126,7 +126,8 @@ class ChildRunRegistry:
         self._observed: dict[str, tuple[str, float]] = {}
         """Last observed status of the run recorded under each name, with the event loop time it was observed at."""
         self._parent_aborting = False
-        """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
+        """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts,
+        nor any run that would wait for a slot under the concurrency limit."""
 
     def set_max_concurrent_runs(self, max_concurrent_runs: int | None) -> None:
         """Set how many recorded runs may be active at once, or remove the limit with `None`."""
@@ -173,7 +174,9 @@ class ChildRunRegistry:
         Raises:
             ValueError: If the recorded run would be reused, but was started for a different Actor, task or input.
             RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
-                started, resurrected or reattached.
+                started, resurrected or reattached. Also if starting or resurrecting the run would wait for a slot
+                under the concurrency limit while this Actor run is being gracefully aborted, whatever
+                `abort_with_parent` is.
         """
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
 
