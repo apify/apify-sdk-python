@@ -88,7 +88,14 @@ class ChargingManager(Protocol):
     charge_lock: ReentrantLock
     """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
 
-    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+    async def charge(
+        self,
+        event_name: str,
+        *,
+        count: int = 1,
+        idempotency_key: str | None = None,
+        request_id: str | None = None,
+    ) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -103,6 +110,9 @@ class ChargingManager(Protocol):
                 under the same key within three minutes is not sent to the API and reports the `charged_count` of
                 the original call, or zero if it names a different event. Like the platform, the key is forgotten
                 afterwards.
+            request_id: ID of the Server Actor request being charged, taken from the `X-Actor-Request-ID` header of
+                the incoming request. Required in multi-tenant Server Actor runs, where it maps the charge to the
+                caller's account instead of the account that started the run. Ignored elsewhere.
         """
 
     def calculate_total_charged_amount(self) -> Decimal:
@@ -210,6 +220,9 @@ class ChargingManagerImplementation(ChargingManager):
         self._actor_run_id = configuration.actor_run_id
         self._purge_charging_log_dataset = configuration.purge_on_start
         self._pricing_model: PricingModel | None = None
+        self._is_multi_tenant = False
+        """Multi-tenant Server Actor runs carry no pricing snapshot; pricing comes from the Actor and the platform
+        prices and limits each caller separately."""
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
@@ -302,9 +315,22 @@ class ChargingManagerImplementation(ChargingManager):
         self.active = False
 
     @_ensure_context
-    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+    async def charge(
+        self,
+        event_name: str,
+        *,
+        count: int = 1,
+        idempotency_key: str | None = None,
+        request_id: str | None = None,
+    ) -> ChargeResult:
         if idempotency_key is not None and not idempotency_key.strip():
             raise ValueError('idempotency_key must not be blank')
+
+        if self._is_multi_tenant and request_id is None and not event_name.startswith('apify-'):
+            raise ValueError(
+                f"Charging for '{event_name}' in a multi-tenant Server Actor run requires `request_id` - pass the "
+                "value of the incoming request's X-Actor-Request-ID header to Actor.charge()."
+            )
 
         # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
@@ -379,6 +405,7 @@ class ChargingManagerImplementation(ChargingManager):
                         event_name,
                         count=charged_count,
                         idempotency_key=idempotency_key,
+                        request_id=request_id,
                     )
                     logger.debug(f"Charged {charged_count} occurrence(s) of event '{event_name}'.")
                 elif event_name in self._tier_priced_events:
@@ -411,6 +438,7 @@ class ChargingManagerImplementation(ChargingManager):
                         'event_price_usd': float(round(pricing_info.price, 3)),
                         'charged_count': charged_count,
                         'idempotency_key': idempotency_key,
+                        'request_id': request_id,
                         'timestamp': datetime.now(UTC).isoformat(),
                     }
                 )
@@ -533,6 +561,9 @@ class ChargingManagerImplementation(ChargingManager):
             if run is None:
                 raise RuntimeError('Actor run not found')
 
+            if run.standby is not None and run.standby.deployment.startswith('MULTI_TENANT'):
+                return await self._fetch_multi_tenant_pricing_info(run.charged_event_counts or {})
+
             max_charge = run.options.max_total_charge_usd
             return _FetchedPricingInfoDict(
                 pricing_info=run.pricing_info,
@@ -549,6 +580,29 @@ class ChargingManagerImplementation(ChargingManager):
                 if self._configuration.max_total_charge_usd is not None
                 else Decimal('inf')
             ),
+        )
+
+    async def _fetch_multi_tenant_pricing_info(self, charged_event_counts: dict[str, int]) -> _FetchedPricingInfoDict:
+        actor_id = self._configuration.actor_id
+        if actor_id is None:
+            raise RuntimeError('Actor ID not found even though the Actor is running on Apify')
+
+        actor = await self._client.actor(actor_id).get()
+        if actor is None:
+            raise RuntimeError('Actor not found')
+
+        self._is_multi_tenant = True
+
+        # The history includes scheduled future changes, so the effective entry is the latest one that has started.
+        # Resolved once on purpose - the platform prices each charge from its own current pricing anyway.
+        now = datetime.now(UTC)
+        started = [info for info in actor.pricing_infos or [] if info.started_at <= now]
+        pricing_info = max(started, key=lambda info: info.started_at, default=None)
+
+        return _FetchedPricingInfoDict(
+            pricing_info=pricing_info,
+            charged_event_counts=charged_event_counts,
+            max_total_charge_usd=Decimal('inf'),
         )
 
     def _compute_charged_count(self, event_name: str, count: int) -> int:
