@@ -32,10 +32,13 @@ _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
 """Statuses that end as `ABORTED` / `TIMED-OUT` shortly, and are resurrectable once they do."""
 
 _RESURRECTABLE_STATUSES = frozenset({'ABORTED', 'TIMED-OUT'})
+"""Statuses of a recorded run that a call under its name resurrects."""
 
 _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
+"""Statuses that show an abort request took effect on the child run."""
 
 _ACTIVE_STATUSES = frozenset({'READY', 'RUNNING', 'ABORTING', 'TIMING-OUT'})
+"""Statuses of a child run that count toward the concurrency limit."""
 
 _STATUS_MAX_AGE_SECS = 10
 """How long an observed active status counts toward the concurrency limit before the run is fetched again."""
@@ -44,6 +47,7 @@ _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
 
 _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
+"""How long to wait between lookups of a recorded run that the API reports as missing."""
 
 
 class ChildRunSnapshot(BaseModel):
