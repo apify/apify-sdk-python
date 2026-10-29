@@ -40,7 +40,6 @@ from apify._charging import (
 from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
 from apify._consts import (
-    CRAWLER_STATUS_FORWARDING_TIMEOUT,
     EVENT_LISTENERS_TIMEOUT,
     EXIT_CODE_ERROR_USER_FUNCTION_THREW,
     STATUS_MESSAGE_UPDATE_TIMEOUT,
@@ -1909,16 +1908,13 @@ class _ActorType:
 
         Messages that arrive once the Actor is exiting are dropped, and the terminal message waits for an update that
         is already in flight, so no forwarded message can overwrite the terminal one. Each update is bounded by
-        `CRAWLER_STATUS_FORWARDING_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
+        `STATUS_MESSAGE_UPDATE_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
         """
         try:
             async with self._status_message_lock:
                 if self._is_exiting:
                     return
-                await asyncio.wait_for(
-                    self.set_status_message(event_data.message),
-                    timeout=CRAWLER_STATUS_FORWARDING_TIMEOUT.total_seconds(),
-                )
+                await self.set_status_message(event_data.message)
         except Exception:
             self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 

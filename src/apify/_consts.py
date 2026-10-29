@@ -10,9 +10,6 @@ EVENT_LISTENERS_TIMEOUT = timedelta(seconds=5)
 STATUS_MESSAGE_UPDATE_TIMEOUT = timedelta(seconds=1)
 """How long `Actor.set_status_message()` waits for the run update before giving up with a warning."""
 
-CRAWLER_STATUS_FORWARDING_TIMEOUT = timedelta(seconds=1)
-"""Timeout for setting a forwarded crawler status message as the run status message."""
-
 BASE64_REGEXP = '[-A-Za-z0-9+/]*={0,3}'
 """Regex fragment matching a single base64-encoded component."""
 
