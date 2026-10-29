@@ -1347,6 +1347,22 @@ async def test_child_run_the_api_no_longer_knows_does_not_block_the_limit() -> N
     assert second.id == 'second-run'
 
 
+async def test_finished_recorded_child_run_is_not_fetched_for_the_limit() -> None:
+    """A recorded child run whose recorded status is final is not fetched to count it toward the limit."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'first': stored_record('old-run', 'SUCCEEDED')})
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        second = await asyncio.wait_for(start_child(registry, client, 'second', statuses), timeout=1)
+
+    assert second.id == 'second-run'
+    assert all(call.args != ('old-run',) for call in client.run.call_args_list)
+
+
 async def test_reattach_does_not_wait_for_a_slot() -> None:
     """Reattaching to an active recorded child run returns it even while the limit is reached."""
     statuses = {'old-run': 'RUNNING'}

@@ -368,8 +368,12 @@ class ChildRunRegistry:
         stale = [
             name
             for name in names
-            if name not in self._observed
-            or (self._observed[name][0] in _ACTIVE_STATUSES and now - self._observed[name][1] >= _STATUS_MAX_AGE_SECS)
+            if (name not in self._observed and records[name].status in _ACTIVE_STATUSES)
+            or (
+                name in self._observed
+                and self._observed[name][0] in _ACTIVE_STATUSES
+                and now - self._observed[name][1] >= _STATUS_MAX_AGE_SECS
+            )
         ]
         runs = await asyncio.gather(
             *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale),
