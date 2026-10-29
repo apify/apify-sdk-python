@@ -1401,6 +1401,44 @@ async def test_concurrent_named_starts_respect_the_limit() -> None:
     assert len(statuses) == 2
 
 
+async def test_start_in_flight_when_the_limit_is_set_holds_a_slot() -> None:
+    """A named start begun before the limit was set holds a slot, so a later start waits for it."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    release_first = asyncio.Event()
+
+    async def start_first() -> Run:
+        await release_first.wait()
+        statuses['first-run'] = 'RUNNING'
+        return make_run('first-run', 'READY')
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        first_task = asyncio.create_task(
+            registry.find_or_start(
+                'first',
+                actor_id='some-actor',
+                run_input=None,
+                client=client,
+                start_run=start_first,
+                resurrect_run=AsyncMock(),
+            )
+        )
+        await asyncio.sleep(0.05)
+        registry.set_max_concurrent_runs(1)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        release_first.set()
+        await first_task
+        await assert_waiting(second_task)
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+    assert 'second-run' not in statuses
+
+
 async def test_failed_start_releases_its_slot() -> None:
     """A named start that raises frees its slot for the next one."""
     statuses: dict[str, str] = {}

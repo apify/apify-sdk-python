@@ -336,10 +336,6 @@ class ChildRunRegistry:
     @asynccontextmanager
     async def _slot(self, name: str, client: ApifyClientAsync) -> AsyncGenerator[None]:
         """Hold a slot for starting or resurrecting the run under `name`, waiting while the limit is reached."""
-        if self._max_concurrent_runs is None:
-            yield
-            return
-
         async with self._slots:
             while (
                 self._max_concurrent_runs is not None
