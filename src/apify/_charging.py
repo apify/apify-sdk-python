@@ -231,6 +231,7 @@ class ChargingManagerImplementation(ChargingManager):
         self.child_run_reservations: Callable[[], Decimal] = Decimal
         """Returns the part of `max_total_charge_usd` reserved for child runs of this Actor run."""
         self._is_max_total_charge_usd_set_by_user: bool | None = None
+        """Whether `max_total_charge_usd` was set for this run, `None` until the run options are fetched."""
 
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""

@@ -40,6 +40,7 @@ _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
 _ACTIVE_STATUSES = frozenset({'READY', 'RUNNING', 'ABORTING', 'TIMING-OUT'})
 
 _TERMINAL_STATUSES = frozenset({'SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'})
+"""Statuses of a finished child run, whose unused charge limit returns to the parent budget."""
 
 _STATUS_MAX_AGE = timedelta(seconds=10)
 """How long an observed active status counts toward the concurrency limit before the run is fetched again."""
@@ -145,6 +146,7 @@ class ChildRunRegistry:
     ) -> None:
         self._open_key_value_store = open_key_value_store
         self._get_charging_manager = get_charging_manager
+        """Returns the charging manager whose budget the child runs share, or is `None` to share no budget."""
         self._records: dict[str, ChildRunRecord] | None = None
         self._lock = asyncio.Lock()
         """Guards loading the records and writing them back to the key-value store."""
