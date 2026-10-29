@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
+import pytest
 from pydantic_core import TzInfo
 
 from apify import Actor
@@ -81,8 +82,6 @@ COMMA_SEPARATED_LIST_ENV_VARS: list[ActorEnvVars] = [
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
 
 
 async def test_actor_is_not_at_home_when_local() -> None:
@@ -199,6 +198,15 @@ async def test_get_env_with_randomized_env_vars(monkeypatch: pytest.MonkeyPatch,
     expected_get_env[ApifyEnvVars.CHARGED_ACTOR_EVENT_COUNTS.name.lower()] = None
 
     await Actor.init()
-    assert Actor.get_env() == expected_get_env
+    with pytest.warns(DeprecationWarning, match=r'`Actor.get_env\(\)` is deprecated'):
+        env = Actor.get_env()
+    assert env == expected_get_env
 
     await Actor.exit()
+
+
+async def test_get_env_warns_about_deprecation() -> None:
+    """`Actor.get_env()` emits a `DeprecationWarning` pointing at `Actor.configuration`."""
+    async with Actor:
+        with pytest.warns(DeprecationWarning, match=r'`Actor.get_env\(\)` is deprecated.*`Actor.configuration`'):
+            Actor.get_env()
