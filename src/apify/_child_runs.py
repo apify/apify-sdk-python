@@ -362,6 +362,8 @@ class ChildRunRegistry:
         """Count active recorded runs and slots held by others, fetching runs whose active status is not fresh."""
         records = await self._load()
         names = [name for name in records if name != exclude and name not in self._starting]
+        # A start in flight can finish during the fetch below, leaving `_starting` before it is in `names`.
+        starting = len(self._starting)
         now = asyncio.get_running_loop().time()
         stale = [
             name
@@ -387,7 +389,7 @@ class ChildRunRegistry:
 
         # A run that could not be fetched counts only when an earlier observation saw it active.
         active = sum(1 for name in names if name in self._observed and self._observed[name][0] in _ACTIVE_STATUSES)
-        return active + len(self._starting)
+        return active + starting
 
     def _observe(self, name: str, run: Run) -> None:
         self._observed[name] = (run.status, asyncio.get_running_loop().time())

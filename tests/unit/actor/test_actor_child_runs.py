@@ -1439,6 +1439,65 @@ async def test_start_in_flight_when_the_limit_is_set_holds_a_slot() -> None:
     assert 'second-run' not in statuses
 
 
+async def test_start_finishing_while_a_waiting_start_counts_still_holds_a_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A start that finishes while a waiting start fetches runs to count them is still counted once."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0.01)
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+    run_client_factory = client.run.side_effect
+    old_run_fetchable = asyncio.Event()
+    old_run_fetchable.set()
+
+    async def get_old_run() -> Run:
+        await old_run_fetchable.wait()
+        return make_run('old-run', 'RUNNING')
+
+    def run(run_id: str) -> Mock:
+        run_client = run_client_factory(run_id)
+        if run_id == 'old-run':
+            run_client.get = AsyncMock(side_effect=get_old_run)
+        return run_client
+
+    client.run.side_effect = run
+    release_first = asyncio.Event()
+
+    async def start_first() -> Run:
+        await release_first.wait()
+        statuses['first-run'] = 'RUNNING'
+        return make_run('first-run', 'READY')
+
+    async with Actor:
+        await record_child_run('old', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(2)
+        first_task = asyncio.create_task(
+            registry.find_or_start(
+                'first',
+                actor_id='some-actor',
+                run_input=None,
+                client=client,
+                start_run=start_first,
+                resurrect_run=AsyncMock(),
+            )
+        )
+        await asyncio.sleep(0.05)
+
+        old_run_fetchable.clear()
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+        release_first.set()
+        await asyncio.sleep(0.05)
+        old_run_fetchable.set()
+
+        await assert_waiting(second_task)
+        await first_task
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+    assert 'second-run' not in statuses
+
+
 async def test_failed_start_releases_its_slot() -> None:
     """A named start that raises frees its slot for the next one."""
     statuses: dict[str, str] = {}
