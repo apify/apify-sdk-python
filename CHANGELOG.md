@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Deprecate max_items in favor of max_total_charge_usd ([#1168](https://github.com/apify/apify-sdk-python/pull/1168)) ([c9991fa](https://github.com/apify/apify-sdk-python/commit/c9991fa3bb7ff12d86dd9855ae15812d1142ba52)) by [@vdusek](https://github.com/vdusek)
 - Parse `actor_pricing_info` into Apify API client pricing models ([#1172](https://github.com/apify/apify-sdk-python/pull/1172)) ([31c351a](https://github.com/apify/apify-sdk-python/commit/31c351afbd408f0a572117a640e0ee0821a19108)) by [@vdusek](https://github.com/vdusek)
 - Avoid crawling handled requests again after migration in large request queues ([#1189](https://github.com/apify/apify-sdk-python/pull/1189)) ([cf2e126](https://github.com/apify/apify-sdk-python/commit/cf2e12696791c88c3ad723466d9f8cce1ee08aba)) by [@vdusek](https://github.com/vdusek), closes [#1185](https://github.com/apify/apify-sdk-python/issues/1185)
+- [**breaking**] Don&#x27;t raise from `Actor.set_status_message` on a failed or slow update ([#1200](https://github.com/apify/apify-sdk-python/pull/1200)) ([4556821](https://github.com/apify/apify-sdk-python/commit/4556821b18a48409c28b5e6bd581266249bb2eb7)) by [@vladfrangu](https://github.com/vladfrangu), closes [#1199](https://github.com/apify/apify-sdk-python/issues/1199)
 
 
 <!-- git-cliff-unreleased-end -->
