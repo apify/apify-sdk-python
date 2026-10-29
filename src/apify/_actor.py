@@ -1788,8 +1788,8 @@ class _ActorType:
             is_terminal: Set this flag to True if this is the final status message of the Actor run.
 
         Returns:
-            The updated Actor run object, or `None` when no run was updated: when running locally, or when the
-            update failed or timed out.
+            The updated Actor run object, or `None` when no run was updated: when running locally, or when the update
+            failed or timed out.
         """
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
