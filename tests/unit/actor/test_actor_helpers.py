@@ -357,6 +357,74 @@ async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> N
     assert '[Status message]: test-status-message' in matching_records[0].message
 
 
+async def test_set_status_message_returns_updated_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+) -> None:
+    """`Actor.set_status_message` on the platform updates the run and returns it."""
+    apify_client_async_patcher.patch('run', 'update', return_value=fake_actor_run)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+        run = await Actor.set_status_message('almost there', is_terminal=True)
+
+    assert run is fake_actor_run
+    update_kwargs = apify_client_async_patcher.calls['run']['update'][0][1]
+    assert update_kwargs == {'status_message': 'almost there', 'is_status_message_terminal': True}
+
+
+async def test_set_status_message_warns_when_update_fails(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`Actor.set_status_message` logs a warning and returns `None` when the run update raises."""
+
+    def failing_update(*_args: object, **_kwargs: object) -> Run:
+        raise RuntimeError('Boom')
+
+    apify_client_async_patcher.patch('run', 'update', replacement_method=failing_update)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+        run = await Actor.set_status_message('almost there')
+
+    assert run is None
+    matching_records = [record for record in caplog.records if 'Failed to set status message' in record.message]
+    assert len(matching_records) == 1
+    assert matching_records[0].levelname == 'WARNING'
+    assert matching_records[0].message == 'Failed to set status message for Actor run with ID "some-run-id": Boom'
+
+
+async def test_set_status_message_warns_when_update_times_out(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`Actor.set_status_message` logs a warning and returns `None` when the run update does not finish in time."""
+
+    async def hanging_update(*_args: object, **_kwargs: object) -> Run:
+        await asyncio.Event().wait()
+        raise AssertionError('unreachable')
+
+    apify_client_async_patcher.patch('run', 'update', replacement_method=hanging_update)
+    monkeypatch.setattr('apify._actor.STATUS_MESSAGE_UPDATE_TIMEOUT', timedelta(milliseconds=10))
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+        run = await Actor.set_status_message('almost there')
+
+    assert run is None
+    matching_records = [record for record in caplog.records if 'Failed to set status message' in record.message]
+    assert len(matching_records) == 1
+    assert matching_records[0].levelname == 'WARNING'
+    assert matching_records[0].message == (
+        'Failed to set status message for Actor run with ID "some-run-id": the update timed out after 0.01s.'
+    )
+
+
 async def test_set_terminal_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('INFO')
     async with Actor:
