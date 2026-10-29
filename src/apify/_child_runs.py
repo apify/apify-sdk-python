@@ -116,7 +116,9 @@ class ChildRunRegistry:
 
     def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
         self._open_key_value_store = open_key_value_store
+        """Opens the default key-value store, where the records are persisted."""
         self._records: dict[str, ChildRunRecord] | None = None
+        """Records of the child runs by name, `None` until they are read from the key-value store."""
         self._lock = asyncio.Lock()
         """Guards loading the records and writing them back to the key-value store."""
         self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
@@ -124,7 +126,9 @@ class ChildRunRegistry:
         self._clients: dict[str, ApifyClientAsync] = {}
         """Client the run under each name was last started or looked up with. Lost on a migration."""
         self._max_concurrent_runs: int | None = None
+        """How many recorded runs may be active at once, or `None` for no limit."""
         self._slots = asyncio.Condition()
+        """Serializes counting the active runs, and wakes the starts waiting for a slot when one may have freed up."""
         self._starting: set[str] = set()
         """Names holding a slot for a start or resurrection in flight, not counted from the records yet."""
         self._observed: dict[str, tuple[str, float]] = {}
