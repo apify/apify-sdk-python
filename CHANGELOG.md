@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Overcharge by one event when the PPE budget is exhausted ([#1191](https://github.com/apify/apify-sdk-python/pull/1191)) ([95513ba](https://github.com/apify/apify-sdk-python/commit/95513bab2dfa27a8a8fc4ef3bbd149b28b955466)) by [@vdusek](https://github.com/vdusek), closes [#1187](https://github.com/apify/apify-sdk-python/issues/1187)
 - Forward crawler status messages to the run status message ([#1192](https://github.com/apify/apify-sdk-python/pull/1192)) ([c30fdcd](https://github.com/apify/apify-sdk-python/commit/c30fdcd62397b2cacfeb0969ea9fe6b690e5d16f)) by [@vdusek](https://github.com/vdusek), closes [#1188](https://github.com/apify/apify-sdk-python/issues/1188)
 - Add support for Python 3.15 ([#1179](https://github.com/apify/apify-sdk-python/pull/1179)) ([ce98c84](https://github.com/apify/apify-sdk-python/commit/ce98c84a55b3e240520de1e54e681ee463cdfddf)) by [@vdusek](https://github.com/vdusek)
+- Abort named child runs when the parent is gracefully aborted ([#1153](https://github.com/apify/apify-sdk-python/pull/1153)) ([4ff9c35](https://github.com/apify/apify-sdk-python/commit/4ff9c35d8f338e7ecdc491732230e66d8486209e)) by [@vdusek](https://github.com/vdusek), closes [#1128](https://github.com/apify/apify-sdk-python/issues/1128)
 
 ### 🐛 Bug Fixes
 
