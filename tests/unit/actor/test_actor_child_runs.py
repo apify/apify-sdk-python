@@ -1249,7 +1249,7 @@ async def test_named_start_waits_while_the_limit_is_reached() -> None:
 
 async def test_removing_the_limit_releases_waiting_starts(monkeypatch: pytest.MonkeyPatch) -> None:
     """A named start waiting for a slot proceeds once the limit is removed."""
-    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE', timedelta(seconds=0.05))
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0.05)
     statuses: dict[str, str] = {}
     client = make_client(statuses)
 
@@ -1268,7 +1268,7 @@ async def test_removing_the_limit_releases_waiting_starts(monkeypatch: pytest.Mo
 
 async def test_stale_active_status_is_refreshed_before_counting(monkeypatch: pytest.MonkeyPatch) -> None:
     """A child run nobody awaited is fetched again once its status is stale, so a finished one frees its slot."""
-    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE', timedelta(0))
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
     statuses: dict[str, str] = {}
     client = make_client(statuses)
 

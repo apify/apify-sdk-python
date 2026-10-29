@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 from contextlib import asynccontextmanager, suppress
-from datetime import datetime, timedelta
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 from weakref import WeakValueDictionary
@@ -37,7 +37,7 @@ _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
 
 _ACTIVE_STATUSES = frozenset({'READY', 'RUNNING', 'ABORTING', 'TIMING-OUT'})
 
-_STATUS_MAX_AGE = timedelta(seconds=10)
+_STATUS_MAX_AGE_SECS = 10
 """How long an observed active status counts toward the concurrency limit before the run is fetched again."""
 
 _NOT_FOUND_GRACE_SECS = 3
@@ -349,7 +349,7 @@ class ChildRunRegistry:
                     )
                 logger.debug(f'Child run "{name}" is waiting for a free slot')
                 with suppress(TimeoutError):
-                    await asyncio.wait_for(self._slots.wait(), timeout=_STATUS_MAX_AGE.total_seconds())
+                    await asyncio.wait_for(self._slots.wait(), timeout=_STATUS_MAX_AGE_SECS)
             self._starting.add(name)
 
         try:
@@ -368,10 +368,7 @@ class ChildRunRegistry:
             name
             for name in names
             if name not in self._observed
-            or (
-                self._observed[name][0] in _ACTIVE_STATUSES
-                and now - self._observed[name][1] >= _STATUS_MAX_AGE.total_seconds()
-            )
+            or (self._observed[name][0] in _ACTIVE_STATUSES and now - self._observed[name][1] >= _STATUS_MAX_AGE_SECS)
         ]
         runs = await asyncio.gather(
             *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale),
@@ -385,7 +382,7 @@ class ChildRunRegistry:
                     exc_info=run,
                 )
             elif run is None:
-                self._observed[name] = ('MISSING', now)
+                self._observed[name] = ('LOST', now)
             else:
                 self._observe(name, run)
 
