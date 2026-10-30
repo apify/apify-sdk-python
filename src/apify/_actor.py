@@ -445,7 +445,7 @@ class _ActorType:
         """
         return self._child_run_registry.run_clients(self.apify_client)
 
-    def set_child_run_limits(self, *, max_concurrent_runs: int | None) -> None:
+    def set_named_child_run_limits(self, *, max_concurrent_runs: int | None) -> None:
         """Limit the named child runs of this Actor run.
 
         While `max_concurrent_runs` named child runs are `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`, a named

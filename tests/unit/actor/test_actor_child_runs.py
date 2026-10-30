@@ -1225,7 +1225,7 @@ async def test_set_child_run_limits_rejects_non_positive_limit(max_concurrent_ru
     """A concurrency limit below 1 is rejected."""
     async with Actor:
         with pytest.raises(ValueError, match='must be at least 1'):
-            Actor.set_child_run_limits(max_concurrent_runs=max_concurrent_runs)
+            Actor.set_named_child_run_limits(max_concurrent_runs=max_concurrent_runs)
 
 
 async def test_named_start_waits_while_the_limit_is_reached() -> None:
@@ -1248,7 +1248,7 @@ async def test_named_start_waits_while_the_limit_is_reached() -> None:
 
 
 async def test_removing_the_limit_releases_waiting_starts(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A named start waiting for a slot proceeds once the limit is removed."""
+    """A named start waiting under the limit proceeds once the limit is removed."""
     monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0.05)
     statuses: dict[str, str] = {}
     client = make_client(statuses)
@@ -1267,7 +1267,7 @@ async def test_removing_the_limit_releases_waiting_starts(monkeypatch: pytest.Mo
 
 
 async def test_stale_active_status_is_refreshed_before_counting(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A child run nobody awaited is fetched again once its status is stale, so a finished one frees its slot."""
+    """A child run nobody awaited is fetched again once its status is stale, so a finished one stops counting."""
     monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
     statuses: dict[str, str] = {}
     client = make_client(statuses)
@@ -1286,7 +1286,7 @@ async def test_stale_active_status_is_refreshed_before_counting(monkeypatch: pyt
 
 
 async def test_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit() -> None:
-    """An active child run recorded before a migration holds a slot, since it is fetched before it is counted."""
+    """An active child run recorded before a migration counts toward the limit, since it is fetched first."""
     statuses = {'old-run': 'RUNNING'}
     client = make_client(statuses)
 
@@ -1363,7 +1363,7 @@ async def test_finished_recorded_child_run_is_not_fetched_for_the_limit() -> Non
     assert all(call.args != ('old-run',) for call in client.run.call_args_list)
 
 
-async def test_reattach_does_not_wait_for_a_slot() -> None:
+async def test_reattach_does_not_wait_under_the_limit() -> None:
     """Reattaching to an active recorded child run returns it even while the limit is reached."""
     statuses = {'old-run': 'RUNNING'}
     client = make_client(statuses)
@@ -1377,7 +1377,7 @@ async def test_reattach_does_not_wait_for_a_slot() -> None:
     assert run.id == 'old-run'
 
 
-async def test_resurrection_waits_for_a_slot() -> None:
+async def test_resurrection_waits_under_the_limit() -> None:
     """Resurrecting an aborted child run waits while the limit is reached."""
     statuses = {'old-run': 'ABORTED'}
     client = make_client(statuses)
@@ -1417,8 +1417,8 @@ async def test_concurrent_named_starts_respect_the_limit() -> None:
     assert len(statuses) == 2
 
 
-async def test_start_in_flight_when_the_limit_is_set_holds_a_slot() -> None:
-    """A named start begun before the limit was set holds a slot, so a later start waits for it."""
+async def test_start_in_flight_when_the_limit_is_set_counts_toward_it() -> None:
+    """A named start begun before the limit was set counts toward it, so a later start waits for it."""
     statuses: dict[str, str] = {}
     client = make_client(statuses)
     release_first = asyncio.Event()
@@ -1455,7 +1455,7 @@ async def test_start_in_flight_when_the_limit_is_set_holds_a_slot() -> None:
     assert 'second-run' not in statuses
 
 
-async def test_start_finishing_while_a_waiting_start_counts_still_holds_a_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_start_finishing_while_a_waiting_start_counts_is_counted_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """A start that finishes while a waiting start fetches runs to count them is still counted once."""
     monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0.01)
     statuses = {'old-run': 'RUNNING'}
@@ -1514,8 +1514,8 @@ async def test_start_finishing_while_a_waiting_start_counts_still_holds_a_slot(m
     assert 'second-run' not in statuses
 
 
-async def test_failed_start_releases_its_slot() -> None:
-    """A named start that raises frees its slot for the next one."""
+async def test_failed_start_stops_counting_toward_the_limit() -> None:
+    """A named start that raises stops counting toward the limit, so the next one proceeds."""
     statuses: dict[str, str] = {}
     client = make_client(statuses)
 
@@ -1536,8 +1536,8 @@ async def test_failed_start_releases_its_slot() -> None:
     assert second.id == 'second-run'
 
 
-async def test_parent_abort_stops_starts_waiting_for_a_slot() -> None:
-    """A named start waiting for a slot raises once the parent is aborted, without starting a run."""
+async def test_parent_abort_stops_starts_waiting_under_the_limit() -> None:
+    """A named start waiting under the limit raises once the parent is aborted, without starting a run."""
     statuses: dict[str, str] = {}
     client = make_client(statuses)
 
@@ -1555,35 +1555,35 @@ async def test_parent_abort_stops_starts_waiting_for_a_slot() -> None:
     assert 'second-run' not in statuses
 
 
-async def test_named_call_frees_its_slot_when_the_run_finishes(
+async def test_named_call_stops_counting_when_the_run_finishes(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A child run awaited by a named call to its end frees its slot without being fetched again."""
+    """A child run awaited by a named call to its end stops counting without being fetched again."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-    # A fetch would report the run as still running, so only the awaited status can free the slot.
+    # A fetch would report the run as still running, so only the awaited status can stop it counting.
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
     apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
 
     async with Actor:
-        Actor.set_child_run_limits(max_concurrent_runs=1)
+        Actor.set_named_child_run_limits(max_concurrent_runs=1)
         await Actor.call('some-actor', run_name='first', logger=None)
         await asyncio.wait_for(Actor.start('some-actor', run_name='second'), timeout=1)
 
     assert len(apify_client_async_patcher.calls['actor']['start']) == 2
 
 
-async def test_named_call_task_frees_its_slot_when_the_run_finishes(
+async def test_named_call_task_stops_counting_when_the_run_finishes(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A task run awaited by a named task call to its end frees its slot without being fetched again."""
+    """A task run awaited by a named task call to its end stops counting without being fetched again."""
     apify_client_async_patcher.patch('task', 'start', return_value=make_run('task-run', 'READY'))
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('actor-run', 'READY'))
-    # A fetch would report the run as still running, so only the awaited status can free the slot.
+    # A fetch would report the run as still running, so only the awaited status can stop it counting.
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('task-run', 'RUNNING'))
     apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('task-run', 'SUCCEEDED'))
 
     async with Actor:
-        Actor.set_child_run_limits(max_concurrent_runs=1)
+        Actor.set_named_child_run_limits(max_concurrent_runs=1)
         await Actor.call_task('some-task', run_name='first')
         await asyncio.wait_for(Actor.start('some-actor', run_name='second'), timeout=1)
 
