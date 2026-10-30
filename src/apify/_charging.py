@@ -31,9 +31,7 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-charging_manager_ctx: ContextVar[ChargingManagerImplementation | None] = ContextVar(
-    'charging_manager_ctx', default=None
-)
+charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
 """Holds the current `ChargingManager` instance, if any.
 
 Allows PPE-aware dataset clients to access the charging manager without needing to pass it explicitly.
