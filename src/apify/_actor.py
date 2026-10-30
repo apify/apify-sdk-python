@@ -905,7 +905,14 @@ class _ActorType:
         return self._charging_manager_implementation
 
     @_ensure_context
-    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+    async def charge(
+        self,
+        event_name: str,
+        *,
+        count: int = 1,
+        idempotency_key: str | None = None,
+        request_id: str | None = None,
+    ) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -920,10 +927,15 @@ class _ActorType:
                 under the same key within three minutes is not sent to the API and reports the `charged_count` of
                 the original call, or zero if it names a different event. Like the platform, the key is forgotten
                 afterwards.
+            request_id: ID of the Server Actor request being charged, taken from the `X-Actor-Request-ID` header of
+                the incoming request. Required in multi-tenant Server Actor runs, where it maps the charge to the
+                caller's account instead of the account that started the run. Ignored elsewhere.
         """
         # charging_manager.charge() acquires charge_lock internally.
         charging_manager = self.get_charging_manager()
-        return await charging_manager.charge(event_name, count=count, idempotency_key=idempotency_key)
+        return await charging_manager.charge(
+            event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
+        )
 
     @overload
     def on(
