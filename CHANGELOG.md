@@ -662,9 +662,31 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Add chunking mechanism to `push_data`, cleanup TODOs ([#67](https://github.com/apify/apify-sdk-python/pull/67)) ([5f38d51](https://github.com/apify/apify-sdk-python/commit/5f38d51a57912071439ac88405311d2cb7044190)) by [@jirimoravcik](https://github.com/jirimoravcik)
+- Add the `KeyValueStore.get_public_url()` method to get public URLs of key-value store records ([770a50e](https://github.com/apify/apify-sdk-python/commit/770a50ee08a69a226004194d3d96b4ec80674663)) by [@fnesveda](https://github.com/fnesveda)
+
+### 🐛 Bug Fixes
+
+- [**breaking**] Fix local `MemoryStorageClient` not handling the difference between storage `id` and `name` correctly ([#78](https://github.com/apify/apify-sdk-python/pull/78)) ([6bb8776](https://github.com/apify/apify-sdk-python/commit/6bb877697d61a35e80b7d9fe8bbf08e5a94e77d6)) by [@fnesveda](https://github.com/fnesveda)
+- Fix parsing messages from the platform events websocket when they have no event data ([#60](https://github.com/apify/apify-sdk-python/pull/60)) ([f5557f8](https://github.com/apify/apify-sdk-python/commit/f5557f8f51ef0c9e7fb82039b1378ffa75fa0c9d)) by [@fnesveda](https://github.com/fnesveda)
+- Fix `EventManager` not waiting for platform events websocket connection during initialization ([#72](https://github.com/apify/apify-sdk-python/pull/72)) ([75454ca](https://github.com/apify/apify-sdk-python/commit/75454ca1cdc20737c31fd90a02d850639802f013)) by [@fnesveda](https://github.com/fnesveda)
+- Fix local `RequestQueueClient` not respecting the `forefront` argument ([#76](https://github.com/apify/apify-sdk-python/pull/76)) ([f4472bb](https://github.com/apify/apify-sdk-python/commit/f4472bbe4df42ce3036fdbce1b283c225fa68491)) by [@fnesveda](https://github.com/fnesveda)
+- Fix local `RequestQueueClient` not counting the `handledRequestCount` property ([#77](https://github.com/apify/apify-sdk-python/pull/77)) ([7cc12fb](https://github.com/apify/apify-sdk-python/commit/7cc12fb173d0f210b7f1b475676c42b9abcf9651)) by [@fnesveda](https://github.com/fnesveda)
+- Fix local storage operations possibly running in parallel ([f45e127](https://github.com/apify/apify-sdk-python/commit/f45e1274c7f8f5a15e53465c668365ebf2ed8fa4)) by [@fnesveda](https://github.com/fnesveda)
+- Stop calling `sys.exit()` in a nested asyncio loop ([f4bff18](https://github.com/apify/apify-sdk-python/commit/f4bff18174b97f4fd66da83f4bfd4e02f5886b52)) by [@fnesveda](https://github.com/fnesveda)
+- Stop purging storages by default ([31aec69](https://github.com/apify/apify-sdk-python/commit/31aec69ba42cd58b016174f0b54e4a26f3a73efe)) by [@fnesveda](https://github.com/fnesveda)
+
+### ⚙️ Miscellaneous Tasks
+
+- Start running unit tests in CI on Windows runners in addition to Linux ([#58](https://github.com/apify/apify-sdk-python/pull/58)) ([82e6f4b](https://github.com/apify/apify-sdk-python/commit/82e6f4b84c7412df69df90a27bc24c0fcdd7d6c6)) by [@fnesveda](https://github.com/fnesveda)
+- Add unit tests for environment variables handling ([#71](https://github.com/apify/apify-sdk-python/pull/71)) ([f56ed69](https://github.com/apify/apify-sdk-python/commit/f56ed69588faad76b543422088a6a8eb28cb79ee)) by [@fnesveda](https://github.com/fnesveda)
+- Add unit tests for the `Configuration` class ([#71](https://github.com/apify/apify-sdk-python/pull/71)) ([f56ed69](https://github.com/apify/apify-sdk-python/commit/f56ed69588faad76b543422088a6a8eb28cb79ee)) by [@fnesveda](https://github.com/fnesveda)
+- Add unit tests for the `EventManager` class ([#72](https://github.com/apify/apify-sdk-python/pull/72)) ([75454ca](https://github.com/apify/apify-sdk-python/commit/75454ca1cdc20737c31fd90a02d850639802f013)) by [@fnesveda](https://github.com/fnesveda)
+- Add more Flake8 plugins and fix issues they reported ([#73](https://github.com/apify/apify-sdk-python/pull/73)) ([2227221](https://github.com/apify/apify-sdk-python/commit/22272210b20db5ae47eedaa8dd17457dc9db3a73)) by [@fnesveda](https://github.com/fnesveda)
 
 
 ## [0.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v0.1.0) (2023-02-09)
+
+- Initial release of the package.
 
 ### 🚀 Features
 
