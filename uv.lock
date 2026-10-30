@@ -221,7 +221,7 @@ wheels = [
 
 [[package]]
 name = "apify"
-version = "4.2.0"
+version = "4.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "apify-client", extra = ["brotli"] },
