@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import math
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -523,7 +522,7 @@ class ChargingManagerImplementation(ChargingManager):
             # after a reboot, migration or restart would miss what the run charged before it, and a restart cannot
             # be told apart from a first start, so every start takes the current counts from the run.
             if self._is_chargeable_platform_run(self._configuration.actor_pricing_info):
-                charged_event_counts = await self._fetch_current_charged_event_counts(charged_event_counts)
+                charged_event_counts = await self._update_charged_event_counts(charged_event_counts)
 
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
@@ -578,7 +577,7 @@ class ChargingManagerImplementation(ChargingManager):
             for event_name, event_pricing in actor_charge_events.items()
         )
 
-    async def _fetch_current_charged_event_counts(self, initial_counts: dict[str, int]) -> dict[str, int]:
+    async def _update_charged_event_counts(self, initial_counts: dict[str, int]) -> dict[str, int]:
         """Merge the counts recorded when the run started with the run's current counts, taking the higher of each.
 
         The run is read through the API. When that fails, the initial counts are kept and a warning is logged, since
@@ -604,24 +603,9 @@ class ChargingManagerImplementation(ChargingManager):
             )
             return initial_counts
 
-        merged_counts = dict(initial_counts)
         for event_name, count in (run.charged_event_counts or {}).items():
-            merged_counts[event_name] = max(merged_counts.get(event_name, 0), count)
-
-        # Counts moved only when an earlier container of this run charged something, which is worth a note.
-        log_level = logging.INFO if merged_counts != initial_counts else logging.DEBUG
-        logger.log(
-            log_level,
-            'Loaded the current charged event counts from the run.',
-            extra={
-                'charged_event_counts': merged_counts,
-                'reboot_count': run.stats.reboot_count,
-                'migration_count': run.stats.migration_count,
-                'restart_count': run.stats.restart_count,
-                'resurrect_count': run.stats.resurrect_count,
-            },
-        )
-        return merged_counts
+            initial_counts[event_name] = max(initial_counts.get(event_name, 0), count)
+        return initial_counts
 
     def _compute_charged_count(self, event_name: str, count: int) -> int:
         """Compute how many of `count` events to charge, given the remaining budget."""
