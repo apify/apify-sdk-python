@@ -254,7 +254,7 @@ class ChargingManagerImplementation(ChargingManager):
         # The env var holds the counts recorded when the run started, which after a reboot, migration or restart miss
         # what the run charged before. A restart cannot be told apart from a first start, so the run's current counts
         # are read before the first charge, unless they were just read from the run already.
-        self._charged_event_counts_refreshed_from_api = pricing_data['charged_event_counts_from_api']
+        self._charged_event_counts_refreshed_from_api = self._is_at_home and not self._has_pricing_env_vars()
 
         # Set pricing model
         if self._configuration.test_pay_per_event:
@@ -527,11 +527,10 @@ class ChargingManagerImplementation(ChargingManager):
     async def _fetch_pricing_info(self) -> _FetchedPricingInfoDict:
         """Fetch pricing information from environment variables or API."""
         # Check if pricing info is available via environment variables
-        if self._configuration.actor_pricing_info is not None and self._configuration.charged_event_counts is not None:
+        if self._has_pricing_env_vars():
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
-                charged_event_counts=self._configuration.charged_event_counts,
-                charged_event_counts_from_api=False,
+                charged_event_counts=self._configuration.charged_event_counts or {},
                 max_total_charge_usd=(
                     self._configuration.max_total_charge_usd
                     if self._configuration.max_total_charge_usd is not None
@@ -553,7 +552,6 @@ class ChargingManagerImplementation(ChargingManager):
             return _FetchedPricingInfoDict(
                 pricing_info=run.pricing_info,
                 charged_event_counts=run.charged_event_counts or {},
-                charged_event_counts_from_api=True,
                 max_total_charge_usd=Decimal(str(max_charge)) if max_charge is not None else Decimal('inf'),
             )
 
@@ -561,12 +559,17 @@ class ChargingManagerImplementation(ChargingManager):
         return _FetchedPricingInfoDict(
             pricing_info=None,
             charged_event_counts={},
-            charged_event_counts_from_api=False,
             max_total_charge_usd=(
                 self._configuration.max_total_charge_usd
                 if self._configuration.max_total_charge_usd is not None
                 else Decimal('inf')
             ),
+        )
+
+    def _has_pricing_env_vars(self) -> bool:
+        """Whether the platform provided the pricing info and the charged event counts through the env vars."""
+        return (
+            self._configuration.actor_pricing_info is not None and self._configuration.charged_event_counts is not None
         )
 
     def _is_chargeable_platform_run(self) -> bool:
@@ -677,6 +680,4 @@ class IdempotentChargeItem:
 class _FetchedPricingInfoDict(TypedDict):
     pricing_info: ActorPricingInfoModel | None
     charged_event_counts: dict[str, int]
-    charged_event_counts_from_api: bool
-    """Whether the counts are the run's current ones, read through the API, rather than the env var's."""
     max_total_charge_usd: Decimal
