@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from logging import getLogger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 from weakref import WeakValueDictionary
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
@@ -14,7 +15,7 @@ from pydantic.alias_generators import to_camel
 from apify_client.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import AsyncGenerator, Awaitable, Callable
 
     from apify_client import ApifyClientAsync
     from apify_client._models import Run
@@ -31,13 +32,22 @@ _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
 """Statuses that end as `ABORTED` / `TIMED-OUT` shortly, and are resurrectable once they do."""
 
 _RESURRECTABLE_STATUSES = frozenset({'ABORTED', 'TIMED-OUT'})
+"""Statuses of a recorded run that a call under its name resurrects."""
 
 _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
+"""Statuses that show an abort request took effect on the child run."""
+
+_ACTIVE_STATUSES = frozenset({'READY', 'RUNNING', 'ABORTING', 'TIMING-OUT'})
+"""Statuses of a child run that count toward the concurrency limit."""
+
+_STATUS_MAX_AGE_SECS = 10
+"""How long an observed active status counts toward the concurrency limit before the run is fetched again."""
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
 
 _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
+"""How long to wait between lookups of a recorded run that the API reports as missing."""
 
 
 class ChildRunSnapshot(BaseModel):
@@ -66,6 +76,16 @@ class ChildRunRecord(ChildRunSnapshot):
 
     abort_with_parent: bool = False
     """Whether the current run is aborted when this Actor run is gracefully aborted."""
+
+
+class _CachedRunStatus(NamedTuple):
+    """Status of a child run as this Actor run last saw it, used to count the run toward the concurrency limit."""
+
+    status: str
+    """Status of the run, or `LOST` once the platform no longer returned it."""
+
+    cached_at: float
+    """Event loop time the status was seen at."""
 
 
 def checksum_request(*, actor_id: str | None, task_id: str | None, run_input: Any) -> str:
@@ -106,15 +126,32 @@ class ChildRunRegistry:
 
     def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
         self._open_key_value_store = open_key_value_store
+        """Opens the default key-value store, where the records are persisted."""
         self._records: dict[str, ChildRunRecord] | None = None
+        """Records of the child runs by name, `None` until they are read from the key-value store."""
         self._lock = asyncio.Lock()
         """Guards loading the records and writing them back to the key-value store."""
         self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
         self._clients: dict[str, ApifyClientAsync] = {}
         """Client the run under each name was last started or looked up with. Lost on a migration."""
+        self._max_concurrent_runs: int | None = None
+        """How many recorded runs may be active at once, or `None` for no limit."""
+        self._capacity_available = asyncio.Condition()
+        """Serializes counting the active runs, and wakes the waiting starts when a run may have finished."""
+        self._starting_names: set[str] = set()
+        """Names with a start or resurrection in flight, counted toward the limit but not from the records yet."""
+        self._run_status_cache: dict[str, _CachedRunStatus] = {}
+        """Last seen status of the run recorded under each name. An active one is fetched again once it gets stale."""
         self._parent_aborting = False
-        """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
+        """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts,
+        nor any run that would wait under the concurrency limit."""
+
+    def set_max_concurrent_runs(self, max_concurrent_runs: int | None) -> None:
+        """Set how many recorded runs may be active at once, or remove the limit with `None`."""
+        if max_concurrent_runs is not None and max_concurrent_runs < 1:
+            raise ValueError(f'`max_concurrent_runs` must be at least 1, got {max_concurrent_runs}.')
+        self._max_concurrent_runs = max_concurrent_runs
 
     async def find_or_start(
         self,
@@ -135,6 +172,8 @@ class ChildRunRegistry:
         A `FAILED` run, or one the API no longer knows, is replaced by a new run under the same name, for any Actor,
         task or input.
 
+        Starting or resurrecting a run waits while the concurrency limit is reached. Reattaching never waits.
+
         Args:
             name: Name of the child run, unique within the parent run.
             actor_id: The Actor to start.
@@ -153,7 +192,8 @@ class ChildRunRegistry:
         Raises:
             ValueError: If the recorded run would be reused, but was started for a different Actor, task or input.
             RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
-                started, resurrected or reattached.
+                started, resurrected or reattached. Also if starting or resurrecting the run would wait under the
+                concurrency limit while this Actor run is being gracefully aborted, whatever `abort_with_parent` is.
         """
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
 
@@ -168,9 +208,10 @@ class ChildRunRegistry:
             record = records.get(name)
 
             if record is None:
-                run = await self._start(
-                    name, checksum=checksum, start_run=start_run, history=[], abort_with_parent=abort_with_parent
-                )
+                async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
+                    run = await self._start(
+                        name, checksum=checksum, start_run=start_run, history=[], abort_with_parent=abort_with_parent
+                    )
                 self._clients[name] = client
                 return run, True
 
@@ -186,13 +227,14 @@ class ChildRunRegistry:
                     status=run.status if run is not None else 'LOST',
                     started_at=record.started_at,
                 )
-                run = await self._start(
-                    name,
-                    checksum=checksum,
-                    start_run=start_run,
-                    history=[*record.history, replaced],
-                    abort_with_parent=abort_with_parent,
-                )
+                async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
+                    run = await self._start(
+                        name,
+                        checksum=checksum,
+                        start_run=start_run,
+                        history=[*record.history, replaced],
+                        abort_with_parent=abort_with_parent,
+                    )
                 self._clients[name] = client
                 return run, True
 
@@ -202,12 +244,16 @@ class ChildRunRegistry:
                     'Use a unique `run_name` for each child run.'
                 )
 
+            self._cache_run_status(name, run)
+
             if record.abort_with_parent != abort_with_parent:
                 await self._save(name, record.model_copy(update={'abort_with_parent': abort_with_parent}))
 
             if run.status in _RESURRECTABLE_STATUSES:
-                logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
-                run = await resurrect_run(run.id)
+                async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
+                    logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
+                    run = await resurrect_run(run.id)
+                    self._cache_run_status(name, run)
             else:
                 logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
 
@@ -233,14 +279,20 @@ class ChildRunRegistry:
     async def update(self, name: str, run: Run) -> None:
         """Record the latest observed status of the run recorded under `name`.
 
+        A run that is no longer active stops counting toward the concurrency limit.
+
         Args:
             name: Name of the child run.
             run: The run as just returned by the API. Nothing is recorded unless it is the current run under `name`.
         """
         record = (await self._load()).get(name)
-        if record is None or record.run_id != run.id or record.status == run.status:
+        if record is None or record.run_id != run.id:
             return
-        await self._save(name, record.model_copy(update={'status': run.status}))
+        self._cache_run_status(name, run)
+        if record.status != run.status:
+            await self._save(name, record.model_copy(update={'status': run.status}))
+        async with self._capacity_available:
+            self._capacity_available.notify_all()
 
     async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
         """Gracefully abort every recorded run marked `abort_with_parent`, and refuse to start any more of them.
@@ -253,6 +305,9 @@ class ChildRunRegistry:
             client: Client used for a name not started or looked up in this process, e.g. after a migration.
         """
         self._parent_aborting = True
+        async with self._capacity_available:
+            self._capacity_available.notify_all()
+
         records = await self._load()
         # Names with a start in flight are not recorded yet, so their locks are awaited too.
         await asyncio.gather(*(self._abort(name, client) for name in {*records, *self._name_locks}))
@@ -292,7 +347,87 @@ class ChildRunRegistry:
             abort_with_parent=abort_with_parent,
         )
         await self._save(name, record)
+        self._cache_run_status(name, run)
         return run
+
+    @asynccontextmanager
+    async def _reserve_capacity(
+        self, name: str, client: ApifyClientAsync, *, abort_with_parent: bool
+    ) -> AsyncGenerator[None]:
+        """Count starting or resurrecting the run under `name` toward the limit, waiting while the limit is reached."""
+        async with self._capacity_available:
+            while (
+                self._max_concurrent_runs is not None
+                and await self._count_active(client, exclude=name) >= self._max_concurrent_runs
+            ):
+                if self._parent_aborting:
+                    raise RuntimeError(
+                        f'Child run "{name}" was not started, since this Actor run is being aborted and the limit '
+                        f'of {self._max_concurrent_runs} concurrent child runs is reached.'
+                    )
+                logger.debug(f'Child run "{name}" is waiting for the concurrency limit')
+                with suppress(TimeoutError):
+                    async with asyncio.timeout(_STATUS_MAX_AGE_SECS):
+                        await self._capacity_available.wait()
+            # The parent can start aborting while this start waits.
+            if abort_with_parent and self._parent_aborting:
+                raise RuntimeError(
+                    f'Child run "{name}" with `abort_with_parent` was not started, since this Actor run is being '
+                    'aborted.'
+                )
+            self._starting_names.add(name)
+
+        try:
+            yield
+        finally:
+            self._starting_names.discard(name)
+            async with self._capacity_available:
+                self._capacity_available.notify_all()
+
+    async def _count_active(self, client: ApifyClientAsync, *, exclude: str) -> int:
+        """Count active recorded runs and starts in flight under other names, refetching stale active statuses."""
+        records = await self._load()
+        names = [name for name in records if name != exclude and name not in self._starting_names]
+        # A start in flight can finish during the fetch below, leaving `_starting_names` before it is in `names`.
+        starting = len(self._starting_names)
+        now = asyncio.get_running_loop().time()
+        stale = []
+        for name in names:
+            cached_run_status = self._run_status_cache.get(name)
+            if cached_run_status is None:
+                if records[name].status in _ACTIVE_STATUSES:
+                    stale.append(name)
+            elif (
+                cached_run_status.status in _ACTIVE_STATUSES
+                and now - cached_run_status.cached_at >= _STATUS_MAX_AGE_SECS
+            ):
+                stale.append(name)
+        runs = await asyncio.gather(
+            *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale),
+            return_exceptions=True,
+        )
+        for name, run in zip(stale, runs, strict=True):
+            if isinstance(run, BaseException):
+                logger.warning(
+                    f'Failed to fetch child run "{name}" to count it toward the concurrency limit',
+                    extra={'run_id': records[name].run_id},
+                    exc_info=run,
+                )
+            elif run is None:
+                self._run_status_cache[name] = _CachedRunStatus('LOST', now)
+            else:
+                self._cache_run_status(name, run)
+
+        # A run that could not be fetched counts only when an earlier observation saw it active.
+        active = 0
+        for name in names:
+            cached_run_status = self._run_status_cache.get(name)
+            if cached_run_status is not None and cached_run_status.status in _ACTIVE_STATUSES:
+                active += 1
+        return active + starting
+
+    def _cache_run_status(self, name: str, run: Run) -> None:
+        self._run_status_cache[name] = _CachedRunStatus(run.status, asyncio.get_running_loop().time())
 
     async def load(self) -> dict[str, ChildRunRecord]:
         """Read the records from the default key-value store, replacing any read before."""
