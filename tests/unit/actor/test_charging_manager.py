@@ -9,7 +9,7 @@ import pytest
 
 from apify_client._models import ActorChargeEvent, PayPerEventActorPricingInfo
 
-from apify._charging import ChargingManagerImplementation
+from apify._charging import ChargingManagerImplementation, charge_lock_if_charging
 from apify._configuration import Configuration
 
 
@@ -798,22 +798,38 @@ def _make_platform_ppe_config(**kwargs: Any) -> Configuration:
 
 def _make_run(charged_event_counts: dict[str, int]) -> MagicMock:
     """Helper to create a run as returned by the API, with the given charged event counts."""
-    stats = MagicMock(reboot_count=1, migration_count=0, restart_count=0, resurrect_count=0)
-    return MagicMock(charged_event_counts=charged_event_counts, stats=stats)
+    return MagicMock(charged_event_counts=charged_event_counts)
 
 
-async def test_platform_start_loads_charged_event_counts_from_run(mock_client: MagicMock) -> None:
-    """A platform run takes the run's current counts where they exceed the env var's, as after a restart."""
+async def test_first_charge_loads_charged_event_counts_from_run(mock_client: MagicMock) -> None:
+    """The first charge takes the run's current counts where they exceed the env var's, as after a restart."""
     mock_client.run.return_value.get.return_value = _make_run({'search': 3, 'scrape': 1})
     config = _make_platform_ppe_config()
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
-        mock_client.run.assert_called_with('test-run-id')
+        mock_client.run.return_value.get.assert_not_awaited()
+        assert cm.get_charged_event_count('search') == 1
+
+        await cm.charge('search')
+        mock_client.run.assert_any_call('test-run-id')
+        mock_client.run.return_value.get.assert_awaited_once()
+        assert cm.get_charged_event_count('search') == 4
+        assert cm.get_charged_event_count('scrape') == 2
+        assert cm.calculate_total_charged_amount() == Decimal('0.14')
+        assert cm.calculate_max_event_charge_count_within_limit('search') == 986
+
+        await cm.charge('search')
+        mock_client.run.return_value.get.assert_awaited_once()
+
+
+async def test_first_push_loads_charged_event_counts_from_run(mock_client: MagicMock) -> None:
+    """Taking the charge lock for a push loads the run's current counts, so the push limit accounts for them."""
+    mock_client.run.return_value.get.return_value = _make_run({'search': 3})
+    config = _make_platform_ppe_config()
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm, charge_lock_if_charging():
         mock_client.run.return_value.get.assert_awaited_once()
         assert cm.get_charged_event_count('search') == 3
-        assert cm.get_charged_event_count('scrape') == 2
-        assert cm.calculate_total_charged_amount() == Decimal('0.13')
-        assert cm.calculate_max_event_charge_count_within_limit('search') == 987
 
 
 @pytest.mark.parametrize(
@@ -827,10 +843,11 @@ async def test_platform_start_loads_charged_event_counts_from_run(mock_client: M
     ],
 )
 async def test_run_is_not_fetched_when_the_sdk_cannot_charge(mock_client: MagicMock, overrides: dict[str, Any]) -> None:
-    """A run without SDK-chargeable events or a local run makes no API call at start."""
+    """A run without SDK-chargeable events or a local run never reads the run."""
     config = _make_platform_ppe_config(**overrides)
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
+        await cm.charge('search')
         mock_client.run.return_value.get.assert_not_awaited()
 
 
@@ -841,18 +858,21 @@ async def test_run_is_not_fetched_when_the_sdk_cannot_charge(mock_client: MagicM
         pytest.param(None, None, id='run_not_found'),
     ],
 )
-async def test_start_continues_when_run_cannot_be_fetched(
+async def test_charge_continues_when_run_cannot_be_fetched(
     mock_client: MagicMock,
     caplog: pytest.LogCaptureFixture,
     get_side_effect: Exception | None,
     get_return_value: MagicMock | None,
 ) -> None:
-    """A failed refresh is logged and the env var's counts are used."""
+    """A failed load is logged once, and charging goes on from the env var's counts."""
     mock_client.run.return_value.get.side_effect = get_side_effect
     mock_client.run.return_value.get.return_value = get_return_value
     config = _make_platform_ppe_config()
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
-        assert cm.get_charged_event_count('search') == 1
+        await cm.charge('search')
+        await cm.charge('search')
+        assert cm.get_charged_event_count('search') == 3
+        mock_client.run.return_value.get.assert_awaited_once()
 
-    assert 'continuing with the counts recorded when the run started' in caplog.text
+    assert caplog.text.count('continuing with the counts recorded when the run started') == 1

@@ -31,7 +31,9 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
+charging_manager_ctx: ContextVar[ChargingManagerImplementation | None] = ContextVar(
+    'charging_manager_ctx', default=None
+)
 """Holds the current `ChargingManager` instance, if any.
 
 Allows PPE-aware dataset clients to access the charging manager without needing to pass it explicitly.
@@ -63,6 +65,7 @@ async def charge_lock_if_charging() -> AsyncGenerator[None]:
         return
 
     async with charging_manager.charge_lock():
+        await charging_manager.ensure_current_charged_event_counts()
         yield
 
 
@@ -220,6 +223,8 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
+        self._charged_event_counts_need_refresh = False
+        """Whether the run's current charged event counts are still to be taken before the first charge."""
         self._idempotent_charges: TTLCache[str, IdempotentChargeItem] = TTLCache(maxsize=float('inf'), ttl=180)
         """Charges made with an idempotency key, by key. Keys expire after three minutes, the same as the platform's
         own idempotency records."""
@@ -331,6 +336,8 @@ class ChargingManagerImplementation(ChargingManager):
             )
 
         async with self.charge_lock():
+            await self.ensure_current_charged_event_counts()
+
             # A repeat the platform would discard is resolved here too - counting it would inflate the charging state
             # and make the run hit `max_total_charge_usd` early. The key alone decides, as on the platform.
             if idempotency_key is not None and (previous := self._idempotent_charges.get(idempotency_key)) is not None:
@@ -516,17 +523,16 @@ class ChargingManagerImplementation(ChargingManager):
         """Fetch pricing information from environment variables or API."""
         # Check if pricing info is available via environment variables
         if self._configuration.actor_pricing_info is not None and self._configuration.charged_event_counts is not None:
-            charged_event_counts = self._configuration.charged_event_counts
-
             # The platform fills the env var with the counts recorded when the run started. A container started
             # after a reboot, migration or restart would miss what the run charged before it, and a restart cannot
-            # be told apart from a first start, so every start takes the current counts from the run.
-            if self._is_chargeable_platform_run(self._configuration.actor_pricing_info):
-                charged_event_counts = await self._update_charged_event_counts(charged_event_counts)
+            # be told apart from a first start, so the run's current counts are taken before the first charge.
+            self._charged_event_counts_need_refresh = self._is_chargeable_platform_run(
+                self._configuration.actor_pricing_info
+            )
 
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
-                charged_event_counts=charged_event_counts,
+                charged_event_counts=self._configuration.charged_event_counts,
                 max_total_charge_usd=(
                     self._configuration.max_total_charge_usd
                     if self._configuration.max_total_charge_usd is not None
@@ -577,11 +583,37 @@ class ChargingManagerImplementation(ChargingManager):
             for event_name, event_pricing in actor_charge_events.items()
         )
 
+    async def ensure_current_charged_event_counts(self) -> None:
+        """Take the run's current charged event counts before the first charge or budgeted push of this container.
+
+        The counts the platform provides come from when the run started, so after a reboot, migration or restart
+        they miss what an earlier container charged. The run is read once, as late as possible, which gives the
+        platform time to record the last charges of that container. Until then, the counts reported by the
+        synchronous methods are the ones the run started with. Called under the charge lock by `charge` and
+        `charge_lock_if_charging`; not meant to be called manually.
+        """
+        if not self._charged_event_counts_need_refresh:
+            return
+        self._charged_event_counts_need_refresh = False
+
+        initial_counts = {event_name: item.charge_count for event_name, item in self._charging_state.items()}
+        current_counts = await self._update_charged_event_counts(initial_counts)
+
+        for event_name, count in current_counts.items():
+            item = self._charging_state.get(event_name)
+            if item is not None and item.charge_count == count:
+                continue
+            price = self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price
+            self._charging_state[event_name] = ChargingStateItem(
+                charge_count=count,
+                total_charged_amount=count * price,
+            )
+
     async def _update_charged_event_counts(self, initial_counts: dict[str, int]) -> dict[str, int]:
-        """Merge the counts recorded when the run started with the run's current counts, taking the higher of each.
+        """Merge the given counts with the run's current counts, taking the higher of each.
 
         The run is read through the API. When that fails, the initial counts are kept and a warning is logged, since
-        a run that cannot refresh its counts is still better off running than failing to start.
+        a run that cannot refresh its counts is still better off running than failing.
         """
         if self._actor_run_id is None:
             raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
