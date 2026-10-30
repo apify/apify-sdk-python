@@ -287,6 +287,7 @@ class _ActorType:
         case the Actor:
 
         - Stops forwarding crawler status messages to the run status message.
+        - Emits the `EXIT` event.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
         - Waits for all event listeners to finish.
@@ -328,6 +329,8 @@ class _ActorType:
                         await self.set_status_message(self.status_message, is_terminal=True)
                 except Exception:
                     self.log.exception('Failed to set terminal status message')
+
+            self.event_manager.emit(event=Event.EXIT, event_data=EventExitData())
 
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
