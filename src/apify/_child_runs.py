@@ -6,7 +6,7 @@ import json
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from logging import getLogger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 from weakref import WeakValueDictionary
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
@@ -78,6 +78,16 @@ class ChildRunRecord(ChildRunSnapshot):
     """Whether the current run is aborted when this Actor run is gracefully aborted."""
 
 
+class _CachedRunStatus(NamedTuple):
+    """Status of a child run as this Actor run last saw it, used to count the run toward the concurrency limit."""
+
+    status: str
+    """Status of the run, or `LOST` once the platform no longer returned it."""
+
+    cached_at: float
+    """Event loop time the status was seen at."""
+
+
 def checksum_request(*, actor_id: str | None, task_id: str | None, run_input: Any) -> str:
     """Hash the Actor or task and the input of a named start, in the same JSON shape as the JS SDK."""
     request: dict[str, Any] = (
@@ -131,8 +141,8 @@ class ChildRunRegistry:
         """Serializes counting the active runs, and wakes the waiting starts when a run may have finished."""
         self._starting_names: set[str] = set()
         """Names with a start or resurrection in flight, counted toward the limit but not from the records yet."""
-        self._timestamped_run_statuses: dict[str, tuple[str, float]] = {}
-        """Last observed status of the run recorded under each name, with the event loop time it was observed at."""
+        self._run_status_cache: dict[str, _CachedRunStatus] = {}
+        """Last seen status of the run recorded under each name. An active one is fetched again once it gets stale."""
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts,
         nor any run that would wait under the concurrency limit."""
@@ -234,7 +244,7 @@ class ChildRunRegistry:
                     'Use a unique `run_name` for each child run.'
                 )
 
-            self._timestamp_run_status(name, run)
+            self._cache_run_status(name, run)
 
             if record.abort_with_parent != abort_with_parent:
                 await self._save(name, record.model_copy(update={'abort_with_parent': abort_with_parent}))
@@ -243,7 +253,7 @@ class ChildRunRegistry:
                 async with self._reserve_capacity(name, client):
                     logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
                     run = await resurrect_run(run.id)
-                    self._timestamp_run_status(name, run)
+                    self._cache_run_status(name, run)
             else:
                 logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
 
@@ -278,7 +288,7 @@ class ChildRunRegistry:
         record = (await self._load()).get(name)
         if record is None or record.run_id != run.id:
             return
-        self._timestamp_run_status(name, run)
+        self._cache_run_status(name, run)
         if record.status != run.status:
             await self._save(name, record.model_copy(update={'status': run.status}))
         async with self._capacity_available:
@@ -337,7 +347,7 @@ class ChildRunRegistry:
             abort_with_parent=abort_with_parent,
         )
         await self._save(name, record)
-        self._timestamp_run_status(name, run)
+        self._cache_run_status(name, run)
         return run
 
     @asynccontextmanager
@@ -373,16 +383,17 @@ class ChildRunRegistry:
         # A start in flight can finish during the fetch below, leaving `_starting_names` before it is in `names`.
         starting = len(self._starting_names)
         now = asyncio.get_running_loop().time()
-        stale = [
-            name
-            for name in names
-            if (name not in self._timestamped_run_statuses and records[name].status in _ACTIVE_STATUSES)
-            or (
-                name in self._timestamped_run_statuses
-                and self._timestamped_run_statuses[name][0] in _ACTIVE_STATUSES
-                and now - self._timestamped_run_statuses[name][1] >= _STATUS_MAX_AGE_SECS
-            )
-        ]
+        stale = []
+        for name in names:
+            cached_run_status = self._run_status_cache.get(name)
+            if cached_run_status is None:
+                if records[name].status in _ACTIVE_STATUSES:
+                    stale.append(name)
+            elif (
+                cached_run_status.status in _ACTIVE_STATUSES
+                and now - cached_run_status.cached_at >= _STATUS_MAX_AGE_SECS
+            ):
+                stale.append(name)
         runs = await asyncio.gather(
             *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale),
             return_exceptions=True,
@@ -395,20 +406,20 @@ class ChildRunRegistry:
                     exc_info=run,
                 )
             elif run is None:
-                self._timestamped_run_statuses[name] = ('LOST', now)
+                self._run_status_cache[name] = _CachedRunStatus('LOST', now)
             else:
-                self._timestamp_run_status(name, run)
+                self._cache_run_status(name, run)
 
         # A run that could not be fetched counts only when an earlier observation saw it active.
-        active = sum(
-            1
-            for name in names
-            if name in self._timestamped_run_statuses and self._timestamped_run_statuses[name][0] in _ACTIVE_STATUSES
-        )
+        active = 0
+        for name in names:
+            cached_run_status = self._run_status_cache.get(name)
+            if cached_run_status is not None and cached_run_status.status in _ACTIVE_STATUSES:
+                active += 1
         return active + starting
 
-    def _timestamp_run_status(self, name: str, run: Run) -> None:
-        self._timestamped_run_statuses[name] = (run.status, asyncio.get_running_loop().time())
+    def _cache_run_status(self, name: str, run: Run) -> None:
+        self._run_status_cache[name] = _CachedRunStatus(run.status, asyncio.get_running_loop().time())
 
     async def load(self) -> dict[str, ChildRunRecord]:
         """Read the records from the default key-value store, replacing any read before."""
