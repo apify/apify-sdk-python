@@ -355,7 +355,8 @@ class ChildRunRegistry:
                     )
                 logger.debug(f'Child run "{name}" is waiting for the concurrency limit')
                 with suppress(TimeoutError):
-                    await asyncio.wait_for(self._capacity_available.wait(), timeout=_STATUS_MAX_AGE_SECS)
+                    async with asyncio.timeout(_STATUS_MAX_AGE_SECS):
+                        await self._capacity_available.wait()
             self._starting_names.add(name)
 
         try:
