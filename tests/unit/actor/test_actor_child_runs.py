@@ -1210,6 +1210,7 @@ async def start_child(
 
 
 async def assert_waiting(task: asyncio.Task) -> None:
+    """Assert that `task` is still pending after giving it a moment to run."""
     await asyncio.sleep(0.05)
     assert not task.done()
 
@@ -1221,7 +1222,7 @@ async def assert_waiting(task: asyncio.Task) -> None:
         pytest.param(-1, id='negative'),
     ],
 )
-async def test_set_child_run_limits_rejects_non_positive_limit(max_concurrent_runs: int) -> None:
+async def test_set_named_child_run_limits_rejects_non_positive_limit(max_concurrent_runs: int) -> None:
     """A concurrency limit below 1 is rejected."""
     async with Actor:
         with pytest.raises(ValueError, match='must be at least 1'):
