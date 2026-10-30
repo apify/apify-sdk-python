@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import logging
 import math
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from logging import getLogger
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
@@ -42,13 +43,6 @@ DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 
 ACTOR_START_EVENT = 'apify-actor-start'
 """Name of the synthetic event the platform charges when the run starts. The SDK never charges it."""
-
-RESTART_DETECTION_THRESHOLD = timedelta(seconds=60)
-"""How long after the run started a container start is treated as a restart.
-
-The first container starts within seconds of the run, while a reboot, migration or restart comes later. Only such a
-later start refreshes the charged event counts from the API, so a normal start makes no extra request.
-"""
 
 PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
 """Pricing model for an Actor."""
@@ -526,9 +520,9 @@ class ChargingManagerImplementation(ChargingManager):
             charged_event_counts = self._configuration.charged_event_counts
 
             # The platform fills the env var with the counts recorded when the run started. A container started
-            # after a reboot, migration or restart would miss what the run charged before it, so it takes the
-            # current counts from the run instead.
-            if self._is_restarted_chargeable_run(self._configuration.actor_pricing_info):
+            # after a reboot, migration or restart would miss what the run charged before it, and a restart cannot
+            # be told apart from a first start, so every start takes the current counts from the run.
+            if self._is_chargeable_platform_run(self._configuration.actor_pricing_info):
                 charged_event_counts = await self._fetch_current_charged_event_counts(charged_event_counts)
 
             return _FetchedPricingInfoDict(
@@ -569,8 +563,8 @@ class ChargingManagerImplementation(ChargingManager):
             ),
         )
 
-    def _is_restarted_chargeable_run(self, pricing_info: ActorPricingInfoModel) -> bool:
-        """Whether this container start looks like a restart of a platform run the SDK charges events for.
+    def _is_chargeable_platform_run(self, pricing_info: ActorPricingInfoModel) -> bool:
+        """Whether this is a platform run the SDK charges events for.
 
         A run is chargeable when its pricing has at least one priced event other than the start event, which only
         the platform charges. For any other run the charged event counts cannot have moved since the run started.
@@ -579,20 +573,10 @@ class ChargingManagerImplementation(ChargingManager):
             return False
 
         actor_charge_events = pricing_info.pricing_per_event.actor_charge_events or {}
-        has_chargeable_event = any(
+        return any(
             event_name != ACTOR_START_EVENT and event_pricing.event_price_usd is not None
             for event_name, event_pricing in actor_charge_events.items()
         )
-        if not has_chargeable_event:
-            return False
-
-        started_at = self._configuration.started_at
-        if started_at is None:
-            return False
-        if started_at.tzinfo is None:
-            started_at = started_at.replace(tzinfo=UTC)
-
-        return datetime.now(UTC) - started_at >= RESTART_DETECTION_THRESHOLD
 
     async def _fetch_current_charged_event_counts(self, initial_counts: dict[str, int]) -> dict[str, int]:
         """Merge the counts recorded when the run started with the run's current counts, taking the higher of each.
@@ -607,16 +591,16 @@ class ChargingManagerImplementation(ChargingManager):
             run = await self._client.run(self._actor_run_id).get()
         except Exception:
             logger.warning(
-                'Failed to fetch the current charged event counts of the run after a restart, continuing with the '
-                'counts recorded when the run started.',
+                'Failed to fetch the current charged event counts of the run, continuing with the counts recorded '
+                'when the run started.',
                 exc_info=True,
             )
             return initial_counts
 
         if run is None:
             logger.warning(
-                'Actor run not found when fetching the current charged event counts after a restart, continuing '
-                'with the counts recorded when the run started.'
+                'Actor run not found when fetching the current charged event counts, continuing with the counts '
+                'recorded when the run started.'
             )
             return initial_counts
 
@@ -624,8 +608,11 @@ class ChargingManagerImplementation(ChargingManager):
         for event_name, count in (run.charged_event_counts or {}).items():
             merged_counts[event_name] = max(merged_counts.get(event_name, 0), count)
 
-        logger.info(
-            'Refreshed the charged event counts from the run after a restart.',
+        # Counts moved only when an earlier container of this run charged something, which is worth a note.
+        log_level = logging.INFO if merged_counts != initial_counts else logging.DEBUG
+        logger.log(
+            log_level,
+            'Loaded the current charged event counts from the run.',
             extra={
                 'charged_event_counts': merged_counts,
                 'reboot_count': run.stats.reboot_count,

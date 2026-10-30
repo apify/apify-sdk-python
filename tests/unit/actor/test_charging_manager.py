@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -785,14 +784,13 @@ async def test_charge_overcharges_by_one_event_when_budget_exceeded(
 
 
 def _make_platform_ppe_config(**kwargs: Any) -> Configuration:
-    """Helper to create a platform PPE Configuration, by default for a run started minutes ago."""
+    """Helper to create a platform PPE Configuration with charged event counts in the env var."""
     defaults: dict[str, Any] = {
         'is_at_home': True,
         'actor_run_id': 'test-run-id',
         'actor_pricing_info': _make_ppe_pricing_info(),
         'charged_event_counts': {'search': 1, 'scrape': 2},
         'max_total_charge_usd': Decimal('10.00'),
-        'started_at': datetime.now(UTC) - timedelta(minutes=5),
     }
     defaults.update(kwargs)
     return _make_config(**defaults)
@@ -804,10 +802,10 @@ def _make_run(charged_event_counts: dict[str, int]) -> MagicMock:
     return MagicMock(charged_event_counts=charged_event_counts, stats=stats)
 
 
-async def test_restart_refreshes_charged_event_counts_from_run(mock_client: MagicMock) -> None:
-    """A container started long after the run takes the run's current counts where they exceed the env var's."""
+async def test_platform_start_loads_charged_event_counts_from_run(mock_client: MagicMock) -> None:
+    """A platform run takes the run's current counts where they exceed the env var's, as after a restart."""
     mock_client.run.return_value.get.return_value = _make_run({'search': 3, 'scrape': 1})
-    config = _make_platform_ppe_config(started_at=datetime.now(UTC) - timedelta(minutes=5))
+    config = _make_platform_ppe_config()
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
         mock_client.run.assert_called_with('test-run-id')
@@ -818,15 +816,6 @@ async def test_restart_refreshes_charged_event_counts_from_run(mock_client: Magi
         assert cm.calculate_max_event_charge_count_within_limit('search') == 987
 
 
-async def test_fresh_start_does_not_fetch_run(mock_client: MagicMock) -> None:
-    """A container started right after the run uses the env var's counts without an API call."""
-    config = _make_platform_ppe_config(started_at=datetime.now(UTC))
-    cm = ChargingManagerImplementation(config, mock_client)
-    async with cm:
-        mock_client.run.return_value.get.assert_not_awaited()
-        assert cm.get_charged_event_count('search') == 1
-
-
 @pytest.mark.parametrize(
     'overrides',
     [
@@ -835,13 +824,10 @@ async def test_fresh_start_does_not_fetch_run(mock_client: MagicMock) -> None:
             id='only_start_event',
         ),
         pytest.param({'is_at_home': False, 'test_pay_per_event': True}, id='local_run'),
-        pytest.param({'started_at': None}, id='unknown_start_time'),
     ],
 )
-async def test_restart_refresh_is_skipped_when_nothing_to_refresh(
-    mock_client: MagicMock, overrides: dict[str, Any]
-) -> None:
-    """A run without SDK-chargeable events, a local run, or one with an unknown start time makes no API call."""
+async def test_run_is_not_fetched_when_the_sdk_cannot_charge(mock_client: MagicMock, overrides: dict[str, Any]) -> None:
+    """A run without SDK-chargeable events or a local run makes no API call at start."""
     config = _make_platform_ppe_config(**overrides)
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
@@ -855,7 +841,7 @@ async def test_restart_refresh_is_skipped_when_nothing_to_refresh(
         pytest.param(None, None, id='run_not_found'),
     ],
 )
-async def test_restart_continues_when_run_cannot_be_fetched(
+async def test_start_continues_when_run_cannot_be_fetched(
     mock_client: MagicMock,
     caplog: pytest.LogCaptureFixture,
     get_side_effect: Exception | None,
@@ -864,7 +850,7 @@ async def test_restart_continues_when_run_cannot_be_fetched(
     """A failed refresh is logged and the env var's counts are used."""
     mock_client.run.return_value.get.side_effect = get_side_effect
     mock_client.run.return_value.get.return_value = get_return_value
-    config = _make_platform_ppe_config(started_at=datetime.now(UTC) - timedelta(minutes=5))
+    config = _make_platform_ppe_config()
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
         assert cm.get_charged_event_count('search') == 1
