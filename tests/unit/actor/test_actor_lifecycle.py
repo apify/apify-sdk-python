@@ -15,7 +15,13 @@ import websockets
 import websockets.asyncio.server
 
 from apify_client._models import Run
-from crawlee.events._types import Event, EventAbortingData, EventCrawlerStatusData, EventPersistStateData
+from crawlee.events._types import (
+    Event,
+    EventAbortingData,
+    EventCrawlerStatusData,
+    EventExitData,
+    EventPersistStateData,
+)
 
 from ..._utils import poll_until_condition
 from apify import Actor
@@ -334,6 +340,23 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
     await asyncio.sleep(0.2)
     assert on_persist_count == len(on_persist)
     assert on_system_info_count == len(on_system_info)
+
+
+async def test_actor_emits_exit_event_on_exit() -> None:
+    """The Actor emits `EXIT` once on exit and waits for its listeners before exit returns."""
+    on_exit = Mock()
+
+    async def listener(data: EventExitData) -> None:
+        await asyncio.sleep(0.1)
+        on_exit(data)
+
+    actor = Actor(exit_process=False)
+    async with actor:
+        actor.on(Event.EXIT, listener)
+        on_exit.assert_not_called()
+
+    on_exit.assert_called_once()
+    assert isinstance(on_exit.call_args.args[0], EventExitData)
 
 
 async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
