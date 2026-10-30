@@ -293,6 +293,8 @@ class ApifyRequestQueueSharedClient:
                 extra={'next_request_id': next_request_id},
             )
             self._requests_in_progress.discard(next_request_id)
+            # This client still holds the lock, so no head listing returns the request; requeue it locally.
+            self._queue_head.append(next_request_id)
             return None
 
         # If the request was already handled, skip it
@@ -314,6 +316,7 @@ class ApifyRequestQueueSharedClient:
                 extra={'next_request_id': next_request_id},
             )
             self._requests_in_progress.discard(next_request_id)
+            self._queue_head.append(next_request_id)
             return None
 
         return request
@@ -465,7 +468,8 @@ class ApifyRequestQueueSharedClient:
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
         head = await self._list_head(limit=1)
-        return len(head.items) == 0
+        # The cached head lists only hydrated requests, but `fetch_next_request` also hydrates an evicted ID on demand.
+        return len(head.items) == 0 and not self._queue_head
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.
