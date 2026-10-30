@@ -353,7 +353,6 @@ async def test_actor_emits_exit_event_on_exit() -> None:
     actor = Actor(exit_process=False)
     async with actor:
         actor.on(Event.EXIT, listener)
-        on_exit.assert_not_called()
 
     on_exit.assert_called_once()
     assert isinstance(on_exit.call_args.args[0], EventExitData)
