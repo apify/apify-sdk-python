@@ -7,7 +7,7 @@ description: Customize Actor behavior through the Configuration class or environ
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
 import ConfigExample from '!!raw-loader!roa-loader!./code/10_config.py';
-import GetEnvExample from '!!raw-loader!roa-loader!./code/10_get_env.py';
+import RuntimeEnvironmentExample from '!!raw-loader!roa-loader!./code/10_runtime_environment.py';
 import PlatformDetectionExample from '!!raw-loader!roa-loader!./code/10_platform_detection.py';
 import ApiLink from '@theme/ApiLink';
 
@@ -52,10 +52,12 @@ The following table lists a few options you are most likely to set yourself. Whe
 
 ## Reading the runtime environment
 
-The <ApiLink to="class/Actor#get_env">`Actor.get_env`</ApiLink> method returns a dictionary with all `APIFY_*` environment variables parsed into their typed values. This is useful for inspecting the Actor's runtime context, such as the Actor ID, run ID, or default storage IDs. Variables that are not set or are invalid will have a value of `None`.
+The <ApiLink to="class/Actor#configuration">`Actor.configuration`</ApiLink> property exposes the `APIFY_*` and `ACTOR_*` environment variables parsed into their typed values. This is useful for inspecting the Actor's runtime context, such as the Actor ID, run ID, or default storage IDs. Variables that are not set are `None`.
+
+Variables that `Configuration` does not expose are read from `os.environ`, using the `ActorEnvVars` and `ApifyEnvVars` enums exported from `apify` for their names.
 
 <RunnableCodeBlock className="language-python" language="python">
-    {GetEnvExample}
+    {RuntimeEnvironmentExample}
 </RunnableCodeBlock>
 
 ## Platform detection
