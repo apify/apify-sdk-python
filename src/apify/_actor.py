@@ -451,11 +451,12 @@ class _ActorType:
         While `max_concurrent_runs` named child runs are `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`, a named
         `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` that would start or resurrect a run waits
         until one of them finishes. Reattaching to a recorded run never waits. Runs started without a `run_name` are not
-        counted and never wait. A child run not awaited by `Actor.call` or `Actor.call_task` is fetched again before it
-        is counted, if its status is more than 10 seconds old. Once this Actor run is being gracefully aborted, a call
-        that would wait raises a `RuntimeError`, with or without `abort_with_parent`.
+        counted and never wait. A child run's status is fetched again before it is counted, if it is more than 10
+        seconds old. Once this Actor run is being gracefully aborted, a call that would wait raises a `RuntimeError`,
+        with or without `abort_with_parent`.
 
-        The limit is kept in memory, so call this method again after a migration or resurrection of this Actor run.
+        A call already waiting picks up a changed limit within 10 seconds. The limit is kept in memory, so call this
+        method again after a migration or resurrection of this Actor run.
 
         Args:
             max_concurrent_runs: How many named child runs may be active at once, or `None` for no limit.
