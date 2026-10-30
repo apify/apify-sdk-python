@@ -223,8 +223,9 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
-        self._charged_event_counts_need_refresh = False
-        """Whether the run's current charged event counts are still to be taken before the first charge."""
+        self._charged_event_counts_refreshed_from_api = False
+        """Whether the charged event counts were read from the run through the API, rather than taken from the env
+        var the platform filled when the run started. Set once the read was attempted, whether or not it succeeded."""
         self._idempotent_charges: TTLCache[str, IdempotentChargeItem] = TTLCache(maxsize=float('inf'), ttl=180)
         """Charges made with an idempotency key, by key. Keys expire after three minutes, the same as the platform's
         own idempotency records."""
@@ -250,6 +251,10 @@ class ChargingManagerImplementation(ChargingManager):
         pricing_info = pricing_data['pricing_info']
         charged_event_counts = pricing_data['charged_event_counts']
         max_total_charge_usd = pricing_data['max_total_charge_usd']
+        # The env var holds the counts recorded when the run started, which after a reboot, migration or restart miss
+        # what the run charged before. A restart cannot be told apart from a first start, so the run's current counts
+        # are read before the first charge, unless they were just read from the run already.
+        self._charged_event_counts_refreshed_from_api = pricing_data['charged_event_counts_from_api']
 
         # Set pricing model
         if self._configuration.test_pay_per_event:
@@ -523,16 +528,10 @@ class ChargingManagerImplementation(ChargingManager):
         """Fetch pricing information from environment variables or API."""
         # Check if pricing info is available via environment variables
         if self._configuration.actor_pricing_info is not None and self._configuration.charged_event_counts is not None:
-            # The platform fills the env var with the counts recorded when the run started. A container started
-            # after a reboot, migration or restart would miss what the run charged before it, and a restart cannot
-            # be told apart from a first start, so the run's current counts are taken before the first charge.
-            self._charged_event_counts_need_refresh = self._is_chargeable_platform_run(
-                self._configuration.actor_pricing_info
-            )
-
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
                 charged_event_counts=self._configuration.charged_event_counts,
+                charged_event_counts_from_api=False,
                 max_total_charge_usd=(
                     self._configuration.max_total_charge_usd
                     if self._configuration.max_total_charge_usd is not None
@@ -554,6 +553,7 @@ class ChargingManagerImplementation(ChargingManager):
             return _FetchedPricingInfoDict(
                 pricing_info=run.pricing_info,
                 charged_event_counts=run.charged_event_counts or {},
+                charged_event_counts_from_api=True,
                 max_total_charge_usd=Decimal(str(max_charge)) if max_charge is not None else Decimal('inf'),
             )
 
@@ -561,6 +561,7 @@ class ChargingManagerImplementation(ChargingManager):
         return _FetchedPricingInfoDict(
             pricing_info=None,
             charged_event_counts={},
+            charged_event_counts_from_api=False,
             max_total_charge_usd=(
                 self._configuration.max_total_charge_usd
                 if self._configuration.max_total_charge_usd is not None
@@ -568,20 +569,16 @@ class ChargingManagerImplementation(ChargingManager):
             ),
         )
 
-    def _is_chargeable_platform_run(self, pricing_info: ActorPricingInfoModel) -> bool:
+    def _is_chargeable_platform_run(self) -> bool:
         """Whether this is a platform run the SDK charges events for.
 
         A run is chargeable when its pricing has at least one priced event other than the start event, which only
         the platform charges. For any other run the charged event counts cannot have moved since the run started.
         """
-        if not self._is_at_home or not isinstance(pricing_info, PayPerEventActorPricingInfo):
+        if not self._is_at_home or self._pricing_model != 'PAY_PER_EVENT':
             return False
 
-        actor_charge_events = pricing_info.pricing_per_event.actor_charge_events or {}
-        return any(
-            event_name != ACTOR_START_EVENT and event_pricing.event_price_usd is not None
-            for event_name, event_pricing in actor_charge_events.items()
-        )
+        return any(event_name != ACTOR_START_EVENT for event_name in self._pricing_info)
 
     async def ensure_current_charged_event_counts(self) -> None:
         """Take the run's current charged event counts before the first charge or budgeted push of this container.
@@ -592,9 +589,9 @@ class ChargingManagerImplementation(ChargingManager):
         synchronous methods are the ones the run started with. Called under the charge lock by `charge` and
         `charge_lock_if_charging`, so concurrent charges queue behind the one read; not meant to be called manually.
         """
-        if not self._charged_event_counts_need_refresh:
+        if self._charged_event_counts_refreshed_from_api or not self._is_chargeable_platform_run():
             return
-        self._charged_event_counts_need_refresh = False
+        self._charged_event_counts_refreshed_from_api = True
 
         initial_counts = {event_name: item.charge_count for event_name, item in self._charging_state.items()}
         current_counts = await self._update_charged_event_counts(initial_counts)
@@ -680,4 +677,6 @@ class IdempotentChargeItem:
 class _FetchedPricingInfoDict(TypedDict):
     pricing_info: ActorPricingInfoModel | None
     charged_event_counts: dict[str, int]
+    charged_event_counts_from_api: bool
+    """Whether the counts are the run's current ones, read through the API, rather than the env var's."""
     max_total_charge_usd: Decimal
