@@ -517,10 +517,10 @@ class ChargingManagerImplementation(ChargingManager):
     async def _fetch_pricing_info(self) -> _FetchedPricingInfoDict:
         """Fetch pricing information from environment variables or API."""
         # Check if pricing info is available via environment variables
-        if self._has_pricing_env_vars():
+        if self._configuration.actor_pricing_info is not None and self._configuration.charged_event_counts is not None:
             return _FetchedPricingInfoDict(
                 pricing_info=self._configuration.actor_pricing_info,
-                charged_event_counts=self._configuration.charged_event_counts or {},
+                charged_event_counts=self._configuration.charged_event_counts,
                 max_total_charge_usd=(
                     self._configuration.max_total_charge_usd
                     if self._configuration.max_total_charge_usd is not None
@@ -554,12 +554,6 @@ class ChargingManagerImplementation(ChargingManager):
                 if self._configuration.max_total_charge_usd is not None
                 else Decimal('inf')
             ),
-        )
-
-    def _has_pricing_env_vars(self) -> bool:
-        """Whether the platform provided the pricing info and the charged event counts through the env vars."""
-        return (
-            self._configuration.actor_pricing_info is not None and self._configuration.charged_event_counts is not None
         )
 
     def _is_chargeable_platform_run(self) -> bool:
