@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import math
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -573,6 +574,13 @@ class ChargingManagerImplementation(ChargingManager):
 
         try:
             run = await self._client.run(run_id).get()
+        except asyncio.CancelledError:
+            # The read happens once, so a cancelled first charge or push leaves the run on the start-of-run counts.
+            logger.warning(
+                'Fetching the current charged event counts of the run was cancelled, continuing with the counts '
+                'recorded when the run started.'
+            )
+            raise
         except Exception:
             logger.warning(
                 'Failed to fetch the current charged event counts of the run, continuing with the counts recorded '
