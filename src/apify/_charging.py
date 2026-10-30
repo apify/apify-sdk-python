@@ -65,7 +65,7 @@ async def charge_lock_if_charging() -> AsyncGenerator[None]:
         return
 
     async with charging_manager.charge_lock():
-        await charging_manager.ensure_current_charged_event_counts()
+        await charging_manager._try_to_refresh_from_api()  # noqa: SLF001
         yield
 
 
@@ -590,12 +590,13 @@ class ChargingManagerImplementation(ChargingManager):
         they miss what an earlier container charged. The charging info from platform is affected by eventual consistency
         lag so read it lazily as late as possible.
         """
-        if self._charged_event_counts_refreshed_from_api or not self._is_chargeable_platform_run() and self._actor_run_id is not None:
+        run_id = self._actor_run_id
+        if self._charged_event_counts_refreshed_from_api or not self._is_chargeable_platform_run() or run_id is None:
             return
         self._charged_event_counts_refreshed_from_api = True
 
         try:
-            run = await self._client.run(self._actor_run_id).get()
+            run = await self._client.run(run_id).get()
         except Exception:
             logger.warning(
                 'Failed to fetch the current charged event counts of the run, continuing with the counts recorded '
@@ -613,9 +614,10 @@ class ChargingManagerImplementation(ChargingManager):
 
         for event_name, api_count in (run.charged_event_counts or {}).items():
             local_count = self._charging_state[event_name].charge_count if event_name in self._charging_state else 0
+            count = max(local_count, api_count)
             self._charging_state[event_name] = ChargingStateItem(
-                charge_count=max(local_count, api_count),
-                total_charged_amount=local_count * self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price,
+                charge_count=count,
+                total_charged_amount=count * self._get_event_price(event_name),
             )
 
     def _compute_charged_count(self, event_name: str, count: int) -> int:
