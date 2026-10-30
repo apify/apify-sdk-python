@@ -242,11 +242,6 @@ class _ActorType:
                     event=Event.ABORTING, listener=self._abort_child_runs
                 )
                 self._internal_listeners.callback(remove_listener)
-                # Carries the charged event counts over to the container started after a migration or a restart.
-                remove_listener = self.event_manager._on_internal(  # noqa: SLF001
-                    event=Event.PERSIST_STATE, listener=self._charging_manager_implementation.persist_state
-                )
-                self._internal_listeners.callback(remove_listener)
             rollback.callback(self._internal_listeners.close)
             self.log.debug('Event manager initialized')
 
@@ -502,17 +497,7 @@ class _ActorType:
 
     @cached_property
     def _charging_manager_implementation(self) -> ChargingManagerImplementation:
-        async def open_default_key_value_store() -> KeyValueStore:
-            # The charging manager is entered before the Actor is active, so the public `open_key_value_store`
-            # method cannot be used here.
-            storage_client = self._storage_client.get_suitable_storage_client()
-            return await KeyValueStore.open(storage_client=storage_client)
-
-        return ChargingManagerImplementation(
-            self.configuration,
-            self.apify_client,
-            open_key_value_store=open_default_key_value_store,
-        )
+        return ChargingManagerImplementation(self.configuration, self.apify_client)
 
     @cached_property
     def _storage_client(self) -> SmartApifyStorageClient:
@@ -1731,9 +1716,6 @@ class _ActorType:
                         tg.create_task(safe_dispatch(listener, EventMigratingData()))
             except TimeoutError:
                 self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
-
-            # The container started by the reboot continues from the charged event counts persisted here.
-            await self._charging_manager_implementation.persist_state()
 
             self.log.debug('Rebooting the Actor run.')
             await self.apify_client.run(self.configuration.actor_run_id).reboot()

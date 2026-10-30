@@ -78,7 +78,7 @@ The user spending limit for the run is available in your Actor code as the `ACTO
 
 When the charge limit is reached, <ApiLink to="class/Actor#charge">`Actor.charge`</ApiLink> stops charging and <ApiLink to="class/Actor#push_data">`Actor.push_data`</ApiLink> stops pushing data. The platform then aborts the run automatically. However, the run keeps consuming platform resources for a short time before it stops. For details, see [Handle graceful shutdown](https://docs.apify.com/platform/actors/publishing/monetize/pay-per-event#handle-graceful-shutdown).
 
-The charged event counts survive a reboot, a migration and a restart of the run. The SDK persists them to the default key-value store under the `__ACTOR_CHARGING_STATE` key, whenever the run persists its state and right before <ApiLink to="class/Actor#reboot">`Actor.reboot`</ApiLink>, and the container started afterwards continues from them. Events charged in the few seconds before a migration or a restart can be missing from the record, so the restarted run may count slightly less than the platform. Keep that in mind when you compute the remaining budget from the charged counts yourself.
+The charged event counts survive a reboot, a migration and a restart of the run. A container that starts later than a minute after the run started reads the current counts from the run through the API, so the restarted run continues from what was already charged. Events charged in the last few seconds before the restart can be missing from the counts the platform had recorded by then, so the restarted run may count slightly less than the platform. Keep that in mind when you compute the remaining budget from the charged counts yourself.
 
 ## Test monetization locally
 
