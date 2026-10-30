@@ -1555,6 +1555,37 @@ async def test_parent_abort_stops_starts_waiting_under_the_limit() -> None:
     assert 'second-run' not in statuses
 
 
+async def test_abort_with_parent_start_freed_after_parent_abort_does_not_start() -> None:
+    """A waiting `abort_with_parent` start raises when capacity frees up after the parent began aborting."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    start_run = AsyncMock(return_value=make_run('second-run', 'READY'))
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(
+            registry.find_or_start(
+                'second',
+                actor_id='some-actor',
+                run_input=None,
+                client=client,
+                start_run=start_run,
+                resurrect_run=AsyncMock(),
+                abort_with_parent=True,
+            )
+        )
+        await assert_waiting(second_task)
+
+        registry._parent_aborting = True
+        await registry.update('first', make_run(first.id, 'SUCCEEDED'))
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+    start_run.assert_not_called()
+
+
 async def test_named_call_stops_counting_when_the_run_finishes(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:

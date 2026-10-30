@@ -208,7 +208,7 @@ class ChildRunRegistry:
             record = records.get(name)
 
             if record is None:
-                async with self._reserve_capacity(name, client):
+                async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
                     run = await self._start(
                         name, checksum=checksum, start_run=start_run, history=[], abort_with_parent=abort_with_parent
                     )
@@ -227,7 +227,7 @@ class ChildRunRegistry:
                     status=run.status if run is not None else 'LOST',
                     started_at=record.started_at,
                 )
-                async with self._reserve_capacity(name, client):
+                async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
                     run = await self._start(
                         name,
                         checksum=checksum,
@@ -250,7 +250,7 @@ class ChildRunRegistry:
                 await self._save(name, record.model_copy(update={'abort_with_parent': abort_with_parent}))
 
             if run.status in _RESURRECTABLE_STATUSES:
-                async with self._reserve_capacity(name, client):
+                async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
                     logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
                     run = await resurrect_run(run.id)
                     self._cache_run_status(name, run)
@@ -351,7 +351,9 @@ class ChildRunRegistry:
         return run
 
     @asynccontextmanager
-    async def _reserve_capacity(self, name: str, client: ApifyClientAsync) -> AsyncGenerator[None]:
+    async def _reserve_capacity(
+        self, name: str, client: ApifyClientAsync, *, abort_with_parent: bool
+    ) -> AsyncGenerator[None]:
         """Count starting or resurrecting the run under `name` toward the limit, waiting while the limit is reached."""
         async with self._capacity_available:
             while (
@@ -367,6 +369,12 @@ class ChildRunRegistry:
                 with suppress(TimeoutError):
                     async with asyncio.timeout(_STATUS_MAX_AGE_SECS):
                         await self._capacity_available.wait()
+            # The parent can start aborting while this start waits.
+            if abort_with_parent and self._parent_aborting:
+                raise RuntimeError(
+                    f'Child run "{name}" with `abort_with_parent` was not started, since this Actor run is being '
+                    'aborted.'
+                )
             self._starting_names.add(name)
 
         try:
