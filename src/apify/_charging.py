@@ -22,7 +22,7 @@ from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Awaitable, Callable
     from types import TracebackType
 
     from apify_client import ApifyClientAsync
@@ -65,7 +65,6 @@ async def charge_lock_if_charging() -> AsyncGenerator[None]:
         return
 
     async with charging_manager.charge_lock():
-        await charging_manager._try_to_refresh_from_api()  # noqa: SLF001
         yield
 
 
@@ -223,9 +222,6 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
-        self._charged_event_counts_refreshed_from_api = False
-        """Whether the charged event counts were read from the run through the API, rather than taken from the env
-        var the platform filled when the run started. Set once the read was attempted, whether or not it succeeded."""
         self._idempotent_charges: TTLCache[str, IdempotentChargeItem] = TTLCache(maxsize=float('inf'), ttl=180)
         """Charges made with an idempotency key, by key. Keys expire after three minutes, the same as the platform's
         own idempotency records."""
@@ -233,7 +229,7 @@ class ChargingManagerImplementation(ChargingManager):
         self._not_ppe_warning_printed = False
         self.active = False
 
-        self.charge_lock = ReentrantLock()
+        self.charge_lock = _ChargeLock(self._try_to_refresh_from_api)
 
     async def __aenter__(self) -> None:
         """Initialize the charging manager - this is called by the `Actor` class and shouldn't be invoked manually."""
@@ -251,10 +247,6 @@ class ChargingManagerImplementation(ChargingManager):
         pricing_info = pricing_data['pricing_info']
         charged_event_counts = pricing_data['charged_event_counts']
         max_total_charge_usd = pricing_data['max_total_charge_usd']
-        # The env var holds the counts recorded when the run started, which after a reboot, migration or restart miss
-        # what the run charged before. A restart cannot be told apart from a first start, so the run's current counts
-        # are read before the first charge, unless they were just read from the run already.
-        self._charged_event_counts_refreshed_from_api = self._is_at_home and not self._has_pricing_env_vars()
 
         # Set pricing model
         if self._configuration.test_pay_per_event:
@@ -341,8 +333,6 @@ class ChargingManagerImplementation(ChargingManager):
             )
 
         async with self.charge_lock():
-            await self._try_to_refresh_from_api()
-
             # A repeat the platform would discard is resolved here too - counting it would inflate the charging state
             # and make the run hit `max_total_charge_usd` early. The key alone decides, as on the platform.
             if idempotency_key is not None and (previous := self._idempotent_charges.get(idempotency_key)) is not None:
@@ -588,12 +578,11 @@ class ChargingManagerImplementation(ChargingManager):
 
         The counts the platform provides come from when the run started, so after a reboot, migration or restart
         they miss what an earlier container charged. The charging info from platform is affected by eventual consistency
-        lag so read it lazily as late as possible.
+        lag so read it lazily as late as possible. The charge lock calls this the first time it is taken.
         """
         run_id = self._actor_run_id
-        if self._charged_event_counts_refreshed_from_api or not self._is_chargeable_platform_run() or run_id is None:
+        if not self._is_chargeable_platform_run() or run_id is None:
             return
-        self._charged_event_counts_refreshed_from_api = True
 
         try:
             run = await self._client.run(run_id).get()
@@ -638,6 +627,27 @@ class ChargingManagerImplementation(ChargingManager):
         if pricing_info is not None:
             return pricing_info.price
         return Decimal(0) if self._is_at_home else Decimal(1)
+
+
+class _ChargeLock(ReentrantLock):
+    """The charge lock, which also brings the charged event counts up to date the first time it is taken.
+
+    Every budgeted operation, a charge or a push, takes this lock before it reads the counts, so the refresh happens
+    without the callers knowing, and concurrent first operations wait for the one read.
+    """
+
+    def __init__(self, refresh: Callable[[], Awaitable[None]]) -> None:
+        super().__init__()
+        self._refresh = refresh
+        self._refreshed = False
+
+    @asynccontextmanager
+    async def __call__(self) -> AsyncGenerator[None]:
+        async with super().__call__():
+            if not self._refreshed:
+                self._refreshed = True
+                await self._refresh()
+            yield
 
 
 @dataclass
