@@ -341,7 +341,7 @@ class ChargingManagerImplementation(ChargingManager):
             )
 
         async with self.charge_lock():
-            await self.ensure_current_charged_event_counts()
+            await self._try_to_refresh_from_api()
 
             # A repeat the platform would discard is resolved here too - counting it would inflate the charging state
             # and make the run hit `max_total_charge_usd` early. The key alone decides, as on the platform.
@@ -583,40 +583,16 @@ class ChargingManagerImplementation(ChargingManager):
 
         return any(event_name != ACTOR_START_EVENT for event_name in self._pricing_info)
 
-    async def ensure_current_charged_event_counts(self) -> None:
-        """Take the run's current charged event counts before the first charge or budgeted push of this container.
+    async def _try_to_refresh_from_api(self) -> None:
+        """Try to take the run's current charged event counts before the first charge of this container.
 
         The counts the platform provides come from when the run started, so after a reboot, migration or restart
-        they miss what an earlier container charged. The run is read once, as late as possible, which gives the
-        platform time to record the last charges of that container. Until then, the counts reported by the
-        synchronous methods are the ones the run started with. Called under the charge lock by `charge` and
-        `charge_lock_if_charging`, so concurrent charges queue behind the one read; not meant to be called manually.
+        they miss what an earlier container charged. The charging info from platform is affected by eventual consistency
+        lag so read it lazily as late as possible.
         """
-        if self._charged_event_counts_refreshed_from_api or not self._is_chargeable_platform_run():
+        if self._charged_event_counts_refreshed_from_api or not self._is_chargeable_platform_run() and self._actor_run_id is not None:
             return
         self._charged_event_counts_refreshed_from_api = True
-
-        initial_counts = {event_name: item.charge_count for event_name, item in self._charging_state.items()}
-        current_counts = await self._update_charged_event_counts(initial_counts)
-
-        for event_name, count in current_counts.items():
-            item = self._charging_state.get(event_name)
-            if item is not None and item.charge_count == count:
-                continue
-            price = self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price
-            self._charging_state[event_name] = ChargingStateItem(
-                charge_count=count,
-                total_charged_amount=count * price,
-            )
-
-    async def _update_charged_event_counts(self, initial_counts: dict[str, int]) -> dict[str, int]:
-        """Merge the given counts with the run's current counts, taking the higher of each.
-
-        The run is read through the API. When that fails, the initial counts are kept and a warning is logged, since
-        a run that cannot refresh its counts is still better off running than failing.
-        """
-        if self._actor_run_id is None:
-            raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
 
         try:
             run = await self._client.run(self._actor_run_id).get()
@@ -626,18 +602,21 @@ class ChargingManagerImplementation(ChargingManager):
                 'when the run started.',
                 exc_info=True,
             )
-            return initial_counts
+            return
 
         if run is None:
             logger.warning(
                 'Actor run not found when fetching the current charged event counts, continuing with the counts '
                 'recorded when the run started.'
             )
-            return initial_counts
+            return
 
-        for event_name, count in (run.charged_event_counts or {}).items():
-            initial_counts[event_name] = max(initial_counts.get(event_name, 0), count)
-        return initial_counts
+        for event_name, api_count in (run.charged_event_counts or {}).items():
+            local_count = self._charging_state[event_name].charge_count if event_name in self._charging_state else 0
+            self._charging_state[event_name] = ChargingStateItem(
+                charge_count=max(local_count, api_count),
+                total_charged_amount=local_count * self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price,
+            )
 
     def _compute_charged_count(self, event_name: str, count: int) -> int:
         """Compute how many of `count` events to charge, given the remaining budget."""
