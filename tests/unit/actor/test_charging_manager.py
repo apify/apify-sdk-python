@@ -822,6 +822,29 @@ async def test_first_charge_loads_charged_event_counts_from_run(mock_client: Mag
         mock_client.run.return_value.get.assert_awaited_once()
 
 
+async def test_concurrent_charges_share_one_load_of_the_run(mock_client: MagicMock) -> None:
+    """Parallel first charges read the run once and all of them are budgeted against the loaded counts."""
+
+    async def slow_get() -> MagicMock:
+        await asyncio.sleep(0.01)
+        return _make_run({'search': 3})
+
+    mock_client.run.return_value.get.side_effect = slow_get
+    config = _make_platform_ppe_config(
+        actor_pricing_info=_make_ppe_pricing_info({'search': Decimal('0.01')}),
+        charged_event_counts={'search': 1},
+        max_total_charge_usd=Decimal('0.05'),
+    )
+    cm = ChargingManagerImplementation(config, mock_client)
+    async with cm:
+        results = await asyncio.gather(*(cm.charge('search') for _ in range(4)))
+
+        mock_client.run.return_value.get.assert_awaited_once()
+        # Two fit in the budget after the three loaded from the run, one more overcharges, the last one is refused.
+        assert sum(result.charged_count for result in results) == 3
+        assert cm.get_charged_event_count('search') == 6
+
+
 async def test_first_push_loads_charged_event_counts_from_run(mock_client: MagicMock) -> None:
     """Taking the charge lock for a push loads the run's current counts, so the push limit accounts for them."""
     mock_client.run.return_value.get.return_value = _make_run({'search': 3})

@@ -590,7 +590,7 @@ class ChargingManagerImplementation(ChargingManager):
         they miss what an earlier container charged. The run is read once, as late as possible, which gives the
         platform time to record the last charges of that container. Until then, the counts reported by the
         synchronous methods are the ones the run started with. Called under the charge lock by `charge` and
-        `charge_lock_if_charging`; not meant to be called manually.
+        `charge_lock_if_charging`, so concurrent charges queue behind the one read; not meant to be called manually.
         """
         if not self._charged_event_counts_need_refresh:
             return
