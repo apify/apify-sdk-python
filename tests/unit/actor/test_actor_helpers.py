@@ -811,3 +811,26 @@ async def test_reboot_can_be_retried_after_cancelled_attempt(
         await Actor.reboot(custom_after_sleep=timedelta(milliseconds=1))
 
     assert len(apify_client_async_patcher.calls['run']['reboot']) == 2
+
+
+async def test_reboot_persists_charging_state_before_the_reboot_call(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that rebooting persists the charging state before the run is rebooted through the API."""
+    apify_client_async_patcher.patch('run', 'reboot', return_value=None)
+
+    async def persist_state() -> None:
+        assert len(apify_client_async_patcher.calls['run']['reboot']) == 0
+
+    persist_state_mock = AsyncMock(side_effect=persist_state)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+        monkeypatch.setattr(Actor._charging_manager_implementation, 'persist_state', persist_state_mock)
+
+        await Actor.reboot(custom_after_sleep=timedelta(milliseconds=1))
+
+    persist_state_mock.assert_awaited_once()
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 1

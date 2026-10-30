@@ -4,12 +4,14 @@ import math
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from logging import getLogger
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from cachetools import TTLCache
+from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic.alias_generators import to_camel
 
 from apify_client._models import (
     FlatPricePerMonthActorPricingInfo,
@@ -22,12 +24,13 @@ from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Awaitable, Callable
     from types import TracebackType
 
     from apify_client import ApifyClientAsync
 
     from apify._configuration import Configuration
+    from apify.storages import KeyValueStore
 
 logger = getLogger(__name__)
 
@@ -39,6 +42,20 @@ Allows PPE-aware dataset clients to access the charging manager without needing 
 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 """Name of the synthetic event charged for each item pushed to the default dataset."""
+
+CHARGING_STATE_KEY = '__ACTOR_CHARGING_STATE'
+"""Key of the default key-value store record holding the charged event counts of the run.
+
+The platform seeds a new container from the counts recorded when the run started, so a container started after a
+reboot, migration or restart would otherwise begin from a fresh budget. The record carries the counts across.
+"""
+
+RESTART_DETECTION_THRESHOLD = timedelta(seconds=60)
+"""How long after the run started a container start is treated as a restart.
+
+The first container starts within seconds of the run, while a reboot, migration or restart comes later. Reading
+the persisted record only after this much time keeps a normal start free of the extra key-value store request.
+"""
 
 PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
 """Pricing model for an Actor."""
@@ -201,7 +218,13 @@ class ChargingManagerImplementation(ChargingManager):
 
     LOCAL_CHARGING_LOG_DATASET_NAME = 'charging-log'
 
-    def __init__(self, configuration: Configuration, client: ApifyClientAsync) -> None:
+    def __init__(
+        self,
+        configuration: Configuration,
+        client: ApifyClientAsync,
+        *,
+        open_key_value_store: Callable[[], Awaitable[KeyValueStore]] | None = None,
+    ) -> None:
         self._max_total_charge_usd = (
             configuration.max_total_charge_usd if configuration.max_total_charge_usd is not None else Decimal('inf')
         )
@@ -213,6 +236,11 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
+
+        self._open_key_value_store = open_key_value_store
+        """Opens the default key-value store, where the charged event counts are persisted across container
+        restarts. Without it, the counts are not persisted."""
+        self._state_changed_since_persist = False
 
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
@@ -267,11 +295,16 @@ class ChargingManagerImplementation(ChargingManager):
 
         # Load charged event counts
         for event_name, count in charged_event_counts.items():
-            price = self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price
-            self._charging_state[event_name] = ChargingStateItem(
-                charge_count=count,
-                total_charged_amount=count * price,
-            )
+            self._set_charged_event_count(event_name, count)
+
+        # The counts the platform provides are those recorded when the run started. After a container restart they
+        # miss what this run charged before it, so the counts persisted by the previous container take over where
+        # they are higher.
+        if self._should_restore_persisted_state():
+            persisted_event_counts = await self._load_persisted_charged_event_counts()
+            for event_name, count in persisted_event_counts.items():
+                if count > self.get_charged_event_count(event_name):
+                    self._set_charged_event_count(event_name, count)
 
         # Set up charging log dataset for local development
         if not self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
@@ -393,6 +426,7 @@ class ChargingManagerImplementation(ChargingManager):
             self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
             self._charging_state[event_name].charge_count += charged_count
             self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
+            self._state_changed_since_persist = True
 
             # Remember the key for every charge that was counted, including events the API never receives, such as
             # synthetic and tier-priced ones - those are counted locally and a repeat would count them twice.
@@ -509,6 +543,101 @@ class ChargingManagerImplementation(ChargingManager):
             for event_name in self._pricing_info
         }
 
+    async def persist_state(self) -> None:
+        """Write the charged event counts to the default key-value store, if they changed since the last write.
+
+        The `Actor` calls this on the `PERSIST_STATE` event and right before a reboot, so that the container started
+        afterwards continues from the counts of this one. Only pay-per-event runs on the platform have anything to
+        persist. A failed write is logged and the counts stay marked for the next attempt.
+        """
+        open_key_value_store = self._open_key_value_store
+        if open_key_value_store is None or not self._persists_state() or not self._state_changed_since_persist:
+            return
+
+        # Snapshot under the charge lock, so that a charge in flight is either in this record or in the next one.
+        async with self.charge_lock():
+            record = ChargingStateRecord(
+                run_id=self._actor_run_id,
+                charged_event_counts={name: item.charge_count for name, item in self._charging_state.items()},
+                updated_at=datetime.now(UTC),
+            )
+            self._state_changed_since_persist = False
+
+        try:
+            key_value_store = await open_key_value_store()
+            await key_value_store.set_value(CHARGING_STATE_KEY, record.model_dump(by_alias=True, mode='json'))
+        except Exception:
+            self._state_changed_since_persist = True
+            logger.warning('Failed to persist the charging state to the default key-value store.', exc_info=True)
+        else:
+            logger.debug('Persisted the charging state to the default key-value store.')
+
+    def _persists_state(self) -> bool:
+        """Whether this run persists its charged event counts: a pay-per-event run on the platform with a store."""
+        return self._is_at_home and self._pricing_model == 'PAY_PER_EVENT' and self._open_key_value_store is not None
+
+    def _should_restore_persisted_state(self) -> bool:
+        """Whether this container start looks like a restart of a run that may have persisted its counts."""
+        if not self._persists_state():
+            return False
+
+        started_at = self._configuration.started_at
+        if started_at is None:
+            return False
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=UTC)
+
+        return datetime.now(UTC) - started_at >= RESTART_DETECTION_THRESHOLD
+
+    async def _load_persisted_charged_event_counts(self) -> dict[str, int]:
+        """Read the charged event counts persisted by an earlier container of this run, or nothing on any problem."""
+        if self._open_key_value_store is None:
+            return {}
+
+        try:
+            key_value_store = await self._open_key_value_store()
+            stored = await key_value_store.get_value(CHARGING_STATE_KEY)
+        except Exception:
+            logger.warning(
+                'Failed to read the persisted charging state from the default key-value store, continuing with the '
+                'charged event counts provided by the platform.',
+                exc_info=True,
+            )
+            return {}
+
+        if stored is None:
+            return {}
+
+        try:
+            record = ChargingStateRecord.model_validate(stored)
+        except ValidationError:
+            logger.warning(
+                f'The persisted charging state under the "{CHARGING_STATE_KEY}" key in the default key-value store '
+                'is malformed and is ignored.'
+            )
+            return {}
+
+        if record.run_id != self._actor_run_id:
+            logger.warning(
+                f'The persisted charging state in the default key-value store belongs to run "{record.run_id}" '
+                'and is ignored.'
+            )
+            return {}
+
+        logger.info(
+            'Restored the charged event counts persisted by an earlier container of this run.',
+            extra={'charged_event_counts': record.charged_event_counts},
+        )
+        return record.charged_event_counts
+
+    def _set_charged_event_count(self, event_name: str, count: int) -> None:
+        """Set the charged count of an event, pricing the total with the event's price, or zero for an unknown one."""
+        price = self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price
+        self._charging_state[event_name] = ChargingStateItem(
+            charge_count=count,
+            total_charged_amount=count * price,
+        )
+
     async def _fetch_pricing_info(self) -> _FetchedPricingInfoDict:
         """Fetch pricing information from environment variables or API."""
         # Check if pricing info is available via environment variables
@@ -587,6 +716,21 @@ class PricingInfoItem:
 class IdempotentChargeItem:
     event_name: str
     charged_count: int
+
+
+class ChargingStateRecord(BaseModel):
+    """The charged event counts of a run, as persisted in its default key-value store."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    run_id: str | None
+    """ID of the run the counts belong to. A record of another run is ignored."""
+
+    charged_event_counts: dict[str, int]
+    """Number of charged events by event name, synthetic events included."""
+
+    updated_at: datetime
+    """When the record was written."""
 
 
 class _FetchedPricingInfoDict(TypedDict):

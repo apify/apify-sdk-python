@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -9,7 +10,7 @@ import pytest
 
 from apify_client._models import ActorChargeEvent, PayPerEventActorPricingInfo
 
-from apify._charging import ChargingManagerImplementation
+from apify._charging import CHARGING_STATE_KEY, ChargingManagerImplementation
 from apify._configuration import Configuration
 
 
@@ -781,3 +782,165 @@ async def test_charge_overcharges_by_one_event_when_budget_exceeded(
         mock_client.run.return_value.charge.assert_awaited_once_with('search', count=2, idempotency_key=None)
     else:
         mock_client.run.return_value.charge.assert_not_called()
+
+
+def _make_platform_ppe_config(started_at: datetime, **kwargs: Any) -> Configuration:
+    """Helper to create a platform PPE Configuration for a run started at the given time."""
+    defaults: dict[str, Any] = {
+        'is_at_home': True,
+        'actor_run_id': 'test-run-id',
+        'actor_pricing_info': _make_ppe_pricing_info(),
+        'charged_event_counts': {'search': 1, 'scrape': 2},
+        'max_total_charge_usd': Decimal('10.00'),
+        'started_at': started_at,
+    }
+    defaults.update(kwargs)
+    return _make_config(**defaults)
+
+
+@pytest.fixture
+def mock_key_value_store() -> MagicMock:
+    return MagicMock(get_value=AsyncMock(return_value=None), set_value=AsyncMock())
+
+
+async def test_persist_state_writes_charged_event_counts(
+    mock_client: MagicMock, mock_key_value_store: MagicMock
+) -> None:
+    """Persisting after a charge writes the run's charged event counts to the default key-value store."""
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC))
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        await cm.charge('search', count=2)
+        await cm.persist_state()
+
+    mock_key_value_store.set_value.assert_awaited_once()
+    key, record = mock_key_value_store.set_value.await_args.args
+    assert key == CHARGING_STATE_KEY
+    assert record['runId'] == 'test-run-id'
+    assert record['chargedEventCounts'] == {'search': 3, 'scrape': 2}
+
+
+async def test_persist_state_writes_only_changed_counts(
+    mock_client: MagicMock, mock_key_value_store: MagicMock
+) -> None:
+    """Persisting writes nothing when no event was charged since the last write."""
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC))
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        await cm.persist_state()
+        mock_key_value_store.set_value.assert_not_awaited()
+
+        await cm.charge('search')
+        await cm.persist_state()
+        await cm.persist_state()
+
+    assert mock_key_value_store.set_value.await_count == 1
+
+
+async def test_persist_state_retries_after_failed_write(
+    mock_client: MagicMock, mock_key_value_store: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A failed write is logged and the counts are written again by the next persist."""
+    mock_key_value_store.set_value.side_effect = [RuntimeError('boom'), None]
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC))
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        await cm.charge('search')
+        await cm.persist_state()
+        await cm.persist_state()
+
+    assert mock_key_value_store.set_value.await_count == 2
+    assert 'Failed to persist the charging state' in caplog.text
+
+
+async def test_persist_state_does_nothing_locally(mock_client: MagicMock, mock_key_value_store: MagicMock) -> None:
+    """A local PPE run keeps its counts in memory only."""
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC), is_at_home=False, test_pay_per_event=True)
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        await cm.charge('search')
+        await cm.persist_state()
+
+    mock_key_value_store.set_value.assert_not_awaited()
+
+
+async def test_restart_restores_higher_persisted_counts(
+    mock_client: MagicMock, mock_key_value_store: MagicMock
+) -> None:
+    """A container started long after the run took the persisted counts where they exceed the platform's."""
+    mock_key_value_store.get_value.return_value = {
+        'runId': 'test-run-id',
+        'chargedEventCounts': {'search': 3, 'scrape': 1},
+        'updatedAt': '2026-01-01T00:00:00Z',
+    }
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC) - timedelta(minutes=5))
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        mock_key_value_store.get_value.assert_awaited_once_with(CHARGING_STATE_KEY)
+        assert cm.get_charged_event_count('search') == 3
+        assert cm.get_charged_event_count('scrape') == 2
+        assert cm.calculate_total_charged_amount() == Decimal('0.13')
+        assert cm.calculate_max_event_charge_count_within_limit('search') == 987
+
+
+async def test_fresh_start_does_not_read_persisted_counts(
+    mock_client: MagicMock, mock_key_value_store: MagicMock
+) -> None:
+    """A container started right after the run uses the platform's counts without reading the store."""
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC))
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        mock_key_value_store.get_value.assert_not_awaited()
+        assert cm.get_charged_event_count('search') == 1
+
+
+@pytest.mark.parametrize(
+    'stored',
+    [
+        pytest.param(
+            {'runId': 'another-run-id', 'chargedEventCounts': {'search': 3}, 'updatedAt': '2026-01-01T00:00:00Z'},
+            id='other_run',
+        ),
+        pytest.param({'chargedEventCounts': 'not-a-mapping'}, id='malformed'),
+    ],
+)
+async def test_restart_ignores_unusable_persisted_counts(
+    mock_client: MagicMock, mock_key_value_store: MagicMock, caplog: pytest.LogCaptureFixture, stored: Any
+) -> None:
+    """A record of another run or a malformed one is ignored with a warning."""
+    mock_key_value_store.get_value.return_value = stored
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC) - timedelta(minutes=5))
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        assert cm.get_charged_event_count('search') == 1
+
+    assert 'is ignored' in caplog.text
+
+
+async def test_restart_continues_when_persisted_counts_cannot_be_read(
+    mock_client: MagicMock, mock_key_value_store: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A failed read is logged and the platform's counts are used."""
+    mock_key_value_store.get_value.side_effect = RuntimeError('boom')
+    config = _make_platform_ppe_config(started_at=datetime.now(UTC) - timedelta(minutes=5))
+    cm = ChargingManagerImplementation(
+        config, mock_client, open_key_value_store=AsyncMock(return_value=mock_key_value_store)
+    )
+    async with cm:
+        assert cm.get_charged_event_count('search') == 1
+
+    assert 'Failed to read the persisted charging state' in caplog.text
