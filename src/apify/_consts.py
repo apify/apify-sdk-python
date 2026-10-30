@@ -7,8 +7,8 @@ from enum import StrEnum
 EVENT_LISTENERS_TIMEOUT = timedelta(seconds=5)
 """Timeout for waiting on event listeners to finish during Actor exit."""
 
-CRAWLER_STATUS_FORWARDING_TIMEOUT = timedelta(seconds=1)
-"""Timeout for setting a forwarded crawler status message as the run status message."""
+STATUS_MESSAGE_UPDATE_TIMEOUT = timedelta(seconds=1)
+"""How long `Actor.set_status_message()` waits for the run update before giving up with a warning."""
 
 BASE64_REGEXP = '[-A-Za-z0-9+/]*={0,3}'
 """Regex fragment matching a single base64-encoded component."""

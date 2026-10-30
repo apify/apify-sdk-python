@@ -27,6 +27,8 @@ from apify._consts import EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, Api
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
 
+    from ..conftest import ApifyClientAsyncPatcher
+
 
 @pytest.fixture(
     params=[
@@ -529,18 +531,18 @@ async def test_failed_crawler_status_forwarding_logs_warning(
 
 
 async def test_slow_crawler_status_forwarding_times_out(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A forwarded crawler status update that exceeds the timeout is abandoned with a warning."""
     set_up_platform_env(monkeypatch)
-    monkeypatch.setattr('apify._actor.CRAWLER_STATUS_FORWARDING_TIMEOUT', timedelta(milliseconds=10))
+    monkeypatch.setattr('apify._actor.STATUS_MESSAGE_UPDATE_TIMEOUT', timedelta(milliseconds=10))
 
-    async def set_status_message(_self: Any, _status_message: str, *, is_terminal: bool | None = None) -> None:
-        if not is_terminal:
-            await asyncio.sleep(60)
+    async def hanging_update(*_args: object, **_kwargs: object) -> None:
+        await asyncio.sleep(60)
 
-    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+    apify_client_async_patcher.patch('run', 'update', replacement_method=hanging_update)
 
     async with Actor() as actor:
         actor.event_manager.emit(
@@ -549,10 +551,9 @@ async def test_slow_crawler_status_forwarding_times_out(
         )
         await asyncio.wait_for(actor.event_manager.wait_for_all_listeners_to_complete(), timeout=5)
 
-    records = [r for r in caplog.records if r.msg == 'Failed to forward the crawler status message to the Actor run']
+    records = [r for r in caplog.records if r.msg.startswith('Failed to set status message')]
     assert len(records) == 1
-    assert isinstance(records[0].exc_info, tuple)
-    assert isinstance(records[0].exc_info[1], TimeoutError)
+    assert records[0].levelno == logging.WARNING
 
 
 async def test_crawler_status_does_not_follow_terminal_status_message(monkeypatch: pytest.MonkeyPatch) -> None:
