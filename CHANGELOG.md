@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 4.1.1 - **not yet released**
+## [4.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.0) (2026-10-30)
 
 ### 🚀 Features
 
@@ -23,7 +22,6 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Don&#x27;t raise from `Actor.set_status_message` on a failed or slow update ([#1200](https://github.com/apify/apify-sdk-python/pull/1200)) ([4556821](https://github.com/apify/apify-sdk-python/commit/4556821b18a48409c28b5e6bd581266249bb2eb7)) by [@vladfrangu](https://github.com/vladfrangu), closes [#1199](https://github.com/apify/apify-sdk-python/issues/1199)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.1.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.1.0) (2026-10-08)
 
 ### 🚀 Features
