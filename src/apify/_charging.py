@@ -555,11 +555,6 @@ class ChargingManagerImplementation(ChargingManager):
         )
 
     def _is_chargeable_platform_run(self) -> bool:
-        """Whether this is a platform run the SDK charges events for.
-
-        A run is chargeable when its pricing has at least one priced event other than the start event, which only
-        the platform charges. For any other run the charged event counts cannot have moved since the run started.
-        """
         if not self._is_at_home or self._pricing_model != 'PAY_PER_EVENT':
             return False
 
