@@ -10,6 +10,8 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from cachetools import TTLCache
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from apify_client._models import (
     FlatPricePerMonthActorPricingInfo,
@@ -17,6 +19,7 @@ from apify_client._models import (
     PayPerEventActorPricingInfo,
     PricePerDatasetItemActorPricingInfo,
 )
+from crawlee._utils.recoverable_state import RecoverableState
 
 from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
@@ -39,6 +42,9 @@ Allows PPE-aware dataset clients to access the charging manager without needing 
 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 """Name of the synthetic event charged for each item pushed to the default dataset."""
+
+CHARGING_STATE_KEY = '__ACTOR_CHARGING_STATE'
+"""Key of the default key-value store record that carries the charged event counts across a container restart."""
 
 PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
 """Pricing model for an Actor."""
@@ -213,6 +219,7 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
+        self._recoverable_state: RecoverableState[ChargingState] | None = None
 
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
@@ -273,6 +280,28 @@ class ChargingManagerImplementation(ChargingManager):
                 total_charged_amount=count * price,
             )
 
+        # The platform fills the env var with the counts recorded when the run started, so after a reboot, migration
+        # or restart they miss what an earlier container charged. That container persisted its counts to the default
+        # key-value store, so they take over where they are higher.
+        if self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
+            self._recoverable_state = RecoverableState(
+                default_state=ChargingState(),
+                persist_state_key=CHARGING_STATE_KEY,
+                persistence_enabled=True,
+                logger=logger,
+            )
+            persisted_state = await self._recoverable_state.initialize()
+            for event_name, count in persisted_state.charged_event_counts.items():
+                if count > self.get_charged_event_count(event_name):
+                    price = self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price
+                    self._charging_state[event_name] = ChargingStateItem(
+                        charge_count=count,
+                        total_charged_amount=count * price,
+                    )
+            persisted_state.charged_event_counts = {
+                event_name: item.charge_count for event_name, item in self._charging_state.items()
+            }
+
         # Set up charging log dataset for local development
         if not self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
             # We are not running on the Apify platform, but PPE is enabled for testing - open a dataset that
@@ -297,6 +326,9 @@ class ChargingManagerImplementation(ChargingManager):
     ) -> None:
         if not self.active:
             raise RuntimeError('Exiting an uninitialized ChargingManager')
+
+        if self._recoverable_state is not None:
+            await self._recoverable_state.teardown()
 
         charging_manager_ctx.set(None)
         self.active = False
@@ -393,6 +425,9 @@ class ChargingManagerImplementation(ChargingManager):
             self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
             self._charging_state[event_name].charge_count += charged_count
             self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
+            if self._recoverable_state is not None:
+                counts = self._recoverable_state.current_value.charged_event_counts
+                counts[event_name] = self._charging_state[event_name].charge_count
 
             # Remember the key for every charge that was counted, including events the API never receives, such as
             # synthetic and tier-priced ones - those are counted locally and a repeat would count them twice.
@@ -569,6 +604,15 @@ class ChargingManagerImplementation(ChargingManager):
         if pricing_info is not None:
             return pricing_info.price
         return Decimal(0) if self._is_at_home else Decimal(1)
+
+
+class ChargingState(BaseModel):
+    """The charged event counts of a run, as persisted in its default key-value store."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    charged_event_counts: dict[str, int] = Field(default_factory=dict)
+    """Number of charged events by event name, synthetic events included."""
 
 
 @dataclass

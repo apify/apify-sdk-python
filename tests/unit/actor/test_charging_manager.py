@@ -8,9 +8,12 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from apify_client._models import ActorChargeEvent, PayPerEventActorPricingInfo
+from crawlee import service_locator
+from crawlee.events._types import Event, EventPersistStateData
 
-from apify._charging import ChargingManagerImplementation
+from apify._charging import CHARGING_STATE_KEY, ChargingManagerImplementation
 from apify._configuration import Configuration
+from apify.storages import KeyValueStore
 
 
 def _make_config(**kwargs: Any) -> Configuration:
@@ -781,3 +784,73 @@ async def test_charge_overcharges_by_one_event_when_budget_exceeded(
         mock_client.run.return_value.charge.assert_awaited_once_with('search', count=2, idempotency_key=None)
     else:
         mock_client.run.return_value.charge.assert_not_called()
+
+
+def _make_platform_ppe_config(**kwargs: Any) -> Configuration:
+    """Helper to create a platform PPE Configuration with charged event counts in the env var."""
+    defaults: dict[str, Any] = {
+        'is_at_home': True,
+        'actor_run_id': 'test-run-id',
+        'actor_pricing_info': _make_ppe_pricing_info(),
+        'charged_event_counts': {'search': 1, 'scrape': 2},
+        'max_total_charge_usd': Decimal('10.00'),
+    }
+    defaults.update(kwargs)
+    return _make_config(**defaults)
+
+
+async def test_persisted_counts_take_over_where_higher(mock_client: MagicMock) -> None:
+    """A platform start takes the counts persisted by an earlier container where they exceed the env var's."""
+    key_value_store = await KeyValueStore.open()
+    await key_value_store.set_value(CHARGING_STATE_KEY, {'chargedEventCounts': {'search': 3, 'scrape': 1}})
+
+    cm = ChargingManagerImplementation(_make_platform_ppe_config(), mock_client)
+    async with cm:
+        assert cm.get_charged_event_count('search') == 3
+        assert cm.get_charged_event_count('scrape') == 2
+        assert cm.calculate_total_charged_amount() == Decimal('0.13')
+        assert cm.calculate_max_event_charge_count_within_limit('search') == 987
+
+
+async def test_charged_counts_are_persisted(mock_client: MagicMock) -> None:
+    """Charges are written to the default key-value store on persist and once more on exit."""
+    key_value_store = await KeyValueStore.open()
+    cm = ChargingManagerImplementation(_make_platform_ppe_config(), mock_client)
+    async with cm:
+        await cm.charge('search', count=2)
+        assert cm._recoverable_state is not None
+        await cm._recoverable_state.persist_state()
+        stored = await key_value_store.get_value(CHARGING_STATE_KEY)
+        assert stored == {'chargedEventCounts': {'search': 3, 'scrape': 2}}
+
+        await cm.charge('scrape')
+
+    stored = await key_value_store.get_value(CHARGING_STATE_KEY)
+    assert stored == {'chargedEventCounts': {'search': 3, 'scrape': 3}}
+
+
+async def test_local_run_does_not_persist_counts(mock_client: MagicMock) -> None:
+    """A local PPE run keeps its counts in memory only."""
+    key_value_store = await KeyValueStore.open()
+    cm = ChargingManagerImplementation(
+        _make_platform_ppe_config(is_at_home=False, test_pay_per_event=True), mock_client
+    )
+    async with cm:
+        await cm.charge('search')
+
+    assert await key_value_store.get_value(CHARGING_STATE_KEY) is None
+
+
+async def test_persist_state_event_persists_counts(mock_client: MagicMock) -> None:
+    """The counts are written when the `PERSIST_STATE` event fires, which a reboot and a migration trigger."""
+    key_value_store = await KeyValueStore.open()
+    cm = ChargingManagerImplementation(_make_platform_ppe_config(), mock_client)
+    async with cm:
+        await cm.charge('search')
+
+        event_manager = service_locator.get_event_manager()
+        async with event_manager:
+            event_manager.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
+            await event_manager.wait_for_all_listeners_to_complete()
+
+        assert await key_value_store.get_value(CHARGING_STATE_KEY) == {'chargedEventCounts': {'search': 2, 'scrape': 2}}
