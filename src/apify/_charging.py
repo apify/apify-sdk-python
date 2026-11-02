@@ -22,7 +22,7 @@ from apify_client._models import (
 from crawlee._utils.recoverable_state import RecoverableState
 
 from apify._utils import ReentrantLock, docs_group, ensure_context
-from apify.storages import Dataset
+from apify.storages import Dataset, KeyValueStore
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -219,9 +219,9 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
-        self._recoverable_state: RecoverableState[ChargingState] | None = None
+        self._state: RecoverableState[ChargingState] | None = None
+        """The charged event counts, persisted to the default key-value store on the platform."""
 
-        self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
         self._idempotent_charges: TTLCache[str, IdempotentChargeItem] = TTLCache(maxsize=float('inf'), ttl=180)
@@ -272,35 +272,19 @@ class ChargingManagerImplementation(ChargingManager):
 
             self._max_total_charge_usd = max_total_charge_usd
 
-        # Load charged event counts
-        for event_name, count in charged_event_counts.items():
-            price = self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price
-            self._charging_state[event_name] = ChargingStateItem(
-                charge_count=count,
-                total_charged_amount=count * price,
-            )
-
         # The platform fills the env var with the counts recorded when the run started, so after a reboot, migration
-        # or restart they miss what an earlier container charged. That container persisted its counts to the default
-        # key-value store, so they take over where they are higher.
-        if self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
-            self._recoverable_state = RecoverableState(
-                default_state=ChargingState(),
-                persist_state_key=CHARGING_STATE_KEY,
-                persistence_enabled=True,
-                logger=logger,
-            )
-            persisted_state = await self._recoverable_state.initialize()
-            for event_name, count in persisted_state.charged_event_counts.items():
-                if count > self.get_charged_event_count(event_name):
-                    price = self._pricing_info.get(event_name, PricingInfoItem(Decimal(), title='')).price
-                    self._charging_state[event_name] = ChargingStateItem(
-                        charge_count=count,
-                        total_charged_amount=count * price,
-                    )
-            persisted_state.charged_event_counts = {
-                event_name: item.charge_count for event_name, item in self._charging_state.items()
-            }
+        # or restart they miss what an earlier container charged. On the platform the counts are therefore also kept
+        # in the default key-value store, and the persisted ones take over where they are higher.
+        self._state = RecoverableState(
+            default_state=ChargingState(),
+            persist_state_key=CHARGING_STATE_KEY,
+            persistence_enabled=self._is_at_home and self._pricing_model == 'PAY_PER_EVENT',
+            persist_state_kvs_factory=KeyValueStore.open,
+            logger=logger,
+        )
+        counts = (await self._state.initialize()).charged_event_counts
+        for event_name, count in charged_event_counts.items():
+            counts[event_name] = max(counts.get(event_name, 0), count)
 
         # Set up charging log dataset for local development
         if not self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
@@ -327,8 +311,8 @@ class ChargingManagerImplementation(ChargingManager):
         if not self.active:
             raise RuntimeError('Exiting an uninitialized ChargingManager')
 
-        if self._recoverable_state is not None:
-            await self._recoverable_state.teardown()
+        if self._state is not None:
+            await self._state.teardown()
 
         charging_manager_ctx.set(None)
         self.active = False
@@ -422,12 +406,8 @@ class ChargingManagerImplementation(ChargingManager):
 
             # Count the charge only after the API call succeeds, so a failed call retried under the same key is
             # counted once.
-            self._charging_state.setdefault(event_name, ChargingStateItem(0, Decimal()))
-            self._charging_state[event_name].charge_count += charged_count
-            self._charging_state[event_name].total_charged_amount += charged_count * pricing_info.price
-            if self._recoverable_state is not None:
-                counts = self._recoverable_state.current_value.charged_event_counts
-                counts[event_name] = self._charging_state[event_name].charge_count
+            counts = self._charged_event_counts
+            counts[event_name] = counts.get(event_name, 0) + charged_count
 
             # Remember the key for every charge that was counted, including events the API never receives, such as
             # synthetic and tier-priced ones - those are counted locally and a repeat would count them twice.
@@ -467,7 +447,7 @@ class ChargingManagerImplementation(ChargingManager):
     @_ensure_context
     def calculate_total_charged_amount(self) -> Decimal:
         return sum(
-            (item.total_charged_amount for item in self._charging_state.values()),
+            (count * self._get_event_price(event_name) for event_name, count in self._charged_event_counts.items()),
             start=Decimal(),
         )
 
@@ -496,8 +476,7 @@ class ChargingManagerImplementation(ChargingManager):
 
     @_ensure_context
     def get_charged_event_count(self, event_name: str) -> int:
-        item = self._charging_state.get(event_name)
-        return item.charge_count if item is not None else 0
+        return self._charged_event_counts.get(event_name, 0)
 
     @_ensure_context
     def get_max_total_charge_usd(self) -> Decimal:
@@ -599,6 +578,12 @@ class ChargingManagerImplementation(ChargingManager):
 
         return 0
 
+    @property
+    def _charged_event_counts(self) -> dict[str, int]:
+        if self._state is None:
+            raise RuntimeError('ChargingManager is not initialized')
+        return self._state.current_value.charged_event_counts
+
     def _get_event_price(self, event_name: str) -> Decimal:
         pricing_info = self._pricing_info.get(event_name)
         if pricing_info is not None:
@@ -613,12 +598,6 @@ class ChargingState(BaseModel):
 
     charged_event_counts: dict[str, int] = Field(default_factory=dict)
     """Number of charged events by event name, synthetic events included."""
-
-
-@dataclass
-class ChargingStateItem:
-    charge_count: int
-    total_charged_amount: Decimal
 
 
 @dataclass
