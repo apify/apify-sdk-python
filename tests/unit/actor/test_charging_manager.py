@@ -818,8 +818,8 @@ async def test_charged_counts_are_persisted(mock_client: MagicMock) -> None:
     cm = ChargingManagerImplementation(_make_platform_ppe_config(), mock_client)
     async with cm:
         await cm.charge('search', count=2)
-        assert cm._state is not None
-        await cm._state.persist_state()
+        assert cm._charging_state is not None
+        await cm._charging_state.persist_state()
         stored = await key_value_store.get_value(CHARGING_STATE_KEY)
         assert stored == {'chargedEventCounts': {'search': 3, 'scrape': 2}}
 

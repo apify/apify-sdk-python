@@ -219,7 +219,7 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
-        self._state: RecoverableState[ChargingState] | None = None
+        self._charging_state: RecoverableState[ChargingState] | None = None
         """The charged event counts, persisted to the default key-value store on the platform."""
 
         self._pricing_info: dict[str, PricingInfoItem] = {}
@@ -275,14 +275,14 @@ class ChargingManagerImplementation(ChargingManager):
         # The platform fills the env var with the counts recorded when the run started, so after a reboot, migration
         # or restart they miss what an earlier container charged. On the platform the counts are therefore also kept
         # in the default key-value store, and the persisted ones take over where they are higher.
-        self._state = RecoverableState(
+        self._charging_state = RecoverableState(
             default_state=ChargingState(),
             persist_state_key=CHARGING_STATE_KEY,
             persistence_enabled=self._is_at_home and self._pricing_model == 'PAY_PER_EVENT',
             persist_state_kvs_factory=KeyValueStore.open,
             logger=logger,
         )
-        counts = (await self._state.initialize()).charged_event_counts
+        counts = (await self._charging_state.initialize()).charged_event_counts
         for event_name, count in charged_event_counts.items():
             counts[event_name] = max(counts.get(event_name, 0), count)
 
@@ -311,8 +311,8 @@ class ChargingManagerImplementation(ChargingManager):
         if not self.active:
             raise RuntimeError('Exiting an uninitialized ChargingManager')
 
-        if self._state is not None:
-            await self._state.teardown()
+        if self._charging_state is not None:
+            await self._charging_state.teardown()
 
         charging_manager_ctx.set(None)
         self.active = False
@@ -580,9 +580,9 @@ class ChargingManagerImplementation(ChargingManager):
 
     @property
     def _charged_event_counts(self) -> dict[str, int]:
-        if self._state is None:
+        if self._charging_state is None:
             raise RuntimeError('ChargingManager is not initialized')
-        return self._state.current_value.charged_event_counts
+        return self._charging_state.current_value.charged_event_counts
 
     def _get_event_price(self, event_name: str) -> Decimal:
         pricing_info = self._pricing_info.get(event_name)
