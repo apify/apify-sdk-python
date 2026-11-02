@@ -5,6 +5,7 @@ import os
 from decimal import Decimal
 from functools import partial
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import impit
 import pytest_asyncio
@@ -302,9 +303,14 @@ async def test_actor_charge_in_multi_tenant_standby_run(
         assert actor is not None
         assert actor.standby_url is not None
 
+        # The `<username>--<actor-name>` label of `standby_url` exceeds the 63-char DNS label limit with generated
+        # Actor names, so the ID-based hostname is used instead.
+        standby_domain = urlsplit(actor.standby_url).netloc.split('.', 1)[1]
+        standby_url = f'https://{actor.id}.{standby_domain}'
+
         try:
-            with_id = (await http.get(actor.standby_url, headers=auth)).json()
-            without_id = (await http.get(f'{actor.standby_url}?omit_request_id', headers=auth)).json()
+            with_id = (await http.get(standby_url, headers=auth)).json()
+            without_id = (await http.get(f'{standby_url}?omit_request_id', headers=auth)).json()
         finally:
             runs = await actor_client.runs().list()
             for run_item in runs.items:
