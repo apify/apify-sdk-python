@@ -282,9 +282,9 @@ class ChargingManagerImplementation(ChargingManager):
             persist_state_kvs_factory=KeyValueStore.open,
             logger=logger,
         )
-        counts = (await self._charging_state.initialize()).charged_event_counts
+        await self._charging_state.initialize()
         for event_name, count in charged_event_counts.items():
-            counts[event_name] = max(counts.get(event_name, 0), count)
+            self._charged_event_counts[event_name] = max(self._charged_event_counts.get(event_name, 0), count)
 
         # Set up charging log dataset for local development
         if not self._is_at_home and self._pricing_model == 'PAY_PER_EVENT':
@@ -406,8 +406,7 @@ class ChargingManagerImplementation(ChargingManager):
 
             # Count the charge only after the API call succeeds, so a failed call retried under the same key is
             # counted once.
-            counts = self._charged_event_counts
-            counts[event_name] = counts.get(event_name, 0) + charged_count
+            self._charged_event_counts[event_name] = self._charged_event_counts.get(event_name, 0) + charged_count
 
             # Remember the key for every charge that was counted, including events the API never receives, such as
             # synthetic and tier-priced ones - those are counted locally and a repeat would count them twice.
