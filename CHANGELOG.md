@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Read local Actor input from the storage directory with non-filesystem storage clients ([#1197](https://github.com/apify/apify-sdk-python/pull/1197)) ([983bee9](https://github.com/apify/apify-sdk-python/commit/983bee97ae2d45d483992233f03fb9201d9fdb41)) by [@Pijukatel](https://github.com/Pijukatel), closes [#682](https://github.com/apify/apify-sdk-python/issues/682)
+- Persist the charged event counts across container restarts ([#1222](https://github.com/apify/apify-sdk-python/pull/1222)) ([aab5cf8](https://github.com/apify/apify-sdk-python/commit/aab5cf81ac1cca5fe20519d3d25720833f2784fc)) by [@Pijukatel](https://github.com/Pijukatel), closes [#1209](https://github.com/apify/apify-sdk-python/issues/1209)
 
 
 <!-- git-cliff-unreleased-end -->
