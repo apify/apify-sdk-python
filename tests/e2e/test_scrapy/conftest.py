@@ -55,11 +55,10 @@ async def verify_spider_results(
     # Right after a run finishes, the API can already count the pushed rows while still returning an empty page.
     items = await poll_until_condition(
         actor.last_run().dataset().list_items,
-        lambda page: len(page.items) == len(products),
+        lambda page: len(page.items) >= len(products),
         timeout=30,
-        poll_interval=1,
     )
-    assert items.count == 3
+    assert items.count == len(products)
 
     items_by_name = {item['name']: item for item in items.items}
 
