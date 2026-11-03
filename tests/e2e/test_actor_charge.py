@@ -295,7 +295,7 @@ async def test_actor_charge_counts_survive_reboot(
     run_actor: RunActorFunction,
     apify_client_async: ApifyClientAsync,
 ) -> None:
-    """Test that a rebooted run starts from the events charged before the reboot, instead of a fresh budget."""
+    """Test that a rebooted run starts from the events charged before the reboot."""
     run = await run_actor(ppe_reboot_actor, max_total_charge_usd=Decimal('0.05'))
 
     assert run.status == 'SUCCEEDED'

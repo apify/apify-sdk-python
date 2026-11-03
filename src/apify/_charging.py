@@ -219,7 +219,7 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
-        self._charging_state: RecoverableState[ChargingState] | None = None
+        """The charged event counts, persisted to the default key-value store in a pay-per-event run on the platform."""
         """The charged event counts, persisted to the default key-value store on the platform."""
 
         self._pricing_info: dict[str, PricingInfoItem] = {}
@@ -282,7 +282,12 @@ class ChargingManagerImplementation(ChargingManager):
             persist_state_kvs_factory=KeyValueStore.open,
             logger=logger,
         )
-        await self._charging_state.initialize()
+        try:
+            await self._charging_state.initialize()
+        except ValidationError as exc:
+            raise ValueError(
+                f'The charging state under the "{CHARGING_STATE_KEY}" key in the default key-value store is malformed.'
+            ) from exc
         for event_name, count in charged_event_counts.items():
             self._charged_event_counts[event_name] = max(self._charged_event_counts.get(event_name, 0), count)
 
@@ -311,11 +316,12 @@ class ChargingManagerImplementation(ChargingManager):
         if not self.active:
             raise RuntimeError('Exiting an uninitialized ChargingManager')
 
-        if self._charging_state is not None:
-            await self._charging_state.teardown()
-
-        charging_manager_ctx.set(None)
-        self.active = False
+        try:
+            if self._charging_state is not None:
+                await self._charging_state.teardown()
+        finally:
+            charging_manager_ctx.set(None)
+            self.active = False
 
     @_ensure_context
     async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:

@@ -853,4 +853,7 @@ async def test_persist_state_event_persists_counts(mock_client: MagicMock) -> No
             event_manager.emit(event=Event.PERSIST_STATE, event_data=EventPersistStateData(is_migrating=True))
             await event_manager.wait_for_all_listeners_to_complete()
 
-        assert await key_value_store.get_value(CHARGING_STATE_KEY) == {'chargedEventCounts': {'search': 2, 'scrape': 2}}
+            # Checked inside the context, since leaving it emits one more `PERSIST_STATE` event.
+            assert await key_value_store.get_value(CHARGING_STATE_KEY) == {
+                'chargedEventCounts': {'search': 2, 'scrape': 2}
+            }
