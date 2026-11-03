@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -519,12 +520,16 @@ async def test_charge_forwards_idempotency_key_to_client(mock_client: MagicMock)
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
         await cm.charge('search', count=2, idempotency_key='key-1')
-        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=2, idempotency_key='key-1')
+        mock_client.run.return_value.charge.assert_awaited_once_with(
+            'search', count=2, idempotency_key='key-1', request_id=None
+        )
 
         # Without a key the client gets None and generates a unique one per call, so nothing is deduplicated.
         mock_client.run.return_value.charge.reset_mock()
         await cm.charge('search', count=1)
-        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=1, idempotency_key=None)
+        mock_client.run.return_value.charge.assert_awaited_once_with(
+            'search', count=1, idempotency_key=None, request_id=None
+        )
 
 
 async def test_charge_deduplicates_repeated_idempotency_key(
@@ -736,7 +741,9 @@ async def test_charge_registers_the_count_limited_by_the_budget(mock_client: Mag
     cm = ChargingManagerImplementation(config, mock_client)
     async with cm:
         assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 3
-        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=3, idempotency_key='key-1')
+        mock_client.run.return_value.charge.assert_awaited_once_with(
+            'search', count=3, idempotency_key='key-1', request_id=None
+        )
 
         assert (await cm.charge('search', count=5, idempotency_key='key-1')).charged_count == 3
         assert cm.get_charged_event_count('search') == 3
@@ -778,6 +785,44 @@ async def test_charge_overcharges_by_one_event_when_budget_exceeded(
         assert cm.get_charged_event_count('search') == 4
 
     if is_at_home:
-        mock_client.run.return_value.charge.assert_awaited_once_with('search', count=2, idempotency_key=None)
+        mock_client.run.return_value.charge.assert_awaited_once_with(
+            'search', count=2, idempotency_key=None, request_id=None
+        )
     else:
         mock_client.run.return_value.charge.assert_not_called()
+
+
+async def test_multi_tenant_run_uses_effective_actor_pricing_and_requires_request_id(mock_client: MagicMock) -> None:
+    """Test that a multi-tenant Server Actor run prices from the Actor's effective pricing and requires `request_id`."""
+
+    def ppe(price: str, started_at: str) -> PayPerEventActorPricingInfo:
+        info = _make_ppe_pricing_info({'search': Decimal(price)})
+        return info.model_copy(update={'started_at': datetime.fromisoformat(started_at)})
+
+    # The last entry is a scheduled future change, so the effective one is the latest that has already started.
+    actor = MagicMock(
+        pricing_infos=[
+            ppe('1', '2020-01-01T00:00:00+00:00'),
+            ppe('2', '2021-01-01T00:00:00+00:00'),
+            ppe('3', '2999-01-01T00:00:00+00:00'),
+        ]
+    )
+    run = MagicMock(standby=MagicMock(deployment='MULTI_TENANT_PAYING_USERS'), charged_event_counts={})
+    charge_mock = AsyncMock()
+    mock_client.run = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=run), charge=charge_mock))
+    mock_client.actor = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=actor)))
+    config = _make_config(is_at_home=True, actor_run_id='run-id', actor_id='actor-id')
+    cm = ChargingManagerImplementation(config, mock_client)
+
+    async with cm:
+        pricing = cm.get_pricing_info()
+        assert pricing.per_event_prices == {'search': Decimal(2)}
+        assert pricing.max_total_charge_usd == Decimal('inf')
+
+        with pytest.raises(ValueError, match='request_id'):
+            await cm.charge('search')
+        charge_mock.assert_not_called()
+
+        result = await cm.charge('search', request_id='some-request-id')
+        assert result.charged_count == 1
+        charge_mock.assert_awaited_once_with('search', count=1, idempotency_key=None, request_id='some-request-id')

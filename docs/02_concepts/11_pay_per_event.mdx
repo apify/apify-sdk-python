@@ -9,6 +9,7 @@ import ConditionalActorChargeSource from '!!raw-loader!roa-loader!./code/11_cond
 import ChargeLimitCheckSource from '!!raw-loader!roa-loader!./code/11_charge_limit_check.py';
 import AdvancedChargingExample from '!!raw-loader!roa-loader!./code/11_advanced_charging.py';
 import ChargePerUnitSource from '!!raw-loader!roa-loader!./code/11_charge_per_unit.py';
+import MultiTenantChargeSource from '!!raw-loader!roa-loader!./code/11_multi_tenant_charge.py';
 import ApiLink from '@theme/ApiLink';
 import RunnableCodeBlock from '@site/src/components/RunnableCodeBlock';
 
@@ -37,6 +38,14 @@ If you can split your work into individual units, for example scraping one page 
 </RunnableCodeBlock>
 
 If you use the `count` parameter, always check the returned `charged_count`. It tells you how many events were charged, which may be less than what you requested.
+
+### Charge in multi-tenant Server Actors
+
+A multi-tenant [Server Actor](https://docs.apify.com/platform/actors/development/programming-interface/standby) run serves requests from many users. To charge the user who made a request rather than the account that started the run, pass the request's `X-Actor-Request-ID` header value as `request_id`. Multi-tenant runs reject charges without it.
+
+<RunnableCodeBlock className="language-python" language="python">
+    {MultiTenantChargeSource}
+</RunnableCodeBlock>
 
 ### Retry charges safely
 
