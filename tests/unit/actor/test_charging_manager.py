@@ -857,3 +857,14 @@ async def test_persist_state_event_persists_counts(mock_client: MagicMock) -> No
             assert await key_value_store.get_value(CHARGING_STATE_KEY) == {
                 'chargedEventCounts': {'search': 2, 'scrape': 2}
             }
+
+
+async def test_malformed_persisted_state_is_reported(mock_client: MagicMock) -> None:
+    """A malformed charging state record in the default key-value store fails the start with a clear error."""
+    key_value_store = await KeyValueStore.open()
+    await key_value_store.set_value(CHARGING_STATE_KEY, {'chargedEventCounts': 'not-a-mapping'})
+
+    cm = ChargingManagerImplementation(_make_platform_ppe_config(), mock_client)
+    with pytest.raises(ValueError, match='is malformed'):
+        async with cm:
+            pass

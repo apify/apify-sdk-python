@@ -10,7 +10,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from cachetools import TTLCache
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
 from apify_client._models import (
@@ -219,8 +219,8 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
+        self._charging_state: RecoverableState[ChargingState] | None = None
         """The charged event counts, persisted to the default key-value store in a pay-per-event run on the platform."""
-        """The charged event counts, persisted to the default key-value store on the platform."""
 
         self._pricing_info: dict[str, PricingInfoItem] = {}
         self._tier_priced_events: set[str] = set()
