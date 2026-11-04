@@ -316,11 +316,13 @@ class ChildRunRegistry:
             client: Client used for a name not started or looked up in this process, e.g. after a migration.
         """
         self._parent_aborting = True
-        await self._notify_capacity_available()
-
         records = await self._load()
-        # Names with a start in flight are not recorded yet, so their locks are awaited too.
-        await asyncio.gather(*(self._abort(name, client) for name in {*records, *self._name_locks}))
+        # Names with a start in flight are not recorded yet, so their locks are awaited too. Waking the waiting starts
+        # runs alongside the aborts, since a waiting start can hold the condition through a slow fetch of runs.
+        await asyncio.gather(
+            self._notify_capacity_available(),
+            *(self._abort(name, client) for name in {*records, *self._name_locks}),
+        )
 
     async def _abort(self, name: str, default_client: ApifyClientAsync) -> None:
         async with self._name_locks.setdefault(name, asyncio.Lock()):

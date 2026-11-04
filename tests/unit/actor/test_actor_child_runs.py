@@ -1556,6 +1556,49 @@ async def test_parent_abort_stops_starts_waiting_under_the_limit() -> None:
     assert 'second-run' not in statuses
 
 
+async def test_parent_abort_does_not_wait_for_a_start_counting_under_the_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Aborting the parent aborts its child runs while a waiting start is still fetching runs to count them."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
+    fetch_released = asyncio.Event()
+
+    async def get() -> Run:
+        await fetch_released.wait()
+        return make_run('first-run', 'RUNNING')
+
+    run_client = Mock()
+    run_client.get = AsyncMock(side_effect=get)
+    run_client.abort = AsyncMock(return_value=make_run('first-run', 'ABORTING'))
+    client = Mock()
+    client.run.return_value = run_client
+
+    async def start(name: str, *, abort_with_parent: bool) -> tuple[Run, bool]:
+        return await registry.find_or_start(
+            name,
+            actor_id='some-actor',
+            run_input=None,
+            client=client,
+            start_run=AsyncMock(return_value=make_run(f'{name}-run', 'READY')),
+            resurrect_run=AsyncMock(),
+            abort_with_parent=abort_with_parent,
+        )
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        registry.set_max_concurrent_runs(1)
+        await start('first', abort_with_parent=True)
+        second_task = asyncio.create_task(start('second', abort_with_parent=False))
+        await assert_waiting(second_task)
+
+        abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
+        await asyncio.sleep(0.05)
+        run_client.abort.assert_awaited_once_with(gracefully=True)
+
+        fetch_released.set()
+        await asyncio.wait_for(abort_task, timeout=1)
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+
 async def test_abort_with_parent_start_freed_after_parent_abort_does_not_start() -> None:
     """A waiting `abort_with_parent` start raises when capacity frees up after the parent began aborting."""
     statuses: dict[str, str] = {}
