@@ -13,22 +13,14 @@ instructions: |
 references:
   - repository: apify/apify-client-python
     instructions: |
-      The API client this SDK calls. Resource clients live under `src/apify_client/_resource_clients/`,
-      the request pipeline in `src/apify_client/http_clients/`, exceptions in `src/apify_client/errors.py`
-      and the response models in `src/apify_client/_models.py`. Compare every client call the pull
-      request makes or changes with the method it calls: parameters, defaults, return shape, exceptions.
+      The API client this SDK calls. Compare every client call the pull request makes or changes with
+      the method it calls: parameters, defaults, return shape, exceptions.
   - repository: apify/crawlee-python
     instructions: |
-      The framework this SDK extends. `Configuration` is in `src/crawlee/configuration.py`, the storage
-      client interfaces in `src/crawlee/storage_clients/_base/` with their models in
-      `src/crawlee/storage_clients/models.py`, storages in `src/crawlee/storages/`, events in
-      `src/crawlee/events/`, request loaders in `src/crawlee/request_loaders/`, the service locator in
-      `src/crawlee/_service_locator.py`. Compare what the pull request implements or overrides with the
-      interface or base class it builds on.
+      The framework this SDK extends: configuration, storage clients and their models, storages, events,
+      request loaders, the service locator. Compare what the pull request implements or overrides with
+      the interface or base class it builds on.
   - repository: apify/apify-sdk-js
     instructions: |
-      The JS SDK this one mirrors: `src/actor.ts`, `src/configuration.ts`, `src/charging.ts`,
-      `src/child_run_tracker.ts`, `src/proxy_configuration.ts`, `src/platform_event_manager.ts` and the
-      storage backends `src/apify_*_backend.ts` and `src/smart_apify_storage_backend.ts`. Compare the
-      changed Python behaviour with its JS counterpart: parameters and defaults, what it returns, and how
-      it handles errors.
+      The JS SDK this one mirrors. Compare the changed Python behaviour with its JS counterpart:
+      parameters and defaults, what it returns, and how it handles errors.
