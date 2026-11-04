@@ -142,7 +142,7 @@ class ChildRunRegistry:
         self._max_concurrent_runs: int | None = None
         """How many recorded runs may be active at once, or `None` for no limit."""
         self._capacity_available = asyncio.Condition()
-        """Serializes counting the active runs, and wakes the waiting starts when a run may have finished."""
+        """Serializes counting the active runs, and wakes the waiting starts when capacity may be available."""
         self._starting_names: set[str] = set()
         """Names with a start or resurrection in flight, counted toward the limit but not from the records yet."""
         self._run_status_cache: dict[str, _CachedRunStatus] = {}
