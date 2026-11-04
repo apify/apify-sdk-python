@@ -194,13 +194,13 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2(webpack@5.112.2(@swc/core@1.16.21)(@swc/html@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.32)(svgo@3.3.5))
       react:
-        specifier: ^19.3.0
+        specifier: ^19.3.1
         version: 19.3.1
       react-dom:
-        specifier: ^19.3.0
+        specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
       unist-util-visit:
-        specifier: ^5.1.0
+        specifier: ^5.2.0
         version: 5.2.0
     devDependencies:
       '@apify/oxlint-config':
@@ -228,10 +228,10 @@ importers:
         specifier: ^0.75.0
         version: 0.75.0
       oxlint:
-        specifier: ^1.87.0
+        specifier: ^1.90.0
         version: 1.90.0(oxlint-tsgolint@7.0.2005)
       oxlint-tsgolint:
-        specifier: ^7.0.2004
+        specifier: ^7.0.2005
         version: 7.0.2005
       rimraf:
         specifier: ^6.1.3
@@ -430,14 +430,14 @@ packages:
   '@apify/tsconfig@0.2.0':
     resolution: {integrity: sha512-0i6rF+hgXw6mQXhENYNTnP+Yo4WY38d698k/pk4rIpdCx/sSuEprR2N5WdtMaN628vCB+aZjff0jPN2EnQYtjQ==}
 
-  '@apify/ui-icons@1.57.0':
-    resolution: {integrity: sha512-wUVeCUzHohvYT2rEHIvmL7ROxkyJLdnBum9m9vC6xNTNxwBu5MlOdgbdz4L2m7r0vLjDhmLSgXZna4bvyCxjAw==}
+  '@apify/ui-icons@1.59.0':
+    resolution: {integrity: sha512-v687njf5HctXX6O5D+Zl4tmnUU9w5njRVANmZ4hToMnmR7nsNwHL41ViQuWX4JLw9Ap6KOTWeck7jykxVPNJyw==}
     peerDependencies:
       react: 17.x || 18.x || 19.x
       react-dom: 17.x || 18.x || 19.x
 
-  '@apify/ui-library@1.171.1':
-    resolution: {integrity: sha512-aR7O4Z5IIQIQdgHyCiaOvMFew+nAY5dVWr0G6fTaONsX25ICU1tToV70TkZXR4a+dhEMs8Oy4+uVEf+WWdM/hw==}
+  '@apify/ui-library@1.172.1':
+    resolution: {integrity: sha512-fUoYXElG6egnF6nVOyJFAyxfRz1sxZj/qbmN6cOPuqV2wMgQb9VgXQFRRE8IpuiZ1fBnxkA4YtOL00ByuWZyAQ==}
     peerDependencies:
       react: 17.x || 18.x || 19.x
       react-dom: 17.x || 18.x || 19.x
@@ -3624,8 +3624,8 @@ packages:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
 
-  baseline-browser-mapping@2.11.34:
-    resolution: {integrity: sha512-Aqr8mA1kIvyJ3UY5YAY7ib8LSo1DmDMbMnVqGPtsKW1LxaFQFwn9Eb3yvq2fUKJsRvaXjnAV7R5osqETapzNiA==}
+  baseline-browser-mapping@2.11.35:
+    resolution: {integrity: sha512-GNk8KX52CHqeNKGk8+7tZnQab/2k1t/BgrUHPKNdijzpEhF1saPQZHVKb6m5loSAxB39gyrTYw34Qf9CQ3u1qQ==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -4271,8 +4271,8 @@ packages:
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
-  electron-to-chromium@1.5.472:
-    resolution: {integrity: sha512-s4+nfT29b0FKpVKoaIxl2pWsoNcn7A/nMPSrxayw4T3BsmPeV2lF9Y06BsAQeMGhCTQ4nYJ5XST7jkqe4ZEqFw==}
+  electron-to-chromium@1.5.473:
+    resolution: {integrity: sha512-9njcRQK+6FOXNAWw5g+h2RPiyazqo5RFMVJ39ZMHjDHUNnnFlhnOGV7O0WmJetODDx19ES5p+FLi+KCVFQGugw==}
 
   emoji-regex-xs@1.0.0:
     resolution: {integrity: sha512-LRlerrMYoIDrT6jgpeZ2YYl/L8EulRTt5hQcYjy5AInh7HWXKimpqx68aknBFpGL2+/IcogTcaydJEgaTmOpDg==}
@@ -4814,8 +4814,8 @@ packages:
     resolution: {integrity: sha512-7mz/721AbnJwIVbnaSv1Cz3Am0ZLT/UBwkC92VlxhXv/k/BBQfM2fXElQNC27BVGr0uwUpplYPQM9LnaBMR5NQ==}
     engines: {node: '>=8.0.0'}
 
-  http2-wrapper@2.2.2:
-    resolution: {integrity: sha512-rwd+LcfKZAo4u1B3FABGKqOiBTnyunawZkaNqqZfOCK3JAaQVZdBYtm61a84X46uf+AeCIcaOLM05E4PgHtr+w==}
+  http2-wrapper@2.2.4:
+    resolution: {integrity: sha512-y5jx4isTOKEC5Hu1lswc+IxytGlqDmwF1qJtk9qIS8l1KVxuHO5g522UfmErt1H2pMcH/xq+KiFQUB8aVWIABA==}
     engines: {node: '>=10.19.0'}
 
   human-signals@2.1.0:
@@ -6889,12 +6889,12 @@ packages:
     resolution: {integrity: sha512-0Ju4+6A8iOnpL/Thra7dZsSlOHYAHIeMxfhWQRI1/VLcT3WDBZKKtQt/QkBOsiIN9ZpuvHE6cGZ0x4glCMmfiA==}
     engines: {node: '>=12'}
 
-  semver@6.3.1:
-    resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
+  semver@6.3.2:
+    resolution: {integrity: sha512-GYrCADwpu6yV5OAvchkQ27Z5wwMxWAEMg5NNWjyHh/5DboFFqbdbvYNIvZouQpxXyeMPoTOh0vdPYKlf0ZswdQ==}
     hasBin: true
 
-  semver@7.8.5:
-    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+  semver@7.8.6:
+    resolution: {integrity: sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -7915,7 +7915,7 @@ snapshots:
     dependencies:
       '@algolia/autocomplete-js': 1.19.12(@algolia/client-search@5.61.0)(algoliasearch@4.27.0)(search-insights@2.17.3)
       '@algolia/autocomplete-theme-classic': 1.19.12
-      '@apify/ui-library': 1.171.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)
+      '@apify/ui-library': 1.172.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)
       algoliasearch: 4.27.0
       html-entities: 2.6.0
       react: 19.3.1
@@ -7936,8 +7936,8 @@ snapshots:
   '@apify/docs-theme@1.0.278(0d777aef82af48929203c7e28f160178)':
     dependencies:
       '@apify/docs-search-modal': 1.4.0(@algolia/client-search@5.61.0)(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1)(search-insights@2.17.3)(supports-color@8.1.1)
-      '@apify/ui-icons': 1.57.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@apify/ui-library': 1.171.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)
+      '@apify/ui-icons': 1.59.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@apify/ui-library': 1.172.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)
       '@docusaurus/theme-common': 3.10.2(5038ab49ff69585a5ea661f2654e1583)
       '@stackql/docusaurus-plugin-hubspot': 1.1.0
       algoliasearch: 5.61.0
@@ -8012,15 +8012,15 @@ snapshots:
 
   '@apify/tsconfig@0.2.0': {}
 
-  '@apify/ui-icons@1.57.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@apify/ui-icons@1.59.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       clsx: 2.1.1
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@apify/ui-library@1.171.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)':
+  '@apify/ui-library@1.172.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)':
     dependencies:
-      '@apify/ui-icons': 1.57.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@apify/ui-icons': 1.59.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@floating-ui/react': 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@floating-ui/react-dom': 2.1.9(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@radix-ui/react-checkbox': 1.4.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -8054,9 +8054,9 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@apify/ui-library@1.171.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)':
+  '@apify/ui-library@1.172.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)':
     dependencies:
-      '@apify/ui-icons': 1.57.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@apify/ui-icons': 1.59.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@floating-ui/react': 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@floating-ui/react-dom': 2.1.9(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@radix-ui/react-checkbox': 1.4.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -8114,7 +8114,7 @@ snapshots:
       debug: 4.4.3(supports-color@8.1.1)
       gensync: 1.0.0-beta.2
       json5: 2.2.3
-      semver: 6.3.1
+      semver: 6.3.2
     transitivePeerDependencies:
       - supports-color
 
@@ -8136,7 +8136,7 @@ snapshots:
       '@babel/helper-validator-option': 7.29.7
       browserslist: 4.29.5
       lru-cache: 5.1.1
-      semver: 6.3.1
+      semver: 6.3.2
 
   '@babel/helper-create-class-features-plugin@7.29.12(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)':
     dependencies:
@@ -8147,7 +8147,7 @@ snapshots:
       '@babel/helper-replace-supers': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       '@babel/helper-skip-transparent-expression-wrappers': 7.29.7(supports-color@8.1.1)
       '@babel/traverse': 7.29.12(supports-color@8.1.1)
-      semver: 6.3.1
+      semver: 6.3.2
     transitivePeerDependencies:
       - supports-color
 
@@ -8156,7 +8156,7 @@ snapshots:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/helper-annotate-as-pure': 7.29.7
       regexpu-core: 6.5.3
-      semver: 6.3.1
+      semver: 6.3.2
 
   '@babel/helper-define-polyfill-provider@0.6.8(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)':
     dependencies:
@@ -8657,7 +8657,7 @@ snapshots:
       babel-plugin-polyfill-corejs2: 0.4.17(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       babel-plugin-polyfill-corejs3: 0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       babel-plugin-polyfill-regenerator: 0.6.8(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      semver: 6.3.1
+      semver: 6.3.2
     transitivePeerDependencies:
       - supports-color
 
@@ -8796,7 +8796,7 @@ snapshots:
       babel-plugin-polyfill-corejs3: 0.14.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       babel-plugin-polyfill-regenerator: 0.6.8(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       core-js-compat: 3.51.0
-      semver: 6.3.1
+      semver: 6.3.2
     transitivePeerDependencies:
       - supports-color
 
@@ -9691,7 +9691,7 @@ snapshots:
       react-router: 5.3.4(react@19.3.1)
       react-router-config: 5.1.1(react-router@5.3.4(react@19.3.1))(react@19.3.1)
       react-router-dom: 5.3.4(react@19.3.1)
-      semver: 7.8.5
+      semver: 7.8.6
       serve-handler: 6.1.7
       tinypool: 1.1.1
       tslib: 2.9.1
@@ -9743,7 +9743,7 @@ snapshots:
       '@swc/html': 1.16.21
       browserslist: 4.29.5
       lightningcss: 1.33.0
-      semver: 7.8.5
+      semver: 7.8.6
       swc-loader: 0.2.7(@swc/core@1.16.21)(webpack@5.112.2(@swc/core@1.16.21)(@swc/html@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.32)(svgo@3.3.5))
       tslib: 2.9.1
       webpack: 5.112.2(@swc/core@1.16.21)(@swc/html@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.32)(svgo@3.3.5)
@@ -12287,7 +12287,7 @@ snapshots:
       '@babel/compat-data': 7.29.7
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/helper-define-polyfill-provider': 0.6.8(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      semver: 6.3.1
+      semver: 6.3.2
     transitivePeerDependencies:
       - supports-color
 
@@ -12331,7 +12331,7 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  baseline-browser-mapping@2.11.34: {}
+  baseline-browser-mapping@2.11.35: {}
 
   batch@0.6.1: {}
 
@@ -12406,9 +12406,9 @@ snapshots:
 
   browserslist@4.29.5:
     dependencies:
-      baseline-browser-mapping: 2.11.34
+      baseline-browser-mapping: 2.11.35
       caniuse-lite: 1.0.30001820
-      electron-to-chromium: 1.5.472
+      electron-to-chromium: 1.5.473
       node-releases: 2.0.63
       update-browserslist-db: 1.3.4(browserslist@4.29.5)
 
@@ -12733,7 +12733,7 @@ snapshots:
       postcss-modules-scope: 3.2.1(postcss@8.5.32)
       postcss-modules-values: 4.0.0(postcss@8.5.32)
       postcss-value-parser: 4.2.0
-      semver: 7.8.5
+      semver: 7.8.6
     optionalDependencies:
       '@rspack/core': 1.7.12
       webpack: 5.112.2(@swc/core@1.16.21)(@swc/html@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.32)(svgo@3.3.5)
@@ -13020,7 +13020,7 @@ snapshots:
 
   ee-first@1.1.1: {}
 
-  electron-to-chromium@1.5.472: {}
+  electron-to-chromium@1.5.473: {}
 
   emoji-regex-xs@1.0.0: {}
 
@@ -13386,7 +13386,7 @@ snapshots:
       decompress-response: 6.0.0
       form-data-encoder: 2.1.4
       get-stream: 6.0.1
-      http2-wrapper: 2.2.2
+      http2-wrapper: 2.2.4
       lowercase-keys: 3.0.0
       p-cancelable: 3.0.0
       responselike: 3.0.0
@@ -13750,7 +13750,7 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  http2-wrapper@2.2.2:
+  http2-wrapper@2.2.4:
     dependencies:
       quick-lru: 5.1.1
       resolve-alpn: 1.2.1
@@ -14986,7 +14986,7 @@ snapshots:
       got: 12.6.1
       registry-auth-token: 5.1.1
       registry-url: 6.0.1
-      semver: 7.8.5
+      semver: 7.8.6
 
   param-case@3.0.4:
     dependencies:
@@ -15319,7 +15319,7 @@ snapshots:
       cosmiconfig: 8.3.6(typescript@6.0.3)
       jiti: 1.21.7
       postcss: 8.5.32
-      semver: 7.8.5
+      semver: 7.8.6
       webpack: 5.112.2(@swc/core@1.16.21)(@swc/html@1.16.21)(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(csso@5.0.5)(html-minifier-terser@7.2.0)(lightningcss@1.33.0)(postcss@8.5.32)(svgo@3.3.5)
     transitivePeerDependencies:
       - typescript
@@ -16269,11 +16269,11 @@ snapshots:
 
   semver-diff@4.0.0:
     dependencies:
-      semver: 7.8.5
+      semver: 7.8.6
 
-  semver@6.3.1: {}
+  semver@6.3.2: {}
 
-  semver@7.8.5: {}
+  semver@7.8.6: {}
 
   send@0.19.2(supports-color@8.1.1):
     dependencies:
@@ -16799,7 +16799,7 @@ snapshots:
       is-yarn-global: 0.4.1
       latest-version: 7.0.0
       pupa: 3.3.0
-      semver: 7.8.5
+      semver: 7.8.6
       semver-diff: 4.0.0
       xdg-basedir: 5.1.0
 
