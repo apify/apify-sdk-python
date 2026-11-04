@@ -597,6 +597,7 @@ class _ActorType:
         *,
         token: str | None = None,
         api_url: str | None = None,
+        api_public_url: str | None = None,
         max_retries: int | None = None,
         min_delay_between_retries: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -604,8 +605,8 @@ class _ActorType:
         """Return a new instance of the Apify API client.
 
         The `ApifyClientAsync` class is provided by the [apify-client](https://github.com/apify/apify-client-python)
-        package, and it is automatically configured using the `APIFY_API_BASE_URL` and `APIFY_TOKEN` environment
-        variables.
+        package, and it is automatically configured using the `APIFY_API_BASE_URL`, `APIFY_API_PUBLIC_BASE_URL` and
+        `APIFY_TOKEN` environment variables.
 
         You can override the token via the available options. That's useful if you want to use the client
         as a different Apify user than the SDK internals are using.
@@ -613,6 +614,9 @@ class _ActorType:
         Args:
             token: The Apify API token.
             api_url: The URL of the Apify API server to which to connect to. Defaults to https://api.apify.com.
+            api_public_url: The globally accessible URL of the Apify API server, used to build public URLs of
+                resources. Defaults to the `APIFY_API_PUBLIC_BASE_URL` environment variable, or to
+                https://api.apify.com when it is not set.
             max_retries: How many times to retry a failed request at most.
             min_delay_between_retries: How long will the client wait between retrying requests
                 (increases exponentially from this value).
@@ -626,6 +630,7 @@ class _ActorType:
         client_kwargs: dict[str, Any] = {
             'token': token or self.configuration.token,
             'api_url': api_url or self.configuration.api_base_url,
+            'api_public_url': api_public_url or self.configuration.api_public_base_url,
             'compression': 'brotli',
         }
         if max_retries is not None:
