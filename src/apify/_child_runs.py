@@ -6,12 +6,13 @@ import json
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 from weakref import WeakValueDictionary
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 
+from apify_client._literals import ActorJobStatus
 from apify_client.errors import NotFoundError
 
 if TYPE_CHECKING:
@@ -40,6 +41,9 @@ _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
 _ACTIVE_STATUSES = frozenset({'READY', 'RUNNING', 'ABORTING', 'TIMING-OUT'})
 """Statuses of a child run that count toward the concurrency limit."""
 
+ChildRunStatus = ActorJobStatus | Literal['LOST']
+"""Status of a child run, or `LOST` once the platform no longer returned it."""
+
 _STATUS_MAX_AGE_SECS = 10
 """How long an observed active status counts toward the concurrency limit before the run is fetched again."""
 
@@ -58,7 +62,7 @@ class ChildRunSnapshot(BaseModel):
     run_id: str
     """ID of the run."""
 
-    status: str
+    status: ChildRunStatus
     """Last status of the run observed by this Actor run, or `LOST` once the platform no longer returned it."""
 
     started_at: datetime
@@ -81,7 +85,7 @@ class ChildRunRecord(ChildRunSnapshot):
 class _CachedRunStatus(NamedTuple):
     """Status of a child run as this Actor run last saw it, used to count the run toward the concurrency limit."""
 
-    status: str
+    status: ChildRunStatus
     """Status of the run, or `LOST` once the platform no longer returned it."""
 
     cached_at: float
