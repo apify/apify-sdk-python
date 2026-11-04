@@ -1,0 +1,34 @@
+# Cross-repository references for the apify-factory review (apify/ai-developer, `review-references`).
+version: 1
+
+instructions: |
+  This repository is the Apify SDK for Python, the library for building Actors in Python. It is built
+  on the Python API client and on Crawlee for Python, and it mirrors the Apify SDK for JavaScript. For
+  every behaviour the pull request adds or changes, check three things: that it uses the API client's
+  methods, models and exceptions as they are (the SDK defines none of its own), that it fits the
+  Crawlee interface it builds on, and that it matches what the JS SDK does for the same operation
+  (ignore differences caused by different language idioms and style). Back every finding with the
+  reference file and line; the review links them to the commit it read.
+
+references:
+  - repository: apify/apify-client-python
+    instructions: |
+      The API client this SDK calls. Resource clients live under `src/apify_client/_resource_clients/`,
+      the request pipeline in `src/apify_client/http_clients/`, exceptions in `src/apify_client/errors.py`
+      and the response models in `src/apify_client/_models.py`. Compare every client call the pull
+      request makes or changes with the method it calls: parameters, defaults, return shape, exceptions.
+  - repository: apify/crawlee-python
+    instructions: |
+      The framework this SDK extends. `Configuration` is in `src/crawlee/configuration.py`, the storage
+      client interfaces in `src/crawlee/storage_clients/_base/` with their models in
+      `src/crawlee/storage_clients/models.py`, storages in `src/crawlee/storages/`, events in
+      `src/crawlee/events/`, request loaders in `src/crawlee/request_loaders/`, the service locator in
+      `src/crawlee/_service_locator.py`. Compare what the pull request implements or overrides with the
+      interface or base class it builds on.
+  - repository: apify/apify-sdk-js
+    instructions: |
+      The JS SDK this one mirrors: `src/actor.ts`, `src/configuration.ts`, `src/charging.ts`,
+      `src/child_run_tracker.ts`, `src/proxy_configuration.ts`, `src/platform_event_manager.ts` and the
+      storage backends `src/apify_*_backend.ts` and `src/smart_apify_storage_backend.ts`. Compare the
+      changed Python behaviour with its JS counterpart: parameters and defaults, what it returns, and how
+      it handles errors.
