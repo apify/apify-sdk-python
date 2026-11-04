@@ -303,8 +303,7 @@ class ChildRunRegistry:
         self._cache_run_status(name, run)
         if record.status != run.status:
             await self._save(name, record.model_copy(update={'status': run.status}))
-        async with self._capacity_available:
-            self._capacity_available.notify_all()
+        await self._notify_capacity_available()
 
     async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
         """Gracefully abort every recorded run marked `abort_with_parent`, and refuse to start any more of them.
@@ -317,8 +316,7 @@ class ChildRunRegistry:
             client: Client used for a name not started or looked up in this process, e.g. after a migration.
         """
         self._parent_aborting = True
-        async with self._capacity_available:
-            self._capacity_available.notify_all()
+        await self._notify_capacity_available()
 
         records = await self._load()
         # Names with a start in flight are not recorded yet, so their locks are awaited too.
@@ -393,8 +391,7 @@ class ChildRunRegistry:
             yield
         finally:
             self._starting_names.discard(name)
-            async with self._capacity_available:
-                self._capacity_available.notify_all()
+            await self._notify_capacity_available()
 
     async def _count_active(self, client: ApifyClientAsync, *, exclude: str) -> int:
         """Count active recorded runs and starts in flight under other names, refetching stale active statuses."""
@@ -437,6 +434,10 @@ class ChildRunRegistry:
             if cached_run_status is not None and cached_run_status.status in _ACTIVE_STATUSES:
                 active += 1
         return active + starting
+
+    async def _notify_capacity_available(self) -> None:
+        async with self._capacity_available:
+            self._capacity_available.notify_all()
 
     def _cache_run_status(self, name: str, run: Run) -> None:
         self._run_status_cache[name] = _CachedRunStatus(run.status, asyncio.get_running_loop().time())
