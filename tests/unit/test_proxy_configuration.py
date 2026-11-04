@@ -438,7 +438,25 @@ async def test_initialize_with_valid_configuration(
     assert call_mock.call_count == 1
 
 
-async def test_initialize_without_password_or_token() -> None:
+async def test_initialize_without_password_or_token(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, httpserver: HTTPServer
+) -> None:
+    """Locally, a missing proxy password logs a warning, skips the access check and reports no usable proxy."""
+    caplog.set_level('WARNING')
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
+    monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
+
+    proxy_configuration = ProxyConfiguration()
+
+    assert await proxy_configuration.initialize() is False
+    assert any('No proxy password or token detected, running without proxy.' in msg for msg in caplog.messages)
+    assert len(httpserver.log) == 0
+
+
+async def test_initialize_without_password_or_token_at_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On the platform, a missing proxy password still raises."""
+    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME.value, '1')
+
     proxy_configuration = ProxyConfiguration()
 
     with pytest.raises(ValueError, match=r'Apify Proxy password must be provided'):
