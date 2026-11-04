@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - Persist the charged event counts across container restarts ([#1222](https://github.com/apify/apify-sdk-python/pull/1222)) ([aab5cf8](https://github.com/apify/apify-sdk-python/commit/aab5cf81ac1cca5fe20519d3d25720833f2784fc)) by [@Pijukatel](https://github.com/Pijukatel), closes [#1209](https://github.com/apify/apify-sdk-python/issues/1209)
 - Retry a locked shared RQ request that is not found yet ([#1207](https://github.com/apify/apify-sdk-python/pull/1207)) ([17e2845](https://github.com/apify/apify-sdk-python/commit/17e284547501923504c7886770d854df35b1177d)) by [@vdusek](https://github.com/vdusek)
 - Emit `Event.EXIT` on Actor exit ([#1215](https://github.com/apify/apify-sdk-python/pull/1215)) ([46824ef](https://github.com/apify/apify-sdk-python/commit/46824efd9c807933b00b322ffb826c6db739010e)) by [@vdusek](https://github.com/vdusek), closes [#1214](https://github.com/apify/apify-sdk-python/issues/1214)
+- Use the configured public API URL in `Actor.new_client` ([#1229](https://github.com/apify/apify-sdk-python/pull/1229)) ([fe2f960](https://github.com/apify/apify-sdk-python/commit/fe2f9606118693d908ecbc514d99e0c7e0f4e6ff)) by [@vdusek](https://github.com/vdusek)
+- Match URLs case-insensitively in `ApifyRequestList` remote sources ([#1228](https://github.com/apify/apify-sdk-python/pull/1228)) ([793991b](https://github.com/apify/apify-sdk-python/commit/793991bf613f0df713125e90697dd171954f27e6)) by [@vdusek](https://github.com/vdusek)
 
 
 <!-- git-cliff-unreleased-end -->
