@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import TYPE_CHECKING
 
+from ..._utils import poll_until_condition
 from .actor_source.spider_reboot import CHAIN_LENGTH, REBOOT_LOG_MARKER
 from .conftest import get_scrapy_source_files
 
@@ -35,7 +36,11 @@ async def test_reboot_spider(
 
     # Each page of the chain was crawled once, the one in flight during the reboot included.
     expected_urls = [f'http://localhost:8080/delayed/{n}' for n in range(1, CHAIN_LENGTH + 1)]
-    items = await actor.last_run().dataset().list_items()
+    items = await poll_until_condition(
+        actor.last_run().dataset().list_items,
+        lambda page: len(page.items) >= len(expected_urls),
+        timeout=30,
+    )
     assert sorted(item['url'] for item in items.items) == expected_urls
 
     assert run_result.default_request_queue_id is not None

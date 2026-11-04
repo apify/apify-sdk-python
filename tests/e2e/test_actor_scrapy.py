@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .._utils import poll_until_condition
+
 if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
@@ -40,7 +42,11 @@ async def test_actor_scrapy_title_spider(
 
     assert run_result.status == 'SUCCEEDED'
 
-    items = await actor.last_run().dataset().list_items()
+    items = await poll_until_condition(
+        actor.last_run().dataset().list_items,
+        lambda page: len(page.items) > 1 and len(page.items) >= page.total,
+        timeout=30,
+    )
 
     # The start page and the pages it links to (`DEPTH_LIMIT` is 1, `CLOSESPIDER_PAGECOUNT` is 10), each scraped once.
     urls = [item['url'] for item in items.items]
