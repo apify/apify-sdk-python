@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Read local Actor input from the storage directory with non-filesystem storage clients ([#1197](https://github.com/apify/apify-sdk-python/pull/1197)) ([983bee9](https://github.com/apify/apify-sdk-python/commit/983bee97ae2d45d483992233f03fb9201d9fdb41)) by [@Pijukatel](https://github.com/Pijukatel), closes [#682](https://github.com/apify/apify-sdk-python/issues/682)
 - Persist the charged event counts across container restarts ([#1222](https://github.com/apify/apify-sdk-python/pull/1222)) ([aab5cf8](https://github.com/apify/apify-sdk-python/commit/aab5cf81ac1cca5fe20519d3d25720833f2784fc)) by [@Pijukatel](https://github.com/Pijukatel), closes [#1209](https://github.com/apify/apify-sdk-python/issues/1209)
 - Retry a locked shared RQ request that is not found yet ([#1207](https://github.com/apify/apify-sdk-python/pull/1207)) ([17e2845](https://github.com/apify/apify-sdk-python/commit/17e284547501923504c7886770d854df35b1177d)) by [@vdusek](https://github.com/vdusek)
+- Emit `Event.EXIT` on Actor exit ([#1215](https://github.com/apify/apify-sdk-python/pull/1215)) ([46824ef](https://github.com/apify/apify-sdk-python/commit/46824efd9c807933b00b322ffb826c6db739010e)) by [@vdusek](https://github.com/vdusek), closes [#1214](https://github.com/apify/apify-sdk-python/issues/1214)
 
 
 <!-- git-cliff-unreleased-end -->
