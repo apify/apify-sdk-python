@@ -613,10 +613,10 @@ class _ActorType:
 
         Args:
             token: The Apify API token.
-            api_url: The URL of the Apify API server to which to connect to. Defaults to https://api.apify.com.
+            api_url: The URL of the Apify API server to which to connect to. Defaults to the `APIFY_API_BASE_URL`
+                environment variable.
             api_public_url: The globally accessible URL of the Apify API server, used to build public URLs of resources.
-                Defaults to the `APIFY_API_PUBLIC_BASE_URL` environment variable, or to https://api.apify.com when it
-                is not set.
+                Defaults to the `APIFY_API_PUBLIC_BASE_URL` environment variable.
             max_retries: How many times to retry a failed request at most.
             min_delay_between_retries: How long will the client wait between retrying requests
                 (increases exponentially from this value).
