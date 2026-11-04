@@ -9,14 +9,15 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 from weakref import WeakValueDictionary
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError
 from pydantic.alias_generators import to_camel
 
 from apify_client._literals import ActorJobStatus
 from apify_client.errors import NotFoundError
+from crawlee._utils.recoverable_state import RecoverableState
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
 
     from apify_client import ApifyClientAsync
     from apify_client._models import Run
@@ -118,7 +119,10 @@ async def _get_recorded_run(run_client: RunClientAsync) -> Run | None:
         await asyncio.sleep(_NOT_FOUND_RETRY_INTERVAL_SECS)
 
 
-_records_adapter = TypeAdapter(dict[str, ChildRunRecord])
+class _ChildRunRecords(RootModel[dict[str, ChildRunRecord]]):
+    """Records of the child runs by name, in the shape persisted under `CHILD_RUNS_KEY`."""
+
+    root: dict[str, ChildRunRecord] = Field(default_factory=dict)
 
 
 class ChildRunRegistry:
@@ -128,11 +132,15 @@ class ChildRunRegistry:
     starting the child and that write can still orphan the child, since nothing but the platform knows about it.
     """
 
-    def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
-        self._open_key_value_store = open_key_value_store
-        """Opens the default key-value store, where the records are persisted."""
-        self._records: dict[str, ChildRunRecord] | None = None
-        """Records of the child runs by name, `None` until they are read from the key-value store."""
+    def __init__(self, open_key_value_store: Callable[[], Coroutine[Any, Any, KeyValueStore]]) -> None:
+        self._records = RecoverableState(
+            default_state=_ChildRunRecords(),
+            persist_state_key=CHILD_RUNS_KEY,
+            persistence_enabled='explicit_only',
+            persist_state_kvs_factory=open_key_value_store,
+            logger=logger,
+        )
+        """Records of the child runs by name, persisted in the default key-value store on every change."""
         self._lock = asyncio.Lock()
         """Guards loading the records and writing them back to the key-value store."""
         self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
@@ -277,7 +285,7 @@ class ChildRunRegistry:
         """
         return {
             name: self._clients.get(name, default_client).run(record.run_id)
-            for name, record in (self._records or {}).items()
+            for name, record in (self._records.current_value.root if self._records.is_initialized else {}).items()
         }
 
     async def update(self, name: str, run: Run) -> None:
@@ -436,25 +444,20 @@ class ChildRunRegistry:
     async def load(self) -> dict[str, ChildRunRecord]:
         """Read the records from the default key-value store, replacing any read before."""
         async with self._lock:
-            key_value_store = await self._open_key_value_store()
-            stored = await key_value_store.get_value(CHILD_RUNS_KEY)
             try:
-                self._records = _records_adapter.validate_python(stored or {})
+                records = await self._records.initialize()
             except ValidationError as exc:
                 raise ValueError(
                     f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
                     'is malformed.'
                 ) from exc
-            return self._records
+            return records.root
 
     async def _load(self) -> dict[str, ChildRunRecord]:
-        return self._records if self._records is not None else await self.load()
+        return self._records.current_value.root if self._records.is_initialized else await self.load()
 
     async def _save(self, name: str, record: ChildRunRecord) -> None:
-        records = await self._load()
-        key_value_store = await self._open_key_value_store()
+        await self._load()
         async with self._lock:
-            records[name] = record
-            await key_value_store.set_value(
-                CHILD_RUNS_KEY, _records_adapter.dump_python(records, by_alias=True, mode='json')
-            )
+            self._records.current_value.root[name] = record
+            await self._records.persist_state()
