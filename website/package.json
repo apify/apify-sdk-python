@@ -45,9 +45,9 @@
         "markdownlint": "^0.42.0",
         "markdownlint-cli": "^0.50.0",
         "oxfmt": "^0.75.0",
-        "oxlint": "^1.90.0",
+        "oxlint": "^1.91.0",
         "oxlint-tsgolint": "^7.0.2005",
-        "rimraf": "^6.1.3",
+        "rimraf": "^6.1.4",
         "typescript": "^6.0.3"
     },
     "packageManager": "pnpm@12.16.1"
