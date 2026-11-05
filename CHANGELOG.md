@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 4.2.1 - **not yet released**
+## [4.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.1) (2026-11-05)
 
 ### 🐛 Bug Fixes
 
@@ -15,7 +14,6 @@ All notable changes to this project will be documented in this file.
 - Match URLs case-insensitively in `ApifyRequestList` remote sources ([#1228](https://github.com/apify/apify-sdk-python/pull/1228)) ([793991b](https://github.com/apify/apify-sdk-python/commit/793991bf613f0df713125e90697dd171954f27e6)) by [@vdusek](https://github.com/vdusek)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.0) (2026-10-30)
 
 ### 🚀 Features
