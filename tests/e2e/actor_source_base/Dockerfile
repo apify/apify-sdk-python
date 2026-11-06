@@ -3,7 +3,7 @@
 #   - runner:  Actor image with the virtual environment and the Actor source code
 
 # The test fixture passes the Python version of the test run as a build argument
-ARG PYTHON_VERSION=3.14
+ARG PYTHON_VERSION=3.15
 ARG UV_VERSION=0.13
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
