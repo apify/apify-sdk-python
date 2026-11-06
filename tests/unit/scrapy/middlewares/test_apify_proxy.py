@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
 from urllib.parse import ParseResult, urlparse
 
 import pytest
@@ -8,7 +9,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 from scrapy.crawler import Crawler
 from scrapy.exceptions import NotConfigured
 
-from apify import ProxyConfiguration
+from apify import Actor, ProxyConfiguration
 from apify.scrapy.middlewares import ApifyHttpProxyMiddleware
 
 
@@ -131,6 +132,23 @@ async def test_process_request_with_proxy(
     else:
         with pytest.raises(expected_exception):
             await middleware.process_request(dummy_request)
+
+
+async def test_process_request_without_proxy_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    middleware: ApifyHttpProxyMiddleware,
+    dummy_request: Request,
+) -> None:
+    """Without a proxy configuration, requests go without a proxy and the creation is not retried."""
+    create_proxy_configuration = AsyncMock(return_value=None)
+    monkeypatch.setattr(Actor, 'create_proxy_configuration', create_proxy_configuration)
+
+    await middleware.process_request(dummy_request)
+    await middleware.process_request(Request('https://example.com/other'))
+
+    assert 'proxy' not in dummy_request.meta
+    assert b'Proxy-Authorization' not in dummy_request.headers
+    create_proxy_configuration.assert_awaited_once()
 
 
 @pytest.mark.parametrize(

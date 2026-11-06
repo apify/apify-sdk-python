@@ -185,7 +185,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         self._country_code = country_code
         self._subdivision_code = subdivision_code
 
-    async def initialize(self) -> None:
+    async def initialize(self) -> bool:
         """Check if using proxy, if so, check the access.
 
         Load the Apify Proxy password from API (only if not passed to constructor or through env var).
@@ -193,22 +193,40 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         Only called if Apify Proxy configuration is used. Also checks if country has access to Apify Proxy groups
         if the country code is provided.
 
+        When Apify Proxy is used and no password is available, this raises on the Apify platform. In a local run
+        it logs a warning instead, skips the access check and returns `False`; the instance should then not be used.
+
         You should use the Actor.create_proxy_configuration function to create a pre-initialized
         `ProxyConfiguration` instance instead of calling this manually.
+
+        Returns:
+            `True` if the proxy configuration is usable, `False` if the run should proceed without a proxy.
         """
         if self._uses_apify_proxy:
             if not self._password:
                 await self._maybe_fetch_password()
             if not self._password:
-                raise ValueError(
-                    'Apify Proxy password must be provided using the "password" constructor argument '
-                    f'or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable. '
-                    f'You can also provide your Apify token via the "${ApifyEnvVars.TOKEN}" environment variable, '
-                    f'so that the SDK can fetch the proxy password from Apify API, '
-                    f'when not provided through constructor or ${ApifyEnvVars.PROXY_PASSWORD}.'
+                if self._configuration.is_at_home:
+                    raise ValueError(
+                        'Apify Proxy password must be provided using the "password" constructor argument '
+                        f'or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable. '
+                        f'You can also provide your Apify token via the "${ApifyEnvVars.TOKEN}" environment '
+                        'variable, so that the SDK can fetch the proxy password from Apify API, '
+                        f'when not provided through constructor or ${ApifyEnvVars.PROXY_PASSWORD}.'
+                    )
+
+                logger.warning(
+                    'No Apify Proxy password available, running without proxy. To use Apify Proxy locally, '
+                    f'provide the "password" constructor argument or the "{ApifyEnvVars.PROXY_PASSWORD}" '
+                    f'environment variable. You can also provide your Apify token via the "{ApifyEnvVars.TOKEN}" '
+                    'environment variable, so that the SDK can fetch the proxy password from Apify API, '
+                    f'when {ApifyEnvVars.PROXY_PASSWORD} is not defined.'
                 )
+                return False
 
             await self._check_access()
+
+        return True
 
     async def new_proxy_info(
         self,

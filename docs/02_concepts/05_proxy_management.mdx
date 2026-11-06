@@ -20,7 +20,7 @@ The Apify SDK provides built-in proxy management through the <ApiLink to="class/
 
 ## Quick start
 
-If you want to use Apify Proxy locally, make sure that you run your Actors via the Apify CLI and that you are [logged in](https://docs.apify.com/cli/docs/installation#login-with-your-apify-account) with your Apify account in the CLI.
+If you want to use Apify Proxy locally, make sure that you run your Actors via the Apify CLI and that you are [logged in](https://docs.apify.com/cli/docs/installation#login-with-your-apify-account) with your Apify account in the CLI. In a local run without Apify Proxy credentials, <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration()`</ApiLink> logs a warning and returns `None`, and the Actor runs without a proxy.
 
 ### Using Apify Proxy
 

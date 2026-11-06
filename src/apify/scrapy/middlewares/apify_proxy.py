@@ -33,6 +33,7 @@ class ApifyHttpProxyMiddleware:
         """
         self._proxy_settings = proxy_settings
         self._proxy_cfg_internal: ProxyConfiguration | None = None
+        self._runs_without_proxy = False
 
     @classmethod
     def from_crawler(cls: type[ApifyHttpProxyMiddleware], crawler: Crawler) -> ApifyHttpProxyMiddleware:
@@ -66,6 +67,8 @@ class ApifyHttpProxyMiddleware:
     async def process_request(self, request: Request) -> None:
         """Process a Scrapy request by assigning a new proxy.
 
+        In a local run without Apify Proxy credentials, the request is left without a proxy.
+
         Args:
             request: Scrapy Request object.
 
@@ -73,6 +76,9 @@ class ApifyHttpProxyMiddleware:
             ValueError: If username and password are not provided in the proxy URL.
         """
         url = await self._get_new_proxy_url()
+
+        if url is None:
+            return
 
         if not (url.username and url.password):
             raise ValueError('Username and password must be provided in the proxy URL.')
@@ -103,14 +109,14 @@ class ApifyHttpProxyMiddleware:
                 f'reason="{exception}", skipping...'
             )
 
-    async def _get_new_proxy_url(self) -> ParseResult:
+    async def _get_new_proxy_url(self) -> ParseResult | None:
         """Get a new proxy URL.
 
-        Raises:
-            NotConfigured: If creation of the proxy configuration fails.
-
-        Returns: New proxy URL.
+        Returns: New proxy URL, or None when the run goes without a proxy.
         """
+        if self._runs_without_proxy:
+            return None
+
         # Get proxy configuration, creating it if necessary
         proxy_cfg = (
             self._proxy_cfg_internal
@@ -118,13 +124,11 @@ class ApifyHttpProxyMiddleware:
             else await Actor.create_proxy_configuration(actor_proxy_input=self._proxy_settings)
         )
 
-        # If the proxy configuration is still not available, raise an error. However, this should not happen due
-        # to the checks in the `from_crawler` method.
+        # `from_crawler` guarantees `useApifyProxy` is set, so None only comes from a local run without Apify Proxy
+        # credentials. `ProxyConfiguration.initialize` has already logged a warning about it.
         if proxy_cfg is None:
-            Actor.log.error(
-                'Creation of proxy configuration failed. Check the field "proxyConfiguration" in the Actor input.'
-            )
-            raise NotConfigured
+            self._runs_without_proxy = True
+            return None
 
         # Store the proxy configuration for future use
         self._proxy_cfg_internal = proxy_cfg
