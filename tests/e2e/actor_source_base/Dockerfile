@@ -2,8 +2,8 @@
 #   - builder: Installs the Apify SDK and the dependencies, pinned to the project lock file, into a virtual environment
 #   - runner:  Actor image with the virtual environment and the Actor source code
 
-# The test fixture passes the Python version of the test run as a build argument
-ARG PYTHON_VERSION=3.15
+# Required: the test fixture passes the Python version of the test run as a build argument
+ARG PYTHON_VERSION
 ARG UV_VERSION=0.13
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
