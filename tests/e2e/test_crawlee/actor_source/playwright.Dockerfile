@@ -1,4 +1,7 @@
-FROM apify/actor-python-playwright:PYTHON_VERSION_PLACEHOLDER
+# The test fixture passes the Python version of the test run as a build argument
+ARG PYTHON_VERSION=3.14
+
+FROM apify/actor-python-playwright:${PYTHON_VERSION}
 
 COPY . ./
 

@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 _SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
+_PYTHON_VERSION = f'{sys.version_info[0]}.{sys.version_info[1]}'
 _MAX_BUILD_ATTEMPTS = 2
 
 # The Actors in these suites install browsers or Scrapy into their images, so their platform builds take several
@@ -146,11 +147,6 @@ def actor_base_source_files() -> dict[str, str | bytes]:
 
     for path in sdk_paths:
         source_files[f'sdk/{path.relative_to(_SDK_ROOT_PATH)}'] = _read_source_file(path)
-
-    python_version = f'{sys.version_info[0]}.{sys.version_info[1]}'
-    source_files['Dockerfile'] = str(source_files['Dockerfile']).replace(
-        'BASE_IMAGE_VERSION_PLACEHOLDER', python_version
-    )
 
     return source_files
 
@@ -291,6 +287,9 @@ def make_actor(
                     'buildTag': 'latest',
                     'sourceType': 'SOURCE_FILES',
                     'sourceFiles': source_files_for_api,
+                    # The Dockerfile reads the Python version of the test run as a build argument.
+                    'envVars': [{'name': 'PYTHON_VERSION', 'value': _PYTHON_VERSION}],
+                    'applyEnvVarsToBuild': True,
                 }
             ],
         )

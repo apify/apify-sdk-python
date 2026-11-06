@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,8 +9,6 @@ if TYPE_CHECKING:
     from apify_client._models import Run
     from apify_client._resource_clients import ActorClientAsync
 
-_PYTHON_VERSION = f'{sys.version_info[0]}.{sys.version_info[1]}'
-
 _ACTOR_SOURCE_DIR = Path(__file__).parent / 'actor_source'
 
 
@@ -20,10 +17,7 @@ def read_actor_source(filename: str) -> str:
 
 
 def get_playwright_dockerfile() -> str:
-    return read_actor_source('playwright.Dockerfile').replace(
-        'PYTHON_VERSION_PLACEHOLDER',
-        _PYTHON_VERSION,
-    )
+    return read_actor_source('playwright.Dockerfile')
 
 
 _EXPECTED_PRODUCTS = {

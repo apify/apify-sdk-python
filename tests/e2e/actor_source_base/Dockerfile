@@ -1,9 +1,9 @@
-# The test fixture puts the Python version of the test run in place of BASE_IMAGE_VERSION_PLACEHOLDER.
-#
 # Multi-stage build:
 #   - builder: Installs the Apify SDK and the dependencies, pinned to the project lock file, into a virtual environment
 #   - runner:  Actor image with the virtual environment and the Actor source code
 
+# The test fixture passes the Python version of the test run as a build argument
+ARG PYTHON_VERSION=3.14
 ARG UV_VERSION=0.13
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
@@ -11,7 +11,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 # =============================================================================
 # Build stage
 # =============================================================================
-FROM apify/actor-python:BASE_IMAGE_VERSION_PLACEHOLDER AS builder
+FROM apify/actor-python:${PYTHON_VERSION} AS builder
 
 COPY --from=uv /uv /bin/
 
@@ -29,7 +29,7 @@ RUN uv export --project sdk --frozen --no-hashes --no-emit-project --all-extras 
 # =============================================================================
 # Runtime stage
 # =============================================================================
-FROM apify/actor-python:BASE_IMAGE_VERSION_PLACEHOLDER AS runner
+FROM apify/actor-python:${PYTHON_VERSION} AS runner
 
 # Copy the virtual environment with the installed dependencies
 COPY --from=builder /opt/venv /opt/venv
