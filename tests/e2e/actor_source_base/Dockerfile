@@ -13,8 +13,7 @@ RUN apt-get update && apt-get install -y \
     git \
  && rm -rf /var/lib/apt/lists/*
 
-RUN python --version \
- && uv --version \
+RUN uv --version \
  && uv pip install --system --reinstall -r requirements.txt -c constraints.txt \
  && uv pip freeze --system
 
