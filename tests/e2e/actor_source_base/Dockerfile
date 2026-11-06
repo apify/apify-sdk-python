@@ -23,8 +23,15 @@ COPY requirements.txt ./
 COPY sdk/ ./sdk/
 
 # Install the Apify SDK and the dependencies into a virtual environment, pinned to the project lock file
-RUN uv export --project sdk --frozen --no-hashes --no-emit-project --all-extras --all-groups \
-        --format requirements.txt --output-file constraints.txt && \
+RUN uv export \
+        --project sdk \
+        --frozen \
+        --no-hashes \
+        --no-emit-project \
+        --all-extras \
+        --all-groups \
+        --format requirements.txt \
+        --output-file constraints.txt && \
     uv venv /opt/venv && \
     uv pip install --python /opt/venv/bin/python ./sdk -r requirements.txt -c constraints.txt && \
     uv pip check --python /opt/venv/bin/python
