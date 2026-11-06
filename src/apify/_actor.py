@@ -1682,7 +1682,7 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        self.log.debug(f'Metamorphing the Actor run into target Actor {target_actor_id!r}.')
+        self.log.debug('Metamorphing the Actor run into target Actor %r.', target_actor_id)
         await self.apify_client.run(self.configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
@@ -1828,7 +1828,7 @@ class _ActorType:
         """
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
-            self.log.info(f'[{title}]: {status_message}')
+            self.log.info('[%s]: %s', title, status_message)
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
@@ -1843,11 +1843,12 @@ class _ActorType:
             return await asyncio.wait_for(update, STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds())
         except TimeoutError:
             self.log.warning(
-                f'Failed to set status message for Actor run with ID "{run_id}": '
-                f'the update timed out after {STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds():g}s.'
+                'Failed to set status message for Actor run with ID "%s": the update timed out after %gs.',
+                run_id,
+                STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds(),
             )
         except Exception as exc:
-            self.log.warning(f'Failed to set status message for Actor run with ID "{run_id}": {exc}')
+            self.log.warning('Failed to set status message for Actor run with ID "%s": %s', run_id, exc)
 
         return None
 

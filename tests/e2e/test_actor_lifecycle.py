@@ -141,11 +141,11 @@ async def test_actor_with_crawler_reboot(make_actor: MakeActorFunction, run_acto
 
             @crawler.router.default_handler
             async def default_handler(context: BasicCrawlingContext) -> None:
-                context.log.info(f'Processing {context.request.url} ...')
+                context.log.info('Processing %s ...', context.request.url)
 
                 # Simulate migration through reboot
                 if context.request.url == requests[1] and first_run:
-                    context.log.info(f'Reclaiming {context.request.url} ...')
+                    context.log.info('Reclaiming %s ...', context.request.url)
                     rq = await crawler.get_request_manager()
                     await rq.reclaim_request(context.request)
                     await Actor.reboot()

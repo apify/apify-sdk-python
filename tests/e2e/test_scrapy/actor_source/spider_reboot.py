@@ -35,7 +35,7 @@ class RebootOnceMiddleware:
 
     def process_request(self, request: Request) -> None:
         if self._reboot is None:
-            logger.info(f'Handing the request over to the downloader: {request.url}')
+            logger.info('Handing the request over to the downloader: %s', request.url)
             self._reboot = asyncio.ensure_future(self._reboot_once())
 
     async def _reboot_once(self) -> None:

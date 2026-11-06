@@ -287,7 +287,7 @@ class ApifyRequestQueueSingleClient:
             processed_request = await self._update_request(request)
 
         except Exception:
-            logger.exception(f'Error marking request {request.unique_key} as handled.')
+            logger.exception('Error marking request %s as handled.', request.unique_key)
             return None
         else:
             return processed_request
@@ -333,7 +333,7 @@ class ApifyRequestQueueSingleClient:
                 self.metadata.pending_request_count += 1
 
         except Exception:
-            logger.exception(f'Error reclaiming request {request.unique_key}')
+            logger.exception('Error reclaiming request %s', request.unique_key)
             return None
         else:
             return processed_request

@@ -354,12 +354,15 @@ class ChargingManagerImplementation(ChargingManager):
             # and make the run hit `max_total_charge_usd` early. The key alone decides, as on the platform.
             if idempotency_key is not None and (previous := self._idempotent_charges.get(idempotency_key)) is not None:
                 if previous.event_name == event_name:
-                    logger.debug(f"Skipped a repeated charge of event '{event_name}' under key '{idempotency_key}'.")
+                    logger.debug("Skipped a repeated charge of event '%s' under key '%s'.", event_name, idempotency_key)
                     repeated_count = previous.charged_count
                 else:
                     logger.warning(
-                        f"Idempotency key '{idempotency_key}' was already used to charge for event "
-                        f"'{previous.event_name}', so the charge of event '{event_name}' is skipped."
+                        "Idempotency key '%s' was already used to charge for event '%s', so the charge of event "
+                        "'%s' is skipped.",
+                        idempotency_key,
+                        previous.event_name,
+                        event_name,
                     )
                     repeated_count = 0
 
@@ -402,13 +405,13 @@ class ChargingManagerImplementation(ChargingManager):
                         count=charged_count,
                         idempotency_key=idempotency_key,
                     )
-                    logger.debug(f"Charged {charged_count} occurrence(s) of event '{event_name}'.")
+                    logger.debug("Charged %d occurrence(s) of event '%s'.", charged_count, event_name)
                 elif event_name in self._tier_priced_events:
                     logger.warning(
-                        f"Event '{event_name}' is tier-priced and is not chargeable via the pay-per-event API."
+                        "Event '%s' is tier-priced and is not chargeable via the pay-per-event API.", event_name
                     )
                 else:
-                    logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
+                    logger.warning("Attempting to charge for an unknown event '%s'", event_name)
 
             # Count the charge only after the API call succeeds, so a failed call retried under the same key is
             # counted once.
@@ -439,8 +442,11 @@ class ChargingManagerImplementation(ChargingManager):
             if charged_count < count:
                 subject = 'instance' if count == 1 else 'instances'
                 logger.info(
-                    f"Charging {count} {subject} of '{event_name}' event would exceed max_total_charge_usd "
-                    f'- only {charged_count} events were charged'
+                    "Charging %d %s of '%s' event would exceed max_total_charge_usd - only %d events were charged",
+                    count,
+                    subject,
+                    event_name,
+                    charged_count,
                 )
 
             return ChargeResult(

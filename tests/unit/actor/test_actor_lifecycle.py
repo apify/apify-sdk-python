@@ -462,7 +462,7 @@ async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFi
         assert len(exit_records) == 1
         assert exit_records[0].levelno == logging.INFO
 
-        status_records = [r for r in caplog.records if r.msg == '[Terminal status message]: cde']
+        status_records = [r for r in caplog.records if r.getMessage() == '[Terminal status message]: cde']
         assert len(status_records) == 1
         assert status_records[0].levelno == logging.INFO
 
