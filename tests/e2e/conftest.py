@@ -174,7 +174,7 @@ class MakeActorFunction(Protocol):
         Args:
             label: The label which will be a part of the generated Actor name.
             main_func: The main function of the Actor.
-            main_py: The `src/main.py` file of the Actor.
+            main_py: The `actor/main.py` file of the Actor.
             source_files: A dictionary of the source files of the Actor.
             additional_requirements: A list of additional requirements to be added to the `requirements.txt`.
             memory_mbytes: The default memory allocation for the Actor run in MB.
@@ -296,7 +296,7 @@ def make_actor(
 
         actor_client = client.actor(created_actor.id)
 
-        # Building the Actor on the platform involves network-dependent steps (installing system packages and
+        # Building the Actor on the platform involves network-dependent steps (pulling the base images and installing
         # Python dependencies in the Docker image), so a build can occasionally fail transiently. Retry a failed
         # build once before giving up.
         build_client_result = None
