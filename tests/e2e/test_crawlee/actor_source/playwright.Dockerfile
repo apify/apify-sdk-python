@@ -15,6 +15,9 @@ FROM apify/actor-python-playwright:${PYTHON_VERSION} AS builder
 
 COPY --from=uv /uv /bin/
 
+# Create the virtual environment from the base image's Python, which the runner stage has too
+ENV UV_PYTHON_DOWNLOADS=never
+
 # Copy the requirements and the Apify SDK source code with the project lock file
 COPY requirements.txt ./
 COPY sdk/ ./sdk/
