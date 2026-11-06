@@ -1,6 +1,8 @@
 # The test fixture will put the right Python version here
 FROM apify/actor-python:BASE_IMAGE_VERSION_PLACEHOLDER
 
+COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /bin/
+
 COPY . ./
 
 RUN apt-get update && apt-get install -y \
@@ -9,11 +11,11 @@ RUN apt-get update && apt-get install -y \
 
 RUN echo "Python version:" \
  && python --version \
- && echo "Pip version:" \
- && pip --version \
- && echo "Installing dependencies:" \
- && pip install --force-reinstall -r requirements.txt -c constraints.txt \
+ && echo "uv version:" \
+ && uv --version \
+ && echo "Installing dependencies pinned to the project lock file:" \
+ && uv pip install --system --reinstall -r requirements.txt -c constraints.txt \
  && echo "All installed Python packages:" \
- && pip freeze
+ && uv pip freeze --system
 
 CMD ["sh", "-c", "python server.py & python -m src"]
