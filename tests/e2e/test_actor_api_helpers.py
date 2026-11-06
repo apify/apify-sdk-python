@@ -36,19 +36,19 @@ async def test_actor_retrieves_env_vars(
 ) -> None:
     async def main() -> None:
         async with Actor:
-            env_dict = Actor.get_env()
+            config = Actor.configuration
 
-            assert env_dict.get('is_at_home') is True
-            assert env_dict.get('token') is not None
-            assert env_dict.get('events_websocket_url') is not None
-            assert env_dict.get('input_key') is not None
+            assert config.is_at_home is True
+            assert config.token is not None
+            assert config.actor_events_ws_url is not None
+            assert config.input_key is not None
 
-            assert len(env_dict.get('id', '')) == 17
-            assert len(env_dict.get('build_id', '')) == 17
-            assert len(env_dict.get('run_id', '')) == 17
-            assert len(env_dict.get('user_id', '')) == 17
+            assert len(config.actor_id or '') == 17
+            assert len(config.actor_build_id or '') == 17
+            assert len(config.actor_run_id or '') == 17
+            assert len(config.user_id or '') == 17
 
-    actor = await make_actor(label='get-env', main_func=main)
+    actor = await make_actor(label='configuration', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
