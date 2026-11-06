@@ -1786,7 +1786,8 @@ class _ActorType:
                 'Passing `idempotency_key` to `Actor.add_webhook()` is deprecated and will be removed in version '
                 '5.0.0. Set it on the `Webhook` instance instead.',
                 DeprecationWarning,
-                stacklevel=2,
+                # The `ensure_context` wrapper sits between this method and the caller.
+                stacklevel=3,
             )
 
         if not self.is_at_home():
