@@ -171,6 +171,8 @@ async def test_create_proxy_configuration_without_password_locally(
     monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer
 ) -> None:
     """Locally, requesting Apify Proxy without a password yields no proxy configuration."""
+    monkeypatch.delenv(ApifyEnvVars.PROXY_PASSWORD.value, raising=False)
+    monkeypatch.delenv(ApifyEnvVars.TOKEN.value, raising=False)
     dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 

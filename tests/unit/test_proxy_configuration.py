@@ -443,6 +443,8 @@ async def test_initialize_without_password_or_token(
 ) -> None:
     """Locally, a missing proxy password logs a warning, skips the access check and reports no usable proxy."""
     caplog.set_level('WARNING')
+    monkeypatch.delenv(ApifyEnvVars.PROXY_PASSWORD.value, raising=False)
+    monkeypatch.delenv(ApifyEnvVars.TOKEN.value, raising=False)
     dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
@@ -454,8 +456,10 @@ async def test_initialize_without_password_or_token(
 
 
 async def test_initialize_without_password_or_token_at_home(monkeypatch: pytest.MonkeyPatch) -> None:
-    """On the platform, a missing proxy password still raises."""
+    """On the platform, a missing proxy password raises a `ValueError`."""
     monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME.value, '1')
+    monkeypatch.delenv(ApifyEnvVars.PROXY_PASSWORD.value, raising=False)
+    monkeypatch.delenv(ApifyEnvVars.TOKEN.value, raising=False)
 
     proxy_configuration = ProxyConfiguration()
 
