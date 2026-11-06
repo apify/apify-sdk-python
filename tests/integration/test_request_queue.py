@@ -1061,7 +1061,7 @@ async def test_crawler_run_request_queue_variant_stats(
 
         @crawler.router.default_handler
         async def default_handler(context: BasicCrawlingContext) -> None:
-            context.log.info(f'Processing {context.request.url} ...')
+            context.log.info('Processing %s ...', context.request.url)
 
         await crawler.run([Request.from_url(f'https://example.com/{i}') for i in range(requests)])
 

@@ -239,7 +239,7 @@ class AliasResolver:
             # Store the mapping back in the KVS.
             await default_kvs_client.set_record(key=self._ALIAS_MAPPING_KEY, value=value)
         except Exception as exc:
-            logger.warning(f'Error storing alias mapping for {self._alias}: {exc}')
+            logger.warning('Error storing alias mapping for %s: %s', self._alias, exc)
 
     @cached_property
     def _storage_key(self) -> str:

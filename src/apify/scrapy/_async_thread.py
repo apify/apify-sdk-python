@@ -127,7 +127,7 @@ class AsyncThread:
 
         # Callers rely on the effects having landed, so a timeout has to be visible.
         if self._submitted:
-            logger.warning(f'{len(self._submitted)} submitted coroutines did not finish within the timeout.')
+            logger.warning('%d submitted coroutines did not finish within the timeout.', len(self._submitted))
 
     def close(self, timeout: timedelta | None = None) -> None:
         """Close the event loop and its thread gracefully.

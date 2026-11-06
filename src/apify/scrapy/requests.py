@@ -165,13 +165,13 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
                 )
         else:
             logger.warning(
-                f'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: {scrapy_request.headers}'
+                'Invalid scrapy_request.headers type, not scrapy.http.headers.Headers: %s', scrapy_request.headers
             )
 
         apify_request = ApifyRequest.from_url(**request_kwargs)
 
     except Exception:
-        logger.exception(f'Conversion of Scrapy request {scrapy_request} to Apify request failed; skipping it.')
+        logger.exception('Conversion of Scrapy request %s to Apify request failed; skipping it.', scrapy_request)
         return None
 
     # Serialize the Scrapy request as JSON under 'scrapy_request'. Kept outside the broad except above so
@@ -181,8 +181,9 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         scrapy_request_json = encode_to_json(scrapy_request_dict)
     except (TypeError, ValueError):
         logger.exception(
-            f'Failed to serialize Scrapy request {scrapy_request} for storage on the Apify platform; skipping it. '
-            'Ensure all values in `meta` and `cb_kwargs` are JSON-serializable.'
+            'Failed to serialize Scrapy request %s for storage on the Apify platform; skipping it. '
+            'Ensure all values in `meta` and `cb_kwargs` are JSON-serializable.',
+            scrapy_request,
         )
         return None
 
