@@ -216,7 +216,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                     )
 
                 logger.warning(
-                    'No proxy password or token detected, running without proxy. To use Apify Proxy locally, '
+                    'No Apify Proxy password available, running without proxy. To use Apify Proxy locally, '
                     f'provide the "password" constructor argument or the "{ApifyEnvVars.PROXY_PASSWORD}" '
                     f'environment variable. You can also provide your Apify token via the "{ApifyEnvVars.TOKEN}" '
                     'environment variable, so that the SDK can fetch the proxy password from Apify API, '

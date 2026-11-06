@@ -451,7 +451,7 @@ async def test_initialize_without_password_or_token(
     proxy_configuration = ProxyConfiguration()
 
     assert await proxy_configuration.initialize() is False
-    assert any('No proxy password or token detected, running without proxy.' in msg for msg in caplog.messages)
+    assert any('No Apify Proxy password available, running without proxy.' in msg for msg in caplog.messages)
     assert len(httpserver.log) == 0
 
 
