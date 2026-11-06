@@ -16,10 +16,6 @@ def read_actor_source(filename: str) -> str:
     return (_ACTOR_SOURCE_DIR / filename).read_text()
 
 
-def get_playwright_dockerfile() -> str:
-    return read_actor_source('playwright.Dockerfile')
-
-
 _EXPECTED_PRODUCTS = {
     'Widget A': {'price': '$19.99', 'description': 'A basic widget for everyday use'},
     'Widget B': {'price': '$29.99', 'description': 'An advanced widget with extra features'},
