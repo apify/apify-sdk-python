@@ -12,7 +12,7 @@ RUN echo "Python version:" \
  && echo "Pip version:" \
  && pip --version \
  && echo "Installing dependencies:" \
- && pip install --force-reinstall -r requirements.txt \
+ && pip install --force-reinstall -r requirements.txt -c constraints.txt \
  && echo "All installed Python packages:" \
  && pip freeze
 
