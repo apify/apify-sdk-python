@@ -13,7 +13,9 @@ RUN apt-get update && apt-get install -y \
     git \
  && rm -rf /var/lib/apt/lists/*
 
-RUN uv pip install --system --reinstall -r requirements.txt -c constraints.txt \
+RUN uv export --project sdk_lock --frozen --no-hashes --no-emit-project --all-extras --all-groups \
+    --format requirements.txt --output-file constraints.txt \
+ && uv pip install --system --reinstall -r requirements.txt -c constraints.txt \
  && uv pip freeze --system
 
 CMD ["sh", "-c", "python server.py & python -m src"]

@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import inspect
 import os
-import shutil
 import subprocess
 import sys
 import textwrap
@@ -165,8 +164,8 @@ def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -
 def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
     """Create a dictionary of the base source files for a testing Actor.
 
-    It takes the files from `tests/e2e/actor_source_base`, builds the Apify SDK wheel from the current codebase, exports
-    the project lock file as pip constraints, and adds them all together in a dictionary.
+    It takes the files from `tests/e2e/actor_source_base`, builds the Apify SDK wheel from the current codebase, adds
+    the project lock file, and puts them all together in a dictionary.
     """
     source_files: dict[str, str | bytes] = {}
 
@@ -189,29 +188,10 @@ def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
         'APIFY_SDK_WHEEL_PLACEHOLDER', f'./{sdk_wheel_file_name}'
     )
 
-    # Pin every dependency the Actor installs to its version in the project lock file, so the E2E tests run with the
-    # same versions as the rest of the test suite.
-    uv_path = shutil.which('uv')
-    if uv_path is None:
-        raise RuntimeError('The E2E tests need `uv` on PATH to export the project lock file.')
-
-    source_files['constraints.txt'] = subprocess.run(  # noqa: S603
-        [
-            uv_path,
-            'export',
-            '--frozen',
-            '--no-hashes',
-            '--no-emit-project',
-            '--all-extras',
-            '--all-groups',
-            '--format',
-            'requirements.txt',
-        ],
-        cwd=_SDK_ROOT_PATH,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
+    # The Actor build exports the project lock file as pip constraints, so the E2E tests run with the same dependency
+    # versions as the rest of the test suite.
+    for file_name in ('pyproject.toml', 'uv.lock'):
+        source_files[f'sdk_lock/{file_name}'] = (_SDK_ROOT_PATH / file_name).read_text(encoding='utf-8')
 
     python_version = f'{sys.version_info[0]}.{sys.version_info[1]}'
     source_files['Dockerfile'] = str(source_files['Dockerfile']).replace(
