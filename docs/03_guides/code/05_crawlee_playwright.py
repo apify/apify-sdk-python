@@ -1,6 +1,10 @@
 import asyncio
 
-from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
+from crawlee.crawlers import (
+    BasicCrawlerOptions,
+    PlaywrightCrawler,
+    PlaywrightCrawlingContext,
+)
 from crawlee.router import Router
 
 from apify import Actor
@@ -42,21 +46,25 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Crawlee rotates the proxy URL per request on its own.
+        crawler_options: BasicCrawlerOptions[PlaywrightCrawlingContext] = {
+            'request_handler': router,
+            # Cap the crawl. Remove or increase the limit to follow all links.
+            'max_requests_per_crawl': 10,
+        }
+
+        # Crawlee rotates the proxy URL per request on its own. A local run without
+        # Apify Proxy credentials gets no proxy configuration and crawls directly.
         proxy_configuration = await Actor.create_proxy_configuration()
-        if proxy_configuration is None:
-            raise RuntimeError('Failed to create the proxy configuration.')
+        if proxy_configuration is not None:
+            crawler_options['proxy_configuration'] = proxy_configuration
 
         # Common Chrome flags for running the browser in a container.
         browser_args = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 
         crawler = PlaywrightCrawler(
-            proxy_configuration=proxy_configuration,
-            request_handler=router,
-            # Cap the crawl. Remove or increase the limit to follow all links.
-            max_requests_per_crawl=10,
             headless=True,
             browser_launch_options={'args': browser_args},
+            **crawler_options,
         )
 
         await crawler.run(start_urls)

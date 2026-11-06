@@ -1,6 +1,6 @@
 import asyncio
 
-from crawlee.crawlers import ParselCrawler, ParselCrawlingContext
+from crawlee.crawlers import HttpCrawlerOptions, ParselCrawler, ParselCrawlingContext
 from crawlee.router import Router
 
 from apify import Actor
@@ -42,17 +42,19 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Crawlee rotates the proxy URL per request on its own.
-        proxy_configuration = await Actor.create_proxy_configuration()
-        if proxy_configuration is None:
-            raise RuntimeError('Failed to create the proxy configuration.')
-
-        crawler = ParselCrawler(
-            proxy_configuration=proxy_configuration,
-            request_handler=router,
+        crawler_options: HttpCrawlerOptions[ParselCrawlingContext] = {
+            'request_handler': router,
             # Cap the crawl. Remove or increase the limit to follow all links.
-            max_requests_per_crawl=10,
-        )
+            'max_requests_per_crawl': 10,
+        }
+
+        # Crawlee rotates the proxy URL per request on its own. A local run without
+        # Apify Proxy credentials gets no proxy configuration and crawls directly.
+        proxy_configuration = await Actor.create_proxy_configuration()
+        if proxy_configuration is not None:
+            crawler_options['proxy_configuration'] = proxy_configuration
+
+        crawler = ParselCrawler(**crawler_options)
 
         await crawler.run(start_urls)
 
