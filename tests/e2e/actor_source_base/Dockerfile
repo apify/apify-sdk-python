@@ -1,7 +1,11 @@
+ARG UV_VERSION=0.13
+
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+
 # The test fixture will put the right Python version here
 FROM apify/actor-python:BASE_IMAGE_VERSION_PLACEHOLDER
 
-COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /bin/
+COPY --from=uv /uv /bin/
 
 COPY . ./
 
