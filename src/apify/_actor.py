@@ -1016,10 +1016,21 @@ class _ActorType:
     def get_env(self) -> dict:
         """Return a dictionary with information parsed from all the `APIFY_XXX` environment variables.
 
+        Deprecated. Read `Actor.configuration` instead, or `os.environ` for variables it does not expose.
+        Will be removed in version 5.0.0.
+
         For a list of all the environment variables, see the
         [Actor documentation](https://docs.apify.com/actors/development/environment-variables). If some variables
         are not defined or are invalid, the corresponding value in the resulting dictionary will be None.
         """
+        warnings.warn(
+            '`Actor.get_env()` is deprecated and will be removed in version 5.0.0. Read `Actor.configuration` '
+            'instead, or `os.environ` for variables it does not expose.',
+            FutureWarning,
+            # The `ensure_context` wrapper sits between this method and the caller.
+            stacklevel=3,
+        )
+
         config = dict[str, Any]()
         for field_name, field in Configuration.model_fields.items():
             if field.deprecated:
@@ -1783,7 +1794,8 @@ class _ActorType:
                 'Passing `idempotency_key` to `Actor.add_webhook()` is deprecated and will be removed in version '
                 '5.0.0. Set it on the `Webhook` instance instead.',
                 DeprecationWarning,
-                stacklevel=2,
+                # The `ensure_context` wrapper sits between this method and the caller.
+                stacklevel=3,
             )
 
         if not self.is_at_home():

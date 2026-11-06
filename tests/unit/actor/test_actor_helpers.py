@@ -366,6 +366,17 @@ async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> No
     assert 'only supported when running on the Apify platform' in matching[0].message
 
 
+async def test_add_webhook_idempotency_key_warns_deprecated() -> None:
+    """Passing `idempotency_key` emits a `DeprecationWarning` that points at the caller."""
+    webhook = Webhook(event_types=['ACTOR.BUILD.ABORTED'], request_url='https://example.com')
+    async with Actor:
+        with pytest.warns(DeprecationWarning, match='`idempotency_key`') as record:
+            await Actor.add_webhook(webhook, idempotency_key='some-key')
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+
+
 async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('INFO')
     async with Actor:
