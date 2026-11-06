@@ -765,6 +765,10 @@ class _ActorType:
         if charged_event_name and charged_event_name.startswith('apify-'):
             raise ValueError(f'Cannot charge for synthetic event "{charged_event_name}" manually')
 
+        # E2E CI canary: fails every platform run, to prove the E2E test Actors install the SDK from this branch.
+        if self.is_at_home():
+            raise RuntimeError('E2E CI canary: the SDK was installed from the branch source, not from PyPI')
+
         charging_manager = self.get_charging_manager()
 
         if not data:
