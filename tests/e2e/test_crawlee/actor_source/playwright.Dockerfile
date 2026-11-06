@@ -46,7 +46,7 @@ COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install the Chromium build that matches the installed Playwright version, which can be newer than the base image's
+# Install the Chromium build that matches the installed Playwright version, which can differ from the base image's
 RUN playwright install chromium
 
 # Copy the Actor source code
