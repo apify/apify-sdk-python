@@ -30,11 +30,11 @@ We use [ruff](https://docs.astral.sh/ruff/) for linting and formatting, [ty](htt
 
 ## Tests
 
-[`tests/README.md`](tests/README.md) describes each test level, with its fixtures, isolation, and required tokens.
+Each test level has a README describing its fixtures, isolation, and required tokens.
 
-- **Unit tests** (`tests/unit`) mock the Apify API and need no credentials. Run them with `uv run poe unit-tests`, or a single test with `uv run pytest tests/unit/<path>.py::<test_name>`.
-- **Integration tests** (`tests/integration`) call the real Apify API without deploying Actors. Run them with `uv run poe integration-tests`.
-- **E2E tests** (`tests/e2e`) build and run Actors on the Apify platform. Run them with `uv run poe e2e-tests`.
+- **Unit tests** (`tests/unit`) mock the Apify API and need no credentials. See [`tests/unit/README.md`](tests/unit/README.md). Run them with `uv run poe unit-tests`, or a single test with `uv run pytest tests/unit/<path>.py::<test_name>`.
+- **Integration tests** (`tests/integration`) call the real Apify API without deploying Actors. See [`tests/integration/README.md`](tests/integration/README.md). Run them with `uv run poe integration-tests`.
+- **E2E tests** (`tests/e2e`) build and run Actors on the Apify platform. See [`tests/e2e/README.md`](tests/e2e/README.md). Run them with `uv run poe e2e-tests`.
 
 ## Code style
 
