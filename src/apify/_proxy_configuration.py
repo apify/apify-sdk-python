@@ -194,13 +194,13 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         if the country code is provided.
 
         When Apify Proxy is used and no password is available, this raises on the Apify platform. In a local run
-        it logs a warning instead and the configuration falls back to running without a proxy.
+        it logs a warning instead, skips the access check and returns `False`; the instance should then not be used.
 
         You should use the Actor.create_proxy_configuration function to create a pre-initialized
         `ProxyConfiguration` instance instead of calling this manually.
 
         Returns:
-            `True` if the proxy configuration is usable, `False` if it fell back to running without a proxy.
+            `True` if the proxy configuration is usable, `False` if the run should proceed without a proxy.
         """
         if self._uses_apify_proxy:
             if not self._password:
