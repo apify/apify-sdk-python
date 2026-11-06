@@ -33,7 +33,7 @@ async def test_actor_scrapy_title_spider(
     run_result = await run_actor(
         actor,
         run_input={
-            'startUrls': [{'url': 'https://crawlee.dev'}],
+            'startUrls': [{'url': 'https://crawlee.dev/'}],
             'allowedDomains': ['crawlee.dev'],
             'proxyConfiguration': {'useApifyProxy': True},
         },
@@ -50,7 +50,7 @@ async def test_actor_scrapy_title_spider(
 
     # The start page and the pages it links to (`DEPTH_LIMIT` is 1, `CLOSESPIDER_PAGECOUNT` is 10), each scraped once.
     urls = [item['url'] for item in items.items]
-    assert 'https://crawlee.dev' in urls
+    assert 'https://crawlee.dev/' in urls
     assert len(urls) > 1
     assert len(urls) == len(set(urls)), urls
 
