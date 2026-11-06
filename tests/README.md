@@ -89,6 +89,8 @@ Each test Actor gets the files from `tests/e2e/actor_source_base`, plus the SDK 
 - The builder stage uses uv to install the SDK from `sdk/` and its dependencies, all pinned to the project's `uv.lock`.
 - The runner stage copies the resulting virtual environment and the Actor source code, and runs the `actor` package.
 
+The Playwright tests replace that Dockerfile with `tests/e2e/test_crawlee/actor_source/playwright.Dockerfile`, which builds the same way on top of the Playwright base image and installs the matching Chromium.
+
 The Python version of the test run reaches the build as the `PYTHON_VERSION` build argument. The Dockerfiles have no default for it, so a build without it fails.
 
 ### Writing E2E tests
