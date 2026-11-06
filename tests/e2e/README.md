@@ -41,7 +41,7 @@ async def test_something(
     assert run_result.status == 'SUCCEEDED'
 ```
 
-The `src/main.py` file will be set to the function definition, prepended with `import asyncio` and `from apify import Actor`. You can add extra imports directly inside the function body.
+The `actor/main.py` file will be set to the function definition, prepended with `import asyncio` and `from apify import Actor`. You can add extra imports directly inside the function body.
 
 ### Creating an Actor from source files
 
@@ -74,12 +74,12 @@ Or pass `source_files` for multi-file Actors:
 
 ```python
 actor_source_files = {
-    'src/utils.py': """
+    'actor/utils.py': """
         from datetime import datetime, timezone
         def get_current_datetime():
             return datetime.now(timezone.utc)
     """,
-    'src/main.py': """
+    'actor/main.py': """
         import asyncio
         from apify import Actor
         from .utils import get_current_datetime

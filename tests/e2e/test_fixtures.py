@@ -66,13 +66,13 @@ async def test_actor_from_source_files(
 ) -> None:
     test_started_at = datetime.now(UTC)
     actor_source_files = {
-        'src/utils.py': """
+        'actor/utils.py': """
             from datetime import datetime, timezone
 
             def get_current_datetime():
                 return datetime.now(timezone.utc)
         """,
-        'src/main.py': """
+        'actor/main.py': """
             import asyncio
             from apify import Actor
             from .utils import get_current_datetime

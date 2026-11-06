@@ -39,4 +39,4 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy the Actor source code
 COPY . ./
 
-CMD ["sh", "-c", "python server.py & python -m src"]
+CMD ["sh", "-c", "python server.py & python -m actor"]

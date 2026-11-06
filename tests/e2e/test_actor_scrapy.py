@@ -13,16 +13,21 @@ async def test_actor_scrapy_title_spider(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    base_path = Path('docs/03_guides/code/scrapy_project')
+    docs_package_path = Path('docs/03_guides/code/scrapy_project/src')
+    file_names = (
+        '__init__.py',
+        '__main__.py',
+        'items.py',
+        'main.py',
+        'settings.py',
+        'spiders/__init__.py',
+        'spiders/title.py',
+    )
 
+    # The guide's project is the `src` package of the Apify Scrapy template, while test Actors run the `actor` package.
     actor_source_files = {
-        'src/__init__.py': (base_path / 'src/__init__.py').read_text(),
-        'src/__main__.py': (base_path / 'src/__main__.py').read_text(),
-        'src/items.py': (base_path / 'src/items.py').read_text(),
-        'src/main.py': (base_path / 'src/main.py').read_text(),
-        'src/settings.py': (base_path / 'src/settings.py').read_text(),
-        'src/spiders/__init__.py': (base_path / 'src/spiders/__init__.py').read_text(),
-        'src/spiders/title.py': (base_path / 'src/spiders/title.py').read_text(),
+        f'actor/{file_name}': (docs_package_path / file_name).read_text().replace("'src.", "'actor.")
+        for file_name in file_names
     }
 
     actor = await make_actor(

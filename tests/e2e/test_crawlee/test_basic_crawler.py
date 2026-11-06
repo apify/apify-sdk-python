@@ -12,7 +12,7 @@ async def test_basic_crawler(make_actor: MakeActorFunction, run_actor: RunActorF
     actor = await make_actor(
         label='crawl-basic',
         source_files={
-            'src/main.py': read_actor_source('main_basic_crawler.py'),
+            'actor/main.py': read_actor_source('main_basic_crawler.py'),
         },
     )
     run_result = await run_actor(actor)

@@ -241,7 +241,7 @@ def make_actor(
             )
 
         if main_py:
-            source_files = {'src/main.py': main_py}
+            source_files = {'actor/main.py': main_py}
 
         assert source_files is not None
 

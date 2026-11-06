@@ -11,7 +11,7 @@ from apify.scrapy import apply_apify_settings
 
 async def main() -> None:
     async with Actor:
-        os.environ['SCRAPY_SETTINGS_MODULE'] = 'src.settings_custom_pipeline'
+        os.environ['SCRAPY_SETTINGS_MODULE'] = 'actor.settings_custom_pipeline'
         settings = apply_apify_settings()
         runner = AsyncCrawlerRunner(settings)
         await runner.crawl(Spider, start_urls=['http://localhost:8080/'])

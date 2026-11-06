@@ -10,4 +10,4 @@ RUN pip install --force-reinstall -r requirements.txt
 # (the base image's pre-installed browser can lag behind a newer Playwright pulled via crawlee[playwright]).
 RUN playwright install chromium
 
-CMD ["sh", "-c", "python server.py & python -m src"]
+CMD ["sh", "-c", "python server.py & python -m actor"]

@@ -12,7 +12,7 @@ async def test_playwright_crawler(make_actor: MakeActorFunction, run_actor: RunA
     actor = await make_actor(
         label='crawl-playwright',
         source_files={
-            'src/main.py': read_actor_source('main_playwright_crawler.py'),
+            'actor/main.py': read_actor_source('main_playwright_crawler.py'),
             'Dockerfile': get_playwright_dockerfile(),
         },
         additional_requirements=['crawlee[playwright]'],

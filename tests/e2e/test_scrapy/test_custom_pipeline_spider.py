@@ -21,9 +21,9 @@ async def test_custom_pipeline_spider(make_actor: MakeActorFunction, run_actor: 
             'spider_custom_pipeline.py',
             'CustomPipelineSpider',
             extra_source_files={
-                'src/main.py': read_actor_source('main_custom_pipeline.py'),
-                'src/settings_custom_pipeline.py': read_actor_source('settings_custom_pipeline.py'),
-                'src/pipelines.py': read_actor_source('pipelines.py'),
+                'actor/main.py': read_actor_source('main_custom_pipeline.py'),
+                'actor/settings_custom_pipeline.py': read_actor_source('settings_custom_pipeline.py'),
+                'actor/pipelines.py': read_actor_source('pipelines.py'),
             },
         ),
         additional_requirements=['scrapy>=2.14.0'],
