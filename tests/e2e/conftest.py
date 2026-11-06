@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import inspect
 import os
-import subprocess
 import sys
 import textwrap
 from datetime import UTC, datetime, timedelta
@@ -11,7 +10,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 import pytest
-from filelock import FileLock
 
 from apify_client import ApifyClient, ApifyClientAsync
 from crawlee import service_locator
@@ -32,6 +30,7 @@ if TYPE_CHECKING:
 _TOKEN_ENV_VAR = 'APIFY_TEST_USER_API_TOKEN'
 _API_URL_ENV_VAR = 'APIFY_INTEGRATION_TESTS_API_URL'
 _SDK_ROOT_PATH = Path(__file__).parent.parent.parent.resolve()
+_PYTHON_VERSION = f'{sys.version_info[0]}.{sys.version_info[1]}'
 _MAX_BUILD_ATTEMPTS = 2
 
 # The Actors in these suites install browsers or Scrapy into their images, so their platform builds take several
@@ -120,78 +119,34 @@ def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
     prepare_test_env()
 
 
-@pytest.fixture(scope='session')
-def sdk_wheel_path(tmp_path_factory: pytest.TempPathFactory, testrun_uid: str) -> Path:
-    """Build the package wheel if it hasn't been built yet, and return the path to the wheel."""
-    # `getbasetemp()` is per-xdist-worker, so both the lock and the indicator file live in its shared parent
-    # directory, which every worker sees.
-    shared_tmp_path = tmp_path_factory.getbasetemp().parent
-
-    # Make sure the wheel is not being built concurrently across all the pytest-xdist runners,
-    # through locking the building process with a temp file.
-    with FileLock(shared_tmp_path / 'sdk_wheel_build.lock'):
-        # Make sure the wheel is built exactly once across all the pytest-xdist runners, through an indicator
-        # file saying that the wheel was already built.
-        was_wheel_built_this_test_run_file = shared_tmp_path / f'wheel_was_built_in_run_{testrun_uid}'
-        if not was_wheel_built_this_test_run_file.exists():
-            subprocess.run(
-                args=[sys.executable, '-m', 'build'],
-                cwd=_SDK_ROOT_PATH,
-                check=True,
-                capture_output=True,
-            )
-            was_wheel_built_this_test_run_file.touch()
-
-        # Read the current package version, necessary for getting the right wheel filename.
-        pyproject_toml_file = (_SDK_ROOT_PATH / 'pyproject.toml').read_text(encoding='utf-8')
-        for line in pyproject_toml_file.splitlines():
-            if line.startswith('version = '):
-                delim = '"' if '"' in line else "'"
-                sdk_version = line.split(delim)[1]
-                break
-        else:
-            raise RuntimeError('Unable to find version string.')
-
-        wheel_path = _SDK_ROOT_PATH / 'dist' / f'apify-{sdk_version}-py3-none-any.whl'
-
-        # Just to be sure.
-        assert wheel_path.exists()
-
-        return wheel_path
+def _read_source_file(path: Path) -> str | bytes:
+    """Read a file to upload as an Actor source file, as text when it is valid UTF-8."""
+    try:
+        return path.read_text(encoding='utf-8')
+    except ValueError:
+        return path.read_bytes()
 
 
 @pytest.fixture(scope='session')
-def actor_base_source_files(sdk_wheel_path: Path) -> dict[str, str | bytes]:
+def actor_base_source_files() -> dict[str, str | bytes]:
     """Create a dictionary of the base source files for a testing Actor.
 
-    It takes the files from `tests/e2e/actor_source_base`, builds the Apify SDK wheel from
-    the current codebase, and adds them all together in a dictionary.
+    It takes the files from `tests/e2e/actor_source_base` and adds the Apify SDK source code under `sdk/`. The Actor
+    build installs the SDK from it, with every dependency pinned to the project lock file.
     """
     source_files: dict[str, str | bytes] = {}
 
-    # First read the actor_source_base files
     actor_source_base_path = _SDK_ROOT_PATH / 'tests/e2e/actor_source_base'
-
     for path in actor_source_base_path.glob('**/*'):
-        if not path.is_file():
-            continue
-        relative_path = str(path.relative_to(actor_source_base_path))
-        try:
-            source_files[relative_path] = path.read_text(encoding='utf-8')
-        except ValueError:
-            source_files[relative_path] = path.read_bytes()
+        if path.is_file():
+            source_files[str(path.relative_to(actor_source_base_path))] = _read_source_file(path)
 
-    sdk_wheel_file_name = sdk_wheel_path.name
-    source_files[sdk_wheel_file_name] = sdk_wheel_path.read_bytes()
+    sdk_paths = [_SDK_ROOT_PATH / file_name for file_name in ('pyproject.toml', 'uv.lock', 'README.md', 'LICENSE')]
+    src_paths = (_SDK_ROOT_PATH / 'src').glob('**/*')
+    sdk_paths.extend(path for path in src_paths if path.is_file() and '__pycache__' not in path.parts)
 
-    source_files['requirements.txt'] = str(source_files['requirements.txt']).replace(
-        'APIFY_SDK_WHEEL_PLACEHOLDER', f'./{sdk_wheel_file_name}'
-    )
-
-    python_version = f'{sys.version_info[0]}.{sys.version_info[1]}'
-    source_files['Dockerfile'] = str(source_files['Dockerfile']).replace(
-        'BASE_IMAGE_VERSION_PLACEHOLDER', python_version
-    )
+    for path in sdk_paths:
+        source_files[f'sdk/{path.relative_to(_SDK_ROOT_PATH)}'] = _read_source_file(path)
 
     return source_files
 
@@ -219,7 +174,7 @@ class MakeActorFunction(Protocol):
         Args:
             label: The label which will be a part of the generated Actor name.
             main_func: The main function of the Actor.
-            main_py: The `src/main.py` file of the Actor.
+            main_py: The `actor/main.py` file of the Actor.
             source_files: A dictionary of the source files of the Actor.
             additional_requirements: A list of additional requirements to be added to the `requirements.txt`.
             memory_mbytes: The default memory allocation for the Actor run in MB.
@@ -282,7 +237,7 @@ def make_actor(
             )
 
         if main_py:
-            source_files = {'src/main.py': main_py}
+            source_files = {'actor/main.py': main_py}
 
         assert source_files is not None
 
@@ -332,13 +287,16 @@ def make_actor(
                     'buildTag': 'latest',
                     'sourceType': 'SOURCE_FILES',
                     'sourceFiles': source_files_for_api,
+                    # The Dockerfile reads the Python version of the test run as a build argument.
+                    'envVars': [{'name': 'PYTHON_VERSION', 'value': _PYTHON_VERSION}],
+                    'applyEnvVarsToBuild': True,
                 }
             ],
         )
 
         actor_client = client.actor(created_actor.id)
 
-        # Building the Actor on the platform involves network-dependent steps (installing system packages and
+        # Building the Actor on the platform involves network-dependent steps (pulling the base images and installing
         # Python dependencies in the Docker image), so a build can occasionally fail transiently. Retry a failed
         # build once before giving up.
         build_client_result = None

@@ -54,7 +54,7 @@ class RebootSpider(Spider):
     name = 'reboot_spider'
 
     custom_settings = {  # noqa: RUF012
-        'DOWNLOADER_MIDDLEWARES': {'src.spiders.spider.RebootOnceMiddleware': 543},
+        'DOWNLOADER_MIDDLEWARES': {'actor.spiders.spider.RebootOnceMiddleware': 543},
         'CONCURRENT_REQUESTS': 1,
     }
 

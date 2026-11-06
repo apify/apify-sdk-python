@@ -17,7 +17,7 @@ async def test_configuration_storages(make_actor: MakeActorFunction, run_actor: 
     actor = await make_actor(
         label='schema_storages',
         source_files={
-            'src/main.py': read_actor_source('main.py'),
+            'actor/main.py': read_actor_source('main.py'),
             '.actor/actor.json': read_actor_source('actor.json'),
         },
     )

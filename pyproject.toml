@@ -70,7 +70,6 @@ dev = [
     # See https://github.com/apify/apify-client-python/pull/582/ for more details.
     # We explicitly constrain black>=24.3.0 to override the transitive dependency.
     "black>=24.3.0",
-    "build<2.0.0",
     "crawlee[parsel]",
     "griffe",
     "poethepoet<1.0.0",
