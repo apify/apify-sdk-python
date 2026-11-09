@@ -4,7 +4,7 @@ import os
 
 from scrapy.crawler import AsyncCrawlerRunner
 
-from .spiders import Spider  # ty: ignore[unresolved-import]
+from .spiders import Spider  # ty: ignore[import-not-found]
 from apify import Actor
 from apify.scrapy import apply_apify_settings
 

@@ -220,7 +220,7 @@ include = [
 ]
 
 [tool.ty.overrides.rules]
-unresolved-import = "ignore"
+import-not-found = "ignore"
 
 # Scrapy declares `Spider.parse` as a `CallbackT` attribute for type checkers, so every `def parse` override narrows it.
 [[tool.ty.overrides]]
