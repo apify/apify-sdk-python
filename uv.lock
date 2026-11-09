@@ -268,7 +268,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apify-client", extras = ["brotli"], specifier = "==3.4.1b2" },
+    { name = "apify-client", extras = ["brotli"], specifier = ">=3.5.0,<4.0.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "crawlee", specifier = ">=1.9.1,!=1.10.1,<2.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
@@ -309,7 +309,7 @@ dev = [
 
 [[package]]
 name = "apify-client"
-version = "3.4.1b2"
+version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
@@ -318,9 +318,9 @@ dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/59/2dec029a069e8c6808ba4bb669c14ea6777101532c91c95bf1c56c176085/apify_client-3.4.1b2.tar.gz", hash = "sha256:5c55b687418815366a5e87025d956305c59efcccb353512bd09407fee15eace0", size = 177467, upload-time = "2026-10-29T13:42:32.938Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/3d/067522ecb5ba120dfc4340f99e2b9ace3ab22b313222dc939b030252907d/apify_client-3.5.0.tar.gz", hash = "sha256:82a223103b0992a6a9cfd5c4dd52abb5624cc36af692394aa7c50806242ba4cd", size = 188482, upload-time = "2026-11-09T12:01:13.271Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4b/ee/c0081eba3521ee038cf0519c48a2ca3b5a8898b26b4e163c248eb4e12a61/apify_client-3.4.1b2-py3-none-any.whl", hash = "sha256:20bc48e268eae9f0031239ec60317226361066827c12c3740503f101427b220f", size = 186317, upload-time = "2026-10-29T13:42:31.331Z" },
+    { url = "https://files.pythonhosted.org/packages/20/37/0ba435b32b03d056f991d8a977383e34254b755f5a04752f3de7f8699ace/apify_client-3.5.0-py3-none-any.whl", hash = "sha256:b0d1ad9464c04d3f583eb1d9dfcff54f4bba62df13b0c415fca50ae98977439c", size = 197084, upload-time = "2026-11-09T12:01:11.401Z" },
 ]
 
 [package.optional-dependencies]

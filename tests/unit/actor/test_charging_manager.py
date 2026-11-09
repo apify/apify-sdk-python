@@ -819,10 +819,29 @@ async def test_multi_tenant_run_uses_effective_actor_pricing_and_requires_reques
         assert pricing.per_event_prices == {'search': Decimal(2)}
         assert pricing.max_total_charge_usd == Decimal('inf')
 
-        with pytest.raises(ValueError, match='request_id'):
-            await cm.charge('search')
+        for request_id in (None, ''):
+            with pytest.raises(ValueError, match='request_id'):
+                await cm.charge('search', request_id=request_id)
         charge_mock.assert_not_called()
+
+        # Synthetic `apify-*` events are exempt from the `request_id` requirement.
+        await cm.charge('apify-actor-start')
 
         result = await cm.charge('search', request_id='some-request-id')
         assert result.charged_count == 1
         charge_mock.assert_awaited_once_with('search', count=1, idempotency_key=None, request_id='some-request-id')
+
+
+async def test_multi_tenant_run_without_ppe_ignores_charge_without_request_id(mock_client: MagicMock) -> None:
+    """Test that a multi-tenant Server Actor run without pay-per-event pricing ignores a charge with no `request_id`."""
+    run = MagicMock(standby=MagicMock(deployment='MULTI_TENANT_PAYING_USERS'), charged_event_counts={})
+    charge_mock = AsyncMock()
+    mock_client.run = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=run), charge=charge_mock))
+    mock_client.actor = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=MagicMock(pricing_infos=[]))))
+    config = _make_config(is_at_home=True, actor_run_id='run-id', actor_id='actor-id')
+
+    cm = ChargingManagerImplementation(config, mock_client)
+
+    async with cm:
+        assert (await cm.charge('search')).charged_count == 0
+    charge_mock.assert_not_called()

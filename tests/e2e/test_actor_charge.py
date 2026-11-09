@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import json
-import os
 from decimal import Decimal
 from functools import partial
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
 
-import impit
 import pytest_asyncio
+
+from crawlee._utils.crypto import crypto_random_object_id
 
 from .._utils import poll_until_condition
 from apify import Actor
@@ -235,7 +233,6 @@ async def test_actor_push_data_combined_budget_limit(
 async def test_actor_charge_in_multi_tenant_standby_run(
     make_actor: MakeActorFunction,
     apify_client_async: ApifyClientAsync,
-    apify_token: str,
 ) -> None:
     """Test that a multi-tenant Server Actor run charges with the request ID and rejects charges without it."""
 
@@ -250,7 +247,7 @@ async def test_actor_charge_in_multi_tenant_standby_run(
                 body = b'ready'
             else:
                 request_id = headers.get(b'x-actor-request-id', b'').decode() or None
-                if scope['query_string'] == b'omit_request_id':
+                if b'omit_request_id' in scope['query_string']:
                     request_id = None
                 try:
                     result = await Actor.charge(event_name='api-call', request_id=request_id)
@@ -266,6 +263,9 @@ async def test_actor_charge_in_multi_tenant_standby_run(
 
     actor_client = await make_actor('ppe-multi-tenant', main_func=main)
     await actor_client.update(
+        # The generated name is too long for the `<username>--<actor-name>` hostname label of the server URL, whose DNS
+        # limit is 63 characters.
+        name=f'sdk-mt-{crypto_random_object_id(8).lower()}',
         pricing_infos=[
             {
                 'pricingModel': 'PAY_PER_EVENT',
@@ -283,38 +283,18 @@ async def test_actor_charge_in_multi_tenant_standby_run(
                 },
             },
         ],
+        server_is_enabled=True,
+        server_tenancy='MULTI_TENANT',
     )
 
-    actor = await actor_client.get()
-    assert actor is not None
-    auth = {'Authorization': f'Bearer {apify_token}'}
-
-    async with impit.AsyncClient(timeout=120) as http:
-        # `ActorClientAsync.update()` has no tenancy argument, so the field is set through the API directly.
-        api_url = os.getenv('APIFY_INTEGRATION_TESTS_API_URL', 'https://api.apify.com')
-        response = await http.put(
-            f'{api_url}/v2/acts/{actor.id}',
-            headers={**auth, 'Content-Type': 'application/json'},
-            content=json.dumps({'actorStandby': {'isEnabled': True, 'tenancy': 'MULTI_TENANT'}}),
-        )
-        assert response.status_code == 200, response.text
-
-        actor = await actor_client.get()
-        assert actor is not None
-        assert actor.standby_url is not None
-
-        # The `<username>--<actor-name>` label of `standby_url` exceeds the 63-char DNS label limit with generated
-        # Actor names, so the ID-based hostname is used instead.
-        standby_domain = urlsplit(actor.standby_url).netloc.split('.', 1)[1]
-        standby_url = f'https://{actor.id}.{standby_domain}'
-
-        try:
-            with_id = (await http.get(standby_url, headers=auth)).json()
-            without_id = (await http.get(f'{standby_url}?omit_request_id', headers=auth)).json()
-        finally:
-            runs = await actor_client.runs().list()
-            for run_item in runs.items:
-                await apify_client_async.run(run_item.id).abort()
+    server = actor_client.server()
+    try:
+        with_id = (await server.request()).json()
+        without_id = (await server.request(params={'omit_request_id': True})).json()
+    finally:
+        runs = await actor_client.runs().list()
+        for run_item in runs.items:
+            await apify_client_async.run(run_item.id).abort()
 
     assert with_id['charged_count'] == 1
     assert with_id['request_id']

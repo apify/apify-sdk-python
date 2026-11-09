@@ -326,12 +326,6 @@ class ChargingManagerImplementation(ChargingManager):
         if idempotency_key is not None and not idempotency_key.strip():
             raise ValueError('idempotency_key must not be blank')
 
-        if self._is_multi_tenant and request_id is None and not event_name.startswith('apify-'):
-            raise ValueError(
-                f"Charging for '{event_name}' in a multi-tenant Server Actor run requires `request_id` - pass the "
-                "value of the incoming request's X-Actor-Request-ID header to Actor.charge()."
-            )
-
         # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
             if not self._not_ppe_warning_printed:
@@ -344,6 +338,12 @@ class ChargingManagerImplementation(ChargingManager):
                 event_charge_limit_reached=False,
                 charged_count=0,
                 chargeable_within_limit=self.compute_chargeable(),
+            )
+
+        if self._is_multi_tenant and not request_id and not event_name.startswith('apify-'):
+            raise ValueError(
+                f"Charging for '{event_name}' in a multi-tenant Server Actor run requires `request_id` - pass the "
+                "value of the incoming request's X-Actor-Request-ID header to Actor.charge()."
             )
 
         if count <= 0:
