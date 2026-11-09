@@ -26,11 +26,11 @@ def spider() -> DummySpider:
 
 def test_creates_simple_request(spider: Spider) -> None:
     """A simple Scrapy request converts to an Apify request carrying the serialized `scrapy_request`."""
-    scrapy_request = Request(url='https://example.com')
+    scrapy_request = Request(url='https://example.com/')
 
     apify_request = to_apify_request(scrapy_request, spider)
     assert apify_request is not None
-    assert apify_request.url == 'https://example.com'
+    assert apify_request.url == 'https://example.com/'
 
     user_data = apify_request.user_data
     assert 'scrapy_request' in user_data
@@ -45,14 +45,35 @@ def test_handles_headers(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    expected_headers = cast('dict[str, str]', dict(scrapy_request_headers.to_unicode_dict()))
-    assert apify_request.headers == HttpHeaders(expected_headers)
+    assert apify_request.headers == HttpHeaders({'Authorization': 'Bearer access_token'})
+
+
+def test_joins_multi_value_headers(spider: Spider) -> None:
+    """A header with several values is carried onto the Apify request with the values joined by a comma."""
+    scrapy_request = Request(url='https://example.com', headers={'Accept': ['text/html', 'application/json']})
+
+    apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert apify_request.headers == HttpHeaders({'Accept': 'text/html,application/json'})
+
+
+def test_non_utf8_headers_are_left_out(spider: Spider, caplog: pytest.LogCaptureFixture) -> None:
+    """Non-UTF-8 headers are left off the Apify request and logged, while the request itself still converts."""
+    scrapy_request = Request(url='https://example.com', headers={'X-Raw': b'\xff'})
+
+    with caplog.at_level(logging.WARNING, logger='apify.scrapy.requests'):
+        apify_request = to_apify_request(scrapy_request, spider)
+
+    assert apify_request is not None
+    assert 'X-Raw' not in apify_request.headers
+    assert 'non-UTF-8 values' in caplog.text
 
 
 def test_without_id_and_unique_key(spider: Spider) -> None:
     """A request without an id or unique key converts, preserving its user data."""
     scrapy_request = Request(
-        url='https://example.com',
+        url='https://example.com/',
         method='GET',
         meta={'userData': {'some_user_data': 'test'}},
     )
@@ -60,7 +81,7 @@ def test_without_id_and_unique_key(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    assert apify_request.url == 'https://example.com'
+    assert apify_request.url == 'https://example.com/'
     assert apify_request.method == 'GET'
 
     user_data = apify_request.user_data
@@ -73,7 +94,7 @@ def test_without_id_and_unique_key(spider: Spider) -> None:
 def test_with_id_and_unique_key(spider: Spider) -> None:
     """An explicit `apify_request_unique_key` in `meta` becomes the Apify request's unique key."""
     scrapy_request = Request(
-        url='https://example.com',
+        url='https://example.com/',
         method='GET',
         meta={
             'apify_request_unique_key': 'https://example.com',
@@ -84,7 +105,7 @@ def test_with_id_and_unique_key(spider: Spider) -> None:
     apify_request = to_apify_request(scrapy_request, spider)
     assert apify_request is not None
 
-    assert apify_request.url == 'https://example.com'
+    assert apify_request.url == 'https://example.com/'
     assert apify_request.method == 'GET'
     assert apify_request.unique_key == 'https://example.com'
 

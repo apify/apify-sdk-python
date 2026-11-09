@@ -146,8 +146,8 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         request_kwargs['user_data'] = user_data if isinstance(user_data, dict) else {}
 
         # Store an Apify-platform view of the headers. The authoritative copy with exact bytes travels in
-        # the serialized scrapy_request below, so non-UTF-8 headers (which make `to_unicode_dict()` raise) are
-        # tolerated rather than dropping the whole request.
+        # the serialized scrapy_request below, so non-UTF-8 headers (which fail to decode) are tolerated rather than
+        # dropping the whole request.
         #
         # Trade-off: with `use_extended_unique_key=True` the unique key includes the headers, so when non-UTF-8
         # headers are omitted here two requests differing only in those headers share a unique key and one is
@@ -155,9 +155,14 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         # the old behavior, which dropped such requests entirely.
         if isinstance(scrapy_request.headers, Headers):
             try:
-                # `to_unicode_dict()` yields str keys and values, but Scrapy types it as `UserDict[str | bytes, Any]`,
-                # so the mapping goes through the model's validator instead of a cast.
-                request_kwargs['headers'] = HttpHeaders.model_validate(scrapy_request.headers.to_unicode_dict())
+                # Decoded strictly, so a non-UTF-8 value raises and leaves the headers out. Multiple values of one
+                # header are joined with ',', as Scrapy's `Headers.to_unicode_dict()` does.
+                headers = scrapy_request.headers
+                header_dict = {
+                    key.decode(headers.encoding): b','.join(values).decode(headers.encoding)
+                    for key, values in headers.items()
+                }
+                request_kwargs['headers'] = HttpHeaders(header_dict)
             except UnicodeDecodeError:
                 logger.warning(
                     'Could not represent Scrapy request headers as Apify request headers (non-UTF-8 values); '
