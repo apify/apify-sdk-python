@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -64,8 +65,30 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
     assert json.loads(input_content) == json.loads('{"test": "input"}')
 
 
-@pytest.mark.parametrize('input_file_name', ['INPUT', 'INPUT.json'])
-async def test_pre_existing_input_used_by_actor(input_file_name: str) -> None:
+@pytest.mark.parametrize(
+    'input_file_name',
+    [pytest.param('INPUT', id='bare'), pytest.param('INPUT.json', id='json')],
+)
+@pytest.mark.parametrize(
+    'pre_existing_input',
+    [
+        pytest.param({'foo': 'bar'}, id='object'),
+        pytest.param({}, id='empty-object'),
+        pytest.param([1, 2], id='array'),
+        pytest.param([], id='empty-array'),
+        pytest.param('demo', id='string'),
+        pytest.param('', id='empty-string'),
+        pytest.param(42, id='integer'),
+        pytest.param(0, id='zero-integer'),
+        pytest.param(1.5, id='float'),
+        pytest.param(0.0, id='zero-float'),
+        pytest.param(True, id='true'),
+        pytest.param(False, id='false'),
+        pytest.param(None, id='null'),
+    ],
+)
+async def test_pre_existing_input_used_by_actor(input_file_name: str, pre_existing_input: Any) -> None:
+    """Pre-existing JSON input preserves its value, type, bytes, and serialization metadata."""
     configuration = Configuration()
     service_locator.set_configuration(configuration)
 
@@ -74,15 +97,24 @@ async def test_pre_existing_input_used_by_actor(input_file_name: str) -> None:
     path_to_input.mkdir(parents=True)
     assert list(path_to_input.glob('*')) == []
 
-    pre_existing_input = {
-        'foo': 'bar',
-    }
-
-    # Create pre-existing INPUT.json file
-    (path_to_input / input_file_name).write_text(json.dumps(pre_existing_input))
+    input_file = path_to_input / input_file_name
+    input_bytes = json.dumps(pre_existing_input).encode('utf-8')
+    input_file.write_bytes(input_bytes)
 
     async with Actor():
-        assert pre_existing_input == await Actor.get_input()
+        actual_input = await Actor.get_input()
+        assert actual_input == pre_existing_input
+        assert type(actual_input) is type(pre_existing_input)
+        store = await Actor.open_key_value_store()
+        stored_input = await store.get_value(configuration.input_key)
+        assert stored_input == pre_existing_input
+        assert type(stored_input) is type(pre_existing_input)
+
+    assert input_file.read_bytes() == input_bytes
+    metadata = json.loads((path_to_input / f'{input_file_name}.{METADATA_FILENAME}').read_text())
+    assert metadata['content_type'] == 'application/json; charset=utf-8'
+    assert metadata['key'] == configuration.input_key
+    assert metadata['size'] == len(input_bytes)
 
     # Make sure that the input file doesn't get renamed in the process and metadata are added
     assert set(path_to_input.glob('*')) == {
@@ -132,3 +164,40 @@ async def test_record_exists_and_delete_value_target_existing_input_file() -> No
     await client.delete_value(key=configuration.input_key)
     assert await client.record_exists(key=configuration.input_key) is False
     assert not (kvs_path / 'INPUT.json').exists()
+
+
+async def test_pre_existing_input_metadata_is_preserved() -> None:
+    """Opening an input record respects its explicit content type and leaves its metadata unchanged."""
+    configuration = Configuration.get_global_configuration()
+    kvs_path = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    kvs_path.mkdir(parents=True)
+    input_file = kvs_path / 'INPUT.json'
+    input_file.write_bytes(b'42')
+    metadata_file = kvs_path / f'INPUT.json.{METADATA_FILENAME}'
+    metadata_bytes = json.dumps(
+        {'key': configuration.input_key, 'content_type': 'text/plain; charset=utf-8', 'size': 2}
+    ).encode('utf-8')
+    metadata_file.write_bytes(metadata_bytes)
+
+    client = await ApifyFileSystemKeyValueStoreClient.open(id=None, name=None, alias=None, configuration=configuration)
+    record = await client.get_value(key=configuration.input_key)
+
+    assert record is not None
+    assert record.value == '42'
+    assert input_file.read_bytes() == b'42'
+    assert metadata_file.read_bytes() == metadata_bytes
+
+
+async def test_malformed_json_input_does_not_create_metadata() -> None:
+    """Malformed JSON input raises without changing the input or creating record metadata."""
+    configuration = Configuration.get_global_configuration()
+    kvs_path = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    kvs_path.mkdir(parents=True)
+    input_file = kvs_path / 'INPUT.json'
+    input_file.write_bytes(b'{not json')
+
+    with pytest.raises(json.JSONDecodeError):
+        await ApifyFileSystemKeyValueStoreClient.open(id=None, name=None, alias=None, configuration=configuration)
+
+    assert input_file.read_bytes() == b'{not json'
+    assert not (kvs_path / f'INPUT.json.{METADATA_FILENAME}').exists()

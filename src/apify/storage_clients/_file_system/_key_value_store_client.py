@@ -127,6 +127,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
 
         # Figure out the metadata from the file content
         size = len(content)
+        is_json = record_path.suffix == '.json'
         if record_path.suffix == '.json':
             value = json.loads(content.decode('utf-8'))
         elif record_path.suffix == '.txt':
@@ -136,10 +137,12 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
                 value = json.loads(content.decode('utf-8'))
             except json.JSONDecodeError:
                 value = content
+            else:
+                is_json = True
         else:
             value = content
 
-        content_type = infer_mime_type(value)
+        content_type = 'application/json; charset=utf-8' if is_json else infer_mime_type(value)
 
         record_metadata = KeyValueStoreRecordMetadata(key=key, content_type=content_type, size=size)
         record_metadata_filepath = record_path.with_name(f'{record_path.name}.{METADATA_FILENAME}')
