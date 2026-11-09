@@ -156,7 +156,7 @@ def to_apify_request(scrapy_request: ScrapyRequest, spider: Spider) -> ApifyRequ
         if isinstance(scrapy_request.headers, Headers):
             try:
                 # Decoded strictly, so a non-UTF-8 value raises and leaves the headers out. Multiple values of one
-                # header are joined with ',', as Scrapy's `Headers.to_unicode_dict()` does.
+                # header are joined with ','. Once Scrapy < 2.15 is dropped, this can use `Headers.to_tuple_list()`.
                 headers = scrapy_request.headers
                 header_dict = {
                     key.decode(headers.encoding): b','.join(values).decode(headers.encoding)
