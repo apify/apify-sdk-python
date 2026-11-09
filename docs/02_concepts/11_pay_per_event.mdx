@@ -41,7 +41,7 @@ If you use the `count` parameter, always check the returned `charged_count`. It 
 
 ### Charge in multi-tenant Server Actors
 
-A multi-tenant [Server Actor](https://docs.apify.com/platform/actors/development/programming-interface/standby) run serves requests from many users. To charge the user who made a request rather than the account that started the run, pass the request's `X-Actor-Request-ID` header value as `request_id`. Multi-tenant runs reject charges without it.
+A multi-tenant [Server Actor](https://docs.apify.com/platform/actors/development/programming-interface/standby) (formerly Actor Standby) run serves requests from many users. To charge the user who made a request rather than the account that started the run, pass the request's `X-Actor-Request-ID` header value as `request_id`. Multi-tenant runs reject charges without it.
 
 <RunnableCodeBlock className="language-python" language="python">
     {MultiTenantChargeSource}
