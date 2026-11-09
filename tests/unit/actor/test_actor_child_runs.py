@@ -1591,6 +1591,40 @@ async def test_named_call_task_stops_counting_when_the_run_finishes(
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
 
 
+async def test_update_is_not_blocked_by_a_waiting_start_fetching_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Recording a finished run does not wait for a start under the limit that is fetching runs to count them."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    run_client_factory = client.run.side_effect
+    fetch_released = asyncio.Event()
+
+    async def get_first_run() -> Run:
+        await fetch_released.wait()
+        return make_run('first-run', 'RUNNING')
+
+    def run(run_id: str) -> Mock:
+        run_client = run_client_factory(run_id)
+        if run_id == 'first-run':
+            run_client.get = AsyncMock(side_effect=get_first_run)
+        return run_client
+
+    client.run.side_effect = run
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        await asyncio.wait_for(registry.update('first', make_run('first-run', 'SUCCEEDED')), timeout=1)
+        # The fetch still in flight returns the older `RUNNING` status, which must not count the run again.
+        fetch_released.set()
+        second = await asyncio.wait_for(second_task, timeout=1)
+
+    assert second.id == 'second-run'
+
+
 async def test_inherit_timeout_is_resolved_when_a_waiting_start_starts(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     monkeypatch: pytest.MonkeyPatch,

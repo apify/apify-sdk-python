@@ -157,7 +157,7 @@ class ChildRunRegistry:
         self._max_concurrent_runs = max_concurrent_runs
         """How many recorded runs may be active at once, or `None` for no limit."""
         self._capacity_available = asyncio.Condition()
-        """Serializes counting the active runs, and wakes the waiting starts when capacity may be available."""
+        """Wakes the waiting starts when capacity may be available."""
         self._starting_names: set[str] = set()
         """Names with a start or resurrection in flight, counted toward the limit but not from the records yet."""
         self._run_status_cache: dict[str, _CachedRunStatus] = {}
@@ -317,13 +317,10 @@ class ChildRunRegistry:
             client: Client used for a name not started or looked up in this process, e.g. after a migration.
         """
         self._parent_aborting = True
+        await self._notify_capacity_available()
         records = await self._load()
-        # Names with a start in flight are not recorded yet, so their locks are awaited too. Waking the waiting starts
-        # runs alongside the aborts, since a waiting start can hold the condition through a slow fetch of runs.
-        await asyncio.gather(
-            self._notify_capacity_available(),
-            *(self._abort(name, client) for name in {*records, *self._name_locks}),
-        )
+        # Names with a start in flight are not recorded yet, so their locks are awaited too.
+        await asyncio.gather(*(self._abort(name, client) for name in {*records, *self._name_locks}))
 
     async def _abort(self, name: str, default_client: ApifyClientAsync) -> None:
         async with self._name_locks.setdefault(name, asyncio.Lock()):
@@ -367,58 +364,62 @@ class ChildRunRegistry:
     async def _reserve_capacity(
         self, name: str, client: ApifyClientAsync, *, abort_with_parent: bool
     ) -> AsyncGenerator[None]:
-        """Count starting or resurrecting the run under `name` toward the limit, waiting while the limit is reached."""
-        async with self._capacity_available:
-            while (
-                self._max_concurrent_runs is not None
-                and await self._count_active(client, exclude=name) >= self._max_concurrent_runs
-            ):
+        """Count starting or resurrecting the run under `name` toward the limit, waiting while the limit is reached.
+
+        Args:
+            name: Name of the run.
+            client: Client used to fetch stale statuses of runs not started or looked up in this process.
+            abort_with_parent: Whether the run is aborted with this Actor run, so it must not start once that aborts.
+        """
+        while self._max_concurrent_runs is not None:
+            await self._refresh_stale_statuses(client)
+            async with self._capacity_available:
+                # No await separates this count from the reservation below, so two starts can't both pass it and go
+                # over the limit.
+                if self._count_active(exclude=name) < self._max_concurrent_runs:
+                    break
                 if self._parent_aborting:
                     raise RuntimeError(
-                        f'Child run "{name}" was not started, since this Actor run is being aborted and the limit '
-                        f'of {self._max_concurrent_runs} concurrent child runs is reached.'
+                        f'Child run "{name}" was not started, since this Actor run is being aborted and the limit of '
+                        f'{self._max_concurrent_runs} concurrent child runs is reached.'
                     )
                 logger.debug(f'Child run "{name}" is waiting for the concurrency limit')
                 with suppress(TimeoutError):
                     async with asyncio.timeout(_STATUS_MAX_AGE_SECS):
                         await self._capacity_available.wait()
-            # The parent can start aborting while this start waits.
-            if abort_with_parent and self._parent_aborting:
-                raise RuntimeError(
-                    f'Child run "{name}" with `abort_with_parent` was not started, since this Actor run is being '
-                    'aborted.'
-                )
-            self._starting_names.add(name)
+        # The parent can start aborting while this start waits.
+        if abort_with_parent and self._parent_aborting:
+            raise RuntimeError(
+                f'Child run "{name}" with `abort_with_parent` was not started, since this Actor run is being aborted.'
+            )
 
+        self._starting_names.add(name)
         try:
             yield
         finally:
             self._starting_names.discard(name)
             await self._notify_capacity_available()
 
-    async def _count_active(self, client: ApifyClientAsync, *, exclude: str) -> int:
-        """Count active recorded runs and starts in flight under other names, refetching stale active statuses."""
+    async def _refresh_stale_statuses(self, client: ApifyClientAsync) -> None:
+        """Fetch the active runs whose last seen status is stale, so a run that finished stops counting."""
         records = await self._load()
-        names = [name for name in records if name != exclude and name not in self._starting_names]
-        # A start in flight can finish during the fetch below, leaving `_starting_names` before it is in `names`.
-        starting = len(self._starting_names)
         now = asyncio.get_running_loop().time()
-        stale = []
-        for name in names:
-            cached_run_status = self._run_status_cache.get(name)
-            if cached_run_status is None:
-                if records[name].status in _ACTIVE_STATUSES:
-                    stale.append(name)
-            elif (
-                cached_run_status.status in _ACTIVE_STATUSES
-                and now - cached_run_status.cached_at >= _STATUS_MAX_AGE_SECS
-            ):
-                stale.append(name)
+        stale_names = [
+            name
+            for name, record in records.items()
+            if name not in self._starting_names and self._is_stale(name, record, now)
+        ]
+        cached_before_fetch = {name: self._run_status_cache.get(name) for name in stale_names}
         runs = await asyncio.gather(
-            *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale),
+            *(self._clients.get(name, client).run(records[name].run_id).get() for name in stale_names),
             return_exceptions=True,
         )
-        for name, run in zip(stale, runs, strict=True):
+
+        # A run that could not be fetched counts only if this Actor run saw it active before. A status seen during the
+        # fetch, e.g. by `update` once a call awaited the run, is newer than the fetched one.
+        for name, run in zip(stale_names, runs, strict=True):
+            if self._run_status_cache.get(name) is not cached_before_fetch[name]:
+                continue
             if isinstance(run, BaseException):
                 logger.warning(
                     f'Failed to fetch child run "{name}" to count it toward the concurrency limit',
@@ -430,13 +431,26 @@ class ChildRunRegistry:
             else:
                 self._cache_run_status(name, run)
 
-        # A run that could not be fetched counts only when an earlier observation saw it active.
+    def _is_stale(self, name: str, record: ChildRunRecord, now: float) -> bool:
+        """Whether the run under `name` was last seen active long enough ago to be fetched before counting it."""
+        cached_run_status = self._run_status_cache.get(name)
+        if cached_run_status is None:
+            return record.status in _ACTIVE_STATUSES
+        return (
+            cached_run_status.status in _ACTIVE_STATUSES and now - cached_run_status.cached_at >= _STATUS_MAX_AGE_SECS
+        )
+
+    def _count_active(self, *, exclude: str) -> int:
+        """Count the active runs and the starts in flight, apart from the recorded run under `exclude`."""
+        records = self._records.current_value.root
         active = 0
-        for name in names:
+        for name in records:
+            if name == exclude or name in self._starting_names:
+                continue
             cached_run_status = self._run_status_cache.get(name)
             if cached_run_status is not None and cached_run_status.status in _ACTIVE_STATUSES:
                 active += 1
-        return active + starting
+        return active + len(self._starting_names)
 
     async def _notify_capacity_available(self) -> None:
         async with self._capacity_available:
