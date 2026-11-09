@@ -3,7 +3,19 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
-## 4.2.1 - **not yet released**
+## 4.2.2 - **not yet released**
+
+### 🚀 Features
+
+- Deprecate `Actor.get_env()` in favor of `Actor.configuration` ([#1213](https://github.com/apify/apify-sdk-python/pull/1213)) ([c0f4e93](https://github.com/apify/apify-sdk-python/commit/c0f4e93de26503c709ca1c2924f9224a0fc2c95c)) by [@vladfrangu](https://github.com/vladfrangu), closes [#1212](https://github.com/apify/apify-sdk-python/issues/1212)
+
+### 🐛 Bug Fixes
+
+- Add support for Scrapy 2.20 ([#1242](https://github.com/apify/apify-sdk-python/pull/1242)) ([b7a6165](https://github.com/apify/apify-sdk-python/commit/b7a6165b10405f205d59136f72e0418df334bc98)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
+## [4.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.1) (2026-11-05)
 
 ### 🐛 Bug Fixes
 
@@ -11,9 +23,10 @@ All notable changes to this project will be documented in this file.
 - Persist the charged event counts across container restarts ([#1222](https://github.com/apify/apify-sdk-python/pull/1222)) ([aab5cf8](https://github.com/apify/apify-sdk-python/commit/aab5cf81ac1cca5fe20519d3d25720833f2784fc)) by [@Pijukatel](https://github.com/Pijukatel), closes [#1209](https://github.com/apify/apify-sdk-python/issues/1209)
 - Retry a locked shared RQ request that is not found yet ([#1207](https://github.com/apify/apify-sdk-python/pull/1207)) ([17e2845](https://github.com/apify/apify-sdk-python/commit/17e284547501923504c7886770d854df35b1177d)) by [@vdusek](https://github.com/vdusek)
 - Emit `Event.EXIT` on Actor exit ([#1215](https://github.com/apify/apify-sdk-python/pull/1215)) ([46824ef](https://github.com/apify/apify-sdk-python/commit/46824efd9c807933b00b322ffb826c6db739010e)) by [@vdusek](https://github.com/vdusek), closes [#1214](https://github.com/apify/apify-sdk-python/issues/1214)
+- Use the configured public API URL in `Actor.new_client` ([#1229](https://github.com/apify/apify-sdk-python/pull/1229)) ([fe2f960](https://github.com/apify/apify-sdk-python/commit/fe2f9606118693d908ecbc514d99e0c7e0f4e6ff)) by [@vdusek](https://github.com/vdusek)
+- Match URLs case-insensitively in `ApifyRequestList` remote sources ([#1228](https://github.com/apify/apify-sdk-python/pull/1228)) ([793991b](https://github.com/apify/apify-sdk-python/commit/793991bf613f0df713125e90697dd171954f27e6)) by [@vdusek](https://github.com/vdusek)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.0) (2026-10-30)
 
 ### 🚀 Features

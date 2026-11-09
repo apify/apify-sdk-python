@@ -264,11 +264,11 @@ class ChildRunRegistry:
 
             if run.status in _RESURRECTABLE_STATUSES:
                 async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
-                    logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
+                    logger.info('Resurrecting child run "%s"', name, extra={'run_id': run.id, 'status': run.status})
                     run = await resurrect_run(run.id)
                     self._cache_run_status(name, run)
             else:
-                logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
+                logger.info('Reattaching to child run "%s"', name, extra={'run_id': run.id, 'status': run.status})
 
             await self.update(name, run)
             self._clients[name] = client
@@ -331,12 +331,12 @@ class ChildRunRegistry:
             try:
                 run = await run_client.abort(gracefully=True)
             except NotFoundError:
-                logger.debug(f'Child run "{name}" no longer exists', extra={'run_id': record.run_id})
+                logger.debug('Child run "%s" no longer exists', name, extra={'run_id': record.run_id})
             except Exception:
-                logger.exception(f'Failed to abort child run "{name}"', extra={'run_id': record.run_id})
+                logger.exception('Failed to abort child run "%s"', name, extra={'run_id': record.run_id})
             else:
                 if run.status in _ABORTED_STATUSES:
-                    logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
+                    logger.info('Aborted child run "%s" with the parent', name, extra={'run_id': record.run_id})
 
     async def _start(
         self,
@@ -383,7 +383,7 @@ class ChildRunRegistry:
                         f'Child run "{name}" was not started, since this Actor run is being aborted and the limit of '
                         f'{self._max_concurrent_runs} concurrent child runs is reached.'
                     )
-                logger.debug(f'Child run "{name}" is waiting for the concurrency limit')
+                logger.debug('Child run "%s" is waiting for the concurrency limit', name)
                 with suppress(TimeoutError):
                     async with asyncio.timeout(_STATUS_MAX_AGE_SECS):
                         await self._capacity_available.wait()
@@ -422,7 +422,8 @@ class ChildRunRegistry:
                 continue
             if isinstance(run, BaseException):
                 logger.warning(
-                    f'Failed to fetch child run "{name}" to count it toward the concurrency limit',
+                    'Failed to fetch child run "%s" to count it toward the concurrency limit',
+                    name,
                     extra={'run_id': records[name].run_id},
                     exc_info=run,
                 )

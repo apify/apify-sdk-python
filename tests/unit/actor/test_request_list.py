@@ -235,6 +235,29 @@ async def test_request_list_open_from_url_non_utf8_body(httpserver: HTTPServer) 
     assert request.url == expected_url
 
 
+@pytest.mark.parametrize(
+    'url',
+    [
+        pytest.param('HTTPS://example.com/b', id='uppercase scheme'),
+        pytest.param('https://EXAMPLE.COM/a', id='uppercase host'),
+        pytest.param('https://example.Com/c', id='mixed-case TLD'),
+    ],
+)
+async def test_request_list_open_from_url_case_insensitive(httpserver: HTTPServer, url: str) -> None:
+    """Test that URLs with an uppercase scheme, host or TLD are extracted from a remote source."""
+    httpserver.expect_oneshot_request('/file.txt').respond_with_data(status=200, response_data=f'see {url} here')
+
+    request_list = await ApifyRequestList.open(
+        request_list_sources_input=[{'requestsFromUrl': httpserver.url_for('/file.txt')}]
+    )
+
+    requests = []
+    while request := await request_list.fetch_next_request():
+        requests.append(request)
+
+    assert [request.url for request in requests] == [url]
+
+
 async def test_request_list_open_name() -> None:
     name = 'some_name'
     request_list = await ApifyRequestList.open(name=name)

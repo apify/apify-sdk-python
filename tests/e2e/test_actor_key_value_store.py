@@ -30,7 +30,7 @@ async def test_actor_get_input_from_run(
                 "required": ["password"]
             }
         """,
-        'src/main.py': """
+        'actor/main.py': """
             import asyncio
             from apify import Actor
 

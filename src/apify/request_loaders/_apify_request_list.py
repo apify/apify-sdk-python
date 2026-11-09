@@ -17,7 +17,8 @@ from apify import Request
 from apify._utils import docs_group
 
 URL_NO_COMMAS_REGEX = re.compile(
-    r'https?:\/\/(www\.)?([^\W_]|[^\W_][-\w0-9@:%._+~#=]{0,254}[^\W_])\.[a-z]{2,63}(:\d{1,5})?(\/[-\w@:%+.~#?&/=()]*)?'
+    r'https?:\/\/(www\.)?([^\W_]|[^\W_][-\w0-9@:%._+~#=]{0,254}[^\W_])\.[a-z]{2,63}(:\d{1,5})?(\/[-\w@:%+.~#?&/=()]*)?',
+    re.IGNORECASE,
 )
 
 

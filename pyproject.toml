@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify"
-version = "4.2.1"
+version = "4.2.2"
 description = "Apify SDK for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = "Apache-2.0"
@@ -70,7 +70,6 @@ dev = [
     # See https://github.com/apify/apify-client-python/pull/582/ for more details.
     # We explicitly constrain black>=24.3.0 to override the transitive dependency.
     "black>=24.3.0",
-    "build<2.0.0",
     "crawlee[parsel]",
     "griffe",
     "poethepoet<1.0.0",
@@ -124,7 +123,6 @@ ignore = [
     "D213",     # Multi-line docstring summary should start at the second line
     "D413",     # Missing blank line after last section
     "EM",       # flake8-errmsg
-    "G004",     # Logging statement uses f-string
     "ISC001",   # This rule may cause conflicts when used with the formatter
     "FIX",      # flake8-fixme
     "PLR0911",  # Too many return statements
@@ -222,7 +220,7 @@ include = [
 ]
 
 [tool.ty.overrides.rules]
-unresolved-import = "ignore"
+import-not-found = "ignore"
 
 # Scrapy declares `Spider.parse` as a `CallbackT` attribute for type checkers, so every `def parse` override narrows it.
 [[tool.ty.overrides]]

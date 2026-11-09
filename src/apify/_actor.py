@@ -608,6 +608,7 @@ class _ActorType:
         *,
         token: str | None = None,
         api_url: str | None = None,
+        api_public_url: str | None = None,
         max_retries: int | None = None,
         min_delay_between_retries: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -615,15 +616,18 @@ class _ActorType:
         """Return a new instance of the Apify API client.
 
         The `ApifyClientAsync` class is provided by the [apify-client](https://github.com/apify/apify-client-python)
-        package, and it is automatically configured using the `APIFY_API_BASE_URL` and `APIFY_TOKEN` environment
-        variables.
+        package, and it is automatically configured using the `APIFY_API_BASE_URL`, `APIFY_API_PUBLIC_BASE_URL` and
+        `APIFY_TOKEN` environment variables.
 
         You can override the token via the available options. That's useful if you want to use the client
         as a different Apify user than the SDK internals are using.
 
         Args:
             token: The Apify API token.
-            api_url: The URL of the Apify API server to which to connect to. Defaults to https://api.apify.com.
+            api_url: The URL of the Apify API server to which to connect to. Defaults to the `APIFY_API_BASE_URL`
+                environment variable.
+            api_public_url: The globally accessible URL of the Apify API server, used to build public URLs of resources.
+                Defaults to the `APIFY_API_PUBLIC_BASE_URL` environment variable.
             max_retries: How many times to retry a failed request at most.
             min_delay_between_retries: How long will the client wait between retrying requests
                 (increases exponentially from this value).
@@ -637,6 +641,7 @@ class _ActorType:
         client_kwargs: dict[str, Any] = {
             'token': token or self.configuration.token,
             'api_url': api_url or self.configuration.api_base_url,
+            'api_public_url': api_public_url or self.configuration.api_public_base_url,
             'compression': 'brotli',
         }
         if max_retries is not None:
@@ -1022,10 +1027,21 @@ class _ActorType:
     def get_env(self) -> dict:
         """Return a dictionary with information parsed from all the `APIFY_XXX` environment variables.
 
+        Deprecated. Read `Actor.configuration` instead, or `os.environ` for variables it does not expose.
+        Will be removed in version 5.0.0.
+
         For a list of all the environment variables, see the
         [Actor documentation](https://docs.apify.com/actors/development/environment-variables). If some variables
         are not defined or are invalid, the corresponding value in the resulting dictionary will be None.
         """
+        warnings.warn(
+            '`Actor.get_env()` is deprecated and will be removed in version 5.0.0. Read `Actor.configuration` '
+            'instead, or `os.environ` for variables it does not expose.',
+            FutureWarning,
+            # The `ensure_context` wrapper sits between this method and the caller.
+            stacklevel=3,
+        )
+
         config = dict[str, Any]()
         for field_name, field in Configuration.model_fields.items():
             if field.deprecated:
@@ -1696,7 +1712,7 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        self.log.debug(f'Metamorphing the Actor run into target Actor {target_actor_id!r}.')
+        self.log.debug('Metamorphing the Actor run into target Actor %r.', target_actor_id)
         await self.apify_client.run(self.configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
@@ -1797,7 +1813,8 @@ class _ActorType:
                 'Passing `idempotency_key` to `Actor.add_webhook()` is deprecated and will be removed in version '
                 '5.0.0. Set it on the `Webhook` instance instead.',
                 DeprecationWarning,
-                stacklevel=2,
+                # The `ensure_context` wrapper sits between this method and the caller.
+                stacklevel=3,
             )
 
         if not self.is_at_home():
@@ -1842,7 +1859,7 @@ class _ActorType:
         """
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
-            self.log.info(f'[{title}]: {status_message}')
+            self.log.info('[%s]: %s', title, status_message)
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
@@ -1857,11 +1874,12 @@ class _ActorType:
             return await asyncio.wait_for(update, STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds())
         except TimeoutError:
             self.log.warning(
-                f'Failed to set status message for Actor run with ID "{run_id}": '
-                f'the update timed out after {STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds():g}s.'
+                'Failed to set status message for Actor run with ID "%s": the update timed out after %gs.',
+                run_id,
+                STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds(),
             )
         except Exception as exc:
-            self.log.warning(f'Failed to set status message for Actor run with ID "{run_id}": {exc}')
+            self.log.warning('Failed to set status message for Actor run with ID "%s": %s', run_id, exc)
 
         return None
 

@@ -1,13 +1,55 @@
-FROM apify/actor-python-playwright:PYTHON_VERSION_PLACEHOLDER
+# Multi-stage build:
+#   - builder: Installs the Apify SDK and the dependencies, pinned to the project lock file, into a virtual environment
+#   - runner:  Actor image with Playwright browsers, the virtual environment and the Actor source code
 
-COPY . ./
+# Required: the test fixture passes the Python version of the test run as a build argument
+ARG PYTHON_VERSION
+ARG UV_VERSION=0.13
 
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-RUN pip install --force-reinstall -r requirements.txt
+# =============================================================================
+# Build stage
+# =============================================================================
+FROM apify/actor-python-playwright:${PYTHON_VERSION} AS builder
 
-# Reinstall the Chromium binary so it matches the just-installed Playwright version
-# (the base image's pre-installed browser can lag behind a newer Playwright pulled via crawlee[playwright]).
+COPY --from=uv /uv /bin/
+
+# Create the virtual environment from the base image's Python, which the runner stage has too
+ENV UV_PYTHON_DOWNLOADS=never
+
+# Copy the requirements and the Apify SDK source code with the project lock file
+COPY requirements.txt ./
+COPY sdk/ ./sdk/
+
+# Install the Apify SDK and the dependencies into a virtual environment, pinned to the project lock file
+RUN uv export \
+        --project sdk \
+        --frozen \
+        --no-hashes \
+        --no-emit-project \
+        --all-extras \
+        --all-groups \
+        --format requirements.txt \
+        --output-file constraints.txt && \
+    uv venv /opt/venv && \
+    uv pip install --python /opt/venv/bin/python ./sdk -r requirements.txt -c constraints.txt && \
+    uv pip check --python /opt/venv/bin/python
+
+# =============================================================================
+# Runtime stage
+# =============================================================================
+FROM apify/actor-python-playwright:${PYTHON_VERSION} AS runner
+
+# Copy the virtual environment with the installed dependencies
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install the Chromium build that matches the installed Playwright version, which can differ from the base image's
 RUN playwright install chromium
 
-CMD ["sh", "-c", "python server.py & python -m src"]
+# Copy the Actor source code
+COPY . ./
+
+CMD ["sh", "-c", "python server.py & python -m actor"]

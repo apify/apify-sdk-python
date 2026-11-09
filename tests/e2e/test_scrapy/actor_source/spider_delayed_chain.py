@@ -21,7 +21,7 @@ class MarkInFlightMiddleware:
     """Downloader middleware that logs `IN_FLIGHT_LOG_MARKER` for every request it sees."""
 
     def process_request(self, request: Request) -> None:
-        logger.info(f'{IN_FLIGHT_LOG_MARKER}: {request.url}')
+        logger.info('%s: %s', IN_FLIGHT_LOG_MARKER, request.url)
 
 
 class DelayedChainSpider(Spider):
@@ -30,7 +30,7 @@ class DelayedChainSpider(Spider):
     name = 'delayed_chain_spider'
 
     custom_settings = {  # noqa: RUF012
-        'DOWNLOADER_MIDDLEWARES': {'src.spiders.spider.MarkInFlightMiddleware': 543},
+        'DOWNLOADER_MIDDLEWARES': {'actor.spiders.spider.MarkInFlightMiddleware': 543},
         # One request at a time, so the test knows what is in flight when it interrupts the run.
         'CONCURRENT_REQUESTS': 1,
     }

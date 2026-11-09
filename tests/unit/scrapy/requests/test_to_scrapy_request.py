@@ -25,11 +25,11 @@ def spider() -> DummySpider:
     return DummySpider()
 
 
-# A JSON-encoded (pickle-free) Scrapy request for a GET request to https://apify.com, encoded exactly
+# A JSON-encoded (pickle-free) Scrapy request for a GET request to https://apify.com/, encoded exactly
 # the way `to_apify_request` stores it under `user_data['scrapy_request']` (JSON, no outer base64).
 _SCRAPY_REQUEST_JSON_ENCODED = encode_to_json(
     {
-        'url': 'https://apify.com',
+        'url': 'https://apify.com/',
         'callback': None,
         'errback': None,
         'headers': {
@@ -54,7 +54,7 @@ _SCRAPY_REQUEST_JSON_ENCODED = encode_to_json(
 def test_without_reconstruction(spider: Spider) -> None:
     """An Apify request without a stored `scrapy_request` becomes a fresh Scrapy request (no reconstruction)."""
     apify_request = ApifyRequest(
-        url='https://example.com',
+        url='https://example.com/',
         method='GET',
         unique_key='https://example.com',
         user_data={},
@@ -86,7 +86,7 @@ def test_unique_key_is_stamped_together_with_its_fingerprint(spider: Spider) -> 
 def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
     """The without-reconstruction path also carries optional headers and user data to the Scrapy request."""
     apify_request = ApifyRequest(
-        url='https://crawlee.dev',
+        url='https://crawlee.dev/',
         method='GET',
         unique_key='https://crawlee.dev',
         headers=HttpHeaders({'Authorization': 'Bearer access_token'}),
@@ -109,7 +109,7 @@ def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
 def test_with_reconstruction(spider: Spider) -> None:
     """An Apify request with a stored `scrapy_request` is reconstructed from its JSON payload."""
     apify_request = ApifyRequest(
-        url='https://apify.com',
+        url='https://apify.com/',
         method='GET',
         unique_key='https://apify.com',
         user_data={
@@ -129,7 +129,7 @@ def test_with_reconstruction(spider: Spider) -> None:
 def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
     """Reconstruction from the stored JSON payload also restores optional headers and user data."""
     apify_request = ApifyRequest(
-        url='https://apify.com',
+        url='https://apify.com/',
         method='GET',
         unique_key='https://apify.com',
         headers=HttpHeaders({'Authorization': 'Bearer access_token'}),

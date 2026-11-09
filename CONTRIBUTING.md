@@ -30,11 +30,11 @@ We use [ruff](https://docs.astral.sh/ruff/) for linting and formatting, [ty](htt
 
 ## Tests
 
-Each test level has a README describing its fixtures, isolation, and required tokens.
+[`tests/README.md`](tests/README.md) describes each test level, with its fixtures, isolation, and required tokens.
 
-- **Unit tests** (`tests/unit`) mock the Apify API and need no credentials. See [`tests/unit/README.md`](tests/unit/README.md). Run them with `uv run poe unit-tests`, or a single test with `uv run pytest tests/unit/<path>.py::<test_name>`.
-- **Integration tests** (`tests/integration`) call the real Apify API without deploying Actors. See [`tests/integration/README.md`](tests/integration/README.md). Run them with `uv run poe integration-tests`.
-- **E2E tests** (`tests/e2e`) build and run Actors on the Apify platform. See [`tests/e2e/README.md`](tests/e2e/README.md). Run them with `uv run poe e2e-tests`.
+- **Unit tests** (`tests/unit`) mock the Apify API and need no credentials. Run them with `uv run poe unit-tests`, or a single test with `uv run pytest tests/unit/<path>.py::<test_name>`.
+- **Integration tests** (`tests/integration`) call the real Apify API without deploying Actors. Run them with `uv run poe integration-tests`.
+- **E2E tests** (`tests/e2e`) build and run Actors on the Apify platform. Run them with `uv run poe e2e-tests`.
 
 ## Code style
 
@@ -62,6 +62,10 @@ Each test level has a README describing its fixtures, isolation, and required to
 - On Windows with Python 3.12 or older, `datetime.now()` ticks in 1-15 ms steps, so two timestamps taken a few milliseconds apart can be equal. A test that asserts one timestamp is later than another injects a `Mock` clock instead of sleeping.
 - For a TCP endpoint that must refuse connections, bind a socket to `('127.0.0.1', 0)` and hold it open without calling `listen()`. A hard-coded port can be taken by a server in a parallel xdist worker. Test servers use `127.0.0.1`, since on Windows `localhost` resolves to both IPv4 and IPv6.
 
+### YAML
+
+Leave YAML values unquoted unless quotes are needed: a plain value that would change type (`"3.14"`, `"true"`, `""`), start with an indicator character (`"*"`, `"@apify/*"`), contain a colon followed by a space or a `#` preceded by one (`"a: b"`, `"a #b"`), or need an escape sequence (`"\n"`). Use double quotes then. Keep single quotes when the value itself contains double quotes, and for string literals inside GitHub Actions expressions (`${{ ... }}`, `if:` conditions), where double quotes are invalid.
+
 ## Documentation
 
 We adhere to the [Google docstring format](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) for documenting our codebase. Every user-facing class or method is documented. Documentation standards are enforced using [Ruff](https://docs.astral.sh/ruff/).
@@ -72,7 +76,7 @@ Code examples in `docs/` have their own lint settings in `docs/pyproject.toml`. 
 
 Never edit `website/versioned_docs/`: those snapshots are produced by the release automation and frozen against the code that shipped. Fix `docs/`, and the next release snapshot carries the change.
 
-To run the documentation locally (requires Node.js):
+To run the documentation locally (requires Node.js 22.12 or newer and pnpm):
 
 ```sh
 uv run poe run-docs
@@ -80,11 +84,7 @@ uv run poe run-docs
 
 ### Linting the docs and website
 
-Markdown content (this guide, `README.md`, and the `docs/` folder) is checked with
-[markdownlint](https://github.com/DavidAnson/markdownlint). The Docusaurus website code is linted
-with [oxlint](https://oxc.rs/) in type-aware mode (types come from `website/tsconfig.json`) and
-formatted with [oxfmt](https://oxc.rs/). All of them run in CI.
-To run them locally (requires Node.js 22.12 or newer and pnpm), from the `website/` directory:
+Markdown content (this guide, `README.md`, and the `docs/` folder) is checked with [markdownlint](https://github.com/DavidAnson/markdownlint). The Docusaurus website code is linted with [oxlint](https://oxc.rs/) in type-aware mode (types come from `website/tsconfig.json`) and formatted with [oxfmt](https://oxc.rs/). All of them run in CI. To run them locally (requires Node.js 22.12 or newer and pnpm), from the `website/` directory:
 
 ```sh
 pnpm lint          # lint Markdown and website code
@@ -92,8 +92,7 @@ pnpm lint:fix      # auto-fix both
 pnpm format        # format the website code
 ```
 
-Doc images are committed as optimized `.webp`. To convert a new image, run
-`pnpm opt:images <path-to-image>` from the `website/` directory.
+Doc images are committed as optimized `.webp`. To convert a new image, run `pnpm opt:images <path-to-image>` from the `website/` directory.
 
 ## Commits
 

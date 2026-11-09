@@ -270,7 +270,9 @@ class ApifyEventManager(EventManager):
 
             if isinstance(parsed_message, UnknownEvent):
                 logger.debug(
-                    f'Unknown message received: event_name={parsed_message.name}, event_data={parsed_message.data}'
+                    'Unknown message received: event_name=%s, event_data=%s',
+                    parsed_message.name,
+                    parsed_message.data,
                 )
                 return
 
@@ -296,21 +298,25 @@ class ApifyEventManager(EventManager):
         """Log the websocket close and report whether to reconnect (`False` on a non-retryable close code)."""
         if websocket.close_code in self._NON_RETRYABLE_CLOSE_CODES:
             logger.error(
-                f'Connection to platform events websocket was closed with a non-retryable code '
-                f'(code={websocket.close_code}, reason={websocket.close_reason!r}); not reconnecting. '
-                f'No further platform events will be received for the rest of this run, so migration and '
-                f'abort handling (e.g. persisting state before a migration) is now disabled.'
+                'Connection to platform events websocket was closed with a non-retryable code '
+                '(code=%s, reason=%r); not reconnecting. '
+                'No further platform events will be received for the rest of this run, so migration and '
+                'abort handling (e.g. persisting state before a migration) is now disabled.',
+                websocket.close_code,
+                websocket.close_reason,
             )
             return False
 
         if connection_lost:
             logger.warning(
-                f'Connection to platform events websocket was lost '
-                f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
+                'Connection to platform events websocket was lost (code=%s, reason=%r), reconnecting...',
+                websocket.close_code,
+                websocket.close_reason,
             )
         else:
             logger.info(
-                f'Connection to platform events websocket was closed '
-                f'(code={websocket.close_code}, reason={websocket.close_reason!r}), reconnecting...'
+                'Connection to platform events websocket was closed (code=%s, reason=%r), reconnecting...',
+                websocket.close_code,
+                websocket.close_reason,
             )
         return True

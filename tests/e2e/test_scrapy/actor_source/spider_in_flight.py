@@ -21,7 +21,7 @@ class MarkInFlightMiddleware:
     """Downloader middleware that logs `IN_FLIGHT_LOG_MARKER` for every request it sees."""
 
     def process_request(self, request: Request) -> None:
-        logger.info(f'{IN_FLIGHT_LOG_MARKER}: {request.url}')
+        logger.info('%s: %s', IN_FLIGHT_LOG_MARKER, request.url)
 
 
 class InFlightSpider(Spider):
@@ -30,7 +30,7 @@ class InFlightSpider(Spider):
     name = 'in_flight_spider'
 
     custom_settings = {  # noqa: RUF012
-        'DOWNLOADER_MIDDLEWARES': {'src.spiders.spider.MarkInFlightMiddleware': 543},
+        'DOWNLOADER_MIDDLEWARES': {'actor.spiders.spider.MarkInFlightMiddleware': 543},
         # The page answers after 10 minutes; the download must not time out before the test aborts the run.
         'DOWNLOAD_TIMEOUT': 600,
     }
