@@ -12,6 +12,7 @@ import pytest
 
 from apify_client import ApifyClientAsync
 from apify_client._models import Run
+from apify_client._resource_clients import KeyValueStoreClientAsync
 from crawlee.events._types import Event
 
 from apify import Actor, Webhook
@@ -81,6 +82,25 @@ async def test_new_client_config_creation(monkeypatch: pytest.MonkeyPatch) -> No
     client_with_token = my_actor.new_client(token=passed_token)
     assert isinstance(client_with_token, ApifyClientAsync)
     assert client_with_token.token == passed_token
+
+    await my_actor.exit()
+
+
+async def test_new_client_uses_configured_api_public_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`new_client` builds public URLs on the configured `api_public_base_url` host."""
+    monkeypatch.setenv(ApifyEnvVars.API_BASE_URL, 'http://internal-api.example.com')
+    monkeypatch.setenv(ApifyEnvVars.API_PUBLIC_BASE_URL, 'https://public-api.example.com')
+    monkeypatch.setattr(KeyValueStoreClientAsync, 'get', AsyncMock(return_value=None))
+    my_actor = _ActorType()
+    await my_actor.init()
+
+    client = my_actor.new_client()
+    public_url = await client.key_value_store('store-id').get_record_public_url('key')
+    assert public_url == 'https://public-api.example.com/v2/key-value-stores/store-id/records/key'
+
+    client_with_override = my_actor.new_client(api_public_url='https://override.example.com')
+    public_url = await client_with_override.key_value_store('store-id').get_record_public_url('key')
+    assert public_url == 'https://override.example.com/v2/key-value-stores/store-id/records/key'
 
     await my_actor.exit()
 
@@ -346,6 +366,17 @@ async def test_add_webhook_fails_locally(caplog: pytest.LogCaptureFixture) -> No
     assert 'only supported when running on the Apify platform' in matching[0].message
 
 
+async def test_add_webhook_idempotency_key_warns_deprecated() -> None:
+    """Passing `idempotency_key` emits a `DeprecationWarning` that points at the caller."""
+    webhook = Webhook(event_types=['ACTOR.BUILD.ABORTED'], request_url='https://example.com')
+    async with Actor:
+        with pytest.warns(DeprecationWarning, match='`idempotency_key`') as record:
+            await Actor.add_webhook(webhook, idempotency_key='some-key')
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+
+
 async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level('INFO')
     async with Actor:
@@ -355,6 +386,74 @@ async def test_set_status_message_locally(caplog: pytest.LogCaptureFixture) -> N
     assert len(matching_records) == 1
     assert matching_records[0].levelname == 'INFO'
     assert '[Status message]: test-status-message' in matching_records[0].message
+
+
+async def test_set_status_message_returns_updated_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+) -> None:
+    """`Actor.set_status_message` on the platform updates the run and returns it."""
+    apify_client_async_patcher.patch('run', 'update', return_value=fake_actor_run)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+        run = await Actor.set_status_message('almost there', is_terminal=True)
+
+    assert run is fake_actor_run
+    update_kwargs = apify_client_async_patcher.calls['run']['update'][0][1]
+    assert update_kwargs == {'status_message': 'almost there', 'is_status_message_terminal': True}
+
+
+async def test_set_status_message_warns_when_update_fails(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`Actor.set_status_message` logs a warning and returns `None` when the run update raises."""
+
+    def failing_update(*_args: object, **_kwargs: object) -> Run:
+        raise RuntimeError('Boom')
+
+    apify_client_async_patcher.patch('run', 'update', replacement_method=failing_update)
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+        run = await Actor.set_status_message('almost there')
+
+    assert run is None
+    matching_records = [record for record in caplog.records if 'Failed to set status message' in record.message]
+    assert len(matching_records) == 1
+    assert matching_records[0].levelname == 'WARNING'
+    assert matching_records[0].message == 'Failed to set status message for Actor run with ID "some-run-id": Boom'
+
+
+async def test_set_status_message_warns_when_update_times_out(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`Actor.set_status_message` logs a warning and returns `None` when the run update does not finish in time."""
+
+    async def hanging_update(*_args: object, **_kwargs: object) -> Run:
+        await asyncio.Event().wait()
+        raise AssertionError('unreachable')
+
+    apify_client_async_patcher.patch('run', 'update', replacement_method=hanging_update)
+    monkeypatch.setattr('apify._actor.STATUS_MESSAGE_UPDATE_TIMEOUT', timedelta(milliseconds=10))
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.actor_run_id = 'some-run-id'
+        run = await Actor.set_status_message('almost there')
+
+    assert run is None
+    matching_records = [record for record in caplog.records if 'Failed to set status message' in record.message]
+    assert len(matching_records) == 1
+    assert matching_records[0].levelname == 'WARNING'
+    assert matching_records[0].message == (
+        'Failed to set status message for Actor run with ID "some-run-id": the update timed out after 0.01s.'
+    )
 
 
 async def test_set_terminal_status_message_locally(caplog: pytest.LogCaptureFixture) -> None:

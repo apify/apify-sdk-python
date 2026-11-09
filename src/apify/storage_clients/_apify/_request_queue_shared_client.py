@@ -222,9 +222,10 @@ class ApifyRequestQueueSharedClient:
         await resolve_awaited_in_flight(awaited_in_flight, api_response)
 
         logger.debug(
-            f'Tried to add new requests: {len(new_requests)}, '
-            f'succeeded to add new requests: {len(api_response.processed_requests) - len(already_present_requests)}, '
-            f'skipped already present requests: {len(already_present_requests)}'
+            'Tried to add new requests: %d, succeeded to add new requests: %d, skipped already present requests: %d',
+            len(new_requests),
+            len(api_response.processed_requests) - len(already_present_requests),
+            len(already_present_requests),
         )
 
         # Update assumed total count for newly added requests.
@@ -293,6 +294,8 @@ class ApifyRequestQueueSharedClient:
                 extra={'next_request_id': next_request_id},
             )
             self._requests_in_progress.discard(next_request_id)
+            # This client still holds the lock, so no head listing returns the request; requeue it locally.
+            self._queue_head.append(next_request_id)
             return None
 
         # If the request was already handled, skip it
@@ -314,6 +317,7 @@ class ApifyRequestQueueSharedClient:
                 extra={'next_request_id': next_request_id},
             )
             self._requests_in_progress.discard(next_request_id)
+            self._queue_head.append(next_request_id)
             return None
 
         return request
@@ -346,7 +350,7 @@ class ApifyRequestQueueSharedClient:
                 hydrated_request=request,
             )
         except Exception:
-            logger.exception(f'Error marking request {request.unique_key} as handled.')
+            logger.exception('Error marking request %s as handled.', request.unique_key)
             return None
         else:
             return processed_request
@@ -393,7 +397,7 @@ class ApifyRequestQueueSharedClient:
                     self._should_check_for_forefront_requests = True
 
             except Exception:
-                logger.exception(f'Error reclaiming request {request.unique_key}')
+                logger.exception('Error reclaiming request %s', request.unique_key)
                 return None
             else:
                 return processed_request
@@ -465,7 +469,8 @@ class ApifyRequestQueueSharedClient:
     async def _is_empty(self) -> bool:
         """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
         head = await self._list_head(limit=1)
-        return len(head.items) == 0
+        # The cached head lists only hydrated requests, but `fetch_next_request` also hydrates an evicted ID on demand.
+        return len(head.items) == 0 and not self._queue_head
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.
@@ -528,12 +533,12 @@ class ApifyRequestQueueSharedClient:
                 lock_duration=self._DEFAULT_LOCK_TIME,
             )
         except Exception as exc:
-            logger.debug(f'Failed to prolong the lock of request {request_id}, skipping it: {exc!s}')
+            logger.debug('Failed to prolong the lock of request %s, skipping it: %s', request_id, exc)
             return False
 
         # `None` means the lock was not (re)acquired; skip the request rather than process it without a lock.
         if lock_info is None:
-            logger.debug(f'Lock of request {request_id} could not be re-acquired, skipping it')
+            logger.debug('Lock of request %s could not be re-acquired, skipping it', request_id)
             return False
 
         if (cached := self._requests_cache.get(request_id)) is not None:
@@ -579,7 +584,7 @@ class ApifyRequestQueueSharedClient:
                 lock_expires_at=cached_entry.lock_expires_at if cached_entry else None,
             )
         except Exception as exc:
-            logger.debug(f'Error fetching request {request_id}: {exc!s}')
+            logger.debug('Error fetching request %s: %s', request_id, exc)
             return None
         else:
             return request
@@ -626,7 +631,7 @@ class ApifyRequestQueueSharedClient:
         """
         # Return from cache if available and we're not checking for new forefront requests
         if self._queue_head and not self._should_check_for_forefront_requests:
-            logger.debug(f'Using cached queue head with {len(self._queue_head)} requests')
+            logger.debug('Using cached queue head with %d requests', len(self._queue_head))
             # Create a list of requests from the cached queue head
             items = []
             for request_id in list(self._queue_head)[:limit]:

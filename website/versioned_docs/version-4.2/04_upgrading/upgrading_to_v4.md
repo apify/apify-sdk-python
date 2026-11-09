@@ -151,7 +151,7 @@ Actor.on(Event.SYSTEM_INFO, callback)
 
 ### Actor pricing info models
 
-The Actor pricing-info models exposed through `Actor.configuration.actor_pricing_info` — `FreeActorPricingInfo`, `FlatPricePerMonthActorPricingInfo`, `PricePerDatasetItemActorPricingInfo`, `PayPerEventActorPricingInfo`, and the nested `ActorChargeEvent` / `PricingPerEvent` — are now thin subclasses of the corresponding `apify-client` models instead of standalone SDK copies. The discriminated-union shape is unchanged, so existing access (`pricing_model`, per-event titles and prices) keeps working; the models now expose the full `apify-client` field set, and a charge event's `event_price_usd` is optional (it is unset for tier-priced events). `ChargingManager.get_pricing_info()` is unchanged.
+The Actor pricing-info models exposed through `Actor.configuration.actor_pricing_info` — `FreeActorPricingInfo`, `FlatPricePerMonthActorPricingInfo`, `PricePerDatasetItemActorPricingInfo`, `PayPerEventActorPricingInfo`, and the nested `ActorChargeEvent` / `PricingPerEvent` — are now the corresponding `apify-client` models instead of standalone SDK copies. The platform leaves `eventDescription` out of the env var, so `event_description` is an empty string for events parsed from it. The discriminated-union shape is unchanged, so existing access (`pricing_model`, per-event titles and prices) keeps working; the models now expose the full `apify-client` field set, and a charge event's `event_price_usd` is optional (it is unset for tier-priced events). `ChargingManager.get_pricing_info()` is unchanged.
 
 ### Webhook API simplified
 

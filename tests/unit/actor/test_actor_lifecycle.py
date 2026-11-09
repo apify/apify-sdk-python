@@ -15,7 +15,13 @@ import websockets
 import websockets.asyncio.server
 
 from apify_client._models import Run
-from crawlee.events._types import Event, EventAbortingData, EventCrawlerStatusData, EventPersistStateData
+from crawlee.events._types import (
+    Event,
+    EventAbortingData,
+    EventCrawlerStatusData,
+    EventExitData,
+    EventPersistStateData,
+)
 
 from ..._utils import poll_until_condition
 from apify import Actor
@@ -26,6 +32,8 @@ from apify._consts import EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, Api
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
+
+    from ..conftest import ApifyClientAsyncPatcher
 
 
 @pytest.fixture(
@@ -334,6 +342,22 @@ async def test_actor_stops_periodic_events_after_exit(monkeypatch: pytest.Monkey
     assert on_system_info_count == len(on_system_info)
 
 
+async def test_actor_emits_exit_event_on_exit() -> None:
+    """The Actor emits `EXIT` once on exit and waits for its listeners before exit returns."""
+    on_exit = Mock()
+
+    async def listener(data: EventExitData) -> None:
+        await asyncio.sleep(0.1)
+        on_exit(data)
+
+    actor = Actor(exit_process=False)
+    async with actor:
+        actor.on(Event.EXIT, listener)
+
+    on_exit.assert_called_once()
+    assert isinstance(on_exit.call_args.args[0], EventExitData)
+
+
 async def test_actor_handles_migrating_event_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that Actor handles MIGRATING events correctly by emitting PERSIST_STATE."""
     # This should test whether when you get a MIGRATING event,
@@ -438,7 +462,7 @@ async def test_actor_fail_prevents_further_execution(caplog: pytest.LogCaptureFi
         assert len(exit_records) == 1
         assert exit_records[0].levelno == logging.INFO
 
-        status_records = [r for r in caplog.records if r.msg == '[Terminal status message]: cde']
+        status_records = [r for r in caplog.records if r.getMessage() == '[Terminal status message]: cde']
         assert len(status_records) == 1
         assert status_records[0].levelno == logging.INFO
 
@@ -529,18 +553,18 @@ async def test_failed_crawler_status_forwarding_logs_warning(
 
 
 async def test_slow_crawler_status_forwarding_times_out(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A forwarded crawler status update that exceeds the timeout is abandoned with a warning."""
     set_up_platform_env(monkeypatch)
-    monkeypatch.setattr('apify._actor.CRAWLER_STATUS_FORWARDING_TIMEOUT', timedelta(milliseconds=10))
+    monkeypatch.setattr('apify._actor.STATUS_MESSAGE_UPDATE_TIMEOUT', timedelta(milliseconds=10))
 
-    async def set_status_message(_self: Any, _status_message: str, *, is_terminal: bool | None = None) -> None:
-        if not is_terminal:
-            await asyncio.sleep(60)
+    async def hanging_update(*_args: object, **_kwargs: object) -> None:
+        await asyncio.sleep(60)
 
-    monkeypatch.setattr(_ActorType, 'set_status_message', set_status_message)
+    apify_client_async_patcher.patch('run', 'update', replacement_method=hanging_update)
 
     async with Actor() as actor:
         actor.event_manager.emit(
@@ -549,10 +573,9 @@ async def test_slow_crawler_status_forwarding_times_out(
         )
         await asyncio.wait_for(actor.event_manager.wait_for_all_listeners_to_complete(), timeout=5)
 
-    records = [r for r in caplog.records if r.msg == 'Failed to forward the crawler status message to the Actor run']
+    records = [r for r in caplog.records if r.msg.startswith('Failed to set status message')]
     assert len(records) == 1
-    assert isinstance(records[0].exc_info, tuple)
-    assert isinstance(records[0].exc_info[1], TimeoutError)
+    assert records[0].levelno == logging.WARNING
 
 
 async def test_crawler_status_does_not_follow_terminal_status_message(monkeypatch: pytest.MonkeyPatch) -> None:

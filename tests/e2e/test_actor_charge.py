@@ -303,3 +303,98 @@ async def test_actor_charge_in_multi_tenant_standby_run(
     run = await _get_run(apify_client_async, runs.items[0].id)
     assert run.standby is not None
     assert run.standby.deployment.startswith('MULTI_TENANT')
+
+
+@pytest_asyncio.fixture(scope='module', loop_scope='module')
+async def ppe_reboot_actor_build(make_actor: MakeActorFunction) -> str:
+    async def main() -> None:
+        async with Actor:
+            key_value_store = await Actor.open_key_value_store()
+            charging_manager = Actor.get_charging_manager()
+
+            if not await key_value_store.get_value('REBOOTED'):
+                for _ in range(3):
+                    await Actor.charge('row-charged')
+                await key_value_store.set_value('REBOOTED', {'rebooted': True})
+                await Actor.reboot()
+                return
+
+            # The second container records what the SDK believes right at its start, before charging anything.
+            await key_value_store.set_value(
+                'SDK_VIEW_AFTER_REBOOT',
+                {
+                    'chargedCount': charging_manager.get_charged_event_count('row-charged'),
+                    'totalChargedUsd': str(charging_manager.calculate_total_charged_amount()),
+                    'chargeableWithinLimit': charging_manager.calculate_max_event_charge_count_within_limit(
+                        'row-charged'
+                    ),
+                },
+            )
+
+    actor_client = await make_actor('ppe-reboot', main_func=main)
+
+    await actor_client.update(
+        pricing_infos=[
+            {
+                'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
+                'pricingPerEvent': {
+                    'actorChargeEvents': {
+                        'row-charged': {
+                            'eventTitle': 'Row charged',
+                            'eventPriceUsd': 0.005,
+                            'eventDescription': 'One charged row',
+                        },
+                    },
+                },
+            },
+        ],
+    )
+
+    actor = await actor_client.get()
+
+    assert actor is not None
+    return actor.id
+
+
+@pytest_asyncio.fixture(scope='function', loop_scope='module')
+async def ppe_reboot_actor(
+    ppe_reboot_actor_build: str,
+    apify_client_async: ApifyClientAsync,
+) -> ActorClientAsync:
+    return apify_client_async.actor(ppe_reboot_actor_build)
+
+
+async def test_actor_charge_counts_survive_reboot(
+    ppe_reboot_actor: ActorClientAsync,
+    run_actor: RunActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test that a rebooted run starts from the events charged before the reboot."""
+    run = await run_actor(ppe_reboot_actor, max_total_charge_usd=Decimal('0.05'))
+
+    assert run.status == 'SUCCEEDED'
+    assert run.stats.reboot_count == 1
+
+    # Refetch until the charged event counts propagate on the platform.
+    run = await poll_until_condition(
+        partial(_get_run, apify_client_async, run.id),
+        lambda r: r.charged_event_counts == {'row-charged': 3},
+        timeout=30,
+        poll_interval=1,
+    )
+    assert run.charged_event_counts == {'row-charged': 3}
+
+    record = await apify_client_async.key_value_store(run.default_key_value_store_id).get_record(
+        'SDK_VIEW_AFTER_REBOOT'
+    )
+    assert record is not None
+
+    # Three events at $0.005 were charged before the reboot, which leaves room for seven more under the $0.05 limit.
+    assert record['value'] == {
+        'chargedCount': 3,
+        'totalChargedUsd': '0.015',
+        'chargeableWithinLimit': 7,
+    }

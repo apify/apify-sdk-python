@@ -108,9 +108,10 @@ class ApifyScheduler(BaseScheduler):
 
         if self._crawler is None:
             logger.warning(
-                f'{ApifyScheduler.__qualname__} was built without a crawler, so it cannot see what Scrapy is '
+                '%s was built without a crawler, so it cannot see what Scrapy is '
                 'still working on. Every request is marked as handled the moment it is handed over, and an '
-                'interrupted run loses whatever was in flight. Build it with `from_crawler` to avoid that.'
+                'interrupted run loses whatever was in flight. Build it with `from_crawler` to avoid that.',
+                ApifyScheduler.__qualname__,
             )
         else:
             self._verify_engine_internals()
@@ -153,7 +154,7 @@ class ApifyScheduler(BaseScheduler):
         Args:
             reason: The reason for closing the spider.
         """
-        logger.debug(f'Closing {self.__class__.__name__} due to {reason}...')
+        logger.debug('Closing %s due to %s...', self.__class__.__name__, reason)
         self._closed = True
 
         # Without an initialized Actor (never initialized, or exited already) there is nothing to unregister from.
@@ -183,7 +184,8 @@ class ApifyScheduler(BaseScheduler):
                     for (apify_request, _), outcome in zip(self._requests_in_flight, outcomes, strict=True):
                         if outcome is not None:
                             logger.error(
-                                f'Failed to reclaim the request {apify_request} in the request queue.',
+                                'Failed to reclaim the request %s in the request queue.',
+                                apify_request,
                                 exc_info=outcome,
                             )
 
@@ -202,7 +204,7 @@ class ApifyScheduler(BaseScheduler):
             logger.exception('Exception occurred while shutting down.')
 
         finally:
-            logger.debug(f'{self.__class__.__name__} closed successfully.')
+            logger.debug('%s closed successfully.', self.__class__.__name__)
 
     def has_pending_requests(self) -> bool:
         """Check if the scheduler has any pending requests.
@@ -248,7 +250,7 @@ class ApifyScheduler(BaseScheduler):
 
         apify_request = to_apify_request(request, spider=self.spider)
         if apify_request is None:
-            logger.warning(f'Request {request} could not be converted to Apify request; skipping it.')
+            logger.warning('Request %s could not be converted to Apify request; skipping it.', request)
             return False
 
         if not isinstance(self._rq, RequestQueue):
@@ -300,7 +302,9 @@ class ApifyScheduler(BaseScheduler):
         try:
             scrapy_request = to_scrapy_request(apify_request, spider=self.spider)
         except Exception as exc:
-            logger.warning(f'Failed to convert Apify request {apify_request} to a Scrapy request; skipping it: {exc}')
+            logger.warning(
+                'Failed to convert Apify request %s to a Scrapy request; skipping it: %s', apify_request, exc
+            )
             try:
                 self._async_thread.run_coro(self._rq.mark_request_as_handled(apify_request))
             except Exception:
@@ -334,8 +338,10 @@ class ApifyScheduler(BaseScheduler):
         remaining = event_data.time_remaining
         deadline = '' if remaining is None else f' in {remaining.total_seconds():.0f} seconds'
         logger.info(
-            f'The Actor run is migrating{deadline}: no more requests are handed out to Scrapy, and the '
-            f'{len(self._requests_in_flight)} request(s) it holds are marked as handled as they finish.'
+            'The Actor run is migrating%s: no more requests are handed out to Scrapy, and the '
+            '%d request(s) it holds are marked as handled as they finish.',
+            deadline,
+            len(self._requests_in_flight),
         )
 
         await self._settle_requests_in_flight()
@@ -348,8 +354,8 @@ class ApifyScheduler(BaseScheduler):
         the abort would leave all of them pending, their items already pushed.
         """
         logger.info(
-            f'The Actor run is being aborted: the {len(self._requests_in_flight)} request(s) Scrapy holds are marked '
-            'as handled as they finish.'
+            'The Actor run is being aborted: the %d request(s) Scrapy holds are marked as handled as they finish.',
+            len(self._requests_in_flight),
         )
 
         await self._settle_requests_in_flight()
@@ -433,7 +439,7 @@ class ApifyScheduler(BaseScheduler):
                 else:
                     self._pending_marks.append((finished, self._async_thread.submit_coro(marks)))
             except Exception:
-                logger.exception(f'Failed to mark {len(finished)} request(s) as handled in the request queue.')
+                logger.exception('Failed to mark %d request(s) as handled in the request queue.', len(finished))
                 unresolved.extend(finished)
 
         self._requests_in_flight = unresolved
@@ -462,7 +468,7 @@ class ApifyScheduler(BaseScheduler):
             if not future.done():
                 pending.append((requests, future))
             elif future.cancelled():
-                logger.error(f'Marking {len(requests)} request(s) as handled was cancelled before it finished.')
+                logger.error('Marking %d request(s) as handled was cancelled before it finished.', len(requests))
                 failed.extend(requests)
             else:
                 # `_gather_failures` reports a failed update in its result rather than raising, so an exception
@@ -470,7 +476,7 @@ class ApifyScheduler(BaseScheduler):
                 try:
                     outcomes = future.result()
                 except Exception:
-                    logger.exception(f'Failed to mark {len(requests)} request(s) as handled in the request queue.')
+                    logger.exception('Failed to mark %d request(s) as handled in the request queue.', len(requests))
                     failed.extend(requests)
                 else:
                     failed.extend(self._failed_marks(requests, outcomes))
@@ -490,7 +496,8 @@ class ApifyScheduler(BaseScheduler):
         for (apify_request, scrapy_request), outcome in zip(requests, outcomes, strict=True):
             if outcome is not None:
                 logger.error(
-                    f'Failed to mark the request {apify_request} as handled in the request queue.',
+                    'Failed to mark the request %s as handled in the request queue.',
+                    apify_request,
                     exc_info=outcome,
                 )
                 failed.append((apify_request, scrapy_request))

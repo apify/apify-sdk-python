@@ -40,9 +40,9 @@ from apify._charging import (
 from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
 from apify._consts import (
-    CRAWLER_STATUS_FORWARDING_TIMEOUT,
     EVENT_LISTENERS_TIMEOUT,
     EXIT_CODE_ERROR_USER_FUNCTION_THREW,
+    STATUS_MESSAGE_UPDATE_TIMEOUT,
     ActorEnvVars,
     ApifyEnvVars,
 )
@@ -287,6 +287,7 @@ class _ActorType:
         case the Actor:
 
         - Stops forwarding crawler status messages to the run status message.
+        - Emits the `EXIT` event.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
         - Waits for all event listeners to finish.
@@ -328,6 +329,8 @@ class _ActorType:
                         await self.set_status_message(self.status_message, is_terminal=True)
                 except Exception:
                     self.log.exception('Failed to set terminal status message')
+
+            self.event_manager.emit(event=Event.EXIT, event_data=EventExitData())
 
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
@@ -594,6 +597,7 @@ class _ActorType:
         *,
         token: str | None = None,
         api_url: str | None = None,
+        api_public_url: str | None = None,
         max_retries: int | None = None,
         min_delay_between_retries: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -601,15 +605,18 @@ class _ActorType:
         """Return a new instance of the Apify API client.
 
         The `ApifyClientAsync` class is provided by the [apify-client](https://github.com/apify/apify-client-python)
-        package, and it is automatically configured using the `APIFY_API_BASE_URL` and `APIFY_TOKEN` environment
-        variables.
+        package, and it is automatically configured using the `APIFY_API_BASE_URL`, `APIFY_API_PUBLIC_BASE_URL` and
+        `APIFY_TOKEN` environment variables.
 
         You can override the token via the available options. That's useful if you want to use the client
         as a different Apify user than the SDK internals are using.
 
         Args:
             token: The Apify API token.
-            api_url: The URL of the Apify API server to which to connect to. Defaults to https://api.apify.com.
+            api_url: The URL of the Apify API server to which to connect to. Defaults to the `APIFY_API_BASE_URL`
+                environment variable.
+            api_public_url: The globally accessible URL of the Apify API server, used to build public URLs of resources.
+                Defaults to the `APIFY_API_PUBLIC_BASE_URL` environment variable.
             max_retries: How many times to retry a failed request at most.
             min_delay_between_retries: How long will the client wait between retrying requests
                 (increases exponentially from this value).
@@ -623,6 +630,7 @@ class _ActorType:
         client_kwargs: dict[str, Any] = {
             'token': token or self.configuration.token,
             'api_url': api_url or self.configuration.api_base_url,
+            'api_public_url': api_public_url or self.configuration.api_public_base_url,
             'compression': 'brotli',
         }
         if max_retries is not None:
@@ -815,22 +823,49 @@ class _ActorType:
         a `dict` keyed by the fields declared in the Actor's input schema. Any secret input fields are decrypted to
         plaintext before being returned.
 
-        When running locally and the default key-value store holds no input record, the input is read from a
-        `<input_key>` or `<input_key>.json` file in the current working directory instead. The `.json` file is parsed
-        as JSON; the bare file is parsed as JSON when it is valid JSON, and returned as `bytes` otherwise.
+        When running locally, the input may instead be a `<input_key>` or `<input_key>.json` file in the current
+        working directory. A storage client that doesn't read the default key-value store's directory under the
+        storage directory (e.g. in-memory storage) also gets the file `apify run` writes there. The input must be in
+        exactly one place. The `.json` file is parsed as JSON; the bare file is parsed as JSON when it is valid JSON,
+        and returned as `bytes` otherwise.
 
         Returns:
             The Actor input, usually a `dict` of input fields, or `None` if the Actor has no input.
 
         Raises:
-            RuntimeError: If both `<input_key>` and `<input_key>.json` exist in the working directory.
-            ValueError: If the `<input_key>.json` file in the working directory is not valid JSON.
+            RuntimeError: If the input is found in more than one place: both `<input_key>` and `<input_key>.json` in
+                one directory, or in the default key-value store and in the working directory.
+            ValueError: If the `<input_key>.json` file is not valid JSON.
         """
         input_key = self.configuration.input_key
         key_value_store = await self.open_key_value_store()
         input_value = await key_value_store.get_value(input_key)
-        if input_value is None and not self.is_at_home() and not await key_value_store.record_exists(input_key):
-            input_value = await self._read_input_from_working_directory(input_key)
+        if not self.is_at_home():
+            store_has_input = input_value is not None or await key_value_store.record_exists(input_key)
+            input_path = None
+            # Under the file-system storage client the record *is* the store directory's file, so don't read it twice.
+            if not store_has_input:
+                # Mirrors apify-cli's `getLocalKeyValueStorePath`, which is where `apify run` writes the input.
+                default_kvs_dir = (
+                    Path(self.configuration.storage_dir)
+                    / 'key_value_stores'
+                    / (self.configuration.default_key_value_store_id or 'default')
+                )
+                input_path = await self._find_input_file(
+                    input_key, default_kvs_dir, 'default key-value store directory'
+                )
+
+            cwd_input_path = await self._find_input_file(input_key, Path.cwd(), 'working directory')
+            if cwd_input_path is not None:
+                if store_has_input or input_path is not None:
+                    raise RuntimeError(
+                        f'Found the input both in the default key-value store and in a "{input_key}" or '
+                        f'"{input_key}.json" file in the working directory. Keep only one of them.'
+                    )
+                input_path = cwd_input_path
+
+            if input_path is not None:
+                input_value = await self._read_input_file(input_path, input_key)
 
         input_secrets_private_key = self.configuration.input_secrets_private_key_file
         input_secrets_key_passphrase = self.configuration.input_secrets_private_key_passphrase
@@ -993,10 +1028,21 @@ class _ActorType:
     def get_env(self) -> dict:
         """Return a dictionary with information parsed from all the `APIFY_XXX` environment variables.
 
+        Deprecated. Read `Actor.configuration` instead, or `os.environ` for variables it does not expose.
+        Will be removed in version 5.0.0.
+
         For a list of all the environment variables, see the
         [Actor documentation](https://docs.apify.com/actors/development/environment-variables). If some variables
         are not defined or are invalid, the corresponding value in the resulting dictionary will be None.
         """
+        warnings.warn(
+            '`Actor.get_env()` is deprecated and will be removed in version 5.0.0. Read `Actor.configuration` '
+            'instead, or `os.environ` for variables it does not expose.',
+            FutureWarning,
+            # The `ensure_context` wrapper sits between this method and the caller.
+            stacklevel=3,
+        )
+
         config = dict[str, Any]()
         for field_name, field in Configuration.model_fields.items():
             if field.deprecated:
@@ -1659,7 +1705,7 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        self.log.debug(f'Metamorphing the Actor run into target Actor {target_actor_id!r}.')
+        self.log.debug('Metamorphing the Actor run into target Actor %r.', target_actor_id)
         await self.apify_client.run(self.configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
@@ -1760,7 +1806,8 @@ class _ActorType:
                 'Passing `idempotency_key` to `Actor.add_webhook()` is deprecated and will be removed in version '
                 '5.0.0. Set it on the `Webhook` instance instead.',
                 DeprecationWarning,
-                stacklevel=2,
+                # The `ensure_context` wrapper sits between this method and the caller.
+                stacklevel=3,
             )
 
         if not self.is_at_home():
@@ -1793,34 +1840,41 @@ class _ActorType:
     ) -> Run | None:
         """Set the status message for the current Actor run.
 
+        The status message is cosmetic, so a failed or timed-out update is logged as a warning and never raises.
+
         Args:
             status_message: The status message to set to the run.
             is_terminal: Set this flag to True if this is the final status message of the Actor run.
 
         Returns:
-            The updated Actor run object.
+            The updated Actor run object, or `None` when no run was updated: when running locally, or when the update
+            failed or timed out.
         """
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
-            self.log.info(f'[{title}]: {status_message}')
+            self.log.info('[%s]: %s', title, status_message)
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        if not self.configuration.actor_run_id:
+        run_id = self.configuration.actor_run_id
+        if not run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        run_client = self.apify_client.run(self.configuration.actor_run_id)
-        run = await run_client.update(
-            status_message=status_message,
-            is_status_message_terminal=is_terminal,
-        )
+        run_client = self.apify_client.run(run_id)
+        update = run_client.update(status_message=status_message, is_status_message_terminal=is_terminal)
 
-        if run is None:
-            raise RuntimeError(
-                f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
+        try:
+            return await asyncio.wait_for(update, STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds())
+        except TimeoutError:
+            self.log.warning(
+                'Failed to set status message for Actor run with ID "%s": the update timed out after %gs.',
+                run_id,
+                STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds(),
             )
+        except Exception as exc:
+            self.log.warning('Failed to set status message for Actor run with ID "%s": %s', run_id, exc)
 
-        return run
+        return None
 
     @_ensure_context
     async def create_proxy_configuration(
@@ -1914,16 +1968,13 @@ class _ActorType:
 
         Messages that arrive once the Actor is exiting are dropped, and the terminal message waits for an update that
         is already in flight, so no forwarded message can overwrite the terminal one. Each update is bounded by
-        `CRAWLER_STATUS_FORWARDING_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
+        `STATUS_MESSAGE_UPDATE_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
         """
         try:
             async with self._status_message_lock:
                 if self._is_exiting:
                     return
-                await asyncio.wait_for(
-                    self.set_status_message(event_data.message),
-                    timeout=CRAWLER_STATUS_FORWARDING_TIMEOUT.total_seconds(),
-                )
+                await self.set_status_message(event_data.message)
         except Exception:
             self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 
@@ -1956,19 +2007,20 @@ class _ActorType:
         return True
 
     @staticmethod
-    async def _read_input_from_working_directory(input_key: str) -> Any:
-        """Read the Actor input from a `<input_key>` or `<input_key>.json` file in the current working directory."""
-        candidates = [Path.cwd() / input_key, Path.cwd() / f'{input_key}.json']
+    async def _find_input_file(input_key: str, directory: Path, label: str) -> Path | None:
+        """Find the `<input_key>` or `<input_key>.json` input file in the given directory, if there is one."""
+        candidates = [directory / input_key, directory / f'{input_key}.json']
         found = [path for path in candidates if await asyncio.to_thread(path.is_file)]
 
         if len(found) > 1:
             names = ', '.join(f'"{path.name}"' for path in found)
-            raise RuntimeError(f'Found multiple input files in the working directory: {names}. Keep only one of them.')
+            raise RuntimeError(f'Found multiple input files in the {label}: {names}. Keep only one of them.')
 
-        if not found:
-            return None
+        return found[0] if found else None
 
-        input_path = found[0]
+    @staticmethod
+    async def _read_input_file(input_path: Path, input_key: str) -> Any:
+        """Read the Actor input from the given `<input_key>` or `<input_key>.json` input file."""
         content = await asyncio.to_thread(input_path.read_bytes)
 
         try:

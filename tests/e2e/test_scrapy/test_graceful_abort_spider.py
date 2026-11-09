@@ -52,7 +52,11 @@ async def test_graceful_abort_spider(make_actor: MakeActorFunction, apify_client
     requests = await apify_client_async.request_queue(run.default_request_queue_id).list_requests()
     handled_urls = [request.url for request in requests.items if request.handled_at is not None]
     pending_urls = [request.url for request in requests.items if request.handled_at is None]
-    items = await run_client.dataset().list_items()
+    items = await poll_until_condition(
+        run_client.dataset().list_items,
+        lambda page: len(page.items) >= len(handled_urls),
+        timeout=30,
+    )
 
     assert handled_urls, f'No request was marked as handled: {requests.items}'
     assert Counter(item['url'] for item in items.items) == Counter(handled_urls)

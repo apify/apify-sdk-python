@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..._utils import poll_until_condition
 from .conftest import get_scrapy_source_files
 
 if TYPE_CHECKING:
@@ -18,5 +19,9 @@ async def test_redirect_spider(make_actor: MakeActorFunction, run_actor: RunActo
     run_result = await run_actor(actor)
     assert run_result.status == 'SUCCEEDED'
 
-    items = await actor.last_run().dataset().list_items()
+    items = await poll_until_condition(
+        actor.last_run().dataset().list_items,
+        lambda page: len(page.items) >= 1,
+        timeout=30,
+    )
     assert items.items == [{'url': 'http://localhost:8080/redirect-target', 'title': 'Redirect Target'}]

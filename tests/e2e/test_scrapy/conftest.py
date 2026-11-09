@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..._utils import poll_until_condition
+
 if TYPE_CHECKING:
     from apify_client._models import Run
     from apify_client._resource_clients import ActorClientAsync
@@ -21,12 +23,12 @@ def get_scrapy_source_files(
     extra_source_files: dict[str, str] | None = None,
 ) -> dict[str, str]:
     source_files: dict[str, str] = {
-        'src/__main__.py': read_actor_source('__main__.py'),
-        'src/main.py': read_actor_source('main.py'),
-        'src/settings.py': read_actor_source('settings.py'),
-        'src/items.py': read_actor_source('items.py'),
-        'src/spiders/__init__.py': f'from .spider import {spider_class_name} as Spider\n',
-        'src/spiders/spider.py': read_actor_source(spider_file),
+        'actor/__main__.py': read_actor_source('__main__.py'),
+        'actor/main.py': read_actor_source('main.py'),
+        'actor/settings.py': read_actor_source('settings.py'),
+        'actor/items.py': read_actor_source('items.py'),
+        'actor/spiders/__init__.py': f'from .spider import {spider_class_name} as Spider\n',
+        'actor/spiders/spider.py': read_actor_source(spider_file),
     }
     if extra_source_files:
         source_files.update(extra_source_files)
@@ -50,8 +52,13 @@ async def verify_spider_results(
 
     products = expected_products or _EXPECTED_PRODUCTS
 
-    items = await actor.last_run().dataset().list_items()
-    assert items.count == 3
+    # Right after a run finishes, the API can already count the pushed rows while still returning an empty page.
+    items = await poll_until_condition(
+        actor.last_run().dataset().list_items,
+        lambda page: len(page.items) >= len(products),
+        timeout=30,
+    )
+    assert items.count == len(products)
 
     items_by_name = {item['name']: item for item in items.items}
 
