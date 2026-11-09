@@ -1589,3 +1589,32 @@ async def test_named_call_task_stops_counting_when_the_run_finishes(
         await asyncio.wait_for(Actor.start('some-actor', run_name='second'), timeout=1)
 
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_inherit_timeout_is_resolved_when_a_waiting_start_starts(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With `timeout='inherit'`, a start waiting under the limit takes the remaining time once its run starts."""
+    run_ids = iter(['first-run', 'second-run'])
+    run_timeouts: list[timedelta | None] = []
+
+    async def start(*_args: Any, run_timeout: timedelta | None = None, **_kwargs: Any) -> Run:
+        run_timeouts.append(run_timeout)
+        return make_run(next(run_ids), 'READY')
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start)
+    get_remaining_time = Mock(return_value=timedelta(seconds=300))
+    monkeypatch.setattr(_ActorType, '_get_remaining_time', get_remaining_time)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', run_name='first')
+        second_task = asyncio.create_task(Actor.start('some-actor', run_name='second', timeout='inherit'))
+        await assert_waiting(second_task)
+        get_remaining_time.assert_not_called()
+
+        await Actor._child_run_registry.update('first', make_run('first-run', 'SUCCEEDED'))
+        await asyncio.wait_for(second_task, timeout=1)
+
+    get_remaining_time.assert_called_once()
+    assert run_timeouts == [None, timedelta(seconds=300)]

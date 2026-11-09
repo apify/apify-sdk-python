@@ -8,7 +8,7 @@ import warnings
 from contextlib import AsyncExitStack, ExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
-from functools import cached_property, partial
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
@@ -1117,19 +1117,20 @@ class _ActorType:
         client = self.new_client(token=token) if token else self.apify_client
 
         actor_client = client.actor(actor_id)
-        start_run = partial(
-            actor_client.start,
-            run_input=run_input,
-            content_type=content_type,
-            build=build,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
-            force_permission_level=force_permission_level,
-            webhooks=to_client_representations(webhooks),
-        )
+
+        async def start_run() -> Run:
+            return await actor_client.start(
+                run_input=run_input,
+                content_type=content_type,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
+                force_permission_level=force_permission_level,
+                webhooks=to_client_representations(webhooks),
+            )
 
         if run_name is None:
             return await start_run()
@@ -1335,13 +1336,9 @@ class _ActorType:
                 logger=logger,
             )
         else:
-            started_run, is_new = await self._find_or_start_child_run(
-                run_name,
-                actor_id=actor_id,
-                run_input=run_input,
-                client=client,
-                start_run=partial(
-                    actor_client.start,
+
+            async def start_run() -> Run:
+                return await actor_client.start(
                     run_input=run_input,
                     content_type=content_type,
                     build=build,
@@ -1352,7 +1349,14 @@ class _ActorType:
                     run_timeout=self._resolve_run_timeout(timeout),
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
-                ),
+                )
+
+            started_run, is_new = await self._find_or_start_child_run(
+                run_name,
+                actor_id=actor_id,
+                run_input=run_input,
+                client=client,
+                start_run=start_run,
                 build=build,
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
@@ -1504,17 +1508,18 @@ class _ActorType:
 
         client = self.new_client(token=token) if token else self.apify_client
         task_client = client.task(task_id)
-        start_run = partial(
-            task_client.start,
-            task_input=task_input,
-            build=build,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
-            webhooks=to_client_representations(webhooks),
-        )
+
+        async def start_run() -> Run:
+            return await task_client.start(
+                task_input=task_input,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
+                webhooks=to_client_representations(webhooks),
+            )
 
         if run_name is None:
             return await start_run()
@@ -1619,13 +1624,9 @@ class _ActorType:
                 wait_duration=wait,
             )
         else:
-            started_run, _ = await self._find_or_start_child_run(
-                run_name,
-                task_id=task_id,
-                run_input=task_input,
-                client=client,
-                start_run=partial(
-                    task_client.start,
+
+            async def start_run() -> Run:
+                return await task_client.start(
                     task_input=task_input,
                     build=build,
                     max_items=max_items,
@@ -1634,7 +1635,14 @@ class _ActorType:
                     memory_mbytes=memory_mbytes,
                     run_timeout=self._resolve_run_timeout(timeout),
                     webhooks=to_client_representations(webhooks),
-                ),
+                )
+
+            started_run, _ = await self._find_or_start_child_run(
+                run_name,
+                task_id=task_id,
+                run_input=task_input,
+                client=client,
+                start_run=start_run,
                 build=build,
                 max_items=max_items,
                 max_total_charge_usd=max_total_charge_usd,
