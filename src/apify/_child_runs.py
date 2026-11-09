@@ -132,7 +132,14 @@ class ChildRunRegistry:
     starting the child and that write can still orphan the child, since nothing but the platform knows about it.
     """
 
-    def __init__(self, open_key_value_store: Callable[[], Coroutine[Any, Any, KeyValueStore]]) -> None:
+    def __init__(
+        self,
+        open_key_value_store: Callable[[], Coroutine[Any, Any, KeyValueStore]],
+        *,
+        max_concurrent_runs: int | None = None,
+    ) -> None:
+        if max_concurrent_runs is not None and max_concurrent_runs < 1:
+            raise ValueError(f'The child run concurrency limit must be at least 1, got {max_concurrent_runs}.')
         self._records = RecoverableState(
             default_state=_ChildRunRecords(),
             persist_state_key=CHILD_RUNS_KEY,
@@ -147,7 +154,7 @@ class ChildRunRegistry:
         """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
         self._clients: dict[str, ApifyClientAsync] = {}
         """Client the run under each name was last started or looked up with. Lost on a migration."""
-        self._max_concurrent_runs: int | None = None
+        self._max_concurrent_runs = max_concurrent_runs
         """How many recorded runs may be active at once, or `None` for no limit."""
         self._capacity_available = asyncio.Condition()
         """Serializes counting the active runs, and wakes the waiting starts when capacity may be available."""
@@ -158,12 +165,6 @@ class ChildRunRegistry:
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts,
         nor any run that would wait under the concurrency limit."""
-
-    def set_max_concurrent_runs(self, max_concurrent_runs: int | None) -> None:
-        """Set how many recorded runs may be active at once, or remove the limit with `None`."""
-        if max_concurrent_runs is not None and max_concurrent_runs < 1:
-            raise ValueError(f'`max_concurrent_runs` must be at least 1, got {max_concurrent_runs}.')
-        self._max_concurrent_runs = max_concurrent_runs
 
     async def find_or_start(
         self,

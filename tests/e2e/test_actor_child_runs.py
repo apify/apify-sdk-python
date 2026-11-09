@@ -140,14 +140,13 @@ async def test_named_child_runs_respect_the_concurrency_limit(
     """Named child runs started concurrently under a limit of one run one after another."""
 
     async def main() -> None:
-        async with Actor:
+        async with Actor(max_concurrent_child_runs=1):
             actor_input = (await Actor.get_input()) or {}
             if actor_input.get('is_child') is True:
                 await asyncio.sleep(10)
                 return
 
             actor_id = Actor.configuration.actor_id or ''
-            Actor.set_named_child_run_limits(max_concurrent_runs=1)
             runs = await asyncio.gather(
                 *(
                     Actor.call(actor_id=actor_id, run_input={'is_child': True}, run_name=f'child-{index}')

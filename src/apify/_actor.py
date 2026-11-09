@@ -140,6 +140,7 @@ class _ActorType:
         status_message: str | None = None,
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         cleanup_timeout: timedelta = timedelta(seconds=30),
+        max_concurrent_child_runs: int | None = None,
     ) -> None:
         """Initialize a new instance.
 
@@ -152,6 +153,12 @@ class _ActorType:
             status_message: Final status message to display upon Actor termination.
             event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
             cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
+            max_concurrent_child_runs: How many named child runs may be `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`
+                at once, or `None` for no limit. At the limit, a named `Actor.start`, `Actor.call`, `Actor.start_task`
+                or `Actor.call_task` waits to start or resurrect a run until another one finishes. Reattaching to a
+                recorded run never waits. Runs started without a `run_name` are not counted and never wait. A child
+                run's status is fetched again before it is counted, if it is more than 10 seconds old. Once this Actor
+                run is being gracefully aborted, a call that would wait raises a `RuntimeError`.
         """
         self._configuration = configuration
         self._configure_logging = configure_logging
@@ -171,7 +178,9 @@ class _ActorType:
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
 
-        self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
+        self._child_run_registry = ChildRunRegistry(
+            self.open_key_value_store, max_concurrent_runs=max_concurrent_child_runs
+        )
 
         self._internal_listeners = ExitStack()
         """Removes the listeners the Actor registered on the event manager, when the Actor leaves its context."""
@@ -385,6 +394,7 @@ class _ActorType:
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
+        max_concurrent_child_runs: int | None = None,
     ) -> Self:
         """Make a new Actor instance with a non-default configuration.
 
@@ -398,6 +408,7 @@ class _ActorType:
             event_listeners_timeout=event_listeners_timeout,
             status_message=status_message,
             cleanup_timeout=cleanup_timeout,
+            max_concurrent_child_runs=max_concurrent_child_runs,
         )
 
     @property
@@ -447,24 +458,6 @@ class _ActorType:
         uses that token. Any other run uses the default client.
         """
         return self._child_run_registry.run_clients(self.apify_client)
-
-    def set_named_child_run_limits(self, *, max_concurrent_runs: int | None) -> None:
-        """Limit the named child runs of this Actor run.
-
-        While `max_concurrent_runs` named child runs are `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`, a named
-        `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` that would start or resurrect a run waits
-        until one of them finishes. Reattaching to a recorded run never waits. Runs started without a `run_name` are not
-        counted and never wait. A child run's status is fetched again before it is counted, if it is more than 10
-        seconds old. Once this Actor run is being gracefully aborted, a call that would wait raises a `RuntimeError`,
-        with or without `abort_with_parent`.
-
-        A call already waiting picks up a changed limit within 10 seconds. The limit is kept in memory, so call this
-        method again after a migration or resurrection of this Actor run.
-
-        Args:
-            max_concurrent_runs: How many named child runs may be active at once, or `None` for no limit.
-        """
-        self._child_run_registry.set_max_concurrent_runs(max_concurrent_runs)
 
     @cached_property
     def configuration(self) -> Configuration:
