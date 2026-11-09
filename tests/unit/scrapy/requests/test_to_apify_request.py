@@ -59,14 +59,14 @@ def test_joins_multi_value_headers(spider: Spider) -> None:
 
 
 def test_non_utf8_headers_are_left_out(spider: Spider, caplog: pytest.LogCaptureFixture) -> None:
-    """Non-UTF-8 headers are left off the Apify request and logged, while the request itself still converts."""
-    scrapy_request = Request(url='https://example.com', headers={'X-Raw': b'\xff'})
+    """A non-UTF-8 header leaves all headers off the Apify request with a warning, while the request still converts."""
+    scrapy_request = Request(url='https://example.com', headers={'Accept': 'text/html', 'X-Raw': b'\xff'})
 
     with caplog.at_level(logging.WARNING, logger='apify.scrapy.requests'):
         apify_request = to_apify_request(scrapy_request, spider)
 
     assert apify_request is not None
-    assert 'X-Raw' not in apify_request.headers
+    assert apify_request.headers == HttpHeaders()
     assert 'non-UTF-8 values' in caplog.text
 
 
