@@ -1279,8 +1279,8 @@ async def test_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit(
             await second_task
 
 
-async def test_child_run_that_cannot_be_fetched_does_not_block_the_limit() -> None:
-    """A recorded child run whose fetch fails is not counted, so it does not fail or block a named start."""
+async def test_child_run_that_cannot_be_fetched_keeps_its_last_status() -> None:
+    """A recorded child run whose fetch fails counts with its last seen status, without failing a waiting start."""
     statuses: dict[str, str] = {}
     client = make_client(statuses)
     run_client_factory = client.run.side_effect
@@ -1296,9 +1296,13 @@ async def test_child_run_that_cannot_be_fetched_does_not_block_the_limit() -> No
     async with Actor:
         await record_child_run('first', 'old-run')
         registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
-        second = await asyncio.wait_for(start_child(registry, client, 'second', statuses), timeout=1)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
 
-    assert second.id == 'second-run'
+    assert 'second-run' not in statuses
 
 
 async def test_child_run_the_api_no_longer_knows_does_not_block_the_limit() -> None:

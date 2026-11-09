@@ -415,8 +415,8 @@ class ChildRunRegistry:
             return_exceptions=True,
         )
 
-        # A run that could not be fetched counts only if this Actor run saw it active before. A status seen during the
-        # fetch, e.g. by `update` once a call awaited the run, is newer than the fetched one.
+        # A run that could not be fetched keeps its last seen status, so it counts while it was last seen active. A
+        # status seen during the fetch, e.g. by `update` once a call awaited the run, is newer than the fetched one.
         for name, run in zip(stale_names, runs, strict=True):
             if self._run_status_cache.get(name) is not cached_before_fetch[name]:
                 continue
@@ -444,11 +444,12 @@ class ChildRunRegistry:
         """Count the active runs and the starts in flight, apart from the recorded run under `exclude`."""
         records = self._records.current_value.root
         active = 0
-        for name in records:
+        for name, record in records.items():
             if name == exclude or name in self._starting_names:
                 continue
             cached_run_status = self._run_status_cache.get(name)
-            if cached_run_status is not None and cached_run_status.status in _ACTIVE_STATUSES:
+            status = cached_run_status.status if cached_run_status is not None else record.status
+            if status in _ACTIVE_STATUSES:
                 active += 1
         return active + len(self._starting_names)
 
