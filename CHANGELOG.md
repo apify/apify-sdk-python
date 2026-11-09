@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 
 - Deprecate `Actor.get_env()` in favor of `Actor.configuration` ([#1213](https://github.com/apify/apify-sdk-python/pull/1213)) ([c0f4e93](https://github.com/apify/apify-sdk-python/commit/c0f4e93de26503c709ca1c2924f9224a0fc2c95c)) by [@vladfrangu](https://github.com/vladfrangu), closes [#1212](https://github.com/apify/apify-sdk-python/issues/1212)
 
+### 🐛 Bug Fixes
+
+- Add support for Scrapy 2.20 ([#1242](https://github.com/apify/apify-sdk-python/pull/1242)) ([b7a6165](https://github.com/apify/apify-sdk-python/commit/b7a6165b10405f205d59136f72e0418df334bc98)) by [@vdusek](https://github.com/vdusek)
+
 
 <!-- git-cliff-unreleased-end -->
 ## [4.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.1) (2026-11-05)
