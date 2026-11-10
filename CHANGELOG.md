@@ -3,7 +3,19 @@
 All notable changes to this project will be documented in this file.
 
 <!-- git-cliff-unreleased-start -->
-## 4.2.1 - **not yet released**
+## 4.2.2 - **not yet released**
+
+### 🚀 Features
+
+- Deprecate `Actor.get_env()` in favor of `Actor.configuration` ([#1213](https://github.com/apify/apify-sdk-python/pull/1213)) ([c0f4e93](https://github.com/apify/apify-sdk-python/commit/c0f4e93de26503c709ca1c2924f9224a0fc2c95c)) by [@vladfrangu](https://github.com/vladfrangu), closes [#1212](https://github.com/apify/apify-sdk-python/issues/1212)
+
+### 🐛 Bug Fixes
+
+- Add support for Scrapy 2.20 ([#1242](https://github.com/apify/apify-sdk-python/pull/1242)) ([b7a6165](https://github.com/apify/apify-sdk-python/commit/b7a6165b10405f205d59136f72e0418df334bc98)) by [@vdusek](https://github.com/vdusek)
+
+
+<!-- git-cliff-unreleased-end -->
+## [4.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.1) (2026-11-05)
 
 ### 🐛 Bug Fixes
 
@@ -15,7 +27,6 @@ All notable changes to this project will be documented in this file.
 - Match URLs case-insensitively in `ApifyRequestList` remote sources ([#1228](https://github.com/apify/apify-sdk-python/pull/1228)) ([793991b](https://github.com/apify/apify-sdk-python/commit/793991bf613f0df713125e90697dd171954f27e6)) by [@vdusek](https://github.com/vdusek)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.2.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.0) (2026-10-30)
 
 ### 🚀 Features

@@ -212,7 +212,7 @@ def test_next_request_skips_request_that_fails_to_convert(
 def test_next_request_returns_converted_request(scheduler: ApifyScheduler, rq: mock.AsyncMock) -> None:
     """A valid RQ entry is reconstructed into a Scrapy request and left unhandled until Scrapy is done."""
     apify_request = ApifyRequest(
-        url='https://example.com',
+        url='https://example.com/',
         method='GET',
         unique_key='https://example.com',
         user_data={},

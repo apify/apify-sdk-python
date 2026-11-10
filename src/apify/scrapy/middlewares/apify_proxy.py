@@ -105,8 +105,9 @@ class ApifyHttpProxyMiddleware:
         """
         if isinstance(exception, TunnelError):
             Actor.log.warning(
-                f'ApifyHttpProxyMiddleware: TunnelError occurred for request="{request}", '
-                f'reason="{exception}", skipping...'
+                'ApifyHttpProxyMiddleware: TunnelError occurred for request="%s", reason="%s", skipping...',
+                request,
+                exception,
             )
 
     async def _get_new_proxy_url(self) -> ParseResult | None:

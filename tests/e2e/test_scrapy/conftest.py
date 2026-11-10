@@ -23,12 +23,12 @@ def get_scrapy_source_files(
     extra_source_files: dict[str, str] | None = None,
 ) -> dict[str, str]:
     source_files: dict[str, str] = {
-        'src/__main__.py': read_actor_source('__main__.py'),
-        'src/main.py': read_actor_source('main.py'),
-        'src/settings.py': read_actor_source('settings.py'),
-        'src/items.py': read_actor_source('items.py'),
-        'src/spiders/__init__.py': f'from .spider import {spider_class_name} as Spider\n',
-        'src/spiders/spider.py': read_actor_source(spider_file),
+        'actor/__main__.py': read_actor_source('__main__.py'),
+        'actor/main.py': read_actor_source('main.py'),
+        'actor/settings.py': read_actor_source('settings.py'),
+        'actor/items.py': read_actor_source('items.py'),
+        'actor/spiders/__init__.py': f'from .spider import {spider_class_name} as Spider\n',
+        'actor/spiders/spider.py': read_actor_source(spider_file),
     }
     if extra_source_files:
         source_files.update(extra_source_files)

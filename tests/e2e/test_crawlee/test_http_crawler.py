@@ -12,7 +12,7 @@ async def test_http_crawler(make_actor: MakeActorFunction, run_actor: RunActorFu
     actor = await make_actor(
         label='crawl-http',
         source_files={
-            'src/main.py': read_actor_source('main_http_crawler.py'),
+            'actor/main.py': read_actor_source('main_http_crawler.py'),
         },
     )
     run_result = await run_actor(actor)

@@ -206,10 +206,10 @@ class ChildRunRegistry:
                 await self._save(name, record.model_copy(update={'abort_with_parent': abort_with_parent}))
 
             if run.status in _RESURRECTABLE_STATUSES:
-                logger.info(f'Resurrecting child run "{name}"', extra={'run_id': run.id, 'status': run.status})
+                logger.info('Resurrecting child run "%s"', name, extra={'run_id': run.id, 'status': run.status})
                 run = await resurrect_run(run.id)
             else:
-                logger.info(f'Reattaching to child run "{name}"', extra={'run_id': run.id, 'status': run.status})
+                logger.info('Reattaching to child run "%s"', name, extra={'run_id': run.id, 'status': run.status})
 
             await self.update(name, run)
             self._clients[name] = client
@@ -266,12 +266,12 @@ class ChildRunRegistry:
             try:
                 run = await run_client.abort(gracefully=True)
             except NotFoundError:
-                logger.debug(f'Child run "{name}" no longer exists', extra={'run_id': record.run_id})
+                logger.debug('Child run "%s" no longer exists', name, extra={'run_id': record.run_id})
             except Exception:
-                logger.exception(f'Failed to abort child run "{name}"', extra={'run_id': record.run_id})
+                logger.exception('Failed to abort child run "%s"', name, extra={'run_id': record.run_id})
             else:
                 if run.status in _ABORTED_STATUSES:
-                    logger.info(f'Aborted child run "{name}" with the parent', extra={'run_id': record.run_id})
+                    logger.info('Aborted child run "%s" with the parent', name, extra={'run_id': record.run_id})
 
     async def _start(
         self,

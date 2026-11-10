@@ -35,7 +35,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check spelling with typos
-        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+        uses: crate-ci/typos@4c8b7f51ca60df14e3c5ca82770dfbbe6c3dae85 # v1.52.0
 
   lint_check:
     name: Lint check
@@ -60,6 +60,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+          check-latest: true
 
       - name: Install pnpm and website dependencies
         uses: apify/actions/pnpm-install@v1.6.2
@@ -81,6 +82,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+          check-latest: true
 
       - name: Install pnpm and website dependencies
         uses: apify/actions/pnpm-install@v1.6.2
@@ -216,7 +218,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.11", "3.14"]
+        python-version: ["3.11", "3.15"]
 
     runs-on: ${{ matrix.os }}
 
@@ -257,7 +259,7 @@ jobs:
         if: >-
           ${{
             matrix.os == 'ubuntu-latest' &&
-            matrix.python-version == '3.14' &&
+            matrix.python-version == '3.15' &&
             env.CODECOV_TOKEN != ''
           }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1

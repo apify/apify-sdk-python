@@ -84,7 +84,7 @@ class ApifyCacheStorage:
 
         logger.debug("Starting background thread for cache storage's event loop")
         self._async_thread = AsyncThread(default_timeout=self._async_thread_timeout)
-        logger.debug(f"Opening cache storage's {kvs_name!r} key value store")
+        logger.debug("Opening cache storage's %r key value store", kvs_name)
 
         try:
             self._kvs = self._async_thread.run_coro(open_kvs())
@@ -116,7 +116,7 @@ class ApifyCacheStorage:
         if current_time is None:
             current_time = int(time())
 
-        logger.info(f'Cleaning up cache items (max {self._expiration_max_items})')
+        logger.info('Cleaning up cache items (max %s)', self._expiration_max_items)
 
         # Best-effort: a cleanup failure is logged and swallowed (the sweep only reclaims storage, so failing it
         # must not turn a normal spider close into an error), and `close` always runs in the `finally`, so
@@ -190,7 +190,7 @@ class ApifyCacheStorage:
             headers = Headers(data['headers'])
             body = data['body']
         except Exception as exc:
-            logger.warning(f'Ignoring malformed cache entry {key!r}: {exc}', extra={'request': request})
+            logger.warning('Ignoring malformed cache entry %r: %s', key, exc, extra={'request': request})
             return None
 
         respcls = responsetypes.from_args(headers=headers, url=url, body=body)
@@ -250,11 +250,11 @@ class ApifyCacheStorage:
             try:
                 gzip_time = read_gzip_time(value)
             except Exception as exc:
-                logger.warning(f'Malformed cache item {item.key}: {exc}')
+                logger.warning('Malformed cache item %s: %s', item.key, exc)
                 await self._kvs.delete_value(item.key)
             else:
                 if self._expiration_secs < current_time - gzip_time:
-                    logger.debug(f'Expired cache item {item.key}')
+                    logger.debug('Expired cache item %s', item.key)
                     await self._kvs.delete_value(item.key)
 
 

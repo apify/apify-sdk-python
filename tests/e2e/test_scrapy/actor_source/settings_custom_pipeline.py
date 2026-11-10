@@ -1,5 +1,5 @@
-from src.settings import *  # noqa: F403  # ty: ignore[unresolved-import]
+from actor.settings import *  # noqa: F403  # ty: ignore[import-not-found]
 
 ITEM_PIPELINES = {
-    'src.pipelines.PriceCleanerPipeline': 100,
+    'actor.pipelines.PriceCleanerPipeline': 100,
 }

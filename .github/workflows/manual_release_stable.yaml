@@ -81,46 +81,31 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ needs.release_prepare.outputs.tag_name }}
           name: ${{ needs.release_prepare.outputs.version_number }}
           target_commitish: ${{ needs.changelog_update.outputs.changelog_commitish }}
           body: ${{ needs.release_prepare.outputs.release_notes }}
 
+  # Publishing runs as a separate workflow run of `publish_to_pypi.yaml` (see the comment there).
   pypi_publish:
     name: PyPI publish
     needs: [release_prepare, changelog_update]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      id-token: write # Required for OIDC authentication.
-    environment:
-      name: pypi
-      url: https://pypi.org/project/apify
+      actions: write # Required by execute-workflow.
     steps:
-      - name: Prepare distribution
-        uses: apify/actions/prepare-pypi-distribution@v1.6.2
+      - name: Dispatch PyPI publish workflow
+        uses: apify/actions/execute-workflow@v1.6.2
         with:
-          package_name: apify
-          is_prerelease: ""
-          version_number: ${{ needs.release_prepare.outputs.version_number }}
-          ref: ${{ needs.changelog_update.outputs.changelog_commitish }}
-
-      - name: Verify built package
-        uses: apify/actions/python-package-check@v1.6.2
-        with:
-          package_name: apify
-          dist_dir: dist
-          python_version: "3.14"
-          smoke_code: |
-            from apify import Actor, Configuration, ProxyConfiguration
-            Configuration()
-            ProxyConfiguration()
-
-      # Publish the package to PyPI using PyPA official GitHub action with OIDC authentication.
-      - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+          workflow: publish_to_pypi.yaml
+          inputs: >
+            {
+              "version_number": "${{ needs.release_prepare.outputs.version_number }}",
+              "ref": "${{ needs.changelog_update.outputs.changelog_commitish }}",
+              "is_prerelease": "false"
+            }
 
   version_docs:
     name: Version docs

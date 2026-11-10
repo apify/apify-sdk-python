@@ -6,7 +6,7 @@ from itemloaders.processors import MapCompose, TakeFirst
 from scrapy import Request, Spider
 from scrapy.loader import ItemLoader
 
-from src.items import ProductItem  # ty: ignore[unresolved-import]
+from actor.items import ProductItem  # ty: ignore[import-not-found]
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Generator
