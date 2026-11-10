@@ -1,10 +1,6 @@
 import asyncio
 
-from crawlee.crawlers import (
-    BeautifulSoupCrawler,
-    BeautifulSoupCrawlingContext,
-    HttpCrawlerOptions,
-)
+from crawlee.crawlers import BeautifulSoupCrawler, BeautifulSoupCrawlingContext
 from crawlee.router import Router
 
 from apify import Actor
@@ -46,19 +42,16 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        crawler_options: HttpCrawlerOptions[BeautifulSoupCrawlingContext] = {
-            'request_handler': router,
-            # Cap the crawl. Remove or increase the limit to follow all links.
-            'max_requests_per_crawl': 10,
-        }
-
         # Crawlee rotates the proxy URL per request on its own. A local run without
-        # Apify Proxy credentials gets no proxy configuration and crawls directly.
+        # Apify Proxy access gets no proxy configuration and crawls directly.
         proxy_configuration = await Actor.create_proxy_configuration()
-        if proxy_configuration is not None:
-            crawler_options['proxy_configuration'] = proxy_configuration
 
-        crawler = BeautifulSoupCrawler(**crawler_options)
+        crawler = BeautifulSoupCrawler(
+            proxy_configuration=proxy_configuration,
+            request_handler=router,
+            # Cap the crawl. Remove or increase the limit to follow all links.
+            max_requests_per_crawl=10,
+        )
 
         await crawler.run(start_urls)
 
