@@ -548,7 +548,11 @@ async def test_initialize_with_manual_password_different_than_user_one(
 
 
 @pytest.mark.usefixtures('patched_impit_client')
-async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
+async def test_initialize_when_not_connected(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, httpserver: HTTPServer
+) -> None:
+    """Locally, a denied proxy access logs the connection error and reports no usable proxy."""
+    caplog.set_level('WARNING')
     dummy_connection_error = 'DUMMY_CONNECTION_ERROR'
     dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
@@ -563,8 +567,76 @@ async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, ht
 
     proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
 
+    assert await proxy_configuration.initialize() is False
+    assert any(dummy_connection_error in msg for msg in caplog.messages)
+
+
+@pytest.mark.usefixtures('patched_impit_client')
+async def test_initialize_when_not_connected_at_home(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
+    """On the platform, a denied proxy access raises a `ConnectionError`."""
+    dummy_connection_error = 'DUMMY_CONNECTION_ERROR'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
+    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME.value, '1')
+    monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
+
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': False,
+            'connectionError': dummy_connection_error,
+        },
+        status=200,
+    )
+
+    proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
+
     with pytest.raises(ConnectionError, match=dummy_connection_error):
         await proxy_configuration.initialize()
+
+
+async def test_initialize_when_password_fetch_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    httpserver: HTTPServer,
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Locally, a failed password fetch logs a warning and reports no usable proxy."""
+    caplog.set_level('WARNING')
+    monkeypatch.delenv(ApifyEnvVars.PROXY_PASSWORD.value, raising=False)
+    monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
+    monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
+    apify_client_async_patcher.patch('user', 'get', replacement_method=Mock(side_effect=RuntimeError('Invalid token')))
+
+    proxy_configuration = ProxyConfiguration(_apify_client=ApifyClientAsync())
+
+    assert await proxy_configuration.initialize() is False
+    assert 'Failed to fetch the Apify Proxy password using the Apify token.' in caplog.messages
+    assert len(httpserver.log) == 0
+
+
+async def test_initialize_when_password_fetch_fails_at_home(
+    monkeypatch: pytest.MonkeyPatch, apify_client_async_patcher: ApifyClientAsyncPatcher
+) -> None:
+    """On the platform, a failed password fetch raises the client error."""
+    monkeypatch.setenv(ApifyEnvVars.IS_AT_HOME.value, '1')
+    monkeypatch.delenv(ApifyEnvVars.PROXY_PASSWORD.value, raising=False)
+    monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
+    apify_client_async_patcher.patch('user', 'get', replacement_method=Mock(side_effect=RuntimeError('Invalid token')))
+
+    proxy_configuration = ProxyConfiguration(_apify_client=ApifyClientAsync())
+
+    with pytest.raises(RuntimeError, match='Invalid token'):
+        await proxy_configuration.initialize()
+
+
+async def test_new_url_without_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without a password, Apify Proxy yields no URL and no proxy info."""
+    monkeypatch.delenv(ApifyEnvVars.PROXY_PASSWORD.value, raising=False)
+
+    proxy_configuration = ProxyConfiguration()
+
+    assert await proxy_configuration.new_url() is None
+    assert await proxy_configuration.new_proxy_info() is None
 
 
 async def test_initialize_when_status_page_unavailable(

@@ -193,8 +193,9 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         Only called if Apify Proxy configuration is used. Also checks if country has access to Apify Proxy groups
         if the country code is provided.
 
-        When Apify Proxy is used and no password is available, this raises on the Apify platform. In a local run
-        it logs a warning instead, skips the access check and returns `False`; the instance should then not be used.
+        On the Apify platform, a missing password, a failed password fetch, or a denied proxy access raises. In a
+        local run, each of them logs a warning and returns `False` instead, and the run should proceed without a
+        proxy. Without a password, `new_proxy_info` and `new_url` return `None`.
 
         You should use the Actor.create_proxy_configuration function to create a pre-initialized
         `ProxyConfiguration` instance instead of calling this manually.
@@ -210,21 +211,23 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                     raise ValueError(
                         'Apify Proxy password must be provided using the "password" constructor argument '
                         f'or the "{ApifyEnvVars.PROXY_PASSWORD}" environment variable. '
-                        f'You can also provide your Apify token via the "${ApifyEnvVars.TOKEN}" environment '
+                        f'You can also provide your Apify token via the "{ApifyEnvVars.TOKEN}" environment '
                         'variable, so that the SDK can fetch the proxy password from Apify API, '
-                        f'when not provided through constructor or ${ApifyEnvVars.PROXY_PASSWORD}.'
+                        f'when not provided through constructor or {ApifyEnvVars.PROXY_PASSWORD}.'
                     )
 
                 logger.warning(
                     'No Apify Proxy password available, running without proxy. To use Apify Proxy locally, '
-                    f'provide the "password" constructor argument or the "{ApifyEnvVars.PROXY_PASSWORD}" '
-                    f'environment variable. You can also provide your Apify token via the "{ApifyEnvVars.TOKEN}" '
-                    'environment variable, so that the SDK can fetch the proxy password from Apify API, '
-                    f'when {ApifyEnvVars.PROXY_PASSWORD} is not defined.'
+                    'provide the "password" constructor argument or the "%s" environment variable. You can also '
+                    'provide your Apify token via the "%s" environment variable, so that the SDK can fetch the '
+                    'proxy password from Apify API, when %s is not defined.',
+                    ApifyEnvVars.PROXY_PASSWORD,
+                    ApifyEnvVars.TOKEN,
+                    ApifyEnvVars.PROXY_PASSWORD,
                 )
                 return False
 
-            await self._check_access()
+            return await self._check_access()
 
         return True
 
@@ -260,16 +263,19 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             return None
 
         if self._uses_apify_proxy:
+            if not self._password:
+                return None
+
             parsed_url = URL(proxy_info.url)
             username = self._get_username(session_id)
 
             return ProxyInfo(
-                url=f'http://{username}:{self._password or ""}@{parsed_url.host}:{parsed_url.port}',
+                url=f'http://{username}:{self._password}@{parsed_url.host}:{parsed_url.port}',
                 scheme='http',
                 hostname=proxy_info.hostname,
                 port=proxy_info.port,
                 username=username,
-                password=self._password or '',
+                password=self._password,
                 session_id=proxy_info.session_id,
                 proxy_tier=proxy_info.proxy_tier,
                 groups=self._groups,
@@ -292,16 +298,22 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
         token = self._configuration.token
 
         if token and self._apify_client:
-            user_info = await self._apify_client.user().get()
+            try:
+                user_info = await self._apify_client.user().get()
+            except Exception:
+                if self._configuration.is_at_home:
+                    raise
+                logger.warning('Failed to fetch the Apify Proxy password using the Apify token.', exc_info=True)
+                return
             if user_info and (proxy := getattr(user_info, 'proxy', None)):
                 self._password = proxy.password
 
-    async def _check_access(self) -> None:
+    async def _check_access(self) -> bool:
         proxy_status_url = f'{self._configuration.proxy_status_url}/?format=json'
         proxy_info = await self.new_proxy_info()
 
         if proxy_info is None:
-            return
+            return True
 
         status = None
         async with impit.AsyncClient(proxy=proxy_info.url, timeout=10) as client:
@@ -314,16 +326,22 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
                     # retry on connection errors
                     pass
 
-        if status:
-            if not status['connected']:
-                raise ConnectionError(status['connectionError'])
-
-            self.is_man_in_the_middle = status['isManInTheMiddle']
-        else:
+        if not status:
             logger.warning(
                 'Apify Proxy access check timed out. Watch out for errors with status code 407. If you see some, it '
                 'most likely means you do not have access to either all or some of the proxies you are trying to use.'
             )
+            return True
+
+        if not status['connected']:
+            # A local setup may not be complete yet, so only the platform treats a denied access as fatal.
+            if self._configuration.is_at_home:
+                raise ConnectionError(status['connectionError'])
+            logger.warning('%s Running without proxy.', status['connectionError'])
+            return False
+
+        self.is_man_in_the_middle = status['isManInTheMiddle']
+        return True
 
     def _get_username(self, session_id: int | str | None = None) -> str:
         if session_id is not None:

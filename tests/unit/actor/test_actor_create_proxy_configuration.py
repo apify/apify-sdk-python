@@ -181,3 +181,21 @@ async def test_create_proxy_configuration_without_password_locally(
 
     assert proxy_configuration is None
     assert len(httpserver.log) == 0
+
+
+@pytest.mark.usefixtures('patched_impit_client')
+async def test_create_proxy_configuration_when_not_connected_locally(
+    monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer
+) -> None:
+    """Locally, a denied Apify Proxy access yields no proxy configuration."""
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
+    monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {'connected': False, 'connectionError': 'DUMMY_CONNECTION_ERROR'},
+        status=200,
+    )
+
+    async with Actor:
+        proxy_configuration = await Actor.create_proxy_configuration(password=DUMMY_PASSWORD)
+
+    assert proxy_configuration is None

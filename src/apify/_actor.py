@@ -1899,7 +1899,8 @@ class _ActorType:
 
         Returns:
             ProxyConfiguration object with the passed configuration, or None, if no proxy should be used based
-            on the configuration, or if Apify Proxy was requested in a local run without a password available.
+            on the configuration, or if Apify Proxy was requested in a local run that cannot use it, for example
+            because no password is available or the proxy access is denied.
         """
         if actor_proxy_input is not None:
             if actor_proxy_input.get('useApifyProxy', False):
