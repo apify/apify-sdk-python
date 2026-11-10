@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock
 from urllib.parse import ParseResult, urlparse
 
@@ -148,6 +149,23 @@ async def test_process_request_without_proxy_configuration(
 
     assert 'proxy' not in dummy_request.meta
     assert b'Proxy-Authorization' not in dummy_request.headers
+    create_proxy_configuration.assert_awaited_once()
+
+
+async def test_concurrent_requests_create_proxy_configuration_once(
+    monkeypatch: pytest.MonkeyPatch,
+    middleware: ApifyHttpProxyMiddleware,
+) -> None:
+    """Concurrent first requests share one proxy configuration creation."""
+
+    async def slow_create_proxy_configuration(**_: object) -> None:
+        await asyncio.sleep(0.01)
+
+    create_proxy_configuration = AsyncMock(side_effect=slow_create_proxy_configuration)
+    monkeypatch.setattr(Actor, 'create_proxy_configuration', create_proxy_configuration)
+
+    await asyncio.gather(*(middleware.process_request(Request(f'https://example.com/{i}')) for i in range(3)))
+
     create_proxy_configuration.assert_awaited_once()
 
 

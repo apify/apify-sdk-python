@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, urlparse
 
@@ -33,6 +34,7 @@ class ApifyHttpProxyMiddleware:
         """
         self._proxy_settings = proxy_settings
         self._proxy_cfg_internal: ProxyConfiguration | None = None
+        self._proxy_cfg_lock = asyncio.Lock()
         self._runs_without_proxy = False
 
     @classmethod
@@ -67,7 +69,7 @@ class ApifyHttpProxyMiddleware:
     async def process_request(self, request: Request) -> None:
         """Process a Scrapy request by assigning a new proxy.
 
-        In a local run without Apify Proxy credentials, the request is left without a proxy.
+        In a local run that cannot use Apify Proxy, the request is left without a proxy.
 
         Args:
             request: Scrapy Request object.
@@ -115,25 +117,18 @@ class ApifyHttpProxyMiddleware:
 
         Returns: New proxy URL, or None when the run goes without a proxy.
         """
-        if self._runs_without_proxy:
+        # The lock makes concurrent first requests create the proxy configuration only once.
+        async with self._proxy_cfg_lock:
+            if self._proxy_cfg_internal is None and not self._runs_without_proxy:
+                self._proxy_cfg_internal = await Actor.create_proxy_configuration(
+                    actor_proxy_input=self._proxy_settings
+                )
+                # `from_crawler` guarantees `useApifyProxy` is set, so None only comes from a local run that cannot
+                # use Apify Proxy. `ProxyConfiguration.initialize` has already logged a warning about it.
+                self._runs_without_proxy = self._proxy_cfg_internal is None
+
+        if self._proxy_cfg_internal is None:
             return None
 
-        # Get proxy configuration, creating it if necessary
-        proxy_cfg = (
-            self._proxy_cfg_internal
-            if isinstance(self._proxy_cfg_internal, ProxyConfiguration)
-            else await Actor.create_proxy_configuration(actor_proxy_input=self._proxy_settings)
-        )
-
-        # `from_crawler` guarantees `useApifyProxy` is set, so None only comes from a local run without Apify Proxy
-        # credentials. `ProxyConfiguration.initialize` has already logged a warning about it.
-        if proxy_cfg is None:
-            self._runs_without_proxy = True
-            return None
-
-        # Store the proxy configuration for future use
-        self._proxy_cfg_internal = proxy_cfg
-
-        # Get a new proxy URL and return it
-        new_url = await proxy_cfg.new_url()
-        return urlparse(str(new_url))
+        new_url = await self._proxy_cfg_internal.new_url()
+        return urlparse(new_url) if new_url else None
