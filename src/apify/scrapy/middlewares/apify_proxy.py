@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, urlparse
 
@@ -33,6 +34,8 @@ class ApifyHttpProxyMiddleware:
         """
         self._proxy_settings = proxy_settings
         self._proxy_cfg_internal: ProxyConfiguration | None = None
+        self._proxy_cfg_lock = asyncio.Lock()
+        self._runs_without_proxy = False
 
     @classmethod
     def from_crawler(cls: type[ApifyHttpProxyMiddleware], crawler: Crawler) -> ApifyHttpProxyMiddleware:
@@ -66,6 +69,8 @@ class ApifyHttpProxyMiddleware:
     async def process_request(self, request: Request) -> None:
         """Process a Scrapy request by assigning a new proxy.
 
+        In a local run that cannot use Apify Proxy, the request is left without a proxy.
+
         Args:
             request: Scrapy Request object.
 
@@ -73,6 +78,9 @@ class ApifyHttpProxyMiddleware:
             ValueError: If username and password are not provided in the proxy URL.
         """
         url = await self._get_new_proxy_url()
+
+        if url is None:
+            return
 
         if not (url.username and url.password):
             raise ValueError('Username and password must be provided in the proxy URL.')
@@ -104,32 +112,23 @@ class ApifyHttpProxyMiddleware:
                 exception,
             )
 
-    async def _get_new_proxy_url(self) -> ParseResult:
+    async def _get_new_proxy_url(self) -> ParseResult | None:
         """Get a new proxy URL.
 
-        Raises:
-            NotConfigured: If creation of the proxy configuration fails.
-
-        Returns: New proxy URL.
+        Returns: New proxy URL, or None when the run goes without a proxy.
         """
-        # Get proxy configuration, creating it if necessary
-        proxy_cfg = (
-            self._proxy_cfg_internal
-            if isinstance(self._proxy_cfg_internal, ProxyConfiguration)
-            else await Actor.create_proxy_configuration(actor_proxy_input=self._proxy_settings)
-        )
+        # The lock makes concurrent first requests create the proxy configuration only once.
+        async with self._proxy_cfg_lock:
+            if self._proxy_cfg_internal is None and not self._runs_without_proxy:
+                self._proxy_cfg_internal = await Actor.create_proxy_configuration(
+                    actor_proxy_input=self._proxy_settings
+                )
+                # `from_crawler` guarantees `useApifyProxy` is set, so None only comes from a local run that cannot
+                # use Apify Proxy. `ProxyConfiguration.initialize` has already logged a warning about it.
+                self._runs_without_proxy = self._proxy_cfg_internal is None
 
-        # If the proxy configuration is still not available, raise an error. However, this should not happen due
-        # to the checks in the `from_crawler` method.
-        if proxy_cfg is None:
-            Actor.log.error(
-                'Creation of proxy configuration failed. Check the field "proxyConfiguration" in the Actor input.'
-            )
-            raise NotConfigured
+        if self._proxy_cfg_internal is None:
+            return None
 
-        # Store the proxy configuration for future use
-        self._proxy_cfg_internal = proxy_cfg
-
-        # Get a new proxy URL and return it
-        new_url = await proxy_cfg.new_url()
-        return urlparse(str(new_url))
+        new_url = await self._proxy_cfg_internal.new_url()
+        return urlparse(new_url) if new_url else None
