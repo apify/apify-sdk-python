@@ -1117,7 +1117,7 @@ class _ActorType:
                 with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
                 run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                aborted. With `run_name`, the value is recorded under the name, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
                 starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
                 the child running.
@@ -1125,9 +1125,6 @@ class _ActorType:
         Returns:
             Info about the started Actor run
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1317,7 +1314,7 @@ class _ActorType:
                 with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
                 run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                aborted. With `run_name`, the value is recorded under the name, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
                 starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
                 the child running.
@@ -1325,9 +1322,6 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1391,7 +1385,10 @@ class _ActorType:
         abort_with_parent: bool,
     ) -> tuple[Run, bool]:
         if name is None:
-            return await self._child_run_registry.start_unnamed(client=client, start_run=start_run), True
+            run = await self._child_run_registry.start_unnamed(
+                client=client, start_run=start_run, abort_with_parent=abort_with_parent
+            )
+            return run, True
         return await self._child_run_registry.find_or_start(
             name,
             actor_id=actor_id,
@@ -1493,7 +1490,7 @@ class _ActorType:
                 with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
                 run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                aborted. With `run_name`, the value is recorded under the name, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
                 starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
                 the child running.
@@ -1501,9 +1498,6 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1592,7 +1586,7 @@ class _ActorType:
                 with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
                 run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                aborted. With `run_name`, the value is recorded under the name, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
                 starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
                 the child running.
@@ -1600,9 +1594,6 @@ class _ActorType:
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 

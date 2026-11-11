@@ -89,6 +89,9 @@ class ChildRunRecord(ChildRunSnapshot):
 class UnnamedChildRunRecord(ChildRunSnapshot):
     """A child run started without a name, tracked under its run ID in the child run registry."""
 
+    abort_with_parent: bool = False
+    """Whether the run is aborted when this Actor run is gracefully aborted."""
+
 
 class _CachedRunStatus(NamedTuple):
     """Status of a child run as this Actor run last saw it, used to count the run toward the concurrency limit."""
@@ -186,6 +189,8 @@ class ChildRunRegistry:
         """Names with a start or resurrection in flight, counted toward the limit but not from the records yet."""
         self._run_status_cache: dict[str, _CachedRunStatus] = {}
         """Last seen status of the run recorded under each name. An active one is fetched again once it gets stale."""
+        self._unnamed_starts_in_flight: set[asyncio.Event] = set()
+        """Starts without a name and with `abort_with_parent` that are in flight, each set once the start ends."""
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts,
         nor any run that would wait under the concurrency limit."""
@@ -298,20 +303,50 @@ class ChildRunRegistry:
             self._clients[run.id] = client
             return run, False
 
-    async def start_unnamed(self, *, client: ApifyClientAsync, start_run: Callable[[], Awaitable[Run]]) -> Run:
+    async def start_unnamed(
+        self,
+        *,
+        client: ApifyClientAsync,
+        start_run: Callable[[], Awaitable[Run]],
+        abort_with_parent: bool = False,
+    ) -> Run:
         """Start a child run without a name and record it under its run ID.
 
         Args:
             client: Client the run is started with.
             start_run: Starts a new run of the Actor or task.
+            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted.
 
         Returns:
             The started run.
+
+        Raises:
+            RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
+                started.
         """
         await self._load()
-        run = await start_run()
-        self._clients[run.id] = client
-        await self._save_unnamed(UnnamedChildRunRecord(run_id=run.id, status=run.status, started_at=run.started_at))
+        if abort_with_parent and self._parent_aborting:
+            raise RuntimeError(
+                'Child run with `abort_with_parent` was not started, since this Actor run is being aborted.'
+            )
+
+        start_ended = asyncio.Event()
+        if abort_with_parent:
+            self._unnamed_starts_in_flight.add(start_ended)
+        try:
+            run = await start_run()
+            self._clients[run.id] = client
+            await self._save_unnamed(
+                UnnamedChildRunRecord(
+                    run_id=run.id,
+                    status=run.status,
+                    started_at=run.started_at,
+                    abort_with_parent=abort_with_parent,
+                )
+            )
+        finally:
+            self._unnamed_starts_in_flight.discard(start_ended)
+            start_ended.set()
         return run
 
     def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
@@ -366,29 +401,47 @@ class ChildRunRegistry:
         the start records it.
 
         Args:
-            client: Client used for a name not started or looked up in this process, e.g. after a migration.
+            client: Client used for a run not started or looked up in this process, e.g. after a migration.
         """
         self._parent_aborting = True
         await self._notify_capacity_available()
         records = await self._load()
         # Names with a start in flight are not recorded yet, so their locks are awaited too.
-        await asyncio.gather(*(self._abort(name, client) for name in {*records, *self._name_locks}))
+        await asyncio.gather(
+            *(self._abort(name, client) for name in {*records, *self._name_locks}),
+            self._abort_unnamed(client),
+        )
 
     async def _abort(self, name: str, default_client: ApifyClientAsync) -> None:
         async with self._name_locks.setdefault(name, asyncio.Lock()):
             record = (await self._load()).get(name)
             if record is None or not record.abort_with_parent:
                 return
-            run_client = self._clients.get(record.run_id, default_client).run(record.run_id)
-            try:
-                run = await run_client.abort(gracefully=True)
-            except NotFoundError:
-                logger.debug('Child run "%s" no longer exists', name, extra={'run_id': record.run_id})
-            except Exception:
-                logger.exception('Failed to abort child run "%s"', name, extra={'run_id': record.run_id})
-            else:
-                if run.status in _ABORTED_STATUSES:
-                    logger.info('Aborted child run "%s" with the parent', name, extra={'run_id': record.run_id})
+            await self._abort_run(name, record.run_id, default_client)
+
+    async def _abort_unnamed(self, default_client: ApifyClientAsync) -> None:
+        # Starts in flight are not recorded yet, so they are awaited first.
+        await asyncio.gather(*(start_ended.wait() for start_ended in [*self._unnamed_starts_in_flight]))
+        await asyncio.gather(
+            *(
+                self._abort_run(run_id, run_id, default_client)
+                for run_id, record in self._unnamed_records.current_value.root.items()
+                if record.abort_with_parent
+            )
+        )
+
+    async def _abort_run(self, label: str, run_id: str, default_client: ApifyClientAsync) -> None:
+        """Send one graceful abort request to a child run, logging the outcome under `label`."""
+        run_client = self._clients.get(run_id, default_client).run(run_id)
+        try:
+            run = await run_client.abort(gracefully=True)
+        except NotFoundError:
+            logger.debug('Child run "%s" no longer exists', label, extra={'run_id': run_id})
+        except Exception:
+            logger.exception('Failed to abort child run "%s"', label, extra={'run_id': run_id})
+        else:
+            if run.status in _ABORTED_STATUSES:
+                logger.info('Aborted child run "%s" with the parent', label, extra={'run_id': run_id})
 
     async def _start(
         self,
