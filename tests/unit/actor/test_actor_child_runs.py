@@ -200,130 +200,108 @@ async def test_unnamed_starts_with_inherited_timeout_reuse_recorded_run(
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
 
 
-async def test_unnamed_call_uses_client_call_and_records_run(
+def patch_run_wait(apify_client_async_patcher: ApifyClientAsyncPatcher, finished_run: Run | None) -> None:
+    """Patch the run client calls `Actor.call` and `Actor.call_task` make to wait for a run and stream its log."""
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=finished_run)
+    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
+
+
+async def test_unnamed_call_records_run_before_it_finishes(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A call without a name and with no recorded run goes through the client's `call` and records the run."""
-    apify_client_async_patcher.patch('actor', 'call', return_value=make_run('new-run', 'SUCCEEDED'))
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('other-run', 'READY'))
+    """A call without a name records the run once it starts, so the run is tracked while the call waits for it."""
+    wait_started = asyncio.Event()
+    run_finished = asyncio.Event()
+
+    async def wait_for_finish(*_args: object, **_kwargs: object) -> Run:
+        wait_started.set()
+        await run_finished.wait()
+        return make_run('new-run', 'SUCCEEDED')
+
+    patch_run_wait(apify_client_async_patcher, None)
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', replacement_method=wait_for_finish)
 
     async with Actor:
-        run = await Actor.call('some-actor', {'query': 'eu'})
-        child_runs = Actor.child_runs
+        call = asyncio.create_task(Actor.call('some-actor', {'query': 'eu'}))
+        await wait_started.wait()
+        run_ids_while_waiting = [run_client.resource_id for run_client in Actor.child_runs.values()]
+        run_finished.set()
+        run = await call
 
-    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input={'query': 'eu'}, run_options={})
-    assert run.id == 'new-run'
-    assert child_runs[implicit_name].resource_id == 'new-run'
-    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
-    assert apify_client_async_patcher.calls['actor']['start'] == []
+    assert run_ids_while_waiting == ['new-run']
+    assert run.status == 'SUCCEEDED'
 
 
-async def test_unnamed_call_with_same_input_returns_recorded_run(
+async def test_unnamed_call_with_same_input_returns_finished_run(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A second call without a name for the same Actor and input returns the recorded run without calling again."""
-    apify_client_async_patcher.patch('actor', 'call', return_value=make_run('new-run', 'SUCCEEDED'))
+    """A second call without a name for the same Actor and input returns the finished run and starts no new one."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'SUCCEEDED'))
+    patch_run_wait(apify_client_async_patcher, make_run('new-run', 'SUCCEEDED'))
 
     async with Actor:
         first_run = await Actor.call('some-actor', {'query': 'eu'})
         second_run = await Actor.call('some-actor', {'query': 'eu'})
 
     assert first_run.id == second_run.id == 'new-run'
-    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
+    assert second_run.status == 'SUCCEEDED'
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+    assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
 
 
-async def test_unnamed_call_task_with_same_input_returns_recorded_run(
+async def test_unnamed_call_task_with_same_input_returns_finished_run(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A second task call without a name for the same task and input returns the recorded run."""
-    apify_client_async_patcher.patch('task', 'call', return_value=make_run('new-run', 'SUCCEEDED'))
+    """A second task call without a name for the same task and input returns the finished run."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'SUCCEEDED'))
+    patch_run_wait(apify_client_async_patcher, make_run('new-run', 'SUCCEEDED'))
 
     async with Actor:
         first_run = await Actor.call_task('some-task', {'query': 'eu'})
         second_run = await Actor.call_task('some-task', {'query': 'eu'})
 
     assert first_run.id == second_run.id == 'new-run'
-    assert len(apify_client_async_patcher.calls['task']['call']) == 1
+    assert len(apify_client_async_patcher.calls['task']['start']) == 1
 
 
 async def test_concurrent_unnamed_calls_with_same_input_share_one_run(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A call without a name made while the same call is in flight waits for it and returns its run."""
-    call_finished = asyncio.Event()
-
-    async def call(*_args: object, **_kwargs: object) -> Run:
-        await call_finished.wait()
-        return make_run('called-run', 'SUCCEEDED')
-
-    apify_client_async_patcher.patch('actor', 'call', replacement_method=call)
+    """A call without a name made while the same call is waiting for its run waits for that run too."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+    patch_run_wait(apify_client_async_patcher, make_run('new-run', 'SUCCEEDED'))
 
     async with Actor:
-        first_call = asyncio.create_task(Actor.call('some-actor', {'query': 'eu'}))
-        await asyncio.sleep(0.05)
-        second_call = asyncio.create_task(Actor.call('some-actor', {'query': 'eu'}))
-        await asyncio.sleep(0.05)
-        second_call_done_while_in_flight = second_call.done()
-        call_finished.set()
-        first_run = await first_call
-        second_run = await second_call
+        runs = await asyncio.gather(
+            Actor.call('some-actor', {'query': 'eu'}), Actor.call('some-actor', {'query': 'eu'})
+        )
 
-    assert second_call_done_while_in_flight is False
-    assert first_run.id == second_run.id == 'called-run'
-    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
-
-
-async def test_failed_unnamed_call_in_flight_fails_waiting_call(
-    apify_client_async_patcher: ApifyClientAsyncPatcher,
-) -> None:
-    """A call without a name waiting for the same call in flight raises the error that call failed with."""
-    call_finished = asyncio.Event()
-
-    async def call(*_args: object, **_kwargs: object) -> Run:
-        await call_finished.wait()
-        raise RuntimeError('Boom')
-
-    apify_client_async_patcher.patch('actor', 'call', replacement_method=call)
-
-    async with Actor:
-        first_call = asyncio.create_task(Actor.call('some-actor'))
-        await asyncio.sleep(0.05)
-        second_call = asyncio.create_task(Actor.call('some-actor'))
-        await asyncio.sleep(0.05)
-        call_finished.set()
-        results = await asyncio.gather(first_call, second_call, return_exceptions=True)
-
-    assert [str(result) for result in results] == ['Boom', 'Boom']
-    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
-
-
-async def test_unnamed_call_in_flight_counts_toward_concurrency_limit(
-    apify_client_async_patcher: ApifyClientAsyncPatcher,
-) -> None:
-    """A call without a name holds a slot of the concurrency limit until the client's `call` returns."""
-    call_finished = asyncio.Event()
-
-    async def call(*_args: object, **_kwargs: object) -> Run:
-        await call_finished.wait()
-        return make_run('called-run', 'SUCCEEDED')
-
-    apify_client_async_patcher.patch('actor', 'call', replacement_method=call)
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('started-run', 'READY'))
-
-    async with Actor(max_concurrent_child_runs=1):
-        call_task = asyncio.create_task(Actor.call('some-actor', {'query': 'eu'}))
-        await asyncio.sleep(0.05)
-        start_task = asyncio.create_task(Actor.start('some-actor', {'query': 'us'}))
-        await asyncio.sleep(0.05)
-        started_while_call_in_flight = len(apify_client_async_patcher.calls['actor']['start'])
-        call_finished.set()
-        await call_task
-        await start_task
-
-    assert started_while_call_in_flight == 0
+    assert [run.id for run in runs] == ['new-run', 'new-run']
+    assert [run.status for run in runs] == ['SUCCEEDED', 'SUCCEEDED']
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_unnamed_call_reattaches_to_run_recorded_before_migration(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A call without a name waits for the run its earlier attempt recorded, as after a migration."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
+    patch_run_wait(apify_client_async_patcher, make_run('old-run', 'SUCCEEDED'))
+    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input={'query': 'eu'}, run_options={})
+
+    async with Actor:
+        await record_child_run(implicit_name, 'old-run', run_input={'query': 'eu'})
+        run = await Actor.call('some-actor', {'query': 'eu'})
+
+    assert run.id == 'old-run'
+    assert run.status == 'SUCCEEDED'
+    assert apify_client_async_patcher.calls['actor']['start'] == []
 
 
 async def test_explicit_run_name_starts_separate_run_from_unnamed_start(
