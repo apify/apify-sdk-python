@@ -17,6 +17,9 @@ Routes not linked from anywhere, for the tests that need a specific response rat
     /redirect-target - Page the redirect lands on
     /slow - Answers only after 10 minutes, to keep a request in flight while a run is interrupted
     /delayed/<n> - Answers after 5 seconds with a link to /delayed/<n+1>, so a request is always in flight
+    /files/<size>.<ext> - A binary file of <size> bytes, with the content type of <ext> (bin, pdf or png)
+    /start-urls.txt - A plain-text list of URLs, for the `requestsFromUrl` request list source. The URLs point to
+        example.com, since the URL extraction only matches hosts with a top-level domain.
 
 The homepage includes both direct product links (for Scrapy spiders that look for /products/ links
 on the start page) and category links (for testing crawl depth with Crawlee crawlers).
@@ -41,6 +44,28 @@ _PRODUCTS = {
     '2': {'name': 'Widget B', 'price': '$29.99', 'description': 'An advanced widget with extra features'},
     '3': {'name': 'Widget C', 'price': '$39.99', 'description': 'A premium widget for professionals'},
 }
+
+_FILE_CONTENT_TYPES = {
+    'bin': 'application/octet-stream',
+    'pdf': 'application/pdf',
+    'png': 'image/png',
+}
+
+
+def _file_body(size: int) -> bytes:
+    """Return the body of the `/files/<size>.<ext>` route, which tests rebuild to compare the downloaded bytes."""
+    return bytes(i % 256 for i in range(size))
+
+
+async def _send_body(send: Send, body: bytes, content_type: str, status: int = 200) -> None:
+    await send(
+        {
+            'type': 'http.response.start',
+            'status': status,
+            'headers': [[b'content-type', content_type.encode()]],
+        }
+    )
+    await send({'type': 'http.response.body', 'body': body})
 
 
 async def _send_html(send: Send, html: str, status: int = 200) -> None:
@@ -148,6 +173,19 @@ async def app(scope: dict[str, Any], _receive: Receive, send: Send) -> None:
             f'<h1>Delayed Page {n}</h1>'
             f'<a href="/delayed/{n + 1}">Next</a>'
             f'</body></html>',
+        )
+    elif path.startswith('/files/'):
+        size, _, extension = path.split('/')[-1].partition('.')
+        content_type = _FILE_CONTENT_TYPES.get(extension)
+        if not size.isdigit() or content_type is None:
+            await _send_html(send, '<html><body>Not Found</body></html>', 404)
+            return
+        await _send_body(send, _file_body(int(size)), content_type)
+    elif path == '/start-urls.txt':
+        await _send_body(
+            send,
+            b'Products to scrape:\nhttps://example.com/products/2\nhttps://example.com/products/3\n',
+            'text/plain; charset=utf-8',
         )
     elif path.startswith('/deep/'):
         try:

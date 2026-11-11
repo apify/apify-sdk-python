@@ -140,3 +140,36 @@ async def test_kvs_aliases(
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
+
+
+async def test_use_state_survives_reboot(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """The state from `Actor.use_state()` is persisted before a reboot and loaded again in the next container."""
+
+    async def main() -> None:
+        async with Actor:
+            run = await Actor.apify_client.run(Actor.configuration.actor_run_id or '').get()
+            assert run is not None, 'The Actor could not read its own run.'
+
+            state = await Actor.use_state({'containers': 0})
+            containers = state['containers']
+            assert isinstance(containers, int), f'state={dict(state)}'
+            state['containers'] = containers + 1
+
+            if run.stats.reboot_count == 0:
+                state['before_reboot'] = ['a', 'b']
+                await Actor.reboot()
+            else:
+                assert state.get('before_reboot') == ['a', 'b'], f'state={dict(state)}'
+
+    actor = await make_actor(label='use-state-reboot', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+    assert run_result.stats.reboot_count == 1
+
+    state_record = await actor.last_run().key_value_store().get_record('APIFY_GLOBAL_STATE')
+    assert state_record is not None
+    assert state_record['value'] == {'containers': 2, 'before_reboot': ['a', 'b']}
