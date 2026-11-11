@@ -448,7 +448,8 @@ class _ActorType:
 
         Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` is included, even one
         started before a migration or resurrection of this Actor run. A run started without a `run_name` is keyed by
-        its Actor or task ID and a hash of its input and run options. Each client points to the current run under its name:
+        its Actor or task ID and a hash of its input and run options. Each client points to the current run under its
+        name:
 
         ```python
         run = await Actor.child_runs['my-child'].wait_for_finish()
@@ -1370,6 +1371,35 @@ class _ActorType:
                     'token': token,
                 },
             )
+            if not await self._child_run_registry.is_recorded(run_name):
+
+                async def call_run() -> Run | None:
+                    return await actor_client.call(
+                        run_input=run_input,
+                        content_type=content_type,
+                        build=build,
+                        max_items=max_items,
+                        max_total_charge_usd=max_total_charge_usd,
+                        restart_on_error=restart_on_error,
+                        memory_mbytes=memory_mbytes,
+                        run_timeout=self._resolve_run_timeout(timeout),
+                        force_permission_level=force_permission_level,
+                        webhooks=to_client_representations(webhooks),
+                        wait_duration=wait,
+                        logger=logger,
+                    )
+
+                run = await self._child_run_registry.call_and_record(
+                    run_name,
+                    actor_id=actor_id,
+                    run_input=run_input,
+                    client=client,
+                    call_run=call_run,
+                    abort_with_parent=abort_with_parent,
+                )
+                if run is None:
+                    raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
+                return run
 
         async def start_run() -> Run:
             return await actor_client.start(
@@ -1675,6 +1705,32 @@ class _ActorType:
                     'token': token,
                 },
             )
+            if not await self._child_run_registry.is_recorded(run_name):
+
+                async def call_run() -> Run | None:
+                    return await task_client.call(
+                        task_input=task_input,
+                        build=build,
+                        max_items=max_items,
+                        max_total_charge_usd=max_total_charge_usd,
+                        restart_on_error=restart_on_error,
+                        memory_mbytes=memory_mbytes,
+                        run_timeout=self._resolve_run_timeout(timeout),
+                        webhooks=to_client_representations(webhooks),
+                        wait_duration=wait,
+                    )
+
+                run = await self._child_run_registry.call_and_record(
+                    run_name,
+                    task_id=task_id,
+                    run_input=task_input,
+                    client=client,
+                    call_run=call_run,
+                    abort_with_parent=abort_with_parent,
+                )
+                if run is None:
+                    raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
+                return run
 
         async def start_run() -> Run:
             return await task_client.start(

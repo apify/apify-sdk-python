@@ -6,7 +6,7 @@ import warnings
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -105,35 +105,27 @@ async def test_new_client_uses_configured_api_public_base_url(monkeypatch: pytes
     await my_actor.exit()
 
 
-def patch_child_run_start(apify_client_async_patcher: ApifyClientAsyncPatcher, client_resource: str, run: Run) -> None:
-    """Patch the client calls `Actor.start`, `Actor.call` and their task variants make to start and await a run."""
-    apify_client_async_patcher.patch(client_resource, 'start', return_value=run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
-
-
 async def test_call_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
-    patch_child_run_start(apify_client_async_patcher, 'actor', fake_actor_run)
+    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
     actor_id = 'some-actor-id'
 
     async with Actor:
         await Actor.call(actor_id)
 
-    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
     # The first argument is ActorClientAsync, which was called, let's check its id.
-    assert apify_client_async_patcher.calls['actor']['start'][0][0][0].resource_id == actor_id
+    assert apify_client_async_patcher.calls['actor']['call'][0][0][0].resource_id == actor_id
 
 
 async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
-    patch_child_run_start(apify_client_async_patcher, 'task', fake_actor_run)
+    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
     task_id = 'some-task-id'
 
     async with Actor:
         await Actor.call_task(task_id)
 
-    assert len(apify_client_async_patcher.calls['task']['start']) == 1
-    assert apify_client_async_patcher.calls['task']['start'][0][0][0].resource_id == task_id
+    assert len(apify_client_async_patcher.calls['task']['call']) == 1
+    assert apify_client_async_patcher.calls['task']['call'][0][0][0].resource_id == task_id
 
 
 async def test_start_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
@@ -166,9 +158,9 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'start', 'call', id='call'),
+        pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'start', 'call_task', id='call_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
     ],
 )
 async def test_max_items_forwarded_to_client(
@@ -180,9 +172,6 @@ async def test_max_items_forwarded_to_client(
 ) -> None:
     """`max_items` passed to any of the run-starting helpers reaches the API client."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
 
     async with Actor:
         with pytest.warns(FutureWarning):
@@ -195,9 +184,9 @@ async def test_max_items_forwarded_to_client(
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'start', 'call', id='call'),
+        pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'start', 'call_task', id='call_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
     ],
 )
@@ -210,9 +199,6 @@ async def test_max_items_warns_deprecated(
 ) -> None:
     """Passing `max_items` emits a `FutureWarning` that recommends `max_total_charge_usd` and points at the caller."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
 
     async with Actor:
         with pytest.warns(FutureWarning, match='`max_total_charge_usd`') as record:
@@ -226,9 +212,9 @@ async def test_max_items_warns_deprecated(
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'start', 'call', id='call'),
+        pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'start', 'call_task', id='call_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
     ],
 )
@@ -241,9 +227,6 @@ async def test_no_max_items_warning_without_max_items(
 ) -> None:
     """The `max_items` deprecation warning is not emitted when `max_items` is not passed."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
 
     async with Actor:
         with warnings.catch_warnings():
@@ -255,9 +238,9 @@ async def test_no_max_items_warning_without_max_items(
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'start', 'call', id='call'),
+        pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'start', 'call_task', id='call_task'),
+        pytest.param('task', 'call', 'call_task', id='call_task'),
     ],
 )
 async def test_max_total_charge_usd_forwarded_to_client(
@@ -269,9 +252,6 @@ async def test_max_total_charge_usd_forwarded_to_client(
 ) -> None:
     """`max_total_charge_usd` passed to any of the run-starting helpers reaches the API client."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
 
     async with Actor:
         await getattr(Actor, sdk_method)('some-id', max_total_charge_usd=Decimal('2.5'))
@@ -517,9 +497,9 @@ async def test_off_removes_event_listener(monkeypatch: pytest.MonkeyPatch) -> No
 
 _ACTOR_REMOTE_METHODS = [
     pytest.param('actor', 'start', 'start', 'some-actor-id', id='start'),
-    pytest.param('actor', 'start', 'call', 'some-actor-id', id='call'),
+    pytest.param('actor', 'call', 'call', 'some-actor-id', id='call'),
     pytest.param('task', 'start', 'start_task', 'some-task-id', id='start_task'),
-    pytest.param('task', 'start', 'call_task', 'some-task-id', id='call_task'),
+    pytest.param('task', 'call', 'call_task', 'some-task-id', id='call_task'),
 ]
 
 
@@ -535,9 +515,6 @@ async def test_remote_method_with_webhooks(
 ) -> None:
     """Test that start/call/start_task/call_task correctly serialize webhooks."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
 
     async with Actor:
         actor_method = getattr(Actor, actor_method_name)
@@ -565,9 +542,6 @@ async def test_remote_method_with_timedelta_timeout(
 ) -> None:
     """Test that start/call/start_task/call_task accept a timedelta timeout."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
 
     async with Actor:
         actor_method = getattr(Actor, actor_method_name)
@@ -591,9 +565,6 @@ async def test_remote_method_with_invalid_timeout(
 ) -> None:
     """Test that start/call/start_task/call_task raise ValueError for invalid timeout."""
     apify_client_async_patcher.patch(client_resource, client_method, return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', return_value=MagicMock())
 
     async with Actor:
         actor_method = getattr(Actor, actor_method_name)
@@ -655,33 +626,40 @@ async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
     method_name: str,
 ) -> None:
     """Test that Actor.start/Actor.call with `timeout='inherit'` is skipped when the run is past its timeout."""
-    patch_child_run_start(apify_client_async_patcher, 'actor', fake_actor_run)
+    apify_client_async_patcher.patch('actor', method_name, return_value=fake_actor_run)
 
     async with Actor:
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
         await getattr(Actor, method_name)('some-actor-id', timeout='inherit')
 
-    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
-    assert apify_client_async_patcher.calls['actor']['start'][0][1]['run_timeout'] == timedelta(seconds=1)
+    assert len(apify_client_async_patcher.calls['actor'][method_name]) == 1
+    assert apify_client_async_patcher.calls['actor'][method_name][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
-@pytest.mark.parametrize('actor_method_name', ['start_task', 'call_task'])
+@pytest.mark.parametrize(
+    ('client_method', 'actor_method_name'),
+    [
+        pytest.param('start', 'start_task', id='start_task'),
+        pytest.param('call', 'call_task', id='call_task'),
+    ],
+)
 async def test_actor_task_methods_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
+    client_method: str,
     actor_method_name: str,
 ) -> None:
     """Test that start_task/call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
-    patch_child_run_start(apify_client_async_patcher, 'task', fake_actor_run)
+    apify_client_async_patcher.patch('task', client_method, return_value=fake_actor_run)
 
     async with Actor:
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
         await getattr(Actor, actor_method_name)('some-task-id', timeout='inherit')
 
-    assert len(apify_client_async_patcher.calls['task']['start']) == 1
-    assert apify_client_async_patcher.calls['task']['start'][0][1]['run_timeout'] == timedelta(seconds=1)
+    assert len(apify_client_async_patcher.calls['task'][client_method]) == 1
+    assert apify_client_async_patcher.calls['task'][client_method][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
 async def test_reboot_runs_all_listeners_even_when_one_fails(
