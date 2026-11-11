@@ -54,6 +54,9 @@ _NOT_FOUND_GRACE_SECS = 3
 _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
 """How long to wait between lookups of a recorded run that the API reports as missing."""
 
+_IMPLICIT_NAME_HASH_LENGTH = 16
+"""How many hex characters of the request checksum go into the name of a run started without a `run_name`."""
+
 
 class ChildRunSnapshot(BaseModel):
     """A child run as last observed by this Actor run."""
@@ -102,6 +105,17 @@ def checksum_request(*, actor_id: str | None, task_id: str | None, run_input: An
         request['input'] = run_input
     serialized = json.dumps(request, sort_keys=True, separators=(',', ':'), ensure_ascii=False, default=str)
     return hashlib.sha256(serialized.encode()).hexdigest()
+
+
+def implicit_run_name(*, actor_id: str | None, task_id: str | None, run_input: Any) -> str:
+    """Derive the name a child run is tracked under when the caller gave no `run_name`.
+
+    The name is the Actor or task ID followed by a hash of the input, so the same call made again, e.g. after a
+    migration of this Actor run, maps to the same record.
+    """
+    checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
+    target_id = actor_id if actor_id is not None else task_id
+    return f'{target_id}_{checksum[:_IMPLICIT_NAME_HASH_LENGTH]}'
 
 
 async def _get_recorded_run(run_client: RunClientAsync) -> Run | None:

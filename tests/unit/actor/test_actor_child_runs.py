@@ -14,7 +14,7 @@ from crawlee.events import Event, EventAbortingData
 
 from apify import Actor, Configuration, _child_runs
 from apify._actor import _ActorType
-from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
+from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request, implicit_run_name
 from apify.events import ApifyEventManager
 
 if TYPE_CHECKING:
@@ -104,16 +104,69 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
     assert stored == {'scrape-eu': stored_record('new-run', 'READY')}
 
 
-async def test_unnamed_start_is_not_recorded(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A start without a name leaves the registry untouched."""
+async def test_unnamed_start_is_recorded_under_implicit_name(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A start without a name is recorded under the Actor ID and a hash of the input."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
-        await Actor.start('some-actor')
+        await Actor.start('some-actor', {'query': 'eu'})
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored is None
+    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input={'query': 'eu'})
+    assert implicit_name.startswith('some-actor_')
+    assert list(stored) == [implicit_name]
+    assert stored[implicit_name]['runId'] == 'new-run'
+
+
+async def test_unnamed_start_with_same_input_reuses_recorded_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A second start without a name for the same Actor and input returns the recorded run and starts no new one."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor:
+        first_run = await Actor.start('some-actor', {'query': 'eu'})
+        second_run = await Actor.start('some-actor', {'query': 'eu'})
+
+    assert first_run.id == second_run.id == 'new-run'
+    assert second_run.status == 'SUCCEEDED'
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_unnamed_starts_with_different_input_start_separate_runs(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Starts without a name for the same Actor with different inputs are recorded as separate runs."""
+    start = Mock(side_effect=[make_run('eu-run', 'READY'), make_run('us-run', 'READY')])
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start)
+
+    async with Actor:
+        await Actor.start('some-actor', {'query': 'eu'})
+        await Actor.start('some-actor', {'query': 'us'})
+        run_ids = {run_client.resource_id for run_client in Actor.child_runs.values()}
+
+    assert run_ids == {'eu-run', 'us-run'}
+
+
+async def test_explicit_run_name_starts_separate_run_from_unnamed_start(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A `run_name` starts its own run even when an unnamed run of the same Actor and input is recorded."""
+    start = Mock(side_effect=[make_run('implicit-run', 'READY'), make_run('named-run', 'READY')])
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start)
+
+    async with Actor:
+        await Actor.start('some-actor', {'query': 'eu'})
+        named_run = await Actor.start('some-actor', {'query': 'eu'}, run_name='scrape-eu')
+        child_runs = Actor.child_runs
+
+    assert named_run.id == 'named-run'
+    assert child_runs['scrape-eu'].resource_id == 'named-run'
+    assert len(child_runs) == 2
 
 
 @pytest.mark.parametrize(
@@ -676,12 +729,9 @@ async def test_named_call_records_finished_status(apify_client_async_patcher: Ap
     assert stored == {'scrape-eu': stored_record('new-run', 'FAILED')}
 
 
-async def test_child_runs_is_empty_without_named_runs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """`Actor.child_runs` is empty when no run was started with a `run_name`."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-
+async def test_child_runs_is_empty_without_started_runs() -> None:
+    """`Actor.child_runs` is empty when no run was started."""
     async with Actor:
-        await Actor.start('some-actor')
         assert Actor.child_runs == {}
 
 
@@ -787,30 +837,19 @@ async def test_child_runs_keeps_client_of_name_after_failed_lookup(
     assert child_runs['scrape-eu']._http_client is default_http_client
 
 
-@pytest.mark.parametrize(
-    'method',
-    [
-        pytest.param('start', id='start'),
-        pytest.param('call', id='call'),
-        pytest.param('start_task', id='start task'),
-        pytest.param('call_task', id='call task'),
-    ],
-)
-async def test_abort_with_parent_requires_run_name(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str
+async def test_abort_with_parent_is_recorded_for_unnamed_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """`abort_with_parent` without a `run_name` raises before any run is started."""
-    for resource in ('actor', 'task'):
-        apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
-        apify_client_async_patcher.patch(resource, 'call', return_value=make_run('new-run', 'SUCCEEDED'))
+    """`abort_with_parent` without a `run_name` is recorded under the implicit name of the run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
-        with pytest.raises(ValueError, match='requires `run_name`'):
-            await getattr(Actor, method)('some-id', abort_with_parent=True)
+        await Actor.start('some-actor', abort_with_parent=True)
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    for resource in ('actor', 'task'):
-        assert apify_client_async_patcher.calls[resource]['start'] == []
-        assert apify_client_async_patcher.calls[resource]['call'] == []
+    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input=None)
+    assert stored[implicit_name]['abortWithParent'] is True
 
 
 async def test_named_start_records_abort_with_parent(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
