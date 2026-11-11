@@ -153,12 +153,12 @@ class _ActorType:
             status_message: Final status message to display upon Actor termination.
             event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
             cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
-            max_concurrent_child_runs: How many named child runs may be `READY`, `RUNNING`, `ABORTING` or `TIMING-OUT`
-                at once, or `None` for no limit. At the limit, a named `Actor.start`, `Actor.call`, `Actor.start_task`
-                or `Actor.call_task` waits to start or resurrect a run until another one finishes. Reattaching to a
-                recorded run never waits. Runs started without a `run_name` are not counted and never wait. A child
-                run's status is fetched again before it is counted, if it is more than 10 seconds old. Once this Actor
-                run is being gracefully aborted, a call that would wait raises a `RuntimeError`.
+            max_concurrent_child_runs: How many child runs, named or not, may be `READY`, `RUNNING`, `ABORTING` or
+                `TIMING-OUT` at once, or `None` for no limit. At the limit, `Actor.start`, `Actor.call`,
+                `Actor.start_task` and `Actor.call_task` wait to start or resurrect a run until another one finishes.
+                Reattaching to a recorded run never waits. A child run's status is fetched again before it is counted,
+                if it is more than 10 seconds old. Once this Actor run is being gracefully aborted, a call that would
+                wait raises a `RuntimeError`.
         """
         self._configuration = configuration
         self._configure_logging = configure_logging

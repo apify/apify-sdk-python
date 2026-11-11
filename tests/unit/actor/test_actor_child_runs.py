@@ -1443,6 +1443,16 @@ async def start_child(
     return run
 
 
+async def start_unnamed_child(registry: ChildRunRegistry, client: Mock, run_id: str, statuses: dict[str, str]) -> Run:
+    """Start a child run without a name with the registry, adding its run to `statuses` as `RUNNING`."""
+
+    async def start_run() -> Run:
+        statuses[run_id] = 'RUNNING'
+        return make_run(run_id, 'READY')
+
+    return await registry.start_unnamed(client=client, start_run=start_run)
+
+
 async def assert_waiting(task: asyncio.Task) -> None:
     """Assert that `task` is still pending after giving it a moment to run."""
     await asyncio.sleep(0.05)
@@ -1478,6 +1488,114 @@ async def test_named_start_waits_while_the_limit_is_reached() -> None:
         second = await second_task
 
     assert second.id == 'second-run'
+
+
+async def test_unnamed_start_waits_while_a_named_run_holds_the_limit() -> None:
+    """A start without a name waits while a named child run holds the limit, and proceeds once that run finishes."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'unnamed-run', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        await registry.update('first', make_run(first.id, 'SUCCEEDED'))
+        second = await second_task
+
+    assert second.id == 'unnamed-run'
+
+
+async def test_named_start_waits_while_an_unnamed_run_holds_the_limit() -> None:
+    """A named start waits while a child run started without a name holds the limit, until that run finishes."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_unnamed_child(registry, client, 'unnamed-run', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        await registry.update(None, make_run(first.id, 'SUCCEEDED'))
+        second = await second_task
+
+    assert second.id == 'second-run'
+
+
+async def test_concurrent_unnamed_starts_respect_the_limit() -> None:
+    """Concurrent starts without a name start no more runs than the limit."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=2)
+        await registry.load()
+        tasks = [asyncio.create_task(start_unnamed_child(registry, client, f'run-{i}', statuses)) for i in range(3)]
+        await asyncio.sleep(0.05)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    assert sum(task.cancelled() for task in tasks) == 1
+    assert len(statuses) == 2
+
+
+async def test_unnamed_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit() -> None:
+    """An active child run started without a name before a migration counts toward the limit."""
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(UNNAMED_CHILD_RUNS_KEY, {'old-run': stored_unnamed_record('old-run', 'RUNNING')})
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'new-run', statuses))
+        await assert_waiting(second_task)
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+    assert 'new-run' not in statuses
+
+
+async def test_stale_unnamed_run_status_is_refreshed_before_counting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unnamed child run is fetched again once its status is stale, so a finished one stops counting."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_unnamed_child(registry, client, 'first-run', statuses)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'second-run', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        second = await asyncio.wait_for(second_task, timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_parent_abort_stops_unnamed_starts_waiting_under_the_limit() -> None:
+    """A start without a name waiting under the limit raises once the parent is aborted, without starting a run."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start_unnamed_child(registry, client, 'first-run', statuses)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'second-run', statuses))
+        await assert_waiting(second_task)
+
+        await asyncio.wait_for(registry.abort_runs_with_parent(client), timeout=1)
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+    assert 'second-run' not in statuses
 
 
 async def test_stale_active_status_is_refreshed_before_counting(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1827,6 +1945,29 @@ async def test_named_call_task_stops_counting_when_the_run_finishes(
         await asyncio.wait_for(Actor.start('some-actor', run_name='second'), timeout=1)
 
     assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_unnamed_call_stops_counting_when_the_run_finishes(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """A child run awaited by a call without a name to its end stops counting without being fetched again."""
+    for patched_resource in {resource, 'actor'}:
+        apify_client_async_patcher.patch(patched_resource, 'start', return_value=make_run('called-run', 'READY'))
+    # A fetch would report the run as still running, so only the awaited status can stop it counting.
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('called-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('called-run', 'SUCCEEDED'))
+    kwargs: dict[str, Any] = {'logger': None} if method == 'call' else {}
+
+    async with Actor(max_concurrent_child_runs=1):
+        await getattr(Actor, method)('some-id', **kwargs)
+        await asyncio.wait_for(Actor.start('some-actor'), timeout=1)
 
 
 async def test_update_is_not_blocked_by_a_waiting_start_fetching_runs(monkeypatch: pytest.MonkeyPatch) -> None:
