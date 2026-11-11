@@ -55,7 +55,7 @@ _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
 """How long to wait between lookups of a recorded run that the API reports as missing."""
 
 _IMPLICIT_NAME_HASH_LENGTH = 16
-"""How many hex characters of the request checksum go into the name of a run started without a `run_name`."""
+"""How many hex characters of the hash go into the name of a run started without a `run_name`."""
 
 
 class ChildRunSnapshot(BaseModel):
@@ -107,15 +107,34 @@ def checksum_request(*, actor_id: str | None, task_id: str | None, run_input: An
     return hashlib.sha256(serialized.encode()).hexdigest()
 
 
-def implicit_run_name(*, actor_id: str | None, task_id: str | None, run_input: Any) -> str:
+def _serialize_run_option(value: Any) -> Any:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode='json')
+    return str(value)
+
+
+def implicit_run_name(*, actor_id: str | None, task_id: str | None, run_input: Any, run_options: dict[str, Any]) -> str:
     """Derive the name a child run is tracked under when the caller gave no `run_name`.
 
-    The name is the Actor or task ID followed by a hash of the input, so the same call made again, e.g. after a
-    migration of this Actor run, maps to the same record.
+    The name is the Actor or task ID followed by a hash of the input and the run options, so the same call made
+    again, e.g. after a migration of this Actor run, maps to the same record.
+
+    Args:
+        actor_id: The Actor to start.
+        task_id: The task to start, in place of `actor_id`.
+        run_input: Input of the run.
+        run_options: Options the run is started with, as passed by the caller. An option that is `None` hashes the
+            same as one left out. A relative option like `timeout='inherit'` is hashed as passed, since its resolved
+            value differs on every call.
     """
-    checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
+    request_checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
+    set_options = {key: value for key, value in run_options.items() if value is not None}
+    serialized_options = json.dumps(
+        set_options, sort_keys=True, separators=(',', ':'), ensure_ascii=False, default=_serialize_run_option
+    )
+    name_hash = hashlib.sha256(f'{request_checksum}{serialized_options}'.encode()).hexdigest()
     target_id = actor_id if actor_id is not None else task_id
-    return f'{target_id}_{checksum[:_IMPLICIT_NAME_HASH_LENGTH]}'
+    return f'{target_id}_{name_hash[:_IMPLICIT_NAME_HASH_LENGTH]}'
 
 
 async def _get_recorded_run(run_client: RunClientAsync) -> Run | None:

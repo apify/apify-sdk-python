@@ -448,7 +448,7 @@ class _ActorType:
 
         Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` is included, even one
         started before a migration or resurrection of this Actor run. A run started without a `run_name` is keyed by
-        its Actor or task ID and a hash of its input. Each client points to the current run under its name:
+        its Actor or task ID and a hash of its input and run options. Each client points to the current run under its name:
 
         ```python
         run = await Actor.child_runs['my-child'].wait_for_finish()
@@ -1114,9 +1114,10 @@ class _ActorType:
                 same call reattaches to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or
                 `TIMED-OUT` one is resurrected, and a new run is started only when nothing is recorded under the name,
                 or the recorded run `FAILED` or no longer exists. Without a `run_name`, the name is derived from the
-                Actor or task ID and a hash of the input, so calls for the same Actor or task with the same input
-                share one run. Pass a `run_name` to run them separately. Using `run_name` to attach to a run of a
-                different Actor, task or with a different input raises a `ValueError`.
+                Actor or task ID and a hash of the input and the run options, so calls for the same Actor or task
+                with the same input and options share one run. Pass a `run_name` to run them separately. Using
+                `run_name` to attach to a run of a different Actor, task or with a different input raises a
+                `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded under the name of the run, replacing the one from an earlier call.
                 Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts,
@@ -1148,7 +1149,23 @@ class _ActorType:
             )
 
         if run_name is None:
-            run_name = implicit_run_name(actor_id=actor_id, task_id=None, run_input=run_input)
+            run_name = implicit_run_name(
+                actor_id=actor_id,
+                task_id=None,
+                run_input=run_input,
+                run_options={
+                    'content_type': content_type,
+                    'build': build,
+                    'max_items': max_items,
+                    'max_total_charge_usd': max_total_charge_usd,
+                    'restart_on_error': restart_on_error,
+                    'memory_mbytes': memory_mbytes,
+                    'timeout': timeout,
+                    'force_permission_level': force_permission_level,
+                    'webhooks': webhooks,
+                    'token': token,
+                },
+            )
 
         run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1315,9 +1332,10 @@ class _ActorType:
                 same call reattaches to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or
                 `TIMED-OUT` one is resurrected, and a new run is started only when nothing is recorded under the name,
                 or the recorded run `FAILED` or no longer exists. Without a `run_name`, the name is derived from the
-                Actor or task ID and a hash of the input, so calls for the same Actor or task with the same input
-                share one run. Pass a `run_name` to run them separately. Using `run_name` to attach to a run of a
-                different Actor, task or with a different input raises a `ValueError`.
+                Actor or task ID and a hash of the input and the run options, so calls for the same Actor or task
+                with the same input and options share one run. Pass a `run_name` to run them separately. Using
+                `run_name` to attach to a run of a different Actor, task or with a different input raises a
+                `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded under the name of the run, replacing the one from an earlier call.
                 Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts,
@@ -1335,7 +1353,23 @@ class _ActorType:
         actor_client = client.actor(actor_id)
 
         if run_name is None:
-            run_name = implicit_run_name(actor_id=actor_id, task_id=None, run_input=run_input)
+            run_name = implicit_run_name(
+                actor_id=actor_id,
+                task_id=None,
+                run_input=run_input,
+                run_options={
+                    'content_type': content_type,
+                    'build': build,
+                    'max_items': max_items,
+                    'max_total_charge_usd': max_total_charge_usd,
+                    'restart_on_error': restart_on_error,
+                    'memory_mbytes': memory_mbytes,
+                    'timeout': timeout,
+                    'force_permission_level': force_permission_level,
+                    'webhooks': webhooks,
+                    'token': token,
+                },
+            )
 
         async def start_run() -> Run:
             return await actor_client.start(
@@ -1490,9 +1524,10 @@ class _ActorType:
                 same call reattaches to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or
                 `TIMED-OUT` one is resurrected, and a new run is started only when nothing is recorded under the name,
                 or the recorded run `FAILED` or no longer exists. Without a `run_name`, the name is derived from the
-                Actor or task ID and a hash of the input, so calls for the same Actor or task with the same input
-                share one run. Pass a `run_name` to run them separately. Using `run_name` to attach to a run of a
-                different Actor, task or with a different input raises a `ValueError`.
+                Actor or task ID and a hash of the input and the run options, so calls for the same Actor or task
+                with the same input and options share one run. Pass a `run_name` to run them separately. Using
+                `run_name` to attach to a run of a different Actor, task or with a different input raises a
+                `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded under the name of the run, replacing the one from an earlier call.
                 Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts,
@@ -1521,7 +1556,21 @@ class _ActorType:
             )
 
         if run_name is None:
-            run_name = implicit_run_name(actor_id=None, task_id=task_id, run_input=task_input)
+            run_name = implicit_run_name(
+                actor_id=None,
+                task_id=task_id,
+                run_input=task_input,
+                run_options={
+                    'build': build,
+                    'max_items': max_items,
+                    'max_total_charge_usd': max_total_charge_usd,
+                    'restart_on_error': restart_on_error,
+                    'memory_mbytes': memory_mbytes,
+                    'timeout': timeout,
+                    'webhooks': webhooks,
+                    'token': token,
+                },
+            )
 
         run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1590,9 +1639,10 @@ class _ActorType:
                 same call reattaches to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or
                 `TIMED-OUT` one is resurrected, and a new run is started only when nothing is recorded under the name,
                 or the recorded run `FAILED` or no longer exists. Without a `run_name`, the name is derived from the
-                Actor or task ID and a hash of the input, so calls for the same Actor or task with the same input
-                share one run. Pass a `run_name` to run them separately. Using `run_name` to attach to a run of a
-                different Actor, task or with a different input raises a `ValueError`.
+                Actor or task ID and a hash of the input and the run options, so calls for the same Actor or task
+                with the same input and options share one run. Pass a `run_name` to run them separately. Using
+                `run_name` to attach to a run of a different Actor, task or with a different input raises a
+                `ValueError`.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded under the name of the run, replacing the one from an earlier call.
                 Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts,
@@ -1610,7 +1660,21 @@ class _ActorType:
         task_client = client.task(task_id)
 
         if run_name is None:
-            run_name = implicit_run_name(actor_id=None, task_id=task_id, run_input=task_input)
+            run_name = implicit_run_name(
+                actor_id=None,
+                task_id=task_id,
+                run_input=task_input,
+                run_options={
+                    'build': build,
+                    'max_items': max_items,
+                    'max_total_charge_usd': max_total_charge_usd,
+                    'restart_on_error': restart_on_error,
+                    'memory_mbytes': memory_mbytes,
+                    'timeout': timeout,
+                    'webhooks': webhooks,
+                    'token': token,
+                },
+            )
 
         async def start_run() -> Run:
             return await task_client.start(

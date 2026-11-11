@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -12,7 +13,7 @@ from apify_client.errors import NotFoundError
 from crawlee import service_locator
 from crawlee.events import Event, EventAbortingData
 
-from apify import Actor, Configuration, _child_runs
+from apify import Actor, Configuration, Webhook, _child_runs
 from apify._actor import _ActorType
 from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request, implicit_run_name
 from apify.events import ApifyEventManager
@@ -115,7 +116,7 @@ async def test_unnamed_start_is_recorded_under_implicit_name(
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input={'query': 'eu'})
+    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input={'query': 'eu'}, run_options={})
     assert implicit_name.startswith('some-actor_')
     assert list(stored) == [implicit_name]
     assert stored[implicit_name]['runId'] == 'new-run'
@@ -150,6 +151,53 @@ async def test_unnamed_starts_with_different_input_start_separate_runs(
         run_ids = {run_client.resource_id for run_client in Actor.child_runs.values()}
 
     assert run_ids == {'eu-run', 'us-run'}
+
+
+@pytest.mark.parametrize(
+    'run_options',
+    [
+        pytest.param({'build': 'beta'}, id='build'),
+        pytest.param({'memory_mbytes': 1024}, id='memory'),
+        pytest.param({'timeout': timedelta(seconds=60)}, id='timeout'),
+        pytest.param({'max_total_charge_usd': Decimal('2.5')}, id='max total charge'),
+        pytest.param({'restart_on_error': True}, id='restart on error'),
+        pytest.param({'token': 'other-token'}, id='token'),
+        pytest.param(
+            {'webhooks': [Webhook(event_types=['ACTOR.RUN.SUCCEEDED'], request_url='https://example.com')]},
+            id='webhooks',
+        ),
+    ],
+)
+async def test_unnamed_starts_with_different_run_options_start_separate_runs(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, run_options: dict[str, Any]
+) -> None:
+    """Starts without a name for the same Actor and input with different run options are separate runs."""
+    start = Mock(side_effect=[make_run('default-run', 'READY'), make_run('custom-run', 'READY')])
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start)
+
+    async with Actor:
+        await Actor.start('some-actor', {'query': 'eu'})
+        custom_run = await Actor.start('some-actor', {'query': 'eu'}, **run_options)
+        child_runs = Actor.child_runs
+
+    assert custom_run.id == 'custom-run'
+    assert len(child_runs) == 2
+
+
+async def test_unnamed_starts_with_inherited_timeout_reuse_recorded_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Starts without a name with `timeout='inherit'` share one run, though the remaining time differs per call."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor:
+        Actor.configuration.is_at_home = True
+        Actor.configuration.timeout_at = datetime.now(tz=UTC) + timedelta(minutes=5)
+        await Actor.start('some-actor', timeout='inherit')
+        await Actor.start('some-actor', timeout='inherit')
+
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
 
 
 async def test_explicit_run_name_starts_separate_run_from_unnamed_start(
@@ -848,7 +896,7 @@ async def test_abort_with_parent_is_recorded_for_unnamed_run(
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input=None)
+    implicit_name = implicit_run_name(actor_id='some-actor', task_id=None, run_input=None, run_options={})
     assert stored[implicit_name]['abortWithParent'] is True
 
 
