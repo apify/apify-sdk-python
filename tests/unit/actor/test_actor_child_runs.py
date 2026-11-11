@@ -248,6 +248,57 @@ async def test_unnamed_call_task_with_same_input_returns_recorded_run(
     assert len(apify_client_async_patcher.calls['task']['call']) == 1
 
 
+async def test_concurrent_unnamed_calls_with_same_input_share_one_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A call without a name made while the same call is in flight waits for it and returns its run."""
+    call_finished = asyncio.Event()
+
+    async def call(*_args: object, **_kwargs: object) -> Run:
+        await call_finished.wait()
+        return make_run('called-run', 'SUCCEEDED')
+
+    apify_client_async_patcher.patch('actor', 'call', replacement_method=call)
+
+    async with Actor:
+        first_call = asyncio.create_task(Actor.call('some-actor', {'query': 'eu'}))
+        await asyncio.sleep(0.05)
+        second_call = asyncio.create_task(Actor.call('some-actor', {'query': 'eu'}))
+        await asyncio.sleep(0.05)
+        second_call_done_while_in_flight = second_call.done()
+        call_finished.set()
+        first_run = await first_call
+        second_run = await second_call
+
+    assert second_call_done_while_in_flight is False
+    assert first_run.id == second_run.id == 'called-run'
+    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
+
+
+async def test_failed_unnamed_call_in_flight_fails_waiting_call(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A call without a name waiting for the same call in flight raises the error that call failed with."""
+    call_finished = asyncio.Event()
+
+    async def call(*_args: object, **_kwargs: object) -> Run:
+        await call_finished.wait()
+        raise RuntimeError('Boom')
+
+    apify_client_async_patcher.patch('actor', 'call', replacement_method=call)
+
+    async with Actor:
+        first_call = asyncio.create_task(Actor.call('some-actor'))
+        await asyncio.sleep(0.05)
+        second_call = asyncio.create_task(Actor.call('some-actor'))
+        await asyncio.sleep(0.05)
+        call_finished.set()
+        results = await asyncio.gather(first_call, second_call, return_exceptions=True)
+
+    assert [str(result) for result in results] == ['Boom', 'Boom']
+    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
+
+
 async def test_unnamed_call_in_flight_counts_toward_concurrency_limit(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:

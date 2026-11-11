@@ -195,6 +195,8 @@ class ChildRunRegistry:
         """Names with a start or resurrection in flight, counted toward the limit but not from the records yet."""
         self._run_status_cache: dict[str, _CachedRunStatus] = {}
         """Last seen status of the run recorded under each name. An active one is fetched again once it gets stale."""
+        self._calls_in_flight: dict[str, asyncio.Future[Run | None]] = {}
+        """Outcome of the `call_and_record` in flight under each name, awaited by further calls under that name."""
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts,
         nor any run that would wait under the concurrency limit."""
@@ -324,9 +326,10 @@ class ChildRunRegistry:
     ) -> Run | None:
         """Start a run and wait for it with `call_run`, then record the run under `name`.
 
-        The call waits while the concurrency limit is reached and counts toward it until it returns. The run is
-        recorded only once `call_run` returns it, so while it is in flight it is not in `run_clients`, is not aborted
-        with this Actor run and is not found again after a migration.
+        The call waits while the concurrency limit is reached and counts toward it until it returns. While a call under
+        `name` is in flight, another call under it waits for that one and returns its run. The run is recorded only
+        once `call_run` returns it, so while it is in flight it is not in `run_clients`, is not aborted with this Actor
+        run and is not found again after a migration.
 
         Args:
             name: Name of the child run, with nothing recorded under it.
@@ -349,20 +352,41 @@ class ChildRunRegistry:
                 f'Child run "{name}" with `abort_with_parent` was not started, since this Actor run is being aborted.'
             )
 
-        async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
-            run = await call_run()
-            if run is not None:
-                record = ChildRunRecord(
-                    run_id=run.id,
-                    status=run.status,
-                    started_at=run.started_at,
-                    checksum=checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input),
-                    abort_with_parent=abort_with_parent,
-                )
-                await self._save(name, record)
-                self._cache_run_status(name, run)
-                self._clients[name] = client
-        return run
+        call_in_flight = self._calls_in_flight.get(name)
+        if call_in_flight is not None:
+            logger.info('Waiting for the call of child run "%s" that is already in flight', name)
+            # Shielded, so cancelling this waiter leaves the call running for the caller that made it.
+            return await asyncio.shield(call_in_flight)
+
+        call_in_flight = asyncio.get_running_loop().create_future()
+        # Marks the outcome as retrieved, so a failed call nobody else waited on logs no warning.
+        call_in_flight.add_done_callback(lambda future: future.cancelled() or future.exception())
+        self._calls_in_flight[name] = call_in_flight
+        try:
+            async with self._reserve_capacity(name, client, abort_with_parent=abort_with_parent):
+                run = await call_run()
+                if run is not None:
+                    record = ChildRunRecord(
+                        run_id=run.id,
+                        status=run.status,
+                        started_at=run.started_at,
+                        checksum=checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input),
+                        abort_with_parent=abort_with_parent,
+                    )
+                    await self._save(name, record)
+                    self._cache_run_status(name, run)
+                    self._clients[name] = client
+        except asyncio.CancelledError:
+            call_in_flight.cancel()
+            raise
+        except Exception as exc:
+            call_in_flight.set_exception(exc)
+            raise
+        else:
+            call_in_flight.set_result(run)
+            return run
+        finally:
+            del self._calls_in_flight[name]
 
     def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
         """Return a client for the current run under each recorded name.
