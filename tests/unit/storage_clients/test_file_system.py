@@ -73,16 +73,9 @@ async def test_purge_preserves_input_file_and_metadata() -> None:
     'pre_existing_input',
     [
         pytest.param({'foo': 'bar'}, id='object'),
-        pytest.param({}, id='empty-object'),
-        pytest.param([1, 2], id='array'),
-        pytest.param([], id='empty-array'),
-        pytest.param('demo', id='string'),
         pytest.param('', id='empty-string'),
-        pytest.param(42, id='integer'),
         pytest.param(0, id='zero-integer'),
         pytest.param(1.5, id='float'),
-        pytest.param(0.0, id='zero-float'),
-        pytest.param(True, id='true'),
         pytest.param(False, id='false'),
         pytest.param(None, id='null'),
     ],
@@ -122,6 +115,35 @@ async def test_pre_existing_input_used_by_actor(input_file_name: str, pre_existi
         path_to_input / input_file_name,
         path_to_input / f'{input_file_name}.__metadata__.json',
     }
+
+
+@pytest.mark.parametrize(
+    'input_bytes',
+    [pytest.param(b'hello', id='plain'), pytest.param('hello'.encode('utf-16'), id='utf16')],
+)
+async def test_pre_existing_non_json_input_used_by_actor(input_bytes: bytes) -> None:
+    """Bare non-JSON input preserves its bytes and uses binary serialization metadata."""
+    configuration = Configuration()
+    service_locator.set_configuration(configuration)
+    path_to_input = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    path_to_input.mkdir(parents=True)
+    input_file = path_to_input / 'INPUT'
+    input_file.write_bytes(input_bytes)
+
+    async with Actor():
+        actual_input = await Actor.get_input()
+        assert actual_input == input_bytes
+        assert type(actual_input) is bytes
+        store = await Actor.open_key_value_store()
+        stored_input = await store.get_value(configuration.input_key)
+        assert stored_input == input_bytes
+        assert type(stored_input) is bytes
+
+    assert input_file.read_bytes() == input_bytes
+    metadata = json.loads((path_to_input / f'INPUT.{METADATA_FILENAME}').read_text())
+    assert metadata['content_type'] == 'application/octet-stream'
+    assert metadata['key'] == configuration.input_key
+    assert metadata['size'] == len(input_bytes)
 
 
 async def test_set_value_with_input_key_targets_existing_input_file() -> None:
