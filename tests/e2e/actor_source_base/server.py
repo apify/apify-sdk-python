@@ -52,8 +52,8 @@ _FILE_CONTENT_TYPES = {
 }
 
 
-def _file_body(size: int) -> bytes:
-    """Return the body of the `/files/<size>.<ext>` route, which tests rebuild to compare the downloaded bytes."""
+def file_body(size: int) -> bytes:
+    """Return the body of the `/files/<size>.<ext>` route. Tests import it to compare the downloaded bytes."""
     return bytes(i % 256 for i in range(size))
 
 
@@ -69,14 +69,7 @@ async def _send_body(send: Send, body: bytes, content_type: str, status: int = 2
 
 
 async def _send_html(send: Send, html: str, status: int = 200) -> None:
-    await send(
-        {
-            'type': 'http.response.start',
-            'status': status,
-            'headers': [[b'content-type', b'text/html; charset=utf-8']],
-        }
-    )
-    await send({'type': 'http.response.body', 'body': html.encode()})
+    await _send_body(send, html.encode(), 'text/html; charset=utf-8', status)
 
 
 async def _send_redirect(send: Send, location: str) -> None:
@@ -180,7 +173,7 @@ async def app(scope: dict[str, Any], _receive: Receive, send: Send) -> None:
         if not size.isdigit() or content_type is None:
             await _send_html(send, '<html><body>Not Found</body></html>', 404)
             return
-        await _send_body(send, _file_body(int(size)), content_type)
+        await _send_body(send, file_body(int(size)), content_type)
     elif path == '/start-urls.txt':
         await _send_body(
             send,

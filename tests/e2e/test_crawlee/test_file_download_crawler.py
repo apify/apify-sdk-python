@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..._utils import poll_until_condition
+from ..actor_source_base.server import file_body
 from .conftest import read_actor_source
 
 if TYPE_CHECKING:
@@ -14,11 +15,6 @@ _EXPECTED_FILES = {
     '2048.png': (2048, 'image/png'),
     '5242880.bin': (5242880, 'application/octet-stream'),
 }
-
-
-def file_body(size: int) -> bytes:
-    """Rebuild the body that the test server sends for `/files/<size>.<ext>`."""
-    return bytes(i % 256 for i in range(size))
 
 
 async def test_file_download_crawler(make_actor: MakeActorFunction, run_actor: RunActorFunction) -> None:
