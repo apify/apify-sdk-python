@@ -314,6 +314,8 @@ class ChildRunRegistry:
     ) -> Run:
         """Start a child run without a name and record it under its run ID.
 
+        Starting the run waits while the concurrency limit is reached.
+
         Args:
             client: Client the run is started with.
             start_run: Starts a new run of the Actor or task.
@@ -321,8 +323,6 @@ class ChildRunRegistry:
 
         Returns:
             The started run.
-
-        Starting the run waits while the concurrency limit is reached.
 
         Raises:
             RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
