@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from .._utils import poll_until_condition
 from apify import Actor
 
 if TYPE_CHECKING:
+    from apify_client import ApifyClientAsync
+
     from .conftest import MakeActorFunction, RunActorFunction
 
 
@@ -167,3 +171,85 @@ async def test_events_websocket_shutdown_is_clean(
     assert run_log is not None
     assert 'error occurred during closing of asynchronous generator' not in run_log
     assert 'asynchronous generator is already running' not in run_log
+
+
+async def test_aborting_event_on_graceful_abort(
+    make_actor: MakeActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """A graceful abort from the API reaches the `ABORTING` listener before the platform stops the run."""
+
+    async def main() -> None:
+        from crawlee.events._types import Event
+
+        async def on_aborting() -> None:
+            await Actor.set_value('ABORTING_RECEIVED', {'received': True})
+
+        async with Actor:
+            Actor.on(Event.ABORTING, on_aborting)
+            Actor.log.info('Waiting for the abort')
+            await asyncio.sleep(300)
+
+    actor = await make_actor(label='actor-aborting-event', main_func=main)
+    run = await actor.start()
+    run_client = apify_client_async.run(run.id)
+
+    # Abort the run only once the listener is registered. The container startup time is highly variable, so poll the
+    # log with a growing interval.
+    log_client = run_client.log()
+    log = await poll_until_condition(
+        log_client.get,
+        lambda log: bool(log and 'Waiting for the abort' in log),
+        timeout=300,
+        poll_interval=2,
+        backoff_factor=1.2,
+    )
+    assert log is not None
+    assert 'Waiting for the abort' in log, f'The run did not start waiting in time:\n{log}'
+
+    await run_client.abort(gracefully=True)
+    run_result = await run_client.wait_for_finish(wait_duration=timedelta(seconds=600))
+    assert run_result is not None
+    assert run_result.status == 'ABORTED'
+
+    record = await run_client.key_value_store().get_record('ABORTING_RECEIVED')
+    assert record is not None, 'The ABORTING listener was not called.'
+    assert record['value'] == {'received': True}
+
+
+async def test_migrating_listeners_run_before_reboot(
+    make_actor: MakeActorFunction,
+    run_actor: RunActorFunction,
+) -> None:
+    """`Actor.reboot()` calls the `MIGRATING` listeners and the `PERSIST_STATE` listeners with `is_migrating=True`."""
+
+    async def main() -> None:
+        from crawlee.events._types import Event, EventPersistStateData
+
+        async def on_migrating() -> None:
+            await Actor.set_value('MIGRATING_RECEIVED', {'received': True})
+
+        async def on_persist_state(data: EventPersistStateData) -> None:
+            if data.is_migrating:
+                await Actor.set_value('PERSIST_STATE_MIGRATING', {'received': True})
+
+        async with Actor:
+            run = await Actor.apify_client.run(Actor.configuration.actor_run_id or '').get()
+            assert run is not None, 'The Actor could not read its own run.'
+
+            if run.stats.reboot_count == 0:
+                Actor.on(Event.MIGRATING, on_migrating)
+                Actor.on(Event.PERSIST_STATE, on_persist_state)
+                await Actor.reboot()
+
+    actor = await make_actor(label='actor-migrating-event', main_func=main)
+    run_result = await run_actor(actor)
+
+    assert run_result.status == 'SUCCEEDED'
+    assert run_result.stats.reboot_count == 1
+
+    kvs = actor.last_run().key_value_store()
+    for key in ('MIGRATING_RECEIVED', 'PERSIST_STATE_MIGRATING'):
+        record = await kvs.get_record(key)
+        assert record is not None, f'The listener did not write {key}.'
+        assert record['value'] == {'received': True}
