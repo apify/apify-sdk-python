@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from logging import getLogger
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, overload
 
 from cachetools import TTLCache
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -93,6 +93,13 @@ class ChargingManager(Protocol):
 
     charge_lock: ReentrantLock
     """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
+
+    @overload
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult: ...
+    @overload
+    async def charge(
+        self, event_name: str, *, count: int = 1, idempotency_key: str | None = None, request_id: str
+    ) -> ChargeResult: ...
 
     async def charge(
         self,
@@ -291,7 +298,9 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state = RecoverableState(
             default_state=ChargingState(),
             persist_state_key=CHARGING_STATE_KEY,
-            persistence_enabled=self._is_at_home and self._pricing_model == 'PAY_PER_EVENT',
+            persistence_enabled=(
+                self._is_at_home and self._pricing_model == 'PAY_PER_EVENT' and not self._is_multi_tenant
+            ),
             persist_state_kvs_factory=KeyValueStore.open,
             logger=logger,
         )
@@ -362,10 +371,9 @@ class ChargingManagerImplementation(ChargingManager):
                 chargeable_within_limit=self.compute_chargeable(),
             )
 
-        if self._is_multi_tenant and not request_id and not event_name.startswith('apify-'):
-            raise ValueError(
-                f"Charging for '{event_name}' in a multi-tenant Server Actor run requires `request_id` - pass the "
-                "value of the incoming request's X-Actor-Request-ID header to Actor.charge()."
+        if self._is_multi_tenant:
+            return await self._charge_server_request(
+                event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
             )
 
         if count <= 0:
@@ -628,6 +636,51 @@ class ChargingManagerImplementation(ChargingManager):
             pricing_info=pricing_info,
             charged_event_counts=charged_event_counts,
             max_total_charge_usd=Decimal('inf'),
+        )
+
+    async def _charge_server_request(
+        self,
+        event_name: str,
+        *,
+        count: int,
+        idempotency_key: str | None,
+        request_id: str | None,
+    ) -> ChargeResult:
+        """Charge the caller of a multi-tenant Server Actor request.
+
+        The platform prices, limits and deduplicates each caller's charges itself, so nothing is counted or enforced
+        locally. Run-wide counts would mix all callers, and a local idempotency cache would let one caller's key skip
+        another caller's charge.
+        """
+        if not request_id and not event_name.startswith('apify-'):
+            raise ValueError(
+                f"Charging for '{event_name}' in a multi-tenant Server Actor run requires `request_id` - pass the "
+                "value of the incoming request's X-Actor-Request-ID header to Actor.charge()."
+            )
+
+        charged_count = 0
+        if count <= 0:
+            pass
+        elif event_name.startswith('apify-'):
+            # Synthetic events (e.g. apify-default-dataset-item) are charged by the platform based on dataset writes.
+            charged_count = count
+        elif event_name in self._tier_priced_events:
+            logger.warning("Event '%s' is tier-priced and is not chargeable via the pay-per-event API.", event_name)
+        elif event_name not in self._pricing_info:
+            logger.warning("Attempting to charge for an unknown event '%s'", event_name)
+        else:
+            if self._actor_run_id is None:
+                raise RuntimeError('Actor run ID not configured')
+            await self._client.run(self._actor_run_id).charge(
+                event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
+            )
+            logger.debug("Charged %d occurrence(s) of event '%s' for request '%s'.", count, event_name, request_id)
+            charged_count = count
+
+        return ChargeResult(
+            event_charge_limit_reached=False,
+            charged_count=charged_count,
+            chargeable_within_limit=self.compute_chargeable(),
         )
 
     def _compute_charged_count(self, event_name: str, count: int) -> int:

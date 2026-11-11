@@ -912,6 +912,13 @@ class _ActorType:
         """Retrieve the charging manager to access granular pricing information."""
         return self._charging_manager_implementation
 
+    @overload
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult: ...
+    @overload
+    async def charge(
+        self, event_name: str, *, count: int = 1, idempotency_key: str | None = None, request_id: str
+    ) -> ChargeResult: ...
+
     @_ensure_context
     async def charge(
         self,
@@ -939,9 +946,9 @@ class _ActorType:
                 the incoming request. Required in multi-tenant Server Actor runs, where it maps the charge to the
                 caller's account instead of the account that started the run. Ignored elsewhere.
         """
-        # charging_manager.charge() acquires charge_lock internally.
-        charging_manager = self.get_charging_manager()
-        return await charging_manager.charge(
+        # The implementation's `charge()` acquires charge_lock internally and, unlike the public overloads, takes the
+        # `None` default of `request_id`.
+        return await self._charging_manager_implementation.charge(
             event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
         )
 

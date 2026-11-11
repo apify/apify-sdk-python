@@ -835,6 +835,27 @@ async def test_multi_tenant_run_uses_effective_actor_pricing_and_requires_reques
         charge_mock.assert_awaited_once_with('search', count=1, idempotency_key=None, request_id='some-request-id')
 
 
+async def test_multi_tenant_run_leaves_counting_and_deduplication_to_the_platform(mock_client: MagicMock) -> None:
+    """Test that multi-tenant charges keep no run-wide counts and send every caller's charge, even with a shared key."""
+    run = MagicMock(standby=MagicMock(deployment='MULTI_TENANT_PAYING_USERS'), charged_event_counts={})
+    charge_mock = AsyncMock()
+    mock_client.run = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=run), charge=charge_mock))
+    actor = MagicMock(pricing_infos=[_make_ppe_pricing_info({'search': Decimal(1)})])
+    mock_client.actor = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=actor)))
+    config = _make_config(is_at_home=True, actor_run_id='run-id', actor_id='actor-id')
+    cm = ChargingManagerImplementation(config, mock_client)
+
+    async with cm:
+        for request_id in ('request-a', 'request-b'):
+            result = await cm.charge('search', idempotency_key='shared-key', request_id=request_id)
+            assert result.charged_count == 1
+
+        assert charge_mock.await_count == 2
+        assert cm.get_charged_event_count('search') == 0
+
+    assert await (await KeyValueStore.open()).get_value(CHARGING_STATE_KEY) is None
+
+
 async def test_multi_tenant_run_without_ppe_ignores_charge_without_request_id(mock_client: MagicMock) -> None:
     """Test that a multi-tenant Server Actor run without pay-per-event pricing ignores a charge with no `request_id`."""
     run = MagicMock(standby=MagicMock(deployment='MULTI_TENANT_PAYING_USERS'), charged_event_counts={})

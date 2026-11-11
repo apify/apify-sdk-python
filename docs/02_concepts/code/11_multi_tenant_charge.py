@@ -10,9 +10,7 @@ app = FastAPI()
 
 
 @app.get('/')
-async def index(
-    x_actor_request_id: Annotated[str | None, Header()] = None,
-) -> str:
+async def index(x_actor_request_id: Annotated[str, Header()]) -> str:
     # The platform identifies the caller of each request with this header.
     # Pass it along so the charge lands on the caller's account, not yours.
     await Actor.charge(event_name='api-call', request_id=x_actor_request_id)

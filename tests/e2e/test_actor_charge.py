@@ -246,11 +246,13 @@ async def test_actor_charge_in_multi_tenant_standby_run(
             if b'x-apify-container-server-readiness-probe' in headers:
                 body = b'ready'
             else:
-                request_id = headers.get(b'x-actor-request-id', b'').decode() or None
-                if b'omit_request_id' in scope['query_string']:
-                    request_id = None
+                request_id = headers.get(b'x-actor-request-id', b'').decode()
                 try:
-                    result = await Actor.charge(event_name='api-call', request_id=request_id)
+                    if b'omit_request_id' in scope['query_string']:
+                        request_id = None
+                        result = await Actor.charge(event_name='api-call')
+                    else:
+                        result = await Actor.charge(event_name='api-call', request_id=request_id)
                     body = json.dumps({'charged_count': result.charged_count, 'request_id': request_id}).encode()
                 except ValueError as exc:
                     body = json.dumps({'error': str(exc)}).encode()
