@@ -14,7 +14,7 @@ from crawlee.events import Event, EventAbortingData
 
 from apify import Actor, Configuration, _child_runs
 from apify._actor import _ActorType
-from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
+from apify._child_runs import CHILD_RUNS_KEY, UNNAMED_CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
 from apify.events import ApifyEventManager
 
 if TYPE_CHECKING:
@@ -68,6 +68,11 @@ def stored_record(
     }
 
 
+def stored_unnamed_record(run_id: str, status: str) -> dict[str, Any]:
+    """Build a record of a child run started without a name, as it is stored in the default KVS."""
+    return {'runId': run_id, 'status': status, 'startedAt': STARTED_AT}
+
+
 @pytest.fixture
 def apify_event_manager() -> ApifyEventManager:
     """Make the Actor use `ApifyEventManager`, which delivers `ABORTING` on the platform, without a websocket."""
@@ -104,16 +109,84 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
     assert stored == {'scrape-eu': stored_record('new-run', 'READY')}
 
 
-async def test_unnamed_start_is_not_recorded(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A start without a name leaves the registry untouched."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('start', 'actor', id='start'),
+        pytest.param('start_task', 'task', id='start task'),
+    ],
+)
+async def test_unnamed_start_records_run_under_its_id(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """A start without a name persists the run under its run ID, apart from the named runs."""
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await getattr(Actor, method)('some-id')
+        kvs = await Actor.open_key_value_store()
+        stored_named = await kvs.get_value(CHILD_RUNS_KEY)
+        stored_unnamed = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
+
+    assert stored_named is None
+    assert stored_unnamed == {'new-run': stored_unnamed_record('new-run', 'READY')}
+
+
+async def test_unnamed_starts_never_reattach(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """Each start without a name starts a new run, even with a recorded active run of the same Actor."""
+    run_ids = iter(['first-run', 'second-run'])
+    apify_client_async_patcher.patch(
+        'actor', 'start', replacement_method=AsyncMock(side_effect=lambda *_, **__: make_run(next(run_ids), 'READY'))
+    )
 
     async with Actor:
         await Actor.start('some-actor')
+        await Actor.start('some-actor')
         kvs = await Actor.open_key_value_store()
-        stored = await kvs.get_value(CHILD_RUNS_KEY)
+        stored = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
 
-    assert stored is None
+    assert stored.keys() == {'first-run', 'second-run'}
+
+
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_unnamed_call_records_finished_status(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """A call without a name records the run when it starts and stores its status once it finishes."""
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    kwargs: dict[str, Any] = {'logger': None} if method == 'call' else {}
+
+    async with Actor:
+        run = await getattr(Actor, method)('some-id', **kwargs)
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
+
+    assert run.status == 'SUCCEEDED'
+    assert stored == {'new-run': stored_unnamed_record('new-run', 'SUCCEEDED')}
+    assert apify_client_async_patcher.calls[resource]['call'] == []
+
+
+async def test_unnamed_call_streams_log_from_start(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A call without a name streams the log of its new run from the start, with the given wait duration."""
+    get_streamed_log = Mock(return_value=MagicMock())
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
+
+    async with Actor:
+        await Actor.call('some-actor', wait=timedelta(minutes=1))
+
+    assert get_streamed_log.call_args.kwargs['from_start'] is True
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['wait_for_finish']
+    assert kwargs['wait_duration'] == timedelta(minutes=1)
 
 
 @pytest.mark.parametrize(
@@ -390,13 +463,20 @@ async def test_named_call_without_logger_only_waits(apify_client_async_patcher: 
     get_status_message_watcher.assert_not_called()
 
 
-async def test_init_rejects_malformed_registry() -> None:
+@pytest.mark.parametrize(
+    'key',
+    [
+        pytest.param(CHILD_RUNS_KEY, id='named runs'),
+        pytest.param(UNNAMED_CHILD_RUNS_KEY, id='unnamed runs'),
+    ],
+)
+async def test_init_rejects_malformed_registry(key: str) -> None:
     """Init raises a `ValueError` naming the key when the registry in the default KVS is malformed, and tears down."""
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
+        await kvs.set_value(key, {'some-run': {'runId': 'old-run'}})
 
-    with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
+    with pytest.raises(ValueError, match=key):
         await Actor.init()
 
     assert not Actor._active
@@ -676,13 +756,28 @@ async def test_named_call_records_finished_status(apify_client_async_patcher: Ap
     assert stored == {'scrape-eu': stored_record('new-run', 'FAILED')}
 
 
-async def test_child_runs_is_empty_without_named_runs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """`Actor.child_runs` is empty when no run was started with a `run_name`."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+async def test_child_runs_is_empty_without_child_runs() -> None:
+    """`Actor.child_runs` is empty when no child run was started."""
+    async with Actor:
+        assert Actor.child_runs == {}
+
+
+async def test_child_runs_keys_unnamed_run_by_run_id(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A run started without a name shows up in `Actor.child_runs` under its run ID, next to the named runs."""
+    run_ids = iter(['unnamed-run', 'named-run'])
+    apify_client_async_patcher.patch(
+        'actor', 'start', replacement_method=AsyncMock(side_effect=lambda *_, **__: make_run(next(run_ids), 'READY'))
+    )
 
     async with Actor:
         await Actor.start('some-actor')
-        assert Actor.child_runs == {}
+        await Actor.start('some-actor', run_name='scrape-eu')
+        child_runs = Actor.child_runs
+
+    assert {key: run_client.resource_id for key, run_client in child_runs.items()} == {
+        'unnamed-run': 'unnamed-run',
+        'scrape-eu': 'named-run',
+    }
 
 
 def test_child_runs_requires_initialized_actor() -> None:
@@ -702,6 +797,7 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
                 'scrape-us': stored_record('us-run', 'FAILED', actor_id=None, task_id='some-task'),
             },
         )
+        await kvs.set_value(UNNAMED_CHILD_RUNS_KEY, {'unnamed-run': stored_unnamed_record('unnamed-run', 'RUNNING')})
 
     async with Actor:
         child_runs = Actor.child_runs
@@ -709,6 +805,7 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
     assert {name: run_client.resource_id for name, run_client in child_runs.items()} == {
         'scrape-eu': 'eu-run',
         'scrape-us': 'us-run',
+        'unnamed-run': 'unnamed-run',
     }
 
 
@@ -751,6 +848,28 @@ async def test_child_runs_uses_client_of_named_start(
     assert custom_http_client is not default_http_client
     assert child_runs['custom']._http_client is custom_http_client
     assert child_runs['recorded']._http_client is default_http_client
+
+
+async def test_child_runs_uses_client_of_unnamed_start(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run started without a name with a custom token gets a client with that token in `Actor.child_runs`."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('custom-run', 'READY'))
+    new_client = _ActorType.new_client
+    clients_by_token: dict[str | None, ApifyClientAsync] = {}
+
+    def recording_new_client(self: _ActorType, **kwargs: Any) -> ApifyClientAsync:
+        client = new_client(self, **kwargs)
+        clients_by_token[kwargs.get('token')] = client
+        return client
+
+    monkeypatch.setattr(_ActorType, 'new_client', recording_new_client)
+
+    async with Actor:
+        await Actor.start('some-actor', token='custom-token')
+        child_runs = Actor.child_runs
+
+    assert child_runs['custom-run']._http_client is clients_by_token['custom-token']._http_client
 
 
 async def test_child_runs_keeps_client_of_name_after_rejected_reuse(

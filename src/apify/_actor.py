@@ -444,11 +444,11 @@ class _ActorType:
     @property
     @_ensure_context
     def child_runs(self) -> dict[str, RunClientAsync]:
-        """Clients for the named child runs of this Actor run, keyed by the run name.
+        """Clients for the child runs of this Actor run, keyed by the run name, or by the run ID for an unnamed run.
 
-        Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
-        included, even one started before a migration or resurrection of this Actor run. Runs started without a
-        `run_name` are not tracked. Each client points to the current run under its name:
+        Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` is included, even one
+        started before a migration or resurrection of this Actor run. The client of a named run points to the current
+        run under its name:
 
         ```python
         run = await Actor.child_runs['my-child'].wait_for_finish()
@@ -1114,7 +1114,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
+                run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1147,9 +1148,6 @@ class _ActorType:
                 force_permission_level=force_permission_level,
                 webhooks=to_client_representations(webhooks),
             )
-
-        if run_name is None:
-            return await start_run()
 
         run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1316,7 +1314,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
+                run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1336,8 +1335,8 @@ class _ActorType:
 
         actor_client = client.actor(actor_id)
 
-        if run_name is None:
-            run = await actor_client.call(
+        async def start_run() -> Run:
+            return await actor_client.start(
                 run_input=run_input,
                 content_type=content_type,
                 build=build,
@@ -1348,43 +1347,26 @@ class _ActorType:
                 run_timeout=self._resolve_run_timeout(timeout),
                 force_permission_level=force_permission_level,
                 webhooks=to_client_representations(webhooks),
-                wait_duration=wait,
-                logger=logger,
             )
-        else:
 
-            async def start_run() -> Run:
-                return await actor_client.start(
-                    run_input=run_input,
-                    content_type=content_type,
-                    build=build,
-                    max_items=max_items,
-                    max_total_charge_usd=max_total_charge_usd,
-                    restart_on_error=restart_on_error,
-                    memory_mbytes=memory_mbytes,
-                    run_timeout=self._resolve_run_timeout(timeout),
-                    force_permission_level=force_permission_level,
-                    webhooks=to_client_representations(webhooks),
-                )
-
-            started_run, is_new = await self._find_or_start_child_run(
-                run_name,
-                actor_id=actor_id,
-                run_input=run_input,
-                client=client,
-                start_run=start_run,
-                build=build,
-                max_items=max_items,
-                max_total_charge_usd=max_total_charge_usd,
-                restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                timeout=timeout,
-                abort_with_parent=abort_with_parent,
-            )
-            # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
-            run = await self._wait_for_child_run(
-                run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
-            )
+        started_run, is_new = await self._find_or_start_child_run(
+            run_name,
+            actor_id=actor_id,
+            run_input=run_input,
+            client=client,
+            start_run=start_run,
+            build=build,
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            timeout=timeout,
+            abort_with_parent=abort_with_parent,
+        )
+        # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
+        run = await self._wait_for_child_run(
+            run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
+        )
 
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
@@ -1393,7 +1375,7 @@ class _ActorType:
 
     async def _find_or_start_child_run(
         self,
-        name: str,
+        name: str | None,
         *,
         actor_id: str | None = None,
         task_id: str | None = None,
@@ -1408,6 +1390,8 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None,
         abort_with_parent: bool,
     ) -> tuple[Run, bool]:
+        if name is None:
+            return await self._child_run_registry.start_unnamed(client=client, start_run=start_run), True
         return await self._child_run_registry.find_or_start(
             name,
             actor_id=actor_id,
@@ -1431,7 +1415,7 @@ class _ActorType:
 
     async def _wait_for_child_run(
         self,
-        name: str,
+        name: str | None,
         run_client: RunClientAsync,
         run: Run,
         *,
@@ -1506,7 +1490,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
+                run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1536,9 +1521,6 @@ class _ActorType:
                 run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
             )
-
-        if run_name is None:
-            return await start_run()
 
         run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1607,7 +1589,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. A run started without `run_name` is recorded under its
+                run ID, so it is in `Actor.child_runs`, but no later call reattaches to it.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1627,8 +1610,8 @@ class _ActorType:
 
         task_client = client.task(task_id)
 
-        if run_name is None:
-            run = await task_client.call(
+        async def start_run() -> Run:
+            return await task_client.start(
                 task_input=task_input,
                 build=build,
                 max_items=max_items,
@@ -1637,39 +1620,25 @@ class _ActorType:
                 memory_mbytes=memory_mbytes,
                 run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
-                wait_duration=wait,
             )
-        else:
 
-            async def start_run() -> Run:
-                return await task_client.start(
-                    task_input=task_input,
-                    build=build,
-                    max_items=max_items,
-                    max_total_charge_usd=max_total_charge_usd,
-                    restart_on_error=restart_on_error,
-                    memory_mbytes=memory_mbytes,
-                    run_timeout=self._resolve_run_timeout(timeout),
-                    webhooks=to_client_representations(webhooks),
-                )
-
-            started_run, _ = await self._find_or_start_child_run(
-                run_name,
-                task_id=task_id,
-                run_input=task_input,
-                client=client,
-                start_run=start_run,
-                build=build,
-                max_items=max_items,
-                max_total_charge_usd=max_total_charge_usd,
-                restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                timeout=timeout,
-                abort_with_parent=abort_with_parent,
-            )
-            run = await self._wait_for_child_run(
-                run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
-            )
+        started_run, _ = await self._find_or_start_child_run(
+            run_name,
+            task_id=task_id,
+            run_input=task_input,
+            client=client,
+            start_run=start_run,
+            build=build,
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            timeout=timeout,
+            abort_with_parent=abort_with_parent,
+        )
+        run = await self._wait_for_child_run(
+            run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
+        )
 
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
