@@ -51,6 +51,7 @@ def stored_record(
     run_id: str,
     status: str,
     *,
+    run_name: str = 'scrape-eu',
     actor_id: str | None = 'some-actor',
     task_id: str | None = None,
     run_input: Any = None,
@@ -62,6 +63,7 @@ def stored_record(
         'runId': run_id,
         'status': status,
         'startedAt': STARTED_AT,
+        'runName': run_name,
         'checksum': checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input),
         'history': history or [],
         'abortWithParent': abort_with_parent,
@@ -74,6 +76,7 @@ def stored_unnamed_record(run_id: str, status: str) -> dict[str, Any]:
         'runId': run_id,
         'status': status,
         'startedAt': STARTED_AT,
+        'runName': None,
         'checksum': None,
         'history': [],
         'abortWithParent': False,
@@ -98,7 +101,7 @@ async def record_child_run(
 ) -> None:
     """Seed the registry the way an earlier attempt of this Actor run would have left it, and reload it like init."""
     kvs = await Actor.open_key_value_store()
-    record = stored_record(run_id, 'RUNNING', actor_id=actor_id, task_id=task_id, run_input=run_input)
+    record = stored_record(run_id, 'RUNNING', run_name=name, actor_id=actor_id, task_id=task_id, run_input=run_input)
     await kvs.set_value(CHILD_RUNS_KEY, {name: record})
     await Actor._child_run_registry.load()
 
@@ -741,6 +744,25 @@ async def test_reattached_run_status_is_recorded(apify_client_async_patcher: Api
     assert stored == {'scrape-eu': stored_record('old-run', 'SUCCEEDED')}
 
 
+async def test_record_without_run_name_gets_its_key_as_run_name(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A named record stored without `runName` is reattached and stored again with its key as the run name."""
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'SUCCEEDED'))
+    record = stored_record('old-run', 'RUNNING')
+    del record['runName']
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': record})
+        await Actor._child_run_registry.load()
+        run = await Actor.start('some-actor', run_name='scrape-eu')
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert run.id == 'old-run'
+    assert stored == {'scrape-eu': stored_record('old-run', 'SUCCEEDED')}
+
+
 async def test_named_call_records_finished_status(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
     """A named call stores the status of the run once it finishes."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
@@ -792,7 +814,9 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
             CHILD_RUNS_KEY,
             {
                 'scrape-eu': stored_record('eu-run', 'RUNNING'),
-                'scrape-us': stored_record('us-run', 'FAILED', actor_id=None, task_id='some-task'),
+                'scrape-us': stored_record(
+                    'us-run', 'FAILED', run_name='scrape-us', actor_id=None, task_id='some-task'
+                ),
                 'unnamed-run': stored_unnamed_record('unnamed-run', 'RUNNING'),
             },
         )
@@ -997,7 +1021,7 @@ async def test_aborting_event_aborts_marked_child_runs(
         await kvs.set_value(
             CHILD_RUNS_KEY,
             {
-                name: stored_record(run_id, 'RUNNING', abort_with_parent=marked)
+                name: stored_record(run_id, 'RUNNING', run_name=name, abort_with_parent=marked)
                 for name, run_id, marked in [
                     ('running', 'running-run', True),
                     ('ready', 'ready-run', True),
@@ -1030,7 +1054,9 @@ async def test_aborting_event_skips_a_child_run_that_no_longer_exists(
 
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'gone': stored_record('gone-run', 'RUNNING', abort_with_parent=True)})
+        await kvs.set_value(
+            CHILD_RUNS_KEY, {'gone': stored_record('gone-run', 'RUNNING', run_name='gone', abort_with_parent=True)}
+        )
         await Actor._child_run_registry.load()
         apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
         await apify_event_manager.wait_for_all_listeners_to_complete()
@@ -1057,7 +1083,10 @@ async def test_failed_child_run_abort_does_not_stop_others(
         kvs = await Actor.open_key_value_store()
         await kvs.set_value(
             CHILD_RUNS_KEY,
-            {name: stored_record(f'{name}-run', 'RUNNING', abort_with_parent=True) for name in ['broken', 'healthy']},
+            {
+                name: stored_record(f'{name}-run', 'RUNNING', run_name=name, abort_with_parent=True)
+                for name in ['broken', 'healthy']
+            },
         )
         await Actor._child_run_registry.load()
         apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())

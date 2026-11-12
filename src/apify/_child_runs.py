@@ -58,6 +58,9 @@ class ChildRunSnapshot(BaseModel):
 class ChildRunRecord(ChildRunSnapshot):
     """The current run tracked under a name or run ID in the child run registry, with the runs it replaced."""
 
+    run_name: str | None = None
+    """Name the run was started under, or `None` for an unnamed run."""
+
     checksum: str | None = None
     """Hash of the Actor or task and the input the current run was started with, or `None` for an unnamed run."""
 
@@ -311,6 +314,7 @@ class ChildRunRegistry:
             run_id=run.id,
             status=run.status,
             started_at=run.started_at,
+            run_name=name,
             checksum=checksum,
             history=history,
             abort_with_parent=abort_with_parent,
@@ -331,6 +335,10 @@ class ChildRunRegistry:
                     f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
                     'is malformed.'
                 ) from exc
+            # A record with a checksum and no `run_name` is a named record written by an older SDK version.
+            for key, record in self._records.items():
+                if record.run_name is None and record.checksum is not None:
+                    record.run_name = key
             return self._records
 
     async def _load(self) -> dict[str, ChildRunRecord]:
