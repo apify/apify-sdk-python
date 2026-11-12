@@ -43,7 +43,7 @@ The SDK raises standard Python exceptions when it's used incorrectly or given in
 - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError) when an `Actor` method is used outside the `async with Actor:` block, either before initialization or after exit, or when the Actor is initialized twice.
 - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError) for an invalid argument, such as a malformed `timeout`, an invalid proxy configuration, charging an automatically charged event by hand, or pushing data that is not JSON-serializable or is over the size limit.
 - [`TypeError`](https://docs.python.org/3/library/exceptions.html#TypeError) for an argument of the wrong type.
-- [`ConnectionError`](https://docs.python.org/3/library/exceptions.html#ConnectionError) when <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration`</ApiLink> verifies Apify Proxy access and the proxy reports that you have none.
+- [`ConnectionError`](https://docs.python.org/3/library/exceptions.html#ConnectionError) when <ApiLink to="class/Actor#create_proxy_configuration">`Actor.create_proxy_configuration`</ApiLink> verifies Apify Proxy access on the Apify platform and the proxy reports that you have none. In a local run, the method logs a warning and returns `None` instead.
 
 ## Run failures
 

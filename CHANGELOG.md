@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Add support for Scrapy 2.20 ([#1242](https://github.com/apify/apify-sdk-python/pull/1242)) ([b7a6165](https://github.com/apify/apify-sdk-python/commit/b7a6165b10405f205d59136f72e0418df334bc98)) by [@vdusek](https://github.com/vdusek)
+- Run without proxy locally when Apify Proxy is not available ([#1231](https://github.com/apify/apify-sdk-python/pull/1231)) ([9811f1a](https://github.com/apify/apify-sdk-python/commit/9811f1a5f3effbf7bc81a84ef957e9b2801f74c0)) by [@vladfrangu](https://github.com/vladfrangu)
 
 
 <!-- git-cliff-unreleased-end -->

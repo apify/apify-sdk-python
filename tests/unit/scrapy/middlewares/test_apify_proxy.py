@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from unittest.mock import AsyncMock
 from urllib.parse import ParseResult, urlparse
 
 import pytest
@@ -8,7 +10,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 from scrapy.crawler import Crawler
 from scrapy.exceptions import NotConfigured
 
-from apify import ProxyConfiguration
+from apify import Actor, ProxyConfiguration
 from apify.scrapy.middlewares import ApifyHttpProxyMiddleware
 
 
@@ -131,6 +133,40 @@ async def test_process_request_with_proxy(
     else:
         with pytest.raises(expected_exception):
             await middleware.process_request(dummy_request)
+
+
+async def test_process_request_without_proxy_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    middleware: ApifyHttpProxyMiddleware,
+    dummy_request: Request,
+) -> None:
+    """Without a proxy configuration, requests go without a proxy and the creation is not retried."""
+    create_proxy_configuration = AsyncMock(return_value=None)
+    monkeypatch.setattr(Actor, 'create_proxy_configuration', create_proxy_configuration)
+
+    await middleware.process_request(dummy_request)
+    await middleware.process_request(Request('https://example.com/other'))
+
+    assert 'proxy' not in dummy_request.meta
+    assert b'Proxy-Authorization' not in dummy_request.headers
+    create_proxy_configuration.assert_awaited_once()
+
+
+async def test_concurrent_requests_create_proxy_configuration_once(
+    monkeypatch: pytest.MonkeyPatch,
+    middleware: ApifyHttpProxyMiddleware,
+) -> None:
+    """Concurrent first requests share one proxy configuration creation."""
+
+    async def slow_create_proxy_configuration(**_: object) -> None:
+        await asyncio.sleep(0.01)
+
+    create_proxy_configuration = AsyncMock(side_effect=slow_create_proxy_configuration)
+    monkeypatch.setattr(Actor, 'create_proxy_configuration', create_proxy_configuration)
+
+    await asyncio.gather(*(middleware.process_request(Request(f'https://example.com/{i}')) for i in range(3)))
+
+    create_proxy_configuration.assert_awaited_once()
 
 
 @pytest.mark.parametrize(
