@@ -1377,6 +1377,7 @@ async def test_named_start_queued_behind_a_start_in_flight_raises_once_aborting(
     """A named start waiting on its name while the parent is aborted raises, and the run in flight is aborted."""
     client = Mock()
     client.run.return_value.abort = AsyncMock(return_value=make_run('new-run', 'ABORTING'))
+    client.run.return_value.get = AsyncMock(return_value=make_run('new-run', 'ABORTING'))
     started = asyncio.Event()
     release = asyncio.Event()
 
@@ -1502,6 +1503,46 @@ async def test_named_call_once_aborting_does_not_resurrect_the_aborted_child(
     assert len(apify_client_async_patcher.calls['run']['abort']) == 1
     assert apify_client_async_patcher.calls['run']['resurrect'] == []
     assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_call_without_abort_with_parent_once_aborting_does_not_resurrect_a_marked_child(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """After `ABORTING`, a call that does not set `abort_with_parent` leaves a child aborted with the parent alone."""
+    apify_client_async_patcher.patch('run', 'abort', return_value=make_run('old-run', 'ABORTING'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': stored_record('old-run', 'RUNNING', abort_with_parent=True)})
+        await Actor._child_run_registry.load()
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await Actor.call('some-actor', run_name='scrape-eu')
+
+    assert apify_client_async_patcher.calls['run']['resurrect'] == []
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_succeeded_marked_child_is_returned_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """After `ABORTING`, a call with `abort_with_parent` still gets a recorded run that already succeeded."""
+    apify_client_async_patcher.patch('run', 'abort', return_value=make_run('old-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'SUCCEEDED'))
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': stored_record('old-run', 'RUNNING', abort_with_parent=True)})
+        await Actor._child_run_registry.load()
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+        run = await Actor.call('some-actor', run_name='scrape-eu', abort_with_parent=True)
+
+    assert run.id == 'old-run'
+    assert run.status == 'SUCCEEDED'
 
 
 async def test_named_start_without_abort_with_parent_is_not_blocked_once_aborting(

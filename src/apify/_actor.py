@@ -1111,8 +1111,9 @@ class _ActorType:
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
                 run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
-                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
-                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call for a run marked
+                this way raises a `RuntimeError` and starts, resurrects or reattaches no run, unless the recorded run
+                `SUCCEEDED`. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 
         Returns:
@@ -1314,8 +1315,9 @@ class _ActorType:
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
                 run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
-                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
-                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call for a run marked
+                this way raises a `RuntimeError` and starts, resurrects or reattaches no run, unless the recorded run
+                `SUCCEEDED`. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 
         Returns:
@@ -1505,8 +1507,9 @@ class _ActorType:
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
                 run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
-                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
-                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call for a run marked
+                this way raises a `RuntimeError` and starts, resurrects or reattaches no run, unless the recorded run
+                `SUCCEEDED`. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 
         Returns:
@@ -1605,8 +1608,9 @@ class _ActorType:
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
                 run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
-                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
-                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call for a run marked
+                this way raises a `RuntimeError` and starts, resurrects or reattaches no run, unless the recorded run
+                `SUCCEEDED`. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 
         Returns:

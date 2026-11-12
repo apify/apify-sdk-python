@@ -168,24 +168,21 @@ class ChildRunRegistry:
         Raises:
             ValueError: If the recorded run would be reused, but was started for a different Actor, task, input or
                 run options.
-            RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
-                started, resurrected or reattached.
+            RuntimeError: If this Actor run is being gracefully aborted and the run is marked `abort_with_parent`, by
+                this call or, when the call does not set it, by the record. No run is started, resurrected or
+                reattached. A recorded run that `SUCCEEDED` is still returned.
         """
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input, run_options=run_options)
         key = name if name is not None else checksum[:_IMPLICIT_KEY_HASH_LENGTH]
         new_abort_with_parent = bool(abort_with_parent)
 
         async with self._name_locks.setdefault(key, asyncio.Lock()):
-            if abort_with_parent and self._parent_aborting:
-                raise RuntimeError(
-                    f'Child run "{key}" with `abort_with_parent` was not started, since this Actor run is being '
-                    'aborted.'
-                )
-
             records = await self._load()
             record = records.get(key)
+            marked = record is not None and record.abort_with_parent if abort_with_parent is None else abort_with_parent
 
             if record is None:
+                self._raise_if_parent_aborting(key, marked=marked)
                 run = await self._start(
                     key,
                     run_name=name,
@@ -198,6 +195,10 @@ class ChildRunRegistry:
 
             run_client = client.run(record.run_id)
             run = await _get_recorded_run(run_client)
+
+            # Only a run that already succeeded can be returned without leaving a marked run running.
+            if run is None or run.status != 'SUCCEEDED':
+                self._raise_if_parent_aborting(key, marked=marked)
 
             if run is not None and run.status in _SETTLING_STATUSES:
                 run = await run_client.wait_for_finish()
@@ -231,6 +232,12 @@ class ChildRunRegistry:
             await self._update(key, run)
             self._clients[key] = client
             return run, False
+
+    def _raise_if_parent_aborting(self, key: str, *, marked: bool) -> None:
+        if marked and self._parent_aborting:
+            raise RuntimeError(
+                f'Child run "{key}" with `abort_with_parent` was not started, since this Actor run is being aborted.'
+            )
 
     def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
         """Return a client for the current run under each recorded key.
