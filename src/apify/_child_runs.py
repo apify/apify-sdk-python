@@ -30,7 +30,7 @@ logger = getLogger(__name__)
 CHILD_RUNS_KEY = '__ACTOR_CHILD_RUNS'
 """Key in the default key-value store under which the named child runs are persisted."""
 
-UNNAMED_CHILD_RUNS_KEY = '__ACTOR_UNNAMED_CHILD_RUNS'
+UNNAMED_CHILD_RUNS_KEY = 'SDK_UNNAMED_CHILD_RUNS'
 """Key in the default key-value store under which the child runs started without a name are persisted."""
 
 _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
