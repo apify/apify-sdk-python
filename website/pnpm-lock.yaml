@@ -436,8 +436,8 @@ packages:
       react: 17.x || 18.x || 19.x
       react-dom: 17.x || 18.x || 19.x
 
-  '@apify/ui-library@1.176.0':
-    resolution: {integrity: sha512-KQdyyLypDpwuaV/CFurPvu90LEvY7Ujqp0MhMCOc+9a1+p0yRpHn9JP6m5mapDCIABupAdLZxIJwPoKE1snkGg==}
+  '@apify/ui-library@1.176.3':
+    resolution: {integrity: sha512-fvBIn3919VLjZGuLvtxAOnOPgJC/HWFHy6xEsylGiujAVAia2i4fFHutCt+GqqMT83fqNvo/9UxM3hmGjtS44w==}
     peerDependencies:
       react: 17.x || 18.x || 19.x
       react-dom: 17.x || 18.x || 19.x
@@ -4127,10 +4127,6 @@ packages:
   decode-named-character-reference@1.3.0:
     resolution: {integrity: sha512-GtpQYB283KrPp6nRw50q3U9/VfOutZOe103qlN7BPP6Ad27xYnOIWv4lPzo8HCAL+mMZofJ9KEy30fq6MfaK6Q==}
 
-  decode-uri-component@0.4.1:
-    resolution: {integrity: sha512-+8VxcR21HhTy8nOt6jf20w0c9CADrw1O8d+VZ/YzzCt4bJ3uBjw+D1q2osAB8RnpwwaeYBxy0HyKQxD5JBMuuQ==}
-    engines: {node: '>=14.16'}
-
   decompress-response@6.0.0:
     resolution: {integrity: sha512-aW35yZM6Bb/4oJlZncMH2LCoZtJXTRxES17vE3hoRiowU2kWHaJKFkSBDnDR+cm9J+9QhXmREyIfv0pji9ejCQ==}
     engines: {node: '>=10'}
@@ -4480,9 +4476,9 @@ packages:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
     engines: {node: '>=8'}
 
-  filter-obj@5.1.0:
-    resolution: {integrity: sha512-qWeTREPoT7I0bifpPUXtxkZJ1XJzxWtfoWWkdVGqa+eCr3SHW/Ocp89o8vLvbUuQnadybJpjOKu4V+RwO6sGng==}
-    engines: {node: '>=14.16'}
+  filter-obj@6.1.0:
+    resolution: {integrity: sha512-xdMtCAODmPloU9qtmPcdBV9Kd27NtMse+4ayThxqIHUES5Z2S6bGpap5PpdmNM56ub7y3i1eyr+vJJIIgWGKmA==}
+    engines: {node: '>=18'}
 
   finalhandler@1.3.2:
     resolution: {integrity: sha512-aA4RyPcd3badbdABGDuTXCMTtOneUCAYH/gxoYRTZlIJdF0YPWuGqiAsIrhNnnqdXGswYk6dGujem4w80UJFhg==}
@@ -6520,9 +6516,9 @@ packages:
     resolution: {integrity: sha512-VYdnB5S7/0IeXzBacUtwNAaM6d7Y/PgYnNC7bJCI6meqA/OgnsQbZMtVW8Dt2D1PHgbHGtYmhSoEIgvt7xZ2ZA==}
     engines: {node: '>=0.6'}
 
-  query-string@8.2.0:
-    resolution: {integrity: sha512-tUZIw8J0CawM5wyGBiDOAp7ObdRQh4uBor/fUR9ZjmbZVvw95OD9If4w3MQxr99rg0DJZ/9CIORcpEqU5hQG7g==}
-    engines: {node: '>=14.16'}
+  query-string@10.0.0:
+    resolution: {integrity: sha512-QYodx/Ywk8lCcOmsyupXVN91yWPAdjq0xVqE2FE2BHFYnma71C8txR8JCBptjzoUpkfAK7Qjua9VjYRTru4LYg==}
+    engines: {node: '>=22'}
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
@@ -7048,9 +7044,9 @@ packages:
     resolution: {integrity: sha512-r46gZQZQV+Kl9oItvl1JZZqJKGr+oEkB08A6BzkiR7593/7IbtuncXHd2YoYeTsG4157ZssMu9KYvUHLcjcDoA==}
     engines: {node: '>=6.0.0'}
 
-  split-on-first@3.0.0:
-    resolution: {integrity: sha512-qxQJTx2ryR0Dw0ITYyekNQWpz6f8dGd7vffGNflQQ3Iqj9NJ6qiZ7ELpZsJ/QBhIVAiDfXdag3+Gp8RvWa62AA==}
-    engines: {node: '>=12'}
+  split-on-first@4.0.0:
+    resolution: {integrity: sha512-pyrgNqiEBHA9KlEtg9quYGagtrlTyukL3ryQ+RmjRn9SYmcNQmfa+sWIsI+hlcL4WrmFdrt7IfM6o8ktBAooDQ==}
+    engines: {node: '>=20'}
 
   srcset@4.0.0:
     resolution: {integrity: sha512-wvLeHgcVHKO8Sc/H/5lkGreJQVeYMm9rlmt8PuR1xE31rIuXhuzznUUqAt8MqLhB3MqJdFzlNAfpcWnxiFUcPw==}
@@ -7924,7 +7920,7 @@ snapshots:
     dependencies:
       '@algolia/autocomplete-js': 1.19.12(@algolia/client-search@5.63.0)(algoliasearch@4.27.0)(search-insights@2.17.3)
       '@algolia/autocomplete-theme-classic': 1.19.12
-      '@apify/ui-library': 1.176.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.13(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)
+      '@apify/ui-library': 1.176.3(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.13(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)
       algoliasearch: 4.27.0
       html-entities: 2.6.0
       react: 19.3.1
@@ -7946,7 +7942,7 @@ snapshots:
     dependencies:
       '@apify/docs-search-modal': 1.4.0(@algolia/client-search@5.63.0)(@babel/core@7.29.13(supports-color@8.1.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1)(search-insights@2.17.3)(supports-color@8.1.1)
       '@apify/ui-icons': 1.61.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@apify/ui-library': 1.176.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)
+      '@apify/ui-library': 1.176.3(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)
       '@docusaurus/theme-common': 3.10.2(3157057d324dfb7c40210cedf755b891)
       '@stackql/docusaurus-plugin-hubspot': 1.1.0
       algoliasearch: 5.63.0
@@ -8027,7 +8023,7 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@apify/ui-library@1.176.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.13(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)':
+  '@apify/ui-library@1.176.3(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@5.3.11(@babel/core@7.29.13(supports-color@8.1.1))(react-dom@19.3.1(react@19.3.1))(react-is@16.13.1)(react@19.3.1))(supports-color@8.1.1)':
     dependencies:
       '@apify/ui-icons': 1.61.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@floating-ui/react': 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -8046,7 +8042,7 @@ snapshots:
       lodash: 4.18.1
       prism-react-renderer: 2.4.1(react@19.3.1)
       prismjs: 1.30.0
-      query-string: 8.2.0
+      query-string: 10.0.0
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       react-markdown: 10.1.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1)
@@ -8063,7 +8059,7 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@apify/ui-library@1.176.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)':
+  '@apify/ui-library@1.176.3(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(styled-components@6.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@8.1.1)':
     dependencies:
       '@apify/ui-icons': 1.61.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@floating-ui/react': 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -8082,7 +8078,7 @@ snapshots:
       lodash: 4.18.1
       prism-react-renderer: 2.4.1(react@19.3.1)
       prismjs: 1.30.0
-      query-string: 8.2.0
+      query-string: 10.0.0
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       react-markdown: 10.1.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1)
@@ -12895,8 +12891,6 @@ snapshots:
     dependencies:
       character-entities: 2.0.2
 
-  decode-uri-component@0.4.1: {}
-
   decompress-response@6.0.0:
     dependencies:
       mimic-response: 3.1.0
@@ -13256,7 +13250,7 @@ snapshots:
     dependencies:
       to-regex-range: 5.0.1
 
-  filter-obj@5.1.0: {}
+  filter-obj@6.1.0: {}
 
   finalhandler@1.3.2(supports-color@8.1.1):
     dependencies:
@@ -15804,11 +15798,10 @@ snapshots:
       es-define-property: 1.0.1
       side-channel: 1.1.1
 
-  query-string@8.2.0:
+  query-string@10.0.0:
     dependencies:
-      decode-uri-component: 0.4.1
-      filter-obj: 5.1.0
-      split-on-first: 3.0.0
+      filter-obj: 6.1.0
+      split-on-first: 4.0.0
 
   queue-microtask@1.2.3: {}
 
@@ -16491,7 +16484,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  split-on-first@3.0.0: {}
+  split-on-first@4.0.0: {}
 
   srcset@4.0.0: {}
 
