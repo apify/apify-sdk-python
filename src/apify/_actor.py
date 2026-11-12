@@ -1109,17 +1109,14 @@ class _ActorType:
                 migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                aborted. The value is recorded with the run, replacing the one from an earlier call under the same
+                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1314,17 +1311,14 @@ class _ActorType:
                 migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                aborted. The value is recorded with the run, replacing the one from an earlier call under the same
+                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1507,17 +1501,14 @@ class _ActorType:
                 migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                aborted. The value is recorded with the run, replacing the one from an earlier call under the same
+                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 
@@ -1609,17 +1600,14 @@ class _ActorType:
                 migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                aborted. The value is recorded with the run, replacing the one from an earlier call under the same
+                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
+                Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         if max_items is not None:
             _warn_max_items_deprecated()
 
