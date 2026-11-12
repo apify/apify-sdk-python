@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from collections import Counter
 from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
@@ -117,9 +116,8 @@ class ChildRunRegistry:
     """Persisted record of the child runs of this Actor run, which survives a migration or resurrection of the parent.
 
     A named child run is recorded under its name, so a later start under the same name can reattach to it. A child run
-    started without a name is recorded under an implicit key: a hash of its Actor or task, input and run options, and
-    the number of identical starts without a name before it in this process, as in `3f2a9c0e1b7d4a65-0`. After a
-    migration, the starts run again in the same order, so the n-th identical start reattaches to the n-th recorded run.
+    started without a name is recorded under an implicit key, a hash of its Actor or task, input and run options, so
+    every identical start without a name reuses the same run, also after a migration.
     Every change is written to the key-value store right away. A hard kill of the parent between the platform starting
     the child and that write can still orphan the child, since nothing but the platform knows about it.
     """
@@ -139,8 +137,6 @@ class ChildRunRegistry:
         """Serializes `find_or_start` per key. A lock is dropped once no call under its key holds it."""
         self._clients: dict[str, ApifyClientAsync] = {}
         """Client the run under each key was last started or looked up with. Lost on a migration."""
-        self._implicit_starts: Counter[str] = Counter()
-        """Number of starts without a name in this process, by the hash part of their implicit key."""
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
 
@@ -190,9 +186,8 @@ class ChildRunRegistry:
         if key is None:
             request_hash = checksum_request(
                 actor_id=actor_id, task_id=task_id, run_input=run_input, run_options=run_options
-            )[:_IMPLICIT_KEY_HASH_LENGTH]
-            key = f'{request_hash}-{self._implicit_starts[request_hash]}'
-            self._implicit_starts[request_hash] += 1
+            )
+            key = request_hash[:_IMPLICIT_KEY_HASH_LENGTH]
 
         async with self._name_locks.setdefault(key, asyncio.Lock()):
             if abort_with_parent and self._parent_aborting:
@@ -346,13 +341,8 @@ class ChildRunRegistry:
         return run
 
     async def load(self) -> dict[str, ChildRunRecord]:
-        """Read the records from the default key-value store, replacing any read before.
-
-        The starts without a name are counted from zero again, since the code of this Actor run starts over after a
-        migration or resurrection, and so do the implicit keys.
-        """
+        """Read the records from the default key-value store, replacing any read before."""
         async with self._lock:
-            self._implicit_starts.clear()
             key_value_store = await self._open_key_value_store()
             self._key_value_store = key_value_store
             stored = await key_value_store.get_value(CHILD_RUNS_KEY)
