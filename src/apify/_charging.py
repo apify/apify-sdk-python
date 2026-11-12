@@ -122,7 +122,9 @@ class ChargingManager(Protocol):
             idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
                 under the same key within three minutes is not sent to the API and reports the `charged_count` of
                 the original call, or zero if it names a different event. Like the platform, the key is forgotten
-                afterwards.
+                afterwards. In a multi-tenant Server Actor run, every call is sent and the platform deduplicates it.
+                The key is scoped to the whole run there, so a key reused by another caller charges only the first
+                one - derive it from `request_id`.
             request_id: ID of the Server Actor request being charged, taken from the `X-Actor-Request-ID` header of
                 the incoming request. Required in multi-tenant Server Actor runs, where it maps the charge to the
                 caller's account instead of the account that started the run. Ignored elsewhere.
@@ -233,7 +235,7 @@ class ChargingManagerImplementation(ChargingManager):
         self._actor_run_id = configuration.actor_run_id
         self._purge_charging_log_dataset = configuration.purge_on_start
         self._pricing_model: PricingModel | None = None
-        self._is_multi_tenant = False
+        self.is_multi_tenant = False
         """Multi-tenant Server Actor runs carry no pricing snapshot; pricing comes from the Actor and the platform
         prices and limits each caller separately."""
 
@@ -299,7 +301,7 @@ class ChargingManagerImplementation(ChargingManager):
             default_state=ChargingState(),
             persist_state_key=CHARGING_STATE_KEY,
             persistence_enabled=(
-                self._is_at_home and self._pricing_model == 'PAY_PER_EVENT' and not self._is_multi_tenant
+                self._is_at_home and self._pricing_model == 'PAY_PER_EVENT' and not self.is_multi_tenant
             ),
             persist_state_kvs_factory=KeyValueStore.open,
             logger=logger,
@@ -325,8 +327,9 @@ class ChargingManagerImplementation(ChargingManager):
             self._charging_log_dataset = await Dataset.open(name=self.LOCAL_CHARGING_LOG_DATASET_NAME)
 
         # if the Actor runs with the pay-per-event pricing model, set the context variable so that PPE-aware dataset
-        # clients can access the charging manager and charge for synthetic events.
-        if self._pricing_model == 'PAY_PER_EVENT':
+        # clients can access the charging manager and charge for synthetic events. Multi-tenant runs charge per request
+        # only, so dataset writes charge nothing there.
+        if self._pricing_model == 'PAY_PER_EVENT' and not self.is_multi_tenant:
             charging_manager_ctx.set(self)
 
     async def __aexit__(
@@ -371,7 +374,7 @@ class ChargingManagerImplementation(ChargingManager):
                 chargeable_within_limit=self.compute_chargeable(),
             )
 
-        if self._is_multi_tenant:
+        if self.is_multi_tenant:
             return await self._charge_server_request(
                 event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
             )
@@ -595,7 +598,8 @@ class ChargingManagerImplementation(ChargingManager):
                 raise RuntimeError('Actor run not found')
 
             if run.standby is not None and run.standby.deployment.startswith('MULTI_TENANT'):
-                return await self._fetch_multi_tenant_pricing_info(run.charged_event_counts or {})
+                self.is_multi_tenant = True
+                return await self._fetch_multi_tenant_pricing_info()
 
             max_charge = run.options.max_total_charge_usd
             return _FetchedPricingInfoDict(
@@ -615,7 +619,7 @@ class ChargingManagerImplementation(ChargingManager):
             ),
         )
 
-    async def _fetch_multi_tenant_pricing_info(self, charged_event_counts: dict[str, int]) -> _FetchedPricingInfoDict:
+    async def _fetch_multi_tenant_pricing_info(self) -> _FetchedPricingInfoDict:
         actor_id = self._configuration.actor_id
         if actor_id is None:
             raise RuntimeError('Actor ID not found even though the Actor is running on Apify')
@@ -624,17 +628,16 @@ class ChargingManagerImplementation(ChargingManager):
         if actor is None:
             raise RuntimeError('Actor not found')
 
-        self._is_multi_tenant = True
-
         # The history includes scheduled future changes, so the effective entry is the latest one that has started.
         # Resolved once on purpose - the platform prices each charge from its own current pricing anyway.
         now = datetime.now(UTC)
         started = [info for info in actor.pricing_infos or [] if info.started_at <= now]
         pricing_info = max(started, key=lambda info: info.started_at, default=None)
 
+        # The run's `charged_event_counts` mix all callers, so they are not loaded.
         return _FetchedPricingInfoDict(
             pricing_info=pricing_info,
-            charged_event_counts=charged_event_counts,
+            charged_event_counts={},
             max_total_charge_usd=Decimal('inf'),
         )
 
@@ -649,24 +652,23 @@ class ChargingManagerImplementation(ChargingManager):
         """Charge the caller of a multi-tenant Server Actor request.
 
         The platform prices, limits and deduplicates each caller's charges itself, so nothing is counted or enforced
-        locally. Run-wide counts would mix all callers, and a local idempotency cache would let one caller's key skip
-        another caller's charge.
+        locally, and every call is sent - the platform discards a repeat under an idempotency key used earlier in the
+        run, even by another caller.
         """
-        if not request_id and not event_name.startswith('apify-'):
+        if event_name.startswith('apify-'):
+            raise ValueError(f"Cannot charge for synthetic event '{event_name}' in a multi-tenant Server Actor run")
+
+        if not request_id:
             raise ValueError(
                 f"Charging for '{event_name}' in a multi-tenant Server Actor run requires `request_id` - pass the "
                 "value of the incoming request's X-Actor-Request-ID header to Actor.charge()."
             )
 
+        # Tier-priced events are sent too - the platform prices each charge by the caller's tier.
         charged_count = 0
         if count <= 0:
             pass
-        elif event_name.startswith('apify-'):
-            # Synthetic events (e.g. apify-default-dataset-item) are charged by the platform based on dataset writes.
-            charged_count = count
-        elif event_name in self._tier_priced_events:
-            logger.warning("Event '%s' is tier-priced and is not chargeable via the pay-per-event API.", event_name)
-        elif event_name not in self._pricing_info:
+        elif event_name not in self._pricing_info and event_name not in self._tier_priced_events:
             logger.warning("Attempting to charge for an unknown event '%s'", event_name)
         else:
             if self._actor_run_id is None:

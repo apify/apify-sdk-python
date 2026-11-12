@@ -827,17 +827,48 @@ async def test_multi_tenant_run_uses_effective_actor_pricing_and_requires_reques
                 await cm.charge('search', request_id=request_id)
         charge_mock.assert_not_called()
 
-        # Synthetic `apify-*` events are exempt from the `request_id` requirement.
-        await cm.charge('apify-actor-start')
+        with pytest.raises(ValueError, match='synthetic'):
+            await cm.charge('apify-default-dataset-item', request_id='some-request-id')
 
         result = await cm.charge('search', request_id='some-request-id')
         assert result.charged_count == 1
         charge_mock.assert_awaited_once_with('search', count=1, idempotency_key=None, request_id='some-request-id')
 
 
+async def test_multi_tenant_run_sends_tier_priced_event(mock_client: MagicMock) -> None:
+    """Test that a multi-tenant run sends a tier-priced event, which the platform prices by the caller's tier."""
+    pricing_info = PayPerEventActorPricingInfo.model_validate(
+        {
+            'pricingModel': 'PAY_PER_EVENT',
+            'apifyMarginPercentage': 0.0,
+            'createdAt': '2024-01-01T00:00:00.000Z',
+            'startedAt': '2024-01-01T00:00:00.000Z',
+            'pricingPerEvent': {
+                'actorChargeEvents': {
+                    'tiered': {'eventTitle': 'Tiered event', 'eventDescription': '', 'eventTieredPricingUsd': {}},
+                }
+            },
+        }
+    )
+    run = MagicMock(standby=MagicMock(deployment='MULTI_TENANT_PAYING_USERS'), charged_event_counts={})
+    charge_mock = AsyncMock()
+    mock_client.run = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=run), charge=charge_mock))
+    actor = MagicMock(pricing_infos=[pricing_info])
+    mock_client.actor = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=actor)))
+    config = _make_config(is_at_home=True, actor_run_id='run-id', actor_id='actor-id')
+    cm = ChargingManagerImplementation(config, mock_client)
+
+    async with cm:
+        result = await cm.charge('tiered', request_id='some-request-id')
+
+    assert result.charged_count == 1
+    charge_mock.assert_awaited_once_with('tiered', count=1, idempotency_key=None, request_id='some-request-id')
+
+
 async def test_multi_tenant_run_leaves_counting_and_deduplication_to_the_platform(mock_client: MagicMock) -> None:
     """Test that multi-tenant charges keep no run-wide counts and send every caller's charge, even with a shared key."""
-    run = MagicMock(standby=MagicMock(deployment='MULTI_TENANT_PAYING_USERS'), charged_event_counts={})
+    # The run-wide counts mix all callers, so they must not show up as this run's counts.
+    run = MagicMock(standby=MagicMock(deployment='MULTI_TENANT_PAYING_USERS'), charged_event_counts={'search': 7})
     charge_mock = AsyncMock()
     mock_client.run = MagicMock(return_value=MagicMock(get=AsyncMock(return_value=run), charge=charge_mock))
     actor = MagicMock(pricing_infos=[_make_ppe_pricing_info({'search': Decimal(1)})])

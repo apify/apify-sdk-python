@@ -6,6 +6,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
 from apify_client._models import PayPerEventActorPricingInfo
 
 from apify import Actor, Configuration
@@ -13,8 +15,6 @@ from apify._charging import ChargingManagerImplementation, PricingInfoItem
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
-
-    import pytest
 
 
 class MockedChargingSetup(NamedTuple):
@@ -277,6 +277,18 @@ async def test_push_data_does_not_take_charge_lock_without_pay_per_event(monkeyp
         await Actor.push_data({'id': 1})
 
         charge_lock.assert_not_called()
+
+
+async def test_push_data_rejects_charged_event_in_multi_tenant_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a multi-tenant run rejects `push_data` with a charged event before pushing anything."""
+    async with Actor(Configuration(test_pay_per_event=True)):
+        monkeypatch.setattr(Actor.get_charging_manager(), 'is_multi_tenant', True)
+
+        with pytest.raises(ValueError, match='multi-tenant'):
+            await Actor.push_data([{'id': 1}], charged_event_name='scrape')
+
+        dataset = await Actor.open_dataset()
+        assert (await dataset.get_data()).items == []
 
 
 async def test_charge_with_overdrawn_budget() -> None:
