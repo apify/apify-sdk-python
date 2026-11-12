@@ -140,7 +140,7 @@ class ChildRunRegistry:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         resurrect_run: Callable[[str], Awaitable[Run]],
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `name` or the implicit key, or start one when there is none to reuse.
 
@@ -159,8 +159,8 @@ class ChildRunRegistry:
             client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
             resurrect_run: Resurrects the recorded run, given its ID.
-            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. It replaces the
-                recorded value.
+            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. `True` or `False`
+                replaces the recorded value. `None` keeps it, and a run with no recorded value is not aborted.
 
         Returns:
             The run, and whether it was newly started.
@@ -173,6 +173,7 @@ class ChildRunRegistry:
         """
         checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input, run_options=run_options)
         key = name if name is not None else checksum[:_IMPLICIT_KEY_HASH_LENGTH]
+        new_abort_with_parent = bool(abort_with_parent)
 
         async with self._name_locks.setdefault(key, asyncio.Lock()):
             if abort_with_parent and self._parent_aborting:
@@ -190,7 +191,7 @@ class ChildRunRegistry:
                     run_name=name,
                     checksum=checksum,
                     start_run=start_run,
-                    abort_with_parent=abort_with_parent,
+                    abort_with_parent=new_abort_with_parent,
                 )
                 self._clients[key] = client
                 return run, True
@@ -207,7 +208,7 @@ class ChildRunRegistry:
                     run_name=name,
                     checksum=checksum,
                     start_run=start_run,
-                    abort_with_parent=abort_with_parent,
+                    abort_with_parent=record.abort_with_parent if abort_with_parent is None else abort_with_parent,
                 )
                 self._clients[key] = client
                 return run, True
@@ -218,7 +219,7 @@ class ChildRunRegistry:
                     'Use a unique `run_name` for each child run.'
                 )
 
-            if record.abort_with_parent != abort_with_parent:
+            if abort_with_parent is not None and record.abort_with_parent != abort_with_parent:
                 await self._save(key, record.model_copy(update={'abort_with_parent': abort_with_parent}))
 
             if run.status in _RESURRECTABLE_STATUSES:

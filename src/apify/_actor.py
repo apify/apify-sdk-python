@@ -1068,7 +1068,7 @@ class _ActorType:
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -1110,7 +1110,8 @@ class _ActorType:
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
-                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
                 `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 
@@ -1267,7 +1268,7 @@ class _ActorType:
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1312,7 +1313,8 @@ class _ActorType:
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
-                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
                 `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 
@@ -1384,7 +1386,7 @@ class _ActorType:
         memory_mbytes: int | None,
         timeout: timedelta | Literal['inherit'] | None,
         webhooks: list[Webhook] | None,
-        abort_with_parent: bool,
+        abort_with_parent: bool | None,
     ) -> tuple[Run, bool]:
         run_options = {
             'content_type': content_type,
@@ -1460,7 +1462,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         token: str | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1502,7 +1504,8 @@ class _ActorType:
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
-                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
                 `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 
@@ -1559,7 +1562,7 @@ class _ActorType:
         wait: timedelta | None = None,
         token: str | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1601,7 +1604,8 @@ class _ActorType:
                 between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. The value is recorded with the run, replacing the one from an earlier call under the same
-                run name or implicit key. Once this Actor run is being gracefully aborted, a call with it raises a
+                run name or implicit key. If not set, a reused run keeps its recorded value, and a new run is not
+                aborted with this Actor run. Once this Actor run is being gracefully aborted, a call with it raises a
                 `RuntimeError` and starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this
                 Actor run leaves the child running.
 

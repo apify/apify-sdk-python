@@ -1068,20 +1068,50 @@ async def test_named_call_task_records_abort_with_parent(
     assert stored['scrape-eu']['abortWithParent'] is True
 
 
-async def test_reattach_replaces_recorded_abort_with_parent(
-    apify_client_async_patcher: ApifyClientAsyncPatcher,
+@pytest.mark.parametrize(
+    ('recorded', 'passed', 'expected'),
+    [
+        pytest.param(False, True, True, id='true replaces false'),
+        pytest.param(True, False, False, id='false replaces true'),
+        pytest.param(True, None, True, id='not set keeps true'),
+        pytest.param(False, None, False, id='not set keeps false'),
+    ],
+)
+async def test_reattach_records_abort_with_parent(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, *, recorded: bool, passed: bool | None, expected: bool
 ) -> None:
-    """Reattaching under a name records the `abort_with_parent` value of the latest call."""
+    """Reattaching replaces the recorded `abort_with_parent` with an explicit value and keeps it when none is passed."""
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
+    kwargs: dict[str, Any] = {} if passed is None else {'abort_with_parent': passed}
 
     async with Actor:
-        await record_child_run('scrape-eu', 'old-run')
-        await Actor.start('some-actor', run_name='scrape-eu', abort_with_parent=True)
         kvs = await Actor.open_key_value_store()
+        await kvs.set_value(
+            CHILD_RUNS_KEY, {'scrape-eu': stored_record('old-run', 'RUNNING', abort_with_parent=recorded)}
+        )
+        await Actor._child_run_registry.load()
+        await Actor.start('some-actor', run_name='scrape-eu', **kwargs)
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert stored['scrape-eu']['runId'] == 'old-run'
-    assert stored['scrape-eu']['abortWithParent'] is True
+    assert stored['scrape-eu']['abortWithParent'] is expected
+
+
+async def test_replacing_a_failed_run_keeps_recorded_abort_with_parent(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A run that replaces a failed one keeps the recorded `abort_with_parent` when the call does not set it."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'FAILED'))
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': stored_record('old-run', 'RUNNING', abort_with_parent=True)})
+        await Actor._child_run_registry.load()
+        await Actor.start('some-actor', run_name='scrape-eu')
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert stored == {'scrape-eu': stored_record('new-run', 'READY', abort_with_parent=True)}
 
 
 async def test_aborting_event_aborts_marked_child_runs(
