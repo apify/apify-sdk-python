@@ -25,7 +25,10 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 CHILD_RUNS_KEY = '__ACTOR_CHILD_RUNS'
-"""Key in the default key-value store under which the child run registry is persisted."""
+"""Key in the default key-value store under which the named child runs are persisted."""
+
+UNNAMED_CHILD_RUNS_KEY = 'SDK_UNNAMED_CHILD_RUNS'
+"""Key in the default key-value store under which the child runs started without a name are persisted."""
 
 _SETTLING_STATUSES = frozenset({'ABORTING', 'TIMING-OUT'})
 """Statuses that end as `ABORTED` / `TIMED-OUT` shortly, and are resurrectable once they do."""
@@ -96,23 +99,38 @@ async def _get_recorded_run(run_client: RunClientAsync) -> Run | None:
 
 _records_adapter = TypeAdapter(dict[str, ChildRunRecord])
 
+_unnamed_records_adapter = TypeAdapter(dict[str, ChildRunSnapshot])
+
+
+def _malformed_registry_error(key: str) -> ValueError:
+    return ValueError(f'The child run registry under the "{key}" key in the default key-value store is malformed.')
+
 
 class ChildRunRegistry:
-    """Persisted name -> run map that lets named child runs survive a migration or resurrection of the parent.
+    """Persisted record of the child runs of this Actor run, which survives a migration or resurrection of the parent.
 
-    Every change is written to the key-value store right away. A hard kill of the parent between the platform
-    starting the child and that write can still orphan the child, since nothing but the platform knows about it.
+    A named child run is recorded under its name, so a later start under the same name can reattach to it. A child run
+    started without a name is recorded under its run ID. Every change is written to the key-value store right away. A
+    hard kill of the parent between the platform starting the child and that write can still orphan the child, since
+    nothing but the platform knows about it.
     """
 
     def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
         self._open_key_value_store = open_key_value_store
+        self._key_value_store: KeyValueStore | None = None
+        """The default key-value store the records were loaded from, which every change is written to."""
         self._records: dict[str, ChildRunRecord] | None = None
+        """Records of the child runs by name, or `None` until they are loaded."""
+        self._unnamed_records: dict[str, ChildRunSnapshot] = {}
+        """Records of the child runs started without a name, by run ID. Loaded together with `_records`."""
         self._lock = asyncio.Lock()
         """Guards loading the records and writing them back to the key-value store."""
         self._name_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         """Serializes `find_or_start` per name. A lock is dropped once no call under its name holds it."""
         self._clients: dict[str, ApifyClientAsync] = {}
         """Client the run under each name was last started or looked up with. Lost on a migration."""
+        self._unnamed_clients: dict[str, ApifyClientAsync] = {}
+        """Client each run started without a name was started with, by run ID. Lost on a migration."""
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
 
@@ -215,28 +233,58 @@ class ChildRunRegistry:
             self._clients[name] = client
             return run, False
 
-    def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
-        """Return a client for the current run under each recorded name.
-
-        Each client comes from the client its name was last started or looked up with in this process, so a run started
-        with a custom token uses that token.
+    async def start_unnamed(self, *, client: ApifyClientAsync, start_run: Callable[[], Awaitable[Run]]) -> Run:
+        """Start a child run without a name and record it under its run ID.
 
         Args:
-            default_client: Client used for a name not started or looked up in this process, e.g. one recorded before a
+            client: Client the run is started with.
+            start_run: Starts a new run of the Actor or task.
+
+        Returns:
+            The started run.
+        """
+        await self._load()
+        run = await start_run()
+        self._unnamed_clients[run.id] = client
+        await self._save_unnamed(ChildRunSnapshot(run_id=run.id, status=run.status, started_at=run.started_at))
+        return run
+
+    def run_clients(self, default_client: ApifyClientAsync) -> dict[str, RunClientAsync]:
+        """Return a client for the current run under each recorded name, and for each run recorded without a name.
+
+        A named run is keyed by its name, a run started without a name by its run ID. Each client comes from the client
+        its run was last started or looked up with in this process, so a run started with a custom token uses that
+        token.
+
+        Args:
+            default_client: Client used for a run not started or looked up in this process, e.g. one recorded before a
                 migration.
         """
-        return {
+        unnamed = {
+            run_id: self._unnamed_clients.get(run_id, default_client).run(run_id) for run_id in self._unnamed_records
+        }
+        named = {
             name: self._clients.get(name, default_client).run(record.run_id)
             for name, record in (self._records or {}).items()
         }
+        return {**unnamed, **named}
 
-    async def update(self, name: str, run: Run) -> None:
-        """Record the latest observed status of the run recorded under `name`.
+    async def update(self, name: str | None, run: Run) -> None:
+        """Record the latest observed status of the run recorded under `name`, or of a run started without a name.
 
         Args:
-            name: Name of the child run.
-            run: The run as just returned by the API. Nothing is recorded unless it is the current run under `name`.
+            name: Name of the child run, or `None` for a run started without a name.
+            run: The run as just returned by the API. Nothing is recorded unless it is the current run under `name`, or
+                a recorded run started without a name.
         """
+        if name is None:
+            await self._load()
+            unnamed_record = self._unnamed_records.get(run.id)
+            if unnamed_record is None or unnamed_record.status == run.status:
+                return
+            await self._save_unnamed(unnamed_record.model_copy(update={'status': run.status}))
+            return
+
         record = (await self._load()).get(name)
         if record is None or record.run_id != run.id or record.status == run.status:
             return
@@ -298,24 +346,42 @@ class ChildRunRegistry:
         """Read the records from the default key-value store, replacing any read before."""
         async with self._lock:
             key_value_store = await self._open_key_value_store()
+            self._key_value_store = key_value_store
             stored = await key_value_store.get_value(CHILD_RUNS_KEY)
+            stored_unnamed = await key_value_store.get_value(UNNAMED_CHILD_RUNS_KEY)
             try:
-                self._records = _records_adapter.validate_python(stored or {})
+                records = _records_adapter.validate_python(stored or {})
             except ValidationError as exc:
-                raise ValueError(
-                    f'The child run registry under the "{CHILD_RUNS_KEY}" key in the default key-value store '
-                    'is malformed.'
-                ) from exc
-            return self._records
+                raise _malformed_registry_error(CHILD_RUNS_KEY) from exc
+            try:
+                unnamed_records = _unnamed_records_adapter.validate_python(stored_unnamed or {})
+            except ValidationError as exc:
+                raise _malformed_registry_error(UNNAMED_CHILD_RUNS_KEY) from exc
+            self._records = records
+            self._unnamed_records = unnamed_records
+            return records
 
     async def _load(self) -> dict[str, ChildRunRecord]:
         return self._records if self._records is not None else await self.load()
 
+    def _loaded_key_value_store(self) -> KeyValueStore:
+        if self._key_value_store is None:
+            raise RuntimeError('The child run registry was not loaded.')
+        return self._key_value_store
+
     async def _save(self, name: str, record: ChildRunRecord) -> None:
         records = await self._load()
-        key_value_store = await self._open_key_value_store()
         async with self._lock:
             records[name] = record
-            await key_value_store.set_value(
+            await self._loaded_key_value_store().set_value(
                 CHILD_RUNS_KEY, _records_adapter.dump_python(records, by_alias=True, mode='json')
+            )
+
+    async def _save_unnamed(self, record: ChildRunSnapshot) -> None:
+        await self._load()
+        async with self._lock:
+            self._unnamed_records[record.run_id] = record
+            await self._loaded_key_value_store().set_value(
+                UNNAMED_CHILD_RUNS_KEY,
+                _unnamed_records_adapter.dump_python(self._unnamed_records, by_alias=True, mode='json'),
             )
