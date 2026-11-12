@@ -1464,11 +1464,12 @@ async def assert_waiting(task: asyncio.Task) -> None:
     [
         pytest.param(0, id='zero'),
         pytest.param(-1, id='negative'),
+        pytest.param(1.5, id='fraction'),
     ],
 )
-def test_max_concurrent_child_runs_rejects_non_positive_limit(max_concurrent_runs: int) -> None:
-    """A child run concurrency limit below 1 is rejected."""
-    with pytest.raises(ValueError, match='must be at least 1'):
+def test_max_concurrent_child_runs_rejects_invalid_limit(max_concurrent_runs: Any) -> None:
+    """A child run concurrency limit that is not a positive integer is rejected."""
+    with pytest.raises(ValueError, match='must be a positive integer'):
         Actor(max_concurrent_child_runs=max_concurrent_runs)
 
 

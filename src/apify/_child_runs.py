@@ -156,8 +156,10 @@ class ChildRunRegistry:
         *,
         max_concurrent_runs: int | None = None,
     ) -> None:
-        if max_concurrent_runs is not None and max_concurrent_runs < 1:
-            raise ValueError(f'The child run concurrency limit must be at least 1, got {max_concurrent_runs}.')
+        if max_concurrent_runs is not None and (not isinstance(max_concurrent_runs, int) or max_concurrent_runs < 1):
+            raise ValueError(
+                f'The child run concurrency limit must be a positive integer, got {max_concurrent_runs!r}.'
+            )
         self._records = RecoverableState(
             default_state=_ChildRunRecords(),
             persist_state_key=CHILD_RUNS_KEY,
