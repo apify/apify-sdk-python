@@ -14,7 +14,7 @@ from crawlee.events import Event, EventAbortingData
 
 from apify import Actor, Configuration, _child_runs
 from apify._actor import _ActorType
-from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
+from apify._child_runs import CHILD_RUNS_KEY, UNNAMED_CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
 from apify.events import ApifyEventManager
 
 if TYPE_CHECKING:
@@ -68,6 +68,11 @@ def stored_record(
     }
 
 
+def stored_unnamed_record(run_id: str, status: str, *, abort_with_parent: bool = False) -> dict[str, Any]:
+    """Build a record of a child run started without a name, as it is stored in the default KVS."""
+    return {'runId': run_id, 'status': status, 'startedAt': STARTED_AT, 'abortWithParent': abort_with_parent}
+
+
 @pytest.fixture
 def apify_event_manager() -> ApifyEventManager:
     """Make the Actor use `ApifyEventManager`, which delivers `ABORTING` on the platform, without a websocket."""
@@ -104,16 +109,84 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
     assert stored == {'scrape-eu': stored_record('new-run', 'READY')}
 
 
-async def test_unnamed_start_is_not_recorded(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A start without a name leaves the registry untouched."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('start', 'actor', id='start'),
+        pytest.param('start_task', 'task', id='start task'),
+    ],
+)
+async def test_unnamed_start_records_run_under_its_id(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """A start without a name persists the run under its run ID, apart from the named runs."""
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await getattr(Actor, method)('some-id')
+        kvs = await Actor.open_key_value_store()
+        stored_named = await kvs.get_value(CHILD_RUNS_KEY)
+        stored_unnamed = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
+
+    assert stored_named is None
+    assert stored_unnamed == {'new-run': stored_unnamed_record('new-run', 'READY')}
+
+
+async def test_unnamed_starts_never_reattach(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """Each start without a name starts a new run, even with a recorded active run of the same Actor."""
+    run_ids = iter(['first-run', 'second-run'])
+    apify_client_async_patcher.patch(
+        'actor', 'start', replacement_method=AsyncMock(side_effect=lambda *_, **__: make_run(next(run_ids), 'READY'))
+    )
 
     async with Actor:
         await Actor.start('some-actor')
+        await Actor.start('some-actor')
         kvs = await Actor.open_key_value_store()
-        stored = await kvs.get_value(CHILD_RUNS_KEY)
+        stored = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
 
-    assert stored is None
+    assert stored.keys() == {'first-run', 'second-run'}
+
+
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_unnamed_call_records_finished_status(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """A call without a name records the run when it starts and stores its status once it finishes."""
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    kwargs: dict[str, Any] = {'logger': None} if method == 'call' else {}
+
+    async with Actor:
+        run = await getattr(Actor, method)('some-id', **kwargs)
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
+
+    assert run.status == 'SUCCEEDED'
+    assert stored == {'new-run': stored_unnamed_record('new-run', 'SUCCEEDED')}
+    assert apify_client_async_patcher.calls[resource]['call'] == []
+
+
+async def test_unnamed_call_streams_log_from_start(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A call without a name streams the log of its new run from the start, with the given wait duration."""
+    get_streamed_log = Mock(return_value=MagicMock())
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
+
+    async with Actor:
+        await Actor.call('some-actor', wait=timedelta(minutes=1))
+
+    assert get_streamed_log.call_args.kwargs['from_start'] is True
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['wait_for_finish']
+    assert kwargs['wait_duration'] == timedelta(minutes=1)
 
 
 @pytest.mark.parametrize(
@@ -390,13 +463,20 @@ async def test_named_call_without_logger_only_waits(apify_client_async_patcher: 
     get_status_message_watcher.assert_not_called()
 
 
-async def test_init_rejects_malformed_registry() -> None:
+@pytest.mark.parametrize(
+    'key',
+    [
+        pytest.param(CHILD_RUNS_KEY, id='named runs'),
+        pytest.param(UNNAMED_CHILD_RUNS_KEY, id='unnamed runs'),
+    ],
+)
+async def test_init_rejects_malformed_registry(key: str) -> None:
     """Init raises a `ValueError` naming the key when the registry in the default KVS is malformed, and tears down."""
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
+        await kvs.set_value(key, {'some-run': {'runId': 'old-run'}})
 
-    with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
+    with pytest.raises(ValueError, match=key):
         await Actor.init()
 
     assert not Actor._active
@@ -676,13 +756,28 @@ async def test_named_call_records_finished_status(apify_client_async_patcher: Ap
     assert stored == {'scrape-eu': stored_record('new-run', 'FAILED')}
 
 
-async def test_child_runs_is_empty_without_named_runs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """`Actor.child_runs` is empty when no run was started with a `run_name`."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+async def test_child_runs_is_empty_without_child_runs() -> None:
+    """`Actor.child_runs` is empty when no child run was started."""
+    async with Actor:
+        assert Actor.child_runs == {}
+
+
+async def test_child_runs_keys_unnamed_run_by_run_id(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A run started without a name shows up in `Actor.child_runs` under its run ID, next to the named runs."""
+    run_ids = iter(['unnamed-run', 'named-run'])
+    apify_client_async_patcher.patch(
+        'actor', 'start', replacement_method=AsyncMock(side_effect=lambda *_, **__: make_run(next(run_ids), 'READY'))
+    )
 
     async with Actor:
         await Actor.start('some-actor')
-        assert Actor.child_runs == {}
+        await Actor.start('some-actor', run_name='scrape-eu')
+        child_runs = Actor.child_runs
+
+    assert {key: run_client.resource_id for key, run_client in child_runs.items()} == {
+        'unnamed-run': 'unnamed-run',
+        'scrape-eu': 'named-run',
+    }
 
 
 def test_child_runs_requires_initialized_actor() -> None:
@@ -702,6 +797,7 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
                 'scrape-us': stored_record('us-run', 'FAILED', actor_id=None, task_id='some-task'),
             },
         )
+        await kvs.set_value(UNNAMED_CHILD_RUNS_KEY, {'unnamed-run': stored_unnamed_record('unnamed-run', 'RUNNING')})
 
     async with Actor:
         child_runs = Actor.child_runs
@@ -709,6 +805,7 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
     assert {name: run_client.resource_id for name, run_client in child_runs.items()} == {
         'scrape-eu': 'eu-run',
         'scrape-us': 'us-run',
+        'unnamed-run': 'unnamed-run',
     }
 
 
@@ -753,6 +850,28 @@ async def test_child_runs_uses_client_of_named_start(
     assert child_runs['recorded']._http_client is default_http_client
 
 
+async def test_child_runs_uses_client_of_unnamed_start(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run started without a name with a custom token gets a client with that token in `Actor.child_runs`."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('custom-run', 'READY'))
+    new_client = _ActorType.new_client
+    clients_by_token: dict[str | None, ApifyClientAsync] = {}
+
+    def recording_new_client(self: _ActorType, **kwargs: Any) -> ApifyClientAsync:
+        client = new_client(self, **kwargs)
+        clients_by_token[kwargs.get('token')] = client
+        return client
+
+    monkeypatch.setattr(_ActorType, 'new_client', recording_new_client)
+
+    async with Actor:
+        await Actor.start('some-actor', token='custom-token')
+        child_runs = Actor.child_runs
+
+    assert child_runs['custom-run']._http_client is clients_by_token['custom-token']._http_client
+
+
 async def test_child_runs_keeps_client_of_name_after_rejected_reuse(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
@@ -788,29 +907,28 @@ async def test_child_runs_keeps_client_of_name_after_failed_lookup(
 
 
 @pytest.mark.parametrize(
-    'method',
+    ('method', 'resource'),
     [
-        pytest.param('start', id='start'),
-        pytest.param('call', id='call'),
-        pytest.param('start_task', id='start task'),
-        pytest.param('call_task', id='call task'),
+        pytest.param('start', 'actor', id='start'),
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('start_task', 'task', id='start task'),
+        pytest.param('call_task', 'task', id='call task'),
     ],
 )
-async def test_abort_with_parent_requires_run_name(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str
+async def test_unnamed_start_records_abort_with_parent(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
 ) -> None:
-    """`abort_with_parent` without a `run_name` raises before any run is started."""
-    for resource in ('actor', 'task'):
-        apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
-        apify_client_async_patcher.patch(resource, 'call', return_value=make_run('new-run', 'SUCCEEDED'))
+    """A start without a name and with `abort_with_parent` records the flag with the run."""
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    kwargs: dict[str, Any] = {'logger': None} if method == 'call' else {}
 
     async with Actor:
-        with pytest.raises(ValueError, match='requires `run_name`'):
-            await getattr(Actor, method)('some-id', abort_with_parent=True)
+        await getattr(Actor, method)('some-id', abort_with_parent=True, **kwargs)
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
 
-    for resource in ('actor', 'task'):
-        assert apify_client_async_patcher.calls[resource]['start'] == []
-        assert apify_client_async_patcher.calls[resource]['call'] == []
+    assert stored['new-run']['abortWithParent'] is True
 
 
 async def test_named_start_records_abort_with_parent(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -900,6 +1018,38 @@ async def test_aborting_event_aborts_marked_child_runs(
     assert 'Aborted child run "running" with the parent' in caplog.text
     assert 'Aborted child run "ready" with the parent' in caplog.text
     assert 'Aborted child run "finished"' not in caplog.text
+
+
+async def test_aborting_event_aborts_marked_unnamed_child_runs(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    caplog: pytest.LogCaptureFixture,
+    apify_event_manager: ApifyEventManager,
+) -> None:
+    """On `ABORTING`, each unnamed child run marked `abort_with_parent`, even one recorded earlier, is aborted."""
+
+    async def abort_run(run_client: Any, *_args: Any, **_kwargs: Any) -> Run:
+        return make_run(run_client.resource_id, 'ABORTING')
+
+    apify_client_async_patcher.patch('run', 'abort', replacement_method=abort_run)
+    caplog.set_level('INFO')
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(
+            UNNAMED_CHILD_RUNS_KEY,
+            {
+                'marked-run': stored_unnamed_record('marked-run', 'RUNNING', abort_with_parent=True),
+                'unmarked-run': stored_unnamed_record('unmarked-run', 'RUNNING'),
+            },
+        )
+        await Actor._child_run_registry.load()
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+
+    aborts = apify_client_async_patcher.calls['run']['abort']
+    assert [args[0].resource_id for args, _ in aborts] == ['marked-run']
+    assert aborts[0][1] == {'gracefully': True}
+    assert 'Aborted child run "marked-run" with the parent' in caplog.text
 
 
 async def test_aborting_event_skips_a_child_run_that_no_longer_exists(
@@ -1037,6 +1187,49 @@ async def test_aborting_waits_for_a_named_start_in_flight() -> None:
     client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
 
 
+async def test_aborting_waits_for_an_unnamed_start_in_flight() -> None:
+    """An unnamed `abort_with_parent` start in flight when the parent is aborted has its run aborted once recorded."""
+    client = Mock()
+    client.run.return_value.abort = AsyncMock(return_value=make_run('new-run', 'ABORTING'))
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def start_run() -> Run:
+        started.set()
+        await release.wait()
+        return make_run('new-run', 'READY')
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        start_task = asyncio.create_task(
+            registry.start_unnamed(client=client, start_run=start_run, abort_with_parent=True)
+        )
+        await started.wait()
+        abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
+        await asyncio.sleep(0)
+        assert not abort_task.done()
+        release.set()
+        await asyncio.gather(start_task, abort_task)
+
+    client.run.assert_called_with('new-run')
+    client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
+
+
+async def test_aborting_does_not_wait_for_a_failed_unnamed_start() -> None:
+    """An unnamed start with `abort_with_parent` that fails does not keep the parent's abort waiting."""
+    client = Mock()
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        with pytest.raises(RuntimeError, match='start failed'):
+            await registry.start_unnamed(
+                client=client, start_run=AsyncMock(side_effect=RuntimeError('start failed')), abort_with_parent=True
+            )
+        await asyncio.wait_for(registry.abort_runs_with_parent(client), timeout=1)
+
+    client.run.assert_not_called()
+
+
 async def test_named_start_queued_behind_a_start_in_flight_raises_once_aborting() -> None:
     """A named start waiting on its name while the parent is aborted raises, and the run in flight is aborted."""
     client = Mock()
@@ -1105,6 +1298,47 @@ async def test_named_start_with_abort_with_parent_raises_once_aborting(
     assert stored is None
 
 
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('start', 'actor', id='start'),
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('start_task', 'task', id='start task'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_unnamed_start_with_abort_with_parent_raises_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    apify_event_manager: ApifyEventManager,
+    method: str,
+    resource: str,
+) -> None:
+    """After `ABORTING`, a new start without a name and with `abort_with_parent` raises and starts no run."""
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await getattr(Actor, method)('some-id', abort_with_parent=True)
+
+    assert apify_client_async_patcher.calls[resource]['start'] == []
+
+
+async def test_unnamed_start_without_abort_with_parent_is_not_blocked_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """After `ABORTING`, a start without a name and without `abort_with_parent` still starts a run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+        run = await Actor.start('some-actor')
+
+    assert run.id == 'new-run'
+
+
 async def test_named_call_once_aborting_does_not_resurrect_the_aborted_child(
     apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
 ) -> None:
@@ -1171,3 +1405,653 @@ async def test_removing_all_aborting_listeners_keeps_aborting_child_runs(
         await apify_event_manager.wait_for_all_listeners_to_complete()
 
     assert len(apify_client_async_patcher.calls['run']['abort']) == 1
+
+
+def make_client(statuses: dict[str, str]) -> Mock:
+    """A client whose `run(run_id).get()` returns the run with its current status in `statuses`."""
+    client = Mock()
+
+    def run(run_id: str) -> Mock:
+        run_client = Mock()
+        run_client.get = AsyncMock(side_effect=lambda: make_run(run_id, statuses[run_id]))
+        run_client.resurrect = AsyncMock(side_effect=lambda: make_run(run_id, 'RUNNING'))
+        run_client.abort = AsyncMock()
+        return run_client
+
+    client.run.side_effect = run
+    return client
+
+
+async def start_child(
+    registry: ChildRunRegistry, client: Mock, name: str, statuses: dict[str, str], *, run_id: str | None = None
+) -> Run:
+    """Start a named child run with the registry, adding its run to `statuses` as `RUNNING`."""
+
+    async def start_run() -> Run:
+        new_run_id = run_id or f'{name}-run'
+        statuses[new_run_id] = 'RUNNING'
+        return make_run(new_run_id, 'READY')
+
+    run, _ = await registry.find_or_start(
+        name,
+        actor_id='some-actor',
+        run_input=None,
+        client=client,
+        start_run=start_run,
+        resurrect_run=lambda run_id: client.run(run_id).resurrect(),
+    )
+    return run
+
+
+async def start_unnamed_child(registry: ChildRunRegistry, client: Mock, run_id: str, statuses: dict[str, str]) -> Run:
+    """Start a child run without a name with the registry, adding its run to `statuses` as `RUNNING`."""
+
+    async def start_run() -> Run:
+        statuses[run_id] = 'RUNNING'
+        return make_run(run_id, 'READY')
+
+    return await registry.start_unnamed(client=client, start_run=start_run)
+
+
+async def assert_waiting(task: asyncio.Task) -> None:
+    """Assert that `task` is still pending after giving it a moment to run."""
+    await asyncio.sleep(0.05)
+    assert not task.done()
+
+
+@pytest.mark.parametrize(
+    'max_concurrent_runs',
+    [
+        pytest.param(0, id='zero'),
+        pytest.param(-1, id='negative'),
+        pytest.param(1.5, id='fraction'),
+    ],
+)
+def test_max_concurrent_child_runs_rejects_invalid_limit(max_concurrent_runs: Any) -> None:
+    """A child run concurrency limit that is not a positive integer is rejected."""
+    with pytest.raises(ValueError, match='must be a positive integer'):
+        Actor(max_concurrent_child_runs=max_concurrent_runs)
+
+
+async def test_named_start_waits_while_the_limit_is_reached() -> None:
+    """A named start waits while the limit is reached and proceeds once an active child run finishes."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        await registry.update('first', make_run(first.id, 'SUCCEEDED'))
+        second = await second_task
+
+    assert second.id == 'second-run'
+
+
+async def test_unnamed_start_waits_while_a_named_run_holds_the_limit() -> None:
+    """A start without a name waits while a named child run holds the limit, and proceeds once that run finishes."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'unnamed-run', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        await registry.update('first', make_run(first.id, 'SUCCEEDED'))
+        second = await second_task
+
+    assert second.id == 'unnamed-run'
+
+
+async def test_named_start_waits_while_an_unnamed_run_holds_the_limit() -> None:
+    """A named start waits while a child run started without a name holds the limit, until that run finishes."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_unnamed_child(registry, client, 'unnamed-run', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        await registry.update(None, make_run(first.id, 'SUCCEEDED'))
+        second = await second_task
+
+    assert second.id == 'second-run'
+
+
+async def test_concurrent_unnamed_starts_respect_the_limit() -> None:
+    """Concurrent starts without a name start no more runs than the limit."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=2)
+        await registry.load()
+        tasks = [asyncio.create_task(start_unnamed_child(registry, client, f'run-{i}', statuses)) for i in range(3)]
+        await asyncio.sleep(0.05)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    assert sum(task.cancelled() for task in tasks) == 1
+    assert len(statuses) == 2
+
+
+async def test_unnamed_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit() -> None:
+    """An active child run started without a name before a migration counts toward the limit."""
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(UNNAMED_CHILD_RUNS_KEY, {'old-run': stored_unnamed_record('old-run', 'RUNNING')})
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'new-run', statuses))
+        await assert_waiting(second_task)
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+    assert 'new-run' not in statuses
+
+
+async def test_stale_unnamed_run_status_is_refreshed_before_counting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unnamed child run is fetched again once its status is stale, so a finished one stops counting."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_unnamed_child(registry, client, 'first-run', statuses)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'second-run', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        second = await asyncio.wait_for(second_task, timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_parent_abort_stops_unnamed_starts_waiting_under_the_limit() -> None:
+    """A start without a name waiting under the limit raises once the parent is aborted, without starting a run."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start_unnamed_child(registry, client, 'first-run', statuses)
+        second_task = asyncio.create_task(start_unnamed_child(registry, client, 'second-run', statuses))
+        await assert_waiting(second_task)
+
+        await asyncio.wait_for(registry.abort_runs_with_parent(client), timeout=1)
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+    assert 'second-run' not in statuses
+
+
+async def test_stale_active_status_is_refreshed_before_counting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A child run nobody awaited is fetched again once its status is stale, so a finished one stops counting."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        statuses[first.id] = 'SUCCEEDED'
+        second = await asyncio.wait_for(second_task, timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_waiting_starts_fetch_a_stale_status_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Several starts waiting under the limit fetch a stale child run once, and reuse the fetched status."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0.2)
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start_child(registry, client, 'first', statuses)
+        await asyncio.sleep(0.25)
+        client.run.reset_mock()
+
+        waiting = [asyncio.create_task(start_child(registry, client, f'waiting-{i}', statuses)) for i in range(5)]
+        await asyncio.sleep(0.05)
+        fetch_count = client.run.call_count
+
+        for task in waiting:
+            task.cancel()
+        await asyncio.gather(*waiting, return_exceptions=True)
+
+    assert fetch_count == 1
+
+
+async def test_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit() -> None:
+    """An active child run recorded before a migration counts toward the limit, since it is fetched first."""
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+
+async def test_child_run_that_cannot_be_fetched_keeps_its_last_status() -> None:
+    """A recorded child run whose fetch fails counts with its last seen status, without failing a waiting start."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    run_client_factory = client.run.side_effect
+
+    def run(run_id: str) -> Mock:
+        run_client = run_client_factory(run_id)
+        if run_id == 'old-run':
+            run_client.get = AsyncMock(side_effect=RuntimeError('forbidden'))
+        return run_client
+
+    client.run.side_effect = run
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+    assert 'second-run' not in statuses
+
+
+async def test_child_run_the_api_no_longer_knows_does_not_block_the_limit() -> None:
+    """A recorded child run the API reports as missing is not counted, so it does not block a named start."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    run_client_factory = client.run.side_effect
+
+    def run(run_id: str) -> Mock:
+        run_client = run_client_factory(run_id)
+        if run_id == 'old-run':
+            run_client.get = AsyncMock(return_value=None)
+        return run_client
+
+    client.run.side_effect = run
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        second = await asyncio.wait_for(start_child(registry, client, 'second', statuses), timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_finished_recorded_child_run_is_not_fetched_for_the_limit() -> None:
+    """A recorded child run whose recorded status is final is not fetched to count it toward the limit."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'first': stored_record('old-run', 'SUCCEEDED')})
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        second = await asyncio.wait_for(start_child(registry, client, 'second', statuses), timeout=1)
+
+    assert second.id == 'second-run'
+    assert all(call.args != ('old-run',) for call in client.run.call_args_list)
+
+
+async def test_reattach_does_not_wait_under_the_limit() -> None:
+    """Reattaching to an active recorded child run returns it even while the limit is reached."""
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        run = await asyncio.wait_for(start_child(registry, client, 'first', statuses), timeout=1)
+
+    assert run.id == 'old-run'
+
+
+async def test_resurrection_waits_under_the_limit() -> None:
+    """Resurrecting an aborted child run waits while the limit is reached."""
+    statuses = {'old-run': 'ABORTED'}
+    client = make_client(statuses)
+
+    async with Actor:
+        await record_child_run('first', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        second = await start_child(registry, client, 'second', statuses)
+        first_task = asyncio.create_task(start_child(registry, client, 'first', statuses))
+        await assert_waiting(first_task)
+
+        statuses[second.id] = 'SUCCEEDED'
+        await registry.update('second', make_run(second.id, 'SUCCEEDED'))
+        first = await first_task
+
+    assert first.id == 'old-run'
+    assert first.status == 'RUNNING'
+
+
+async def test_concurrent_named_starts_respect_the_limit() -> None:
+    """Concurrent named starts under different names start no more runs than the limit."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=2)
+        await registry.load()
+        tasks = [asyncio.create_task(start_child(registry, client, f'child-{i}', statuses)) for i in range(3)]
+        await asyncio.sleep(0.05)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    assert sum(task.cancelled() for task in tasks) == 1
+    assert len(statuses) == 2
+
+
+async def test_start_finishing_while_a_waiting_start_counts_is_counted_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A start that finishes while a waiting start fetches runs to count them is still counted once."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0.01)
+    statuses = {'old-run': 'RUNNING'}
+    client = make_client(statuses)
+    run_client_factory = client.run.side_effect
+    old_run_fetchable = asyncio.Event()
+    old_run_fetchable.set()
+
+    async def get_old_run() -> Run:
+        await old_run_fetchable.wait()
+        return make_run('old-run', 'RUNNING')
+
+    def run(run_id: str) -> Mock:
+        run_client = run_client_factory(run_id)
+        if run_id == 'old-run':
+            run_client.get = AsyncMock(side_effect=get_old_run)
+        return run_client
+
+    client.run.side_effect = run
+    release_first = asyncio.Event()
+
+    async def start_first() -> Run:
+        await release_first.wait()
+        statuses['first-run'] = 'RUNNING'
+        return make_run('first-run', 'READY')
+
+    async with Actor:
+        await record_child_run('old', 'old-run')
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=2)
+        first_task = asyncio.create_task(
+            registry.find_or_start(
+                'first',
+                actor_id='some-actor',
+                run_input=None,
+                client=client,
+                start_run=start_first,
+                resurrect_run=AsyncMock(),
+            )
+        )
+        await asyncio.sleep(0.05)
+
+        old_run_fetchable.clear()
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+        release_first.set()
+        await asyncio.sleep(0.05)
+        old_run_fetchable.set()
+
+        await assert_waiting(second_task)
+        await first_task
+        second_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second_task
+
+    assert 'second-run' not in statuses
+
+
+async def test_failed_start_stops_counting_toward_the_limit() -> None:
+    """A named start that raises stops counting toward the limit, so the next one proceeds."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        with pytest.raises(RuntimeError, match='start failed'):
+            await registry.find_or_start(
+                'first',
+                actor_id='some-actor',
+                run_input=None,
+                client=client,
+                start_run=AsyncMock(side_effect=RuntimeError('start failed')),
+                resurrect_run=AsyncMock(),
+            )
+        second = await asyncio.wait_for(start_child(registry, client, 'second', statuses), timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_parent_abort_stops_starts_waiting_under_the_limit() -> None:
+    """A named start waiting under the limit raises once the parent is aborted, without starting a run."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        await asyncio.wait_for(registry.abort_runs_with_parent(client), timeout=1)
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+    assert 'second-run' not in statuses
+
+
+async def test_parent_abort_does_not_wait_for_a_start_counting_under_the_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Aborting the parent aborts its child runs while a waiting start is still fetching runs to count them."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
+    fetch_released = asyncio.Event()
+
+    async def get() -> Run:
+        await fetch_released.wait()
+        return make_run('first-run', 'RUNNING')
+
+    run_client = Mock()
+    run_client.get = AsyncMock(side_effect=get)
+    run_client.abort = AsyncMock(return_value=make_run('first-run', 'ABORTING'))
+    client = Mock()
+    client.run.return_value = run_client
+
+    async def start(name: str, *, abort_with_parent: bool) -> tuple[Run, bool]:
+        return await registry.find_or_start(
+            name,
+            actor_id='some-actor',
+            run_input=None,
+            client=client,
+            start_run=AsyncMock(return_value=make_run(f'{name}-run', 'READY')),
+            resurrect_run=AsyncMock(),
+            abort_with_parent=abort_with_parent,
+        )
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start('first', abort_with_parent=True)
+        second_task = asyncio.create_task(start('second', abort_with_parent=False))
+        await assert_waiting(second_task)
+
+        abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
+        await asyncio.sleep(0.05)
+        run_client.abort.assert_awaited_once_with(gracefully=True)
+
+        fetch_released.set()
+        await asyncio.wait_for(abort_task, timeout=1)
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+
+async def test_abort_with_parent_start_freed_after_parent_abort_does_not_start() -> None:
+    """A waiting `abort_with_parent` start raises when capacity frees up after the parent began aborting."""
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    start_run = AsyncMock(return_value=make_run('second-run', 'READY'))
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        first = await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(
+            registry.find_or_start(
+                'second',
+                actor_id='some-actor',
+                run_input=None,
+                client=client,
+                start_run=start_run,
+                resurrect_run=AsyncMock(),
+                abort_with_parent=True,
+            )
+        )
+        await assert_waiting(second_task)
+
+        registry._parent_aborting = True
+        await registry.update('first', make_run(first.id, 'SUCCEEDED'))
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await second_task
+
+    start_run.assert_not_called()
+
+
+async def test_named_call_stops_counting_when_the_run_finishes(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A child run awaited by a named call to its end stops counting without being fetched again."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    # A fetch would report the run as still running, so only the awaited status can stop it counting.
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.call('some-actor', run_name='first', logger=None)
+        await asyncio.wait_for(Actor.start('some-actor', run_name='second'), timeout=1)
+
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 2
+
+
+async def test_named_call_task_stops_counting_when_the_run_finishes(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A task run awaited by a named task call to its end stops counting without being fetched again."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('task-run', 'READY'))
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('actor-run', 'READY'))
+    # A fetch would report the run as still running, so only the awaited status can stop it counting.
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('task-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('task-run', 'SUCCEEDED'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.call_task('some-task', run_name='first')
+        await asyncio.wait_for(Actor.start('some-actor', run_name='second'), timeout=1)
+
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_unnamed_call_stops_counting_when_the_run_finishes(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """A child run awaited by a call without a name to its end stops counting without being fetched again."""
+    for patched_resource in {resource, 'actor'}:
+        apify_client_async_patcher.patch(patched_resource, 'start', return_value=make_run('called-run', 'READY'))
+    # A fetch would report the run as still running, so only the awaited status can stop it counting.
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('called-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('called-run', 'SUCCEEDED'))
+    kwargs: dict[str, Any] = {'logger': None} if method == 'call' else {}
+
+    async with Actor(max_concurrent_child_runs=1):
+        await getattr(Actor, method)('some-id', **kwargs)
+        await asyncio.wait_for(Actor.start('some-actor'), timeout=1)
+
+
+async def test_update_is_not_blocked_by_a_waiting_start_fetching_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Recording a finished run does not wait for a start under the limit that is fetching runs to count them."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0)
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+    run_client_factory = client.run.side_effect
+    fetch_released = asyncio.Event()
+
+    async def get_first_run() -> Run:
+        await fetch_released.wait()
+        return make_run('first-run', 'RUNNING')
+
+    def run(run_id: str) -> Mock:
+        run_client = run_client_factory(run_id)
+        if run_id == 'first-run':
+            run_client.get = AsyncMock(side_effect=get_first_run)
+        return run_client
+
+    client.run.side_effect = run
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start_child(registry, client, 'first', statuses)
+        second_task = asyncio.create_task(start_child(registry, client, 'second', statuses))
+        await assert_waiting(second_task)
+
+        await asyncio.wait_for(registry.update('first', make_run('first-run', 'SUCCEEDED')), timeout=1)
+        # The fetch still in flight returns the older `RUNNING` status, which must not count the run again.
+        fetch_released.set()
+        second = await asyncio.wait_for(second_task, timeout=1)
+
+    assert second.id == 'second-run'
+
+
+async def test_inherit_timeout_is_resolved_when_a_waiting_start_starts(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With `timeout='inherit'`, a start waiting under the limit takes the remaining time once its run starts."""
+    run_ids = iter(['first-run', 'second-run'])
+    run_timeouts: list[timedelta | None] = []
+
+    async def start(*_args: Any, run_timeout: timedelta | None = None, **_kwargs: Any) -> Run:
+        run_timeouts.append(run_timeout)
+        return make_run(next(run_ids), 'READY')
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start)
+    get_remaining_time = Mock(return_value=timedelta(seconds=300))
+    monkeypatch.setattr(_ActorType, '_get_remaining_time', get_remaining_time)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', run_name='first')
+        second_task = asyncio.create_task(Actor.start('some-actor', run_name='second', timeout='inherit'))
+        await assert_waiting(second_task)
+        get_remaining_time.assert_not_called()
+
+        await Actor._child_run_registry.update('first', make_run('first-run', 'SUCCEEDED'))
+        await asyncio.wait_for(second_task, timeout=1)
+
+    get_remaining_time.assert_called_once()
+    assert run_timeouts == [None, timedelta(seconds=300)]
