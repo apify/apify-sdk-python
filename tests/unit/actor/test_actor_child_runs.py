@@ -14,7 +14,7 @@ from crawlee.events import Event, EventAbortingData
 
 from apify import Actor, Configuration, _child_runs
 from apify._actor import _ActorType
-from apify._child_runs import CHILD_RUNS_KEY, UNNAMED_CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
+from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
 from apify.events import ApifyEventManager
 
 if TYPE_CHECKING:
@@ -70,7 +70,14 @@ def stored_record(
 
 def stored_unnamed_record(run_id: str, status: str) -> dict[str, Any]:
     """Build a record of a child run started without a name, as it is stored in the default KVS."""
-    return {'runId': run_id, 'status': status, 'startedAt': STARTED_AT}
+    return {
+        'runId': run_id,
+        'status': status,
+        'startedAt': STARTED_AT,
+        'checksum': None,
+        'history': [],
+        'abortWithParent': False,
+    }
 
 
 @pytest.fixture
@@ -119,17 +126,15 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
 async def test_unnamed_start_records_run_under_its_id(
     apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
 ) -> None:
-    """A start without a name persists the run under its run ID, apart from the named runs."""
+    """A start without a name persists the run under its run ID."""
     apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
         await getattr(Actor, method)('some-id')
         kvs = await Actor.open_key_value_store()
-        stored_named = await kvs.get_value(CHILD_RUNS_KEY)
-        stored_unnamed = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored_named is None
-    assert stored_unnamed == {'new-run': stored_unnamed_record('new-run', 'READY')}
+    assert stored == {'new-run': stored_unnamed_record('new-run', 'READY')}
 
 
 async def test_unnamed_starts_never_reattach(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -143,7 +148,7 @@ async def test_unnamed_starts_never_reattach(apify_client_async_patcher: ApifyCl
         await Actor.start('some-actor')
         await Actor.start('some-actor')
         kvs = await Actor.open_key_value_store()
-        stored = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert stored.keys() == {'first-run', 'second-run'}
 
@@ -166,7 +171,7 @@ async def test_unnamed_call_records_finished_status(
     async with Actor:
         run = await getattr(Actor, method)('some-id', **kwargs)
         kvs = await Actor.open_key_value_store()
-        stored = await kvs.get_value(UNNAMED_CHILD_RUNS_KEY)
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.status == 'SUCCEEDED'
     assert stored == {'new-run': stored_unnamed_record('new-run', 'SUCCEEDED')}
@@ -463,20 +468,13 @@ async def test_named_call_without_logger_only_waits(apify_client_async_patcher: 
     get_status_message_watcher.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    'key',
-    [
-        pytest.param(CHILD_RUNS_KEY, id='named runs'),
-        pytest.param(UNNAMED_CHILD_RUNS_KEY, id='unnamed runs'),
-    ],
-)
-async def test_init_rejects_malformed_registry(key: str) -> None:
+async def test_init_rejects_malformed_registry() -> None:
     """Init raises a `ValueError` naming the key when the registry in the default KVS is malformed, and tears down."""
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(key, {'some-run': {'runId': 'old-run'}})
+        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
 
-    with pytest.raises(ValueError, match=key):
+    with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
         await Actor.init()
 
     assert not Actor._active
@@ -795,9 +793,9 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
             {
                 'scrape-eu': stored_record('eu-run', 'RUNNING'),
                 'scrape-us': stored_record('us-run', 'FAILED', actor_id=None, task_id='some-task'),
+                'unnamed-run': stored_unnamed_record('unnamed-run', 'RUNNING'),
             },
         )
-        await kvs.set_value(UNNAMED_CHILD_RUNS_KEY, {'unnamed-run': stored_unnamed_record('unnamed-run', 'RUNNING')})
 
     async with Actor:
         child_runs = Actor.child_runs
