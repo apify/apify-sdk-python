@@ -70,14 +70,29 @@ def stored_record(
     }
 
 
-def stored_unnamed_record(run_id: str, status: str) -> dict[str, Any]:
+def implicit_key(
+    *,
+    actor_id: str | None = 'some-actor',
+    task_id: str | None = None,
+    run_input: Any = None,
+    run_options: dict[str, Any] | None = None,
+    index: int = 0,
+) -> str:
+    """Build the key a start without a name is recorded under, given how many identical starts came before it."""
+    request_hash = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input, run_options=run_options)
+    return f'{request_hash[:16]}-{index}'
+
+
+def stored_unnamed_record(
+    run_id: str, status: str, *, actor_id: str | None = 'some-actor', task_id: str | None = None
+) -> dict[str, Any]:
     """Build a record of a child run started without a name, as it is stored in the default KVS."""
     return {
         'runId': run_id,
         'status': status,
         'startedAt': STARTED_AT,
         'runName': None,
-        'checksum': None,
+        'checksum': checksum_request(actor_id=actor_id, task_id=task_id, run_input=None),
         'history': [],
         'abortWithParent': False,
     }
@@ -120,16 +135,16 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
 
 
 @pytest.mark.parametrize(
-    ('method', 'resource'),
+    ('method', 'resource', 'ids'),
     [
-        pytest.param('start', 'actor', id='start'),
-        pytest.param('start_task', 'task', id='start task'),
+        pytest.param('start', 'actor', {'actor_id': 'some-id'}, id='start'),
+        pytest.param('start_task', 'task', {'actor_id': None, 'task_id': 'some-id'}, id='start task'),
     ],
 )
-async def test_unnamed_start_records_run_under_its_id(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+async def test_unnamed_start_records_run_under_implicit_key(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str, ids: dict[str, Any]
 ) -> None:
-    """A start without a name persists the run under its run ID."""
+    """A start without a name persists the run under the implicit key of its Actor or task."""
     apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
@@ -137,34 +152,112 @@ async def test_unnamed_start_records_run_under_its_id(
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored == {'new-run': stored_unnamed_record('new-run', 'READY')}
+    assert stored == {implicit_key(**ids): stored_unnamed_record('new-run', 'READY', **ids)}
 
 
-async def test_unnamed_starts_never_reattach(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """Each start without a name starts a new run, even with a recorded active run of the same Actor."""
+async def test_identical_unnamed_starts_start_separate_runs(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Identical starts without a name each start a run, recorded under consecutive implicit keys."""
     run_ids = iter(['first-run', 'second-run'])
     apify_client_async_patcher.patch(
         'actor', 'start', replacement_method=AsyncMock(side_effect=lambda *_, **__: make_run(next(run_ids), 'READY'))
     )
 
     async with Actor:
-        await Actor.start('some-actor')
-        await Actor.start('some-actor')
+        first = await Actor.start('some-actor')
+        second = await Actor.start('some-actor')
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored.keys() == {'first-run', 'second-run'}
+    assert (first.id, second.id) == ('first-run', 'second-run')
+    assert stored == {
+        implicit_key(index=0): stored_unnamed_record('first-run', 'READY'),
+        implicit_key(index=1): stored_unnamed_record('second-run', 'READY'),
+    }
+
+
+async def test_unnamed_starts_reattach_in_order_after_migration(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """After a migration, the n-th identical start without a name reattaches to the n-th recorded run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch(
+        'run', 'get', replacement_method=lambda run_client, *_, **__: make_run(run_client.resource_id, 'RUNNING')
+    )
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(
+            CHILD_RUNS_KEY,
+            {
+                implicit_key(index=0): stored_unnamed_record('first-run', 'RUNNING'),
+                implicit_key(index=1): stored_unnamed_record('second-run', 'RUNNING'),
+            },
+        )
+        await Actor._child_run_registry.load()
+        runs = [await Actor.start('some-actor') for _ in range(3)]
+
+    assert [run.id for run in runs] == ['first-run', 'second-run', 'new-run']
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_init_counts_unnamed_starts_from_zero(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A new attempt of the Actor run counts the starts without a name from zero, so its first start reattaches."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('first-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('first-run', 'RUNNING'))
+
+    async with Actor:
+        await Actor.start('some-actor')
+
+    async with Actor:
+        run = await Actor.start('some-actor')
+
+    assert run.id == 'first-run'
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+async def test_unnamed_starts_with_different_run_options_get_different_keys(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """The run options are part of the implicit key, and the token is not."""
+    run_ids = iter(['default-run', 'big-run', 'token-run'])
+    apify_client_async_patcher.patch(
+        'actor', 'start', replacement_method=AsyncMock(side_effect=lambda *_, **__: make_run(next(run_ids), 'READY'))
+    )
+
+    async with Actor:
+        await Actor.start('some-actor')
+        await Actor.start('some-actor', memory_mbytes=4096)
+        await Actor.start('some-actor', token='other-token')
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert {key: record['runId'] for key, record in stored.items()} == {
+        implicit_key(index=0): 'default-run',
+        implicit_key(run_options={'memory_mbytes': 4096}): 'big-run',
+        implicit_key(index=1): 'token-run',
+    }
+
+
+def test_checksum_ignores_run_options_set_to_none() -> None:
+    """Run options set to `None` do not change the request hash."""
+    without_options = checksum_request(actor_id='some-actor', task_id=None, run_input={'a': 1})
+    with_none_options = checksum_request(
+        actor_id='some-actor', task_id=None, run_input={'a': 1}, run_options={'build': None, 'memory_mbytes': None}
+    )
+    assert with_none_options == without_options
 
 
 @pytest.mark.parametrize(
-    ('method', 'resource'),
+    ('method', 'resource', 'ids'),
     [
-        pytest.param('call', 'actor', id='call'),
-        pytest.param('call_task', 'task', id='call task'),
+        pytest.param('call', 'actor', {'actor_id': 'some-id'}, id='call'),
+        pytest.param('call_task', 'task', {'actor_id': None, 'task_id': 'some-id'}, id='call task'),
     ],
 )
 async def test_unnamed_call_records_finished_status(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str, ids: dict[str, Any]
 ) -> None:
     """A call without a name records the run when it starts and stores its status once it finishes."""
     apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
@@ -177,7 +270,7 @@ async def test_unnamed_call_records_finished_status(
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.status == 'SUCCEEDED'
-    assert stored == {'new-run': stored_unnamed_record('new-run', 'SUCCEEDED')}
+    assert stored == {implicit_key(**ids): stored_unnamed_record('new-run', 'SUCCEEDED', **ids)}
     assert apify_client_async_patcher.calls[resource]['call'] == []
 
 
@@ -744,25 +837,6 @@ async def test_reattached_run_status_is_recorded(apify_client_async_patcher: Api
     assert stored == {'scrape-eu': stored_record('old-run', 'SUCCEEDED')}
 
 
-async def test_record_without_run_name_gets_its_key_as_run_name(
-    apify_client_async_patcher: ApifyClientAsyncPatcher,
-) -> None:
-    """A named record stored without `runName` is reattached and stored again with its key as the run name."""
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'SUCCEEDED'))
-    record = stored_record('old-run', 'RUNNING')
-    del record['runName']
-
-    async with Actor:
-        kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': record})
-        await Actor._child_run_registry.load()
-        run = await Actor.start('some-actor', run_name='scrape-eu')
-        stored = await kvs.get_value(CHILD_RUNS_KEY)
-
-    assert run.id == 'old-run'
-    assert stored == {'scrape-eu': stored_record('old-run', 'SUCCEEDED')}
-
-
 async def test_named_call_records_finished_status(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
     """A named call stores the status of the run once it finishes."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
@@ -782,8 +856,8 @@ async def test_child_runs_is_empty_without_child_runs() -> None:
         assert Actor.child_runs == {}
 
 
-async def test_child_runs_keys_unnamed_run_by_run_id(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A run started without a name shows up in `Actor.child_runs` under its run ID, next to the named runs."""
+async def test_child_runs_keys_unnamed_run_by_implicit_key(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A run started without a name shows up in `Actor.child_runs` under its implicit key, next to the named runs."""
     run_ids = iter(['unnamed-run', 'named-run'])
     apify_client_async_patcher.patch(
         'actor', 'start', replacement_method=AsyncMock(side_effect=lambda *_, **__: make_run(next(run_ids), 'READY'))
@@ -795,7 +869,7 @@ async def test_child_runs_keys_unnamed_run_by_run_id(apify_client_async_patcher:
         child_runs = Actor.child_runs
 
     assert {key: run_client.resource_id for key, run_client in child_runs.items()} == {
-        'unnamed-run': 'unnamed-run',
+        implicit_key(): 'unnamed-run',
         'scrape-eu': 'named-run',
     }
 
@@ -817,7 +891,7 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
                 'scrape-us': stored_record(
                     'us-run', 'FAILED', run_name='scrape-us', actor_id=None, task_id='some-task'
                 ),
-                'unnamed-run': stored_unnamed_record('unnamed-run', 'RUNNING'),
+                implicit_key(): stored_unnamed_record('unnamed-run', 'RUNNING'),
             },
         )
 
@@ -827,7 +901,7 @@ async def test_child_runs_includes_runs_recorded_before_init() -> None:
     assert {name: run_client.resource_id for name, run_client in child_runs.items()} == {
         'scrape-eu': 'eu-run',
         'scrape-us': 'us-run',
-        'unnamed-run': 'unnamed-run',
+        implicit_key(): 'unnamed-run',
     }
 
 
@@ -891,7 +965,7 @@ async def test_child_runs_uses_client_of_unnamed_start(
         await Actor.start('some-actor', token='custom-token')
         child_runs = Actor.child_runs
 
-    assert child_runs['custom-run']._http_client is clients_by_token['custom-token']._http_client
+    assert child_runs[implicit_key()]._http_client is clients_by_token['custom-token']._http_client
 
 
 async def test_child_runs_keeps_client_of_name_after_rejected_reuse(
