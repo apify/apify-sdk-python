@@ -56,7 +56,6 @@ def stored_record(
     task_id: str | None = None,
     run_input: Any = None,
     run_options: dict[str, Any] | None = None,
-    history: list[dict[str, str]] | None = None,
     abort_with_parent: bool = False,
 ) -> dict[str, Any]:
     """Build a registry record as it is stored in the default KVS."""
@@ -66,7 +65,6 @@ def stored_record(
         'status': status,
         'runName': run_name,
         'checksum': checksum,
-        'history': history or [],
         'abortWithParent': abort_with_parent,
     }
 
@@ -92,7 +90,6 @@ def stored_unnamed_record(
         'status': status,
         'runName': None,
         'checksum': checksum_request(actor_id=actor_id, task_id=task_id, run_input=None),
-        'history': [],
         'abortWithParent': False,
     }
 
@@ -347,19 +344,18 @@ async def test_named_start_resurrects_settling_run_after_it_finishes(
 
 
 @pytest.mark.parametrize(
-    ('recorded_run', 'replaced_status'),
+    'recorded_run',
     [
-        pytest.param(make_run('old-run', 'FAILED'), 'FAILED', id='failed'),
-        pytest.param(None, 'LOST', id='not found'),
+        pytest.param(make_run('old-run', 'FAILED'), id='failed'),
+        pytest.param(None, id='not found'),
     ],
 )
 async def test_named_start_replaces_failed_or_missing_run(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     monkeypatch: pytest.MonkeyPatch,
     recorded_run: Run | None,
-    replaced_status: str,
 ) -> None:
-    """A recorded run that failed or no longer exists is replaced by a new run and kept in the history."""
+    """A recorded run that failed or no longer exists is replaced by a new run under the same name."""
     monkeypatch.setattr(_child_runs, '_NOT_FOUND_GRACE_SECS', 0)
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=recorded_run)
@@ -371,9 +367,7 @@ async def test_named_start_replaces_failed_or_missing_run(
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.id == 'new-run'
-    assert stored == {
-        'scrape-eu': stored_record('new-run', 'READY', history=[{'runId': 'old-run', 'status': replaced_status}])
-    }
+    assert stored == {'scrape-eu': stored_record('new-run', 'READY')}
 
 
 async def test_named_start_rejects_name_recorded_for_another_actor(
@@ -388,6 +382,27 @@ async def test_named_start_rejects_name_recorded_for_another_actor(
         with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
             await Actor.start('some-actor', run_name='scrape-eu')
 
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_named_start_reattaches_to_record_from_older_sdk(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A record with `startedAt` and `history` and without `runName`, as SDK 4.2 stores it, is still reattached."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
+    record = stored_record('old-run', 'RUNNING')
+    del record['runName']
+    record['startedAt'] = STARTED_AT
+    record['history'] = [{'runId': 'older-run', 'status': 'FAILED', 'startedAt': STARTED_AT}]
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': record})
+        await Actor._child_run_registry.load()
+        run = await Actor.start('some-actor', run_name='scrape-eu')
+
+    assert run.id == 'old-run'
     assert apify_client_async_patcher.calls['actor']['start'] == []
 
 
@@ -774,7 +789,6 @@ async def test_named_start_replaces_run_recorded_for_other_request(
             'new-run',
             'READY',
             run_input={'since': '2026-01-01'},
-            history=[{'runId': 'old-run', 'status': 'FAILED'}],
         )
     }
 

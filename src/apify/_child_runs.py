@@ -7,7 +7,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Any
 from weakref import WeakValueDictionary
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 
 from apify_client.errors import NotFoundError
@@ -42,8 +42,8 @@ _IMPLICIT_KEY_HASH_LENGTH = 16
 """Number of hex digits of the request hash kept in the key of a child run started without a name."""
 
 
-class ChildRunSnapshot(BaseModel):
-    """A child run as last observed by this Actor run."""
+class ChildRunRecord(BaseModel):
+    """The current run tracked under a name or implicit key in the child run registry."""
 
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
@@ -51,20 +51,13 @@ class ChildRunSnapshot(BaseModel):
     """ID of the run."""
 
     status: str
-    """Last status of the run observed by this Actor run, or `LOST` once the platform no longer returned it."""
-
-
-class ChildRunRecord(ChildRunSnapshot):
-    """The current run tracked under a name or implicit key in the child run registry, with the runs it replaced."""
+    """Last status of the run observed by this Actor run."""
 
     run_name: str | None = None
     """Name the run was started under, or `None` for a run started without a name."""
 
     checksum: str
     """Hash of the Actor or task, the input and the run options the current run was started with."""
-
-    history: list[ChildRunSnapshot] = Field(default_factory=list)
-    """Earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
 
     abort_with_parent: bool = False
     """Whether the current run is aborted when this Actor run is gracefully aborted."""
@@ -197,7 +190,6 @@ class ChildRunRegistry:
                     run_name=name,
                     checksum=checksum,
                     start_run=start_run,
-                    history=[],
                     abort_with_parent=abort_with_parent,
                 )
                 self._clients[key] = client
@@ -210,16 +202,11 @@ class ChildRunRegistry:
                 run = await run_client.wait_for_finish()
 
             if run is None or run.status == 'FAILED':
-                replaced = ChildRunSnapshot(
-                    run_id=record.run_id,
-                    status=run.status if run is not None else 'LOST',
-                )
                 run = await self._start(
                     key,
                     run_name=name,
                     checksum=checksum,
                     start_run=start_run,
-                    history=[*record.history, replaced],
                     abort_with_parent=abort_with_parent,
                 )
                 self._clients[key] = client
@@ -315,7 +302,6 @@ class ChildRunRegistry:
         run_name: str | None,
         checksum: str,
         start_run: Callable[[], Awaitable[Run]],
-        history: list[ChildRunSnapshot],
         abort_with_parent: bool,
     ) -> Run:
         run = await start_run()
@@ -324,7 +310,6 @@ class ChildRunRegistry:
             status=run.status,
             run_name=run_name,
             checksum=checksum,
-            history=history,
             abort_with_parent=abort_with_parent,
         )
         await self._save(key, record)
