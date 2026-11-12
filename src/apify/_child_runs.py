@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 from weakref import WeakValueDictionary
@@ -54,9 +53,6 @@ class ChildRunSnapshot(BaseModel):
     status: str
     """Last status of the run observed by this Actor run, or `LOST` once the platform no longer returned it."""
 
-    started_at: datetime
-    """When the run started."""
-
 
 class ChildRunRecord(ChildRunSnapshot):
     """The current run tracked under a name or implicit key in the child run registry, with the runs it replaced."""
@@ -65,7 +61,7 @@ class ChildRunRecord(ChildRunSnapshot):
     """Name the run was started under, or `None` for a run started without a name."""
 
     checksum: str
-    """Hash of the Actor or task and the input the current run was started with."""
+    """Hash of the Actor or task, the input and the run options the current run was started with."""
 
     history: list[ChildRunSnapshot] = Field(default_factory=list)
     """Earlier runs under this name that failed or went missing and were replaced by a new run, oldest first."""
@@ -157,16 +153,16 @@ class ChildRunRegistry:
 
         A recorded run that is `READY` or `RUNNING` is reattached and one that `SUCCEEDED` is returned as is.
         An `ABORTED` or `TIMED-OUT` run is resurrected, since Actors are expected to resume from their state.
-        A `FAILED` run, or one the API no longer knows, is replaced by a new run under the same name, for any Actor,
-        task or input.
+        A `FAILED` run, or one the API no longer knows, is replaced by a new run under the same key, for any Actor,
+        task, input or run options.
 
         Args:
             name: Name of the child run, unique within the parent run, or `None` to use the implicit key.
             actor_id: The Actor to start.
             task_id: The task to start, in place of `actor_id`.
-            run_input: Input of the run. The recorded run is reused only if it was started with the same Actor or task
-                and input.
-            run_options: Options the run is started with. Without `name`, they are part of the implicit key.
+            run_input: Input of the run. The recorded run is reused only if it was started with the same Actor or task,
+                input and run options.
+            run_options: Options the run is started with.
             client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
             resurrect_run: Resurrects the recorded run, given its ID.
@@ -177,17 +173,13 @@ class ChildRunRegistry:
             The run, and whether it was newly started.
 
         Raises:
-            ValueError: If the recorded run would be reused, but was started for a different Actor, task or input.
+            ValueError: If the recorded run would be reused, but was started for a different Actor, task, input or
+                run options.
             RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
                 started, resurrected or reattached.
         """
-        checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input)
-        key = name
-        if key is None:
-            request_hash = checksum_request(
-                actor_id=actor_id, task_id=task_id, run_input=run_input, run_options=run_options
-            )
-            key = request_hash[:_IMPLICIT_KEY_HASH_LENGTH]
+        checksum = checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input, run_options=run_options)
+        key = name if name is not None else checksum[:_IMPLICIT_KEY_HASH_LENGTH]
 
         async with self._name_locks.setdefault(key, asyncio.Lock()):
             if abort_with_parent and self._parent_aborting:
@@ -221,7 +213,6 @@ class ChildRunRegistry:
                 replaced = ChildRunSnapshot(
                     run_id=record.run_id,
                     status=run.status if run is not None else 'LOST',
-                    started_at=record.started_at,
                 )
                 run = await self._start(
                     key,
@@ -236,7 +227,7 @@ class ChildRunRegistry:
 
             if record.checksum != checksum:
                 raise ValueError(
-                    f'The run name "{key}" was already used for a different Actor, task or input. '
+                    f'The run name "{key}" was already used for a different Actor, task, input or run options. '
                     'Use a unique `run_name` for each child run.'
                 )
 
@@ -331,7 +322,6 @@ class ChildRunRegistry:
         record = ChildRunRecord(
             run_id=run.id,
             status=run.status,
-            started_at=run.started_at,
             run_name=run_name,
             checksum=checksum,
             history=history,

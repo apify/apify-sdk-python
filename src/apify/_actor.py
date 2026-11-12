@@ -1103,10 +1103,11 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. A run started without `run_name` is recorded under an
-                implicit key, a hash of the Actor or task, the input and the run options, and the same rules apply
-                to it. So an identical call without `run_name` reuses that run, also before a migration. To start a
-                new run for an identical call, e.g. when polling, pass a `run_name` that differs between the calls.
+                with a different input or run options raises a `ValueError`. A run started without `run_name` is
+                recorded under an implicit key, a hash of the Actor or task, the input and the run options, and the
+                same rules apply to it. So an identical call without `run_name` reuses that run, also before a
+                migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
+                between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1307,10 +1308,11 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. A run started without `run_name` is recorded under an
-                implicit key, a hash of the Actor or task, the input and the run options, and the same rules apply
-                to it. So an identical call without `run_name` reuses that run, also before a migration. To start a
-                new run for an identical call, e.g. when polling, pass a `run_name` that differs between the calls.
+                with a different input or run options raises a `ValueError`. A run started without `run_name` is
+                recorded under an implicit key, a hash of the Actor or task, the input and the run options, and the
+                same rules apply to it. So an identical call without `run_name` reuses that run, also before a
+                migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
+                between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1499,10 +1501,11 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. A run started without `run_name` is recorded under an
-                implicit key, a hash of the Actor or task, the input and the run options, and the same rules apply
-                to it. So an identical call without `run_name` reuses that run, also before a migration. To start a
-                new run for an identical call, e.g. when polling, pass a `run_name` that differs between the calls.
+                with a different input or run options raises a `ValueError`. A run started without `run_name` is
+                recorded under an implicit key, a hash of the Actor or task, the input and the run options, and the
+                same rules apply to it. So an identical call without `run_name` reuses that run, also before a
+                migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
+                between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1600,10 +1603,11 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. A run started without `run_name` is recorded under an
-                implicit key, a hash of the Actor or task, the input and the run options, and the same rules apply
-                to it. So an identical call without `run_name` reuses that run, also before a migration. To start a
-                new run for an identical call, e.g. when polling, pass a `run_name` that differs between the calls.
+                with a different input or run options raises a `ValueError`. A run started without `run_name` is
+                recorded under an implicit key, a hash of the Actor or task, the input and the run options, and the
+                same rules apply to it. So an identical call without `run_name` reuses that run, also before a
+                migration. To start a new run for an identical call, e.g. when polling, pass a `run_name` that differs
+                between the calls.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
