@@ -1616,6 +1616,29 @@ async def test_stale_active_status_is_refreshed_before_counting(monkeypatch: pyt
     assert second.id == 'second-run'
 
 
+async def test_waiting_starts_fetch_a_stale_status_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Several starts waiting under the limit fetch a stale child run once, and reuse the fetched status."""
+    monkeypatch.setattr('apify._child_runs._STATUS_MAX_AGE_SECS', 0.2)
+    statuses: dict[str, str] = {}
+    client = make_client(statuses)
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1)
+        await start_child(registry, client, 'first', statuses)
+        await asyncio.sleep(0.25)
+        client.run.reset_mock()
+
+        waiting = [asyncio.create_task(start_child(registry, client, f'waiting-{i}', statuses)) for i in range(5)]
+        await asyncio.sleep(0.05)
+        fetch_count = client.run.call_count
+
+        for task in waiting:
+            task.cancel()
+        await asyncio.gather(*waiting, return_exceptions=True)
+
+    assert fetch_count == 1
+
+
 async def test_child_run_recorded_by_an_earlier_attempt_counts_toward_the_limit() -> None:
     """An active child run recorded before a migration counts toward the limit, since it is fetched first."""
     statuses = {'old-run': 'RUNNING'}

@@ -191,6 +191,8 @@ class ChildRunRegistry:
         """How many starts without a name are in flight, counted toward the limit but not from the records yet."""
         self._run_status_cache: dict[str, _CachedRunStatus] = {}
         """Last seen status of each recorded run, by run ID. An active one is fetched again once it gets stale."""
+        self._refresh_lock = asyncio.Lock()
+        """Lets one waiting start at a time fetch the stale statuses, so the other waiting starts reuse them."""
         self._unnamed_starts_in_flight: set[asyncio.Event] = set()
         """Starts without a name and with `abort_with_parent` that are in flight, each set once the start ends."""
         self._parent_aborting = False
@@ -526,30 +528,31 @@ class ChildRunRegistry:
     async def _refresh_stale_statuses(self, client: ApifyClientAsync) -> None:
         """Fetch the active runs whose last seen status is stale, so a run that finished stops counting."""
         await self._load()
-        now = asyncio.get_running_loop().time()
-        stale = [(label, record) for label, record in self._counted_records() if self._is_stale(record, now)]
-        cached_before_fetch = {record.run_id: self._run_status_cache.get(record.run_id) for _, record in stale}
-        runs = await asyncio.gather(
-            *(self._clients.get(record.run_id, client).run(record.run_id).get() for _, record in stale),
-            return_exceptions=True,
-        )
+        async with self._refresh_lock:
+            now = asyncio.get_running_loop().time()
+            stale = [(label, record) for label, record in self._counted_records() if self._is_stale(record, now)]
+            cached_before_fetch = {record.run_id: self._run_status_cache.get(record.run_id) for _, record in stale}
+            runs = await asyncio.gather(
+                *(self._clients.get(record.run_id, client).run(record.run_id).get() for _, record in stale),
+                return_exceptions=True,
+            )
 
-        # A run that could not be fetched keeps its last seen status, so it counts while it was last seen active. A
-        # status seen during the fetch, e.g. by `update` once a call awaited the run, is newer than the fetched one.
-        for (label, record), run in zip(stale, runs, strict=True):
-            if self._run_status_cache.get(record.run_id) is not cached_before_fetch[record.run_id]:
-                continue
-            if isinstance(run, BaseException):
-                logger.warning(
-                    'Failed to fetch child run "%s" to count it toward the concurrency limit',
-                    label,
-                    extra={'run_id': record.run_id},
-                    exc_info=run,
-                )
-            elif run is None:
-                self._run_status_cache[record.run_id] = _CachedRunStatus('LOST', now)
-            else:
-                self._cache_run_status(run)
+            # A run that could not be fetched keeps its last seen status, so it counts while it was last seen active. A
+            # status seen during the fetch, e.g. by `update` once a call awaited the run, is newer than the fetched one.
+            for (label, record), run in zip(stale, runs, strict=True):
+                if self._run_status_cache.get(record.run_id) is not cached_before_fetch[record.run_id]:
+                    continue
+                if isinstance(run, BaseException):
+                    logger.warning(
+                        'Failed to fetch child run "%s" to count it toward the concurrency limit',
+                        label,
+                        extra={'run_id': record.run_id},
+                        exc_info=run,
+                    )
+                elif run is None:
+                    self._run_status_cache[record.run_id] = _CachedRunStatus('LOST', now)
+                else:
+                    self._cache_run_status(run)
 
     def _is_stale(self, record: ChildRunSnapshot, now: float) -> bool:
         """Whether the recorded run was last seen active long enough ago to be fetched before counting it."""
