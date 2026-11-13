@@ -6,6 +6,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
 from apify_client._models import PayPerEventActorPricingInfo
 
 from apify import Actor, Configuration
@@ -13,8 +15,6 @@ from apify._charging import ChargingManagerImplementation, PricingInfoItem
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
-
-    import pytest
 
 
 class MockedChargingSetup(NamedTuple):
@@ -39,7 +39,7 @@ async def setup_mocked_charging(
             setup.charging_mgr._pricing_info['event'] = PricingInfoItem(Decimal('1.0'), 'Event')
 
             result = await Actor.charge('event', count=1)
-            setup.mock_charge.assert_called_once_with('event', count=1, idempotency_key=None)
+            setup.mock_charge.assert_called_once_with('event', count=1, idempotency_key=None, request_id=None)
     """
     # Mock the ApifyClientAsync
     mock_client = Mock()
@@ -81,14 +81,14 @@ async def test_actor_push_data_overcharges_one_item_when_budget_cannot_cover_one
         result1 = await Actor.charge('some-event', count=1)  # Costs $1, leaving $0.5
 
         # Verify the first charge call was made correctly
-        setup.mock_charge.assert_called_once_with('some-event', count=1, idempotency_key=None)
+        setup.mock_charge.assert_called_once_with('some-event', count=1, idempotency_key=None, request_id=None)
         setup.mock_charge.reset_mock()
 
         assert result1.charged_count == 1
 
         result = await Actor.push_data([{'hello': 'world'} for _ in range(10)], charged_event_name='another-event')
 
-        setup.mock_charge.assert_called_once_with('another-event', count=1, idempotency_key=None)
+        setup.mock_charge.assert_called_once_with('another-event', count=1, idempotency_key=None, request_id=None)
         assert result.charged_count == 1
         assert result.event_charge_limit_reached is True
 
@@ -109,7 +109,7 @@ async def test_actor_charge_api_call_verification() -> None:
 
         # Call charge with count=1 - this SHOULD call the API
         result2 = await Actor.charge('test-event', count=1)
-        setup.mock_charge.assert_called_once_with('test-event', count=1, idempotency_key=None)
+        setup.mock_charge.assert_called_once_with('test-event', count=1, idempotency_key=None, request_id=None)
         assert result2.charged_count == 1
 
 
@@ -119,7 +119,7 @@ async def test_actor_charge_forwards_idempotency_key() -> None:
         Configuration(max_total_charge_usd=Decimal('10.0'), test_pay_per_event=True), {'test-event': Decimal('1.0')}
     ) as setup:
         result1 = await Actor.charge('test-event', count=1, idempotency_key='key-1')
-        setup.mock_charge.assert_called_once_with('test-event', count=1, idempotency_key='key-1')
+        setup.mock_charge.assert_called_once_with('test-event', count=1, idempotency_key='key-1', request_id=None)
         assert result1.charged_count == 1
 
         setup.mock_charge.reset_mock()
@@ -279,6 +279,18 @@ async def test_push_data_does_not_take_charge_lock_without_pay_per_event(monkeyp
         charge_lock.assert_not_called()
 
 
+async def test_push_data_rejects_charged_event_in_multi_tenant_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a multi-tenant run rejects `push_data` with a charged event before pushing anything."""
+    async with Actor(Configuration(test_pay_per_event=True)):
+        monkeypatch.setattr(Actor.get_charging_manager(), 'is_multi_tenant', True)
+
+        with pytest.raises(ValueError, match='multi-tenant'):
+            await Actor.push_data([{'id': 1}], charged_event_name='scrape')
+
+        dataset = await Actor.open_dataset()
+        assert (await dataset.get_data()).items == []
+
+
 async def test_charge_with_overdrawn_budget() -> None:
     configuration = Configuration(
         max_total_charge_usd=Decimal('0.00025'),
@@ -313,7 +325,7 @@ async def test_charge_with_overdrawn_budget() -> None:
         charge_result = await Actor.charge('event', count=1)
         assert charge_result.charged_count == 1
         assert charge_result.event_charge_limit_reached is True
-        setup.mock_charge.assert_called_once_with('event', count=1, idempotency_key=None)
+        setup.mock_charge.assert_called_once_with('event', count=1, idempotency_key=None, request_id=None)
         setup.mock_charge.reset_mock()
 
         # The run is now strictly over budget, so nothing else is charged.

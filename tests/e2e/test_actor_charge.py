@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
+from crawlee._utils.crypto import crypto_random_object_id
+
 from .._utils import poll_until_condition
 from apify import Actor
 
@@ -226,6 +228,83 @@ async def test_actor_push_data_combined_budget_limit(
 
     assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == expected_counts
+
+
+async def test_actor_charge_in_multi_tenant_standby_run(
+    make_actor: MakeActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """Test that a multi-tenant Server Actor run charges with the request ID and rejects charges without it."""
+
+    async def main() -> None:
+        import json
+
+        import uvicorn
+
+        async def app(scope, receive, send):  # noqa: ANN001, ANN202, ARG001
+            headers = dict(scope['headers'])
+            if b'x-apify-container-server-readiness-probe' in headers:
+                body = b'ready'
+            else:
+                request_id = headers.get(b'x-actor-request-id', b'').decode()
+                try:
+                    if b'omit_request_id' in scope['query_string']:
+                        request_id = None
+                        result = await Actor.charge(event_name='api-call')
+                    else:
+                        result = await Actor.charge(event_name='api-call', request_id=request_id)
+                    body = json.dumps({'charged_count': result.charged_count, 'request_id': request_id}).encode()
+                except ValueError as exc:
+                    body = json.dumps({'error': str(exc)}).encode()
+            await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+            await send({'type': 'http.response.body', 'body': body})
+
+        async with Actor:
+            config = uvicorn.Config(app, host='0.0.0.0', port=Actor.configuration.web_server_port)  # noqa: S104
+            await uvicorn.Server(config).serve()
+
+    actor_client = await make_actor('ppe-multi-tenant', main_func=main)
+    await actor_client.update(
+        # The generated name is too long for the `<username>--<actor-name>` hostname label of the server URL, whose DNS
+        # limit is 63 characters.
+        name=f'sdk-mt-{crypto_random_object_id(8).lower()}',
+        pricing_infos=[
+            {
+                'pricingModel': 'PAY_PER_EVENT',
+                'apifyMarginPercentage': 0.0,
+                'createdAt': '2024-01-01T00:00:00.000Z',
+                'startedAt': '2024-01-01T00:00:00.000Z',
+                'pricingPerEvent': {
+                    'actorChargeEvents': {
+                        'api-call': {
+                            'eventTitle': 'API call',
+                            'eventPriceUsd': 0.01,
+                            'eventDescription': 'One API call',
+                        },
+                    },
+                },
+            },
+        ],
+        server_is_enabled=True,
+        server_tenancy='MULTI_TENANT',
+    )
+
+    server = actor_client.server()
+    try:
+        with_id = (await server.request()).json()
+        without_id = (await server.request(params={'omit_request_id': True})).json()
+    finally:
+        runs = await actor_client.runs().list()
+        for run_item in runs.items:
+            await apify_client_async.run(run_item.id).abort()
+
+    assert with_id['charged_count'] == 1
+    assert with_id['request_id']
+    assert 'request_id' in without_id['error']
+
+    run = await _get_run(apify_client_async, runs.items[0].id)
+    assert run.standby is not None
+    assert run.standby.deployment.startswith('MULTI_TENANT')
 
 
 @pytest_asyncio.fixture(scope='module', loop_scope='module')

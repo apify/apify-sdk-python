@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from logging import getLogger
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, overload
 
 from cachetools import TTLCache
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -94,7 +94,21 @@ class ChargingManager(Protocol):
     charge_lock: ReentrantLock
     """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
 
-    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+    @overload
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult: ...
+    @overload
+    async def charge(
+        self, event_name: str, *, count: int = 1, idempotency_key: str | None = None, request_id: str
+    ) -> ChargeResult: ...
+
+    async def charge(
+        self,
+        event_name: str,
+        *,
+        count: int = 1,
+        idempotency_key: str | None = None,
+        request_id: str | None = None,
+    ) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -108,7 +122,12 @@ class ChargingManager(Protocol):
             idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
                 under the same key within three minutes is not sent to the API and reports the `charged_count` of
                 the original call, or zero if it names a different event. Like the platform, the key is forgotten
-                afterwards.
+                afterwards. In a multi-tenant Server Actor run, every call is sent and the platform deduplicates it.
+                The key is scoped to the whole run there, so a key reused by another caller charges only the first
+                one - derive it from `request_id`.
+            request_id: ID of the Server Actor request being charged, taken from the `X-Actor-Request-ID` header of
+                the incoming request. Required in multi-tenant Server Actor runs, where it maps the charge to the
+                caller's account instead of the account that started the run. Ignored elsewhere.
         """
 
     def calculate_total_charged_amount(self) -> Decimal:
@@ -216,6 +235,9 @@ class ChargingManagerImplementation(ChargingManager):
         self._actor_run_id = configuration.actor_run_id
         self._purge_charging_log_dataset = configuration.purge_on_start
         self._pricing_model: PricingModel | None = None
+        self.is_multi_tenant = False
+        """Multi-tenant Server Actor runs carry no pricing snapshot; pricing comes from the Actor and the platform
+        prices and limits each caller separately."""
 
         self._client = client
         self._charging_log_dataset: Dataset | None = None
@@ -278,7 +300,9 @@ class ChargingManagerImplementation(ChargingManager):
         self._charging_state = RecoverableState(
             default_state=ChargingState(),
             persist_state_key=CHARGING_STATE_KEY,
-            persistence_enabled=self._is_at_home and self._pricing_model == 'PAY_PER_EVENT',
+            persistence_enabled=(
+                self._is_at_home and self._pricing_model == 'PAY_PER_EVENT' and not self.is_multi_tenant
+            ),
             persist_state_kvs_factory=KeyValueStore.open,
             logger=logger,
         )
@@ -303,8 +327,9 @@ class ChargingManagerImplementation(ChargingManager):
             self._charging_log_dataset = await Dataset.open(name=self.LOCAL_CHARGING_LOG_DATASET_NAME)
 
         # if the Actor runs with the pay-per-event pricing model, set the context variable so that PPE-aware dataset
-        # clients can access the charging manager and charge for synthetic events.
-        if self._pricing_model == 'PAY_PER_EVENT':
+        # clients can access the charging manager and charge for synthetic events. Multi-tenant runs charge per request
+        # only, so dataset writes charge nothing there.
+        if self._pricing_model == 'PAY_PER_EVENT' and not self.is_multi_tenant:
             charging_manager_ctx.set(self)
 
     async def __aexit__(
@@ -324,7 +349,14 @@ class ChargingManagerImplementation(ChargingManager):
             self.active = False
 
     @_ensure_context
-    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+    async def charge(
+        self,
+        event_name: str,
+        *,
+        count: int = 1,
+        idempotency_key: str | None = None,
+        request_id: str | None = None,
+    ) -> ChargeResult:
         if idempotency_key is not None and not idempotency_key.strip():
             raise ValueError('idempotency_key must not be blank')
 
@@ -340,6 +372,11 @@ class ChargingManagerImplementation(ChargingManager):
                 event_charge_limit_reached=False,
                 charged_count=0,
                 chargeable_within_limit=self.compute_chargeable(),
+            )
+
+        if self.is_multi_tenant:
+            return await self._charge_server_request(
+                event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
             )
 
         if count <= 0:
@@ -404,6 +441,7 @@ class ChargingManagerImplementation(ChargingManager):
                         event_name,
                         count=charged_count,
                         idempotency_key=idempotency_key,
+                        request_id=request_id,
                     )
                     logger.debug("Charged %d occurrence(s) of event '%s'.", charged_count, event_name)
                 elif event_name in self._tier_priced_events:
@@ -434,6 +472,7 @@ class ChargingManagerImplementation(ChargingManager):
                         'event_price_usd': float(round(pricing_info.price, 3)),
                         'charged_count': charged_count,
                         'idempotency_key': idempotency_key,
+                        'request_id': request_id,
                         'timestamp': datetime.now(UTC).isoformat(),
                     }
                 )
@@ -558,6 +597,10 @@ class ChargingManagerImplementation(ChargingManager):
             if run is None:
                 raise RuntimeError('Actor run not found')
 
+            if run.standby is not None and run.standby.deployment.startswith('MULTI_TENANT'):
+                self.is_multi_tenant = True
+                return await self._fetch_multi_tenant_pricing_info()
+
             max_charge = run.options.max_total_charge_usd
             return _FetchedPricingInfoDict(
                 pricing_info=run.pricing_info,
@@ -574,6 +617,72 @@ class ChargingManagerImplementation(ChargingManager):
                 if self._configuration.max_total_charge_usd is not None
                 else Decimal('inf')
             ),
+        )
+
+    async def _fetch_multi_tenant_pricing_info(self) -> _FetchedPricingInfoDict:
+        actor_id = self._configuration.actor_id
+        if actor_id is None:
+            raise RuntimeError('Actor ID not found even though the Actor is running on Apify')
+
+        actor = await self._client.actor(actor_id).get()
+        if actor is None:
+            raise RuntimeError('Actor not found')
+
+        # The history includes scheduled future changes, so the effective entry is the latest one that has started.
+        # Resolved once on purpose - the platform prices each charge from its own current pricing anyway.
+        now = datetime.now(UTC)
+        started = [info for info in actor.pricing_infos or [] if info.started_at <= now]
+        pricing_info = max(started, key=lambda info: info.started_at, default=None)
+
+        # The run's `charged_event_counts` mix all callers, so they are not loaded.
+        return _FetchedPricingInfoDict(
+            pricing_info=pricing_info,
+            charged_event_counts={},
+            max_total_charge_usd=Decimal('inf'),
+        )
+
+    async def _charge_server_request(
+        self,
+        event_name: str,
+        *,
+        count: int,
+        idempotency_key: str | None,
+        request_id: str | None,
+    ) -> ChargeResult:
+        """Charge the caller of a multi-tenant Server Actor request.
+
+        The platform prices, limits and deduplicates each caller's charges itself, so nothing is counted or enforced
+        locally, and every call is sent - the platform discards a repeat under an idempotency key used earlier in the
+        run, even by another caller.
+        """
+        if event_name.startswith('apify-'):
+            raise ValueError(f"Cannot charge for synthetic event '{event_name}' in a multi-tenant Server Actor run")
+
+        if not request_id:
+            raise ValueError(
+                f"Charging for '{event_name}' in a multi-tenant Server Actor run requires `request_id` - pass the "
+                "value of the incoming request's X-Actor-Request-ID header to Actor.charge()."
+            )
+
+        # Tier-priced events are sent too - the platform prices each charge by the caller's tier.
+        charged_count = 0
+        if count <= 0:
+            pass
+        elif event_name not in self._pricing_info and event_name not in self._tier_priced_events:
+            logger.warning("Attempting to charge for an unknown event '%s'", event_name)
+        else:
+            if self._actor_run_id is None:
+                raise RuntimeError('Actor run ID not configured')
+            await self._client.run(self._actor_run_id).charge(
+                event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
+            )
+            logger.debug("Charged %d occurrence(s) of event '%s' for request '%s'.", count, event_name, request_id)
+            charged_count = count
+
+        return ChargeResult(
+            event_charge_limit_reached=False,
+            charged_count=charged_count,
+            chargeable_within_limit=self.compute_chargeable(),
         )
 
     def _compute_charged_count(self, event_name: str, count: int) -> int:

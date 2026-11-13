@@ -774,10 +774,17 @@ class _ActorType:
         Args:
             data: The data to push to the default dataset.
             charged_event_name: If provided and if the Actor uses the pay-per-event pricing model,
-                the method will attempt to charge for the event for each pushed item.
+                the method will attempt to charge for the event for each pushed item. Not supported in multi-tenant
+                Server Actor runs, which charge per request with `Actor.charge()`.
         """
         if charged_event_name and charged_event_name.startswith('apify-'):
             raise ValueError(f'Cannot charge for synthetic event "{charged_event_name}" manually')
+
+        if charged_event_name and self._charging_manager_implementation.is_multi_tenant:
+            raise ValueError(
+                'Charging for pushed items is not supported in a multi-tenant Server Actor run - use '
+                'Actor.charge() with the `request_id` of the incoming request instead.'
+            )
 
         charging_manager = self.get_charging_manager()
 
@@ -926,8 +933,22 @@ class _ActorType:
         """Retrieve the charging manager to access granular pricing information."""
         return self._charging_manager_implementation
 
+    @overload
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult: ...
+    @overload
+    async def charge(
+        self, event_name: str, *, count: int = 1, idempotency_key: str | None = None, request_id: str
+    ) -> ChargeResult: ...
+
     @_ensure_context
-    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+    async def charge(
+        self,
+        event_name: str,
+        *,
+        count: int = 1,
+        idempotency_key: str | None = None,
+        request_id: str | None = None,
+    ) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -941,11 +962,18 @@ class _ActorType:
             idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
                 under the same key within three minutes is not sent to the API and reports the `charged_count` of
                 the original call, or zero if it names a different event. Like the platform, the key is forgotten
-                afterwards.
+                afterwards. In a multi-tenant Server Actor run, every call is sent and the platform deduplicates it.
+                The key is scoped to the whole run there, so a key reused by another caller charges only the first
+                one - derive it from `request_id`.
+            request_id: ID of the Server Actor request being charged, taken from the `X-Actor-Request-ID` header of
+                the incoming request. Required in multi-tenant Server Actor runs, where it maps the charge to the
+                caller's account instead of the account that started the run. Ignored elsewhere.
         """
-        # charging_manager.charge() acquires charge_lock internally.
-        charging_manager = self.get_charging_manager()
-        return await charging_manager.charge(event_name, count=count, idempotency_key=idempotency_key)
+        # The implementation's `charge()` acquires charge_lock internally and, unlike the public overloads, takes the
+        # `None` default of `request_id`.
+        return await self._charging_manager_implementation.charge(
+            event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
+        )
 
     @overload
     def on(
