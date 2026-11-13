@@ -223,3 +223,28 @@ async def test_malformed_json_input_does_not_create_metadata() -> None:
 
     assert input_file.read_bytes() == b'{not json'
     assert not (kvs_path / f'INPUT.json.{METADATA_FILENAME}').exists()
+
+
+@pytest.mark.parametrize(
+    ('input_file_name', 'expected_value', 'expected_content_type'),
+    [
+        pytest.param('INPUT.txt', '42', 'text/plain; charset=utf-8', id='txt'),
+        pytest.param('INPUT.bin', b'42', 'application/octet-stream', id='other-suffix'),
+    ],
+)
+async def test_pre_existing_non_json_suffix_input_metadata(
+    input_file_name: str, expected_value: str | bytes, expected_content_type: str
+) -> None:
+    """Input with a `.txt` or other non-JSON suffix gets text or binary metadata from its suffix."""
+    configuration = Configuration.get_global_configuration()
+    kvs_path = Path(configuration.storage_dir) / 'key_value_stores' / 'default'
+    kvs_path.mkdir(parents=True)
+    (kvs_path / input_file_name).write_bytes(b'42')
+
+    client = await ApifyFileSystemKeyValueStoreClient.open(id=None, name=None, alias=None, configuration=configuration)
+    record = await client.get_value(key=configuration.input_key)
+
+    assert record is not None
+    assert record.value == expected_value
+    assert type(record.value) is type(expected_value)
+    assert record.content_type == expected_content_type
