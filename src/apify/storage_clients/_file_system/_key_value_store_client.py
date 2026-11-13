@@ -125,7 +125,8 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
             logger.warning('Input file disappeared from path: "%s"', record_path)
             return
 
-        # Figure out the metadata from the file content
+        # Figure out the metadata from the file content. The parse and decode results are discarded: the calls only
+        # validate the content, so malformed input raises before any metadata is written.
         size = len(content)
         if record_path.suffix == '.json':
             json.loads(content.decode('utf-8'))
