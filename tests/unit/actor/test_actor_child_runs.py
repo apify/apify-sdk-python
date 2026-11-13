@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -22,6 +23,9 @@ if TYPE_CHECKING:
 
     from ..conftest import ApifyClientAsyncPatcher
     from apify.storages import KeyValueStore
+
+
+pytestmark = pytest.mark.filterwarnings('ignore:Named child runs:UserWarning')
 
 
 def make_run(run_id: str, status: str) -> Run:
@@ -493,7 +497,8 @@ async def test_named_start_forwards_max_items_to_resurrect(
         with pytest.warns(FutureWarning, match='max_items') as warnings:
             await Actor.start('some-actor', run_name='scrape-eu', max_items=10)
 
-    assert [warning.filename for warning in warnings] == [__file__]
+    future_warnings = [warning for warning in warnings if warning.category is FutureWarning]
+    assert [warning.filename for warning in future_warnings] == [__file__]
     [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
     assert kwargs['max_items'] == 10
 
@@ -1171,3 +1176,49 @@ async def test_removing_all_aborting_listeners_keeps_aborting_child_runs(
         await apify_event_manager.wait_for_all_listeners_to_complete()
 
     assert len(apify_client_async_patcher.calls['run']['abort']) == 1
+
+
+@pytest.mark.parametrize(
+    'method_name',
+    [
+        pytest.param('start', id='start'),
+        pytest.param('call', id='call'),
+        pytest.param('start_task', id='start task'),
+        pytest.param('call_task', id='call task'),
+    ],
+)
+async def test_named_run_warns_experimental(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method_name: str
+) -> None:
+    """A run started with `run_name` warns that named child runs are experimental, pointing at the caller."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor:
+        method = getattr(Actor, method_name)
+        target = 'some-task' if method_name.endswith('_task') else 'some-actor'
+        kwargs = {'logger': None} if method_name == 'call' else {}
+        with pytest.warns(UserWarning, match='experimental') as warnings:
+            await method(target, run_name='scrape-eu', **kwargs)
+
+    assert [warning.filename for warning in warnings] == [__file__]
+
+
+async def test_unnamed_start_does_not_warn_experimental(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A run started without `run_name` emits no experimental warning."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            await Actor.start('some-actor')
+
+
+async def test_child_runs_warns_experimental() -> None:
+    """Accessing `Actor.child_runs` warns that named child runs are experimental, pointing at the caller."""
+    async with Actor:
+        with pytest.warns(UserWarning, match='experimental') as warnings:
+            _ = Actor.child_runs
+
+    assert [warning.filename for warning in warnings] == [__file__]

@@ -42,10 +42,9 @@ async def main() -> None:
             Actor.log.info('No start URLs specified in Actor input, exiting...')
             await Actor.exit()
 
-        # Crawlee rotates the proxy URL per request on its own.
+        # Crawlee rotates the proxy URL per request on its own. A local run without
+        # Apify Proxy access gets no proxy configuration and crawls directly.
         proxy_configuration = await Actor.create_proxy_configuration()
-        if proxy_configuration is None:
-            raise RuntimeError('Failed to create the proxy configuration.')
 
         # Common Chrome flags for running the browser in a container.
         browser_args = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']

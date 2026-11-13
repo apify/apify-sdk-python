@@ -76,6 +76,16 @@ MainReturnType = TypeVar('MainReturnType')
 _ensure_context = ensure_context('_active')
 
 
+def _warn_child_runs_experimental() -> None:
+    warnings.warn(
+        'Named child runs (`run_name`, `abort_with_parent` and `Actor.child_runs`) are experimental. Their behavior '
+        'and interface may change in future versions.',
+        UserWarning,
+        # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
+        stacklevel=4,
+    )
+
+
 def _warn_max_items_deprecated() -> None:
     warnings.warn(
         '`max_items` is deprecated and will be removed in version 5.0.0. It works only with legacy pay-per-result '
@@ -445,7 +455,11 @@ class _ActorType:
 
         A run started or reattached with a custom `token` since the last migration or resurrection of this Actor run
         uses that token. Any other run uses the default client.
+
+        Warning:
+            This is an experimental feature. The behavior and interface may change in future versions.
         """
+        _warn_child_runs_experimental()
         return self._child_run_registry.run_clients(self.apify_client)
 
     @cached_property
@@ -1131,7 +1145,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1143,6 +1158,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1332,7 +1350,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1344,6 +1363,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1519,7 +1541,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1531,6 +1554,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1619,7 +1645,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1631,6 +1658,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1927,7 +1957,8 @@ class _ActorType:
 
         Returns:
             ProxyConfiguration object with the passed configuration, or None, if no proxy should be used based
-            on the configuration.
+            on the configuration, or if Apify Proxy was requested in a local run that cannot use it, for example
+            because no password is available or the proxy access is denied.
         """
         if actor_proxy_input is not None:
             if actor_proxy_input.get('useApifyProxy', False):
@@ -1950,7 +1981,9 @@ class _ActorType:
             _apify_client=self._apify_client,
         )
 
-        await proxy_configuration.initialize()
+        is_proxy_usable = await proxy_configuration.initialize()
+        if not is_proxy_usable:
+            return None
 
         return proxy_configuration
 
