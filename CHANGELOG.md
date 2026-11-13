@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
 
 - Add support for Scrapy 2.20 ([#1242](https://github.com/apify/apify-sdk-python/pull/1242)) ([b7a6165](https://github.com/apify/apify-sdk-python/commit/b7a6165b10405f205d59136f72e0418df334bc98)) by [@vdusek](https://github.com/vdusek)
 - Run without proxy locally when Apify Proxy is not available ([#1231](https://github.com/apify/apify-sdk-python/pull/1231)) ([9811f1a](https://github.com/apify/apify-sdk-python/commit/9811f1a5f3effbf7bc81a84ef957e9b2801f74c0)) by [@vladfrangu](https://github.com/vladfrangu)
+- Mark named child runs as experimental ([#1256](https://github.com/apify/apify-sdk-python/pull/1256)) ([32eff9f](https://github.com/apify/apify-sdk-python/commit/32eff9fd33868cada8523adc105dbd59d45f45e2)) by [@vdusek](https://github.com/vdusek)
+- Return JSON scalars from local Actor input with their real type ([#1243](https://github.com/apify/apify-sdk-python/pull/1243)) ([a54ada0](https://github.com/apify/apify-sdk-python/commit/a54ada0f6604616f11889d00aadcab45d0e1bfe7)) by [@peterolkhov](https://github.com/peterolkhov)
+- Keep alias storages across migrations and reboots ([#1255](https://github.com/apify/apify-sdk-python/pull/1255)) ([5977ff0](https://github.com/apify/apify-sdk-python/commit/5977ff0f2fbe31dc4fb4fa0679fe9ddb92dbcf75)) by [@vdusek](https://github.com/vdusek), closes [#1254](https://github.com/apify/apify-sdk-python/issues/1254)
 
 
 <!-- git-cliff-unreleased-end -->
