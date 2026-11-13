@@ -8,7 +8,7 @@ from typing import Any, Self
 from typing_extensions import override
 
 from crawlee._consts import METADATA_FILENAME
-from crawlee._utils.file import atomic_write, infer_mime_type, json_dumps
+from crawlee._utils.file import atomic_write, json_dumps
 from crawlee.configuration import Configuration as CrawleeConfiguration
 from crawlee.storage_clients._file_system import FileSystemKeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreMetadata, KeyValueStoreRecord, KeyValueStoreRecordMetadata
@@ -125,21 +125,24 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
             logger.warning('Input file disappeared from path: "%s"', record_path)
             return
 
-        # Figure out the metadata from the file content
+        # Figure out the metadata from the file content. The parse and decode results are discarded: the calls only
+        # validate the content, so malformed input raises before any metadata is written.
         size = len(content)
         if record_path.suffix == '.json':
-            value = json.loads(content.decode('utf-8'))
+            json.loads(content.decode('utf-8'))
+            content_type = 'application/json; charset=utf-8'
         elif record_path.suffix == '.txt':
-            value = content.decode('utf-8')
+            content.decode('utf-8')
+            content_type = 'text/plain; charset=utf-8'
         elif record_path.suffix == '':
             try:
-                value = json.loads(content.decode('utf-8'))
-            except json.JSONDecodeError:
-                value = content
+                json.loads(content.decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                content_type = 'application/octet-stream'
+            else:
+                content_type = 'application/json; charset=utf-8'
         else:
-            value = content
-
-        content_type = infer_mime_type(value)
+            content_type = 'application/octet-stream'
 
         record_metadata = KeyValueStoreRecordMetadata(key=key, content_type=content_type, size=size)
         record_metadata_filepath = record_path.with_name(f'{record_path.name}.{METADATA_FILENAME}')

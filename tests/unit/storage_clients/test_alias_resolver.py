@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from apify_client import ApifyClientAsync
 
 from apify._configuration import Configuration
+from apify._consts import ApifyEnvVars
 from apify.storage_clients._apify._alias_resolving import AliasResolver
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _api_client() -> ApifyClientAsync:
@@ -208,3 +213,57 @@ def test_alias_resolution_runs_across_event_loops_with_shared_client() -> None:
 
     # The same injected client served both event loops.
     assert kvs_client.set_record.await_count == 2
+
+
+def test_storage_key_for_run_token_is_stable_across_token_rotation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The key for the run's own token stays the same when the platform issues a new run token after a migration."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, 'run-token-1')
+    config_before = Configuration(token='run-token-1', user_id='user-a')
+    key_before = AliasResolver(
+        storage_type='Dataset', alias='my-alias', configuration=config_before, api_client=_api_client()
+    )._storage_key
+
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, 'run-token-2')
+    config_after = Configuration(token='run-token-2', user_id='user-a')
+    key_after = AliasResolver(
+        storage_type='Dataset', alias='my-alias', configuration=config_after, api_client=_api_client()
+    )._storage_key
+
+    assert key_before == key_after
+
+
+def test_storage_key_differs_for_token_of_another_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same alias opened with the run's own token and with an explicitly passed token maps to different keys."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, 'run-token')
+    run_config = Configuration(token='run-token', user_id='user-a')
+    other_config = Configuration(token='other-user-token', user_id='user-a')
+
+    run_key = AliasResolver(
+        storage_type='Dataset', alias='my-alias', configuration=run_config, api_client=_api_client()
+    )._storage_key
+    other_key = AliasResolver(
+        storage_type='Dataset', alias='my-alias', configuration=other_config, api_client=_api_client()
+    )._storage_key
+
+    assert run_key != other_key
+
+
+def test_storage_key_uses_token_without_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without a user ID, the key for the run's own token is derived from the token."""
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, 'run-token-1')
+    key_1 = AliasResolver(
+        storage_type='Dataset',
+        alias='my-alias',
+        configuration=Configuration(token='run-token-1', user_id=None),
+        api_client=_api_client(),
+    )._storage_key
+
+    monkeypatch.setenv(ApifyEnvVars.TOKEN, 'run-token-2')
+    key_2 = AliasResolver(
+        storage_type='Dataset',
+        alias='my-alias',
+        configuration=Configuration(token='run-token-2', user_id=None),
+        api_client=_api_client(),
+    )._storage_key
+
+    assert key_1 != key_2
