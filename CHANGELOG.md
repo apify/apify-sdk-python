@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Deprecate `Actor.get_env()` in favor of `Actor.configuration` ([#1213](https://github.com/apify/apify-sdk-python/pull/1213)) ([c0f4e93](https://github.com/apify/apify-sdk-python/commit/c0f4e93de26503c709ca1c2924f9224a0fc2c95c)) by [@vladfrangu](https://github.com/vladfrangu), closes [#1212](https://github.com/apify/apify-sdk-python/issues/1212)
+- Support multi-tenant Server Actors in `Actor.charge()` ([#1211](https://github.com/apify/apify-sdk-python/pull/1211)) ([0f381b1](https://github.com/apify/apify-sdk-python/commit/0f381b1298dfc8a8598bd8c54a3e9479d4ddcd69)) by [@janbuchar](https://github.com/janbuchar), closes [#1193](https://github.com/apify/apify-sdk-python/issues/1193)
 
 ### 🐛 Bug Fixes
 
