@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import os
 from asyncio import Lock
 from functools import cached_property
 from logging import getLogger
 from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
-from ._utils import hash_api_public_base_url_and_token
+from crawlee._utils.crypto import compute_short_hash
+
+from apify._consts import ApifyEnvVars
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -248,9 +251,26 @@ class AliasResolver:
             [
                 self._storage_type,
                 self._alias,
-                hash_api_public_base_url_and_token(self._configuration),
+                self._credentials_hash(),
             ]
         )
+
+    def _credentials_hash(self) -> str:
+        """Hash the identity of the credentials, so the same alias opened by different users maps to different storages.
+
+        For the run's own token (`APIFY_TOKEN`), the identity is the user ID. The platform issues a new run token on
+        migration, reboot, and resurrection, while the user ID stays the same, so the alias keeps resolving to the same
+        storage. Any other token is a credential the Actor passed explicitly, which does not change, so it is the
+        identity itself.
+        """
+        configuration = self._configuration
+        if configuration.api_public_base_url is None or configuration.token is None:
+            raise ValueError("'Configuration.api_public_base_url' and 'Configuration.token' must be set.")
+
+        is_run_token = configuration.token == os.environ.get(ApifyEnvVars.TOKEN)
+        identity = configuration.user_id if is_run_token and configuration.user_id else configuration.token
+
+        return compute_short_hash(f'{configuration.api_public_base_url}{identity}'.encode())
 
     def _get_default_kvs_client(self) -> KeyValueStoreClientAsync:
         """Get a client for the default key-value store.
