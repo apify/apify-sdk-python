@@ -434,7 +434,7 @@ async def test_initialize_with_valid_configuration(
     assert proxy_configuration._password == DUMMY_PASSWORD
     assert proxy_configuration.is_man_in_the_middle is True
 
-    assert len(patched_apify_client.calls['user']['get']) == 1  # ty:ignore[unresolved-attribute]
+    assert len(patched_apify_client.calls['user']['get']) == 1  # ty:ignore[missing-attribute]
     assert call_mock.call_count == 1
 
 
@@ -515,7 +515,7 @@ async def test_initialize_preferring_password_from_env_over_calling_api(
     assert proxy_configuration._password == DUMMY_PASSWORD
     assert proxy_configuration.is_man_in_the_middle is False
 
-    assert len(patched_apify_client.calls['user']['get']) == 0  # ty: ignore[unresolved-attribute]
+    assert len(patched_apify_client.calls['user']['get']) == 0  # ty: ignore[missing-attribute]
 
 
 @pytest.mark.usefixtures('patched_impit_client')
@@ -678,7 +678,7 @@ async def test_initialize_with_non_apify_proxy(
 
     await proxy_configuration.initialize()
 
-    assert len(patched_apify_client.calls['user']['get']) == 0  # ty: ignore[unresolved-attribute]
+    assert len(patched_apify_client.calls['user']['get']) == 0  # ty: ignore[missing-attribute]
     assert call_mock.call_count == 0
 
 

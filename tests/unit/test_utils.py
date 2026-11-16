@@ -14,14 +14,14 @@ def test_ipython_detection_when_active() -> None:
 
     original = getattr(builtins, '__IPYTHON__', None)
     try:
-        builtins.__IPYTHON__ = True  # ty: ignore[unresolved-attribute]
+        builtins.__IPYTHON__ = True  # ty: ignore[missing-attribute]
         assert is_running_in_ipython() is True
     finally:
         if original is None:
             if hasattr(builtins, '__IPYTHON__'):
                 del builtins.__IPYTHON__
         else:
-            builtins.__IPYTHON__ = original  # ty: ignore[unresolved-attribute]
+            builtins.__IPYTHON__ = original  # ty: ignore[missing-attribute]
 
 
 @pytest.mark.parametrize(
@@ -51,8 +51,8 @@ if TYPE_CHECKING:
     class _DocsNameDecorated:
         pass
 
-    _ = _DocsGroupDecorated.nonexistent  # ty: ignore[unresolved-attribute]
-    _ = _DocsNameDecorated.nonexistent  # ty: ignore[unresolved-attribute]
+    _ = _DocsGroupDecorated.nonexistent  # ty: ignore[missing-attribute]
+    _ = _DocsNameDecorated.nonexistent  # ty: ignore[missing-attribute]
 
 
 def test_docs_decorators_return_original_object() -> None:
