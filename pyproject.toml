@@ -230,7 +230,7 @@ include = [
 ]
 
 [tool.ty.overrides.rules]
-invalid-mutable-override = "ignore"
+incompatible-mutable-override = "ignore"
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
