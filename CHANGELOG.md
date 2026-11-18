@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-<!-- git-cliff-unreleased-start -->
-## 4.2.2 - **not yet released**
+## [4.3.0](https://github.com/apify/apify-sdk-python/releases/tag/v4.3.0) (2026-11-18)
 
 ### 🚀 Features
 
@@ -19,7 +18,6 @@ All notable changes to this project will be documented in this file.
 - Keep alias storages across migrations and reboots ([#1255](https://github.com/apify/apify-sdk-python/pull/1255)) ([5977ff0](https://github.com/apify/apify-sdk-python/commit/5977ff0f2fbe31dc4fb4fa0679fe9ddb92dbcf75)) by [@vdusek](https://github.com/vdusek), closes [#1254](https://github.com/apify/apify-sdk-python/issues/1254)
 
 
-<!-- git-cliff-unreleased-end -->
 ## [4.2.1](https://github.com/apify/apify-sdk-python/releases/tag/v4.2.1) (2026-11-05)
 
 ### 🐛 Bug Fixes
