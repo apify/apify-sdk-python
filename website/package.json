@@ -20,8 +20,7 @@
         "lint:code:fix": "oxlint --type-aware --fix",
         "format": "oxfmt",
         "format:check": "oxfmt --check",
-        "opt:images": "pnx --config.onlyBuiltDependencies=* @343dev/optimizt --webp",
-        "preinstall": "npx only-allow pnpm"
+        "opt:images": "pnx --config.onlyBuiltDependencies=* @343dev/optimizt --webp"
     },
     "dependencies": {
         "@apify/docs-theme": "^1.0.287",
