@@ -12,7 +12,8 @@ async def main() -> None:
         )
 
         if not proxy_cfg:
-            raise RuntimeError('No proxy configuration available.')
+            Actor.log.warning('Apify Proxy is not available, exiting...')
+            return
 
         proxy_url = await proxy_cfg.new_url()
         Actor.log.info(f'Proxy URL: {proxy_url}')
