@@ -148,6 +148,7 @@ jobs:
           gh api -X POST "/repos/apify/apify-actor-docker/dispatches" \
             -F event_type=build-python-images \
             -F 'client_payload[release_tag]=latest' \
-            -F 'client_payload[apify_version]=${{ needs.release_prepare.outputs.version_number }}'
+            -f "client_payload[apify_version]=${APIFY_VERSION}"
         env:
+          APIFY_VERSION: ${{ needs.release_prepare.outputs.version_number }}
           GH_TOKEN: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
