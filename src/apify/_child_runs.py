@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
@@ -38,6 +39,9 @@ _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
 
 TERMINAL_RUN_STATUSES = frozenset({'SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'})
 """Statuses of a run that is finished. A run in any other status is active."""
+
+_STATUS_MAX_AGE = timedelta(seconds=10)
+"""How long an observed active status counts toward the concurrency limit before the run is fetched again."""
 
 _ABORT_WITH_PARENT_TIMEOUT = timedelta(seconds=10)
 """How long the abort of the child runs with the parent is waited for.
@@ -311,6 +315,8 @@ class ChildRunRegistry:
         open_key_value_store: Callable[[], Awaitable[KeyValueStore]],
         *,
         is_parent_aborting: Callable[[], Awaitable[bool]] | None = None,
+        max_concurrent_runs: int | None = None,
+        default_client: Callable[[], ApifyClientAsync] | None = None,
     ) -> None:
         """Initialize a new instance.
 
@@ -318,7 +324,31 @@ class ChildRunRegistry:
             open_key_value_store: Opens the default key-value store of this Actor run.
             is_parent_aborting: Asks the platform whether this Actor run is being gracefully aborted. A process that
                 starts during the abort gets no `ABORTING` event, so this is how it learns about the abort.
+            max_concurrent_runs: How many recorded runs may be active at once, or `None` for no limit.
+            default_client: Returns the client that refreshes the status of a run for the concurrency limit, unless
+                the run was started or looked up with its own client in this process. It is required with a limit.
+
+        Raises:
+            ValueError: If `max_concurrent_runs` is not a positive integer.
         """
+        is_integer = isinstance(max_concurrent_runs, int) and not isinstance(max_concurrent_runs, bool)
+        if max_concurrent_runs is not None and (not is_integer or max_concurrent_runs < 1):
+            raise ValueError(f'`max_concurrent_child_runs` must be a positive integer, got {max_concurrent_runs!r}.')
+        if max_concurrent_runs is not None and default_client is None:
+            raise ValueError('The child run registry needs a default client to apply the concurrency limit.')
+
+        self._max_concurrent_runs = max_concurrent_runs
+        self._default_client = default_client
+        self._slot_available = asyncio.Condition()
+        self._refresh_lock = asyncio.Lock()
+        """Makes the calls that wait for the limit share one fetch of the runs with a stale status."""
+        """Notified when a recorded run may have stopped being active, or a start gave its slot back."""
+        self._reserved_slots = 0
+        """Number of starts that hold a slot of the limit and whose runs are not recorded yet."""
+        self._status_observed_at: dict[ChildRunKey, float] = {}
+        """Event loop time at which this process last got the status of the run under each key from the API."""
+        self._missing_keys: set[ChildRunKey] = set()
+        """Keys whose recorded run the API no longer knows, so the run does not count toward the limit."""
         self._open_key_value_store = open_key_value_store
         self._is_parent_aborting = is_parent_aborting
         self._parent_status_checked = False
@@ -376,8 +406,8 @@ class ChildRunRegistry:
 
         Raises:
             ValueError: If the run recorded under `key` was started with a different request.
-            RuntimeError: If a new run marked `abort_with_parent` would start while this Actor run is being
-                gracefully aborted. No run is started.
+            RuntimeError: If this Actor run is being gracefully aborted, and a new run marked `abort_with_parent`
+                would start, or a run would have to wait for the concurrency limit. No run is started.
         """
         async with self._key_locks.setdefault(key, asyncio.Lock()):
             record = self._records(key.kind).get(key.key)
@@ -426,8 +456,11 @@ class ChildRunRegistry:
                             'aborted_with_parent': aborted_with_parent,
                         }
                     )
+                    self._mark_observed(key)
                     if updated_record != record:
                         await self._save(key, updated_record)
+                    if run.status in TERMINAL_RUN_STATUSES:
+                        await self._notify_slot_available()
                     self._clients[key] = client
                     return run, False
 
@@ -437,28 +470,38 @@ class ChildRunRegistry:
                     extra={'run_id': record.run_id},
                 )
 
-            if abort_with_parent and self._parent_aborting:
+            if not await self._reserve_slot(key):
                 raise RuntimeError(
-                    f'Child run "{key.key}" with `abort_with_parent` was not started, since this Actor run is being '
-                    'aborted.'
+                    f'Child run "{key.key}" was not started, since this Actor run is being aborted and the limit of '
+                    f'{self._max_concurrent_runs} concurrent child runs is reached.'
                 )
-
-            # A parent that is about to reboot or metamorph sends no more start requests.
-            await self._starts_allowed.wait()
-            with self._start_in_flight():
-                run = await start_run()
-                new_record = ChildRunRecord(
-                    run_id=run.id,
-                    run_name=key.key if key.kind == 'named' else None,
-                    status=run.status,
-                    checksum=checksum,
-                    abort_with_parent=abort_with_parent,
-                    resurrect_with_parent=resurrect_with_parent,
-                    # An abort that started while the start request was in flight waits for this key, and
-                    # then aborts the run.
-                    aborted_with_parent=abort_with_parent and self._is_abort_in_progress(),
-                )
-                await self._save(key, new_record)
+            try:
+                # The check comes after the wait for a slot, during which the parent may have got `ABORTING`.
+                if abort_with_parent and self._parent_aborting:
+                    raise RuntimeError(
+                        f'Child run "{key.key}" with `abort_with_parent` was not started, since this Actor run is '
+                        'being aborted.'
+                    )
+                # A parent that is about to reboot or metamorph sends no more start requests.
+                await self._starts_allowed.wait()
+                with self._start_in_flight():
+                    run = await start_run()
+                    new_record = ChildRunRecord(
+                        run_id=run.id,
+                        run_name=key.key if key.kind == 'named' else None,
+                        status=run.status,
+                        checksum=checksum,
+                        abort_with_parent=abort_with_parent,
+                        resurrect_with_parent=resurrect_with_parent,
+                        # An abort that started while the start request was in flight waits for this key, and
+                        # then aborts the run.
+                        aborted_with_parent=abort_with_parent and self._is_abort_in_progress(),
+                    )
+                    self._mark_observed(key)
+                    await self._save(key, new_record)
+            finally:
+                # A recorded run counts toward the limit through its record, and a failed start holds no slot.
+                await self._release_reserved_slot()
             self._clients[key] = client
             return run, True
 
@@ -531,16 +574,169 @@ class ChildRunRegistry:
         if run.status != 'ABORTED':
             return run, False
 
-        # The parent may have got `ABORTING` while this call waited for the run to be aborted.
-        if self._parent_aborting:
+        # A resurrected run becomes active, so it needs a slot of the concurrency limit like a new run. The parent
+        # that gets `ABORTING` during the wait for it leaves the run as it is.
+        if not await self._reserve_slot(key):
             return run, True
-
-        logger.info('Resurrecting child run "%s" with the parent', key.key, extra={'run_id': run.id})
         try:
-            resurrected_run = await run_client.resurrect()
-        except NotFoundError:
-            return None, False
-        return resurrected_run, False
+            # The parent may have got `ABORTING` while this call waited for the run to be aborted or for a slot.
+            if self._parent_aborting:
+                return run, True
+
+            logger.info('Resurrecting child run "%s" with the parent', key.key, extra={'run_id': run.id})
+            try:
+                resurrected_run = await run_client.resurrect()
+            except NotFoundError:
+                return None, False
+            record = self._records(key.kind)[key.key]
+            self._records(key.kind)[key.key] = record.model_copy(update={'status': resurrected_run.status})
+            self._mark_observed(key)
+            return resurrected_run, False
+        finally:
+            await self._release_reserved_slot()
+
+    async def _reserve_slot(self, key: ChildRunKey) -> bool:
+        """Wait until fewer runs than the concurrency limit are active, and hold a slot for a run about to start.
+
+        The slot is held until `_release_reserved_slot`, by which time the record of the run holds it.
+
+        Returns:
+            Whether the slot is held. It is not when the run would have to wait while this Actor run is being gracefully
+            aborted, since the parent is killed soon and its abort waits for the lock of this key.
+        """
+        if self._max_concurrent_runs is None:
+            return True
+
+        is_waiting = False
+        while True:
+            async with self._slot_available:
+                if self._count_active(exclude=key) < self._max_concurrent_runs:
+                    self._reserved_slots += 1
+                    return True
+
+            # A stale status can only make the count too high, so the runs are fetched only once the limit is reached.
+            # The requests go out without the lock of the condition, which the abort of the child runs needs too.
+            if await self._refresh_stale_statuses():
+                await self._notify_slot_available()
+                continue
+
+            async with self._slot_available:
+                # A slot may have become free while the runs were fetched.
+                if self._count_active(exclude=key) < self._max_concurrent_runs:
+                    continue
+                if self._parent_aborting:
+                    return False
+                if not is_waiting:
+                    is_waiting = True
+                    logger.info(
+                        'Child run "%s" is waiting, since %d child runs are active', key.key, self._max_concurrent_runs
+                    )
+                # Wake up without a notification as well, to fetch the runs whose status got stale.
+                try:
+                    async with asyncio.timeout(_STATUS_MAX_AGE.total_seconds()):
+                        await self._slot_available.wait()
+                except TimeoutError:
+                    pass
+
+    async def _release_reserved_slot(self) -> None:
+        if self._max_concurrent_runs is None:
+            return
+        # The slot goes back before any await, so a caller that is cancelled here cannot keep it.
+        self._reserved_slots -= 1
+        await asyncio.shield(self._notify_slot_available())
+
+    async def _notify_slot_available(self) -> None:
+        if self._max_concurrent_runs is None:
+            return
+        async with self._slot_available:
+            self._slot_available.notify_all()
+
+    def _count_active(self, *, exclude: ChildRunKey) -> int:
+        """Count the runs that hold a slot of the concurrency limit, apart from the one under `exclude`."""
+        active = self._reserved_slots
+        for kind in ('named', 'unnamed'):
+            for key, record in self._records(kind).items():
+                child_run_key = ChildRunKey(kind, key)
+                if child_run_key == exclude or child_run_key in self._missing_keys:
+                    continue
+                if record.status not in TERMINAL_RUN_STATUSES:
+                    active += 1
+        return active
+
+    def _mark_observed(self, key: ChildRunKey) -> None:
+        """Note that the API just returned the status of the run under `key`."""
+        self._status_observed_at[key] = asyncio.get_running_loop().time()
+        self._missing_keys.discard(key)
+
+    async def _refresh_stale_statuses(self) -> bool:
+        """Fetch the recorded runs whose active status this process did not get from the API recently.
+
+        A run that finished without a call waiting for it stops counting toward the concurrency limit this way. One
+        refresh serves all the calls that wait at the same time.
+
+        Returns:
+            Whether a run stopped holding a slot.
+        """
+        if self._default_client is None:
+            return False
+
+        async with self._refresh_lock:
+            loop = asyncio.get_running_loop()
+            max_age = _STATUS_MAX_AGE.total_seconds()
+            stale_keys = list[ChildRunKey]()
+            for kind in ('named', 'unnamed'):
+                for key, record in self._records(kind).items():
+                    child_run_key = ChildRunKey(kind, key)
+                    observed_at = self._status_observed_at.get(child_run_key, -math.inf)
+                    if record.status not in TERMINAL_RUN_STATUSES and loop.time() - observed_at >= max_age:
+                        stale_keys.append(child_run_key)
+            if not stale_keys:
+                return False
+
+            default_client = self._default_client()
+            fetches: list[Awaitable[Run | None]] = []
+            for key in stale_keys:
+                record = self._records(key.kind)[key.key]
+                run_client = self._clients.get(key, default_client).run(record.run_id)
+                fetches.append(run_client.get())
+            fetched_runs = await asyncio.gather(*fetches, return_exceptions=True)
+
+            freed_slot = False
+            changed = False
+            for key, fetched_run in zip(stale_keys, fetched_runs, strict=True):
+                current_record = self._records(key.kind).get(key.key)
+                if isinstance(fetched_run, BaseException):
+                    # The run keeps its slot, and a later refresh fetches it again.
+                    logger.warning(
+                        'Failed to fetch child run "%s" to count it toward the concurrency limit',
+                        key.key,
+                        exc_info=fetched_run,
+                    )
+                    self._status_observed_at[key] = loop.time()
+                    continue
+                if fetched_run is None:
+                    # The run holds no slot while the API does not return it, and a later refresh fetches it again.
+                    freed_slot = freed_slot or key not in self._missing_keys
+                    self._missing_keys.add(key)
+                    self._status_observed_at[key] = loop.time()
+                    continue
+                # A call under the key may have replaced the run or recorded a newer status in the meantime.
+                if current_record is None or current_record.run_id != fetched_run.id:
+                    continue
+                if current_record.status in TERMINAL_RUN_STATUSES:
+                    continue
+                self._mark_observed(key)
+                if current_record.status != fetched_run.status:
+                    self._records(key.kind)[key.key] = current_record.model_copy(update={'status': fetched_run.status})
+                    changed = True
+                    freed_slot = freed_slot or fetched_run.status in TERMINAL_RUN_STATUSES
+
+            if changed:
+                try:
+                    await self._write()
+                except Exception:
+                    logger.exception('Failed to record the refreshed statuses of the child runs')
+            return freed_slot
 
     def child_runs(self, default_client: ApifyClientAsync) -> ChildRuns:
         """Return the record and a client for the run under each recorded key.
@@ -567,9 +763,14 @@ class ChildRunRegistry:
             run: The run as just returned by the API. Nothing is recorded unless it is the run under `key`.
         """
         record = self._records(key.kind).get(key.key)
-        if record is None or record.run_id != run.id or record.status == run.status:
+        if record is None or record.run_id != run.id:
+            return
+        self._mark_observed(key)
+        if record.status == run.status:
             return
         await self._save(key, record.model_copy(update={'status': run.status}))
+        if run.status in TERMINAL_RUN_STATUSES:
+            await self._notify_slot_available()
 
     async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
         """Gracefully abort every recorded run marked `abort_with_parent`, and refuse to start any more of them.
@@ -597,6 +798,8 @@ class ChildRunRegistry:
         updated_keys = set[ChildRunKey]()
         try:
             async with asyncio.timeout(_ABORT_WITH_PARENT_TIMEOUT.total_seconds()):
+                # The calls that wait for the concurrency limit hold the lock of their key, and give up now.
+                await self._notify_slot_available()
                 # The event can arrive before the Actor has loaded the registry.
                 await self._loaded.wait()
                 # The Actor failed to load the registry, so it knows no runs to abort.
@@ -683,6 +886,7 @@ class ChildRunRegistry:
                 was_active = record.aborted_with_parent or record.status not in TERMINAL_RUN_STATUSES
                 aborted = run.status == 'ABORTING' or (run.status == 'ABORTED' and was_active)
                 updated_record = record.model_copy(update={'status': run.status, 'aborted_with_parent': aborted})
+                self._mark_observed(key)
                 if updated_record != record:
                     self._records(key.kind)[key.key] = updated_record
                     updated_keys.add(key)

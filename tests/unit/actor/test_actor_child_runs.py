@@ -97,6 +97,36 @@ async def seed_registry(named: dict[str, dict[str, Any]]) -> KeyValueStore:
     return kvs
 
 
+def patch_runs(apify_client_async_patcher: ApifyClientAsyncPatcher, statuses: dict[str, str | None]) -> list[str]:
+    """Make the API return each run in the status `statuses` holds for it, and start runs named after their input.
+
+    A run with the status `None` does not exist. A start with the input `{'id': 'eu'}` starts the run `eu-run`, which
+    gets the status `RUNNING` unless `statuses` already has one for it. Returns the IDs of the fetched runs, in order.
+    """
+    fetched_run_ids = list[str]()
+
+    async def get_run(run_client: Any, **_kwargs: Any) -> Run | None:
+        fetched_run_ids.append(run_client.resource_id)
+        status = statuses[run_client.resource_id]
+        return make_run(run_client.resource_id, status) if status is not None else None
+
+    async def start_run(_client: Any, *, run_input: Any = None, **_kwargs: Any) -> Run:
+        run_id = f'{run_input["id"]}-run'
+        status = statuses.setdefault(run_id, 'RUNNING')
+        assert status is not None
+        return make_run(run_id, status)
+
+    apify_client_async_patcher.patch('run', 'get', replacement_method=get_run)
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+    return fetched_run_ids
+
+
+async def wait_until_blocked(task: asyncio.Task[Any]) -> None:
+    """Give a task time to run, and check that it is still waiting."""
+    await asyncio.sleep(0.05)
+    assert not task.done()
+
+
 def stored_registry(
     named: dict[str, dict[str, Any]] | None = None, unnamed: dict[str, dict[str, Any]] | None = None
 ) -> dict[str, Any]:
@@ -2335,6 +2365,337 @@ async def test_reboot_does_not_wait_without_starts_in_flight(
     assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
 
 
+@pytest.mark.parametrize(
+    'limit',
+    [
+        pytest.param(0, id='zero'),
+        pytest.param(-1, id='negative'),
+        pytest.param(1.5, id='float'),
+        pytest.param(True, id='bool'),
+        pytest.param('2', id='string'),
+    ],
+)
+def test_max_concurrent_child_runs_must_be_a_positive_integer(limit: Any) -> None:
+    """A limit of concurrent child runs that is not a positive integer raises a `ValueError`."""
+    with pytest.raises(ValueError, match='must be a positive integer'):
+        Actor(max_concurrent_child_runs=limit)
+
+
+async def test_start_waits_while_the_limit_is_reached(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A start over the limit waits until `Actor.call` sees an active child run finish."""
+    statuses: dict[str, str | None] = {}
+    patch_runs(apify_client_async_patcher, statuses)
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('eu-run', 'SUCCEEDED'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'id': 'eu'}, run_name='scrape-eu')
+        waiting_start = asyncio.create_task(Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us'))
+        await wait_until_blocked(waiting_start)
+        assert 'us-run' not in statuses
+
+        await Actor.call('some-actor', {'id': 'eu'}, run_name='scrape-eu', logger=None)
+        run = await asyncio.wait_for(waiting_start, timeout=1)
+
+    assert run.id == 'us-run'
+
+
+async def test_call_for_a_recorded_run_does_not_wait_for_the_limit(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A call that returns a recorded run does not wait, also when the limit is reached."""
+    statuses: dict[str, str | None] = {}
+    patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'id': 'eu'}, run_name='scrape-eu')
+        run = await asyncio.wait_for(Actor.start('some-actor', {'id': 'eu'}, run_name='scrape-eu'), timeout=1)
+
+    assert run.id == 'eu-run'
+    assert run.status == 'RUNNING'
+
+
+async def test_concurrent_starts_stay_within_the_limit(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """Starts made at the same time never have more runs starting or active than the limit."""
+    active_run_ids = set[str]()
+    starting = 0
+    most_at_once = 0
+
+    async def start_run(_client: Any, *, run_input: Any = None, **_kwargs: Any) -> Run:
+        nonlocal starting, most_at_once
+        starting += 1
+        most_at_once = max(most_at_once, starting + len(active_run_ids))
+        await asyncio.sleep(0.01)
+        starting -= 1
+        run_id = f'{run_input["id"]}-run'
+        active_run_ids.add(run_id)
+        return make_run(run_id, 'RUNNING')
+
+    async def wait_for_finish(run_client: Any, **_kwargs: Any) -> Run:
+        await asyncio.sleep(0.02)
+        active_run_ids.discard(run_client.resource_id)
+        return make_run(run_client.resource_id, 'SUCCEEDED')
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+    apify_client_async_patcher.patch('run', 'wait_for_finish', replacement_method=wait_for_finish)
+
+    async with Actor(max_concurrent_child_runs=2):
+        calls = [Actor.call('some-actor', {'id': index}, run_name=f'run-{index}', logger=None) for index in range(6)]
+        runs = await asyncio.wait_for(asyncio.gather(*calls), timeout=5)
+
+    assert {run.status for run in runs} == {'SUCCEEDED'}
+    assert most_at_once == 2
+
+
+async def test_limit_counts_runs_recorded_by_an_earlier_process(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run recorded as active by an earlier process is fetched and holds its slot until it is seen finished."""
+    monkeypatch.setattr(_child_runs, '_STATUS_MAX_AGE', timedelta(milliseconds=20))
+    statuses: dict[str, str | None] = {'old-run': 'RUNNING'}
+    fetched_run_ids = patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        kvs = await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING')})
+        waiting_start = asyncio.create_task(Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us'))
+        await wait_until_blocked(waiting_start)
+        assert 'old-run' in fetched_run_ids
+
+        statuses['old-run'] = 'SUCCEEDED'
+        run = await asyncio.wait_for(waiting_start, timeout=1)
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert run.id == 'us-run'
+    assert stored['named']['scrape-eu']['status'] == 'SUCCEEDED'
+
+
+async def test_limit_does_not_count_runs_recorded_as_finished(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A run recorded in a terminal status holds no slot and is not fetched for the limit."""
+    statuses: dict[str, str | None] = {'old-run': 'FAILED'}
+    fetched_run_ids = patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await seed_registry({'scrape-eu': stored_record('old-run', 'FAILED')})
+        run = await asyncio.wait_for(Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us'), timeout=1)
+
+    assert run.id == 'us-run'
+    assert fetched_run_ids == []
+
+
+async def test_recently_observed_status_is_not_fetched_again(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A start under the limit does not fetch a run whose status this process got from the API a moment ago."""
+    statuses: dict[str, str | None] = {}
+    fetched_run_ids = patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=3):
+        await Actor.start('some-actor', {'id': 'eu'}, run_name='scrape-eu')
+        await Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us')
+        await Actor.start('some-actor', {'id': 'asia'}, run_name='scrape-asia')
+
+    assert fetched_run_ids == []
+
+
+async def test_waiting_starts_share_one_refresh_of_a_stale_status(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Several starts waiting for the limit fetch a stale active run once, not once for each of them."""
+    statuses: dict[str, str | None] = {'old-run': 'RUNNING'}
+    fetched_run_ids = patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING')})
+        waiting_starts = [
+            asyncio.create_task(Actor.start('some-actor', {'id': index}, run_name=f'run-{index}')) for index in range(3)
+        ]
+        for waiting_start in waiting_starts:
+            await wait_until_blocked(waiting_start)
+        for waiting_start in waiting_starts:
+            waiting_start.cancel()
+        await asyncio.gather(*waiting_starts, return_exceptions=True)
+
+    assert fetched_run_ids == ['old-run']
+
+
+async def test_run_missing_at_refresh_frees_its_slot(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A run recorded as active that the API no longer knows holds no slot."""
+    statuses: dict[str, str | None] = {'old-run': None}
+    patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING')})
+        run = await asyncio.wait_for(Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us'), timeout=1)
+
+    assert run.id == 'us-run'
+
+
+async def test_failed_refresh_keeps_the_slot(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A run whose status cannot be fetched keeps its slot, and the failure is logged."""
+    apify_client_async_patcher.patch('run', 'get', replacement_method=Mock(side_effect=RuntimeError('API is down')))
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING')})
+        waiting_start = asyncio.create_task(Actor.start('some-actor', run_name='scrape-us'))
+        await wait_until_blocked(waiting_start)
+        waiting_start.cancel()
+        await asyncio.gather(waiting_start, return_exceptions=True)
+
+    assert 'Failed to fetch child run "scrape-eu" to count it toward the concurrency limit' in caplog.text
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_failed_start_gives_its_slot_back(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A start that fails does not keep a slot of the limit."""
+    start_run = Mock(side_effect=[RuntimeError('start failed'), make_run('new-run', 'READY')])
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+
+    async with Actor(max_concurrent_child_runs=1):
+        with pytest.raises(RuntimeError, match='start failed'):
+            await Actor.start('some-actor', run_name='scrape-eu')
+        run = await asyncio.wait_for(Actor.start('some-actor', run_name='scrape-us'), timeout=1)
+
+    assert run.id == 'new-run'
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_limit_counts_unnamed_runs_with_persistence_on(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """With persistence on, a run started without a name holds a slot, and a start without a name waits for one."""
+    statuses: dict[str, str | None] = {}
+    patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'id': 'eu'})
+        waiting_start = asyncio.create_task(Actor.start('some-actor', {'id': 'us'}))
+        await wait_until_blocked(waiting_start)
+        waiting_start.cancel()
+        await asyncio.gather(waiting_start, return_exceptions=True)
+
+    assert 'us-run' not in statuses
+
+
+async def test_untracked_runs_are_not_limited_and_warn_once(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, caplog: pytest.LogCaptureFixture
+) -> None:
+    """With persistence off, starts without a name do not wait for the limit, and the Actor warns about it once."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', run_name='scrape-eu')
+        await asyncio.wait_for(Actor.start('some-actor'), timeout=1)
+        await asyncio.wait_for(Actor.start('some-actor'), timeout=1)
+
+    warnings = [
+        record for record in caplog.records if 'do not count toward `max_concurrent_child_runs`' in record.message
+    ]
+    assert len(warnings) == 1
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 3
+
+
+async def test_untracked_runs_do_not_warn_without_a_limit(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Without a limit, a start without a name logs no warning about the limit."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor:
+        await Actor.start('some-actor')
+
+    assert 'max_concurrent_child_runs' not in caplog.text
+
+
+@pytest.mark.parametrize(
+    'abort_with_parent',
+    [
+        pytest.param(True, id='marked'),
+        pytest.param(False, id='not marked'),
+    ],
+)
+async def test_start_waiting_for_the_limit_raises_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    apify_event_manager: ApifyEventManager,
+    *,
+    abort_with_parent: bool,
+) -> None:
+    """After `ABORTING`, a start that waits for the limit raises and starts no run, marked or not."""
+    statuses: dict[str, str | None] = {}
+    patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'id': 'eu'}, run_name='scrape-eu')
+        waiting_start = asyncio.create_task(
+            Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us', abort_with_parent=abort_with_parent)
+        )
+        await wait_until_blocked(waiting_start)
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        with pytest.raises(RuntimeError, match='limit of 1 concurrent child runs is reached'):
+            await asyncio.wait_for(waiting_start, timeout=1)
+        with pytest.raises(RuntimeError, match='limit of 1 concurrent child runs is reached'):
+            await asyncio.wait_for(Actor.start('some-actor', {'id': 'asia'}, run_name='scrape-asia'), timeout=1)
+
+    assert set(statuses) == {'eu-run'}
+
+
+async def test_start_under_the_limit_is_not_blocked_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """After `ABORTING`, an unmarked start that does not have to wait for the limit still starts its run."""
+    statuses: dict[str, str | None] = {}
+    patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=2):
+        await Actor.start('some-actor', {'id': 'eu'}, run_name='scrape-eu')
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+        run = await Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us')
+
+    assert run.id == 'us-run'
+
+
+async def test_resurrection_with_parent_waits_for_the_limit(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A call that resurrects a run with the parent waits for a slot like a start."""
+    statuses: dict[str, str | None] = {'old-run': 'ABORTED'}
+    patch_runs(apify_client_async_patcher, statuses)
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('us-run', 'SUCCEEDED'))
+    record = stored_record(
+        'old-run', 'ABORTED', abort_with_parent=True, resurrect_with_parent=True, aborted_with_parent=True
+    )
+
+    async with Actor(max_concurrent_child_runs=1):
+        await seed_registry({'scrape-eu': record})
+        await Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us')
+        waiting_call = asyncio.create_task(Actor.start('some-actor', run_name='scrape-eu'))
+        await wait_until_blocked(waiting_call)
+        assert apify_client_async_patcher.calls['run']['resurrect'] == []
+
+        await Actor.call('some-actor', {'id': 'us'}, run_name='scrape-us', logger=None)
+        run = await asyncio.wait_for(waiting_call, timeout=1)
+
+    assert run.id == 'old-run'
+    assert run.status == 'RUNNING'
+
+
+async def test_no_limit_fetches_no_runs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """Without a limit, a start does not fetch the runs recorded as active."""
+    statuses: dict[str, str | None] = {'old-run': 'RUNNING'}
+    fetched_run_ids = patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor:
+        await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING')})
+        await Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us')
+
+    assert fetched_run_ids == []
+
+
 async def test_aborting_event_before_the_registry_is_loaded_waits_for_it() -> None:
     """An abort of the child runs that starts before the registry is loaded aborts the recorded runs after the load."""
     client = Mock()
@@ -2484,6 +2845,36 @@ async def test_child_run_seen_not_aborted_loses_the_flag_without_resurrect_with_
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert stored['named']['scrape-eu']['abortedWithParent'] is False
+
+
+async def test_cancelled_start_gives_its_slot_back() -> None:
+    """A start that is cancelled while it gives its slot back does not keep the slot."""
+    client = Mock()
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def start_run() -> Run:
+        started.set()
+        await release.wait()
+        raise RuntimeError('start failed')
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1, default_client=lambda: client)
+        await registry.load()
+        failing_start = asyncio.create_task(
+            registry.find_or_start(
+                ChildRunKey('named', 'scrape-eu'), checksum='checksum', client=client, start_run=start_run
+            )
+        )
+        await started.wait()
+        # Another call holds the lock of the limit when the start fails and gives its slot back.
+        async with registry._slot_available:
+            release.set()
+            await asyncio.sleep(0.05)
+            failing_start.cancel()
+            await asyncio.gather(failing_start, return_exceptions=True)
+
+    assert registry._reserved_slots == 0
 
 
 async def test_failed_load_releases_an_abort_of_child_runs_that_waits_for_it() -> None:
@@ -2688,6 +3079,155 @@ async def test_failed_start_does_not_count_as_a_start_in_flight() -> None:
         await asyncio.wait_for(registry.wait_for_starts_in_flight(), timeout=1)
 
 
+async def test_marked_start_that_gets_a_slot_after_aborting_is_refused() -> None:
+    """A start with `abort_with_parent` that waited for a slot starts no run once the parent got `ABORTING`."""
+    client = Mock()
+    client.run.return_value.get = AsyncMock(return_value=make_run('eu-run', 'RUNNING'))
+    client.run.return_value.abort = AsyncMock(return_value=make_run('eu-run', 'ABORTING'))
+    start_marked_run = AsyncMock(return_value=make_run('us-run', 'READY'))
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1, default_client=lambda: client)
+        await registry.load()
+        eu_key = ChildRunKey('named', 'scrape-eu')
+        await registry.find_or_start(
+            eu_key, checksum='checksum', client=client, start_run=AsyncMock(return_value=make_run('eu-run', 'RUNNING'))
+        )
+        waiting_start = asyncio.create_task(
+            registry.find_or_start(
+                ChildRunKey('named', 'scrape-us'),
+                checksum='checksum',
+                client=client,
+                start_run=start_marked_run,
+                abort_with_parent=True,
+            )
+        )
+        await asyncio.sleep(0.05)
+        # The slot becomes free and the parent starts aborting before the waiting start wakes up.
+        update = asyncio.create_task(registry.update(eu_key, make_run('eu-run', 'SUCCEEDED')))
+        abort = asyncio.create_task(registry.abort_runs_with_parent(client))
+        with pytest.raises(RuntimeError, match='being aborted'):
+            await asyncio.wait_for(waiting_start, timeout=1)
+        await asyncio.gather(update, abort)
+
+    start_marked_run.assert_not_awaited()
+
+
+async def test_resurrection_waiting_for_the_limit_returns_the_aborted_run_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """A call that waits for a slot to resurrect its run returns the run `ABORTED` once the parent gets `ABORTING`."""
+    statuses: dict[str, str | None] = {'old-run': 'ABORTED'}
+    patch_runs(apify_client_async_patcher, statuses)
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'abort', return_value=make_run('old-run', 'ABORTED'))
+    record = stored_record(
+        'old-run', 'ABORTED', abort_with_parent=True, resurrect_with_parent=True, aborted_with_parent=True
+    )
+
+    async with Actor(max_concurrent_child_runs=1):
+        await seed_registry({'scrape-eu': record})
+        await Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us')
+        waiting_call = asyncio.create_task(Actor.start('some-actor', run_name='scrape-eu'))
+        await wait_until_blocked(waiting_call)
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        run = await asyncio.wait_for(waiting_call, timeout=1)
+
+    assert run.id == 'old-run'
+    assert run.status == 'ABORTED'
+    assert apify_client_async_patcher.calls['run']['resurrect'] == []
+
+
+async def test_slow_status_refresh_does_not_block_the_abort_of_child_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The abort of the child runs is sent while a call that waits for the limit still fetches a stale status."""
+    monkeypatch.setattr(_child_runs, '_ABORT_WITH_PARENT_TIMEOUT', timedelta(milliseconds=200))
+    client = Mock()
+    fetching = asyncio.Event()
+    never = asyncio.Event()
+
+    async def slow_get(**_kwargs: Any) -> Run:
+        fetching.set()
+        await never.wait()
+        return make_run('old-run', 'RUNNING')
+
+    client.run.return_value.get = slow_get
+    client.run.return_value.abort = AsyncMock(return_value=make_run('old-run', 'ABORTING'))
+
+    async with Actor:
+        await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING', abort_with_parent=True)})
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1, default_client=lambda: client)
+        await registry.load()
+        waiting_start = asyncio.create_task(
+            registry.find_or_start(
+                ChildRunKey('named', 'scrape-us'), checksum='checksum', client=client, start_run=AsyncMock()
+            )
+        )
+        await fetching.wait()
+        await asyncio.wait_for(registry.abort_runs_with_parent(client), timeout=5)
+        waiting_start.cancel()
+        await asyncio.gather(waiting_start, return_exceptions=True)
+
+    client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
+
+
+async def test_run_missing_at_refresh_is_fetched_again_later(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A recorded run that the API did not return once holds a slot again as soon as the API returns it."""
+    monkeypatch.setattr(_child_runs, '_STATUS_MAX_AGE', timedelta(milliseconds=20))
+    statuses: dict[str, str | None] = {'old-run': None}
+    fetched_run_ids = patch_runs(apify_client_async_patcher, statuses)
+
+    async with Actor(max_concurrent_child_runs=1):
+        await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING')})
+        await asyncio.wait_for(Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us'), timeout=1)
+        statuses['old-run'] = 'RUNNING'
+        statuses['us-run'] = 'SUCCEEDED'
+        await asyncio.sleep(0.05)
+        waiting_start = asyncio.create_task(Actor.start('some-actor', {'id': 'asia'}, run_name='scrape-asia'))
+        await wait_until_blocked(waiting_start)
+        waiting_start.cancel()
+        await asyncio.gather(waiting_start, return_exceptions=True)
+
+    assert fetched_run_ids.count('old-run') >= 2
+    assert 'asia-run' not in statuses
+
+
+async def test_refresh_keeps_a_status_recorded_while_it_fetched_the_run() -> None:
+    """A status recorded while the refresh fetched the run is not replaced by the older status from the fetch."""
+    client = Mock()
+    fetching = asyncio.Event()
+    release = asyncio.Event()
+
+    async def slow_get(**_kwargs: Any) -> Run:
+        fetching.set()
+        await release.wait()
+        return make_run('old-run', 'RUNNING')
+
+    client.run.return_value.get = slow_get
+
+    async with Actor:
+        await seed_registry({'scrape-eu': stored_record('old-run', 'RUNNING')})
+        registry = ChildRunRegistry(Actor.open_key_value_store, max_concurrent_runs=1, default_client=lambda: client)
+        await registry.load()
+        start = asyncio.create_task(
+            registry.find_or_start(
+                ChildRunKey('named', 'scrape-us'),
+                checksum='checksum',
+                client=client,
+                start_run=AsyncMock(return_value=make_run('us-run', 'READY')),
+            )
+        )
+        await fetching.wait()
+        await registry.update(ChildRunKey('named', 'scrape-eu'), make_run('old-run', 'SUCCEEDED'))
+        release.set()
+        run, _ = await asyncio.wait_for(start, timeout=1)
+        record = registry.child_runs(client).named['scrape-eu'].record
+
+    assert run.id == 'us-run'
+    assert record.status == 'SUCCEEDED'
+
+
 async def test_paused_starts_send_no_request_until_they_are_resumed() -> None:
     """A start made after the parent began to reboot or metamorph sends its request only when starts are resumed."""
     client = Mock()
@@ -2729,3 +3269,41 @@ async def test_failed_reboot_resumes_child_run_starts(
         run = await asyncio.wait_for(Actor.start('some-actor', run_name='scrape-eu'), timeout=1)
 
     assert run.id == 'new-run'
+
+
+async def test_inherited_timeout_is_resolved_when_the_start_request_goes_out(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A start with `timeout='inherit'` that waits for a slot takes the remaining time when it sends its request."""
+    statuses: dict[str, str | None] = {}
+    patch_runs(apify_client_async_patcher, statuses)
+    resolve_run_timeout = Mock(return_value=timedelta(seconds=30))
+    monkeypatch.setattr(_ActorType, '_resolve_run_timeout', lambda _self, timeout: resolve_run_timeout(timeout))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'id': 'eu'}, run_name='scrape-eu')
+        resolve_run_timeout.reset_mock()
+        waiting_start = asyncio.create_task(
+            Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us', timeout='inherit')
+        )
+        await wait_until_blocked(waiting_start)
+        resolve_run_timeout.assert_not_called()
+        await Actor._child_run_registry.update(ChildRunKey('named', 'scrape-eu'), make_run('eu-run', 'SUCCEEDED'))
+        await asyncio.wait_for(waiting_start, timeout=1)
+
+    resolve_run_timeout.assert_called_once_with('inherit')
+    _, kwargs = apify_client_async_patcher.calls['actor']['start'][-1]
+    assert kwargs['run_timeout'] == timedelta(seconds=30)
+
+
+async def test_tracked_start_rejects_an_invalid_timeout_before_it_starts(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A tracked start with a timeout of a wrong type raises a `ValueError` and starts no run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        with pytest.raises(ValueError, match='Invalid timeout'):
+            await Actor.start('some-actor', run_name='scrape-eu', timeout=60)  # ty: ignore[invalid-argument-type]
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []

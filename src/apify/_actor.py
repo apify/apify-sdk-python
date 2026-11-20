@@ -85,8 +85,9 @@ _ensure_context = ensure_context('_active')
 
 def _warn_child_runs_experimental() -> None:
     warnings.warn(
-        'Tracked child runs (`run_name`, `persist_unnamed_child_runs`, `abort_with_parent`, `resurrect_with_parent` '
-        'and `Actor.child_runs`) are experimental. Their behavior and interface may change in future versions.',
+        'Tracked child runs (`run_name`, `persist_unnamed_child_runs`, `abort_with_parent`, `resurrect_with_parent`, '
+        '`max_concurrent_child_runs` and `Actor.child_runs`) are experimental. Their behavior and interface may '
+        'change in future versions.',
         UserWarning,
         # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
         stacklevel=4,
@@ -157,6 +158,7 @@ class _ActorType:
         status_message: str | None = None,
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         cleanup_timeout: timedelta = timedelta(seconds=30),
+        max_concurrent_child_runs: int | None = None,
     ) -> None:
         """Initialize a new instance.
 
@@ -169,6 +171,17 @@ class _ActorType:
             status_message: Final status message to display upon Actor termination.
             event_listeners_timeout: Maximum time to wait for Actor event listeners to complete before exiting.
             cleanup_timeout: Maximum time to wait for cleanup tasks to finish.
+            max_concurrent_child_runs: Maximum number of tracked child runs that are active at the same time. While the
+                limit is reached, `Actor.start`, `Actor.call`, `Actor.start_task` and `Actor.call_task` wait before they
+                start a new run or resurrect one with `resurrect_with_parent`. Any other call that returns a recorded
+                run never waits. Once this Actor run is being gracefully aborted, a call that would have to wait raises
+                a `RuntimeError`. The runs recorded by an earlier process of this Actor run count too. A run started
+                without a `run_name` is tracked only when `Configuration.persist_unnamed_child_runs` is on. `None` means
+                no limit. The limit is not stored, so the Actor sets it in each of its processes. Tracked child runs are
+                experimental, so their behavior and interface may change in future versions.
+
+        Raises:
+            ValueError: If `max_concurrent_child_runs` is not a positive integer.
         """
         self._configuration = configuration
         self._configure_logging = configure_logging
@@ -188,7 +201,16 @@ class _ActorType:
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
 
-        self._child_run_registry = ChildRunRegistry(self.open_key_value_store, is_parent_aborting=self._is_run_aborting)
+        self._max_concurrent_child_runs = max_concurrent_child_runs
+        self._child_run_registry = ChildRunRegistry(
+            self.open_key_value_store,
+            is_parent_aborting=self._is_run_aborting,
+            max_concurrent_runs=max_concurrent_child_runs,
+            default_client=lambda: self.apify_client,
+        )
+
+        self._warned_untracked_child_runs = False
+        """Whether the Actor already warned that the child runs it does not track are not limited."""
 
         self._internal_listeners = ExitStack()
         """Removes the listeners the Actor registered on the event manager, when the Actor leaves its context."""
@@ -411,6 +433,7 @@ class _ActorType:
         event_listeners_timeout: timedelta | None = EVENT_LISTENERS_TIMEOUT,
         status_message: str | None = None,
         cleanup_timeout: timedelta = timedelta(seconds=30),
+        max_concurrent_child_runs: int | None = None,
     ) -> Self:
         """Make a new Actor instance with a non-default configuration.
 
@@ -424,6 +447,7 @@ class _ActorType:
             event_listeners_timeout=event_listeners_timeout,
             status_message=status_message,
             cleanup_timeout=cleanup_timeout,
+            max_concurrent_child_runs=max_concurrent_child_runs,
         )
 
     @property
@@ -1198,6 +1222,8 @@ class _ActorType:
 
         if is_tracked:
             _warn_child_runs_experimental()
+        else:
+            self._warn_untracked_child_run_not_limited()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1214,13 +1240,12 @@ class _ActorType:
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
             force_permission_level=force_permission_level,
             webhooks=to_client_representations(webhooks),
         )
 
         if not is_tracked:
-            return await start_run()
+            return await start_run(run_timeout=self._resolve_run_timeout(timeout))
 
         _, run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1239,6 +1264,7 @@ class _ActorType:
                 force_permission_level=force_permission_level,
                 webhooks=to_client_representations(webhooks),
             ),
+            timeout=timeout,
             abort_with_parent=abort_with_parent,
             resurrect_with_parent=resurrect_with_parent,
         )
@@ -1426,6 +1452,8 @@ class _ActorType:
 
         if is_tracked:
             _warn_child_runs_experimental()
+        else:
+            self._warn_untracked_child_run_not_limited()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1465,7 +1493,6 @@ class _ActorType:
                     max_total_charge_usd=max_total_charge_usd,
                     restart_on_error=restart_on_error,
                     memory_mbytes=memory_mbytes,
-                    run_timeout=self._resolve_run_timeout(timeout),
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
                 ),
@@ -1479,6 +1506,7 @@ class _ActorType:
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
                 ),
+                timeout=timeout,
                 abort_with_parent=abort_with_parent,
                 resurrect_with_parent=resurrect_with_parent,
             )
@@ -1502,7 +1530,8 @@ class _ActorType:
         content_type: str | None = None,
         options: dict[str, Any],
         client: ApifyClientAsync,
-        start_run: Callable[[], Awaitable[Run]],
+        start_run: Callable[..., Awaitable[Run]],
+        timeout: timedelta | Literal['inherit'] | None,
         abort_with_parent: bool | None,
         resurrect_with_parent: bool | None,
     ) -> tuple[ChildRunKey, Run, bool]:
@@ -1514,15 +1543,34 @@ class _ActorType:
             options=options,
         )
         key = ChildRunKey.from_request(run_name, checksum)
+
+        # An invalid timeout fails before anything starts. `inherit` is resolved for each start attempt, since the
+        # remaining time of this Actor run gets shorter while the call waits for a slot of the concurrency limit.
+        if timeout != 'inherit':
+            self._resolve_run_timeout(timeout)
+
+        async def start_run_with_timeout() -> Run:
+            return await start_run(run_timeout=self._resolve_run_timeout(timeout))
+
         run, is_new = await self._child_run_registry.find_or_start(
             key,
             checksum=checksum,
             client=client,
-            start_run=start_run,
+            start_run=start_run_with_timeout,
             abort_with_parent=abort_with_parent,
             resurrect_with_parent=resurrect_with_parent,
         )
         return key, run, is_new
+
+    def _warn_untracked_child_run_not_limited(self) -> None:
+        """Warn once that a child run the Actor does not track is started without regard to the concurrency limit."""
+        if self._max_concurrent_child_runs is None or self._warned_untracked_child_runs:
+            return
+        self._warned_untracked_child_runs = True
+        self.log.warning(
+            'Child runs started without a `run_name` do not count toward `max_concurrent_child_runs` and do not wait '
+            'for it, since `Configuration.persist_unnamed_child_runs` is off.'
+        )
 
     async def _is_run_aborting(self) -> bool:
         """Ask the platform whether this Actor run is being gracefully aborted."""
@@ -1645,6 +1693,8 @@ class _ActorType:
 
         if is_tracked:
             _warn_child_runs_experimental()
+        else:
+            self._warn_untracked_child_run_not_limited()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1659,12 +1709,11 @@ class _ActorType:
             max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
             webhooks=to_client_representations(webhooks),
         )
 
         if not is_tracked:
-            return await start_run()
+            return await start_run(run_timeout=self._resolve_run_timeout(timeout))
 
         _, run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1681,6 +1730,7 @@ class _ActorType:
                 timeout=timeout,
                 webhooks=to_client_representations(webhooks),
             ),
+            timeout=timeout,
             abort_with_parent=abort_with_parent,
             resurrect_with_parent=resurrect_with_parent,
         )
@@ -1770,6 +1820,8 @@ class _ActorType:
 
         if is_tracked:
             _warn_child_runs_experimental()
+        else:
+            self._warn_untracked_child_run_not_limited()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1804,7 +1856,6 @@ class _ActorType:
                     max_total_charge_usd=max_total_charge_usd,
                     restart_on_error=restart_on_error,
                     memory_mbytes=memory_mbytes,
-                    run_timeout=self._resolve_run_timeout(timeout),
                     webhooks=to_client_representations(webhooks),
                 ),
                 options=checksum_run_options(
@@ -1816,6 +1867,7 @@ class _ActorType:
                     timeout=timeout,
                     webhooks=to_client_representations(webhooks),
                 ),
+                timeout=timeout,
                 abort_with_parent=abort_with_parent,
                 resurrect_with_parent=resurrect_with_parent,
             )
