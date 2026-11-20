@@ -94,11 +94,11 @@ In some situations, one Actor is going to start one or more other Actors and wai
 
 Typical use case for log redirection is to call another Actor using the <ApiLink to="class/Actor#call">`Actor.call`</ApiLink> method. This method has an optional `logger` argument, which is by default set to the `default` literal. This means that the logs of the called Actor will be automatically redirected to the parent Actor's logs with default formatting and filtering. If you set the `logger` argument to `None`, then no log redirection happens. The third option is to pass your own `Logger` instance with the possibility to define your own formatter, filter, and handler. Below you can see those three possible ways of log redirection when starting another Actor run through <ApiLink to="class/Actor#call">`Actor.call`</ApiLink>.
 
-The <ApiLink to="class/Actor#call_task">`Actor.call_task`</ApiLink> method has the same `logger` argument, with the same default.
-
 <RunnableCodeBlock className="language-python" language="python">
     {RedirectLog}
 </RunnableCodeBlock>
+
+The <ApiLink to="class/Actor#call_task">`Actor.call_task`</ApiLink> method has the same `logger` argument, with the same default.
 
 Each default redirect logger log entry will have a specific format. After the timestamp, it will contain cyan colored text that will contain the redirect information: the other Actor's name and the run ID. The rest of the log message will be printed in the same manner as the parent Actor's logger is configured.
 

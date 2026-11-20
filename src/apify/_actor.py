@@ -1673,7 +1673,9 @@ class _ActorType:
             wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
             logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
                 default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
-                will redirect logs to the provided logger.
+                will redirect logs to the provided logger. With a logger, the method returns about 6 seconds after
+                the run finishes or `wait` runs out, since the redirect waits that long for the last status message
+                of the run.
             run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
