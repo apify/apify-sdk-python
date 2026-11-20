@@ -14,7 +14,7 @@ from weakref import WeakValueDictionary
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
-from apify_client.errors import NotFoundError
+from apify_client.errors import ApifyApiError, NotFoundError
 from apify_client.http_clients import StreamedRequestBody
 
 from apify._utils import docs_group
@@ -54,6 +54,12 @@ _ABORT_RECORD_TIMEOUT = timedelta(seconds=2)
 
 _STARTS_IN_FLIGHT_TIMEOUT = timedelta(seconds=10)
 """How long a reboot or metamorph of the parent waits for the start requests that are already sent."""
+
+_RESOURCE_LIMIT_ERROR_TYPES = frozenset({'actor-memory-limit-exceeded', 'concurrent-runs-limit-exceeded'})
+"""Error types the API rejects a run start with while the account lacks the memory or a run slot for it."""
+
+_WAIT_FOR_RESOURCES_COOLDOWN = timedelta(seconds=10)
+"""Time between two attempts to start a run that the API rejected for lack of account resources."""
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
@@ -364,6 +370,8 @@ class ChildRunRegistry:
         """Client the run under each key was last started or looked up with. Lost with the process."""
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
+        self._parent_aborting_event = asyncio.Event()
+        """Set together with `_parent_aborting`, to wake up the starts that wait for account resources."""
         self._abort_task: asyncio.Task[None] | None = None
         """The abort of the child runs with the parent, once the parent is being gracefully aborted."""
         self._starts_in_flight = 0
@@ -383,6 +391,7 @@ class ChildRunRegistry:
         start_run: Callable[[], Awaitable[Run]],
         abort_with_parent: bool | None = None,
         resurrect_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta = False,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `key`, or start one when there is none.
 
@@ -400,6 +409,9 @@ class ChildRunRegistry:
                 replaces the value recorded under `key`. `None` keeps it, and is `False` for a key with no record.
             resurrect_with_parent: Whether to resurrect the run after it was aborted with this Actor run. The value is
                 recorded the same way as `abort_with_parent`.
+            wait_for_resources: Whether to retry starting a new run while the API rejects it for the memory or
+                concurrent-run limit of the account. `True` retries until the run starts, and a `timedelta` stops after
+                that time and raises the last error.
 
         Returns:
             The run, and whether it was newly started.
@@ -407,7 +419,8 @@ class ChildRunRegistry:
         Raises:
             ValueError: If the run recorded under `key` was started with a different request.
             RuntimeError: If this Actor run is being gracefully aborted, and a new run marked `abort_with_parent`
-                would start, or a run would have to wait for the concurrency limit. No run is started.
+                would start, or a run would have to wait for the concurrency limit or for account resources. No run
+                is started.
         """
         async with self._key_locks.setdefault(key, asyncio.Lock()):
             record = self._records(key.kind).get(key.key)
@@ -470,6 +483,11 @@ class ChildRunRegistry:
                     extra={'run_id': record.run_id},
                 )
 
+            # The time limit of `wait_for_resources` also covers the wait for a slot.
+            deadline = None
+            if isinstance(wait_for_resources, timedelta):
+                deadline = asyncio.get_running_loop().time() + wait_for_resources.total_seconds()
+
             if not await self._reserve_slot(key):
                 raise RuntimeError(
                     f'Child run "{key.key}" was not started, since this Actor run is being aborted and the limit of '
@@ -482,28 +500,70 @@ class ChildRunRegistry:
                         f'Child run "{key.key}" with `abort_with_parent` was not started, since this Actor run is '
                         'being aborted.'
                     )
-                # A parent that is about to reboot or metamorph sends no more start requests.
-                await self._starts_allowed.wait()
-                with self._start_in_flight():
-                    run = await start_run()
-                    new_record = ChildRunRecord(
-                        run_id=run.id,
-                        run_name=key.key if key.kind == 'named' else None,
-                        status=run.status,
-                        checksum=checksum,
-                        abort_with_parent=abort_with_parent,
-                        resurrect_with_parent=resurrect_with_parent,
-                        # An abort that started while the start request was in flight waits for this key, and
-                        # then aborts the run.
-                        aborted_with_parent=abort_with_parent and self._is_abort_in_progress(),
-                    )
-                    self._mark_observed(key)
-                    await self._save(key, new_record)
+                while True:
+                    try:
+                        # A parent that is about to reboot or metamorph sends no more start requests.
+                        await self._starts_allowed.wait()
+                        with self._start_in_flight():
+                            run = await start_run()
+                            new_record = ChildRunRecord(
+                                run_id=run.id,
+                                run_name=key.key if key.kind == 'named' else None,
+                                status=run.status,
+                                checksum=checksum,
+                                abort_with_parent=abort_with_parent,
+                                resurrect_with_parent=resurrect_with_parent,
+                                # An abort that started while the start request was in flight waits for this key, and
+                                # then aborts the run.
+                                aborted_with_parent=abort_with_parent and self._is_abort_in_progress(),
+                            )
+                            self._mark_observed(key)
+                            await self._save(key, new_record)
+                        break
+                    except ApifyApiError as exc:
+                        if wait_for_resources is False or exc.type not in _RESOURCE_LIMIT_ERROR_TYPES:
+                            raise
+                        await self._wait_for_resources(key, exc, deadline)
             finally:
                 # A recorded run counts toward the limit through its record, and a failed start holds no slot.
                 await self._release_reserved_slot()
             self._clients[key] = client
             return run, True
+
+    async def _wait_for_resources(self, key: ChildRunKey, exc: ApifyApiError, deadline: float | None) -> None:
+        """Wait before the next attempt to start a run that the API rejected for lack of account resources.
+
+        Args:
+            key: Key of the child run.
+            exc: The error of the rejected start.
+            deadline: Event loop time at which the retrying stops, or `None` to retry until the run starts.
+
+        Raises:
+            ApifyApiError: `exc`, if the deadline passed.
+            RuntimeError: If this Actor run is being gracefully aborted.
+        """
+        delay = _WAIT_FOR_RESOURCES_COOLDOWN.total_seconds()
+        if deadline is not None:
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                raise exc
+            delay = min(delay, remaining)
+
+        if not self._parent_aborting:
+            logger.info(
+                'Not enough resources to start child run "%s", retrying in %.3gs: %s', key.key, delay, exc.message
+            )
+            try:
+                async with asyncio.timeout(delay):
+                    await self._parent_aborting_event.wait()
+            except TimeoutError:
+                return
+
+        # The parent is killed soon, and its abort waits for the lock of this key.
+        raise RuntimeError(
+            f'Child run "{key.key}" was not started, since this Actor run is being aborted and the account lacks '
+            'the resources for the run.'
+        ) from exc
 
     @contextmanager
     def _start_in_flight(self) -> Generator[None]:
@@ -555,9 +615,8 @@ class ChildRunRegistry:
             The run, or `None` if the API no longer knows it, and whether it still counts as aborted with the parent.
         """
         if not self._parent_aborting and not self._parent_status_checked and self._is_parent_aborting is not None:
-            # The answer only ever raises the flag, since `ABORTING` can arrive while the request is in flight.
             if await self._is_parent_aborting():
-                self._parent_aborting = True
+                self._set_parent_aborting()
             self._parent_status_checked = True
 
         # The process that aborts the children must not resurrect them.
@@ -783,11 +842,15 @@ class ChildRunRegistry:
             client: Client used for a key not started or looked up in this process, e.g. one recorded by an earlier
                 process of this Actor run.
         """
-        self._parent_aborting = True
+        self._set_parent_aborting()
         if self._abort_task is None:
             self._abort_task = asyncio.create_task(self._abort_runs_with_parent(client))
         # The abort outlives a caller that stops waiting for it, e.g. a listener cancelled on its timeout.
         await asyncio.shield(self._abort_task)
+
+    def _set_parent_aborting(self) -> None:
+        self._parent_aborting = True
+        self._parent_aborting_event.set()
 
     async def wait_for_abort(self) -> None:
         """Wait until the abort of the child runs with the parent finishes, if it has started."""
