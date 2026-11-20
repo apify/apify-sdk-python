@@ -360,6 +360,18 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = timedelta(minutes=5)
 
+    persist_unnamed_child_runs: Annotated[
+        bool,
+        Field(
+            validation_alias='apify_persist_unnamed_child_runs',
+            description=(
+                'Whether the runs that `Actor.start`, `Actor.call`, `Actor.start_task`, and `Actor.call_task` start '
+                'without a `run_name` are recorded in the default key-value store and reused by an identical call. '
+                'Such a call then needs a JSON input, and the store suits at most a few thousand recorded runs'
+            ),
+        ),
+    ] = False
+
     proxy_hostname: Annotated[
         str,
         Field(

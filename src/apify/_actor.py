@@ -85,8 +85,8 @@ _ensure_context = ensure_context('_active')
 
 def _warn_child_runs_experimental() -> None:
     warnings.warn(
-        'Named child runs (`run_name`, `abort_with_parent` and `Actor.child_runs`) are experimental. Their behavior '
-        'and interface may change in future versions.',
+        'Tracked child runs (`run_name`, `persist_unnamed_child_runs`, `abort_with_parent` and `Actor.child_runs`) '
+        'are experimental. Their behavior and interface may change in future versions.',
         UserWarning,
         # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
         stacklevel=4,
@@ -456,7 +456,8 @@ class _ActorType:
 
         Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
         listed in `named` under that name, even one started by an earlier process of this Actor run, before
-        a migration, reboot or resurrection. Runs started without a `run_name` are not tracked. Each entry holds
+        a migration, reboot or resurrection. Runs started without a `run_name` are listed in `unnamed` when
+        `Configuration.persist_unnamed_child_runs` is on, and are not tracked when it is off. Each entry holds
         the stored `record` and a `client` for the run:
 
         ```python
@@ -1157,8 +1158,9 @@ class _ActorType:
                 migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
                 in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
                 exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
-                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
-                behavior and interface may change in future versions.
+                input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
+                `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
+                Tracked child runs are experimental, so their behavior and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
                 It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
                 this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
@@ -1170,7 +1172,8 @@ class _ActorType:
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
 
-        if run_name is not None:
+        is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if is_tracked:
             _warn_child_runs_experimental()
 
         if max_items is not None:
@@ -1193,10 +1196,10 @@ class _ActorType:
             webhooks=to_client_representations(webhooks),
         )
 
-        if run_name is None:
+        if not is_tracked:
             return await start_run()
 
-        run, _ = await self._find_or_start_child_run(
+        _, run, _ = await self._find_or_start_child_run(
             run_name,
             actor_id=actor_id,
             run_input=run_input,
@@ -1366,8 +1369,9 @@ class _ActorType:
                 migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
                 in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
                 exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
-                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
-                behavior and interface may change in future versions.
+                input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
+                `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
+                Tracked child runs are experimental, so their behavior and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
                 It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
                 this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
@@ -1379,7 +1383,8 @@ class _ActorType:
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
 
-        if run_name is not None:
+        is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if is_tracked:
             _warn_child_runs_experimental()
 
         if max_items is not None:
@@ -1389,7 +1394,7 @@ class _ActorType:
 
         actor_client = client.actor(actor_id)
 
-        if run_name is None:
+        if not is_tracked:
             run = await actor_client.call(
                 run_input=run_input,
                 content_type=content_type,
@@ -1405,7 +1410,7 @@ class _ActorType:
                 logger=logger,
             )
         else:
-            started_run, is_new = await self._find_or_start_child_run(
+            key, started_run, is_new = await self._find_or_start_child_run(
                 run_name,
                 actor_id=actor_id,
                 run_input=run_input,
@@ -1438,7 +1443,7 @@ class _ActorType:
             )
             # An earlier process of this Actor run already streamed the start of the log of a recorded run.
             run = await self._wait_for_child_run(
-                run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
+                key, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
             )
 
         if run is None:
@@ -1448,7 +1453,7 @@ class _ActorType:
 
     async def _find_or_start_child_run(
         self,
-        run_name: str,
+        run_name: str | None,
         *,
         actor_id: str | None = None,
         task_id: str | None = None,
@@ -1458,7 +1463,7 @@ class _ActorType:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         abort_with_parent: bool,
-    ) -> tuple[Run, bool]:
+    ) -> tuple[ChildRunKey, Run, bool]:
         checksum = checksum_request(
             actor_id=actor_id,
             task_id=task_id,
@@ -1466,20 +1471,22 @@ class _ActorType:
             content_type=content_type,
             options=options,
         )
-        return await self._child_run_registry.find_or_start(
-            ChildRunKey('named', run_name),
+        key = ChildRunKey.from_request(run_name, checksum)
+        run, is_new = await self._child_run_registry.find_or_start(
+            key,
             checksum=checksum,
             client=client,
             start_run=start_run,
             abort_with_parent=abort_with_parent,
         )
+        return key, run, is_new
 
     async def _abort_child_runs(self) -> None:
         await self._child_run_registry.abort_runs_with_parent(self.apify_client)
 
     async def _wait_for_child_run(
         self,
-        name: str,
+        key: ChildRunKey,
         run_client: RunClientAsync,
         run: Run,
         *,
@@ -1501,7 +1508,7 @@ class _ActorType:
                 finished_run = await run_client.wait_for_finish(wait_duration=wait)
 
         if finished_run is not None:
-            await self._child_run_registry.update(ChildRunKey('named', name), finished_run)
+            await self._child_run_registry.update(key, finished_run)
         return finished_run
 
     @_ensure_context
@@ -1554,8 +1561,9 @@ class _ActorType:
                 migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
                 in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
                 exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
-                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
-                behavior and interface may change in future versions.
+                input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
+                `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
+                Tracked child runs are experimental, so their behavior and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
                 It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
                 this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
@@ -1567,7 +1575,8 @@ class _ActorType:
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
 
-        if run_name is not None:
+        is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if is_tracked:
             _warn_child_runs_experimental()
 
         if max_items is not None:
@@ -1587,10 +1596,10 @@ class _ActorType:
             webhooks=to_client_representations(webhooks),
         )
 
-        if run_name is None:
+        if not is_tracked:
             return await start_run()
 
-        run, _ = await self._find_or_start_child_run(
+        _, run, _ = await self._find_or_start_child_run(
             run_name,
             task_id=task_id,
             run_input=task_input,
@@ -1660,8 +1669,9 @@ class _ActorType:
                 migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
                 in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
                 exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
-                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
-                behavior and interface may change in future versions.
+                input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
+                `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
+                Tracked child runs are experimental, so their behavior and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
                 It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
                 this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
@@ -1673,7 +1683,8 @@ class _ActorType:
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
 
-        if run_name is not None:
+        is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if is_tracked:
             _warn_child_runs_experimental()
 
         if max_items is not None:
@@ -1683,7 +1694,7 @@ class _ActorType:
 
         task_client = client.task(task_id)
 
-        if run_name is None:
+        if not is_tracked:
             run = await task_client.call(
                 task_input=task_input,
                 build=build,
@@ -1696,7 +1707,7 @@ class _ActorType:
                 wait_duration=wait,
             )
         else:
-            started_run, _ = await self._find_or_start_child_run(
+            key, started_run, _ = await self._find_or_start_child_run(
                 run_name,
                 task_id=task_id,
                 run_input=task_input,
@@ -1724,7 +1735,7 @@ class _ActorType:
                 abort_with_parent=abort_with_parent,
             )
             run = await self._wait_for_child_run(
-                run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
+                key, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
             )
 
         if run is None:

@@ -35,6 +35,7 @@ BOOL_ENV_VARS: list[ApifyEnvVars] = [
     ApifyEnvVars.HEADLESS,
     ApifyEnvVars.IS_AT_HOME,
     ApifyEnvVars.PERSIST_STORAGE,
+    ApifyEnvVars.PERSIST_UNNAMED_CHILD_RUNS,
     ApifyEnvVars.PURGE_ON_START,
     ApifyEnvVars.USER_IS_PAYING,
 ]
