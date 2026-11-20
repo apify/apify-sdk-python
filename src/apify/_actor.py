@@ -307,6 +307,7 @@ class _ActorType:
 
         - Stops forwarding crawler status messages to the run status message.
         - Emits the `EXIT` event.
+        - Waits for the abort of the child runs marked `abort_with_parent`, if this Actor run is being aborted.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
         - Waits for all event listeners to finish.
@@ -353,6 +354,12 @@ class _ActorType:
 
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
+
+            # The abort of the child runs has its own time limit, apart from the one for the event listeners.
+            try:
+                await self._child_run_registry.wait_for_abort()
+            except Exception:
+                self.log.exception('Failed to abort the child runs with the Actor run')
 
             if self._event_listeners_timeout:
                 await self.event_manager.wait_for_all_listeners_to_complete(timeout=self._event_listeners_timeout)
@@ -1123,7 +1130,7 @@ class _ActorType:
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -1161,18 +1168,23 @@ class _ActorType:
                 input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
                 `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
                 Tracked child runs are experimental, so their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
-                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
-                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+            abort_with_parent: Whether the child run is gracefully aborted when this Actor run is gracefully aborted.
+                `True` or `False` is recorded with the run and replaces the value of an earlier call. `None` keeps the
+                recorded value, which is `False` for a new run. Without a `run_name` it needs
+                `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
+                would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
+                run leaves the child running.
 
         Returns:
             Info about the started Actor run
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if abort_with_parent and not is_tracked:
+            raise ValueError(
+                '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
+                'child runs are not tracked.'
+            )
+
         if is_tracked:
             _warn_child_runs_experimental()
 
@@ -1331,7 +1343,7 @@ class _ActorType:
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1372,18 +1384,23 @@ class _ActorType:
                 input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
                 `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
                 Tracked child runs are experimental, so their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
-                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
-                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+            abort_with_parent: Whether the child run is gracefully aborted when this Actor run is gracefully aborted.
+                `True` or `False` is recorded with the run and replaces the value of an earlier call. `None` keeps the
+                recorded value, which is `False` for a new run. Without a `run_name` it needs
+                `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
+                would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
+                run leaves the child running.
 
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if abort_with_parent and not is_tracked:
+            raise ValueError(
+                '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
+                'child runs are not tracked.'
+            )
+
         if is_tracked:
             _warn_child_runs_experimental()
 
@@ -1462,7 +1479,7 @@ class _ActorType:
         options: dict[str, Any],
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
-        abort_with_parent: bool,
+        abort_with_parent: bool | None,
     ) -> tuple[ChildRunKey, Run, bool]:
         checksum = checksum_request(
             actor_id=actor_id,
@@ -1526,7 +1543,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         token: str | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1564,18 +1581,23 @@ class _ActorType:
                 input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
                 `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
                 Tracked child runs are experimental, so their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
-                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
-                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+            abort_with_parent: Whether the child run is gracefully aborted when this Actor run is gracefully aborted.
+                `True` or `False` is recorded with the run and replaces the value of an earlier call. `None` keeps the
+                recorded value, which is `False` for a new run. Without a `run_name` it needs
+                `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
+                would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
+                run leaves the child running.
 
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if abort_with_parent and not is_tracked:
+            raise ValueError(
+                '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
+                'child runs are not tracked.'
+            )
+
         if is_tracked:
             _warn_child_runs_experimental()
 
@@ -1634,7 +1656,7 @@ class _ActorType:
         wait: timedelta | None = None,
         token: str | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1672,18 +1694,23 @@ class _ActorType:
                 input that is not sent as JSON raises a `TypeError`. Without a `run_name`, the run is recorded only when
                 `Configuration.persist_unnamed_child_runs` is on, and then an identical call returns the recorded run.
                 Tracked child runs are experimental, so their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
-                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
-                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
+            abort_with_parent: Whether the child run is gracefully aborted when this Actor run is gracefully aborted.
+                `True` or `False` is recorded with the run and replaces the value of an earlier call. `None` keeps the
+                recorded value, which is `False` for a new run. Without a `run_name` it needs
+                `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
+                would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
+                run leaves the child running.
 
         Returns:
             Info about the started Actor run.
         """
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
-
         is_tracked = run_name is not None or self.configuration.persist_unnamed_child_runs
+        if abort_with_parent and not is_tracked:
+            raise ValueError(
+                '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
+                'child runs are not tracked.'
+            )
+
         if is_tracked:
             _warn_child_runs_experimental()
 
