@@ -13,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from apify_client._models import Run
-from apify_client.errors import NotFoundError
+from apify_client.errors import ApifyApiError, NotFoundError
 from crawlee import service_locator
 from crawlee.events import Event, EventAbortingData
 
@@ -125,6 +125,13 @@ async def wait_until_blocked(task: asyncio.Task[Any]) -> None:
     """Give a task time to run, and check that it is still waiting."""
     await asyncio.sleep(0.05)
     assert not task.done()
+
+
+def make_resource_limit_error(error_type: str = 'actor-memory-limit-exceeded') -> ApifyApiError:
+    """Build the error the API rejects a run start with while the account lacks resources for the run."""
+    payload = {'error': {'type': error_type, 'message': 'Not enough resources'}}
+    response = Mock(status_code=402, text='', json=Mock(return_value=payload))
+    return ApifyApiError(response, 1, method='POST')
 
 
 def stored_registry(
@@ -2694,6 +2701,209 @@ async def test_no_limit_fetches_no_runs(apify_client_async_patcher: ApifyClientA
         await Actor.start('some-actor', {'id': 'us'}, run_name='scrape-us')
 
     assert fetched_run_ids == []
+
+
+@pytest.mark.parametrize(
+    ('method', 'resource', 'submethod'),
+    [
+        pytest.param('start', 'actor', 'start', id='start'),
+        pytest.param('call', 'actor', 'call', id='call'),
+        pytest.param('start_task', 'task', 'start', id='start task'),
+        pytest.param('call_task', 'task', 'call', id='call task'),
+    ],
+)
+@pytest.mark.parametrize(
+    ('wait_for_resources', 'forwarded'),
+    [
+        pytest.param(None, False, id='none'),
+        pytest.param(True, True, id='true'),
+        pytest.param(timedelta(minutes=5), timedelta(minutes=5), id='timedelta'),
+    ],
+)
+async def test_untracked_run_forwards_wait_for_resources_to_the_client(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    *,
+    method: str,
+    resource: str,
+    submethod: str,
+    wait_for_resources: bool | timedelta | None,
+    forwarded: bool | timedelta,
+) -> None:
+    """With persistence off, a call without a name passes `wait_for_resources` to the client."""
+    apify_client_async_patcher.patch(resource, submethod, return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor:
+        await getattr(Actor, method)('some-id', wait_for_resources=wait_for_resources)
+
+    [(_, kwargs)] = apify_client_async_patcher.calls[resource][submethod]
+    assert kwargs['wait_for_resources'] == forwarded
+
+
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('start', 'actor', id='start'),
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('start_task', 'task', id='start task'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+@pytest.mark.parametrize(
+    'error_type',
+    [
+        pytest.param('actor-memory-limit-exceeded', id='memory limit'),
+        pytest.param('concurrent-runs-limit-exceeded', id='concurrent runs limit'),
+    ],
+)
+async def test_tracked_start_retries_while_the_account_lacks_resources(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    resource: str,
+    error_type: str,
+) -> None:
+    """A tracked start with `wait_for_resources` is retried after the API rejects it for the account limits."""
+    monkeypatch.setattr(_child_runs, '_WAIT_FOR_RESOURCES_COOLDOWN', timedelta(milliseconds=10))
+    rejection = make_resource_limit_error(error_type)
+    start_run = Mock(side_effect=[rejection, rejection, make_run('new-run', 'READY')])
+    apify_client_async_patcher.patch(resource, 'start', replacement_method=start_run)
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    kwargs = {'logger': None} if method == 'call' else {}
+
+    async with Actor:
+        run = await getattr(Actor, method)('some-id', run_name='scrape-eu', wait_for_resources=True, **kwargs)
+        child_runs = Actor.child_runs
+
+    assert run.id == 'new-run'
+    assert start_run.call_count == 3
+    assert all('wait_for_resources' not in call.kwargs for call in start_run.call_args_list)
+    assert child_runs.named['scrape-eu'].record.run_id == 'new-run'
+
+
+@pytest.mark.parametrize(
+    ('wait_for_resources', 'error'),
+    [
+        pytest.param(None, make_resource_limit_error(), id='resources not waited for'),
+        pytest.param(False, make_resource_limit_error(), id='resources not waited for explicitly'),
+        pytest.param(True, RuntimeError('other error'), id='other error'),
+        pytest.param(True, make_resource_limit_error('actor-not-found'), id='other API error'),
+    ],
+)
+async def test_tracked_start_does_not_retry_other_failures(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    *,
+    wait_for_resources: bool | None,
+    error: Exception,
+) -> None:
+    """A tracked start raises right away without `wait_for_resources`, or for an error that is not about resources."""
+    start_run = Mock(side_effect=error)
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+
+    async with Actor:
+        with pytest.raises(type(error)):
+            await Actor.start('some-actor', run_name='scrape-eu', wait_for_resources=wait_for_resources)
+        child_runs = Actor.child_runs
+
+    assert start_run.call_count == 1
+    assert child_runs == ChildRuns(named={}, unnamed={})
+
+
+async def test_tracked_start_stops_waiting_for_resources_after_the_given_time(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A tracked start with a `timedelta` raises the last error once that time passed."""
+    monkeypatch.setattr(_child_runs, '_WAIT_FOR_RESOURCES_COOLDOWN', timedelta(milliseconds=5))
+    start_run = Mock(side_effect=make_resource_limit_error())
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+
+    async with Actor:
+        with pytest.raises(ApifyApiError, match='Not enough resources'):
+            await asyncio.wait_for(
+                Actor.start('some-actor', run_name='scrape-eu', wait_for_resources=timedelta(milliseconds=200)),
+                timeout=5,
+            )
+
+    assert start_run.call_count >= 2
+
+
+async def test_wait_for_resources_does_nothing_for_a_recorded_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A call with `wait_for_resources` under a recorded key returns the recorded run and starts nothing."""
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=Mock(side_effect=make_resource_limit_error()))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'FAILED'))
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run')
+        run = await Actor.start('some-actor', run_name='scrape-eu', wait_for_resources=True)
+
+    assert run.id == 'old-run'
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_start_waiting_for_resources_raises_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """After `ABORTING`, a tracked start that waits for resources raises and starts no run."""
+    start_run = Mock(side_effect=make_resource_limit_error())
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+
+    async with Actor:
+        waiting_start = asyncio.create_task(
+            Actor.start('some-actor', run_name='scrape-eu', abort_with_parent=True, wait_for_resources=True)
+        )
+        await wait_until_blocked(waiting_start)
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        with pytest.raises(RuntimeError, match='the account lacks the resources for the run'):
+            await asyncio.wait_for(waiting_start, timeout=1)
+        await asyncio.wait_for(apify_event_manager.wait_for_all_listeners_to_complete(), timeout=1)
+        with pytest.raises(RuntimeError, match='the account lacks the resources for the run'):
+            await asyncio.wait_for(Actor.start('some-actor', run_name='scrape-us', wait_for_resources=True), timeout=1)
+        child_runs = Actor.child_runs
+
+    assert start_run.call_count == 2
+    assert child_runs == ChildRuns(named={}, unnamed={})
+
+
+async def test_start_waiting_for_resources_holds_its_slot_of_the_limit(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A start that waits for resources counts toward the concurrency limit, so the next start waits for a slot."""
+    start_run = Mock(side_effect=make_resource_limit_error())
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+
+    async with Actor(max_concurrent_child_runs=1):
+        waiting_for_resources = asyncio.create_task(
+            Actor.start('some-actor', run_name='scrape-eu', wait_for_resources=True)
+        )
+        await wait_until_blocked(waiting_for_resources)
+        waiting_for_slot = asyncio.create_task(Actor.start('some-actor', run_name='scrape-us'))
+        await wait_until_blocked(waiting_for_slot)
+        for task in (waiting_for_resources, waiting_for_slot):
+            task.cancel()
+        await asyncio.gather(waiting_for_resources, waiting_for_slot, return_exceptions=True)
+
+    assert start_run.call_count == 1
+
+
+async def test_reboot_does_not_wait_for_a_start_that_waits_for_resources(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A reboot is requested right away when the only start in progress waits for account resources."""
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=Mock(side_effect=make_resource_limit_error()))
+    apify_client_async_patcher.patch('run', 'reboot', return_value=None)
+
+    async with Actor:
+        # Only the check in the method sees the platform, so the storages stay local.
+        monkeypatch.setattr(_ActorType, 'is_at_home', lambda _self: True)
+        Actor.configuration.actor_run_id = 'some-run-id'
+        waiting_start = asyncio.create_task(Actor.start('some-actor', run_name='scrape-eu', wait_for_resources=True))
+        await wait_until_blocked(waiting_start)
+        await asyncio.wait_for(Actor.reboot(custom_after_sleep=timedelta(0)), timeout=1)
+        waiting_start.cancel()
+        await asyncio.gather(waiting_start, return_exceptions=True)
+
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
 
 
 async def test_aborting_event_before_the_registry_is_loaded_waits_for_it() -> None:

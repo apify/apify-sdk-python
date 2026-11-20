@@ -1156,6 +1156,7 @@ class _ActorType:
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
         resurrect_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -1204,6 +1205,12 @@ class _ActorType:
                 after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
                 was aborted by someone else is not resurrected. The value is recorded the same way as
                 `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and a
+                `timedelta` stops after that time and raises the last error. A run that asks for more memory than the
+                account has in total never starts, so `True` retries it forever. It has no effect on a call that returns
+                a recorded run. Once this Actor run is being gracefully aborted, a tracked start that waits for
+                resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run
@@ -1245,7 +1252,9 @@ class _ActorType:
         )
 
         if not is_tracked:
-            return await start_run(run_timeout=self._resolve_run_timeout(timeout))
+            return await start_run(
+                run_timeout=self._resolve_run_timeout(timeout), wait_for_resources=wait_for_resources or False
+            )
 
         _, run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1267,6 +1276,7 @@ class _ActorType:
             timeout=timeout,
             abort_with_parent=abort_with_parent,
             resurrect_with_parent=resurrect_with_parent,
+            wait_for_resources=wait_for_resources,
         )
         return run
 
@@ -1383,6 +1393,7 @@ class _ActorType:
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
         resurrect_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta | None = None,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1434,6 +1445,12 @@ class _ActorType:
                 after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
                 was aborted by someone else is not resurrected. The value is recorded the same way as
                 `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and a
+                `timedelta` stops after that time and raises the last error. A run that asks for more memory than the
+                account has in total never starts, so `True` retries it forever. It has no effect on a call that returns
+                a recorded run. Once this Actor run is being gracefully aborted, a tracked start that waits for
+                resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run.
@@ -1476,6 +1493,7 @@ class _ActorType:
                 webhooks=to_client_representations(webhooks),
                 wait_duration=wait,
                 logger=logger,
+                wait_for_resources=wait_for_resources or False,
             )
         else:
             key, started_run, is_new = await self._find_or_start_child_run(
@@ -1509,6 +1527,7 @@ class _ActorType:
                 timeout=timeout,
                 abort_with_parent=abort_with_parent,
                 resurrect_with_parent=resurrect_with_parent,
+                wait_for_resources=wait_for_resources,
             )
             # An earlier process of this Actor run already streamed the start of the log of a recorded run.
             run = await self._wait_for_child_run(
@@ -1534,6 +1553,7 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None,
         abort_with_parent: bool | None,
         resurrect_with_parent: bool | None,
+        wait_for_resources: bool | timedelta | None,
     ) -> tuple[ChildRunKey, Run, bool]:
         checksum = checksum_request(
             actor_id=actor_id,
@@ -1559,6 +1579,7 @@ class _ActorType:
             start_run=start_run_with_timeout,
             abort_with_parent=abort_with_parent,
             resurrect_with_parent=resurrect_with_parent,
+            wait_for_resources=wait_for_resources or False,
         )
         return key, run, is_new
 
@@ -1627,6 +1648,7 @@ class _ActorType:
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
         resurrect_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1675,6 +1697,12 @@ class _ActorType:
                 after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
                 was aborted by someone else is not resurrected. The value is recorded the same way as
                 `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and a
+                `timedelta` stops after that time and raises the last error. A run that asks for more memory than the
+                account has in total never starts, so `True` retries it forever. It has no effect on a call that returns
+                a recorded run. Once this Actor run is being gracefully aborted, a tracked start that waits for
+                resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run.
@@ -1713,7 +1741,9 @@ class _ActorType:
         )
 
         if not is_tracked:
-            return await start_run(run_timeout=self._resolve_run_timeout(timeout))
+            return await start_run(
+                run_timeout=self._resolve_run_timeout(timeout), wait_for_resources=wait_for_resources or False
+            )
 
         _, run, _ = await self._find_or_start_child_run(
             run_name,
@@ -1733,6 +1763,7 @@ class _ActorType:
             timeout=timeout,
             abort_with_parent=abort_with_parent,
             resurrect_with_parent=resurrect_with_parent,
+            wait_for_resources=wait_for_resources,
         )
         return run
 
@@ -1754,6 +1785,7 @@ class _ActorType:
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
         resurrect_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1802,6 +1834,12 @@ class _ActorType:
                 after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
                 was aborted by someone else is not resurrected. The value is recorded the same way as
                 `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and a
+                `timedelta` stops after that time and raises the last error. A run that asks for more memory than the
+                account has in total never starts, so `True` retries it forever. It has no effect on a call that returns
+                a recorded run. Once this Actor run is being gracefully aborted, a tracked start that waits for
+                resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run.
@@ -1841,6 +1879,7 @@ class _ActorType:
                 run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
                 wait_duration=wait,
+                wait_for_resources=wait_for_resources or False,
             )
         else:
             key, started_run, _ = await self._find_or_start_child_run(
@@ -1870,6 +1909,7 @@ class _ActorType:
                 timeout=timeout,
                 abort_with_parent=abort_with_parent,
                 resurrect_with_parent=resurrect_with_parent,
+                wait_for_resources=wait_for_resources,
             )
             run = await self._wait_for_child_run(
                 key, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
