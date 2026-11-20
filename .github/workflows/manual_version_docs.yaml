@@ -151,6 +151,9 @@ jobs:
     name: Commit versioned docs
     needs: [version_docs]
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      deployment: false
     permissions:
       contents: read
 
