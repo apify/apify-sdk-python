@@ -1496,8 +1496,17 @@ class _ActorType:
             return await run_client.wait_for_finish(wait_duration=wait)
 
         to_logger = None if logger == 'default' else logger
-        status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
-        streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
+        try:
+            status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
+            streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
+        except Exception:
+            # The run is already started, so a failed redirect must not hide it from the caller.
+            self.log.warning(
+                'Failed to redirect the log of the run, waiting for the run without it',
+                exc_info=True,
+                extra={'run_id': run_client.resource_id},
+            )
+            return await run_client.wait_for_finish(wait_duration=wait)
 
         async with status_redirector, streamed_log:
             return await run_client.wait_for_finish(wait_duration=wait)

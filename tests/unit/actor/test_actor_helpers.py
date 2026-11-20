@@ -202,6 +202,24 @@ async def test_call_actor_task_without_logger_only_waits(
     assert kwargs == {'wait_duration': timedelta(seconds=5)}
 
 
+async def test_call_actor_task_waits_for_the_run_when_the_log_redirect_fails(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    run_waiting: SimpleNamespace,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`Actor.call_task` still waits for the started run when the redirect of its log cannot be set up."""
+    run_waiting.get_streamed_log.side_effect = RuntimeError('API is down')
+    apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        run = await Actor.call_task('some-task-id')
+
+    assert run is run_waiting.finished_run
+    assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
+    assert 'Failed to redirect the log of the run' in caplog.text
+
+
 async def test_start_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
     """`Actor.start_task` starts the task through the client's `task.start` and returns the run."""
     apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
