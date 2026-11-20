@@ -17,7 +17,7 @@ from apify_client.errors import NotFoundError
 from crawlee import service_locator
 from crawlee.events import Event, EventAbortingData
 
-from apify import Actor, Configuration, Webhook, _child_runs
+from apify import Actor, ApifyEnvVars, Configuration, Webhook, _child_runs
 from apify._actor import _ActorType
 from apify._child_runs import (
     CHILD_RUNS_KEY,
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from apify.storages import KeyValueStore
 
 
-pytestmark = pytest.mark.filterwarnings('ignore:Named child runs:UserWarning')
+pytestmark = pytest.mark.filterwarnings('ignore:Tracked child runs:UserWarning')
 
 
 def make_run(run_id: str, status: str) -> Run:
@@ -100,6 +100,12 @@ def apify_event_manager() -> ApifyEventManager:
     return event_manager
 
 
+@pytest.fixture
+def persist_unnamed_child_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn on `Configuration.persist_unnamed_child_runs` for the Actor of the test."""
+    monkeypatch.setenv(ApifyEnvVars.PERSIST_UNNAMED_CHILD_RUNS, '1')
+
+
 async def record_child_run(
     name: str,
     run_id: str,
@@ -132,15 +138,218 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
 
 
 async def test_unnamed_start_is_not_recorded(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A start without a name leaves the registry untouched."""
+    """With persistence off, a start without a name leaves the registry untouched and always starts a new run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
+        await Actor.start('some-actor')
         await Actor.start('some-actor')
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert stored is None
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 2
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_unnamed_start_is_recorded_with_persistence_on(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """With persistence on, a start without a name is recorded under the first 16 characters of its checksum."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        run = await Actor.start('some-actor', {'page': 1})
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    record = stored_record('new-run', 'READY', run_name=None, run_input={'page': 1})
+    assert run.id == 'new-run'
+    assert stored == stored_registry(unnamed={record['checksum'][:16]: record})
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_identical_unnamed_starts_share_one_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """With persistence on, an identical start without a name returns the recorded run, and a different one does not."""
+    start_run = Mock(side_effect=[make_run('first-run', 'READY'), make_run('second-run', 'READY')])
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('first-run', 'FAILED'))
+
+    async with Actor:
+        first = await Actor.start('some-actor', {'page': 1}, memory_mbytes=512)
+        repeated = await Actor.start('some-actor', {'page': 1}, memory_mbytes=512)
+        other_input = await Actor.start('some-actor', {'page': 2}, memory_mbytes=512)
+        unnamed = Actor.child_runs.unnamed
+
+    assert first.id == 'first-run'
+    assert repeated.id == 'first-run'
+    assert repeated.status == 'FAILED'
+    assert other_input.id == 'second-run'
+    assert start_run.call_count == 2
+    assert {child_run.record.run_id for child_run in unnamed.values()} == {'first-run', 'second-run'}
+    assert all(child_run.record.run_name is None for child_run in unnamed.values())
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_unnamed_start_reuses_run_recorded_before_init(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """With persistence on, a start without a name returns the run an earlier process recorded for the same request."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
+    record = stored_record('old-run', 'RUNNING', run_name=None, run_input={'page': 1})
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry(unnamed={record['checksum'][:16]: record}))
+
+    async with Actor:
+        run = await Actor.start('some-actor', {'page': 1})
+
+    assert run.id == 'old-run'
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_named_and_unnamed_runs_of_one_request_are_separate(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A named start and a start without a name with the same request are recorded as two runs."""
+    start_run = Mock(side_effect=[make_run('unnamed-run', 'READY'), make_run('named-run', 'READY')])
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+
+    async with Actor:
+        await Actor.start('some-actor')
+        key = checksum_request(actor_id='some-actor')[:16]
+        await Actor.start('some-actor', run_name=key)
+        child_runs = Actor.child_runs
+
+    assert child_runs.unnamed[key].client.resource_id == 'unnamed-run'
+    assert child_runs.named[key].client.resource_id == 'named-run'
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_unnamed_start_rejects_key_taken_by_another_request(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A start without a name whose key holds a run of another request raises and starts no run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    key = checksum_request(actor_id='some-actor')[:16]
+    record = stored_record('old-run', 'RUNNING', run_name=None, actor_id='other-actor')
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry(unnamed={key: record}))
+        await Actor._child_run_registry.load()
+        with pytest.raises(ValueError, match='is taken by a run of a different Actor'):
+            await Actor.start('some-actor')
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_unnamed_call_is_recorded_with_persistence_on(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """With persistence on, a call without a name starts the run, waits for it, and records its final status."""
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch(resource, 'call', return_value=make_run('other-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
+    kwargs = {'logger': None} if method == 'call' else {}
+
+    async with Actor:
+        run = await getattr(Actor, method)('some-id', **kwargs)
+        [child_run] = Actor.child_runs.unnamed.values()
+
+    assert run.id == 'new-run'
+    assert run.status == 'SUCCEEDED'
+    assert child_run.record.status == 'SUCCEEDED'
+    assert apify_client_async_patcher.calls[resource]['call'] == []
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_unnamed_start_task_is_recorded_with_persistence_on(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """With persistence on, a task start without a name is recorded and reused by an identical start."""
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor:
+        await Actor.start_task('some-task', {'page': 1})
+        repeated = await Actor.start_task('some-task', {'page': 1})
+        unnamed = Actor.child_runs.unnamed
+
+    key = checksum_request(task_id='some-task', run_input={'page': 1})[:16]
+    assert repeated.status == 'RUNNING'
+    assert unnamed.keys() == {key}
+    assert len(apify_client_async_patcher.calls['task']['start']) == 1
+
+
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_unnamed_call_uses_the_client_call_with_persistence_off(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """With persistence off, a call without a name goes to the client's `call` and records nothing."""
+    apify_client_async_patcher.patch(resource, 'call', return_value=make_run('new-run', 'SUCCEEDED'))
+
+    async with Actor:
+        run = await getattr(Actor, method)('some-id')
+        child_runs = Actor.child_runs
+
+    assert run.id == 'new-run'
+    assert len(apify_client_async_patcher.calls[resource]['call']) == 1
+    assert child_runs == ChildRuns(named={}, unnamed={})
+
+
+async def test_unnamed_start_accepts_any_input_with_persistence_off(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """With persistence off, a start without a name passes an input that is not JSON to the client."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await Actor.start('some-actor', 'plain text', content_type='text/plain')
+
+    [(_, kwargs)] = apify_client_async_patcher.calls['actor']['start']
+    assert kwargs['run_input'] == 'plain text'
+    assert kwargs['content_type'] == 'text/plain'
+
+
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_unnamed_start_rejects_input_not_sent_as_json_with_persistence_on(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """With persistence on, a start without a name raises a `TypeError` for an input that is not sent as JSON."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        with pytest.raises(TypeError, match='needs a JSON input'):
+            await Actor.start('some-actor', b'bytes')
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+def test_persist_unnamed_child_runs_is_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`Configuration.persist_unnamed_child_runs` is off unless the environment variable turns it on."""
+    assert Configuration().persist_unnamed_child_runs is False
+
+    monkeypatch.setenv('APIFY_PERSIST_UNNAMED_CHILD_RUNS', 'true')
+
+    assert Configuration().persist_unnamed_child_runs is True
 
 
 @pytest.mark.parametrize(
@@ -1385,7 +1594,7 @@ async def test_removing_all_aborting_listeners_keeps_aborting_child_runs(
 async def test_named_run_warns_experimental(
     apify_client_async_patcher: ApifyClientAsyncPatcher, method_name: str
 ) -> None:
-    """A run started with `run_name` warns that named child runs are experimental, pointing at the caller."""
+    """A run started with `run_name` warns that tracked child runs are experimental, pointing at the caller."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
@@ -1401,7 +1610,7 @@ async def test_named_run_warns_experimental(
 
 
 async def test_unnamed_start_does_not_warn_experimental(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A run started without `run_name` emits no experimental warning."""
+    """With persistence off, a run started without `run_name` emits no experimental warning."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
@@ -1410,8 +1619,22 @@ async def test_unnamed_start_does_not_warn_experimental(apify_client_async_patch
             await Actor.start('some-actor')
 
 
+@pytest.mark.usefixtures('persist_unnamed_child_runs')
+async def test_unnamed_start_warns_experimental_with_persistence_on(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """With persistence on, a run started without `run_name` warns that tracked child runs are experimental."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        with pytest.warns(UserWarning, match='experimental') as warnings:
+            await Actor.start('some-actor')
+
+    assert [warning.filename for warning in warnings] == [__file__]
+
+
 async def test_child_runs_warns_experimental() -> None:
-    """Accessing `Actor.child_runs` warns that named child runs are experimental, pointing at the caller."""
+    """Accessing `Actor.child_runs` warns that tracked child runs are experimental, pointing at the caller."""
     async with Actor:
         with pytest.warns(UserWarning, match='experimental') as warnings:
             _ = Actor.child_runs

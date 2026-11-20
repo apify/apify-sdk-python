@@ -44,6 +44,10 @@ _NOT_FOUND_GRACE_SECS = 3
 _NOT_FOUND_RETRY_INTERVAL_SECS = 0.25
 
 
+_UNNAMED_KEY_LENGTH = 16
+"""Number of leading hex characters of the checksum that key a run started without a `run_name`."""
+
+
 class ChildRunKey(NamedTuple):
     """Where a child run is recorded in the child run registry."""
 
@@ -52,6 +56,13 @@ class ChildRunKey(NamedTuple):
 
     key: str
     """Key of the run in that map."""
+
+    @classmethod
+    def from_request(cls, run_name: str | None, checksum: str) -> ChildRunKey:
+        """Return the key of a start: its `run_name`, or the start of its checksum when it has no name."""
+        if run_name is not None:
+            return cls('named', run_name)
+        return cls('unnamed', checksum[:_UNNAMED_KEY_LENGTH])
 
 
 @docs_group('Actor')
@@ -170,13 +181,13 @@ def _to_json_input(run_input: Any, content_type: str | None) -> Any:
     """
     if content_type and 'application/json' not in content_type:
         raise TypeError(
-            f'A named child run needs a JSON input, but the content type is {content_type!r}. Start the run without '
-            'a `run_name`, or through the Apify API client.'
+            f'A tracked child run needs a JSON input, but the content type is {content_type!r}. Start the run without '
+            'a `run_name` and with `persist_unnamed_child_runs` off, or through the Apify API client.'
         )
     if isinstance(run_input, (str, bytes, bytearray)) or StreamedRequestBody.is_streamable(run_input):
         raise TypeError(
-            f'A named child run needs a JSON input, but the input is a {type(run_input).__name__}. Start the run '
-            'without a `run_name`, or through the Apify API client.'
+            f'A tracked child run needs a JSON input, but the input is a {type(run_input).__name__}. Start the run '
+            'without a `run_name` and with `persist_unnamed_child_runs` off, or through the Apify API client.'
         )
     serialized = json.dumps(run_input, ensure_ascii=False, allow_nan=False, default=str)
     return json.loads(serialized)
@@ -332,6 +343,11 @@ class ChildRunRegistry:
 
             if record is not None:
                 if record.checksum != checksum:
+                    if key.kind == 'unnamed':
+                        raise ValueError(
+                            f'The key "{key.key}" of this child run is taken by a run of a different Actor, task, '
+                            'input or run options. Pass a `run_name` to start it.'
+                        )
                     raise ValueError(
                         f'The run name "{key.key}" was already used for a different Actor, task, input or run options. '
                         'Use a unique `run_name` for each child run.'
