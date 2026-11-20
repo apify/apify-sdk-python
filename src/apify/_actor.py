@@ -1695,6 +1695,8 @@ class _ActorType:
                 memory_mbytes=memory_mbytes,
                 run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
+                # A request that times out is retried, and a retried start request can start a second run.
+                timeout='no_timeout',
             )
             run = await self._wait_for_run(client.run(started_run.id), wait=wait, logger=logger, from_start=True)
         else:

@@ -149,8 +149,9 @@ async def test_call_actor_task(
         run = await Actor.call_task(task_id)
 
     assert run is run_waiting.finished_run
-    assert len(apify_client_async_patcher.calls['task']['start']) == 1
-    assert apify_client_async_patcher.calls['task']['start'][0][0][0].resource_id == task_id
+    [(start_args, start_kwargs)] = apify_client_async_patcher.calls['task']['start']
+    assert start_args[0].resource_id == task_id
+    assert start_kwargs['timeout'] == 'no_timeout'
     assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
 
 
