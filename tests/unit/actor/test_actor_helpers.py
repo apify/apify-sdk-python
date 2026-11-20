@@ -70,9 +70,10 @@ def fake_actor_run() -> Run:
 
 
 @pytest.fixture(autouse=True)
-def run_waiting(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> SimpleNamespace:
+async def run_waiting(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> SimpleNamespace:
     """Make waiting for a run and redirecting its log work without the API, as `Actor.call_task` does both.
 
+    The fixture is async, since the patcher needs the running event loop to build the awaitable return values.
     Returns the mocks that stand in for `RunClientAsync.get_streamed_log` and `get_status_message_watcher`.
     """
     mocks = SimpleNamespace(
