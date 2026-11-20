@@ -5,8 +5,9 @@ import logging
 import warnings
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -68,6 +69,27 @@ def fake_actor_run() -> Run:
     )
 
 
+@pytest.fixture(autouse=True)
+async def run_waiting(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> SimpleNamespace:
+    """Make waiting for a run and redirecting its log work without the API, as `Actor.call_task` does both.
+
+    The fixture is async, since the patcher needs the running event loop to build the awaitable return values.
+    Returns the run that the wait ends with, and the mocks that stand in for `RunClientAsync.get_streamed_log` and
+    `get_status_message_watcher`.
+    """
+    mocks = SimpleNamespace(
+        finished_run=fake_actor_run.model_copy(update={'status': 'SUCCEEDED'}),
+        get_streamed_log=Mock(return_value=MagicMock()),
+        get_status_message_watcher=Mock(return_value=MagicMock()),
+    )
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=mocks.finished_run)
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=mocks.get_streamed_log)
+    apify_client_async_patcher.patch(
+        'run', 'get_status_message_watcher', replacement_method=mocks.get_status_message_watcher
+    )
+    return mocks
+
+
 async def test_new_client_config_creation(monkeypatch: pytest.MonkeyPatch) -> None:
     token = 'my-token'
     monkeypatch.setenv(ApifyEnvVars.TOKEN, token)
@@ -117,15 +139,85 @@ async def test_call_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, f
     assert apify_client_async_patcher.calls['actor']['call'][0][0][0].resource_id == actor_id
 
 
-async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
-    apify_client_async_patcher.patch('task', 'call', return_value=fake_actor_run)
+async def test_call_actor_task(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run, run_waiting: SimpleNamespace
+) -> None:
+    apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
     task_id = 'some-task-id'
 
     async with Actor:
-        await Actor.call_task(task_id)
+        run = await Actor.call_task(task_id)
 
-    assert len(apify_client_async_patcher.calls['task']['call']) == 1
-    assert apify_client_async_patcher.calls['task']['call'][0][0][0].resource_id == task_id
+    assert run is run_waiting.finished_run
+    [(start_args, start_kwargs)] = apify_client_async_patcher.calls['task']['start']
+    assert start_args[0].resource_id == task_id
+    assert start_kwargs['timeout'] == 'no_timeout'
+    assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
+
+
+async def test_call_actor_task_streams_run_log_by_default(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run, run_waiting: SimpleNamespace
+) -> None:
+    """`Actor.call_task` redirects the log and the status messages of the run to the default logger."""
+    apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.call_task('some-task-id')
+
+    assert run_waiting.get_streamed_log.call_args.kwargs == {'to_logger': None, 'from_start': True}
+    assert run_waiting.get_status_message_watcher.call_args.kwargs == {'to_logger': None}
+    run_waiting.get_streamed_log.return_value.__aenter__.assert_awaited_once()
+    run_waiting.get_status_message_watcher.return_value.__aenter__.assert_awaited_once()
+    [(args, _)] = apify_client_async_patcher.calls['run']['wait_for_finish']
+    assert args[0].resource_id == fake_actor_run.id
+
+
+async def test_call_actor_task_streams_run_log_to_custom_logger(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run, run_waiting: SimpleNamespace
+) -> None:
+    """`Actor.call_task` redirects the log of the run to the logger it is given."""
+    custom_logger = logging.getLogger('custom')
+    apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        await Actor.call_task('some-task-id', logger=custom_logger)
+
+    assert run_waiting.get_streamed_log.call_args.kwargs['to_logger'] is custom_logger
+    assert run_waiting.get_status_message_watcher.call_args.kwargs['to_logger'] is custom_logger
+
+
+async def test_call_actor_task_without_logger_only_waits(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run, run_waiting: SimpleNamespace
+) -> None:
+    """`Actor.call_task` with `logger=None` waits for the run without redirecting its log or status messages."""
+    apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        run = await Actor.call_task('some-task-id', wait=timedelta(seconds=5), logger=None)
+
+    assert run is run_waiting.finished_run
+    run_waiting.get_streamed_log.assert_not_called()
+    run_waiting.get_status_message_watcher.assert_not_called()
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['wait_for_finish']
+    assert kwargs == {'wait_duration': timedelta(seconds=5)}
+
+
+async def test_call_actor_task_waits_for_the_run_when_the_log_redirect_fails(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
+    run_waiting: SimpleNamespace,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`Actor.call_task` still waits for the started run when the redirect of its log cannot be set up."""
+    run_waiting.get_streamed_log.side_effect = RuntimeError('API is down')
+    apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
+
+    async with Actor:
+        run = await Actor.call_task('some-task-id')
+
+    assert run is run_waiting.finished_run
+    assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
+    assert 'Failed to redirect the log of the run' in caplog.text
 
 
 async def test_start_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
@@ -160,7 +252,7 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
         pytest.param('actor', 'start', 'start', id='start'),
         pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'call', 'call_task', id='call_task'),
+        pytest.param('task', 'start', 'call_task', id='call_task'),
     ],
 )
 async def test_max_items_forwarded_to_client(
@@ -186,7 +278,7 @@ async def test_max_items_forwarded_to_client(
         pytest.param('actor', 'start', 'start', id='start'),
         pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'call', 'call_task', id='call_task'),
+        pytest.param('task', 'start', 'call_task', id='call_task'),
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
     ],
 )
@@ -214,7 +306,7 @@ async def test_max_items_warns_deprecated(
         pytest.param('actor', 'start', 'start', id='start'),
         pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'call', 'call_task', id='call_task'),
+        pytest.param('task', 'start', 'call_task', id='call_task'),
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
     ],
 )
@@ -240,7 +332,7 @@ async def test_no_max_items_warning_without_max_items(
         pytest.param('actor', 'start', 'start', id='start'),
         pytest.param('actor', 'call', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
-        pytest.param('task', 'call', 'call_task', id='call_task'),
+        pytest.param('task', 'start', 'call_task', id='call_task'),
     ],
 )
 async def test_max_total_charge_usd_forwarded_to_client(
@@ -499,7 +591,7 @@ _ACTOR_REMOTE_METHODS = [
     pytest.param('actor', 'start', 'start', 'some-actor-id', id='start'),
     pytest.param('actor', 'call', 'call', 'some-actor-id', id='call'),
     pytest.param('task', 'start', 'start_task', 'some-task-id', id='start_task'),
-    pytest.param('task', 'call', 'call_task', 'some-task-id', id='call_task'),
+    pytest.param('task', 'start', 'call_task', 'some-task-id', id='call_task'),
 ]
 
 
@@ -640,7 +732,7 @@ async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
     ('client_method', 'actor_method_name'),
     [
         pytest.param('start', 'start_task', id='start_task'),
-        pytest.param('call', 'call_task', id='call_task'),
+        pytest.param('start', 'call_task', id='call_task'),
     ],
 )
 async def test_actor_task_methods_skipped_when_no_inherited_time_remains(
