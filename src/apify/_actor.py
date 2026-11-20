@@ -1477,19 +1477,30 @@ class _ActorType:
         if run.status == 'SUCCEEDED':
             return run
 
-        if not logger:
-            finished_run = await run_client.wait_for_finish(wait_duration=wait)
-        else:
-            to_logger = None if logger == 'default' else logger
-            status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
-            streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
-
-            async with status_redirector, streamed_log:
-                finished_run = await run_client.wait_for_finish(wait_duration=wait)
+        finished_run = await self._wait_for_run(run_client, wait=wait, logger=logger, from_start=from_start)
 
         if finished_run is not None:
             await self._child_run_registry.update(name, finished_run)
         return finished_run
+
+    async def _wait_for_run(
+        self,
+        run_client: RunClientAsync,
+        *,
+        wait: timedelta | None,
+        logger: logging.Logger | Literal['default'] | None,
+        from_start: bool,
+    ) -> Run | None:
+        """Wait for a run to finish, and redirect its log and status messages to `logger` meanwhile."""
+        if not logger:
+            return await run_client.wait_for_finish(wait_duration=wait)
+
+        to_logger = None if logger == 'default' else logger
+        status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
+        streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
+
+        async with status_redirector, streamed_log:
+            return await run_client.wait_for_finish(wait_duration=wait)
 
     @_ensure_context
     async def start_task(
@@ -1608,6 +1619,7 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
+        logger: logging.Logger | Literal['default'] | None = 'default',
         token: str | None = None,
         run_name: str | None = None,
         abort_with_parent: bool = False,
@@ -1640,6 +1652,9 @@ class _ActorType:
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
             wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
+            logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
+                default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
+                will redirect logs to the provided logger.
             run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
                 default key-value store, so after a migration or resurrection of this Actor the same call reattaches
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
@@ -1670,7 +1685,8 @@ class _ActorType:
         task_client = client.task(task_id)
 
         if run_name is None:
-            run = await task_client.call(
+            # The client's `call` cannot redirect the log of the run, so the run is started and waited for here.
+            started_run = await task_client.start(
                 task_input=task_input,
                 build=build,
                 max_items=max_items,
@@ -1679,10 +1695,10 @@ class _ActorType:
                 memory_mbytes=memory_mbytes,
                 run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
-                wait_duration=wait,
             )
+            run = await self._wait_for_run(client.run(started_run.id), wait=wait, logger=logger, from_start=True)
         else:
-            started_run, _ = await self._find_or_start_child_run(
+            started_run, is_new = await self._find_or_start_child_run(
                 run_name,
                 task_id=task_id,
                 run_input=task_input,
@@ -1706,8 +1722,9 @@ class _ActorType:
                 timeout=timeout,
                 abort_with_parent=abort_with_parent,
             )
+            # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
             run = await self._wait_for_child_run(
-                run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
+                run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
             )
 
         if run is None:

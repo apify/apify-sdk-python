@@ -413,7 +413,7 @@ async def test_named_call_task_records_run_in_kvs(apify_client_async_patcher: Ap
     apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
 
     async with Actor:
-        run = await Actor.call_task('some-task', run_name='scrape-eu')
+        run = await Actor.call_task('some-task', run_name='scrape-eu', logger=None)
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
@@ -430,11 +430,40 @@ async def test_named_call_task_waits_for_reattached_run(apify_client_async_patch
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
-        run = await Actor.call_task('some-task', run_name='scrape-eu')
+        run = await Actor.call_task('some-task', run_name='scrape-eu', logger=None)
 
     assert run.id == 'old-run'
     assert run.status == 'SUCCEEDED'
     assert apify_client_async_patcher.calls['task']['start'] == []
+
+
+@pytest.mark.parametrize(
+    ('is_recorded', 'from_start'),
+    [
+        pytest.param(False, True, id='new run'),
+        pytest.param(True, False, id='reattached run'),
+    ],
+)
+async def test_named_call_task_streams_run_log(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, *, is_recorded: bool, from_start: bool
+) -> None:
+    """A named task call streams the log of a new run from the start, and only the new lines of a reattached run."""
+    streamed_log = MagicMock()
+    get_streamed_log = Mock(return_value=streamed_log)
+    apify_client_async_patcher.patch('task', 'start', return_value=make_run('some-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('some-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('some-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
+
+    async with Actor:
+        if is_recorded:
+            await record_child_run('scrape-eu', 'some-run', actor_id=None, task_id='some-task')
+        run = await Actor.call_task('some-task', run_name='scrape-eu')
+
+    assert run.status == 'SUCCEEDED'
+    assert get_streamed_log.call_args.kwargs['from_start'] is from_start
+    streamed_log.__aenter__.assert_awaited_once()
 
 
 async def test_named_call_task_resurrects_recorded_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -446,7 +475,7 @@ async def test_named_call_task_resurrects_recorded_run(apify_client_async_patche
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
-        run = await Actor.call_task('some-task', run_name='scrape-eu', memory_mbytes=2048)
+        run = await Actor.call_task('some-task', run_name='scrape-eu', memory_mbytes=2048, logger=None)
 
     assert run.id == 'old-run'
     assert apify_client_async_patcher.calls['task']['start'] == []
@@ -464,7 +493,7 @@ async def test_named_call_task_rejects_name_recorded_for_actor(
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
         with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
-            await Actor.call_task('some-task', run_name='scrape-eu')
+            await Actor.call_task('some-task', run_name='scrape-eu', logger=None)
 
     assert apify_client_async_patcher.calls['task']['start'] == []
 
@@ -478,7 +507,7 @@ async def test_named_runs_forward_max_items_to_start(apify_client_async_patcher:
     async with Actor:
         await Actor.start('some-actor', run_name='started', max_items=10)
         await Actor.call('some-actor', run_name='called', max_items=20, logger=None)
-        await Actor.call_task('some-task', run_name='task-called', max_items=30)
+        await Actor.call_task('some-task', run_name='task-called', max_items=30, logger=None)
 
     assert [kwargs['max_items'] for _, kwargs in apify_client_async_patcher.calls['actor']['start']] == [10, 20]
     [(_, task_kwargs)] = apify_client_async_patcher.calls['task']['start']
@@ -838,7 +867,7 @@ async def test_named_call_task_records_abort_with_parent(
     apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'SUCCEEDED'))
 
     async with Actor:
-        await Actor.call_task('some-task', run_name='scrape-eu', abort_with_parent=True)
+        await Actor.call_task('some-task', run_name='scrape-eu', abort_with_parent=True, logger=None)
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
@@ -1198,7 +1227,7 @@ async def test_named_run_warns_experimental(
     async with Actor:
         method = getattr(Actor, method_name)
         target = 'some-task' if method_name.endswith('_task') else 'some-actor'
-        kwargs = {'logger': None} if method_name == 'call' else {}
+        kwargs = {'logger': None} if method_name in {'call', 'call_task'} else {}
         with pytest.warns(UserWarning, match='experimental') as warnings:
             await method(target, run_name='scrape-eu', **kwargs)
 
