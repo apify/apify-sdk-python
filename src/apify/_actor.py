@@ -183,6 +183,9 @@ class _ActorType:
 
         self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
 
+        self._runs_with_redirected_log: set[str | None] = set()
+        """IDs of the runs whose log a call of this Actor redirects right now."""
+
         self._internal_listeners = ExitStack()
         """Removes the listeners the Actor registered on the event manager, when the Actor leaves its context."""
 
@@ -1492,24 +1495,31 @@ class _ActorType:
         from_start: bool,
     ) -> Run | None:
         """Wait for a run to finish, and redirect its log and status messages to `logger` meanwhile."""
-        if not logger:
+        run_id = run_client.resource_id
+        # A second redirect of the same run, e.g. from a concurrent call under the same `run_name`, would repeat
+        # each line of its log.
+        if not logger or run_id in self._runs_with_redirected_log:
             return await run_client.wait_for_finish(wait_duration=wait)
 
-        to_logger = None if logger == 'default' else logger
+        self._runs_with_redirected_log.add(run_id)
         try:
-            status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
-            streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
-        except Exception:
-            # The run is already started, so a failed redirect must not hide it from the caller.
-            self.log.warning(
-                'Failed to redirect the log of the run, waiting for the run without it',
-                exc_info=True,
-                extra={'run_id': run_client.resource_id},
-            )
-            return await run_client.wait_for_finish(wait_duration=wait)
+            to_logger = None if logger == 'default' else logger
+            try:
+                status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
+                streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
+            except Exception:
+                # The run is already started, so a failed redirect must not hide it from the caller.
+                self.log.warning(
+                    'Failed to redirect the log of the run, waiting for the run without it',
+                    exc_info=True,
+                    extra={'run_id': run_id},
+                )
+                return await run_client.wait_for_finish(wait_duration=wait)
 
-        async with status_redirector, streamed_log:
-            return await run_client.wait_for_finish(wait_duration=wait)
+            async with status_redirector, streamed_log:
+                return await run_client.wait_for_finish(wait_duration=wait)
+        finally:
+            self._runs_with_redirected_log.discard(run_id)
 
     @_ensure_context
     async def start_task(

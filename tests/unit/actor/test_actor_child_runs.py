@@ -466,6 +466,38 @@ async def test_named_call_task_streams_run_log(
     streamed_log.__aenter__.assert_awaited_once()
 
 
+@pytest.mark.parametrize(
+    ('method', 'resource'),
+    [
+        pytest.param('call', 'actor', id='call'),
+        pytest.param('call_task', 'task', id='call task'),
+    ],
+)
+async def test_concurrent_named_calls_redirect_the_run_log_once(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, method: str, resource: str
+) -> None:
+    """Concurrent calls under one name share one run, and only one of them redirects its log."""
+    get_streamed_log = Mock(return_value=MagicMock())
+
+    async def wait_for_finish(*_args: Any, **_kwargs: Any) -> Run:
+        await asyncio.sleep(0.05)
+        return make_run('new-run', 'SUCCEEDED')
+
+    apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', replacement_method=wait_for_finish)
+    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
+
+    async with Actor:
+        calls = [getattr(Actor, method)('some-id', run_name='scrape-eu') for _ in range(3)]
+        runs = await asyncio.gather(*calls)
+
+    assert {run.status for run in runs} == {'SUCCEEDED'}
+    assert len(apify_client_async_patcher.calls[resource]['start']) == 1
+    assert get_streamed_log.call_count == 1
+
+
 async def test_named_call_task_resurrects_recorded_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
     """A named task call resurrects an aborted run with its own options."""
     apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
