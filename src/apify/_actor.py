@@ -85,8 +85,8 @@ _ensure_context = ensure_context('_active')
 
 def _warn_child_runs_experimental() -> None:
     warnings.warn(
-        'Tracked child runs (`run_name`, `persist_unnamed_child_runs`, `abort_with_parent` and `Actor.child_runs`) '
-        'are experimental. Their behavior and interface may change in future versions.',
+        'Tracked child runs (`run_name`, `persist_unnamed_child_runs`, `abort_with_parent`, `resurrect_with_parent` '
+        'and `Actor.child_runs`) are experimental. Their behavior and interface may change in future versions.',
         UserWarning,
         # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
         stacklevel=4,
@@ -188,7 +188,7 @@ class _ActorType:
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
 
-        self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
+        self._child_run_registry = ChildRunRegistry(self.open_key_value_store, is_parent_aborting=self._is_run_aborting)
 
         self._internal_listeners = ExitStack()
         """Removes the listeners the Actor registered on the event manager, when the Actor leaves its context."""
@@ -1131,6 +1131,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        resurrect_with_parent: bool | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -1174,6 +1175,11 @@ class _ActorType:
                 `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
                 would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
                 run leaves the child running.
+            resurrect_with_parent: Whether this call resurrects the child run after it was aborted with this Actor run
+                through `abort_with_parent`. The call resurrects the run in a process of this Actor run that started
+                after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
+                was aborted by someone else is not resurrected. The value is recorded the same way as
+                `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
 
         Returns:
             Info about the started Actor run
@@ -1183,6 +1189,11 @@ class _ActorType:
             raise ValueError(
                 '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
                 'child runs are not tracked.'
+            )
+        if resurrect_with_parent and not is_tracked:
+            raise ValueError(
+                '`resurrect_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since '
+                'other child runs are not tracked.'
             )
 
         if is_tracked:
@@ -1229,6 +1240,7 @@ class _ActorType:
                 webhooks=to_client_representations(webhooks),
             ),
             abort_with_parent=abort_with_parent,
+            resurrect_with_parent=resurrect_with_parent,
         )
         return run
 
@@ -1344,6 +1356,7 @@ class _ActorType:
         logger: logging.Logger | Literal['default'] | None = 'default',
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        resurrect_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1390,6 +1403,11 @@ class _ActorType:
                 `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
                 would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
                 run leaves the child running.
+            resurrect_with_parent: Whether this call resurrects the child run after it was aborted with this Actor run
+                through `abort_with_parent`. The call resurrects the run in a process of this Actor run that started
+                after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
+                was aborted by someone else is not resurrected. The value is recorded the same way as
+                `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
 
         Returns:
             Info about the started Actor run.
@@ -1399,6 +1417,11 @@ class _ActorType:
             raise ValueError(
                 '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
                 'child runs are not tracked.'
+            )
+        if resurrect_with_parent and not is_tracked:
+            raise ValueError(
+                '`resurrect_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since '
+                'other child runs are not tracked.'
             )
 
         if is_tracked:
@@ -1457,6 +1480,7 @@ class _ActorType:
                     webhooks=to_client_representations(webhooks),
                 ),
                 abort_with_parent=abort_with_parent,
+                resurrect_with_parent=resurrect_with_parent,
             )
             # An earlier process of this Actor run already streamed the start of the log of a recorded run.
             run = await self._wait_for_child_run(
@@ -1480,6 +1504,7 @@ class _ActorType:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         abort_with_parent: bool | None,
+        resurrect_with_parent: bool | None,
     ) -> tuple[ChildRunKey, Run, bool]:
         checksum = checksum_request(
             actor_id=actor_id,
@@ -1495,8 +1520,17 @@ class _ActorType:
             client=client,
             start_run=start_run,
             abort_with_parent=abort_with_parent,
+            resurrect_with_parent=resurrect_with_parent,
         )
         return key, run, is_new
+
+    async def _is_run_aborting(self) -> bool:
+        """Ask the platform whether this Actor run is being gracefully aborted."""
+        run_id = self.configuration.actor_run_id
+        if not self.is_at_home() or not run_id:
+            return False
+        run = await self.apify_client.run(run_id).get()
+        return run is not None and run.status == 'ABORTING'
 
     async def _abort_child_runs(self) -> None:
         await self._child_run_registry.abort_runs_with_parent(self.apify_client)
@@ -1544,6 +1578,7 @@ class _ActorType:
         token: str | None = None,
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        resurrect_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1587,6 +1622,11 @@ class _ActorType:
                 `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
                 would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
                 run leaves the child running.
+            resurrect_with_parent: Whether this call resurrects the child run after it was aborted with this Actor run
+                through `abort_with_parent`. The call resurrects the run in a process of this Actor run that started
+                after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
+                was aborted by someone else is not resurrected. The value is recorded the same way as
+                `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
 
         Returns:
             Info about the started Actor run.
@@ -1596,6 +1636,11 @@ class _ActorType:
             raise ValueError(
                 '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
                 'child runs are not tracked.'
+            )
+        if resurrect_with_parent and not is_tracked:
+            raise ValueError(
+                '`resurrect_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since '
+                'other child runs are not tracked.'
             )
 
         if is_tracked:
@@ -1637,6 +1682,7 @@ class _ActorType:
                 webhooks=to_client_representations(webhooks),
             ),
             abort_with_parent=abort_with_parent,
+            resurrect_with_parent=resurrect_with_parent,
         )
         return run
 
@@ -1657,6 +1703,7 @@ class _ActorType:
         token: str | None = None,
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        resurrect_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1700,6 +1747,11 @@ class _ActorType:
                 `Configuration.persist_unnamed_child_runs`. Once this Actor run is being gracefully aborted, a call that
                 would start a new run with it raises a `RuntimeError`. A hard abort, a timeout or a crash of this Actor
                 run leaves the child running.
+            resurrect_with_parent: Whether this call resurrects the child run after it was aborted with this Actor run
+                through `abort_with_parent`. The call resurrects the run in a process of this Actor run that started
+                after the abort, typically after this Actor run was resurrected. A child run that failed, timed out or
+                was aborted by someone else is not resurrected. The value is recorded the same way as
+                `abort_with_parent`, and without a `run_name` it needs `Configuration.persist_unnamed_child_runs`.
 
         Returns:
             Info about the started Actor run.
@@ -1709,6 +1761,11 @@ class _ActorType:
             raise ValueError(
                 '`abort_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since other '
                 'child runs are not tracked.'
+            )
+        if resurrect_with_parent and not is_tracked:
+            raise ValueError(
+                '`resurrect_with_parent` requires `run_name` or `Configuration.persist_unnamed_child_runs`, since '
+                'other child runs are not tracked.'
             )
 
         if is_tracked:
@@ -1760,6 +1817,7 @@ class _ActorType:
                     webhooks=to_client_representations(webhooks),
                 ),
                 abort_with_parent=abort_with_parent,
+                resurrect_with_parent=resurrect_with_parent,
             )
             run = await self._wait_for_child_run(
                 key, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
