@@ -38,6 +38,12 @@ _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
 TERMINAL_RUN_STATUSES = frozenset({'SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'})
 """Statuses of a run that is finished. A run in any other status is active."""
 
+_ABORT_WITH_PARENT_TIMEOUT = timedelta(seconds=10)
+"""How long the abort of the child runs with the parent is waited for.
+
+The platform sends SIGTERM to the parent 15 seconds after the `ABORTING` event, so this leaves time to exit.
+"""
+
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
 
@@ -300,6 +306,8 @@ class ChildRunRegistry:
         """Client the run under each key was last started or looked up with. Lost with the process."""
         self._parent_aborting = False
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
+        self._abort_task: asyncio.Task[None] | None = None
+        """The abort of the child runs with the parent, once the parent is being gracefully aborted."""
 
     async def find_or_start(
         self,
@@ -308,7 +316,7 @@ class ChildRunRegistry:
         checksum: str,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `key`, or start one when there is none.
 
@@ -321,25 +329,22 @@ class ChildRunRegistry:
                 started with the same request.
             client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
-            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. It replaces the value
-                recorded under `key`.
+            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. `True` or `False`
+                replaces the value recorded under `key`. `None` keeps it, and is `False` for a key with no record.
 
         Returns:
             The run, and whether it was newly started.
 
         Raises:
             ValueError: If the run recorded under `key` was started with a different request.
-            RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
-                started or returned.
+            RuntimeError: If a new run marked `abort_with_parent` would start while this Actor run is being
+                gracefully aborted. No run is started.
         """
         async with self._key_locks.setdefault(key, asyncio.Lock()):
-            if abort_with_parent and self._parent_aborting:
-                raise RuntimeError(
-                    f'Child run "{key.key}" with `abort_with_parent` was not started, since this Actor run is being '
-                    'aborted.'
-                )
-
             record = self._records(key.kind).get(key.key)
+
+            if abort_with_parent is None:
+                abort_with_parent = record.abort_with_parent if record is not None else False
 
             if record is not None:
                 if record.checksum != checksum:
@@ -370,6 +375,12 @@ class ChildRunRegistry:
                     'Child run "%s" no longer exists, starting a new run in its place',
                     key.key,
                     extra={'run_id': record.run_id},
+                )
+
+            if abort_with_parent and self._parent_aborting:
+                raise RuntimeError(
+                    f'Child run "{key.key}" with `abort_with_parent` was not started, since this Actor run is being '
+                    'aborted.'
                 )
 
             run = await start_run()
@@ -418,21 +429,40 @@ class ChildRunRegistry:
 
         Each run gets one abort request, all in parallel. The platform leaves a run that already finished as it is. A
         failure to abort one run is logged and does not stop the others. A run whose start is in flight is aborted once
-        the start records it.
+        the start records it. The aborts are waited for at most `_ABORT_WITH_PARENT_TIMEOUT`.
 
         Args:
             client: Client used for a key not started or looked up in this process, e.g. one recorded by an earlier
                 process of this Actor run.
         """
         self._parent_aborting = True
-        # The event can arrive before the Actor has loaded the registry.
-        await self._loaded.wait()
-        # The Actor failed to load the registry, so it knows no runs to abort.
-        if self._stored is None:
-            return
-        recorded_keys = {ChildRunKey(kind, key) for kind in ('named', 'unnamed') for key in self._records(kind)}
-        # Keys with a start in flight are not recorded yet, so their locks are awaited too.
-        await asyncio.gather(*(self._abort(key, client) for key in {*recorded_keys, *self._key_locks}))
+        if self._abort_task is None:
+            self._abort_task = asyncio.create_task(self._abort_runs_with_parent(client))
+        # The abort outlives a caller that stops waiting for it, e.g. a listener cancelled on its timeout.
+        await asyncio.shield(self._abort_task)
+
+    async def wait_for_abort(self) -> None:
+        """Wait until the abort of the child runs with the parent finishes, if it has started."""
+        if self._abort_task is not None:
+            await asyncio.shield(self._abort_task)
+
+    async def _abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
+        try:
+            async with asyncio.timeout(_ABORT_WITH_PARENT_TIMEOUT.total_seconds()):
+                # The event can arrive before the Actor has loaded the registry.
+                await self._loaded.wait()
+                # The Actor failed to load the registry, so it knows no runs to abort.
+                if self._stored is None:
+                    return
+                recorded_keys = {ChildRunKey(kind, key) for kind in ('named', 'unnamed') for key in self._records(kind)}
+                # Keys with a start in flight are not recorded yet, so their locks are awaited too.
+                aborts = [self._abort(key, client) for key in {*recorded_keys, *self._key_locks}]
+                await asyncio.gather(*aborts)
+        except TimeoutError:
+            logger.warning(
+                'Aborting the child runs with the parent did not finish in %.3g seconds',
+                _ABORT_WITH_PARENT_TIMEOUT.total_seconds(),
+            )
 
     async def _abort(self, key: ChildRunKey, default_client: ApifyClientAsync) -> None:
         async with self._key_locks.setdefault(key, asyncio.Lock()):
