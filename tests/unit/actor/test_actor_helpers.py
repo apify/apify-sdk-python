@@ -74,13 +74,15 @@ async def run_waiting(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_
     """Make waiting for a run and redirecting its log work without the API, as `Actor.call_task` does both.
 
     The fixture is async, since the patcher needs the running event loop to build the awaitable return values.
-    Returns the mocks that stand in for `RunClientAsync.get_streamed_log` and `get_status_message_watcher`.
+    Returns the run that the wait ends with, and the mocks that stand in for `RunClientAsync.get_streamed_log` and
+    `get_status_message_watcher`.
     """
     mocks = SimpleNamespace(
+        finished_run=fake_actor_run.model_copy(update={'status': 'SUCCEEDED'}),
         get_streamed_log=Mock(return_value=MagicMock()),
         get_status_message_watcher=Mock(return_value=MagicMock()),
     )
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=fake_actor_run)
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=mocks.finished_run)
     apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=mocks.get_streamed_log)
     apify_client_async_patcher.patch(
         'run', 'get_status_message_watcher', replacement_method=mocks.get_status_message_watcher
@@ -137,14 +139,16 @@ async def test_call_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, f
     assert apify_client_async_patcher.calls['actor']['call'][0][0][0].resource_id == actor_id
 
 
-async def test_call_actor_task(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
+async def test_call_actor_task(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run, run_waiting: SimpleNamespace
+) -> None:
     apify_client_async_patcher.patch('task', 'start', return_value=fake_actor_run)
     task_id = 'some-task-id'
 
     async with Actor:
         run = await Actor.call_task(task_id)
 
-    assert run is fake_actor_run
+    assert run is run_waiting.finished_run
     assert len(apify_client_async_patcher.calls['task']['start']) == 1
     assert apify_client_async_patcher.calls['task']['start'][0][0][0].resource_id == task_id
     assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
@@ -190,7 +194,7 @@ async def test_call_actor_task_without_logger_only_waits(
     async with Actor:
         run = await Actor.call_task('some-task-id', wait=timedelta(seconds=5), logger=None)
 
-    assert run is fake_actor_run
+    assert run is run_waiting.finished_run
     run_waiting.get_streamed_log.assert_not_called()
     run_waiting.get_status_message_watcher.assert_not_called()
     [(_, kwargs)] = apify_client_async_patcher.calls['run']['wait_for_finish']

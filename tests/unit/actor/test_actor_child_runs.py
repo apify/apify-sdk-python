@@ -836,7 +836,7 @@ async def test_abort_with_parent_requires_run_name(
     """`abort_with_parent` without a `run_name` raises before any run is started."""
     for resource in ('actor', 'task'):
         apify_client_async_patcher.patch(resource, 'start', return_value=make_run('new-run', 'READY'))
-        apify_client_async_patcher.patch(resource, 'call', return_value=make_run('new-run', 'SUCCEEDED'))
+    apify_client_async_patcher.patch('actor', 'call', return_value=make_run('new-run', 'SUCCEEDED'))
 
     async with Actor:
         with pytest.raises(ValueError, match='requires `run_name`'):
@@ -844,7 +844,7 @@ async def test_abort_with_parent_requires_run_name(
 
     for resource in ('actor', 'task'):
         assert apify_client_async_patcher.calls[resource]['start'] == []
-        assert apify_client_async_patcher.calls[resource]['call'] == []
+    assert apify_client_async_patcher.calls['actor']['call'] == []
 
 
 async def test_named_start_records_abort_with_parent(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
