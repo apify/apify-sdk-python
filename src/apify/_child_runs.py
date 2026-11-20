@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from logging import getLogger
@@ -18,7 +19,7 @@ from apify_client.http_clients import StreamedRequestBody
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Generator
     from decimal import Decimal
 
     from apify_client import ApifyClientAsync
@@ -46,6 +47,9 @@ The platform sends SIGTERM to the parent 15 seconds after the `ABORTING` event, 
 
 _ABORT_RECORD_TIMEOUT = timedelta(seconds=2)
 """How long the write of what the abort requests returned is waited for, after the abort itself."""
+
+_STARTS_IN_FLIGHT_TIMEOUT = timedelta(seconds=10)
+"""How long a reboot or metamorph of the parent waits for the start requests that are already sent."""
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
@@ -332,6 +336,13 @@ class ChildRunRegistry:
         """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
         self._abort_task: asyncio.Task[None] | None = None
         """The abort of the child runs with the parent, once the parent is being gracefully aborted."""
+        self._starts_in_flight = 0
+        """Number of start requests that are sent and whose runs are not recorded yet."""
+        self._no_starts_in_flight = asyncio.Event()
+        self._no_starts_in_flight.set()
+        self._starts_allowed = asyncio.Event()
+        """Cleared while the parent ends its process on its own, when it could no longer record a new run."""
+        self._starts_allowed.set()
 
     async def find_or_start(
         self,
@@ -432,21 +443,65 @@ class ChildRunRegistry:
                     'aborted.'
                 )
 
-            run = await start_run()
-            new_record = ChildRunRecord(
-                run_id=run.id,
-                run_name=key.key if key.kind == 'named' else None,
-                status=run.status,
-                checksum=checksum,
-                abort_with_parent=abort_with_parent,
-                resurrect_with_parent=resurrect_with_parent,
-                # An abort that started while the start request was in flight waits for this key, and
-                # then aborts the run.
-                aborted_with_parent=abort_with_parent and self._is_abort_in_progress(),
-            )
-            await self._save(key, new_record)
+            # A parent that is about to reboot or metamorph sends no more start requests.
+            await self._starts_allowed.wait()
+            with self._start_in_flight():
+                run = await start_run()
+                new_record = ChildRunRecord(
+                    run_id=run.id,
+                    run_name=key.key if key.kind == 'named' else None,
+                    status=run.status,
+                    checksum=checksum,
+                    abort_with_parent=abort_with_parent,
+                    resurrect_with_parent=resurrect_with_parent,
+                    # An abort that started while the start request was in flight waits for this key, and
+                    # then aborts the run.
+                    aborted_with_parent=abort_with_parent and self._is_abort_in_progress(),
+                )
+                await self._save(key, new_record)
             self._clients[key] = client
             return run, True
+
+    @contextmanager
+    def _start_in_flight(self) -> Generator[None]:
+        """Count a start from the moment its request is sent until its run is recorded."""
+        self._starts_in_flight += 1
+        self._no_starts_in_flight.clear()
+        try:
+            yield
+        finally:
+            self._starts_in_flight -= 1
+            if self._starts_in_flight == 0:
+                self._no_starts_in_flight.set()
+
+    def pause_starts(self) -> None:
+        """Hold back the start requests that are not sent yet.
+
+        A parent that ends its process on its own, by a reboot or a metamorph, calls this first. The process can stop
+        before it records a run that it starts from here on, and its next process would then start the run again.
+        """
+        self._starts_allowed.clear()
+
+    def resume_starts(self) -> None:
+        """Let the start requests go out again, after a reboot or a metamorph that failed."""
+        self._starts_allowed.set()
+
+    async def wait_for_starts_in_flight(self) -> None:
+        """Wait until every start request that is already sent has its run recorded.
+
+        A parent that ends its process on its own, by a reboot or a metamorph, calls this first, so that its next
+        process finds every started run in the registry. The wait takes at most `_STARTS_IN_FLIGHT_TIMEOUT`.
+        """
+        try:
+            async with asyncio.timeout(_STARTS_IN_FLIGHT_TIMEOUT.total_seconds()):
+                # A start can go out right after the last one is recorded, before this waiter wakes up.
+                while self._starts_in_flight:
+                    await self._no_starts_in_flight.wait()
+        except TimeoutError:
+            logger.warning(
+                'Child run starts in flight did not finish in %.3g seconds, so their runs may not be recorded',
+                _STARTS_IN_FLIGHT_TIMEOUT.total_seconds(),
+            )
 
     async def _resurrect_with_parent(
         self, key: ChildRunKey, run_client: RunClientAsync, run: Run
