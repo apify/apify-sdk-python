@@ -128,3 +128,68 @@ async def test_named_child_run_is_aborted_with_parent(
     child_run = await apify_client_async.run(child_run_id).wait_for_finish(wait_duration=timedelta(seconds=120))
     assert child_run is not None
     assert child_run.status == 'ABORTED'
+
+
+async def test_named_child_run_is_resurrected_with_parent(
+    make_actor: MakeActorFunction,
+    apify_client_async: ApifyClientAsync,
+) -> None:
+    """A child run aborted with the parent is resurrected by the same call after the parent is resurrected."""
+
+    async def main() -> None:
+        async with Actor:
+            actor_input = (await Actor.get_input()) or {}
+            if actor_input.get('is_child') is True:
+                await asyncio.sleep(300)
+                return
+
+            actor_id = Actor.configuration.actor_id or ''
+            is_resurrected = 'child' in Actor.child_runs.named
+            run = await Actor.start(
+                actor_id=actor_id,
+                run_input={'is_child': True},
+                run_name='child',
+                abort_with_parent=True,
+                resurrect_with_parent=True,
+            )
+
+            if not is_resurrected:
+                await asyncio.sleep(300)
+                return
+
+            assert run.status in {'READY', 'RUNNING'}, f'run.status={run.status}'
+            await Actor.apify_client.run(run.id).abort()
+
+    actor = await make_actor(label='child-run-resurrect-parent', main_func=main)
+    parent_run = await actor.start()
+    parent_kvs = apify_client_async.key_value_store(parent_run.default_key_value_store_id)
+
+    # Wait for the parent to record the child run.
+    for _ in range(60):
+        if record := await parent_kvs.get_record(CHILD_RUNS_KEY):
+            break
+        await asyncio.sleep(2)
+    else:
+        raise AssertionError('The parent run did not record the child run in time.')
+
+    child_run_id = record['value']['named']['child']['runId']
+    child_run_client = apify_client_async.run(child_run_id)
+    parent_run_client = apify_client_async.run(parent_run.id)
+    await parent_run_client.abort(gracefully=True)
+    await parent_run_client.wait_for_finish(wait_duration=timedelta(seconds=120))
+    aborted_child_run = await child_run_client.wait_for_finish(wait_duration=timedelta(seconds=120))
+    assert aborted_child_run is not None
+    assert aborted_child_run.status == 'ABORTED'
+
+    await parent_run_client.resurrect()
+    resurrected_parent_run = await parent_run_client.wait_for_finish(wait_duration=timedelta(seconds=300))
+    assert resurrected_parent_run is not None
+    assert resurrected_parent_run.status == 'SUCCEEDED'
+
+    record = await parent_kvs.get_record(CHILD_RUNS_KEY)
+    assert record is not None
+    assert record['value']['named']['child']['runId'] == child_run_id
+    assert record['value']['named']['child']['abortedWithParent'] is False
+    child_run = await child_run_client.get()
+    assert child_run is not None
+    assert child_run.stats.resurrect_count == 1

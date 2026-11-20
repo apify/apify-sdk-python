@@ -44,6 +44,9 @@ _ABORT_WITH_PARENT_TIMEOUT = timedelta(seconds=10)
 The platform sends SIGTERM to the parent 15 seconds after the `ABORTING` event, so this leaves time to exit.
 """
 
+_ABORT_RECORD_TIMEOUT = timedelta(seconds=2)
+"""How long the write of what the abort requests returned is waited for, after the abort itself."""
+
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
 
@@ -91,6 +94,12 @@ class ChildRunRecord(BaseModel):
 
     abort_with_parent: bool = False
     """Whether the run is aborted when this Actor run is gracefully aborted."""
+
+    resurrect_with_parent: bool = False
+    """Whether a run aborted with this Actor run is resurrected after this Actor run is resurrected."""
+
+    aborted_with_parent: bool = False
+    """Whether the run was aborted with this Actor run and not resurrected since."""
 
 
 @docs_group('Actor')
@@ -293,8 +302,23 @@ class ChildRunRegistry:
     starting the child and that write can still orphan the child, since nothing but the platform knows about it.
     """
 
-    def __init__(self, open_key_value_store: Callable[[], Awaitable[KeyValueStore]]) -> None:
+    def __init__(
+        self,
+        open_key_value_store: Callable[[], Awaitable[KeyValueStore]],
+        *,
+        is_parent_aborting: Callable[[], Awaitable[bool]] | None = None,
+    ) -> None:
+        """Initialize a new instance.
+
+        Args:
+            open_key_value_store: Opens the default key-value store of this Actor run.
+            is_parent_aborting: Asks the platform whether this Actor run is being gracefully aborted. A process that
+                starts during the abort gets no `ABORTING` event, so this is how it learns about the abort.
+        """
         self._open_key_value_store = open_key_value_store
+        self._is_parent_aborting = is_parent_aborting
+        self._parent_status_checked = False
+        """Whether `is_parent_aborting` was already asked in this process."""
         self._stored: _StoredChildRuns | None = None
         self._loaded = asyncio.Event()
         """Set once the Actor has read the records from the key-value store, or has failed to."""
@@ -317,11 +341,13 @@ class ChildRunRegistry:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         abort_with_parent: bool | None = None,
+        resurrect_with_parent: bool | None = None,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `key`, or start one when there is none.
 
-        A recorded run is returned in whatever status it is in. Only a recorded run that the API no longer knows is
-        replaced by a new run under the same key.
+        A recorded run is returned in whatever status it is in, except for a run that was aborted with the parent and
+        is marked `resurrect_with_parent`, which is resurrected first. Only a recorded run that the API no longer knows
+        is replaced by a new run under the same key.
 
         Args:
             key: Key of the child run, unique within the parent run.
@@ -331,6 +357,8 @@ class ChildRunRegistry:
             start_run: Starts a new run of the Actor or task.
             abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. `True` or `False`
                 replaces the value recorded under `key`. `None` keeps it, and is `False` for a key with no record.
+            resurrect_with_parent: Whether to resurrect the run after it was aborted with this Actor run. The value is
+                recorded the same way as `abort_with_parent`.
 
         Returns:
             The run, and whether it was newly started.
@@ -345,6 +373,8 @@ class ChildRunRegistry:
 
             if abort_with_parent is None:
                 abort_with_parent = record.abort_with_parent if record is not None else False
+            if resurrect_with_parent is None:
+                resurrect_with_parent = record.resurrect_with_parent if record is not None else False
 
             if record is not None:
                 if record.checksum != checksum:
@@ -358,13 +388,32 @@ class ChildRunRegistry:
                         'Use a unique `run_name` for each child run.'
                     )
 
-                run = await _get_recorded_run(client.run(record.run_id))
+                run_client = client.run(record.run_id)
+                run = await _get_recorded_run(run_client)
+                # The abort of the child runs flags the records without the lock of the key, also during the request.
+                record = self._records(key.kind)[key.key]
+                aborted_with_parent = record.aborted_with_parent
+
+                if run is not None and aborted_with_parent and resurrect_with_parent:
+                    run, aborted_with_parent = await self._resurrect_with_parent(key, run_client, run)
+                elif run is not None and run.status not in _ABORTED_STATUSES and not self._parent_aborting:
+                    # The run finished first or someone resurrected it, so the flag no longer applies.
+                    aborted_with_parent = False
 
                 if run is not None:
                     log_extra = {'run_id': run.id, 'status': run.status}
                     logger.info('Reattaching to child run "%s"', key.key, extra=log_extra)
+                    # An abort of the child runs that began during the awaits above keeps its flag.
+                    record = self._records(key.kind)[key.key]
+                    if self._parent_aborting:
+                        aborted_with_parent = aborted_with_parent or record.aborted_with_parent
                     updated_record = record.model_copy(
-                        update={'status': run.status, 'abort_with_parent': abort_with_parent}
+                        update={
+                            'status': run.status,
+                            'abort_with_parent': abort_with_parent,
+                            'resurrect_with_parent': resurrect_with_parent,
+                            'aborted_with_parent': aborted_with_parent,
+                        }
                     )
                     if updated_record != record:
                         await self._save(key, updated_record)
@@ -390,10 +439,53 @@ class ChildRunRegistry:
                 status=run.status,
                 checksum=checksum,
                 abort_with_parent=abort_with_parent,
+                resurrect_with_parent=resurrect_with_parent,
+                # An abort that started while the start request was in flight waits for this key, and
+                # then aborts the run.
+                aborted_with_parent=abort_with_parent and self._is_abort_in_progress(),
             )
             await self._save(key, new_record)
             self._clients[key] = client
             return run, True
+
+    async def _resurrect_with_parent(
+        self, key: ChildRunKey, run_client: RunClientAsync, run: Run
+    ) -> tuple[Run | None, bool]:
+        """Resurrect a run that was aborted with the parent, unless the parent is being aborted now.
+
+        Returns:
+            The run, or `None` if the API no longer knows it, and whether it still counts as aborted with the parent.
+        """
+        if not self._parent_aborting and not self._parent_status_checked and self._is_parent_aborting is not None:
+            # The answer only ever raises the flag, since `ABORTING` can arrive while the request is in flight.
+            if await self._is_parent_aborting():
+                self._parent_aborting = True
+            self._parent_status_checked = True
+
+        # The process that aborts the children must not resurrect them.
+        if self._parent_aborting:
+            return run, True
+
+        if run.status == 'ABORTING':
+            finished_run = await run_client.wait_for_finish()
+            if finished_run is None:
+                return None, False
+            run = finished_run
+
+        # The run finished or was resurrected in the meantime, so the abort with the parent no longer applies to it.
+        if run.status != 'ABORTED':
+            return run, False
+
+        # The parent may have got `ABORTING` while this call waited for the run to be aborted.
+        if self._parent_aborting:
+            return run, True
+
+        logger.info('Resurrecting child run "%s" with the parent', key.key, extra={'run_id': run.id})
+        try:
+            resurrected_run = await run_client.resurrect()
+        except NotFoundError:
+            return None, False
+        return resurrected_run, False
 
     def child_runs(self, default_client: ApifyClientAsync) -> ChildRuns:
         """Return the record and a client for the run under each recorded key.
@@ -447,6 +539,7 @@ class ChildRunRegistry:
             await asyncio.shield(self._abort_task)
 
     async def _abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
+        updated_keys = set[ChildRunKey]()
         try:
             async with asyncio.timeout(_ABORT_WITH_PARENT_TIMEOUT.total_seconds()):
                 # The event can arrive before the Actor has loaded the registry.
@@ -455,16 +548,68 @@ class ChildRunRegistry:
                 if self._stored is None:
                     return
                 recorded_keys = {ChildRunKey(kind, key) for kind in ('named', 'unnamed') for key in self._records(kind)}
+                await self._flag_runs_to_abort(recorded_keys)
                 # Keys with a start in flight are not recorded yet, so their locks are awaited too.
-                aborts = [self._abort(key, client) for key in {*recorded_keys, *self._key_locks}]
+                aborts = [self._abort(key, client, updated_keys) for key in {*recorded_keys, *self._key_locks}]
                 await asyncio.gather(*aborts)
         except TimeoutError:
             logger.warning(
                 'Aborting the child runs with the parent did not finish in %.3g seconds',
                 _ABORT_WITH_PARENT_TIMEOUT.total_seconds(),
             )
+        finally:
+            if updated_keys:
+                await self._write_abort_results()
 
-    async def _abort(self, key: ChildRunKey, default_client: ApifyClientAsync) -> None:
+    def _is_abort_in_progress(self) -> bool:
+        """Whether the abort of the child runs with the parent has started and still has runs to abort."""
+        return self._abort_task is not None and not self._abort_task.done()
+
+    async def _flag_runs_to_abort(self, keys: set[ChildRunKey]) -> None:
+        """Set `aborted_with_parent` for the recorded runs that the abort is about to stop, in one write.
+
+        The write goes out before the abort requests, so the flags survive a parent that is killed during the abort.
+        A run recorded as finished was not stopped by this abort, unless its abort request shows otherwise. A failed
+        or slow write is logged and does not stop the abort.
+        """
+        flagged = False
+        for key in keys:
+            record = self._records(key.kind)[key.key]
+            if (
+                record.abort_with_parent
+                and not record.aborted_with_parent
+                and record.status not in TERMINAL_RUN_STATUSES
+            ):
+                self._records(key.kind)[key.key] = record.model_copy(update={'aborted_with_parent': True})
+                flagged = True
+        if not flagged:
+            return
+        # The abort requests go out also when the key-value store is slow or fails.
+        try:
+            async with asyncio.timeout(_ABORT_RECORD_TIMEOUT.total_seconds()):
+                await self._write()
+        except TimeoutError:
+            logger.warning(
+                'Recording the child runs to abort with the parent did not finish in %.3g seconds',
+                _ABORT_RECORD_TIMEOUT.total_seconds(),
+            )
+        except Exception:
+            logger.exception('Failed to record the child runs to abort with the parent')
+
+    async def _write_abort_results(self) -> None:
+        """Write what the abort requests returned, with a time limit apart from the one of the abort itself."""
+        try:
+            async with asyncio.timeout(_ABORT_RECORD_TIMEOUT.total_seconds()):
+                await self._write()
+        except TimeoutError:
+            logger.warning(
+                'Recording the child runs aborted with the parent did not finish in %.3g seconds',
+                _ABORT_RECORD_TIMEOUT.total_seconds(),
+            )
+        except Exception:
+            logger.exception('Failed to record the child runs aborted with the parent')
+
+    async def _abort(self, key: ChildRunKey, default_client: ApifyClientAsync, updated_keys: set[ChildRunKey]) -> None:
         async with self._key_locks.setdefault(key, asyncio.Lock()):
             record = self._records(key.kind).get(key.key)
             if record is None or not record.abort_with_parent:
@@ -474,11 +619,27 @@ class ChildRunRegistry:
                 run = await run_client.abort(gracefully=True)
             except NotFoundError:
                 logger.debug('Child run "%s" no longer exists', key.key, extra={'run_id': record.run_id})
+                self._clear_aborted_with_parent(key, updated_keys)
             except Exception:
                 logger.exception('Failed to abort child run "%s"', key.key, extra={'run_id': record.run_id})
+                self._clear_aborted_with_parent(key, updated_keys)
             else:
+                # A run that the request found `ABORTED` was stopped by this abort only if it was active before it.
+                was_active = record.aborted_with_parent or record.status not in TERMINAL_RUN_STATUSES
+                aborted = run.status == 'ABORTING' or (run.status == 'ABORTED' and was_active)
+                updated_record = record.model_copy(update={'status': run.status, 'aborted_with_parent': aborted})
+                if updated_record != record:
+                    self._records(key.kind)[key.key] = updated_record
+                    updated_keys.add(key)
                 if run.status in _ABORTED_STATUSES:
                     logger.info('Aborted child run "%s" with the parent', key.key, extra={'run_id': record.run_id})
+
+    def _clear_aborted_with_parent(self, key: ChildRunKey, updated_keys: set[ChildRunKey]) -> None:
+        """Drop the flag of a run whose abort request failed, since nothing shows that this abort stopped the run."""
+        record = self._records(key.kind)[key.key]
+        if record.aborted_with_parent:
+            self._records(key.kind)[key.key] = record.model_copy(update={'aborted_with_parent': False})
+            updated_keys.add(key)
 
     async def load(self) -> None:
         """Read the records from the default key-value store, replacing any read before."""
@@ -506,9 +667,12 @@ class ChildRunRegistry:
         return self._stored.named if kind == 'named' else self._stored.unnamed
 
     async def _save(self, key: ChildRunKey, record: ChildRunRecord) -> None:
-        records = self._records(key.kind)
+        self._records(key.kind)[key.key] = record
+        await self._write()
+
+    async def _write(self) -> None:
+        """Write all the records to the default key-value store."""
         key_value_store = await self._open_key_value_store()
         async with self._lock:
-            records[key.key] = record
             stored = self._stored.model_dump(mode='json', by_alias=True) if self._stored is not None else {}
             await key_value_store.set_value(CHILD_RUNS_KEY, stored)
