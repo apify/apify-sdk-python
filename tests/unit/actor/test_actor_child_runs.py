@@ -1,21 +1,34 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import io
 import warnings
 from datetime import timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
+from pydantic import ValidationError
 
 from apify_client._models import Run
 from apify_client.errors import NotFoundError
 from crawlee import service_locator
 from crawlee.events import Event, EventAbortingData
 
-from apify import Actor, Configuration, _child_runs
+from apify import Actor, Configuration, Webhook, _child_runs
 from apify._actor import _ActorType
-from apify._child_runs import CHILD_RUNS_KEY, ChildRunRegistry, checksum_request
+from apify._child_runs import (
+    CHILD_RUNS_KEY,
+    ChildRunKey,
+    ChildRunRecord,
+    ChildRunRegistry,
+    ChildRuns,
+    checksum_request,
+    checksum_run_options,
+)
+from apify._webhook import to_client_representations
 from apify.events import ApifyEventManager
 
 if TYPE_CHECKING:
@@ -55,21 +68,28 @@ def stored_record(
     run_id: str,
     status: str,
     *,
+    run_name: str | None = 'scrape-eu',
     actor_id: str | None = 'some-actor',
     task_id: str | None = None,
     run_input: Any = None,
-    history: list[dict[str, str]] | None = None,
+    options: dict[str, Any] | None = None,
     abort_with_parent: bool = False,
 ) -> dict[str, Any]:
     """Build a registry record as it is stored in the default KVS."""
     return {
         'runId': run_id,
+        'runName': run_name,
         'status': status,
-        'startedAt': STARTED_AT,
-        'checksum': checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input),
-        'history': history or [],
+        'checksum': checksum_request(actor_id=actor_id, task_id=task_id, run_input=run_input, options=options),
         'abortWithParent': abort_with_parent,
     }
+
+
+def stored_registry(
+    named: dict[str, dict[str, Any]] | None = None, unnamed: dict[str, dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    """Build the registry value as it is stored in the default KVS."""
+    return {'named': named or {}, 'unnamed': unnamed or {}}
 
 
 @pytest.fixture
@@ -87,11 +107,14 @@ async def record_child_run(
     actor_id: str | None = 'some-actor',
     task_id: str | None = None,
     run_input: Any = None,
+    options: dict[str, Any] | None = None,
 ) -> None:
-    """Seed the registry the way an earlier attempt of this Actor run would have left it, and reload it like init."""
+    """Seed the registry the way an earlier process of this Actor run would have left it, and reload it like init."""
     kvs = await Actor.open_key_value_store()
-    record = stored_record(run_id, 'RUNNING', actor_id=actor_id, task_id=task_id, run_input=run_input)
-    await kvs.set_value(CHILD_RUNS_KEY, {name: record})
+    record = stored_record(
+        run_id, 'RUNNING', run_name=name, actor_id=actor_id, task_id=task_id, run_input=run_input, options=options
+    )
+    await kvs.set_value(CHILD_RUNS_KEY, stored_registry({name: record}))
     await Actor._child_run_registry.load()
 
 
@@ -105,7 +128,7 @@ async def test_named_start_records_run_in_kvs(apify_client_async_patcher: ApifyC
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.id == 'new-run'
-    assert stored == {'scrape-eu': stored_record('new-run', 'READY')}
+    assert stored == stored_registry({'scrape-eu': stored_record('new-run', 'READY')})
 
 
 async def test_unnamed_start_is_not_recorded(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -126,14 +149,21 @@ async def test_unnamed_start_is_not_recorded(apify_client_async_patcher: ApifyCl
         pytest.param('READY', id='ready'),
         pytest.param('RUNNING', id='running'),
         pytest.param('SUCCEEDED', id='succeeded'),
+        pytest.param('FAILED', id='failed'),
+        pytest.param('ABORTING', id='aborting'),
+        pytest.param('ABORTED', id='aborted'),
+        pytest.param('TIMING-OUT', id='timing out'),
+        pytest.param('TIMED-OUT', id='timed out'),
     ],
 )
-async def test_named_start_reuses_recorded_run(
+async def test_named_start_returns_recorded_run_in_any_status(
     apify_client_async_patcher: ApifyClientAsyncPatcher, status: str
 ) -> None:
-    """A recorded run that is active or succeeded is returned without starting a new one."""
+    """A recorded run is returned in the status it is in, without starting, resurrecting or waiting for a run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', status))
+    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', 'SUCCEEDED'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
@@ -142,90 +172,33 @@ async def test_named_start_reuses_recorded_run(
     assert run.id == 'old-run'
     assert run.status == status
     assert apify_client_async_patcher.calls['actor']['start'] == []
+    assert apify_client_async_patcher.calls['run']['resurrect'] == []
+    assert apify_client_async_patcher.calls['run']['wait_for_finish'] == []
 
 
-@pytest.mark.parametrize(
-    'status',
-    [
-        pytest.param('ABORTED', id='aborted'),
-        pytest.param('TIMED-OUT', id='timed out'),
-    ],
-)
-async def test_named_start_resurrects_recorded_run(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, status: str
-) -> None:
-    """A recorded run that was aborted or timed out is resurrected, and its options are passed through."""
-    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', status))
-    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
-
-    async with Actor:
-        await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.start('some-actor', run_name='scrape-eu', memory_mbytes=2048)
-
-    assert run.id == 'old-run'
-    assert run.status == 'RUNNING'
-    assert apify_client_async_patcher.calls['actor']['start'] == []
-    [(args, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
-    assert args[0].resource_id == 'old-run'
-    assert kwargs['memory_mbytes'] == 2048
-
-
-@pytest.mark.parametrize(
-    'status',
-    [
-        pytest.param('ABORTING', id='aborting'),
-        pytest.param('TIMING-OUT', id='timing out'),
-    ],
-)
-async def test_named_start_resurrects_settling_run_after_it_finishes(
-    apify_client_async_patcher: ApifyClientAsyncPatcher, status: str
-) -> None:
-    """A recorded run still aborting or timing out is waited for, then resurrected."""
-    finished_status = {'ABORTING': 'ABORTED', 'TIMING-OUT': 'TIMED-OUT'}[status]
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', status))
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', finished_status))
-    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
-
-    async with Actor:
-        await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.start('some-actor', run_name='scrape-eu')
-
-    assert run.status == 'RUNNING'
-    assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
-    assert len(apify_client_async_patcher.calls['run']['resurrect']) == 1
-
-
-@pytest.mark.parametrize(
-    ('recorded_run', 'replaced_status'),
-    [
-        pytest.param(make_run('old-run', 'FAILED'), 'FAILED', id='failed'),
-        pytest.param(None, 'LOST', id='not found'),
-    ],
-)
-async def test_named_start_replaces_failed_or_missing_run(
+async def test_named_start_replaces_missing_run(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     monkeypatch: pytest.MonkeyPatch,
-    recorded_run: Run | None,
-    replaced_status: str,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A recorded run that failed or no longer exists is replaced by a new run and kept in the history."""
+    """A recorded run that no longer exists is replaced by a new run under the same name, with a warning."""
     monkeypatch.setattr(_child_runs, '_NOT_FOUND_GRACE_SECS', 0)
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-    apify_client_async_patcher.patch('run', 'get', return_value=recorded_run)
+    apify_client_async_patcher.patch('run', 'get', return_value=None)
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
         run = await Actor.start('some-actor', run_name='scrape-eu')
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
+        child_runs = Actor.child_runs
 
     assert run.id == 'new-run'
-    assert stored == {
-        'scrape-eu': stored_record(
-            'new-run', 'READY', history=[{'runId': 'old-run', 'status': replaced_status, 'startedAt': STARTED_AT}]
-        )
-    }
+    assert stored == stored_registry({'scrape-eu': stored_record('new-run', 'READY')})
+    assert child_runs.named['scrape-eu'].client.resource_id == 'new-run'
+    [warning] = [record for record in caplog.records if record.levelname == 'WARNING']
+    assert 'Child run "scrape-eu" no longer exists' in warning.getMessage()
+    assert warning.__dict__['run_id'] == 'old-run'
 
 
 async def test_named_start_rejects_name_recorded_for_another_actor(
@@ -237,7 +210,7 @@ async def test_named_start_rejects_name_recorded_for_another_actor(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id='other-actor')
-        with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
+        with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
             await Actor.start('some-actor', run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
@@ -252,7 +225,7 @@ async def test_named_start_rejects_name_recorded_for_task(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
-        with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
+        with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
             await Actor.start('some-actor', run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
@@ -340,40 +313,76 @@ async def test_named_call_streams_new_run_log_from_start(apify_client_async_patc
     assert apify_client_async_patcher.calls['actor']['call'] == []
 
 
-async def test_named_call_returns_succeeded_run_without_waiting(
-    apify_client_async_patcher: ApifyClientAsyncPatcher,
+@pytest.mark.parametrize(
+    'status',
+    [
+        pytest.param('SUCCEEDED', id='succeeded'),
+        pytest.param('FAILED', id='failed'),
+        pytest.param('ABORTED', id='aborted'),
+        pytest.param('TIMED-OUT', id='timed out'),
+    ],
+)
+async def test_named_call_returns_finished_run_without_waiting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, status: str
 ) -> None:
-    """A named call whose recorded run already succeeded returns it without waiting or streaming logs."""
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'SUCCEEDED'))
+    """A named call whose recorded run already finished returns it without waiting or streaming logs."""
+    get_streamed_log = Mock(return_value=MagicMock())
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', status))
     apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=None)
+    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
         run = await Actor.call('some-actor', run_name='scrape-eu')
 
     assert run.id == 'old-run'
+    assert run.status == status
     assert apify_client_async_patcher.calls['run']['wait_for_finish'] == []
+    get_streamed_log.assert_not_called()
 
 
-async def test_named_call_waits_for_resurrected_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A named call resurrects an aborted run with its own timeout and streams only the new log lines."""
-    get_streamed_log = Mock(return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
+@pytest.mark.parametrize(
+    ('status', 'finished_status'),
+    [
+        pytest.param('ABORTING', 'ABORTED', id='aborting'),
+        pytest.param('TIMING-OUT', 'TIMED-OUT', id='timing out'),
+    ],
+)
+async def test_named_call_waits_for_settling_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, status: str, finished_status: str
+) -> None:
+    """A named call whose recorded run is aborting or timing out waits for it and returns it finished."""
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', status))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', finished_status))
     apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', 'SUCCEEDED'))
-    apify_client_async_patcher.patch('run', 'get_status_message_watcher', return_value=MagicMock())
-    apify_client_async_patcher.patch('run', 'get_streamed_log', replacement_method=get_streamed_log)
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        run = await Actor.call('some-actor', run_name='scrape-eu', timeout=timedelta(minutes=5))
+        run = await Actor.call('some-actor', run_name='scrape-eu', logger=None)
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert run.id == 'old-run'
-    assert run.status == 'SUCCEEDED'
-    assert apify_client_async_patcher.calls['actor']['start'] == []
-    [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
-    assert kwargs['run_timeout'] == timedelta(minutes=5)
-    assert get_streamed_log.call_args.kwargs['from_start'] is False
+    assert run.status == finished_status
+    assert stored['named']['scrape-eu']['status'] == finished_status
+    assert apify_client_async_patcher.calls['run']['resurrect'] == []
+
+
+async def test_named_call_returns_active_run_when_wait_runs_out(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A named call whose `wait` runs out returns the run in its current status."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor:
+        run = await Actor.call('some-actor', run_name='scrape-eu', wait=timedelta(seconds=1), logger=None)
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+
+    assert run.status == 'RUNNING'
+    assert stored['named']['scrape-eu']['status'] == 'RUNNING'
+    [(_, kwargs)] = apify_client_async_patcher.calls['run']['wait_for_finish']
+    assert kwargs['wait_duration'] == timedelta(seconds=1)
 
 
 async def test_named_call_without_logger_only_waits(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -398,13 +407,25 @@ async def test_init_rejects_malformed_registry() -> None:
     """Init raises a `ValueError` naming the key when the registry in the default KVS is malformed, and tears down."""
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': {'runId': 'old-run'}})
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry({'scrape-eu': {'runId': 'old-run'}}))
 
     with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
         await Actor.init()
 
     assert not Actor._active
     assert not Actor.event_manager.active
+
+
+async def test_init_does_not_read_the_actor_child_runs_key() -> None:
+    """A value under the `__ACTOR_CHILD_RUNS` key is not read as the registry."""
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value('__ACTOR_CHILD_RUNS', {'scrape-eu': {'runId': 'old-run'}})
+
+    async with Actor:
+        child_runs = Actor.child_runs
+
+    assert child_runs == ChildRuns(named={}, unnamed={})
 
 
 async def test_named_call_task_records_run_in_kvs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -418,7 +439,9 @@ async def test_named_call_task_records_run_in_kvs(apify_client_async_patcher: Ap
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.status == 'SUCCEEDED'
-    assert stored == {'scrape-eu': stored_record('new-run', 'SUCCEEDED', actor_id=None, task_id='some-task')}
+    assert stored == stored_registry(
+        {'scrape-eu': stored_record('new-run', 'SUCCEEDED', actor_id=None, task_id='some-task')}
+    )
     assert apify_client_async_patcher.calls['task']['call'] == []
 
 
@@ -437,21 +460,20 @@ async def test_named_call_task_waits_for_reattached_run(apify_client_async_patch
     assert apify_client_async_patcher.calls['task']['start'] == []
 
 
-async def test_named_call_task_resurrects_recorded_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """A named task call resurrects an aborted run with its own options."""
+async def test_named_call_task_returns_aborted_run(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named task call whose recorded run was aborted returns it without resurrecting it."""
     apify_client_async_patcher.patch('task', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
     apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
-    apify_client_async_patcher.patch('run', 'wait_for_finish', return_value=make_run('old-run', 'SUCCEEDED'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', actor_id=None, task_id='some-task')
-        run = await Actor.call_task('some-task', run_name='scrape-eu', memory_mbytes=2048)
+        run = await Actor.call_task('some-task', run_name='scrape-eu')
 
     assert run.id == 'old-run'
+    assert run.status == 'ABORTED'
     assert apify_client_async_patcher.calls['task']['start'] == []
-    [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
-    assert kwargs['memory_mbytes'] == 2048
+    assert apify_client_async_patcher.calls['run']['resurrect'] == []
 
 
 async def test_named_call_task_rejects_name_recorded_for_actor(
@@ -463,7 +485,7 @@ async def test_named_call_task_rejects_name_recorded_for_actor(
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run')
-        with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
+        with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
             await Actor.call_task('some-task', run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['task']['start'] == []
@@ -485,22 +507,16 @@ async def test_named_runs_forward_max_items_to_start(apify_client_async_patcher:
     assert task_kwargs['max_items'] == 30
 
 
-async def test_named_start_forwards_max_items_to_resurrect(
-    apify_client_async_patcher: ApifyClientAsyncPatcher,
-) -> None:
-    """A named start that resurrects the recorded run passes `max_items` to it and warns about it only once."""
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'ABORTED'))
-    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
+async def test_named_start_warns_about_max_items_once(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named start with `max_items` warns about the deprecated option once, pointing at the caller."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
-        await record_child_run('scrape-eu', 'old-run')
         with pytest.warns(FutureWarning, match='max_items') as warnings:
             await Actor.start('some-actor', run_name='scrape-eu', max_items=10)
 
     future_warnings = [warning for warning in warnings if warning.category is FutureWarning]
     assert [warning.filename for warning in future_warnings] == [__file__]
-    [(_, kwargs)] = apify_client_async_patcher.calls['run']['resurrect']
-    assert kwargs['max_items'] == 10
 
 
 async def test_named_start_task_records_run_in_kvs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -513,7 +529,9 @@ async def test_named_start_task_records_run_in_kvs(apify_client_async_patcher: A
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
     assert run.id == 'new-run'
-    assert stored == {'scrape-eu': stored_record('new-run', 'READY', actor_id=None, task_id='some-task')}
+    assert stored == stored_registry(
+        {'scrape-eu': stored_record('new-run', 'READY', actor_id=None, task_id='some-task')}
+    )
     assert apify_client_async_patcher.calls['run']['wait_for_finish'] == []
 
 
@@ -531,12 +549,12 @@ async def test_named_start_task_reuses_recorded_run(apify_client_async_patcher: 
 
 
 async def test_name_lock_is_dropped_after_named_start(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
-    """The per-name lock is released from the registry once no named start holds it."""
+    """The per-key lock is released from the registry once no named start holds it."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with _ActorType() as actor:
         await actor.start('some-actor', run_name='scrape-eu')
-        assert len(actor._child_run_registry._name_locks) == 0
+        assert len(actor._child_run_registry._key_locks) == 0
 
 
 async def test_named_start_retries_recorded_run_not_found_yet(
@@ -561,6 +579,7 @@ async def test_named_start_retries_recorded_run_not_found_yet(
     [
         pytest.param('RUNNING', id='running'),
         pytest.param('SUCCEEDED', id='succeeded'),
+        pytest.param('FAILED', id='failed'),
         pytest.param('ABORTED', id='aborted'),
     ],
 )
@@ -568,51 +587,76 @@ async def test_named_start_rejects_name_recorded_with_other_input(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     status: str,
 ) -> None:
-    """Reusing a name with a different input raises instead of reattaching to, or resurrecting, the earlier run."""
+    """Reusing a name with a different input raises, whatever the status of the recorded run."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', status))
-    apify_client_async_patcher.patch('run', 'resurrect', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
         await record_child_run('scrape-eu', 'old-run', run_input={'since': '2025-01-01'})
-        with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
+        with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
             await Actor.start('some-actor', {'since': '2026-01-01'}, run_name='scrape-eu')
 
     assert apify_client_async_patcher.calls['actor']['start'] == []
-    assert apify_client_async_patcher.calls['run']['resurrect'] == []
+    assert apify_client_async_patcher.calls['run']['get'] == []
 
 
 @pytest.mark.parametrize(
-    ('recorded_actor_id', 'recorded_input'),
+    ('recorded_options', 'call_options'),
     [
-        pytest.param('other-actor', None, id='other actor'),
-        pytest.param('some-actor', {'since': '2025-01-01'}, id='other input'),
+        pytest.param({}, {'memory_mbytes': 2048}, id='option added'),
+        pytest.param({'memory': 1024}, {'memory_mbytes': 2048}, id='option changed'),
+        pytest.param({'build': 'latest'}, {}, id='option removed'),
     ],
 )
-async def test_named_start_replaces_run_recorded_for_other_request(
+async def test_named_start_rejects_name_recorded_with_other_options(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
-    recorded_actor_id: str,
-    recorded_input: Any,
+    recorded_options: dict[str, Any],
+    call_options: dict[str, Any],
 ) -> None:
-    """A failed run recorded for another Actor or input is replaced, and the name takes the new run's checksum."""
+    """Reusing a name with different run options raises."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
-    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'FAILED'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'RUNNING'))
 
     async with Actor:
-        await record_child_run('scrape-eu', 'old-run', actor_id=recorded_actor_id, run_input=recorded_input)
-        run = await Actor.start('some-actor', {'since': '2026-01-01'}, run_name='scrape-eu')
-        kvs = await Actor.open_key_value_store()
-        stored = await kvs.get_value(CHILD_RUNS_KEY)
+        await record_child_run('scrape-eu', 'old-run', options=recorded_options)
+        with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
+            await Actor.start('some-actor', run_name='scrape-eu', **call_options)
 
-    assert run.id == 'new-run'
-    assert stored == {
-        'scrape-eu': stored_record(
-            'new-run',
-            'READY',
-            run_input={'since': '2026-01-01'},
-            history=[{'runId': 'old-run', 'status': 'FAILED', 'startedAt': STARTED_AT}],
-        )
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_named_start_reuses_run_recorded_with_same_options(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """A call with the recorded run options returns the recorded run, also with another token and `wait`."""
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'SUCCEEDED'))
+    recorded_options = {
+        'build': 'beta',
+        'forcePermissionLevel': 'LIMITED_PERMISSIONS',
+        'maxTotalChargeUsd': 1.5,
+        'memory': 2048,
+        'restartOnError': True,
+        'timeout': 90,
+        'webhooks': [{'eventTypes': ['ACTOR.RUN.SUCCEEDED'], 'requestUrl': 'https://example.com/hook'}],
     }
+
+    async with Actor:
+        await record_child_run('scrape-eu', 'old-run', options=recorded_options)
+        run = await Actor.call(
+            'some-actor',
+            run_name='scrape-eu',
+            build='beta',
+            force_permission_level='LIMITED_PERMISSIONS',
+            max_total_charge_usd=Decimal('1.50'),
+            memory_mbytes=2048,
+            restart_on_error=True,
+            timeout=timedelta(seconds=90),
+            webhooks=[Webhook(event_types=['ACTOR.RUN.SUCCEEDED'], request_url='https://example.com/hook')],
+            token='other-token',
+            wait=timedelta(seconds=5),
+        )
+
+    assert run.id == 'old-run'
 
 
 async def test_named_start_ignores_input_key_order(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -655,6 +699,136 @@ def test_checksum_matches_js_sdk(request_kwargs: dict[str, Any], expected: str) 
     assert checksum_request(**request_kwargs) == expected
 
 
+def test_checksum_hashes_canonical_json_of_the_request() -> None:
+    """The checksum is the SHA-256 of the request as canonical JSON, with sorted keys and no whitespace."""
+    checksum = checksum_request(
+        actor_id='some-actor',
+        run_input={'b': [1.0, 2.5, 1e21, 1e-7], 'a': '\u00e9"\n'},
+        options={'timeout': 60, 'memory': 256},
+    )
+    canonical = (
+        '{"id":"some-actor","input":{"a":"\u00e9\\"\\n","b":[1,2.5,1e+21,1e-7]},'
+        '"options":{"memory":256,"timeout":60},"type":"actor"}'
+    )
+
+    assert checksum == hashlib.sha256(canonical.encode()).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ('run_input', 'canonical_input'),
+    [
+        pytest.param({'n': 0.0}, '{"n":0}', id='zero'),
+        pytest.param({'n': -0.5}, '{"n":-0.5}', id='negative fraction'),
+        pytest.param({'n': 0.001}, '{"n":0.001}', id='small fraction'),
+        pytest.param({'n': -12}, '{"n":-12}', id='negative integer'),
+        pytest.param({'on': False, 'off': None}, '{"off":null,"on":false}', id='false and null'),
+        pytest.param(
+            {'\ufb33': 1, '\U0001f600': 2}, '{"\U0001f600":2,"\ufb33":1}', id='keys sorted by UTF-16 code units'
+        ),
+    ],
+)
+def test_checksum_serializes_json_values_canonically(run_input: Any, canonical_input: str) -> None:
+    """The checksum writes numbers, literals and object keys the way RFC 8785 defines."""
+    canonical = f'{{"id":"some-actor","input":{canonical_input},"type":"actor"}}'
+
+    assert (
+        checksum_request(actor_id='some-actor', run_input=run_input) == hashlib.sha256(canonical.encode()).hexdigest()
+    )
+
+
+def test_checksum_accepts_an_empty_content_type() -> None:
+    """An empty content type counts as not set, the same as in the client."""
+    assert checksum_request(actor_id='some-actor', run_input={'a': 1}, content_type='') == checksum_request(
+        actor_id='some-actor', run_input={'a': 1}
+    )
+
+
+@pytest.mark.parametrize(
+    ('first_input', 'second_input'),
+    [
+        pytest.param({'count': 1}, {'count': 1.0}, id='integer and equal float'),
+        pytest.param({'a': 1, 'b': 2}, {'b': 2, 'a': 1}, id='key order'),
+        pytest.param({'price': Decimal('1.50')}, {'price': '1.50'}, id='value the client sends as a string'),
+    ],
+)
+def test_checksum_is_equal_for_inputs_sent_as_the_same_json(first_input: Any, second_input: Any) -> None:
+    """Two inputs that the client sends as the same JSON document have the same checksum."""
+    first = checksum_request(actor_id='some-actor', run_input=first_input)
+    second = checksum_request(actor_id='some-actor', run_input=second_input)
+
+    assert first == second
+
+
+def test_checksum_differs_for_actor_and_task_with_the_same_id() -> None:
+    """An Actor and a task with the same ID have different checksums."""
+    assert checksum_request(actor_id='some-id') != checksum_request(task_id='some-id')
+
+
+def test_checksum_ignores_json_content_type_and_empty_options() -> None:
+    """A JSON content type and no run options leave the checksum as it is without them."""
+    plain = checksum_request(actor_id='some-actor', run_input={'a': 1})
+    with_content_type = checksum_request(
+        actor_id='some-actor', run_input={'a': 1}, content_type='application/json; charset=utf-8', options={}
+    )
+
+    assert plain == with_content_type
+
+
+@pytest.mark.parametrize(
+    ('run_input', 'content_type'),
+    [
+        pytest.param('{"a": 1}', None, id='string'),
+        pytest.param(b'{"a": 1}', None, id='bytes'),
+        pytest.param(io.BytesIO(b'{"a": 1}'), None, id='stream'),
+        pytest.param({'a': 1}, 'text/plain', id='other content type'),
+    ],
+)
+def test_checksum_rejects_input_not_sent_as_json(run_input: Any, content_type: str | None) -> None:
+    """An input that the client does not serialize to JSON cannot be hashed."""
+    with pytest.raises(TypeError, match='needs a JSON input'):
+        checksum_request(actor_id='some-actor', run_input=run_input, content_type=content_type)
+
+
+def test_checksum_run_options_use_the_api_names_and_values() -> None:
+    """The hashed run options carry the names and values of the API, and the options that are not set are left out."""
+    options = checksum_run_options(
+        build='beta',
+        max_items=10,
+        max_total_charge_usd=Decimal('2.50'),
+        restart_on_error=False,
+        memory_mbytes=1024,
+        timeout=timedelta(minutes=2),
+        force_permission_level='FULL_PERMISSIONS',
+        webhooks=to_client_representations(
+            [Webhook(event_types=['ACTOR.RUN.FAILED'], request_url='https://example.com/hook')]
+        ),
+    )
+
+    assert options == {
+        'build': 'beta',
+        'forcePermissionLevel': 'FULL_PERMISSIONS',
+        'maxItems': 10,
+        'maxTotalChargeUsd': 2.5,
+        'memory': 1024,
+        'restartOnError': False,
+        'timeout': 120,
+        'webhooks': [{'eventTypes': ['ACTOR.RUN.FAILED'], 'requestUrl': 'https://example.com/hook'}],
+    }
+    assert checksum_run_options() == {}
+    assert checksum_run_options(timeout='inherit') == {'timeout': 'inherit'}
+
+
+async def test_named_start_rejects_input_not_sent_as_json(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """A named start with an input that is not sent as JSON raises a `TypeError` and starts no run."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        with pytest.raises(TypeError, match='needs a JSON input'):
+            await Actor.start('some-actor', 'plain text', run_name='scrape-eu')
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
 async def test_reattached_run_status_is_recorded(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
     """Reattaching to a recorded run stores its current status."""
     apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'SUCCEEDED'))
@@ -665,7 +839,7 @@ async def test_reattached_run_status_is_recorded(apify_client_async_patcher: Api
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored == {'scrape-eu': stored_record('old-run', 'SUCCEEDED')}
+    assert stored == stored_registry({'scrape-eu': stored_record('old-run', 'SUCCEEDED')})
 
 
 async def test_named_call_records_finished_status(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -678,7 +852,7 @@ async def test_named_call_records_finished_status(apify_client_async_patcher: Ap
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored == {'scrape-eu': stored_record('new-run', 'FAILED')}
+    assert stored == stored_registry({'scrape-eu': stored_record('new-run', 'FAILED')})
 
 
 async def test_child_runs_is_empty_without_named_runs(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -687,7 +861,7 @@ async def test_child_runs_is_empty_without_named_runs(apify_client_async_patcher
 
     async with Actor:
         await Actor.start('some-actor')
-        assert Actor.child_runs == {}
+        assert Actor.child_runs == ChildRuns(named={}, unnamed={})
 
 
 def test_child_runs_requires_initialized_actor() -> None:
@@ -697,38 +871,64 @@ def test_child_runs_requires_initialized_actor() -> None:
 
 
 async def test_child_runs_includes_runs_recorded_before_init() -> None:
-    """Init loads the runs recorded by an earlier attempt, so `Actor.child_runs` has a client for each of them."""
+    """Init loads the runs recorded by an earlier process, so `Actor.child_runs` has an entry for each of them."""
     async with Actor:
         kvs = await Actor.open_key_value_store()
         await kvs.set_value(
             CHILD_RUNS_KEY,
-            {
-                'scrape-eu': stored_record('eu-run', 'RUNNING'),
-                'scrape-us': stored_record('us-run', 'FAILED', actor_id=None, task_id='some-task'),
-            },
+            stored_registry(
+                {
+                    'scrape-eu': stored_record('eu-run', 'RUNNING'),
+                    'scrape-us': stored_record(
+                        'us-run', 'FAILED', run_name='scrape-us', actor_id=None, task_id='some-task'
+                    ),
+                }
+            ),
         )
 
     async with Actor:
         child_runs = Actor.child_runs
 
-    assert {name: run_client.resource_id for name, run_client in child_runs.items()} == {
+    assert {name: child_run.client.resource_id for name, child_run in child_runs.named.items()} == {
         'scrape-eu': 'eu-run',
         'scrape-us': 'us-run',
     }
+    assert child_runs.named['scrape-us'].record.status == 'FAILED'
+    assert child_runs.unnamed == {}
 
 
-async def test_child_runs_includes_run_started_in_this_attempt(
+async def test_child_runs_includes_run_started_in_this_process(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
 ) -> None:
-    """A run started by a named start shows up in `Actor.child_runs` right away, pointing to the current run."""
+    """A run started by a named start shows up in `Actor.child_runs` right away, with its record and a client."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        await Actor.start('some-actor', run_name='scrape-eu', abort_with_parent=True)
+        child_runs = Actor.child_runs
+
+    assert child_runs.named.keys() == {'scrape-eu'}
+    record, client = child_runs.named['scrape-eu']
+    assert client.resource_id == 'new-run'
+    assert record == ChildRunRecord(
+        run_id='new-run',
+        run_name='scrape-eu',
+        status='READY',
+        checksum=checksum_request(actor_id='some-actor'),
+        abort_with_parent=True,
+    )
+
+
+async def test_child_runs_record_is_read_only(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """The record of a child run cannot be changed, so the registry keeps its values."""
     apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
 
     async with Actor:
         await Actor.start('some-actor', run_name='scrape-eu')
-        child_runs = Actor.child_runs
-
-    assert child_runs.keys() == {'scrape-eu'}
-    assert child_runs['scrape-eu'].resource_id == 'new-run'
+        record = Actor.child_runs.named['scrape-eu'].record
+        with pytest.raises(ValidationError, match='frozen'):
+            record.status = 'SUCCEEDED'  # ty: ignore[invalid-assignment]
+        assert Actor.child_runs.named['scrape-eu'].record.status == 'READY'
 
 
 async def test_child_runs_uses_client_of_named_start(
@@ -754,8 +954,8 @@ async def test_child_runs_uses_client_of_named_start(
 
     custom_http_client = clients_by_token['custom-token']._http_client
     assert custom_http_client is not default_http_client
-    assert child_runs['custom']._http_client is custom_http_client
-    assert child_runs['recorded']._http_client is default_http_client
+    assert child_runs.named['custom'].client._http_client is custom_http_client
+    assert child_runs.named['recorded'].client._http_client is default_http_client
 
 
 async def test_child_runs_keeps_client_of_name_after_rejected_reuse(
@@ -767,12 +967,12 @@ async def test_child_runs_keeps_client_of_name_after_rejected_reuse(
 
     async with Actor:
         await Actor.start('some-actor', {'since': '2025-01-01'}, run_name='scrape-eu')
-        with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
+        with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
             await Actor.start('some-actor', {'since': '2026-01-01'}, run_name='scrape-eu', token='other-token')
         child_runs = Actor.child_runs
         default_http_client = Actor.apify_client._http_client
 
-    assert child_runs['scrape-eu']._http_client is default_http_client
+    assert child_runs.named['scrape-eu'].client._http_client is default_http_client
 
 
 async def test_child_runs_keeps_client_of_name_after_failed_lookup(
@@ -789,7 +989,7 @@ async def test_child_runs_keeps_client_of_name_after_failed_lookup(
         child_runs = Actor.child_runs
         default_http_client = Actor.apify_client._http_client
 
-    assert child_runs['scrape-eu']._http_client is default_http_client
+    assert child_runs.named['scrape-eu'].client._http_client is default_http_client
 
 
 @pytest.mark.parametrize(
@@ -827,7 +1027,7 @@ async def test_named_start_records_abort_with_parent(apify_client_async_patcher:
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored['scrape-eu']['abortWithParent'] is True
+    assert stored['named']['scrape-eu']['abortWithParent'] is True
 
 
 async def test_named_call_task_records_abort_with_parent(
@@ -842,7 +1042,7 @@ async def test_named_call_task_records_abort_with_parent(
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored['scrape-eu']['abortWithParent'] is True
+    assert stored['named']['scrape-eu']['abortWithParent'] is True
 
 
 async def test_reattach_replaces_recorded_abort_with_parent(
@@ -857,8 +1057,8 @@ async def test_reattach_replaces_recorded_abort_with_parent(
         kvs = await Actor.open_key_value_store()
         stored = await kvs.get_value(CHILD_RUNS_KEY)
 
-    assert stored['scrape-eu']['runId'] == 'old-run'
-    assert stored['scrape-eu']['abortWithParent'] is True
+    assert stored['named']['scrape-eu']['runId'] == 'old-run'
+    assert stored['named']['scrape-eu']['abortWithParent'] is True
 
 
 async def test_aborting_event_aborts_marked_child_runs(
@@ -882,18 +1082,16 @@ async def test_aborting_event_aborts_marked_child_runs(
 
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(
-            CHILD_RUNS_KEY,
-            {
-                name: stored_record(run_id, 'RUNNING', abort_with_parent=marked)
-                for name, run_id, marked in [
-                    ('running', 'running-run', True),
-                    ('ready', 'ready-run', True),
-                    ('finished', 'finished-run', True),
-                    ('unmarked', 'unmarked-run', False),
-                ]
-            },
-        )
+        records = {
+            name: stored_record(run_id, 'RUNNING', run_name=name, abort_with_parent=marked)
+            for name, run_id, marked in [
+                ('running', 'running-run', True),
+                ('ready', 'ready-run', True),
+                ('finished', 'finished-run', True),
+                ('unmarked', 'unmarked-run', False),
+            ]
+        }
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry(records))
         await Actor._child_run_registry.load()
         apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
         await apify_event_manager.wait_for_all_listeners_to_complete()
@@ -918,7 +1116,8 @@ async def test_aborting_event_skips_a_child_run_that_no_longer_exists(
 
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'gone': stored_record('gone-run', 'RUNNING', abort_with_parent=True)})
+        record = stored_record('gone-run', 'RUNNING', run_name='gone', abort_with_parent=True)
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry({'gone': record}))
         await Actor._child_run_registry.load()
         apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
         await apify_event_manager.wait_for_all_listeners_to_complete()
@@ -943,10 +1142,11 @@ async def test_failed_child_run_abort_does_not_stop_others(
 
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(
-            CHILD_RUNS_KEY,
-            {name: stored_record(f'{name}-run', 'RUNNING', abort_with_parent=True) for name in ['broken', 'healthy']},
-        )
+        records = {
+            name: stored_record(f'{name}-run', 'RUNNING', run_name=name, abort_with_parent=True)
+            for name in ['broken', 'healthy']
+        }
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry(records))
         await Actor._child_run_registry.load()
         apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
         await apify_event_manager.wait_for_all_listeners_to_complete()
@@ -965,13 +1165,12 @@ async def test_child_run_is_aborted_with_the_client_it_was_started_with() -> Non
 
     async with Actor:
         registry = ChildRunRegistry(Actor.open_key_value_store)
+        await registry.load()
         await registry.find_or_start(
-            'scrape-eu',
-            actor_id='some-actor',
-            run_input=None,
+            ChildRunKey('named', 'scrape-eu'),
+            checksum='checksum',
             client=child_client,
             start_run=AsyncMock(return_value=make_run('new-run', 'READY')),
-            resurrect_run=AsyncMock(),
             abort_with_parent=True,
         )
         await registry.abort_runs_with_parent(default_client)
@@ -990,16 +1189,16 @@ async def test_rejected_named_start_keeps_the_client_used_to_abort() -> None:
 
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': stored_record('old-run', 'RUNNING', abort_with_parent=True)})
+        record = stored_record('old-run', 'RUNNING', abort_with_parent=True)
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry({'scrape-eu': record}))
         registry = ChildRunRegistry(Actor.open_key_value_store)
-        with pytest.raises(ValueError, match='already used for a different Actor, task or input'):
+        await registry.load()
+        with pytest.raises(ValueError, match='already used for a different Actor, task, input or run options'):
             await registry.find_or_start(
-                'scrape-eu',
-                actor_id='other-actor',
-                run_input=None,
+                ChildRunKey('named', 'scrape-eu'),
+                checksum='other-checksum',
                 client=other_client,
                 start_run=AsyncMock(),
-                resurrect_run=AsyncMock(),
             )
         await registry.abort_runs_with_parent(default_client)
 
@@ -1021,14 +1220,13 @@ async def test_aborting_waits_for_a_named_start_in_flight() -> None:
 
     async with Actor:
         registry = ChildRunRegistry(Actor.open_key_value_store)
+        await registry.load()
         start_task = asyncio.create_task(
             registry.find_or_start(
-                'scrape-eu',
-                actor_id='some-actor',
-                run_input=None,
+                ChildRunKey('named', 'scrape-eu'),
+                checksum='checksum',
                 client=client,
                 start_run=start_run,
-                resurrect_run=AsyncMock(),
                 abort_with_parent=True,
             )
         )
@@ -1058,16 +1256,12 @@ async def test_named_start_queued_behind_a_start_in_flight_raises_once_aborting(
 
     async with Actor:
         registry = ChildRunRegistry(Actor.open_key_value_store)
-        options: dict[str, Any] = {
-            'actor_id': 'some-actor',
-            'run_input': None,
-            'client': client,
-            'resurrect_run': AsyncMock(),
-            'abort_with_parent': True,
-        }
-        first_start = asyncio.create_task(registry.find_or_start('scrape-eu', start_run=start_run, **options))
+        await registry.load()
+        key = ChildRunKey('named', 'scrape-eu')
+        options: dict[str, Any] = {'checksum': 'checksum', 'client': client, 'abort_with_parent': True}
+        first_start = asyncio.create_task(registry.find_or_start(key, start_run=start_run, **options))
         await started.wait()
-        queued_start = asyncio.create_task(registry.find_or_start('scrape-eu', start_run=queued_start_run, **options))
+        queued_start = asyncio.create_task(registry.find_or_start(key, start_run=queued_start_run, **options))
         await asyncio.sleep(0)
         abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
         await asyncio.sleep(0)
@@ -1120,7 +1314,8 @@ async def test_named_call_once_aborting_does_not_resurrect_the_aborted_child(
 
     async with Actor:
         kvs = await Actor.open_key_value_store()
-        await kvs.set_value(CHILD_RUNS_KEY, {'scrape-eu': stored_record('old-run', 'RUNNING', abort_with_parent=True)})
+        record = stored_record('old-run', 'RUNNING', abort_with_parent=True)
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry({'scrape-eu': record}))
         await Actor._child_run_registry.load()
         apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
         await apify_event_manager.wait_for_all_listeners_to_complete()
@@ -1222,3 +1417,72 @@ async def test_child_runs_warns_experimental() -> None:
             _ = Actor.child_runs
 
     assert [warning.filename for warning in warnings] == [__file__]
+
+
+async def test_aborting_event_before_the_registry_is_loaded_waits_for_it() -> None:
+    """An abort of the child runs that starts before the registry is loaded aborts the recorded runs after the load."""
+    client = Mock()
+    client.run.return_value.abort = AsyncMock(return_value=make_run('old-run', 'ABORTING'))
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        record = stored_record('old-run', 'RUNNING', abort_with_parent=True)
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry({'scrape-eu': record}))
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
+        await asyncio.sleep(0.05)
+        assert not abort_task.done()
+        await registry.load()
+        await asyncio.wait_for(abort_task, timeout=1)
+
+    client.run.return_value.abort.assert_awaited_once_with(gracefully=True)
+
+
+@pytest.mark.parametrize(
+    'stored',
+    [
+        pytest.param([], id='empty list'),
+        pytest.param('', id='empty string'),
+        pytest.param(0, id='zero'),
+    ],
+)
+async def test_init_rejects_registry_of_another_json_type(stored: Any) -> None:
+    """Init raises a `ValueError` for a registry value that is not a JSON object, also when the value is falsy."""
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, stored)
+
+    with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
+        await Actor.init()
+
+
+async def test_failed_load_releases_an_abort_of_child_runs_that_waits_for_it() -> None:
+    """An abort of the child runs that waits for the registry returns when the load fails, and aborts nothing."""
+    client = Mock()
+    client.run.return_value.abort = AsyncMock()
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry({'scrape-eu': {'runId': 'old-run'}}))
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
+        await asyncio.sleep(0)
+        with pytest.raises(ValueError, match=CHILD_RUNS_KEY):
+            await registry.load()
+        await asyncio.wait_for(abort_task, timeout=1)
+
+    client.run.return_value.abort.assert_not_awaited()
+
+
+async def test_abort_of_child_runs_stops_waiting_for_a_load_that_never_happens() -> None:
+    """An abort of the child runs that waits for the registry returns when the Actor gives up loading it."""
+    client = Mock()
+
+    async with Actor:
+        registry = ChildRunRegistry(Actor.open_key_value_store)
+        abort_task = asyncio.create_task(registry.abort_runs_with_parent(client))
+        await asyncio.sleep(0)
+        registry.stop_waiting_for_load()
+        await asyncio.wait_for(abort_task, timeout=1)
+
+    client.run.assert_not_called()

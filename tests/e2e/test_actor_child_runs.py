@@ -36,8 +36,8 @@ async def test_named_child_run_is_reattached_after_reboot(
                 return
 
             child_runs = Actor.child_runs
-            assert child_runs.keys() == {'child'}, f'child_runs={child_runs}'
-            assert child_runs['child'].resource_id == child_run_id, f'child_runs={child_runs}'
+            assert child_runs.named.keys() == {'child'}, f'child_runs={child_runs}'
+            assert child_runs.named['child'].client.resource_id == child_run_id, f'child_runs={child_runs}'
 
             run = await Actor.call(actor_id=actor_id, run_input={'is_child': True}, run_name='child')
             assert run is not None, 'run is None'
@@ -52,11 +52,11 @@ async def test_named_child_run_is_reattached_after_reboot(
     assert (await actor.runs().list()).total == 2
 
 
-async def test_named_aborted_child_run_is_resurrected_after_reboot(
+async def test_named_aborted_child_run_is_returned_aborted_after_reboot(
     make_actor: MakeActorFunction,
     run_actor: RunActorFunction,
 ) -> None:
-    """A named child run aborted before a reboot is resurrected by a named start after it."""
+    """A named child run aborted before a reboot is returned `ABORTED` by a named start after it."""
 
     async def main() -> None:
         async with Actor:
@@ -80,17 +80,14 @@ async def test_named_aborted_child_run_is_resurrected_after_reboot(
                 return
 
             run = await Actor.start(actor_id=actor_id, run_input={'is_child': True}, run_name='child')
-            try:
-                assert run.id == child_run_id, f'run.id={run.id}, child_run_id={child_run_id}'
-                assert run.status in {'READY', 'RUNNING'}, f'run.status={run.status}'
-            finally:
-                await Actor.apify_client.run(run.id).abort()
+            assert run.id == child_run_id, f'run.id={run.id}, child_run_id={child_run_id}'
+            assert run.status == 'ABORTED', f'run.status={run.status}'
 
-    actor = await make_actor(label='child-run-resurrect', main_func=main)
+    actor = await make_actor(label='child-run-aborted', main_func=main)
     run_result = await run_actor(actor)
 
     assert run_result.status == 'SUCCEEDED'
-    # The parent run and the one child run it resurrected.
+    # The parent run and the one child run it started.
     assert (await actor.runs().list()).total == 2
 
 
@@ -123,7 +120,7 @@ async def test_named_child_run_is_aborted_with_parent(
     else:
         raise AssertionError('The parent run did not record the child run in time.')
 
-    child_run_id = record['value']['child']['runId']
+    child_run_id = record['value']['named']['child']['runId']
     parent_run_client = apify_client_async.run(parent_run.id)
     await parent_run_client.abort(gracefully=True)
     await parent_run_client.wait_for_finish(wait_duration=timedelta(seconds=120))

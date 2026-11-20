@@ -37,7 +37,13 @@ from apify._charging import (
     ChargingManagerImplementation,
     charge_lock_if_charging,
 )
-from apify._child_runs import ChildRunRegistry
+from apify._child_runs import (
+    TERMINAL_RUN_STATUSES,
+    ChildRunKey,
+    ChildRunRegistry,
+    checksum_request,
+    checksum_run_options,
+)
 from apify._configuration import Configuration
 from apify._consts import (
     EVENT_LISTENERS_TIMEOUT,
@@ -69,6 +75,7 @@ if TYPE_CHECKING:
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
+    from apify._child_runs import ChildRuns
     from apify._webhook import Webhook
 
 MainReturnType = TypeVar('MainReturnType')
@@ -206,7 +213,7 @@ class _ActorType:
         - Sets up local or cloud storage clients depending on whether the Actor runs locally or on the Apify platform.
         - Configures the event manager and starts periodic state persistence.
         - Initializes the charging manager for handling charging events.
-        - Loads the named child runs recorded by an earlier attempt of this Actor run.
+        - Loads the child runs recorded by an earlier process of this Actor run.
         - On the Apify platform, forwards the status messages of Crawlee crawlers to the run status message.
         - Configures logging after all core services are registered.
 
@@ -253,6 +260,8 @@ class _ActorType:
                 )
                 self._internal_listeners.callback(remove_listener)
             rollback.callback(self._internal_listeners.close)
+            # An `ABORTING` listener that already runs waits for the registry, which a failed init never loads.
+            rollback.callback(self._child_run_registry.stop_waiting_for_load)
             self.log.debug('Event manager initialized')
 
             # Initialize the charging manager.
@@ -442,25 +451,28 @@ class _ActorType:
 
     @property
     @_ensure_context
-    def child_runs(self) -> dict[str, RunClientAsync]:
-        """Clients for the named child runs of this Actor run, keyed by the run name.
+    def child_runs(self) -> ChildRuns:
+        """The child runs of this Actor run, with the record and a client for each of them.
 
         Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
-        included, even one started before a migration or resurrection of this Actor run. Runs started without a
-        `run_name` are not tracked. Each client points to the current run under its name:
+        listed in `named` under that name, even one started by an earlier process of this Actor run, before
+        a migration, reboot or resurrection. Runs started without a `run_name` are not tracked. Each entry holds
+        the stored `record` and a `client` for the run:
 
         ```python
-        run = await Actor.child_runs['my-child'].wait_for_finish()
+        record, client = Actor.child_runs.named['my-child']
+        run = await client.wait_for_finish()
         ```
 
-        A run started or reattached with a custom `token` since the last migration or resurrection of this Actor run
-        uses that token. Any other run uses the default client.
+        `record.status` is the last status this Actor run observed, so it can be out of date, and `client.get()`
+        returns the current run. A run started or returned with a custom `token` in this process has a client with
+        that token. Tokens are not stored, so a run recorded by an earlier process has the default client.
 
         Warning:
             This is an experimental feature. The behavior and interface may change in future versions.
         """
         _warn_child_runs_experimental()
-        return self._child_run_registry.run_clients(self.apify_client)
+        return self._child_run_registry.child_runs(self.apify_client)
 
     @cached_property
     def configuration(self) -> Configuration:
@@ -1141,17 +1153,16 @@ class _ActorType:
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
             run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
-                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
-                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
-                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
-                and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                default key-value store, so a later call with the same name returns the recorded run, also after a
+                migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
+                in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
+                exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
+                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
+                behavior and interface may change in future versions.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
+                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
+                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
+                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run
@@ -1189,14 +1200,19 @@ class _ActorType:
             run_name,
             actor_id=actor_id,
             run_input=run_input,
+            content_type=content_type,
             client=client,
             start_run=start_run,
-            build=build,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            timeout=timeout,
+            options=checksum_run_options(
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                timeout=timeout,
+                force_permission_level=force_permission_level,
+                webhooks=to_client_representations(webhooks),
+            ),
             abort_with_parent=abort_with_parent,
         )
         return run
@@ -1346,17 +1362,16 @@ class _ActorType:
                 default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
                 will redirect logs to the provided logger.
             run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
-                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
-                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
-                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
-                and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                default key-value store, so a later call with the same name returns the recorded run, also after a
+                migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
+                in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
+                exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
+                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
+                behavior and interface may change in future versions.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
+                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
+                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
+                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run.
@@ -1394,6 +1409,7 @@ class _ActorType:
                 run_name,
                 actor_id=actor_id,
                 run_input=run_input,
+                content_type=content_type,
                 client=client,
                 start_run=partial(
                     actor_client.start,
@@ -1408,15 +1424,19 @@ class _ActorType:
                     force_permission_level=force_permission_level,
                     webhooks=to_client_representations(webhooks),
                 ),
-                build=build,
-                max_items=max_items,
-                max_total_charge_usd=max_total_charge_usd,
-                restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                timeout=timeout,
+                options=checksum_run_options(
+                    build=build,
+                    max_items=max_items,
+                    max_total_charge_usd=max_total_charge_usd,
+                    restart_on_error=restart_on_error,
+                    memory_mbytes=memory_mbytes,
+                    timeout=timeout,
+                    force_permission_level=force_permission_level,
+                    webhooks=to_client_representations(webhooks),
+                ),
                 abort_with_parent=abort_with_parent,
             )
-            # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
+            # An earlier process of this Actor run already streamed the start of the log of a recorded run.
             run = await self._wait_for_child_run(
                 run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
             )
@@ -1428,36 +1448,29 @@ class _ActorType:
 
     async def _find_or_start_child_run(
         self,
-        name: str,
+        run_name: str,
         *,
         actor_id: str | None = None,
         task_id: str | None = None,
         run_input: Any,
+        content_type: str | None = None,
+        options: dict[str, Any],
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
-        build: str | None,
-        max_items: int | None,
-        max_total_charge_usd: Decimal | None,
-        restart_on_error: bool | None,
-        memory_mbytes: int | None,
-        timeout: timedelta | Literal['inherit'] | None,
         abort_with_parent: bool,
     ) -> tuple[Run, bool]:
-        return await self._child_run_registry.find_or_start(
-            name,
+        checksum = checksum_request(
             actor_id=actor_id,
             task_id=task_id,
             run_input=run_input,
+            content_type=content_type,
+            options=options,
+        )
+        return await self._child_run_registry.find_or_start(
+            ChildRunKey('named', run_name),
+            checksum=checksum,
             client=client,
             start_run=start_run,
-            resurrect_run=lambda run_id: client.run(run_id).resurrect(
-                build=build,
-                memory_mbytes=memory_mbytes,
-                run_timeout=self._resolve_run_timeout(timeout),
-                max_items=max_items,
-                max_total_charge_usd=max_total_charge_usd,
-                restart_on_error=restart_on_error,
-            ),
             abort_with_parent=abort_with_parent,
         )
 
@@ -1474,7 +1487,7 @@ class _ActorType:
         logger: logging.Logger | Literal['default'] | None,
         from_start: bool,
     ) -> Run | None:
-        if run.status == 'SUCCEEDED':
+        if run.status in TERMINAL_RUN_STATUSES:
             return run
 
         if not logger:
@@ -1488,7 +1501,7 @@ class _ActorType:
                 finished_run = await run_client.wait_for_finish(wait_duration=wait)
 
         if finished_run is not None:
-            await self._child_run_registry.update(name, finished_run)
+            await self._child_run_registry.update(ChildRunKey('named', name), finished_run)
         return finished_run
 
     @_ensure_context
@@ -1537,17 +1550,16 @@ class _ActorType:
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
             run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
-                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
-                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
-                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
-                and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                default key-value store, so a later call with the same name returns the recorded run, also after a
+                migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
+                in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
+                exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
+                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
+                behavior and interface may change in future versions.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
+                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
+                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
+                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run.
@@ -1584,12 +1596,15 @@ class _ActorType:
             run_input=task_input,
             client=client,
             start_run=start_run,
-            build=build,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            timeout=timeout,
+            options=checksum_run_options(
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                timeout=timeout,
+                webhooks=to_client_representations(webhooks),
+            ),
             abort_with_parent=abort_with_parent,
         )
         return run
@@ -1641,17 +1656,16 @@ class _ActorType:
                 a webhook set up for the Actor, you do not have to add it again here.
             wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
             run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
-                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
-                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
-                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
-                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
-                and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
-                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
-                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
-                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
-                the child running.
+                default key-value store, so a later call with the same name returns the recorded run, also after a
+                migration, reboot or resurrection of this Actor. The recorded run is returned in whatever status it is
+                in, and a new run is started only when nothing is recorded under the name, or the recorded run no longer
+                exists. Using `run_name` for a different Actor, task, input or run options raises a `ValueError`, and an
+                input that is not sent as JSON raises a `TypeError`. Named child runs are experimental, so their
+                behavior and interface may change in future versions.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
+                It requires `run_name`, and the value is recorded under it, replacing the one from an earlier call. Once
+                this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and starts or returns
+                no run. A hard abort, a timeout or a crash of this Actor run leaves the child running.
 
         Returns:
             Info about the started Actor run.
@@ -1698,12 +1712,15 @@ class _ActorType:
                     run_timeout=self._resolve_run_timeout(timeout),
                     webhooks=to_client_representations(webhooks),
                 ),
-                build=build,
-                max_items=max_items,
-                max_total_charge_usd=max_total_charge_usd,
-                restart_on_error=restart_on_error,
-                memory_mbytes=memory_mbytes,
-                timeout=timeout,
+                options=checksum_run_options(
+                    build=build,
+                    max_items=max_items,
+                    max_total_charge_usd=max_total_charge_usd,
+                    restart_on_error=restart_on_error,
+                    memory_mbytes=memory_mbytes,
+                    timeout=timeout,
+                    webhooks=to_client_representations(webhooks),
+                ),
                 abort_with_parent=abort_with_parent,
             )
             run = await self._wait_for_child_run(
