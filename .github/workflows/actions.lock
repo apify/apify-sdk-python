@@ -8,6 +8,7 @@ workflows:
         - 'actions/setup-node@v7.1.0'
         - 'actions/setup-python@v7.1.0'
         - 'apify/actions@v1.7.0'
+        - 'apify/actions@v1.9.0'
         - 'astral-sh/setup-uv@v10.3.3'
         - 'codecov/codecov-action@v7.1.1'
         - 'crate-ci/typos@v1.52.2'
@@ -108,6 +109,11 @@ dependencies:
         commit: 'sha1-3a2844b7e9c422d3c10d287c895573f7108da1b3'
         owner_id: 44036562
         repo_id: 205262760
+    'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1':
+        ref: 'v7.1.0'
+        commit: 'sha1-949feb2413d6458794dcd2491c4babbbce0c15c1'
+        owner_id: 44036562
+        repo_id: 189476904
     'actions/setup-node@v7.1.0':
         ref: 'v7.1.0'
         commit: 'sha1-949feb2413d6458794dcd2491c4babbbce0c15c1'
@@ -193,9 +199,11 @@ dependencies:
         uses:
             - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
             - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
+            - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
             - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
             - 'apify/actions@48ab27d3d0de7744c20dd783b83245dfae2cddfd'
             - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+            - 'codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5'
             - 'damianreeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42'
     'astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b':
         ref: 'v8.1.0'
@@ -217,6 +225,13 @@ dependencies:
         commit: 'sha1-68559e99cc807c1eb7e9238fd43a15bba460eec2'
         owner_id: 115962839
         repo_id: 846733598
+    'codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5':
+        ref: 'v7.1.1'
+        commit: 'sha1-303a32d7a59b442fa8d48b6a1cc6825c09c847a5'
+        owner_id: 8226205
+        repo_id: 200299178
+        uses:
+            - 'actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd'
     'codecov/codecov-action@v7.1.1':
         ref: 'v7.1.1'
         commit: 'sha1-303a32d7a59b442fa8d48b6a1cc6825c09c847a5'

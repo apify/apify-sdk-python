@@ -37,17 +37,28 @@ jobs:
       - name: Check spelling with typos
         uses: crate-ci/typos@v1.52.2
 
+  # The job names keep the `<caller> / <job>` shape of the reusable workflows they replace, which the rulesets require.
   lint_check:
-    name: Lint check
-    uses: apify/workflows/.github/workflows/python_lint_check.yaml@0a1eaf3d3b67be2e8c15b2fc989168721809c8e2 # v1.4.1
-    with:
-      python_versions: '["3.11", "3.12", "3.13", "3.14", "3.15"]'
+    name: Lint check / Lint check (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    steps:
+      - uses: apify/actions/python-lint-check@v1.9.0
+        with:
+          python-version: ${{ matrix.python-version }}
 
   type_check:
-    name: Type check
-    uses: apify/workflows/.github/workflows/python_type_check.yaml@0a1eaf3d3b67be2e8c15b2fc989168721809c8e2 # v1.4.1
-    with:
-      python_versions: '["3.11", "3.12", "3.13", "3.14", "3.15"]'
+    name: Type check / Type check (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    steps:
+      - uses: apify/actions/python-type-check@v1.9.0
+        with:
+          python-version: ${{ matrix.python-version }}
 
   markdown_lint_check:
     name: Markdown lint check
@@ -132,16 +143,23 @@ jobs:
           exit 1
 
   unit_tests:
-    name: Unit tests
+    name: Unit tests / Unit tests (${{ matrix.os }}, ${{ matrix.python-version }})
     if: inputs.run_tests
-    uses: apify/workflows/.github/workflows/python_unit_tests.yaml@0a1eaf3d3b67be2e8c15b2fc989168721809c8e2 # v1.4.1
-    secrets: inherit
-    with:
-      python_versions: '["3.11", "3.12", "3.13", "3.14", "3.15"]'
-      operating_systems: '["ubuntu-latest", "windows-latest"]'
-      python_version_for_codecov: "3.15"
-      operating_system_for_codecov: ubuntu-latest
-      tests_concurrency: "4"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "windows-latest"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: apify/actions/python-unit-tests@v1.9.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          tests-concurrency: "4"
+          upload-coverage: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.15' }}
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
+          apify-httpbin-token: ${{ secrets.APIFY_HTTPBIN_TOKEN }}
 
   integration_tests:
     name: Integration tests (${{ matrix.python-version }}, ${{ matrix.os }})
@@ -297,5 +315,9 @@ jobs:
             ProxyConfiguration()
 
   doc_check:
-    name: Doc check
-    uses: apify/workflows/.github/workflows/python_docs_check.yaml@0a1eaf3d3b67be2e8c15b2fc989168721809c8e2 # v1.4.1
+    name: Doc check / Docs check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: apify/actions/python-docs-check@v1.9.0
+        with:
+          apify-signing-token: ${{ secrets.APIFY_SIGNING_TOKEN }}
