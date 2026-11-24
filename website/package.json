@@ -23,7 +23,7 @@
         "opt:images": "pnx --config.onlyBuiltDependencies=* @343dev/optimizt --webp"
     },
     "dependencies": {
-        "@apify/docs-theme": "^1.0.288",
+        "@apify/docs-theme": "^1.0.289",
         "@apify/docusaurus-plugin-typedoc-api": "^5.1.16",
         "@docusaurus/core": "^3.10.2",
         "@docusaurus/faster": "^3.10.2",
