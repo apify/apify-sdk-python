@@ -109,8 +109,43 @@ async def test_get_alias_map_loads_from_kvs_only_once_when_empty() -> None:
         await resolver._get_alias_map()
         await resolver._get_alias_map()
 
-    assert fake_kvs_client.get_record.await_count == 1
+    # The first load reads the current key and then the legacy one.
+    assert fake_kvs_client.get_record.await_count == 2
     assert AliasResolver._alias_map == {}
+
+
+async def test_get_alias_map_reads_legacy_key() -> None:
+    """A mapping stored only under the legacy key is loaded."""
+    config = Configuration(is_at_home=True, token='test-token', default_key_value_store_id='default-kvs-id')
+    resolver = AliasResolver(storage_type='Dataset', alias='test', configuration=config, api_client=_api_client())
+    records = {'__STORAGE_ALIASES_MAPPING': {'key': '__STORAGE_ALIASES_MAPPING', 'value': {'legacy-key': 'legacy-id'}}}
+
+    fake_kvs_client = AsyncMock()
+    fake_kvs_client.get_record = AsyncMock(side_effect=records.get)
+
+    with patch.object(AliasResolver, '_get_default_kvs_client', return_value=fake_kvs_client):
+        result = await resolver._get_alias_map()
+
+    assert result == {'legacy-key': 'legacy-id'}
+
+
+async def test_store_mapping_moves_legacy_mapping_to_current_key() -> None:
+    """`store_mapping` writes the entries from the legacy key together with the new one under the current key."""
+    config = Configuration(is_at_home=True, token='test-token', default_key_value_store_id='default-kvs-id')
+    resolver = AliasResolver(storage_type='Dataset', alias='test', configuration=config, api_client=_api_client())
+    records = {'__STORAGE_ALIASES_MAPPING': {'key': '__STORAGE_ALIASES_MAPPING', 'value': {'legacy-key': 'legacy-id'}}}
+
+    fake_kvs_client = AsyncMock()
+    fake_kvs_client.get_record = AsyncMock(side_effect=records.get)
+    fake_kvs_client.set_record = AsyncMock(return_value=None)
+
+    with patch.object(AliasResolver, '_get_default_kvs_client', return_value=fake_kvs_client):
+        await resolver.store_mapping(storage_id='new-id')
+
+    fake_kvs_client.set_record.assert_awaited_once_with(
+        key='APIFY_STORAGE_ALIASES_MAPPING',
+        value={'legacy-key': 'legacy-id', resolver._storage_key: 'new-id'},
+    )
 
 
 async def test_store_mapping_uses_injected_configuration_is_at_home() -> None:
