@@ -131,6 +131,8 @@ jobs:
 
   doc_release:
     name: Doc release
+    # The `github-pages` environment deploys only from `master`, so a release from a `release-v*` branch skips the docs.
+    if: github.ref_name == 'master'
     needs: [changelog_update, pypi_publish, version_docs]
     permissions:
       contents: write
