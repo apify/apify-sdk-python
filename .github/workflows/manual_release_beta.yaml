@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version_number: ${{ steps.release_prepare.outputs.version_number }}
-      changelog: ${{ steps.release_prepare.outputs.changelog }}
+      changelog_artifact_name: ${{ steps.release_prepare.outputs.changelog_artifact_name }}
     steps:
       - uses: apify/actions/git-cliff-release@v1.9.0
         id: release_prepare
@@ -46,7 +46,7 @@ jobs:
     needs: [release_prepare]
     runs-on: ubuntu-latest
     environment:
-      name: pypi
+      name: automation
       deployment: false
     permissions:
       contents: write
@@ -58,7 +58,7 @@ jobs:
         uses: apify/actions/python-bump-and-update-changelog@v1.9.0
         with:
           version-number: ${{ needs.release_prepare.outputs.version_number }}
-          changelog: ${{ needs.release_prepare.outputs.changelog }}
+          changelog-artifact-name: ${{ needs.release_prepare.outputs.changelog_artifact_name }}
           apify-service-account-github-token: ${{ secrets.APIFY_SERVICE_ACCOUNT_GITHUB_TOKEN }}
 
   # Publishing runs as a separate workflow run of `publish_to_pypi.yaml` (see the comment there).

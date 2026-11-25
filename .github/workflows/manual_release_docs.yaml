@@ -34,6 +34,10 @@ env:
 jobs:
   build_docs:
     name: Build docs
+    # Holds only the docs build tokens, so the docs toolchain never runs where the service account token is available.
+    environment:
+      name: docs
+      deployment: false
     permissions:
       contents: read
       checks: read
@@ -132,7 +136,7 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: automation
       deployment: false
 
     steps:
@@ -180,6 +184,16 @@ jobs:
       - name: Deploy artifact to GitHub Pages
         uses: actions/deploy-pages@v5.0.1
 
+  invalidate_cloudfront_cache:
+    name: Invalidate CloudFront cache
+    needs: [deploy_docs]
+    environment:
+      name: automation
+      deployment: false
+    permissions: {}
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Invalidate CloudFront cache
         run: |
           gh workflow run invalidate-cloudfront.yml \
