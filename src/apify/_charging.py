@@ -469,7 +469,7 @@ class ChargingManagerImplementation(ChargingManager):
                     {
                         'event_name': event_name,
                         'event_title': pricing_info.title,
-                        'event_price_usd': float(round(pricing_info.price, 3)),
+                        'event_price_usd': float(pricing_info.price),
                         'charged_count': charged_count,
                         'idempotency_key': idempotency_key,
                         'request_id': request_id,
