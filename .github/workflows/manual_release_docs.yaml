@@ -34,7 +34,8 @@ env:
 jobs:
   build_docs:
     name: Build docs
-    # Holds only the docs build tokens, so the docs toolchain never runs where the service account token is available.
+    # Limits the docs build to release branches. The service account token is only in `automation`, which no job that
+    # runs the docs toolchain uses.
     environment:
       name: docs
       deployment: false
