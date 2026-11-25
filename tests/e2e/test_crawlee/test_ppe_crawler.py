@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from ..._utils import poll_until_condition
+from ..conftest import CHARGE_PROPAGATION_TIMEOUT
 from .conftest import read_actor_source
 
 if TYPE_CHECKING:
@@ -59,7 +60,7 @@ async def test_ppe_crawler_stops_pushing_once_over_budget(
     charged_run = await poll_until_condition(
         apify_client_async.run(run.id).get,
         lambda refetched: refetched is not None and refetched.charged_event_counts == expected_charges,
-        timeout=120,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 

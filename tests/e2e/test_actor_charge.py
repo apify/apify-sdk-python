@@ -9,6 +9,7 @@ import pytest_asyncio
 from crawlee._utils.crypto import crypto_random_object_id
 
 from .._utils import poll_until_condition
+from .conftest import CHARGE_PROPAGATION_TIMEOUT
 from apify import Actor
 
 if TYPE_CHECKING:
@@ -17,12 +18,6 @@ if TYPE_CHECKING:
     from apify_client._resource_clients import ActorClientAsync
 
     from .conftest import MakeActorFunction, RunActorFunction
-
-
-# The charge endpoint buffers each charge in Redis, and the platform flushes the buffer to the run's
-# `chargedEventCounts` every 5 s. A stalled flush holds its lock for up to 45 s, so a charge can take about a minute
-# to show up on the run.
-CHARGE_PROPAGATION_TIMEOUT = 120
 
 
 async def _get_run(apify_client_async: ApifyClientAsync, run_id: str) -> Run:
@@ -144,15 +139,16 @@ async def test_actor_charge_basic(
 ) -> None:
     run = await run_actor(ppe_actor)
 
+    assert run.status == 'SUCCEEDED'
+
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == {'foobar': 4},
+        lambda r: r.charged_event_counts == {'foobar': 4},
         timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
-    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == {'foobar': 4}
 
 
@@ -187,6 +183,8 @@ async def test_actor_push_data_charges_both_events(
     """Test that push_data charges both the explicit event and the synthetic apify-default-dataset-item event."""
     run = await run_actor(ppe_push_data_actor)
 
+    assert run.status == 'SUCCEEDED'
+
     expected_counts = {
         'push-item': 5,
         'apify-default-dataset-item': 5,
@@ -196,12 +194,11 @@ async def test_actor_push_data_charges_both_events(
     # `apify-default-dataset-item` from dataset writes asynchronously.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
+        lambda r: r.charged_event_counts == expected_counts,
         timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
-    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == expected_counts
 
 
@@ -216,6 +213,8 @@ async def test_actor_push_data_combined_budget_limit(
     """
     run = await run_actor(ppe_push_data_actor, max_total_charge_usd=Decimal('0.20'))
 
+    assert run.status == 'SUCCEEDED'
+
     expected_counts = {
         'push-item': 2,
         'apify-default-dataset-item': 2,
@@ -225,12 +224,11 @@ async def test_actor_push_data_combined_budget_limit(
     # `apify-default-dataset-item` from dataset writes asynchronously.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
+        lambda r: r.charged_event_counts == expected_counts,
         timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
-    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == expected_counts
 
 
