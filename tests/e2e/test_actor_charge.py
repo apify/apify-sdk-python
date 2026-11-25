@@ -9,6 +9,7 @@ import pytest_asyncio
 from crawlee._utils.crypto import crypto_random_object_id
 
 from .._utils import poll_until_condition
+from .conftest import CHARGE_PROPAGATION_TIMEOUT
 from apify import Actor
 
 if TYPE_CHECKING:
@@ -138,15 +139,16 @@ async def test_actor_charge_basic(
 ) -> None:
     run = await run_actor(ppe_actor)
 
+    assert run.status == 'SUCCEEDED'
+
     # Refetch until the charged event counts propagate on the platform.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == {'foobar': 4},
-        timeout=30,
+        lambda r: r.charged_event_counts == {'foobar': 4},
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
-    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == {'foobar': 4}
 
 
@@ -166,7 +168,7 @@ async def test_actor_charge_limit(
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
         lambda r: r.charged_event_counts == {'foobar': 3},
-        timeout=30,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
@@ -181,22 +183,22 @@ async def test_actor_push_data_charges_both_events(
     """Test that push_data charges both the explicit event and the synthetic apify-default-dataset-item event."""
     run = await run_actor(ppe_push_data_actor)
 
+    assert run.status == 'SUCCEEDED'
+
     expected_counts = {
         'push-item': 5,
         'apify-default-dataset-item': 5,
     }
 
-    # Use a longer timeout for synthetic events like `apify-default-dataset-item`: the platform computes them
-    # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
-    # reflected immediately via the charge endpoint).
+    # Refetch until the charged event counts propagate on the platform. The platform computes synthetic events like
+    # `apify-default-dataset-item` from dataset writes asynchronously.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
-        timeout=120,
+        lambda r: r.charged_event_counts == expected_counts,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
-    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == expected_counts
 
 
@@ -211,22 +213,22 @@ async def test_actor_push_data_combined_budget_limit(
     """
     run = await run_actor(ppe_push_data_actor, max_total_charge_usd=Decimal('0.20'))
 
+    assert run.status == 'SUCCEEDED'
+
     expected_counts = {
         'push-item': 2,
         'apify-default-dataset-item': 2,
     }
 
-    # Use a longer timeout for synthetic events like `apify-default-dataset-item`: the platform computes them
-    # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
-    # reflected immediately via the charge endpoint).
+    # Refetch until the charged event counts propagate on the platform. The platform computes synthetic events like
+    # `apify-default-dataset-item` from dataset writes asynchronously.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
-        lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
-        timeout=120,
+        lambda r: r.charged_event_counts == expected_counts,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
-    assert run.status == 'SUCCEEDED'
     assert run.charged_event_counts == expected_counts
 
 
@@ -384,7 +386,7 @@ async def test_actor_charge_counts_survive_reboot(
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
         lambda r: r.charged_event_counts == {'row-charged': 3},
-        timeout=30,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
     assert run.charged_event_counts == {'row-charged': 3}

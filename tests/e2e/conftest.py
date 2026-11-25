@@ -37,6 +37,11 @@ _MAX_BUILD_ATTEMPTS = 2
 # times longer than the rest of the suite.
 _HEAVY_IMAGE_SUITES = ('tests/e2e/test_crawlee/', 'tests/e2e/test_scrapy/')
 
+# How long to wait for a run's charged event counts to reach the platform. The charge endpoint buffers each charge in
+# Redis, and the platform flushes the buffer to the run's `chargedEventCounts` every 5 s. A stalled flush holds its
+# lock for up to 45 s, so a charge can take about 50 s to show up on the run.
+CHARGE_PROPAGATION_TIMEOUT = 120
+
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Schedule the tests with the heaviest Actor images first.
