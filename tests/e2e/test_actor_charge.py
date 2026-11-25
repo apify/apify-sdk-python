@@ -19,6 +19,12 @@ if TYPE_CHECKING:
     from .conftest import MakeActorFunction, RunActorFunction
 
 
+# The charge endpoint buffers each charge in Redis, and the platform flushes the buffer to the run's
+# `chargedEventCounts` every 5 s. A stalled flush holds its lock for up to 45 s, so a charge can take about a minute
+# to show up on the run.
+CHARGE_PROPAGATION_TIMEOUT = 120
+
+
 async def _get_run(apify_client_async: ApifyClientAsync, run_id: str) -> Run:
     """Fetch the current state of the given run from the platform."""
     run = await apify_client_async.run(run_id).get()
@@ -142,7 +148,7 @@ async def test_actor_charge_basic(
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
         lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == {'foobar': 4},
-        timeout=30,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
@@ -166,7 +172,7 @@ async def test_actor_charge_limit(
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
         lambda r: r.charged_event_counts == {'foobar': 3},
-        timeout=30,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
@@ -186,13 +192,12 @@ async def test_actor_push_data_charges_both_events(
         'apify-default-dataset-item': 5,
     }
 
-    # Use a longer timeout for synthetic events like `apify-default-dataset-item`: the platform computes them
-    # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
-    # reflected immediately via the charge endpoint).
+    # Refetch until the charged event counts propagate on the platform. The platform computes synthetic events like
+    # `apify-default-dataset-item` from dataset writes asynchronously.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
         lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
-        timeout=120,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
@@ -216,13 +221,12 @@ async def test_actor_push_data_combined_budget_limit(
         'apify-default-dataset-item': 2,
     }
 
-    # Use a longer timeout for synthetic events like `apify-default-dataset-item`: the platform computes them
-    # from dataset writes asynchronously, so they propagate more slowly than explicit charges (which are
-    # reflected immediately via the charge endpoint).
+    # Refetch until the charged event counts propagate on the platform. The platform computes synthetic events like
+    # `apify-default-dataset-item` from dataset writes asynchronously.
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
         lambda r: r.status == 'SUCCEEDED' and r.charged_event_counts == expected_counts,
-        timeout=120,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
 
@@ -384,7 +388,7 @@ async def test_actor_charge_counts_survive_reboot(
     run = await poll_until_condition(
         partial(_get_run, apify_client_async, run.id),
         lambda r: r.charged_event_counts == {'row-charged': 3},
-        timeout=30,
+        timeout=CHARGE_PROPAGATION_TIMEOUT,
         poll_interval=1,
     )
     assert run.charged_event_counts == {'row-charged': 3}
