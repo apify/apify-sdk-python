@@ -176,7 +176,7 @@ jobs:
         )
       }}
 
-    # Pull request runs wait for an approval in `e2e-tests-pr`, the runs on `master` and the manual runs don't.
+    # Pull requests come from unprotected branches, so their runs wait for an approval in `e2e-tests-pr`.
     environment:
       name: ${{ github.event_name == 'pull_request' && 'e2e-tests-pr' || 'e2e-tests' }}
       deployment: false
