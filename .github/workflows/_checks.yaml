@@ -204,7 +204,6 @@ jobs:
         run: uv run poe integration-tests-cov
         env:
           APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_PYTHON_SDK_API_TOKEN }}
-          APIFY_TEST_USER_2_API_TOKEN: ${{ secrets.APIFY_TEST_USER_2_API_TOKEN }}
 
       - name: Upload integration test coverage
         if: >-
@@ -271,7 +270,6 @@ jobs:
         run: uv run poe e2e-tests-cov
         env:
           APIFY_TEST_USER_API_TOKEN: ${{ secrets.APIFY_TEST_USER_PYTHON_SDK_API_TOKEN }}
-          APIFY_TEST_USER_2_API_TOKEN: ${{ secrets.APIFY_TEST_USER_2_API_TOKEN }}
 
       - name: Upload E2E test coverage
         if: >-
