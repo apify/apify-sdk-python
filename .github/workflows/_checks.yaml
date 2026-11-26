@@ -145,6 +145,9 @@ jobs:
   unit_tests:
     name: Unit tests / Unit tests (${{ matrix.os }}, ${{ matrix.python-version }})
     if: inputs.run_tests
+    environment:
+      name: unit-tests
+      deployment: false
     strategy:
       fail-fast: false
       matrix:
@@ -172,6 +175,11 @@ jobs:
           github.event_name == 'workflow_dispatch'
         )
       }}
+
+    # Pull request runs wait for an approval in `e2e-tests-pr`, the runs on `master` and the manual runs don't.
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'e2e-tests-pr' || 'e2e-tests' }}
+      deployment: false
 
     strategy:
       matrix:
@@ -231,6 +239,10 @@ jobs:
           github.event_name == 'workflow_dispatch'
         )
       }}
+
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'e2e-tests-pr' || 'e2e-tests' }}
+      deployment: false
 
     strategy:
       matrix:
