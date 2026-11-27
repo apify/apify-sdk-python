@@ -127,16 +127,19 @@ async def test_new_client_uses_configured_api_public_base_url(monkeypatch: pytes
     await my_actor.exit()
 
 
-async def test_call_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run) -> None:
-    apify_client_async_patcher.patch('actor', 'call', return_value=fake_actor_run)
+async def test_call_actor(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fake_actor_run: Run, run_waiting: SimpleNamespace
+) -> None:
+    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
     actor_id = 'some-actor-id'
 
     async with Actor:
-        await Actor.call(actor_id)
+        run = await Actor.call(actor_id)
 
-    assert len(apify_client_async_patcher.calls['actor']['call']) == 1
-    # The first argument is ActorClientAsync, which was called, let's check its id.
-    assert apify_client_async_patcher.calls['actor']['call'][0][0][0].resource_id == actor_id
+    assert run is run_waiting.finished_run
+    [(start_args, _)] = apify_client_async_patcher.calls['actor']['start']
+    assert start_args[0].resource_id == actor_id
+    assert len(apify_client_async_patcher.calls['run']['wait_for_finish']) == 1
 
 
 async def test_call_actor_task(
@@ -250,7 +253,7 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('actor', 'start', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
         pytest.param('task', 'start', 'call_task', id='call_task'),
     ],
@@ -276,7 +279,7 @@ async def test_max_items_forwarded_to_client(
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('actor', 'start', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
         pytest.param('task', 'start', 'call_task', id='call_task'),
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
@@ -304,7 +307,7 @@ async def test_max_items_warns_deprecated(
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('actor', 'start', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
         pytest.param('task', 'start', 'call_task', id='call_task'),
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
@@ -330,7 +333,7 @@ async def test_no_max_items_warning_without_max_items(
     ('client_resource', 'client_method', 'sdk_method'),
     [
         pytest.param('actor', 'start', 'start', id='start'),
-        pytest.param('actor', 'call', 'call', id='call'),
+        pytest.param('actor', 'start', 'call', id='call'),
         pytest.param('task', 'start', 'start_task', id='start_task'),
         pytest.param('task', 'start', 'call_task', id='call_task'),
     ],
@@ -589,7 +592,7 @@ async def test_off_removes_event_listener(monkeypatch: pytest.MonkeyPatch) -> No
 
 _ACTOR_REMOTE_METHODS = [
     pytest.param('actor', 'start', 'start', 'some-actor-id', id='start'),
-    pytest.param('actor', 'call', 'call', 'some-actor-id', id='call'),
+    pytest.param('actor', 'start', 'call', 'some-actor-id', id='call'),
     pytest.param('task', 'start', 'start_task', 'some-task-id', id='start_task'),
     pytest.param('task', 'start', 'call_task', 'some-task-id', id='call_task'),
 ]
@@ -712,20 +715,23 @@ async def test_get_remaining_time_returns_positive_when_timeout_in_future() -> N
 
 
 @pytest.mark.parametrize('method_name', ['start', 'call'])
+@pytest.mark.usefixtures('run_waiting')
 async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
     method_name: str,
 ) -> None:
     """Test that Actor.start/Actor.call with `timeout='inherit'` is skipped when the run is past its timeout."""
-    apify_client_async_patcher.patch('actor', method_name, return_value=Mock())
+    apify_client_async_patcher.patch('actor', 'start', return_value=fake_actor_run)
 
-    async with Actor:
+    # Child run tracking would write to the platform storage once the Actor pretends to be at home.
+    async with Actor(child_run_tracker=None):
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
         await getattr(Actor, method_name)('some-actor-id', timeout='inherit')
 
-    assert len(apify_client_async_patcher.calls['actor'][method_name]) == 1
-    assert apify_client_async_patcher.calls['actor'][method_name][0][1]['run_timeout'] == timedelta(seconds=1)
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+    assert apify_client_async_patcher.calls['actor']['start'][0][1]['run_timeout'] == timedelta(seconds=1)
 
 
 @pytest.mark.parametrize(
@@ -735,15 +741,18 @@ async def test_actor_start_and_call_skipped_when_no_inherited_time_remains(
         pytest.param('start', 'call_task', id='call_task'),
     ],
 )
+@pytest.mark.usefixtures('run_waiting')
 async def test_actor_task_methods_skipped_when_no_inherited_time_remains(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
+    fake_actor_run: Run,
     client_method: str,
     actor_method_name: str,
 ) -> None:
     """Test that start_task/call_task with `timeout='inherit'` is skipped when the run is past its timeout."""
-    apify_client_async_patcher.patch('task', client_method, return_value=Mock())
+    apify_client_async_patcher.patch('task', client_method, return_value=fake_actor_run)
 
-    async with Actor:
+    # Child run tracking would write to the platform storage once the Actor pretends to be at home.
+    async with Actor(child_run_tracker=None):
         Actor.configuration.is_at_home = True
         Actor.configuration.timeout_at = datetime.now(tz=UTC) - timedelta(minutes=5)
         await getattr(Actor, actor_method_name)('some-task-id', timeout='inherit')
