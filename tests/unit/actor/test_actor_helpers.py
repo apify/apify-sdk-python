@@ -258,6 +258,7 @@ async def test_start_actor(apify_client_async_patcher: ApifyClientAsyncPatcher, 
         pytest.param('task', 'start', 'call_task', id='call_task'),
     ],
 )
+@pytest.mark.usefixtures('run_waiting')
 async def test_max_items_forwarded_to_client(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
@@ -285,6 +286,7 @@ async def test_max_items_forwarded_to_client(
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
     ],
 )
+@pytest.mark.usefixtures('run_waiting')
 async def test_max_items_warns_deprecated(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
@@ -313,6 +315,7 @@ async def test_max_items_warns_deprecated(
         pytest.param('run', 'resurrect', 'resurrect', id='resurrect'),
     ],
 )
+@pytest.mark.usefixtures('run_waiting')
 async def test_no_max_items_warning_without_max_items(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
@@ -338,6 +341,7 @@ async def test_no_max_items_warning_without_max_items(
         pytest.param('task', 'start', 'call_task', id='call_task'),
     ],
 )
+@pytest.mark.usefixtures('run_waiting')
 async def test_max_total_charge_usd_forwarded_to_client(
     apify_client_async_patcher: ApifyClientAsyncPatcher,
     fake_actor_run: Run,
@@ -599,6 +603,7 @@ _ACTOR_REMOTE_METHODS = [
 
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
+@pytest.mark.usefixtures('run_waiting')
 async def test_remote_method_with_webhooks(
     *,
     apify_client_async_patcher: ApifyClientAsyncPatcher,
@@ -626,6 +631,7 @@ async def test_remote_method_with_webhooks(
 
 
 @pytest.mark.parametrize(('client_resource', 'client_method', 'actor_method_name', 'entity_id'), _ACTOR_REMOTE_METHODS)
+@pytest.mark.usefixtures('run_waiting')
 async def test_remote_method_with_timedelta_timeout(
     *,
     apify_client_async_patcher: ApifyClientAsyncPatcher,
