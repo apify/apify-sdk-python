@@ -7,6 +7,7 @@ import json
 import math
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager, suppress
+from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, NamedTuple
 from weakref import WeakValueDictionary
@@ -14,7 +15,7 @@ from weakref import WeakValueDictionary
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
-from apify_client.errors import NotFoundError
+from apify_client.errors import ApifyApiError, NotFoundError
 from apify_client.http_clients import StreamedRequestBody
 
 from apify._utils import docs_group
@@ -47,6 +48,12 @@ STARTS_IN_FLIGHT_TIMEOUT_SECS = 10
 
 STATUS_MAX_AGE_SECS = 10
 """How long an observed active status counts toward the concurrency limit before the run is fetched again."""
+
+_RESOURCE_LIMIT_ERROR_TYPES = frozenset({'actor-memory-limit-exceeded', 'concurrent-runs-limit-exceeded'})
+"""Error types the API rejects a run start with while the account lacks the memory or a run slot for it."""
+
+WAIT_FOR_RESOURCES_COOLDOWN_SECS = 10
+"""Time between two attempts to start a run that the API rejected for lack of account resources."""
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
@@ -395,6 +402,8 @@ class ChildRunRegistry:
         """Client the run under each key was last started or looked up with. Lost with the process."""
         self._abort_task: asyncio.Task[None] | None = None
         """Aborts the runs marked `abort_with_parent`. Once it exists, no new run marked `abort_with_parent` starts."""
+        self._abort_started = asyncio.Event()
+        """Set once the abort begins, to wake up the starts that wait for account resources."""
         self._start_ids = itertools.count()
         self._warned_excessive_runs = False
         self._starts_in_flight = 0
@@ -420,6 +429,7 @@ class ChildRunRegistry:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         abort_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta = False,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `key`, or start one when there is none.
 
@@ -434,13 +444,17 @@ class ChildRunRegistry:
             start_run: Starts a new run of the Actor or task.
             abort_with_parent: Whether to abort the run when this Actor run is aborted. `True` and `False` replace
                 the value recorded under `key`, and `None` keeps it. A new run records `None` as `False`.
+            wait_for_resources: Whether to retry starting a new run while the API rejects it for the memory or
+                concurrent-run limit of the account. `True` retries until the run starts, and a `timedelta` stops after
+                that time and raises the last error.
 
         Returns:
             The run, and whether it was newly started.
 
         Raises:
             ValueError: If the run recorded under `key` was started with a different request.
-            RuntimeError: If a new run with `abort_with_parent` would start while this Actor run is being aborted.
+            RuntimeError: If a new run with `abort_with_parent` would start while this Actor run is being aborted, or
+                a new run would have to wait for account resources then.
         """
         async with self._key_locks.setdefault(key, asyncio.Lock()):
             record = self._get_records().get(key)
@@ -473,8 +487,8 @@ class ChildRunRegistry:
                 )
 
             self._check_not_aborting(key, abort_with_parent=bool(abort_with_parent))
-            async with self._start_in_flight(key):
-                run = await start_run()
+
+            async def record_run(run: Run) -> str:
                 new_record = ChildRunRecord(
                     run_id=run.id,
                     status=run.status,
@@ -482,6 +496,11 @@ class ChildRunRegistry:
                     checksum=checksum,
                 )
                 await self._store(key, new_record)
+                return key
+
+            run, _ = await self._start_with_retries(
+                key, start_run=start_run, record_run=record_run, wait_for_resources=wait_for_resources
+            )
             self._clients[key] = client
             return run, True
 
@@ -491,6 +510,7 @@ class ChildRunRegistry:
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
         abort_with_parent: bool = False,
+        wait_for_resources: bool | timedelta = False,
     ) -> tuple[Run, str]:
         """Start a run without a run name and record it.
 
@@ -498,23 +518,97 @@ class ChildRunRegistry:
             client: Client the run is started with.
             start_run: Starts the run of the Actor or task.
             abort_with_parent: Whether to abort the run when this Actor run is aborted.
+            wait_for_resources: Whether to retry the start while the API rejects it for the memory or concurrent-run
+                limit of the account, as in `find_or_start`.
 
         Returns:
             The run, and its key in the registry.
 
         Raises:
-            RuntimeError: If `abort_with_parent` is set and this Actor run is being aborted. No run is started.
+            RuntimeError: If `abort_with_parent` is set and this Actor run is being aborted, or the start would have
+                to wait for account resources then. No run is started.
         """
         # The lock under a key of its own lets an abort of the child runs wait until the start is recorded.
         async with self._key_locks.setdefault(f'start:{next(self._start_ids)}', asyncio.Lock()):
             self._check_not_aborting('new child run', abort_with_parent=abort_with_parent)
-            async with self._start_in_flight('new child run'):
-                run = await start_run()
+
+            async def record_run(run: Run) -> str:
                 key = run_key(run.id)
                 record = ChildRunRecord(run_id=run.id, status=run.status, abort_with_parent=abort_with_parent)
                 await self._store(key, record)
+                return key
+
+            run, key = await self._start_with_retries(
+                'new child run', start_run=start_run, record_run=record_run, wait_for_resources=wait_for_resources
+            )
             self._clients[key] = client
             return run, key
+
+    async def _start_with_retries(
+        self,
+        name: str,
+        *,
+        start_run: Callable[[], Awaitable[Run]],
+        record_run: Callable[[Run], Awaitable[str]],
+        wait_for_resources: bool | timedelta,
+    ) -> tuple[Run, str]:
+        """Start a run and record it, retrying the start while the account lacks the resources for the run.
+
+        Between two attempts, the start is not in flight, so it counts neither toward the concurrency limit nor for
+        the wait before a reboot, metamorph or exit.
+
+        Returns:
+            The run, and its key in the registry.
+        """
+        deadline = None
+        if isinstance(wait_for_resources, timedelta):
+            deadline = asyncio.get_running_loop().time() + wait_for_resources.total_seconds()
+
+        while True:
+            try:
+                async with self._start_in_flight(name):
+                    run = await start_run()
+                    key = await record_run(run)
+            except ApifyApiError as exc:
+                if wait_for_resources is False or exc.type not in _RESOURCE_LIMIT_ERROR_TYPES:
+                    raise
+                await self._wait_for_resources(name, exc, deadline)
+            else:
+                return run, key
+
+    async def _wait_for_resources(self, name: str, exc: ApifyApiError, deadline: float | None) -> None:
+        """Wait before the next attempt to start a run that the API rejected for lack of account resources.
+
+        Args:
+            name: Name of the child run for the log and errors.
+            exc: The error of the rejected start.
+            deadline: Event loop time at which the retrying stops, or `None` to retry until the run starts.
+
+        Raises:
+            ApifyApiError: `exc`, if the deadline passed.
+            RuntimeError: If this Actor run is being aborted.
+        """
+        delay: float = WAIT_FOR_RESOURCES_COOLDOWN_SECS
+        if deadline is not None:
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                raise exc
+            delay = min(delay, remaining)
+
+        if not self._abort_started.is_set():
+            logger.info(
+                'Not enough resources to start child run "%s", retrying in %.3g s: %s', name, delay, exc.message
+            )
+            try:
+                await asyncio.wait_for(self._abort_started.wait(), delay)
+            except TimeoutError:
+                return
+
+        # The parent is killed soon, and its abort waits for the lock of this start.
+        raise RuntimeError(
+            f'Child run "{name}" was not started, since this Actor run is being aborted and the account lacks the '
+            'resources for the run.'
+        ) from exc
 
     def child_runs(self, default_client: ApifyClientAsync) -> list[ChildRun]:
         """Return the key, the record and a client of every recorded run, in recording order.
@@ -561,6 +655,7 @@ class ChildRunRegistry:
         """
         if self._abort_task is None:
             self._abort_task = asyncio.create_task(self._abort_runs_with_parent(client))
+            self._abort_started.set()
             # The calls that wait for the concurrency limit hold the locks that the abort waits for, and give up now.
             self._capacity_changed.set()
         try:
@@ -779,6 +874,7 @@ class ChildRunRegistry:
         """
         self._is_closed = False
         self._abort_task = None
+        self._abort_started.clear()
         self._starts_allowed.set()
         async with self._lock:
             try:

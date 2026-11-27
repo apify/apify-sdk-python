@@ -1183,6 +1183,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta = False,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -1229,6 +1230,12 @@ class _ActorType:
                 and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
                 a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
                 cannot be combined with a custom `token`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and
+                a `timedelta` stops after that time and raises the last error. A run that asks for more memory than
+                the account has in total never starts, so `True` retries it forever. It has no effect on a call that
+                returns a recorded run. Nothing is recorded while the start is retried, and once this Actor run is
+                being aborted, a start that waits for resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run
@@ -1269,6 +1276,7 @@ class _ActorType:
                 webhooks=to_client_representations(webhooks),
             ),
             abort_with_parent=abort_with_parent,
+            wait_for_resources=wait_for_resources,
         )
         return run
 
@@ -1384,6 +1392,7 @@ class _ActorType:
         logger: logging.Logger | Literal['default'] | None = 'default',
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta = False,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1433,6 +1442,12 @@ class _ActorType:
                 and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
                 a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
                 cannot be combined with a custom `token`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and
+                a `timedelta` stops after that time and raises the last error. A run that asks for more memory than
+                the account has in total never starts, so `True` retries it forever. It has no effect on a call that
+                returns a recorded run. Nothing is recorded while the start is retried, and once this Actor run is
+                being aborted, a start that waits for resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run.
@@ -1473,6 +1488,7 @@ class _ActorType:
                 webhooks=to_client_representations(webhooks),
             ),
             abort_with_parent=abort_with_parent,
+            wait_for_resources=wait_for_resources,
         )
         # An earlier process of this Actor run already streamed the start of the log of a recorded run.
         run = await self._wait_for_child_run(
@@ -1515,6 +1531,7 @@ class _ActorType:
         content_type: str | None = None,
         options: dict[str, Any],
         abort_with_parent: bool | None,
+        wait_for_resources: bool | timedelta,
     ) -> tuple[Run, str | None, bool]:
         """Start a child run and record it, or return the run recorded under its explicit or implicit run name.
 
@@ -1531,12 +1548,15 @@ class _ActorType:
             return start_run(run_timeout=self._resolve_run_timeout(timeout), **kwargs)
 
         if not self._child_run_registry.is_enabled:
-            return await start_run_now(), None, True
+            return await start_run_now(wait_for_resources=wait_for_resources), None, True
 
         is_implicit = run_name is None and self.configuration.auto_memoize_child_runs
         if run_name is None and not is_implicit:
             run, key = await self._child_run_registry.start(
-                client=client, start_run=start_run_now, abort_with_parent=bool(abort_with_parent)
+                client=client,
+                start_run=start_run_now,
+                abort_with_parent=bool(abort_with_parent),
+                wait_for_resources=wait_for_resources,
             )
             return run, key, True
 
@@ -1556,6 +1576,7 @@ class _ActorType:
             client=client,
             start_run=start_run_now,
             abort_with_parent=abort_with_parent,
+            wait_for_resources=wait_for_resources,
         )
         return run, key, is_new
 
@@ -1632,6 +1653,7 @@ class _ActorType:
         token: str | None = None,
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta = False,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1678,6 +1700,12 @@ class _ActorType:
                 and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
                 a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
                 cannot be combined with a custom `token`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and
+                a `timedelta` stops after that time and raises the last error. A run that asks for more memory than
+                the account has in total never starts, so `True` retries it forever. It has no effect on a call that
+                returns a recorded run. Nothing is recorded while the start is retried, and once this Actor run is
+                being aborted, a start that waits for resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run.
@@ -1711,6 +1739,7 @@ class _ActorType:
             run_input=task_input,
             options=checksum_run_options(build=build, webhooks=to_client_representations(webhooks)),
             abort_with_parent=abort_with_parent,
+            wait_for_resources=wait_for_resources,
         )
         return run
 
@@ -1732,6 +1761,7 @@ class _ActorType:
         token: str | None = None,
         run_name: str | None = None,
         abort_with_parent: bool | None = None,
+        wait_for_resources: bool | timedelta = False,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1783,6 +1813,12 @@ class _ActorType:
                 and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
                 a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
                 cannot be combined with a custom `token`.
+            wait_for_resources: Whether to retry the start while the account lacks the memory or a concurrent-run slot
+                for the run. The start is retried every 10 seconds. `True` retries until the run starts, and
+                a `timedelta` stops after that time and raises the last error. A run that asks for more memory than
+                the account has in total never starts, so `True` retries it forever. It has no effect on a call that
+                returns a recorded run. Nothing is recorded while the start is retried, and once this Actor run is
+                being aborted, a start that waits for resources raises a `RuntimeError`.
 
         Returns:
             Info about the started Actor run.
@@ -1818,6 +1854,7 @@ class _ActorType:
             run_input=task_input,
             options=checksum_run_options(build=build, webhooks=to_client_representations(webhooks)),
             abort_with_parent=abort_with_parent,
+            wait_for_resources=wait_for_resources,
         )
         # An earlier process of this Actor run already streamed the start of the log of a recorded run.
         run = await self._wait_for_child_run(
