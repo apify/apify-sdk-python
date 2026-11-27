@@ -87,8 +87,8 @@ _ensure_context = ensure_context('_active')
 
 def _warn_child_runs_experimental() -> None:
     warnings.warn(
-        'Child run features (`run_name`, `abort_with_parent`, `Actor.child_runs` and `child_run_tracker`) are '
-        'experimental. Their behavior and interface may change in future versions.',
+        'Child run features (`run_name`, `abort_with_parent`, `Actor.child_runs`, `child_run_tracker` and '
+        '`max_concurrent_child_runs`) are experimental. Their behavior and interface may change in future versions.',
         UserWarning,
         # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
         stacklevel=4,
@@ -161,6 +161,7 @@ class _ActorType:
         cleanup_timeout: timedelta = timedelta(seconds=30),
         child_run_tracker: ChildRunTracker | Literal['default'] | None = 'default',
         disable_excessive_child_run_warning: bool = False,
+        max_concurrent_child_runs: int | None = None,
     ) -> None:
         """Initialize a new instance.
 
@@ -180,6 +181,13 @@ class _ActorType:
                 behavior and interface may change in future versions.
             disable_excessive_child_run_warning: Whether to mute the warning logged once the child run registry holds
                 many records.
+            max_concurrent_child_runs: How many child runs may be active at once, or `None` for no limit. At the
+                limit, `Actor.start`, `Actor.call`, `Actor.start_task` and `Actor.call_task` wait to start a new run,
+                in the order in which they were called, until another one finishes. A call that returns a recorded
+                run under its run name does not wait. It counts the recorded runs of earlier processes of this Actor
+                run too, but it holds only in the process that sets it, so set it in every process. Once this Actor run
+                is being aborted, a call that would have to wait raises a `RuntimeError`. It needs child run tracking.
+                The limit is experimental, so its behavior and interface may change in future versions.
         """
         self._configuration = configuration
         self._configure_logging = configure_logging
@@ -203,8 +211,13 @@ class _ActorType:
             child_run_tracker = KeyValueStoreChildRunTracker(self.open_key_value_store)
         elif child_run_tracker is not None:
             _warn_child_runs_experimental()
+        if max_concurrent_child_runs is not None:
+            _warn_child_runs_experimental()
         self._child_run_registry = ChildRunRegistry(
-            child_run_tracker, warn_on_excessive_runs=not disable_excessive_child_run_warning
+            child_run_tracker,
+            warn_on_excessive_runs=not disable_excessive_child_run_warning,
+            max_concurrent_runs=max_concurrent_child_runs,
+            default_client=lambda: self.apify_client,
         )
 
         self._runs_with_redirected_log: set[str | None] = set()
@@ -441,6 +454,7 @@ class _ActorType:
         cleanup_timeout: timedelta = timedelta(seconds=30),
         child_run_tracker: ChildRunTracker | Literal['default'] | None = 'default',
         disable_excessive_child_run_warning: bool = False,
+        max_concurrent_child_runs: int | None = None,
     ) -> Self:
         """Make a new Actor instance with a non-default configuration.
 
@@ -456,6 +470,7 @@ class _ActorType:
             cleanup_timeout=cleanup_timeout,
             child_run_tracker=child_run_tracker,
             disable_excessive_child_run_warning=disable_excessive_child_run_warning,
+            max_concurrent_child_runs=max_concurrent_child_runs,
         )
 
     @property

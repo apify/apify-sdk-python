@@ -2146,3 +2146,153 @@ async def test_exit_waits_for_start_in_flight_and_rejects_new_starts(
         keys = [child_run.key for child_run in Actor.child_runs]
 
     assert keys == ['run:new-run']
+
+
+def make_starter(order: list[str]) -> Any:
+    """Return a replacement for a start request that starts a run named after its input and records the order."""
+
+    def start(*_args: Any, run_input: Any = None, **_kwargs: Any) -> Run:
+        order.append(run_input['name'])
+        return make_run(f'{run_input["name"]}-run', 'READY')
+
+    return start
+
+
+async def test_concurrency_limit_waits_for_a_run_to_finish(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
+    """At the limit, a start waits until a recorded run finishes."""
+    order: list[str] = []
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=make_starter(order))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'name': 'first'})
+        second = asyncio.create_task(Actor.start('some-actor', {'name': 'second'}))
+        await asyncio.sleep(0.05)
+        assert not second.done()
+        await Actor._child_run_registry.update('run:first-run', make_run('first-run', 'SUCCEEDED'))
+        await asyncio.wait_for(second, timeout=1)
+
+    assert order == ['first', 'second']
+
+
+async def test_concurrency_limit_admits_waiting_calls_in_arrival_order(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """Calls waiting for the limit start their runs in the order in which they were made."""
+    order: list[str] = []
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=make_starter(order))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'name': 'first'})
+        waiting = []
+        for name in ('second', 'third', 'fourth'):
+            waiting.append(asyncio.create_task(Actor.start('some-actor', {'name': name})))
+            await asyncio.sleep(0)
+        for previous in ('first', 'second', 'third'):
+            await asyncio.sleep(0.02)
+            await Actor._child_run_registry.update(f'run:{previous}-run', make_run(f'{previous}-run', 'SUCCEEDED'))
+        await asyncio.wait_for(asyncio.gather(*waiting), timeout=1)
+
+    assert order == ['first', 'second', 'third', 'fourth']
+
+
+async def test_concurrency_limit_rejects_waiting_call_once_aborting(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, apify_event_manager: ApifyEventManager
+) -> None:
+    """Once the parent is being aborted, a call waiting for the limit raises a `RuntimeError` and starts no run."""
+    order: list[str] = []
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=make_starter(order))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('first-run', 'RUNNING'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'name': 'first'})
+        second = asyncio.create_task(Actor.start('some-actor', {'name': 'second'}))
+        await asyncio.sleep(0.05)
+        apify_event_manager.emit(event=Event.ABORTING, event_data=EventAbortingData())
+        await apify_event_manager.wait_for_all_listeners_to_complete()
+        with pytest.raises(RuntimeError, match='limit of 1 concurrent child runs'):
+            await asyncio.wait_for(second, timeout=1)
+
+    assert order == ['first']
+
+
+async def test_concurrency_limit_does_not_hold_back_a_recorded_named_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """At the limit, a named call that returns its recorded run does not wait."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        first = await Actor.start('some-actor', run_name='scrape-eu')
+        second = await asyncio.wait_for(Actor.start('some-actor', run_name='scrape-eu'), timeout=1)
+
+    assert first.id == second.id
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+
+
+@pytest.mark.parametrize(
+    ('fetched_status', 'expected_order'),
+    [
+        pytest.param('SUCCEEDED', ['new'], id='recorded run finished'),
+        pytest.param(None, ['new'], id='recorded run missing'),
+    ],
+)
+async def test_concurrency_limit_fetches_runs_recorded_by_earlier_process(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, fetched_status: str | None, expected_order: list[str]
+) -> None:
+    """An active status loaded from an earlier process is fetched again before it counts toward the limit."""
+    order: list[str] = []
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=make_starter(order))
+    fetched_run = make_run('old-run', fetched_status) if fetched_status else None
+    apify_client_async_patcher.patch('run', 'get', return_value=fetched_run)
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        records = {'run:old-run': {'runId': 'old-run', 'status': 'RUNNING', 'abortWithParent': False}}
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry(runs=records))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await asyncio.wait_for(Actor.start('some-actor', {'name': 'new'}), timeout=1)
+
+    assert order == expected_order
+    assert len(apify_client_async_patcher.calls['run']['get']) == 1
+
+
+async def test_concurrency_limit_fetches_stale_status_of_a_run(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A waiting call fetches a run whose active status got stale, and starts once the run turns out finished."""
+    monkeypatch.setattr(_child_runs, 'STATUS_MAX_AGE_SECS', 0.05)
+    order: list[str] = []
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=make_starter(order))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('first-run', 'SUCCEEDED'))
+
+    async with Actor(max_concurrent_child_runs=1):
+        await Actor.start('some-actor', {'name': 'first'})
+        await asyncio.wait_for(Actor.start('some-actor', {'name': 'second'}), timeout=1)
+        [first, second] = Actor.child_runs
+
+    assert order == ['first', 'second']
+    assert first.record.status == 'SUCCEEDED'
+    assert second.record.status == 'READY'
+
+
+@pytest.mark.parametrize(
+    'value',
+    [
+        pytest.param(0, id='zero'),
+        pytest.param(-1, id='negative'),
+        pytest.param(True, id='bool'),
+        pytest.param(1.5, id='float'),
+    ],
+)
+def test_concurrency_limit_rejects_invalid_value(value: Any) -> None:
+    """`max_concurrent_child_runs` must be a positive integer."""
+    with pytest.raises(ValueError, match='must be a positive integer'):
+        Actor(max_concurrent_child_runs=value)
+
+
+def test_concurrency_limit_needs_tracking() -> None:
+    """`max_concurrent_child_runs` with child run tracking off raises a `ValueError`."""
+    with pytest.raises(ValueError, match='needs child run tracking'):
+        Actor(child_run_tracker=None, max_concurrent_child_runs=2)
