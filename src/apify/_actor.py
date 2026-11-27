@@ -332,6 +332,7 @@ class _ActorType:
         case the Actor:
 
         - Stops forwarding crawler status messages to the run status message.
+        - With a non-zero exit code, aborts the child runs started with `abort_with_parent`, waiting up to 10 s.
         - Emits the `EXIT` event.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
@@ -368,6 +369,9 @@ class _ActorType:
         self.event_manager.off(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
 
         async def finalize() -> None:
+            if self.exit_code != 0 and self._child_run_registry.is_enabled:
+                await self._abort_child_runs()
+
             if self.status_message is not None:
                 try:
                     async with self._status_message_lock:
@@ -1158,7 +1162,7 @@ class _ActorType:
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -1196,16 +1200,20 @@ class _ActorType:
                 or `webhooks` raises a `ValueError`. An input that is not sent as JSON is not checked, and a warning is
                 logged. It raises a `ValueError` with child run tracking off. Named child runs are experimental, so
                 their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name` and child run tracking, and the value is recorded under the name, replacing the
-                one from an earlier call. Once this Actor run is being gracefully aborted, a call with it raises
-                a `RuntimeError` and starts or returns no run. A hard abort, a timeout or a crash of this Actor run
-                leaves the child running.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run receives the
+                `ABORTING` event, or exits with a non-zero exit code (`Actor.fail()`, `Actor.exit()` with a non-zero
+                code, or an exception that leaves `async with Actor`), also after a migration, reboot or resurrection.
+                A forced abort, a timeout, an out-of-memory kill or a normal finish of this Actor run leaves the child
+                running, and so does a child resurrected outside these methods, e.g. with `client.resurrect()`, since
+                its recorded status stays terminal. For a call with a `run_name` that returns a recorded run, `True`
+                and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
+                a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
+                cannot be combined with a custom `token`.
 
         Returns:
             Info about the started Actor run
         """
-        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent)
+        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent, token=token)
 
         if run_name is not None:
             _warn_child_runs_experimental()
@@ -1355,7 +1363,7 @@ class _ActorType:
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1396,16 +1404,20 @@ class _ActorType:
                 or `webhooks` raises a `ValueError`. An input that is not sent as JSON is not checked, and a warning is
                 logged. It raises a `ValueError` with child run tracking off. Named child runs are experimental, so
                 their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name` and child run tracking, and the value is recorded under the name, replacing the
-                one from an earlier call. Once this Actor run is being gracefully aborted, a call with it raises
-                a `RuntimeError` and starts or returns no run. A hard abort, a timeout or a crash of this Actor run
-                leaves the child running.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run receives the
+                `ABORTING` event, or exits with a non-zero exit code (`Actor.fail()`, `Actor.exit()` with a non-zero
+                code, or an exception that leaves `async with Actor`), also after a migration, reboot or resurrection.
+                A forced abort, a timeout, an out-of-memory kill or a normal finish of this Actor run leaves the child
+                running, and so does a child resurrected outside these methods, e.g. with `client.resurrect()`, since
+                its recorded status stays terminal. For a call with a `run_name` that returns a recorded run, `True`
+                and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
+                a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
+                cannot be combined with a custom `token`.
 
         Returns:
             Info about the started Actor run.
         """
-        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent)
+        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent, token=token)
 
         if run_name is not None:
             _warn_child_runs_experimental()
@@ -1452,19 +1464,23 @@ class _ActorType:
 
         return run
 
-    def _check_child_run_options(self, *, run_name: str | None, abort_with_parent: bool) -> None:
+    def _check_child_run_options(
+        self, *, run_name: str | None, abort_with_parent: bool | None, token: str | None
+    ) -> None:
         """Validate the child run options of `start`, `call`, `start_task` and `call_task`.
 
         Raises:
-            ValueError: If an option needs child run tracking and it is off, or `abort_with_parent` lacks `run_name`.
+            ValueError: If an option needs child run tracking and it is off, or `abort_with_parent` comes with a
+                `token`.
         """
         if not self._child_run_registry.is_enabled and (run_name is not None or abort_with_parent):
             raise ValueError(
                 '`run_name` and `abort_with_parent` need child run tracking, which is turned off with '
                 '`child_run_tracker=None`.'
             )
-        if abort_with_parent and run_name is None:
-            raise ValueError('`abort_with_parent` requires `run_name`.')
+        if abort_with_parent and token is not None:
+            # Tokens are not stored, so a later process of this Actor run could not abort the run.
+            raise ValueError('`abort_with_parent` cannot be combined with a custom `token`.')
 
     async def _start_child_run(
         self,
@@ -1477,7 +1493,7 @@ class _ActorType:
         run_input: Any = None,
         content_type: str | None = None,
         options: dict[str, Any],
-        abort_with_parent: bool,
+        abort_with_parent: bool | None,
     ) -> tuple[Run, str | None, bool]:
         """Start a child run and record it, or return the run recorded under its explicit or implicit run name.
 
@@ -1493,8 +1509,9 @@ class _ActorType:
 
         is_implicit = run_name is None and self.configuration.auto_memoize_child_runs
         if run_name is None and not is_implicit:
-            run = await start_run()
-            key = await self._child_run_registry.record(run, client=client)
+            run, key = await self._child_run_registry.start(
+                client=client, start_run=start_run, abort_with_parent=bool(abort_with_parent)
+            )
             return run, key, True
 
         checksum = checksum_request(
@@ -1588,7 +1605,7 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         token: str | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1626,16 +1643,20 @@ class _ActorType:
                 or `webhooks` raises a `ValueError`. An input that is not sent as JSON is not checked, and a warning is
                 logged. It raises a `ValueError` with child run tracking off. Named child runs are experimental, so
                 their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name` and child run tracking, and the value is recorded under the name, replacing the
-                one from an earlier call. Once this Actor run is being gracefully aborted, a call with it raises
-                a `RuntimeError` and starts or returns no run. A hard abort, a timeout or a crash of this Actor run
-                leaves the child running.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run receives the
+                `ABORTING` event, or exits with a non-zero exit code (`Actor.fail()`, `Actor.exit()` with a non-zero
+                code, or an exception that leaves `async with Actor`), also after a migration, reboot or resurrection.
+                A forced abort, a timeout, an out-of-memory kill or a normal finish of this Actor run leaves the child
+                running, and so does a child resurrected outside these methods, e.g. with `client.resurrect()`, since
+                its recorded status stays terminal. For a call with a `run_name` that returns a recorded run, `True`
+                and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
+                a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
+                cannot be combined with a custom `token`.
 
         Returns:
             Info about the started Actor run.
         """
-        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent)
+        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent, token=token)
 
         if run_name is not None:
             _warn_child_runs_experimental()
@@ -1684,7 +1705,7 @@ class _ActorType:
         logger: logging.Logger | Literal['default'] | None = 'default',
         token: str | None = None,
         run_name: str | None = None,
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1727,16 +1748,20 @@ class _ActorType:
                 or `webhooks` raises a `ValueError`. An input that is not sent as JSON is not checked, and a warning is
                 logged. It raises a `ValueError` with child run tracking off. Named child runs are experimental, so
                 their behavior and interface may change in future versions.
-            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully aborted.
-                It requires `run_name` and child run tracking, and the value is recorded under the name, replacing the
-                one from an earlier call. Once this Actor run is being gracefully aborted, a call with it raises
-                a `RuntimeError` and starts or returns no run. A hard abort, a timeout or a crash of this Actor run
-                leaves the child running.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run receives the
+                `ABORTING` event, or exits with a non-zero exit code (`Actor.fail()`, `Actor.exit()` with a non-zero
+                code, or an exception that leaves `async with Actor`), also after a migration, reboot or resurrection.
+                A forced abort, a timeout, an out-of-memory kill or a normal finish of this Actor run leaves the child
+                running, and so does a child resurrected outside these methods, e.g. with `client.resurrect()`, since
+                its recorded status stays terminal. For a call with a `run_name` that returns a recorded run, `True`
+                and `False` replace the recorded value and `None` keeps it. Once the child runs are being aborted,
+                a call that would start a new run with it raises a `RuntimeError`. It needs child run tracking and
+                cannot be combined with a custom `token`.
 
         Returns:
             Info about the started Actor run.
         """
-        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent)
+        self._check_child_run_options(run_name=run_name, abort_with_parent=abort_with_parent, token=token)
 
         if run_name is not None:
             _warn_child_runs_experimental()

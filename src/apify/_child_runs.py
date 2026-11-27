@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import itertools
 import json
 from abc import ABC, abstractmethod
 from logging import getLogger
@@ -35,6 +36,9 @@ _ABORTED_STATUSES = frozenset({'ABORTING', 'ABORTED'})
 
 TERMINAL_RUN_STATUSES = frozenset({'SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'})
 """Statuses of a run that is finished. A run in any other status is active."""
+
+ABORT_WITH_PARENT_TIMEOUT_SECS = 10
+"""How long aborting the child runs with the parent is waited for."""
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
@@ -347,8 +351,9 @@ class ChildRunRegistry:
         """Serializes `find_or_start` per key. A lock is dropped once no call under its key holds it."""
         self._clients: dict[str, ApifyClientAsync] = {}
         """Client the run under each key was last started or looked up with. Lost with the process."""
-        self._parent_aborting = False
-        """Whether this Actor run is being gracefully aborted, after which no run marked `abort_with_parent` starts."""
+        self._abort_task: asyncio.Task[None] | None = None
+        """Aborts the runs marked `abort_with_parent`. Once it exists, no new run marked `abort_with_parent` starts."""
+        self._start_ids = itertools.count()
         self._warned_excessive_runs = False
 
     @property
@@ -363,7 +368,7 @@ class ChildRunRegistry:
         checksum: str,
         client: ApifyClientAsync,
         start_run: Callable[[], Awaitable[Run]],
-        abort_with_parent: bool = False,
+        abort_with_parent: bool | None = None,
     ) -> tuple[Run, bool]:
         """Return the run recorded under `key`, or start one when there is none.
 
@@ -376,24 +381,17 @@ class ChildRunRegistry:
                 started with the same request.
             client: Client used to look up the recorded run.
             start_run: Starts a new run of the Actor or task.
-            abort_with_parent: Whether to abort the run when this Actor run is gracefully aborted. It replaces the value
-                recorded under `key`.
+            abort_with_parent: Whether to abort the run when this Actor run is aborted. `True` and `False` replace
+                the value recorded under `key`, and `None` keeps it. A new run records `None` as `False`.
 
         Returns:
             The run, and whether it was newly started.
 
         Raises:
             ValueError: If the run recorded under `key` was started with a different request.
-            RuntimeError: If `abort_with_parent` is set and this Actor run is being gracefully aborted. No run is
-                started or returned.
+            RuntimeError: If a new run with `abort_with_parent` would start while this Actor run is being aborted.
         """
         async with self._key_locks.setdefault(key, asyncio.Lock()):
-            if abort_with_parent and self._parent_aborting:
-                raise RuntimeError(
-                    f'Child run "{key}" with `abort_with_parent` was not started, since this Actor run is being '
-                    'aborted.'
-                )
-
             record = self._get_records().get(key)
 
             if record is not None:
@@ -407,9 +405,10 @@ class ChildRunRegistry:
 
                 if run is not None:
                     logger.info('Reattaching to child run "%s"', key, extra={'run_id': run.id, 'status': run.status})
-                    updated_record = record.model_copy(
-                        update={'status': run.status, 'abort_with_parent': abort_with_parent}
-                    )
+                    update: dict[str, Any] = {'status': run.status}
+                    if abort_with_parent is not None:
+                        update['abort_with_parent'] = abort_with_parent
+                    updated_record = record.model_copy(update=update)
                     if updated_record != record:
                         await self._store(key, updated_record)
                     self._clients[key] = client
@@ -421,31 +420,48 @@ class ChildRunRegistry:
                     extra={'run_id': record.run_id},
                 )
 
+            self._check_not_aborting(key, abort_with_parent=bool(abort_with_parent))
             run = await start_run()
             new_record = ChildRunRecord(
                 run_id=run.id,
                 status=run.status,
-                abort_with_parent=abort_with_parent,
+                abort_with_parent=bool(abort_with_parent),
                 checksum=checksum,
             )
             await self._store(key, new_record)
             self._clients[key] = client
             return run, True
 
-    async def record(self, run: Run, *, client: ApifyClientAsync) -> str:
-        """Record a run started without a run name.
+    async def start(
+        self,
+        *,
+        client: ApifyClientAsync,
+        start_run: Callable[[], Awaitable[Run]],
+        abort_with_parent: bool = False,
+    ) -> tuple[Run, str]:
+        """Start a run without a run name and record it.
 
         Args:
-            run: The run as returned by the start request.
-            client: Client the run was started with.
+            client: Client the run is started with.
+            start_run: Starts the run of the Actor or task.
+            abort_with_parent: Whether to abort the run when this Actor run is aborted.
 
         Returns:
-            Key of the run in the registry.
+            The run, and its key in the registry.
+
+        Raises:
+            RuntimeError: If `abort_with_parent` is set and this Actor run is being aborted. No run is started.
         """
-        key = run_key(run.id)
-        await self._store(key, ChildRunRecord(run_id=run.id, status=run.status))
-        self._clients[key] = client
-        return key
+        # The lock under a key of its own lets an abort of the child runs wait until the start is recorded.
+        async with self._key_locks.setdefault(f'start:{next(self._start_ids)}', asyncio.Lock()):
+            self._check_not_aborting('new child run', abort_with_parent=abort_with_parent)
+            run = await start_run()
+            key = run_key(run.id)
+            await self._store(
+                key, ChildRunRecord(run_id=run.id, status=run.status, abort_with_parent=abort_with_parent)
+            )
+            self._clients[key] = client
+            return run, key
 
     def child_runs(self, default_client: ApifyClientAsync) -> list[ChildRun]:
         """Return the key, the record and a client of every recorded run, in recording order.
@@ -476,40 +492,64 @@ class ChildRunRegistry:
         await self._store(key, record.model_copy(update={'status': run.status}))
 
     async def abort_runs_with_parent(self, client: ApifyClientAsync) -> None:
-        """Gracefully abort every recorded run marked `abort_with_parent`, and refuse to start any more of them.
+        """Abort every run marked `abort_with_parent`, and refuse to start any more of them.
 
-        Each run gets one abort request, all in parallel. The platform leaves a run that already finished as it is. A
-        failure to abort one run is logged and does not stop the others. A run whose start is in flight is aborted once
-        the start records it.
+        Each recorded run with an active status gets one graceful abort request, all in parallel, including the runs
+        recorded by earlier processes of this Actor run and the starts in flight once they are recorded. A failure to
+        abort one run is logged and does not stop the others. Waiting stops after `ABORT_WITH_PARENT_TIMEOUT_SECS`.
+        A later call waits for the abort that the first call began.
 
         Args:
             client: Client used for a key not started or looked up in this process, e.g. one recorded by an earlier
                 process of this Actor run.
         """
-        self._parent_aborting = True
-        # The event can arrive before the Actor has loaded the registry.
+        if self._abort_task is None:
+            self._abort_task = asyncio.create_task(self._abort_runs_with_parent(client))
+        try:
+            await asyncio.wait_for(asyncio.shield(self._abort_task), ABORT_WITH_PARENT_TIMEOUT_SECS)
+        except TimeoutError:
+            logger.warning(
+                'Stopped waiting for the child runs to be aborted with the parent after %d s',
+                ABORT_WITH_PARENT_TIMEOUT_SECS,
+            )
+
+    async def _abort_runs_with_parent(self, default_client: ApifyClientAsync) -> None:
+        # The abort can begin before the Actor has loaded the registry.
         await self._loaded.wait()
-        # The Actor failed to load the registry, so it knows no runs to abort.
+        # Without the registry, e.g. when the Actor failed to load it, there are no known runs to abort.
         if self._records is None:
             return
-        # Keys with a start in flight are not recorded yet, so their locks are awaited too.
-        await asyncio.gather(*(self._abort(key, client) for key in {*self._records, *self._key_locks}))
+        # The starts in flight hold their locks until their runs are recorded.
+        await asyncio.gather(*(self._wait_for_lock(lock) for lock in list(self._key_locks.values())))
+        marked = [
+            (key, record)
+            for key, record in self._records.items()
+            if record.abort_with_parent and record.status not in TERMINAL_RUN_STATUSES
+        ]
+        await asyncio.gather(*(self._abort(key, record, default_client) for key, record in marked))
 
-    async def _abort(self, key: str, default_client: ApifyClientAsync) -> None:
-        async with self._key_locks.setdefault(key, asyncio.Lock()):
-            record = self._get_records().get(key)
-            if record is None or not record.abort_with_parent:
-                return
-            run_client = self._clients.get(key, default_client).run(record.run_id)
-            try:
-                run = await run_client.abort(gracefully=True)
-            except NotFoundError:
-                logger.debug('Child run "%s" no longer exists', key, extra={'run_id': record.run_id})
-            except Exception:
-                logger.exception('Failed to abort child run "%s"', key, extra={'run_id': record.run_id})
-            else:
-                if run.status in _ABORTED_STATUSES:
-                    logger.info('Aborted child run "%s" with the parent', key, extra={'run_id': record.run_id})
+    @staticmethod
+    async def _wait_for_lock(lock: asyncio.Lock) -> None:
+        async with lock:
+            pass
+
+    async def _abort(self, key: str, record: ChildRunRecord, default_client: ApifyClientAsync) -> None:
+        run_client = self._clients.get(key, default_client).run(record.run_id)
+        try:
+            run = await run_client.abort(gracefully=True)
+        except NotFoundError:
+            logger.debug('Child run "%s" no longer exists', key, extra={'run_id': record.run_id})
+        except Exception:
+            logger.exception('Failed to abort child run "%s"', key, extra={'run_id': record.run_id})
+        else:
+            if run.status in _ABORTED_STATUSES:
+                logger.info('Aborted child run "%s" with the parent', key, extra={'run_id': record.run_id})
+
+    def _check_not_aborting(self, name: str, *, abort_with_parent: bool) -> None:
+        if abort_with_parent and self._abort_task is not None:
+            raise RuntimeError(
+                f'Child run "{name}" with `abort_with_parent` was not started, since this Actor run is being aborted.'
+            )
 
     async def load(self) -> None:
         """Read the records through the tracker, replacing any read before. Does nothing with tracking off."""
