@@ -2296,3 +2296,24 @@ def test_concurrency_limit_needs_tracking() -> None:
     """`max_concurrent_child_runs` with child run tracking off raises a `ValueError`."""
     with pytest.raises(ValueError, match='needs child run tracking'):
         Actor(child_run_tracker=None, max_concurrent_child_runs=2)
+
+
+async def test_inherited_timeout_is_resolved_when_the_start_request_goes_out(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A call that waits for the concurrency limit gives the child the time left when its start request goes out."""
+    order: list[str] = []
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=make_starter(order))
+    remaining_time = Mock(return_value=timedelta(minutes=10))
+
+    async with Actor(max_concurrent_child_runs=1):
+        monkeypatch.setattr(Actor, '_get_remaining_time', remaining_time)
+        await Actor.start('some-actor', {'name': 'first'}, timeout='inherit')
+        second = asyncio.create_task(Actor.start('some-actor', {'name': 'second'}, timeout='inherit'))
+        await asyncio.sleep(0.05)
+        remaining_time.return_value = timedelta(minutes=4)
+        await Actor._child_run_registry.update('run:first-run', make_run('first-run', 'SUCCEEDED'))
+        await asyncio.wait_for(second, timeout=1)
+
+    run_timeouts = [kwargs['run_timeout'] for _, kwargs in apify_client_async_patcher.calls['actor']['start']]
+    assert run_timeouts == [timedelta(minutes=10), timedelta(minutes=4)]
