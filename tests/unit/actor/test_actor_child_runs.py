@@ -1484,7 +1484,8 @@ async def test_named_run_warns_experimental(
         with pytest.warns(UserWarning, match='experimental') as warnings:
             await method(target, run_name='scrape-eu', **kwargs)
 
-    assert [warning.filename for warning in warnings] == [__file__]
+    # Only the user warnings count: a `ResourceWarning` from an object of an earlier test can be collected here.
+    assert [warning.filename for warning in warnings if issubclass(warning.category, UserWarning)] == [__file__]
 
 
 async def test_unnamed_start_does_not_warn_experimental(apify_client_async_patcher: ApifyClientAsyncPatcher) -> None:
@@ -1503,7 +1504,8 @@ async def test_child_runs_warns_experimental() -> None:
         with pytest.warns(UserWarning, match='experimental') as warnings:
             _ = Actor.child_runs
 
-    assert [warning.filename for warning in warnings] == [__file__]
+    # Only the user warnings count: a `ResourceWarning` from an object of an earlier test can be collected here.
+    assert [warning.filename for warning in warnings if issubclass(warning.category, UserWarning)] == [__file__]
 
 
 async def test_aborting_event_before_the_registry_is_loaded_waits_for_it() -> None:
