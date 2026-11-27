@@ -4,8 +4,9 @@ import asyncio
 import hashlib
 import itertools
 import json
+import math
 from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, NamedTuple
 from weakref import WeakValueDictionary
@@ -43,6 +44,9 @@ ABORT_WITH_PARENT_TIMEOUT_SECS = 10
 
 STARTS_IN_FLIGHT_TIMEOUT_SECS = 10
 """How long a reboot, metamorph or exit of the parent waits for the start requests that are already sent."""
+
+STATUS_MAX_AGE_SECS = 10
+"""How long an observed active status counts toward the concurrency limit before the run is fetched again."""
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
@@ -337,15 +341,49 @@ class ChildRunRegistry:
     and that write can still orphan the child, since nothing but the platform knows about it.
     """
 
-    def __init__(self, tracker: ChildRunTracker | None, *, warn_on_excessive_runs: bool = True) -> None:
+    def __init__(
+        self,
+        tracker: ChildRunTracker | None,
+        *,
+        warn_on_excessive_runs: bool = True,
+        max_concurrent_runs: int | None = None,
+        default_client: Callable[[], ApifyClientAsync] | None = None,
+    ) -> None:
         """Initialize a new instance.
 
         Args:
             tracker: Storage of the records, or `None` to turn child run tracking off.
             warn_on_excessive_runs: Whether to log a warning once the registry holds too many records.
+            max_concurrent_runs: How many child runs may be active at once, or `None` for no limit.
+            default_client: Returns the client that fetches a run for the concurrency limit, unless the run was
+                started or looked up with its own client in this process. It is required with a limit.
+
+        Raises:
+            ValueError: If `max_concurrent_runs` is not a positive integer, or is set with tracking off.
         """
+        is_integer = isinstance(max_concurrent_runs, int) and not isinstance(max_concurrent_runs, bool)
+        if max_concurrent_runs is not None and (not is_integer or max_concurrent_runs < 1):
+            raise ValueError(f'`max_concurrent_child_runs` must be a positive integer, got {max_concurrent_runs!r}.')
+        if max_concurrent_runs is not None and tracker is None:
+            raise ValueError(
+                '`max_concurrent_child_runs` needs child run tracking, which is turned off with '
+                '`child_run_tracker=None`.'
+            )
+        if max_concurrent_runs is not None and default_client is None:
+            raise ValueError('The child run registry needs a default client to apply the concurrency limit.')
+
         self._tracker = tracker
         self._warn_on_excessive_runs = warn_on_excessive_runs
+        self._max_concurrent_runs = max_concurrent_runs
+        self._default_client = default_client
+        self._admission_lock = asyncio.Lock()
+        """Admits the calls that wait for the concurrency limit one at a time, in the order in which they arrived."""
+        self._capacity_changed = asyncio.Event()
+        """Set when a run may have stopped counting toward the concurrency limit, or the abort began."""
+        self._status_observed_at: dict[str, float] = {}
+        """Event loop time at which this process last got the status of the run under each key from the API."""
+        self._missing_keys: set[str] = set()
+        """Keys whose recorded run the API no longer knows, so the run does not count toward the limit."""
         self._records: dict[str, ChildRunRecord] | None = None
         self._loaded = asyncio.Event()
         """Set once the Actor has read the records from the tracker, or has failed to."""
@@ -422,6 +460,7 @@ class ChildRunRegistry:
                     if abort_with_parent is not None:
                         update['abort_with_parent'] = abort_with_parent
                     updated_record = record.model_copy(update=update)
+                    self._mark_observed(key, run.status)
                     if updated_record != record:
                         await self._store(key, updated_record)
                     self._clients[key] = client
@@ -501,7 +540,10 @@ class ChildRunRegistry:
             run: The run as just returned by the API. Nothing is recorded unless it is the run under `key`.
         """
         record = self._get_records().get(key)
-        if record is None or record.run_id != run.id or record.status == run.status:
+        if record is None or record.run_id != run.id:
+            return
+        self._mark_observed(key, run.status)
+        if record.status == run.status:
             return
         await self._store(key, record.model_copy(update={'status': run.status}))
 
@@ -519,6 +561,8 @@ class ChildRunRegistry:
         """
         if self._abort_task is None:
             self._abort_task = asyncio.create_task(self._abort_runs_with_parent(client))
+            # The calls that wait for the concurrency limit hold the locks that the abort waits for, and give up now.
+            self._capacity_changed.set()
         try:
             await asyncio.wait_for(asyncio.shield(self._abort_task), ABORT_WITH_PARENT_TIMEOUT_SECS)
         except TimeoutError:
@@ -563,15 +607,23 @@ class ChildRunRegistry:
     async def _start_in_flight(self, name: str) -> AsyncGenerator[None]:
         """Count a start from the moment its request is sent until its run is recorded.
 
-        A parent that is about to reboot or metamorph holds the start back, and an exiting parent rejects it.
+        The start first waits for the concurrency limit. A parent that is about to reboot or metamorph holds the start
+        back, and an exiting parent rejects it.
 
         Raises:
-            RuntimeError: If the parent is exiting.
+            RuntimeError: If the parent is exiting, or the start would have to wait for the concurrency limit while
+                this Actor run is being aborted.
         """
-        # A parent that is about to reboot or metamorph sends no more start requests.
-        await self._starts_allowed.wait()
-        if self._is_closed:
-            raise RuntimeError(f'Child run "{name}" was not started, since this Actor is exiting.')
+        while True:
+            # A parent that is about to reboot or metamorph sends no more start requests.
+            await self._starts_allowed.wait()
+            await self._wait_for_capacity(name)
+            if self._is_closed:
+                raise RuntimeError(f'Child run "{name}" was not started, since this Actor is exiting.')
+            # A reboot or metamorph may have begun during the wait for the concurrency limit.
+            if self._starts_allowed.is_set():
+                break
+        # Nothing is awaited between the check of the limit and this count, so no other start takes the same place.
         self._starts_in_flight += 1
         self._no_starts_in_flight.clear()
         try:
@@ -580,6 +632,103 @@ class ChildRunRegistry:
             self._starts_in_flight -= 1
             if self._starts_in_flight == 0:
                 self._no_starts_in_flight.set()
+            self._capacity_changed.set()
+
+    async def _wait_for_capacity(self, name: str) -> None:
+        """Wait until fewer child runs than the concurrency limit are active.
+
+        The active runs are the recorded runs with an active status and the starts in flight. A recorded status
+        that this process did not get from the API in the last `STATUS_MAX_AGE_SECS` is fetched again before it is
+        counted, which covers every status loaded from an earlier process.
+
+        Raises:
+            RuntimeError: If the start would have to wait while this Actor run is being aborted.
+        """
+        if self._max_concurrent_runs is None:
+            return
+
+        async with self._admission_lock:
+            is_waiting = False
+            while True:
+                if self._count_active() < self._max_concurrent_runs:
+                    return
+                # A stale status can only make the count too high, so the runs are fetched only at the limit.
+                if await self._refresh_stale_statuses():
+                    continue
+                if self._abort_task is not None:
+                    raise RuntimeError(
+                        f'Child run "{name}" was not started, since this Actor run is being aborted and the limit of '
+                        f'{self._max_concurrent_runs} concurrent child runs is reached.'
+                    )
+                if not is_waiting:
+                    is_waiting = True
+                    logger.info(
+                        'Child run "%s" is waiting, since %d child runs are active', name, self._max_concurrent_runs
+                    )
+                self._capacity_changed.clear()
+                # Wake up without a change as well, to fetch the runs whose status got stale.
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(self._capacity_changed.wait(), STATUS_MAX_AGE_SECS)
+
+    def _count_active(self) -> int:
+        active = self._starts_in_flight
+        for key, record in self._get_records().items():
+            if key not in self._missing_keys and record.status not in TERMINAL_RUN_STATUSES:
+                active += 1
+        return active
+
+    def _mark_observed(self, key: str, status: str) -> None:
+        """Note that the API just returned the run under `key` with `status`."""
+        self._status_observed_at[key] = asyncio.get_running_loop().time()
+        self._missing_keys.discard(key)
+        if status in TERMINAL_RUN_STATUSES:
+            self._capacity_changed.set()
+
+    async def _refresh_stale_statuses(self) -> bool:
+        """Fetch the recorded runs whose active status this process did not get from the API recently.
+
+        A run that finished without a call waiting for it stops counting toward the concurrency limit this way.
+
+        Returns:
+            Whether a run stopped counting toward the concurrency limit.
+        """
+        if self._default_client is None:
+            return False
+
+        loop = asyncio.get_running_loop()
+        stale_keys = [
+            key
+            for key, record in self._get_records().items()
+            if record.status not in TERMINAL_RUN_STATUSES
+            and loop.time() - self._status_observed_at.get(key, -math.inf) >= STATUS_MAX_AGE_SECS
+        ]
+        if not stale_keys:
+            return False
+
+        default_client = self._default_client()
+        records = self._get_records()
+        fetches = [self._clients.get(key, default_client).run(records[key].run_id).get() for key in stale_keys]
+        fetched_runs = await asyncio.gather(*fetches, return_exceptions=True)
+
+        freed = False
+        for key, fetched_run in zip(stale_keys, fetched_runs, strict=True):
+            self._status_observed_at[key] = loop.time()
+            if isinstance(fetched_run, BaseException):
+                # The run keeps counting, and a later refresh fetches it again.
+                logger.warning('Failed to fetch child run "%s" for the concurrency limit', key, exc_info=fetched_run)
+                continue
+            if fetched_run is None:
+                # The run does not count while the API does not return it, and a later refresh fetches it again.
+                freed = freed or key not in self._missing_keys
+                self._missing_keys.add(key)
+                continue
+            record = records.get(key)
+            # A call under the key may have replaced the run in the meantime.
+            if record is None or record.run_id != fetched_run.id or record.status == fetched_run.status:
+                continue
+            freed = freed or fetched_run.status in TERMINAL_RUN_STATUSES
+            await self._store(key, record.model_copy(update={'status': fetched_run.status}))
+        return freed
 
     def pause_starts(self) -> None:
         """Hold back the start requests that are not sent yet.
@@ -654,6 +803,7 @@ class ChildRunRegistry:
             raise RuntimeError('Child run tracking is turned off.')
         async with self._lock:
             records[key] = record
+            self._mark_observed(key, record.status)
             self._warn_if_excessive()
             await self._tracker.store_run(key, record)
 
