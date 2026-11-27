@@ -1688,3 +1688,89 @@ async def test_registry_keeps_unknown_kinds_fields_and_members(
         },
         'version': 2,
     }
+
+
+async def test_implicit_run_name_returns_run_of_identical_call(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With `auto_memoize_child_runs`, an identical call without a name returns the run recorded for the first one."""
+    monkeypatch.setenv('APIFY_AUTO_MEMOIZE_CHILD_RUNS', 'true')
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('new-run', 'RUNNING'))
+
+    async with Actor:
+        first = await Actor.start('some-actor', {'q': 1}, build='beta')
+        second = await Actor.start('some-actor', {'q': 1}, build='beta', memory_mbytes=2048)
+        keys = [child_run.key for child_run in Actor.child_runs]
+
+    checksum = checksum_request(actor_id='some-actor', run_input={'q': 1}, options={'build': 'beta'})
+    assert first.id == second.id == 'new-run'
+    assert len(apify_client_async_patcher.calls['actor']['start']) == 1
+    assert keys == [f'implicit:{checksum}']
+
+
+@pytest.mark.parametrize(
+    'second_call',
+    [
+        pytest.param({'run_input': {'q': 2}}, id='different input'),
+        pytest.param({'run_input': {'q': 1}, 'build': 'beta'}, id='different build'),
+        pytest.param({'run_input': {'q': 1}, 'run_name': 'second'}, id='explicit run name'),
+    ],
+)
+async def test_implicit_run_name_starts_new_run_for_different_call(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch, second_call: dict[str, Any]
+) -> None:
+    """With `auto_memoize_child_runs`, a call with another request or with an explicit run name starts a new run."""
+    monkeypatch.setenv('APIFY_AUTO_MEMOIZE_CHILD_RUNS', 'true')
+    runs = iter([make_run('first-run', 'READY'), make_run('second-run', 'READY')])
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=lambda *_args, **_kwargs: next(runs))
+
+    async with Actor:
+        first = await Actor.start('some-actor', {'q': 1})
+        second = await Actor.start('some-actor', **second_call)
+
+    assert (first.id, second.id) == ('first-run', 'second-run')
+
+
+async def test_implicit_run_name_rejects_input_not_sent_as_json(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With `auto_memoize_child_runs`, a call without a name and with an input that is not JSON raises a `TypeError`."""
+    monkeypatch.setenv('APIFY_AUTO_MEMOIZE_CHILD_RUNS', 'true')
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        with pytest.raises(TypeError, match='implicit run name needs a JSON input'):
+            await Actor.start('some-actor', 'plain text')
+
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_implicit_run_name_resolves_run_recorded_by_earlier_process(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run recorded under an implicit run name by an earlier process is returned by an identical call."""
+    monkeypatch.setenv('APIFY_AUTO_MEMOIZE_CHILD_RUNS', 'true')
+    checksum = checksum_request(actor_id='some-actor', run_input={'q': 1})
+    record = {'runId': 'old-run', 'status': 'RUNNING', 'abortWithParent': False, 'checksum': checksum}
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'get', return_value=make_run('old-run', 'SUCCEEDED'))
+
+    async with Actor:
+        kvs = await Actor.open_key_value_store()
+        await kvs.set_value(CHILD_RUNS_KEY, stored_registry(runs={f'implicit:{checksum}': record}))
+
+    async with Actor:
+        run = await Actor.start('some-actor', {'q': 1})
+
+    assert run.id == 'old-run'
+    assert run.status == 'SUCCEEDED'
+    assert apify_client_async_patcher.calls['actor']['start'] == []
+
+
+async def test_auto_memoize_without_tracking_fails_init(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turning `auto_memoize_child_runs` on with child run tracking off makes the Actor start fail."""
+    monkeypatch.setenv('APIFY_AUTO_MEMOIZE_CHILD_RUNS', 'true')
+
+    with pytest.raises(ValueError, match='auto_memoize_child_runs'):
+        await Actor(child_run_tracker=None).init()

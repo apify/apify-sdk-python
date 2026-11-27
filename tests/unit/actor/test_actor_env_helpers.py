@@ -31,6 +31,7 @@ FLOAT_ENV_VARS: list[ActorEnvVars | ApifyEnvVars] = [
 ]
 
 BOOL_ENV_VARS: list[ApifyEnvVars] = [
+    ApifyEnvVars.AUTO_MEMOIZE_CHILD_RUNS,
     ApifyEnvVars.DISABLE_BROWSER_SANDBOX,
     ApifyEnvVars.HEADLESS,
     ApifyEnvVars.IS_AT_HOME,
