@@ -355,3 +355,21 @@ async def test_actor_push_data_overcharges_one_item_locally() -> None:
 
         items = await dataset.get_data()
         assert len(items.items) == 1
+
+
+async def test_charging_log_records_exact_price(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the local charging log records the exact event price, even below a tenth of a cent."""
+    async with Actor(Configuration(test_pay_per_event=True)):
+        charging_mgr = Actor.get_charging_manager()
+        assert isinstance(charging_mgr, ChargingManagerImplementation)
+        monkeypatch.setitem(
+            charging_mgr._pricing_info, 'priced-event', PricingInfoItem(Decimal('0.00005'), title='Priced event')
+        )
+
+        await Actor.charge('priced-event', count=2)
+
+        dataset = await Actor.open_dataset(name=ChargingManagerImplementation.LOCAL_CHARGING_LOG_DATASET_NAME)
+        items = (await dataset.get_data()).items
+        assert len(items) == 1
+        assert items[0]['event_price_usd'] == 0.00005
+        assert items[0]['charged_count'] == 2
