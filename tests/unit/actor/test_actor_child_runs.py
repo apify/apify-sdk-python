@@ -1923,3 +1923,226 @@ async def test_named_call_abort_with_parent_none_keeps_recorded_value(
         [child_run] = Actor.child_runs
 
     assert child_run.record.abort_with_parent is recorded_value
+
+
+@pytest.mark.parametrize(
+    ('method', 'args'),
+    [
+        pytest.param('reboot', (), id='reboot'),
+        pytest.param('metamorph', ('target-actor',), id='metamorph'),
+    ],
+)
+async def test_reboot_and_metamorph_wait_for_starts_in_flight(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    args: tuple[str, ...],
+) -> None:
+    """A reboot or metamorph is requested only after a child run start in flight is recorded."""
+    events = list[str]()
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def start_run(*_args: Any, **_kwargs: Any) -> Run:
+        started.set()
+        await release.wait()
+        events.append('started')
+        return make_run('new-run', 'READY')
+
+    async def end_process(*_args: Any, **_kwargs: Any) -> None:
+        kvs = await Actor.open_key_value_store()
+        stored = await kvs.get_value(CHILD_RUNS_KEY)
+        recorded = sorted((stored or {}).get('runs', {}))
+        events.append(f'{method} with {recorded}')
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+    apify_client_async_patcher.patch('run', method, replacement_method=end_process)
+
+    async with Actor:
+        # Only the check in the method sees the platform, so the storages stay local.
+        monkeypatch.setattr(_ActorType, 'is_at_home', lambda _self: True)
+        Actor.configuration.actor_run_id = 'some-run-id'
+        start_task = asyncio.create_task(Actor.start('some-actor', run_name='scrape-eu'))
+        await started.wait()
+        end_task = asyncio.create_task(getattr(Actor, method)(*args, custom_after_sleep=timedelta(0)))
+        await asyncio.sleep(0.05)
+        assert events == []
+        release.set()
+        await asyncio.gather(start_task, end_task)
+
+    assert events == ['started', f"{method} with ['name:scrape-eu']"]
+
+
+async def test_reboot_stops_waiting_for_starts_in_flight_after_the_time_limit(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A reboot goes ahead with a warning when a child run start in flight does not finish in time."""
+    monkeypatch.setattr(_child_runs, 'STARTS_IN_FLIGHT_TIMEOUT_SECS', 0.05)
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def start_run(*_args: Any, **_kwargs: Any) -> Run:
+        started.set()
+        await release.wait()
+        return make_run('new-run', 'READY')
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+    apify_client_async_patcher.patch('run', 'reboot', return_value=None)
+
+    async with Actor:
+        # Only the check in the method sees the platform, so the storages stay local.
+        monkeypatch.setattr(_ActorType, 'is_at_home', lambda _self: True)
+        Actor.configuration.actor_run_id = 'some-run-id'
+        start_task = asyncio.create_task(Actor.start('some-actor', run_name='scrape-eu'))
+        await started.wait()
+        await Actor.reboot(custom_after_sleep=timedelta(0))
+        release.set()
+        await start_task
+
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
+    assert 'Child run starts in flight did not finish' in caplog.text
+
+
+async def test_reboot_does_not_wait_without_starts_in_flight(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A reboot is requested right away when every started child run is recorded."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch('run', 'reboot', return_value=None)
+
+    async with Actor:
+        # Only the check in the method sees the platform, so the storages stay local.
+        monkeypatch.setattr(_ActorType, 'is_at_home', lambda _self: True)
+        Actor.configuration.actor_run_id = 'some-run-id'
+        await Actor.start('some-actor', run_name='scrape-eu')
+        await asyncio.wait_for(Actor.reboot(custom_after_sleep=timedelta(0)), timeout=1)
+
+    assert len(apify_client_async_patcher.calls['run']['reboot']) == 1
+
+
+async def test_wait_for_starts_in_flight_covers_a_start_sent_right_after_another_is_recorded() -> None:
+    """The wait before a reboot lasts until no start is in flight, also when one start follows another at once."""
+    client = Mock()
+    release_first = asyncio.Event()
+    release_second = asyncio.Event()
+
+    async def start_first() -> Run:
+        await release_first.wait()
+        return make_run('first-run', 'READY')
+
+    async def start_second() -> Run:
+        await release_second.wait()
+        return make_run('second-run', 'READY')
+
+    async with Actor:
+        registry = ChildRunRegistry(KeyValueStoreChildRunTracker(Actor.open_key_value_store))
+        await registry.load()
+
+        async def start_both() -> None:
+            await registry.find_or_start(name_key('first'), checksum='checksum', client=client, start_run=start_first)
+            await registry.find_or_start(name_key('second'), checksum='checksum', client=client, start_run=start_second)
+
+        starts = asyncio.create_task(start_both())
+        await asyncio.sleep(0)
+        waiter = asyncio.create_task(registry.wait_for_starts_in_flight())
+        await asyncio.sleep(0)
+        release_first.set()
+        await asyncio.sleep(0.05)
+        assert not waiter.done()
+        release_second.set()
+        await asyncio.wait_for(asyncio.gather(starts, waiter), timeout=1)
+        recorded = named_child_runs(registry.child_runs(client))
+
+    assert recorded.keys() == {'first', 'second'}
+
+
+async def test_failed_start_does_not_count_as_a_start_in_flight() -> None:
+    """A start request that fails does not make a later reboot wait."""
+    client = Mock()
+
+    async with Actor:
+        registry = ChildRunRegistry(KeyValueStoreChildRunTracker(Actor.open_key_value_store))
+        await registry.load()
+        with pytest.raises(RuntimeError, match='start failed'):
+            await registry.find_or_start(
+                name_key('scrape-eu'),
+                checksum='checksum',
+                client=client,
+                start_run=AsyncMock(side_effect=RuntimeError('start failed')),
+            )
+        await asyncio.wait_for(registry.wait_for_starts_in_flight(), timeout=1)
+
+
+async def test_paused_starts_send_no_request_until_they_are_resumed() -> None:
+    """A start made after the parent began to reboot or metamorph sends its request only when starts are resumed."""
+    client = Mock()
+    start_run = AsyncMock(return_value=make_run('new-run', 'READY'))
+
+    async with Actor:
+        registry = ChildRunRegistry(KeyValueStoreChildRunTracker(Actor.open_key_value_store))
+        await registry.load()
+        registry.pause_starts()
+        start = asyncio.create_task(
+            registry.find_or_start(name_key('scrape-eu'), checksum='checksum', client=client, start_run=start_run)
+        )
+        await asyncio.sleep(0.05)
+        start_run.assert_not_awaited()
+        await asyncio.wait_for(registry.wait_for_starts_in_flight(), timeout=1)
+        registry.resume_starts()
+        run, _ = await asyncio.wait_for(start, timeout=1)
+
+    assert run.id == 'new-run'
+
+
+async def test_failed_reboot_resumes_child_run_starts(
+    apify_client_async_patcher: ApifyClientAsyncPatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A reboot request that fails lets the child run starts go out again."""
+    apify_client_async_patcher.patch('actor', 'start', return_value=make_run('new-run', 'READY'))
+    apify_client_async_patcher.patch(
+        'run', 'reboot', replacement_method=Mock(side_effect=RuntimeError('reboot failed'))
+    )
+
+    async with Actor:
+        # Only the check in the method sees the platform, so the storages stay local.
+        monkeypatch.setattr(_ActorType, 'is_at_home', lambda _self: True)
+        Actor.configuration.actor_run_id = 'some-run-id'
+        with pytest.raises(RuntimeError, match='reboot failed'):
+            await Actor.reboot(custom_after_sleep=timedelta(0))
+        run = await asyncio.wait_for(Actor.start('some-actor', run_name='scrape-eu'), timeout=1)
+
+    assert run.id == 'new-run'
+
+
+async def test_exit_waits_for_start_in_flight_and_rejects_new_starts(
+    apify_client_async_patcher: ApifyClientAsyncPatcher,
+) -> None:
+    """An exit waits until a child run start in flight is recorded, and a start made during the exit raises."""
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def start_run(*_args: Any, **_kwargs: Any) -> Run:
+        started.set()
+        await release.wait()
+        return make_run('new-run', 'READY')
+
+    apify_client_async_patcher.patch('actor', 'start', replacement_method=start_run)
+
+    actor = Actor(exit_process=False)
+    await actor.init()
+    start_task = asyncio.create_task(actor.start('some-actor'))
+    await started.wait()
+    exit_task = asyncio.create_task(actor.exit())
+    await asyncio.sleep(0.05)
+    assert not exit_task.done()
+    with pytest.raises(RuntimeError, match='this Actor is exiting'):
+        await actor.start('some-actor')
+    release.set()
+    await asyncio.gather(start_task, exit_task)
+
+    async with Actor:
+        keys = [child_run.key for child_run in Actor.child_runs]
+
+    assert keys == ['run:new-run']

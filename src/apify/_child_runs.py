@@ -5,6 +5,7 @@ import hashlib
 import itertools
 import json
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, NamedTuple
 from weakref import WeakValueDictionary
@@ -18,7 +19,7 @@ from apify_client.http_clients import StreamedRequestBody
 from apify._utils import docs_group
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import AsyncGenerator, Awaitable, Callable
 
     from apify_client import ApifyClientAsync
     from apify_client._literals import ActorPermissionLevel
@@ -39,6 +40,9 @@ TERMINAL_RUN_STATUSES = frozenset({'SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'
 
 ABORT_WITH_PARENT_TIMEOUT_SECS = 10
 """How long aborting the child runs with the parent is waited for."""
+
+STARTS_IN_FLIGHT_TIMEOUT_SECS = 10
+"""How long a reboot, metamorph or exit of the parent waits for the start requests that are already sent."""
 
 _NOT_FOUND_GRACE_SECS = 3
 """How long a recorded run that the API reports as missing is looked up again before it counts as gone."""
@@ -355,6 +359,15 @@ class ChildRunRegistry:
         """Aborts the runs marked `abort_with_parent`. Once it exists, no new run marked `abort_with_parent` starts."""
         self._start_ids = itertools.count()
         self._warned_excessive_runs = False
+        self._starts_in_flight = 0
+        """Number of start requests that are sent and whose runs are not recorded yet."""
+        self._no_starts_in_flight = asyncio.Event()
+        self._no_starts_in_flight.set()
+        self._starts_allowed = asyncio.Event()
+        """Cleared while the parent reboots or metamorphs, when it could no longer record a new run."""
+        self._starts_allowed.set()
+        self._is_closed = False
+        """Whether the parent is exiting, after which no run starts."""
 
     @property
     def is_enabled(self) -> bool:
@@ -421,14 +434,15 @@ class ChildRunRegistry:
                 )
 
             self._check_not_aborting(key, abort_with_parent=bool(abort_with_parent))
-            run = await start_run()
-            new_record = ChildRunRecord(
-                run_id=run.id,
-                status=run.status,
-                abort_with_parent=bool(abort_with_parent),
-                checksum=checksum,
-            )
-            await self._store(key, new_record)
+            async with self._start_in_flight(key):
+                run = await start_run()
+                new_record = ChildRunRecord(
+                    run_id=run.id,
+                    status=run.status,
+                    abort_with_parent=bool(abort_with_parent),
+                    checksum=checksum,
+                )
+                await self._store(key, new_record)
             self._clients[key] = client
             return run, True
 
@@ -455,11 +469,11 @@ class ChildRunRegistry:
         # The lock under a key of its own lets an abort of the child runs wait until the start is recorded.
         async with self._key_locks.setdefault(f'start:{next(self._start_ids)}', asyncio.Lock()):
             self._check_not_aborting('new child run', abort_with_parent=abort_with_parent)
-            run = await start_run()
-            key = run_key(run.id)
-            await self._store(
-                key, ChildRunRecord(run_id=run.id, status=run.status, abort_with_parent=abort_with_parent)
-            )
+            async with self._start_in_flight('new child run'):
+                run = await start_run()
+                key = run_key(run.id)
+                record = ChildRunRecord(run_id=run.id, status=run.status, abort_with_parent=abort_with_parent)
+                await self._store(key, record)
             self._clients[key] = client
             return run, key
 
@@ -545,6 +559,63 @@ class ChildRunRegistry:
             if run.status in _ABORTED_STATUSES:
                 logger.info('Aborted child run "%s" with the parent', key, extra={'run_id': record.run_id})
 
+    @asynccontextmanager
+    async def _start_in_flight(self, name: str) -> AsyncGenerator[None]:
+        """Count a start from the moment its request is sent until its run is recorded.
+
+        A parent that is about to reboot or metamorph holds the start back, and an exiting parent rejects it.
+
+        Raises:
+            RuntimeError: If the parent is exiting.
+        """
+        # A parent that is about to reboot or metamorph sends no more start requests.
+        await self._starts_allowed.wait()
+        if self._is_closed:
+            raise RuntimeError(f'Child run "{name}" was not started, since this Actor is exiting.')
+        self._starts_in_flight += 1
+        self._no_starts_in_flight.clear()
+        try:
+            yield
+        finally:
+            self._starts_in_flight -= 1
+            if self._starts_in_flight == 0:
+                self._no_starts_in_flight.set()
+
+    def pause_starts(self) -> None:
+        """Hold back the start requests that are not sent yet.
+
+        A parent that reboots or metamorphs calls this first. The process can stop before it records a run that it
+        starts from here on, and its next process would not know about the run.
+        """
+        self._starts_allowed.clear()
+
+    def resume_starts(self) -> None:
+        """Let the start requests go out again, after a reboot or a metamorph that failed."""
+        self._starts_allowed.set()
+
+    def close(self) -> None:
+        """Reject every start that is not sent yet, since the parent is exiting."""
+        self._is_closed = True
+        # A start held back by a reboot or metamorph raises instead of waiting forever.
+        self._starts_allowed.set()
+
+    async def wait_for_starts_in_flight(self) -> None:
+        """Wait until every start request that is already sent has its run recorded.
+
+        A parent that reboots, metamorphs or exits calls this first, so that its next process, or the target of the
+        metamorph, finds every started run in the registry. The wait takes at most `STARTS_IN_FLIGHT_TIMEOUT_SECS`.
+        """
+        try:
+            async with asyncio.timeout(STARTS_IN_FLIGHT_TIMEOUT_SECS):
+                # A start can go out right after the last one is recorded, before this waiter wakes up.
+                while self._starts_in_flight:
+                    await self._no_starts_in_flight.wait()
+        except TimeoutError:
+            logger.warning(
+                'Child run starts in flight did not finish in %d s, so their runs may not be recorded',
+                STARTS_IN_FLIGHT_TIMEOUT_SECS,
+            )
+
     def _check_not_aborting(self, name: str, *, abort_with_parent: bool) -> None:
         if abort_with_parent and self._abort_task is not None:
             raise RuntimeError(
@@ -552,7 +623,14 @@ class ChildRunRegistry:
             )
 
     async def load(self) -> None:
-        """Read the records through the tracker, replacing any read before. Does nothing with tracking off."""
+        """Read the records through the tracker, replacing any read before, and allow starts again.
+
+        Reading does nothing with tracking off. The Actor calls this when it enters its context, also again after it
+        exited it in the same process.
+        """
+        self._is_closed = False
+        self._abort_task = None
+        self._starts_allowed.set()
         async with self._lock:
             try:
                 if self._tracker is not None:

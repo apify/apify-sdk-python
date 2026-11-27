@@ -332,6 +332,7 @@ class _ActorType:
         case the Actor:
 
         - Stops forwarding crawler status messages to the run status message.
+        - Rejects new child run starts, and waits up to 10 s for the ones already sent to be recorded.
         - With a non-zero exit code, aborts the child runs started with `abort_with_parent`, waiting up to 10 s.
         - Emits the `EXIT` event.
         - Cancels periodic `PERSIST_STATE` events.
@@ -369,6 +370,10 @@ class _ActorType:
         self.event_manager.off(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
 
         async def finalize() -> None:
+            # A later process of this Actor run, e.g. after a resurrection, gets every started run back.
+            self._child_run_registry.close()
+            await self._child_run_registry.wait_for_starts_in_flight()
+
             if self.exit_code != 0 and self._child_run_registry.is_enabled:
                 await self._abort_child_runs()
 
@@ -1817,7 +1822,9 @@ class _ActorType:
 
         The platform stops the current Actor container and starts a new container with the new Actor instead. All
         the default storages are preserved, and the new input is stored under the `INPUT-METAMORPH-1` key in the same
-        default key-value store.
+        default key-value store. The target Actor also gets the child runs this Actor run recorded. Before the
+        metamorph, this method waits up to 10 seconds for the child run starts that are already sent, and it holds
+        back the ones that are not sent yet.
 
         Args:
             target_actor_id: ID of the target Actor that the run should be transformed into
@@ -1839,13 +1846,22 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        self.log.debug('Metamorphing the Actor run into target Actor %r.', target_actor_id)
-        await self.apify_client.run(self.configuration.actor_run_id).metamorph(
-            target_actor_id=target_actor_id,
-            run_input=run_input,
-            target_actor_build=target_actor_build,
-            content_type=content_type,
-        )
+        # The target Actor inherits the child run registry, so every run started here needs its record first. No new
+        # start request goes out from here on, since this process can stop before it records the run.
+        self._child_run_registry.pause_starts()
+        try:
+            await self._child_run_registry.wait_for_starts_in_flight()
+
+            self.log.debug('Metamorphing the Actor run into target Actor %r.', target_actor_id)
+            await self.apify_client.run(self.configuration.actor_run_id).metamorph(
+                target_actor_id=target_actor_id,
+                run_input=run_input,
+                target_actor_build=target_actor_build,
+                content_type=content_type,
+            )
+        except BaseException:
+            self._child_run_registry.resume_starts()
+            raise
 
         if custom_after_sleep:
             await asyncio.sleep(custom_after_sleep.total_seconds())
@@ -1859,7 +1875,10 @@ class _ActorType:
     ) -> None:
         """Internally reboot this Actor.
 
-        The system stops the current container and starts a new one, with the same run ID and default storages.
+        The system stops the current container and starts a new one, with the same run ID and default storages. The
+        recorded child runs keep running, and the new container gets them back from the child run registry. Before
+        the reboot, this method waits up to 10 seconds for the child run starts that are already sent, and it holds
+        back the ones that are not sent yet.
 
         Args:
             event_listeners_timeout: How long should the Actor wait for Actor event listeners to finish before exiting.
@@ -1909,11 +1928,17 @@ class _ActorType:
             except TimeoutError:
                 self.log.warning('Pre-reboot event listeners did not finish within timeout; proceeding with reboot')
 
+            # The next process gets the child runs back from the registry, so every started run needs its record. No
+            # new start request goes out from here on, since this process can stop before it records the run.
+            self._child_run_registry.pause_starts()
+            await self._child_run_registry.wait_for_starts_in_flight()
+
             self.log.debug('Rebooting the Actor run.')
             await self.apify_client.run(self.configuration.actor_run_id).reboot()
         except BaseException:
             # Reset the flag so that a failed or cancelled reboot can be retried.
             self._is_rebooting = False
+            self._child_run_registry.resume_starts()
             raise
 
         if custom_after_sleep:
