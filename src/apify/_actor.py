@@ -1254,6 +1254,7 @@ class _ActorType:
         run, _, _ = await self._start_child_run(
             run_name=run_name,
             client=client,
+            timeout=timeout,
             start_run=partial(
                 actor_client.start,
                 run_input=run_input,
@@ -1263,7 +1264,6 @@ class _ActorType:
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=self._resolve_run_timeout(timeout),
                 force_permission_level=force_permission_level,
                 webhooks=to_client_representations(webhooks),
             ),
@@ -1466,6 +1466,7 @@ class _ActorType:
         started_run, key, is_new = await self._start_child_run(
             run_name=run_name,
             client=client,
+            timeout=timeout,
             start_run=partial(
                 actor_client.start,
                 run_input=run_input,
@@ -1475,7 +1476,6 @@ class _ActorType:
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=self._resolve_run_timeout(timeout),
                 force_permission_level=force_permission_level,
                 webhooks=to_client_representations(webhooks),
             ),
@@ -1524,6 +1524,7 @@ class _ActorType:
         run_name: str | None,
         client: ApifyClientAsync,
         start_run: Callable[..., Awaitable[Run]],
+        timeout: timedelta | Literal['inherit'] | None,
         actor_id: str | None = None,
         task_id: str | None = None,
         run_input: Any = None,
@@ -1541,14 +1542,19 @@ class _ActorType:
             The run, its key in the child run registry (`None` with child run tracking off), and whether it was newly
             started.
         """
+
+        def start_run_now(**kwargs: Any) -> Awaitable[Run]:
+            # `inherit` gets the time left when the request goes out, after any wait for the concurrency limit.
+            return start_run(run_timeout=self._resolve_run_timeout(timeout), **kwargs)
+
         if not self._child_run_registry.is_enabled:
-            return await start_run(wait_for_resources=wait_for_resources), None, True
+            return await start_run_now(wait_for_resources=wait_for_resources), None, True
 
         is_implicit = run_name is None and self.configuration.auto_memoize_child_runs
         if run_name is None and not is_implicit:
             run, key = await self._child_run_registry.start(
                 client=client,
-                start_run=start_run,
+                start_run=start_run_now,
                 abort_with_parent=bool(abort_with_parent),
                 wait_for_resources=wait_for_resources,
             )
@@ -1568,7 +1574,7 @@ class _ActorType:
             key,
             checksum=checksum,
             client=client,
-            start_run=start_run,
+            start_run=start_run_now,
             abort_with_parent=abort_with_parent,
             wait_for_resources=wait_for_resources,
         )
@@ -1718,6 +1724,7 @@ class _ActorType:
         run, _, _ = await self._start_child_run(
             run_name=run_name,
             client=client,
+            timeout=timeout,
             start_run=partial(
                 task_client.start,
                 task_input=task_input,
@@ -1726,7 +1733,6 @@ class _ActorType:
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
             ),
             task_id=task_id,
@@ -1831,6 +1837,7 @@ class _ActorType:
         started_run, key, is_new = await self._start_child_run(
             run_name=run_name,
             client=client,
+            timeout=timeout,
             start_run=partial(
                 task_client.start,
                 task_input=task_input,
@@ -1839,7 +1846,6 @@ class _ActorType:
                 max_total_charge_usd=max_total_charge_usd,
                 restart_on_error=restart_on_error,
                 memory_mbytes=memory_mbytes,
-                run_timeout=self._resolve_run_timeout(timeout),
                 webhooks=to_client_representations(webhooks),
                 # A request that times out is retried, and a retried start request can start a second run.
                 timeout='no_timeout',
