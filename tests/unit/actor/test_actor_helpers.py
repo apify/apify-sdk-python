@@ -301,8 +301,8 @@ async def test_max_items_warns_deprecated(
         with pytest.warns(FutureWarning, match='`max_total_charge_usd`') as record:
             await getattr(Actor, sdk_method)('some-id', max_items=42)
 
-    assert len(record) == 1
-    assert record[0].filename == __file__
+    # Only the future warnings count: a `ResourceWarning` from an object of an earlier test can be collected here.
+    assert [warning.filename for warning in record if issubclass(warning.category, FutureWarning)] == [__file__]
 
 
 @pytest.mark.parametrize(
