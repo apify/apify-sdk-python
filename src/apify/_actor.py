@@ -43,6 +43,7 @@ from apify._child_runs import (
     KeyValueStoreChildRunTracker,
     checksum_request,
     checksum_run_options,
+    implicit_key,
     name_key,
 )
 from apify._configuration import Configuration
@@ -257,6 +258,12 @@ class _ActorType:
 
         self.log.info('Initializing Actor', extra=get_system_info())
         self.log.debug('Configuration initialized')
+
+        if self.configuration.auto_memoize_child_runs and not self._child_run_registry.is_enabled:
+            raise ValueError(
+                '`Configuration.auto_memoize_child_runs` needs child run tracking, which is turned off with '
+                '`child_run_tracker=None`.'
+            )
 
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
@@ -479,8 +486,9 @@ class _ActorType:
 
         Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` is listed, also one
         started by an earlier process of this Actor run, before a migration, reboot or resurrection. Each entry holds
-        the `key` of the run in the child run registry (`run:<run ID>`, or `name:<run name>` for a run started with
-        a `run_name`), the stored `record`, and a `client` for the run:
+        the `key` of the run in the child run registry (`run:<run ID>`, `name:<run name>` for a run started with
+        a `run_name`, or `implicit:<checksum>` for a run with an implicit run name from
+        `Configuration.auto_memoize_child_runs`), the stored `record`, and a `client` for the run:
 
         ```python
         for key, record, client in Actor.child_runs:
@@ -1471,7 +1479,10 @@ class _ActorType:
         options: dict[str, Any],
         abort_with_parent: bool,
     ) -> tuple[Run, str | None, bool]:
-        """Start a child run and record it, or return the run recorded under `run_name`.
+        """Start a child run and record it, or return the run recorded under its explicit or implicit run name.
+
+        With `Configuration.auto_memoize_child_runs`, a call without a `run_name` uses the checksum of its request as
+        an implicit run name.
 
         Returns:
             The run, its key in the child run registry (`None` with child run tracking off), and whether it was newly
@@ -1480,7 +1491,8 @@ class _ActorType:
         if not self._child_run_registry.is_enabled:
             return await start_run(), None, True
 
-        if run_name is None:
+        is_implicit = run_name is None and self.configuration.auto_memoize_child_runs
+        if run_name is None and not is_implicit:
             run = await start_run()
             key = await self._child_run_registry.record(run, client=client)
             return run, key, True
@@ -1492,8 +1504,9 @@ class _ActorType:
             content_type=content_type,
             options=options,
             run_name=run_name,
+            require_json_input=is_implicit,
         )
-        key = name_key(run_name)
+        key = implicit_key(checksum) if run_name is None else name_key(run_name)
         run, is_new = await self._child_run_registry.find_or_start(
             key,
             checksum=checksum,

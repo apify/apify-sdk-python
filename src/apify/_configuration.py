@@ -241,6 +241,19 @@ class Configuration(CrawleeConfiguration):
         ),
     ] = 'https://api.apify.com'
 
+    auto_memoize_child_runs: Annotated[
+        bool,
+        Field(
+            validation_alias='apify_auto_memoize_child_runs',
+            description=(
+                'Whether a run that `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` starts '
+                'without a `run_name` gets an implicit run name derived from the Actor or task, the input and the run '
+                'options. An identical call then returns the recorded run, also after a migration, and its input must '
+                'be JSON. It requires child run tracking'
+            ),
+        ),
+    ] = False
+
     dedicated_cpus: Annotated[
         float | None,
         Field(

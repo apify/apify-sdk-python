@@ -55,6 +55,11 @@ def name_key(run_name: str) -> str:
     return f'name:{run_name}'
 
 
+def implicit_key(checksum: str) -> str:
+    """Return the registry key of a child run whose implicit run name is the checksum of its request."""
+    return f'implicit:{checksum}'
+
+
 @docs_group('Actor')
 class ChildRunRecord(BaseModel):
     """A child run as recorded in the child run registry of this Actor run.
@@ -258,6 +263,7 @@ def checksum_request(
     content_type: str | None = None,
     options: dict[str, Any] | None = None,
     run_name: str | None = None,
+    require_json_input: bool = False,
 ) -> str:
     """Hash the Actor or task, the input, and the run options of a start, in the same JSON shape as the JS SDK.
 
@@ -270,6 +276,11 @@ def checksum_request(
         content_type: Content type of the input.
         options: Run options from `checksum_run_options`.
         run_name: Run name of the call, used in the warning about an input that is not JSON.
+        require_json_input: Whether an input that is not JSON raises instead. An implicit run name needs the input,
+            since without it calls with different inputs would get the same name.
+
+    Raises:
+        TypeError: If `require_json_input` is set and the client would not send the input as JSON.
     """
     request: dict[str, Any] = (
         {'type': 'actor', 'id': actor_id} if actor_id is not None else {'type': 'task', 'id': task_id}
@@ -277,6 +288,11 @@ def checksum_request(
     try:
         json_input = _to_json_input(run_input, content_type)
     except TypeError as exc:
+        if require_json_input:
+            raise TypeError(
+                f'An implicit run name needs a JSON input, but {exc}. Pass a `run_name`, or turn '
+                '`Configuration.auto_memoize_child_runs` off.'
+            ) from exc
         logger.warning(
             'The input of child run "%s" is not JSON (%s), so it was not checked against the recorded run',
             run_name,
