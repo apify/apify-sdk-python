@@ -128,8 +128,14 @@ class AliasResolver:
     Apify platform, the storages created with alias are accessible by the same alias even after migration or reboot.
     """
 
-    _ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
+    _ALIAS_MAPPING_KEY = 'APIFY_STORAGE_ALIASES_MAPPING'
     """Key used for storing the alias mapping in the default kvs."""
+
+    _LEGACY_ALIAS_MAPPING_KEY = '__STORAGE_ALIASES_MAPPING'
+    """Key used by older SDK versions, read when `_ALIAS_MAPPING_KEY` has no record.
+
+    A metamorph keeps the default kvs, so the target Actor can find a mapping written by an older SDK version.
+    """
 
     _ALIAS_STORAGE_KEY_SEPARATOR = ','
     """Separator used in the storage key for storing the alias mapping."""
@@ -194,8 +200,7 @@ class AliasResolver:
         if not AliasResolver._alias_map_loaded and self._configuration.is_at_home:
             default_kvs_client = self._get_default_kvs_client()
 
-            record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
-            AliasResolver._alias_map = record.get('value', {}) if record else {}
+            AliasResolver._alias_map = await self._get_stored_alias_map(default_kvs_client)
             AliasResolver._alias_map_loaded = True
 
         return AliasResolver._alias_map
@@ -235,8 +240,7 @@ class AliasResolver:
         default_kvs_client = self._get_default_kvs_client()
 
         try:
-            record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
-            value = record.get('value', {}) if record else {}
+            value = await self._get_stored_alias_map(default_kvs_client)
             value[self._storage_key] = storage_id
 
             # Store the mapping back in the KVS.
@@ -271,6 +275,13 @@ class AliasResolver:
         identity = configuration.user_id if is_run_token and configuration.user_id else configuration.token
 
         return compute_short_hash(f'{configuration.api_public_base_url}{identity}'.encode())
+
+    async def _get_stored_alias_map(self, default_kvs_client: KeyValueStoreClientAsync) -> dict[str, str]:
+        """Read the alias mapping from the default kvs, from the legacy key when the current one has no record."""
+        record = await default_kvs_client.get_record(self._ALIAS_MAPPING_KEY)
+        if record is None:
+            record = await default_kvs_client.get_record(self._LEGACY_ALIAS_MAPPING_KEY)
+        return record.get('value', {}) if record else {}
 
     def _get_default_kvs_client(self) -> KeyValueStoreClientAsync:
         """Get a client for the default key-value store.

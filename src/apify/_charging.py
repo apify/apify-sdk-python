@@ -43,7 +43,7 @@ Allows PPE-aware dataset clients to access the charging manager without needing 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
 """Name of the synthetic event charged for each item pushed to the default dataset."""
 
-CHARGING_STATE_KEY = '__ACTOR_CHARGING_STATE'
+CHARGING_STATE_KEY = 'APIFY_ACTOR_CHARGING_STATE'
 """Key of the default key-value store record that carries the charged event counts across a container restart."""
 
 PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
